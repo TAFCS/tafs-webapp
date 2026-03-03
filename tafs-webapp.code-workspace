@@ -4,9 +4,6 @@
             "path": "."
         },
         {
-            "path": "../tafs-flutter"
-        },
-        {
             "path": "../tafs-backend"
         }
     ]
