@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Save } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import api from "@/lib/api";
 
 export function RegistrationForm() {
     const [currentStep, setCurrentStep] = useState(1);
@@ -58,10 +59,103 @@ export function RegistrationForm() {
         }
     };
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const [submitSuccess, setSubmitSuccess] = useState<{ ccNumber: string } | null>(null);
+
     const handleNext = () => setCurrentStep(prev => Math.min(prev + 1, 3));
     const handlePrev = () => setCurrentStep(prev => Math.max(prev - 1, 1));
     const isFirstStep = currentStep === 1;
     const isLastStep = currentStep === 3;
+
+    const handleSubmit = async () => {
+        setIsSubmitting(true);
+        setSubmitError(null);
+        setSubmitSuccess(null);
+
+        // Build ISO date string from day/month/year fields
+        const dob = formData.dobYear && formData.dobMonth && formData.dobDay
+            ? `${formData.dobYear}-${String(formData.dobMonth).padStart(2, '0')}-${String(formData.dobDay).padStart(2, '0')}`
+            : '';
+
+        // Split candidateName into first / last
+        const nameParts = formData.candidateName.trim().split(' ');
+        const firstName = nameParts[0] ?? '';
+        const lastName = nameParts.slice(1).join(' ') || firstName;
+
+        const fatherFullName = formData.fatherName.trim() || 'Father';
+
+        // Mother full_name
+        const motherFullName = formData.motherName.trim() || 'Mother';
+
+        // Map admissionSystem to enum
+        const academicSystem = formData.admissionSystem === 'cambridge' ? 'Cambridge' : 'Secondary';
+
+        const payload = {
+            first_name: firstName,
+            last_name: lastName,
+            dob,
+            gender: formData.gender || 'Male',
+            nationality: formData.nationalityPakistani ? 'Pakistani' : formData.nationalityOther || 'Pakistani',
+            religion: formData.religion || undefined,
+            place_of_birth: [formData.birthCountry, formData.birthProvince, formData.birthCity].filter(Boolean).join(', ') || undefined,
+            identification_marks: formData.identificationMarks || undefined,
+            primary_phone: formData.candidatePhone || undefined,
+            email: formData.candidateEmail || undefined,
+            father: {
+                full_name: fatherFullName,
+                primary_phone: formData.fatherPhone || undefined,
+                email_address: formData.fatherEmail || undefined,
+                house_appt_name: formData.houseNo || undefined,
+                area_block: formData.areaBlock || undefined,
+                city: formData.city || undefined,
+                province: formData.province || undefined,
+                country: formData.country || undefined,
+            },
+            mother: {
+                full_name: motherFullName,
+                primary_phone: formData.motherPhone || undefined,
+                email_address: formData.motherEmail || undefined,
+            },
+            emergency_contact: formData.emergencyContactName
+                ? {
+                    full_name: formData.emergencyContactName,
+                    primary_phone: formData.homePhone || '0000-0000000',
+                    relationship: formData.emergencyRelationship || 'Guardian',
+                }
+                : undefined,
+            admission: {
+                academic_system: academicSystem,
+                requested_grade: formData.admissionLevel || 'N/A',
+                academic_year: new Date().getFullYear().toString(),
+            },
+            previous_schools: formData.previousSchools
+                .filter(s => s.name.trim())
+                .map(s => ({
+                    school_name: s.name,
+                    location: s.location || undefined,
+                    class_studied_from: s.levelStudied || undefined,
+                    reason_for_leaving: s.reasonForLeaving || undefined,
+                })),
+        };
+
+        try {
+            const { data } = await api.post<{ data: { cc_number: string } }>(
+                '/v1/admissions/register',
+                payload
+            );
+            setSubmitSuccess({ ccNumber: data.data?.cc_number ?? 'N/A' });
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string | string[]; statusCode?: number } } };
+            const raw = axiosErr?.response?.data?.message;
+            const msg = Array.isArray(raw)
+                ? raw.join('; ')
+                : (raw ?? 'Network error. Please check your connection and try again.');
+            setSubmitError(msg);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row">
@@ -471,12 +565,32 @@ export function RegistrationForm() {
 
                 </div>
 
+                {/* Success / Error Banners */}
+                {submitSuccess && (
+                    <div className="mx-6 mb-0 mt-4 flex items-start gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-4 text-sm animate-in fade-in duration-300">
+                        <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-semibold">Registration submitted successfully!</p>
+                            <p className="text-emerald-700 mt-0.5">Computer Code assigned: <span className="font-mono font-bold">{submitSuccess.ccNumber}</span>. The student record is now <span className="font-medium">PENDING</span> review.</p>
+                        </div>
+                    </div>
+                )}
+                {submitError && (
+                    <div className="mx-6 mb-0 mt-4 flex items-start gap-3 bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 text-sm animate-in fade-in duration-300">
+                        <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-semibold">Submission failed</p>
+                            <p className="text-red-700 mt-0.5">{submitError}</p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Wizard Footer (Sticky controls) */}
                 <div className="px-6 py-4 border-t border-zinc-200 bg-zinc-50 flex items-center justify-between">
                     <button
                         onClick={handlePrev}
-                        disabled={isFirstStep}
-                        className={`inline-flex items-center px-4 py-2 border rounded-lg text-sm font-medium transition-all ${isFirstStep ? 'border-zinc-200 text-zinc-400 bg-zinc-50 cursor-not-allowed' : 'border-zinc-300 text-zinc-700 bg-white hover:bg-zinc-50 hover:text-zinc-900 active:scale-95'}`}
+                        disabled={isFirstStep || isSubmitting}
+                        className={`inline-flex items-center px-4 py-2 border rounded-lg text-sm font-medium transition-all ${isFirstStep || isSubmitting ? 'border-zinc-200 text-zinc-400 bg-zinc-50 cursor-not-allowed' : 'border-zinc-300 text-zinc-700 bg-white hover:bg-zinc-50 hover:text-zinc-900 active:scale-95'}`}
                     >
                         <ChevronLeft className="h-4 w-4 mr-1.5" /> Previous
                     </button>
@@ -490,9 +604,16 @@ export function RegistrationForm() {
                         </button>
                     ) : (
                         <button
-                            className="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/20 transition-all active:scale-95"
+                            onClick={handleSubmit}
+                            disabled={isSubmitting || !!submitSuccess}
+                            className="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                            <Save className="h-4 w-4 mr-2" /> Submit Registration
+                            {isSubmitting
+                                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...</>
+                                : submitSuccess
+                                    ? <><CheckCircle className="h-4 w-4 mr-2" /> Submitted</>
+                                    : <><Save className="h-4 w-4 mr-2" /> Submit Registration</>
+                            }
                         </button>
                     )}
                 </div>

@@ -14,6 +14,13 @@ export interface RefreshResponse {
   refreshToken: string;
 }
 
+// Envelope that the backend always wraps responses in
+interface ApiEnvelope<T> {
+  data: T;
+  status: number;
+  message: string;
+}
+
 // ─── Auth Service ─────────────────────────────────────────────────────────────
 
 export const authService = {
@@ -22,11 +29,12 @@ export const authService = {
    * Body: { username, password }
    */
   async loginStaff(username: string, password: string): Promise<StaffLoginResponse> {
-    const { data } = await api.post<StaffLoginResponse>('/v1/auth/staff/login', {
+    const { data } = await api.post<ApiEnvelope<StaffLoginResponse>>('/v1/auth/staff/login', {
       username,
       password,
     });
-    return data;
+    // Backend wraps in { data: { accessToken, refreshToken, user }, status, message }
+    return data.data;
   },
 
   /**
@@ -34,10 +42,10 @@ export const authService = {
    * Rotates both tokens (token rotation pattern).
    */
   async refreshStaff(refreshToken: string): Promise<RefreshResponse> {
-    const { data } = await api.post<RefreshResponse>('/v1/auth/staff/refresh', {
+    const { data } = await api.post<ApiEnvelope<RefreshResponse>>('/v1/auth/staff/refresh', {
       refreshToken,
     });
-    return data;
+    return data.data;
   },
 
   /**
