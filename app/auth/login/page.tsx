@@ -1,6 +1,16 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+    const router = useRouter();
+
+    const handleLogin = (e: React.FormEvent) => {
+        e.preventDefault();
+        router.push("/erp/dashboard");
+    };
+
     return (
         <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="text-center md:text-left">
@@ -8,7 +18,7 @@ export default function LoginPage() {
                 <p className="text-zinc-500 dark:text-zinc-400 mt-2">Enter your credentials to access the ERP</p>
             </div>
 
-            <form className="mt-8 space-y-6 border-t border-zinc-100 dark:border-zinc-800 pt-8">
+            <form onSubmit={handleLogin} className="mt-8 space-y-6 border-t border-zinc-100 dark:border-zinc-800 pt-8">
                 <div className="space-y-4 md:space-y-5">
                     <div>
                         <label htmlFor="email" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Email address</label>
@@ -52,7 +62,7 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-8 text-center text-xs text-zinc-500">
-                <p>Protected by Synkflow Identity. V1.0.0</p>
+                <p>Protected by TAFS Identity. V1.0.0</p>
             </div>
         </div>
     );
