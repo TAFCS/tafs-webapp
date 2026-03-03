@@ -9,7 +9,7 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
     return (
-        <div className="flex h-screen bg-zinc-50 dark:bg-black overflow-hidden selection:bg-primary/30 font-sans">
+        <div className="flex h-screen bg-zinc-50  overflow-hidden selection:bg-primary/30 font-sans">
 
             {/* Slide-out Drawer Menu */}
             <ProfileDrawer

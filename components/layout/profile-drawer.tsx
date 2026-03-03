@@ -18,7 +18,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             )}
 
             {/* Drawer Canvas */}
-            <div className={`fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white dark:bg-zinc-950 z-40 transform transition-transform duration-300 ease-in-out border-r border-zinc-200 dark:border-zinc-800 shadow-xl flex flex-col ${isOpen ? "translate-x-0" : "-translate-x-full"
+            <div className={`fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white  z-40 transform transition-transform duration-300 ease-in-out border-r border-zinc-200  shadow-xl flex flex-col ${isOpen ? "translate-x-0" : "-translate-x-full"
                 }`}>
 
                 {/* Drawer Header */}
@@ -51,23 +51,23 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         Account Management
                     </p>
 
-                    <Link href="/erp/identity/verification" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">
+                    <Link href="/erp/identity/verification" className="flex items-center px-3 py-3 rounded-xl text-zinc-700  hover:bg-zinc-100 :bg-zinc-900 transition-colors">
                         <UserCheck className="h-5 w-5 mr-3 text-primary" />
                         <span className="font-medium text-sm">ID Verification</span>
                     </Link>
 
-                    <Link href="/erp/settings/security" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">
+                    <Link href="/erp/settings/security" className="flex items-center px-3 py-3 rounded-xl text-zinc-700  hover:bg-zinc-100 :bg-zinc-900 transition-colors">
                         <Shield className="h-5 w-5 mr-3 text-primary" />
                         <span className="font-medium text-sm">Security & Access</span>
                     </Link>
 
-                    <Link href="/erp/support" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">
+                    <Link href="/erp/support" className="flex items-center px-3 py-3 rounded-xl text-zinc-700  hover:bg-zinc-100 :bg-zinc-900 transition-colors">
                         <LifeBuoy className="h-5 w-5 mr-3 text-secondary" />
                         <span className="font-medium text-sm">IT Support Helpdesk</span>
                     </Link>
 
-                    <div className="mt-auto pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                        <button className="w-full flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400 transition-colors group">
+                    <div className="mt-auto pt-4 border-t border-zinc-100 ">
+                        <button className="w-full flex items-center px-3 py-3 rounded-xl text-zinc-700  hover:bg-red-50 :bg-red-950/30 hover:text-red-600 :text-red-400 transition-colors group">
                             <LogOut className="h-5 w-5 mr-3 text-zinc-400 group-hover:text-red-500 transition-colors" />
                             <span className="font-medium text-sm">Sign Out Securely</span>
                         </button>
