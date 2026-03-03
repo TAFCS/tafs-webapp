@@ -30,7 +30,8 @@
         "./src/store/*"
       ],
       "@/components/*": [
-        "./src/components/*"
+        "./src/components/*",
+        "./components/*"
       ],
       "@/features/*": [
         "./src/features/*"
