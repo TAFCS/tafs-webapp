@@ -7,7 +7,7 @@ export default function DashboardPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 ">Dashboard</h1>
-                    <p className="text-zinc-500  mt-1">Overview of today's activities and core metrics.</p>
+                    <p className="text-zinc-500  mt-1">Overview of today&apos;s activities and core metrics.</p>
                 </div>
 
                 <div className="flex items-center space-x-3">
@@ -49,7 +49,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="bg-white  border border-zinc-200  rounded-xl p-6 shadow-sm">
-                    <p className="text-sm font-medium text-zinc-500  mb-1">Today's Fee Collection</p>
+                    <p className="text-sm font-medium text-zinc-500  mb-1">Today&apos;s Fee Collection</p>
                     <p className="text-3xl font-bold text-zinc-900 ">₨ 450,000</p>
                     <div className="mt-2 text-sm text-emerald-600  flex items-center">
                         <span>Synced with PayPro</span>

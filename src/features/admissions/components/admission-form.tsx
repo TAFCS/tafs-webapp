@@ -89,7 +89,7 @@ export function AdmissionForm() {
                     <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Photographs</h3>
                     <div className="flex flex-col gap-3">
                         <div className="h-24 w-full border-2 border-dashed border-zinc-300 rounded-lg flex items-center justify-center bg-zinc-50 text-xs text-zinc-500 text-center px-2 cursor-pointer hover:bg-zinc-100 hover:border-primary">
-                            Candidate (1.5" x 2")<br />Light Blue BG
+                            Candidate (1.5&quot; x 2&quot;)<br />Light Blue BG
                         </div>
                         <div className="flex gap-2">
                             <div className="h-20 w-1/2 border-2 border-dashed border-zinc-300 rounded-lg flex items-center justify-center bg-zinc-50 text-xs text-zinc-500 text-center px-1 cursor-pointer hover:bg-zinc-100 hover:border-primary">Father</div>
@@ -131,7 +131,7 @@ export function AdmissionForm() {
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Candidate's Full Name (In Block Letters Only)</label>
+                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Candidate&apos;s Full Name (In Block Letters Only)</label>
                                         <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg uppercase focus:ring-2 mt-0 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>
 
@@ -197,7 +197,7 @@ export function AdmissionForm() {
                                     <div className="border-2 border-primary/20 bg-primary/5 rounded-xl p-5">
                                         <div className="flex items-center mb-4">
                                             <input type="radio" name="system" id="sys-cambridge" className="h-4 w-4 text-primary focus:ring-primary border-zinc-300" />
-                                            <label htmlFor="sys-cambridge" className="ml-2 block font-semibold text-primary">Cambridge GCE O' Level System</label>
+                                            <label htmlFor="sys-cambridge" className="ml-2 block font-semibold text-primary">Cambridge GCE O&apos; Level System</label>
                                         </div>
                                         <div className="grid grid-cols-2 gap-y-2 gap-x-4 pl-6">
                                             {['Pre-Nursery', 'Nursery', 'K.G', 'Class I', 'Class II', 'Class III', 'Class IV', 'Class V', 'Class VI', 'Class VII', 'Class VIII', 'Pre O-Level', 'O-I', 'O-II', 'O-III'].map(cls => (
@@ -232,7 +232,7 @@ export function AdmissionForm() {
                                 <div className="border-b border-zinc-200 pb-3 mb-5 mt-8 flex justify-between items-end">
                                     <div>
                                         <h3 className="text-base font-medium text-zinc-900">1b. Language Capability</h3>
-                                        <p className="text-sm text-zinc-500 mt-1">Rate the candidate's language proficiency.</p>
+                                        <p className="text-sm text-zinc-500 mt-1">Rate the candidate&apos;s language proficiency.</p>
                                     </div>
                                     <div className="text-xs bg-zinc-100 text-zinc-600 px-3 py-1.5 rounded-lg border border-zinc-200">
                                         <span className="font-semibold">Key:</span> E (Excellent) • G (Good) • F (Fair)
@@ -301,7 +301,7 @@ export function AdmissionForm() {
                             {/* Father's Info */}
                             <section>
                                 <div className="border-b border-zinc-200 pb-3 mb-5">
-                                    <h3 className="text-base font-medium text-zinc-900">2a. Father's Information</h3>
+                                    <h3 className="text-base font-medium text-zinc-900">2a. Father&apos;s Information</h3>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2">
@@ -392,7 +392,7 @@ export function AdmissionForm() {
                             {/* Mother's Info */}
                             <section>
                                 <div className="border-b border-zinc-200 pb-3 mb-5 mt-8">
-                                    <h3 className="text-base font-medium text-zinc-900">2b. Mother's Information</h3>
+                                    <h3 className="text-base font-medium text-zinc-900">2b. Mother&apos;s Information</h3>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2">
@@ -558,7 +558,7 @@ export function AdmissionForm() {
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Candidate's Interests</label>
+                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Candidate&apos;s Interests</label>
                                         <textarea rows={2} className="w-full px-3 py-2 border border-zinc-300 rounded-lg resize-none" />
                                     </div>
                                 </div>
@@ -570,7 +570,7 @@ export function AdmissionForm() {
                                     <h3 className="text-base font-medium text-zinc-900">4. Permission for Publicizing Images</h3>
                                 </div>
                                 <div className="bg-white border text-sm text-zinc-700 border-zinc-200 p-5 rounded-xl flex flex-col gap-4">
-                                    <p>I agree to allow TAFS to reproduce candidate's image along with his/her name for promotional activities.</p>
+                                    <p>I agree to allow TAFS to reproduce candidate&apos;s image along with his/her name for promotional activities.</p>
                                     <div className="flex gap-6">
                                         <label className="flex items-center"><input type="radio" name="mediaConsent" className="mr-2 text-primary focus:ring-primary h-4 w-4" defaultChecked /> Consent</label>
                                         <label className="flex items-center"><input type="radio" name="mediaConsent" className="mr-2 text-red-500 focus:ring-red-500 h-4 w-4" /> Dissent</label>
@@ -593,8 +593,8 @@ export function AdmissionForm() {
                                 <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 text-sm text-zinc-600 space-y-3 h-64 overflow-y-auto">
                                     <p><strong>1. Document Requirements:</strong> All admissions are conditional upon the submission of a valid birth certificate, vaccination card, C.N.I.C copies of parents, and required photographs.</p>
                                     <p><strong>2. Fee Payment:</strong> Tuition and other fees must be paid before the 10th of every month. A surcharge will be applied to late payments.</p>
-                                    <p><strong>3. Withdrawal Policy:</strong> One month's notice in writing is required before the withdrawal of a student, failing which one month's fee will be charged in lieu.</p>
-                                    <p><strong>4. Disciplinary Rules:</strong> The school reserves the right to suspend or expel any student whose conduct is deemed unsatisfactory or who fails to comply with the school's regulations.</p>
+                                    <p><strong>3. Withdrawal Policy:</strong> One month&apos;s notice in writing is required before the withdrawal of a student, failing which one month&apos;s fee will be charged in lieu.</p>
+                                    <p><strong>4. Disciplinary Rules:</strong> The school reserves the right to suspend or expel any student whose conduct is deemed unsatisfactory or who fails to comply with the school&apos;s regulations.</p>
                                     <p><strong>5. Attendance:</strong> 80% attendance is mandatory for promotion to the next class.</p>
                                     <p><strong>6. Indemnity:</strong> The school shall not be held liable for any accidental injury sustained by the student during school hours or activities.</p>
                                 </div>
@@ -639,19 +639,19 @@ export function AdmissionForm() {
                                         <div className="flex-1 w-full border-b border-dashed border-zinc-300 flex items-end justify-center pb-2">
                                             <span className="text-zinc-300 italic">Signature</span>
                                         </div>
-                                        <p className="text-xs font-medium text-zinc-600 mt-3 uppercase tracking-wider">Father's Signature</p>
+                                        <p className="text-xs font-medium text-zinc-600 mt-3 uppercase tracking-wider">Father&apos;s Signature</p>
                                     </div>
                                     <div className="border border-zinc-200 rounded-lg p-4 flex flex-col items-center justify-center bg-white h-32">
                                         <div className="flex-1 w-full border-b border-dashed border-zinc-300 flex items-end justify-center pb-2">
                                             <span className="text-zinc-300 italic">Signature</span>
                                         </div>
-                                        <p className="text-xs font-medium text-zinc-600 mt-3 uppercase tracking-wider">Mother's Signature</p>
+                                        <p className="text-xs font-medium text-zinc-600 mt-3 uppercase tracking-wider">Mother&apos;s Signature</p>
                                     </div>
                                     <div className="border border-zinc-200 rounded-lg p-4 flex flex-col items-center justify-center bg-zinc-50 h-32">
                                         <div className="flex-1 w-full border-b border-dashed border-zinc-300 flex items-end justify-center pb-2">
                                             <span className="text-zinc-300 italic">Signature</span>
                                         </div>
-                                        <p className="text-xs font-medium text-zinc-600 mt-3 uppercase tracking-wider">Guardian's Signature</p>
+                                        <p className="text-xs font-medium text-zinc-600 mt-3 uppercase tracking-wider">Guardian&apos;s Signature</p>
                                     </div>
                                 </div>
                                 <div className="mt-6 w-full sm:w-1/3">
@@ -704,9 +704,9 @@ export function AdmissionForm() {
                             <section className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm">
                                 <h3 className="text-sm font-semibold text-zinc-900 border-b border-zinc-100 pb-2 mb-4">To Be Filled By The Accounts Department</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="md:col-span-2"><label className="block text-xs font-medium text-zinc-700 mb-1">Candidate's Name</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded bg-zinc-50" readOnly /></div>
+                                    <div className="md:col-span-2"><label className="block text-xs font-medium text-zinc-700 mb-1">Candidate&apos;s Name</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded bg-zinc-50" readOnly /></div>
                                     <div><label className="block text-xs font-medium text-zinc-700 mb-1">Class/Section</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                    <div className="md:col-span-3"><label className="block text-xs font-medium text-zinc-700 mb-1">Father's Name</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded bg-zinc-50" readOnly /></div>
+                                    <div className="md:col-span-3"><label className="block text-xs font-medium text-zinc-700 mb-1">Father&apos;s Name</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded bg-zinc-50" readOnly /></div>
 
                                     <div><label className="block text-xs font-medium text-zinc-700 mb-1">Registration #</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded bg-zinc-50" readOnly /></div>
                                     <div><label className="block text-xs font-medium text-zinc-700 mb-1">Computer Code #</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded bg-zinc-50" readOnly /></div>
