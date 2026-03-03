@@ -89,8 +89,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const logout = useCallback(async () => {
         try {
             await authService.logoutStaff();
-        } catch {
-            // swallow — still clear locally
+            console.log("Logout API success.")
+        } catch (error) {
+            console.error("Logout API failed:", error);
         } finally {
             clearSession();
             dispatch(clearCredentials());

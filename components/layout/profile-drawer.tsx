@@ -1,5 +1,10 @@
+'use client';
+
 import { X, UserCheck, Shield, LifeBuoy, LogOut } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { useAuthState } from "@/context/AuthContext";
 
 interface ProfileDrawerProps {
     isOpen: boolean;
@@ -7,6 +12,25 @@ interface ProfileDrawerProps {
 }
 
 export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
+    const { logout } = useAuth();
+    const { user } = useAuthState();
+    const [signingOut, setSigningOut] = useState(false);
+
+    const handleLogout = async () => {
+        setSigningOut(true);
+        try {
+            await logout();
+            // AuthContext handles redirect to /auth/login
+        } finally {
+            setSigningOut(false);
+        }
+    };
+
+    // Derive initials from fullName for the avatar
+    const initials = user?.fullName
+        ? user.fullName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+        : "?";
+
     return (
         <>
             {/* Backdrop */}
@@ -18,8 +42,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             )}
 
             {/* Drawer Canvas */}
-            <div className={`fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white  z-40 transform transition-transform duration-300 ease-in-out border-r border-zinc-200  shadow-xl flex flex-col ${isOpen ? "translate-x-0" : "-translate-x-full"
-                }`}>
+            <div className={`fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white z-40 transform transition-transform duration-300 ease-in-out border-r border-zinc-200 shadow-xl flex flex-col ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
 
                 {/* Drawer Header */}
                 <div className="h-40 bg-gradient-to-br from-primary to-primary/80 p-6 flex flex-col justify-end relative overflow-hidden flex-shrink-0">
@@ -32,11 +55,15 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
 
                     <div className="flex items-center space-x-3 relative z-10">
                         <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center text-primary text-xl font-bold border-2 border-white/20 shadow-md">
-                            A
+                            {initials}
                         </div>
                         <div className="text-white">
-                            <h3 className="font-semibold text-lg leading-tight">Admin User</h3>
-                            <p className="text-primary-foreground/80 text-sm">Super Administrator</p>
+                            <h3 className="font-semibold text-lg leading-tight">
+                                {user?.fullName ?? "Loading…"}
+                            </h3>
+                            <p className="text-primary-foreground/80 text-sm">
+                                {user?.role?.replace(/_/g, " ") ?? ""}
+                            </p>
                         </div>
                     </div>
 
@@ -51,25 +78,38 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         Account Management
                     </p>
 
-                    <Link href="/erp/identity/verification" className="flex items-center px-3 py-3 rounded-xl text-zinc-700  hover:bg-zinc-100 :bg-zinc-900 transition-colors">
+                    <Link href="/erp/identity/verification" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
                         <UserCheck className="h-5 w-5 mr-3 text-primary" />
                         <span className="font-medium text-sm">ID Verification</span>
                     </Link>
 
-                    <Link href="/erp/settings/security" className="flex items-center px-3 py-3 rounded-xl text-zinc-700  hover:bg-zinc-100 :bg-zinc-900 transition-colors">
+                    <Link href="/erp/settings/security" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
                         <Shield className="h-5 w-5 mr-3 text-primary" />
-                        <span className="font-medium text-sm">Security & Access</span>
+                        <span className="font-medium text-sm">Security &amp; Access</span>
                     </Link>
 
-                    <Link href="/erp/support" className="flex items-center px-3 py-3 rounded-xl text-zinc-700  hover:bg-zinc-100 :bg-zinc-900 transition-colors">
+                    <Link href="/erp/support" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
                         <LifeBuoy className="h-5 w-5 mr-3 text-secondary" />
                         <span className="font-medium text-sm">IT Support Helpdesk</span>
                     </Link>
 
-                    <div className="mt-auto pt-4 border-t border-zinc-100 ">
-                        <button className="w-full flex items-center px-3 py-3 rounded-xl text-zinc-700  hover:bg-red-50 :bg-red-950/30 hover:text-red-600 :text-red-400 transition-colors group">
-                            <LogOut className="h-5 w-5 mr-3 text-zinc-400 group-hover:text-red-500 transition-colors" />
-                            <span className="font-medium text-sm">Sign Out Securely</span>
+                    <div className="mt-auto pt-4 border-t border-zinc-100">
+                        <button
+                            onClick={handleLogout}
+                            disabled={signingOut}
+                            className="w-full flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-red-50 hover:text-red-600 transition-colors group disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            {signingOut ? (
+                                <svg className="animate-spin h-5 w-5 mr-3 text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                </svg>
+                            ) : (
+                                <LogOut className="h-5 w-5 mr-3 text-zinc-400 group-hover:text-red-500 transition-colors" />
+                            )}
+                            <span className="font-medium text-sm">
+                                {signingOut ? "Signing out…" : "Sign Out Securely"}
+                            </span>
                         </button>
                     </div>
                 </div>
