@@ -24,6 +24,14 @@ export interface StudentListItem {
   date_of_admission: string | null;
   house_and_color: string | null;
   residential_address: string | null;
+  father_name?: string | null;
+  siblings?: {
+    id: number;
+    full_name: string;
+    cc_number: string;
+    grade?: string;
+    father_name?: string;
+  }[];
 }
 
 export interface PaginatedMeta {

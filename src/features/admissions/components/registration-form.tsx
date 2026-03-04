@@ -176,6 +176,16 @@ export function RegistrationForm() {
                 registration_number: rawStudent.cc_number,
                 house_and_color: null,
                 residential_address: rawStudent.families?.primary_address || primaryGuardian?.house_appt_name,
+                father_name: rawStudent.student_guardians?.find((sg: any) => sg.relationship === 'Father')?.guardians?.full_name,
+                siblings: rawStudent.families?.students
+                    ?.filter((s: any) => s.id !== rawStudent.id)
+                    ?.map((s: any) => ({
+                        id: s.id,
+                        full_name: `${s.first_name} ${s.last_name}`.trim(),
+                        cc_number: s.cc_number,
+                        grade: s.student_admissions?.[0]?.requested_grade,
+                        father_name: s.student_guardians?.find((sg: any) => sg.relationship === 'Father')?.guardians?.full_name,
+                    })),
             };
 
             setSubmitSuccess(mappedStudent);
