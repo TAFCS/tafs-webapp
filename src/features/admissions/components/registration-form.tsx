@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import api from "@/lib/api";
+import { StudentProfileModal } from "@/src/features/students/components/student-profile-modal";
+import { StudentListItem } from "@/src/store/slices/studentsSlice";
 
 export function RegistrationForm() {
     const [currentStep, setCurrentStep] = useState(1);
@@ -62,7 +64,7 @@ export function RegistrationForm() {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
-    const [submitSuccess, setSubmitSuccess] = useState<{ ccNumber: string } | null>(null);
+    const [submitSuccess, setSubmitSuccess] = useState<StudentListItem | null>(null);
 
     const handleNext = () => setCurrentStep(prev => Math.min(prev + 1, 3));
     const handlePrev = () => setCurrentStep(prev => Math.max(prev - 1, 1));
@@ -143,11 +145,38 @@ export function RegistrationForm() {
         };
 
         try {
-            const { data } = await api.post<{ data: { cc_number: string } }>(
+            const { data } = await api.post<any>(
                 '/v1/admissions/register',
                 payload
             );
-            setSubmitSuccess({ ccNumber: data.data?.cc_number ?? 'N/A' });
+
+            const rawStudent = data.data;
+            const primaryGuardian = rawStudent.student_guardians?.find((sg: any) => sg.is_primary_contact)?.guardians;
+            const latestAdmission = rawStudent.student_admissions?.[0];
+
+            const mappedStudent: StudentListItem = {
+                id: rawStudent.id,
+                student_full_name: `${rawStudent.first_name} ${rawStudent.last_name}`.trim(),
+                gr_number: rawStudent.gr_number,
+                cc_number: rawStudent.cc_number,
+                campus: rawStudent.campuses?.campus_name || "N/A",
+                grade_and_section: latestAdmission ? `${latestAdmission.requested_grade}` : null,
+                primary_guardian_name: primaryGuardian?.full_name,
+                whatsapp_number: primaryGuardian?.whatsapp_number || primaryGuardian?.primary_phone,
+                enrollment_status: rawStudent.status,
+                financial_status_badge: 'Cleared',
+                family_id: rawStudent.families?.id,
+                household_name: rawStudent.families?.household_name,
+                total_outstanding_balance: 0,
+                advance_credit_balance: 0,
+                primary_guardian_cnic: primaryGuardian?.cnic,
+                date_of_birth: rawStudent.dob,
+                registration_number: rawStudent.cc_number,
+                house_and_color: null,
+                residential_address: rawStudent.families?.primary_address || primaryGuardian?.house_appt_name,
+            };
+
+            setSubmitSuccess(mappedStudent);
         } catch (err: unknown) {
             const axiosErr = err as { response?: { data?: { message?: string | string[]; statusCode?: number } } };
             const raw = axiosErr?.response?.data?.message;
@@ -574,7 +603,7 @@ export function RegistrationForm() {
                         <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                         <div>
                             <p className="font-semibold">Registration submitted successfully!</p>
-                            <p className="text-emerald-700 mt-0.5">Computer Code assigned: <span className="font-mono font-bold">{submitSuccess.ccNumber}</span>. The student record is now <span className="font-medium">PENDING</span> review.</p>
+                            <p className="text-emerald-700 mt-0.5">Computer Code assigned: <span className="font-mono font-bold">{submitSuccess.cc_number}</span>. The student record is now <span className="font-medium">PENDING</span> review.</p>
                         </div>
                     </div>
                 )}
@@ -622,6 +651,14 @@ export function RegistrationForm() {
                 </div>
 
             </div>
+
+            {/* View Profile Modal - triggered directly on complete */}
+            {submitSuccess && (
+                <StudentProfileModal
+                    student={submitSuccess}
+                    onClose={() => setSubmitSuccess(null)}
+                />
+            )}
         </div>
     );
 }
