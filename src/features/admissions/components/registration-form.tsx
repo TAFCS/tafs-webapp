@@ -10,6 +10,7 @@ export function RegistrationForm() {
     const [formData, setFormData] = useState({
         serialNo: "", registrationNo: "", computerCodeNo: "",
         candidateName: "", fatherName: "", motherName: "",
+        fatherCnic: "", motherCnic: "",
         dobDay: "", dobMonth: "", dobYear: "",
         nationalityPakistani: true, nationalityOther: "",
         gender: "", religion: "", identificationMarks: "",
@@ -104,6 +105,7 @@ export function RegistrationForm() {
             email: formData.candidateEmail || undefined,
             father: {
                 full_name: fatherFullName,
+                cnic: formData.fatherCnic || undefined,
                 primary_phone: formData.fatherPhone || undefined,
                 email_address: formData.fatherEmail || undefined,
                 house_appt_name: formData.houseNo || undefined,
@@ -114,6 +116,7 @@ export function RegistrationForm() {
             },
             mother: {
                 full_name: motherFullName,
+                cnic: formData.motherCnic || undefined,
                 primary_phone: formData.motherPhone || undefined,
                 email_address: formData.motherEmail || undefined,
             },
@@ -233,11 +236,15 @@ export function RegistrationForm() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Father&apos;s Name</label>
-                                        <input type="text" name="fatherName" value={formData.fatherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
+                                        <input type="text" name="fatherName" value={formData.fatherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
+                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Father&apos;s CNIC</label>
+                                        <input type="text" name="fatherCnic" value={formData.fatherCnic} onChange={handleInputChange} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Mother&apos;s Name</label>
-                                        <input type="text" name="motherName" value={formData.motherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
+                                        <input type="text" name="motherName" value={formData.motherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
+                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Mother&apos;s CNIC</label>
+                                        <input type="text" name="motherCnic" value={formData.motherCnic} onChange={handleInputChange} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>
 
                                     <div>
