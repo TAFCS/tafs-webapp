@@ -1,24 +1,25 @@
 import { X, User, MapPin, Phone, CreditCard, GraduationCap, Hash, LayoutGrid, Calendar as CalendarIcon, Hash as Tag } from "lucide-react";
-import { Student, FinancialStatus, EnrollmentStatus } from "./student-data-table";
+import { StudentListItem } from "../../../store/slices/studentsSlice";
 
 interface StudentProfileModalProps {
-    student: Student | null;
+    student: StudentListItem | null;
     onClose: () => void;
 }
 
 export function StudentProfileModal({ student, onClose }: StudentProfileModalProps) {
     if (!student) return null;
 
-    const statusStyles: Record<FinancialStatus, string> = {
+    const statusStyles: Record<string, string> = {
         Cleared: "bg-emerald-100 text-emerald-800 border-emerald-200",
         Overdue: "bg-rose-100 text-rose-800 border-rose-200",
         Partial: "bg-amber-100 text-amber-800 border-amber-200",
     };
 
-    const estatusStyles: Record<EnrollmentStatus, string> = {
-        Active: "bg-blue-100 text-blue-800 border-blue-200",
-        Pending: "bg-zinc-100 text-zinc-800 border-zinc-200",
-        Archived: "bg-zinc-100 text-zinc-500 border-zinc-200 line-through decoration-zinc-400",
+    const estatusStyles: Record<string, string> = {
+        ACTIVE: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        PENDING: "bg-zinc-100 text-zinc-800 border-zinc-200",
+        GRADUATED: "bg-blue-100 text-blue-800 border-blue-200",
+        SUSPENDED: "bg-rose-100 text-rose-800 border-rose-200 line-through decoration-rose-400",
     };
 
     return (
@@ -49,26 +50,25 @@ export function StudentProfileModal({ student, onClose }: StudentProfileModalPro
                         {/* Profile Summary (Left side) */}
                         <div className="flex flex-col gap-6 lg:col-span-1">
                             <div>
-                                <h2 className="text-2xl font-bold text-zinc-900 tracking-tight">{student.fullName}</h2>
-                                <p className="text-sm font-medium text-zinc-500 mt-1">{student.grNumber} • {student.ccNumber}</p>
+                                <h2 className="text-2xl font-bold text-zinc-900 tracking-tight">{student.student_full_name}</h2>
+                                <p className="text-sm font-medium text-zinc-500 mt-1">{student.gr_number || "N/A GR"} • {student.cc_number || "N/A CC"}</p>
                             </div>
 
                             <div className="flex flex-wrap gap-2">
-                                <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${estatusStyles[student.enrollmentStatus]}`}>
-                                    {student.enrollmentStatus} Student
+                                <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${estatusStyles[student.enrollment_status || ''] || 'bg-zinc-100 text-zinc-800 border-zinc-200'}`}>
+                                    {student.enrollment_status || 'N/A'} Student
                                 </span>
-                                <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${statusStyles[student.financialStatus]}`}>
-                                    Fee: {student.financialStatus}
+                                <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${statusStyles[student.financial_status_badge || 'Cleared'] || statusStyles.Cleared}`}>
+                                    Fee: {student.financial_status_badge || 'Cleared'}
                                 </span>
                             </div>
 
                             <div className="w-full h-px bg-zinc-100 my-2"></div>
 
                             <div className="flex flex-col gap-4">
-                                <InfoItem icon={<LayoutGrid />} label="Campus" value={student.campus} />
-                                <InfoItem icon={<GraduationCap className="h-4 w-4" />} label="Grade & Section" value={student.gradeSection} />
-                                <InfoItem icon={<Tag />} label="House" value={student.houseColor} />
-                                <InfoItem icon={<CalendarIcon />} label="Admission Date" value={student.dateOfAdmission} />
+                                <InfoItem icon={<LayoutGrid />} label="Campus" value={student.campus || "N/A"} />
+                                <InfoItem icon={<GraduationCap className="h-4 w-4" />} label="Grade & Section" value={student.grade_and_section || "N/A"} />
+                                <InfoItem icon={<Tag />} label="House" value={student.house_and_color || "N/A"} />
                             </div>
 
                         </div>
@@ -82,12 +82,12 @@ export function StudentProfileModal({ student, onClose }: StudentProfileModalPro
                                     <User className="h-4 w-4 text-primary" /> Personal Information
                                 </h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 gap-y-6">
-                                    <DataPoint label="Date of Birth" value={student.dateOfBirth} />
-                                    <DataPoint label="Registration No." value={student.registrationNumber} />
-                                    <DataPoint label="Primary Guardian" value={student.primaryGuardianName} />
-                                    <DataPoint label="Guardian CNIC" value={student.primaryGuardianCNIC} />
-                                    <DataPoint label="WhatsApp Number" value={student.whatsappNumber} />
-                                    <DataPoint label="Family / Household ID" value={student.familyId} />
+                                    <DataPoint label="Date of Birth" value={student.date_of_birth?.toString() || ""} />
+                                    <DataPoint label="Registration No." value={student.registration_number?.toString() || ""} />
+                                    <DataPoint label="Primary Guardian" value={student.primary_guardian_name?.toString() || ""} />
+                                    <DataPoint label="Guardian CNIC" value={student.primary_guardian_cnic?.toString() || ""} />
+                                    <DataPoint label="WhatsApp Number" value={student.whatsapp_number?.toString() || ""} />
+                                    <DataPoint label="Family / Household ID" value={student.family_id?.toString() || ""} />
                                 </div>
                             </div>
 
@@ -97,7 +97,7 @@ export function StudentProfileModal({ student, onClose }: StudentProfileModalPro
                                     <MapPin className="h-4 w-4 text-emerald-500" /> Location Details
                                 </h3>
                                 <div className="grid grid-cols-1 gap-4">
-                                    <DataPoint label="Residential Address" value={student.residentialAddress} />
+                                    <DataPoint label="Residential Address" value={student.residential_address?.toString() || ""} />
                                 </div>
                             </div>
 
@@ -109,14 +109,14 @@ export function StudentProfileModal({ student, onClose }: StudentProfileModalPro
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-white border rounded-lg p-4">
                                         <p className="text-xs text-zinc-500 font-medium">Outstanding Balance</p>
-                                        <p className={`text-xl font-bold mt-1 ${student.totalOutstandingBalance > 0 ? "text-rose-600" : "text-zinc-900"}`}>
-                                            Rs. {student.totalOutstandingBalance.toLocaleString()}
+                                        <p className={`text-xl font-bold mt-1 ${(student.total_outstanding_balance ?? 0) > 0 ? "text-rose-600" : "text-zinc-900"}`}>
+                                            Rs. {(student.total_outstanding_balance ?? 0).toLocaleString()}
                                         </p>
                                     </div>
                                     <div className="bg-white border rounded-lg p-4">
                                         <p className="text-xs text-zinc-500 font-medium">Advance Credit</p>
-                                        <p className={`text-xl font-bold mt-1 ${student.advanceCreditBalance > 0 ? "text-emerald-600" : "text-zinc-900"}`}>
-                                            Rs. {student.advanceCreditBalance.toLocaleString()}
+                                        <p className={`text-xl font-bold mt-1 ${(student.advance_credit_balance ?? 0) > 0 ? "text-emerald-600" : "text-zinc-900"}`}>
+                                            Rs. {(student.advance_credit_balance ?? 0).toLocaleString()}
                                         </p>
                                     </div>
                                 </div>
