@@ -266,12 +266,12 @@ export function FamiliesDataTable() {
                             {COLUMNS.map(col => {
                                 if (!visibleColumns.has(col.id)) return null;
                                 return (
-                                    <th key={col.id} className="py-3 px-4 first:pl-6">
+                                    <th key={col.id} className="py-3 px-3 first:pl-4">
                                         {col.label}
                                     </th>
                                 );
                             })}
-                            <th className="py-3 px-4 text-right pr-6 sticky right-0 bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] z-10 w-[80px]">
+                            <th className="py-3 px-3 text-right pr-4 sticky right-0 bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] z-10 w-[70px]">
                                 Actions
                             </th>
                         </tr>
@@ -343,13 +343,13 @@ export function FamiliesDataTable() {
                                         }
 
                                         return (
-                                            <td key={col.id} className="py-3 px-4 first:pl-6 text-zinc-700">
+                                            <td key={col.id} className="py-3 px-3 first:pl-4 text-zinc-700">
                                                 {cellContent}
                                             </td>
                                         );
                                     })}
 
-                                    <td className="py-3 px-4 text-right pr-6 sticky right-0 bg-white group-hover:bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] transition-colors z-10 w-[80px]">
+                                    <td className={`py-3 px-3 text-right pr-4 sticky right-0 bg-white group-hover:bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] transition-colors w-[70px] ${openActionRowId === family.id ? 'z-30' : 'z-10'}`}>
                                         <div className="relative inline-block text-left action-menu-container">
                                             <button
                                                 onClick={() => setOpenActionRowId(openActionRowId === family.id ? null : family.id)}

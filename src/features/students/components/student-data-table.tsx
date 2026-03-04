@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 export type FinancialStatus = "Cleared" | "Overdue" | "Partial";
-export type EnrollmentStatus = "Active" | "Pending" | "Archived";
+export type EnrollmentStatus = "SOFT_ADMISSION" | "ENROLLED" | "EXPELLED" | "GRADUATED";
 
 // 1. Data Models
 import { StudentListItem } from "../../../store/slices/studentsSlice";
@@ -125,8 +125,8 @@ export function StudentDataTable() {
     const [searchQuery, setSearchQuery] = useState("");
     const debouncedSearchQuery = useDebounce(searchQuery, 400);
 
-    const [campusFilter, setCampusFilter] = useState<string>("All");
-    const [statusFilter, setStatusFilter] = useState<string>("All");
+    const [campusIdFilter, setCampusIdFilter] = useState<number | "All">("All");
+    const [statusFilter, setStatusFilter] = useState<EnrollmentStatus | "All">("All");
 
     // Checkboxes for financial (removed logic for brevity because backend handles status)
 
@@ -142,11 +142,11 @@ export function StudentDataTable() {
             page,
             limit,
             search: debouncedSearchQuery || undefined,
-            campus: campusFilter !== "All" ? campusFilter : undefined,
+            campus_id: campusIdFilter !== "All" ? campusIdFilter : undefined,
             status: statusFilter !== "All" ? statusFilter : undefined,
             fields: activeCategories || undefined
         }));
-    }, [dispatch, page, limit, debouncedSearchQuery, campusFilter, statusFilter, activeCategories]);
+    }, [dispatch, page, limit, debouncedSearchQuery, campusIdFilter, statusFilter, activeCategories]);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -174,11 +174,17 @@ export function StudentDataTable() {
         setVisibleColumns(next);
     };
 
-    // Unique Lists for Dropdowns
-    const campuses = ["North Campus", "KFC Branch", "Gulshan Campus", "PECHS Branch", "DHA Branch"];
+    // Mock Campuses for Local Selective Filtering (should ideally come from backend)
+    const campuses = [
+        { id: 1, name: "North Campus" },
+        { id: 2, name: "KFC Branch" },
+        { id: 3, name: "Gulshan Campus" },
+        { id: 4, name: "PECHS Branch" },
+        { id: 5, name: "DHA Branch" }
+    ];
 
     return (
-        <div className="bg-white border rounded-xl shadow-sm flex flex-col w-full h-full text-sm">
+        <div className="bg-white border rounded-xl shadow-sm flex flex-col w-full h-full text-base">
 
             {/* Top Toolbar */}
             <div className="p-4 border-b flex flex-col gap-4 lg:flex-row lg:items-center justify-between bg-zinc-50/50 rounded-t-xl">
@@ -203,7 +209,7 @@ export function StudentDataTable() {
                     >
                         <Filter className="h-4 w-4" />
                         <span className="font-medium">Filters</span>
-                        {(campusFilter !== "All" || statusFilter !== "All") && (
+                        {(campusIdFilter !== "All" || statusFilter !== "All") && (
                             <span className="w-2 h-2 rounded-full bg-blue-500 ml-1"></span>
                         )}
                     </button>
@@ -251,15 +257,15 @@ export function StudentDataTable() {
                             className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20"
                             value={statusFilter}
                             onChange={(e) => {
-                                setStatusFilter(e.target.value);
+                                setStatusFilter(e.target.value as EnrollmentStatus | "All");
                                 setPage(1);
                             }}
                         >
                             <option value="All">All Statuses</option>
-                            <option value="ACTIVE">Active</option>
-                            <option value="PENDING">Pending</option>
+                            <option value="SOFT_ADMISSION">Soft Admission</option>
+                            <option value="ENROLLED">Enrolled</option>
+                            <option value="EXPELLED">Expelled</option>
                             <option value="GRADUATED">Graduated</option>
-                            <option value="SUSPENDED">Suspended</option>
                         </select>
                     </div>
 
@@ -268,14 +274,15 @@ export function StudentDataTable() {
                         <label className="text-xs font-medium text-zinc-600">Campus</label>
                         <select
                             className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                            value={campusFilter}
+                            value={campusIdFilter}
                             onChange={(e) => {
-                                setCampusFilter(e.target.value);
+                                const val = e.target.value;
+                                setCampusIdFilter(val === "All" ? "All" : Number(val));
                                 setPage(1);
                             }}
                         >
                             <option value="All">All Campuses</option>
-                            {campuses.map(c => <option key={c} value={c}>{c}</option>)}
+                            {campuses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
                 </div>
@@ -285,16 +292,16 @@ export function StudentDataTable() {
             <div className="flex-1 overflow-auto w-full min-h-0">
                 <table className="w-full text-left border-collapse whitespace-nowrap">
                     <thead>
-                        <tr className="bg-zinc-50 border-b text-zinc-500 font-medium text-xs uppercase tracking-wider">
+                        <tr className="bg-zinc-50 border-b text-zinc-500 font-medium text-sm uppercase tracking-wider">
                             {COLUMNS.map(col => {
                                 if (!visibleColumns.has(col.id)) return null;
                                 return (
-                                    <th key={col.id} className="py-3 px-4 first:pl-6">
+                                    <th key={col.id} className="py-4 px-3 first:pl-4">
                                         {col.label}
                                     </th>
                                 );
                             })}
-                            <th className="py-3 px-4 text-right pr-6 sticky right-0 bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] z-10 w-[80px]">
+                            <th className="py-4 px-3 text-right pr-4 sticky right-0 bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] z-10 w-[80px]">
                                 Actions
                             </th>
                         </tr>
@@ -347,14 +354,14 @@ export function StudentDataTable() {
                                         if (col.id === "enrollment_status") {
                                             const statusStr = String(student.enrollment_status || '');
                                             const estatusStyles: Record<string, string> = {
-                                                ACTIVE: "bg-emerald-100 text-emerald-800 border-emerald-200",
-                                                PENDING: "bg-zinc-100 text-zinc-800 border-zinc-200",
+                                                ENROLLED: "bg-emerald-100 text-emerald-800 border-emerald-200",
+                                                SOFT_ADMISSION: "bg-zinc-100 text-zinc-800 border-zinc-200",
                                                 GRADUATED: "bg-blue-100 text-blue-800 border-blue-200",
-                                                SUSPENDED: "bg-rose-100 text-rose-800 border-rose-200 line-through decoration-rose-400",
+                                                EXPELLED: "bg-rose-100 text-rose-800 border-rose-200 line-through decoration-rose-400",
                                             };
                                             cellContent = (
-                                                <span className={`px-2 py-0.5 text-xs font-medium rounded-md border ${estatusStyles[statusStr] || 'bg-zinc-100 text-zinc-800 border-zinc-200'}`}>
-                                                    {statusStr || 'N/A'}
+                                                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-md border ${estatusStyles[statusStr] || 'bg-zinc-100 text-zinc-800 border-zinc-200'}`}>
+                                                    {(statusStr || 'N/A').replace('_', ' ')}
                                                 </span>
                                             );
                                         }
@@ -375,14 +382,14 @@ export function StudentDataTable() {
                                         }
 
                                         return (
-                                            <td key={col.id} className="py-3 px-4 first:pl-6 text-zinc-700">
+                                            <td key={col.id} className="py-4 px-3 first:pl-4 text-zinc-700">
                                                 {cellContent}
                                             </td>
                                         );
                                     })}
 
                                     {/* Actions Cell (Sticky Right) */}
-                                    <td className="py-3 px-4 text-right pr-6 sticky right-0 bg-white group-hover:bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] transition-colors z-10 w-[80px]">
+                                    <td className={`py-4 px-3 text-right pr-4 sticky right-0 bg-white group-hover:bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] transition-colors w-[80px] ${openActionRowId === student.id ? 'z-30' : 'z-10'}`}>
 
                                         <div className="relative inline-block text-left action-menu-container">
                                             <button

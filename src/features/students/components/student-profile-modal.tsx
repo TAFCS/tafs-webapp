@@ -16,15 +16,15 @@ export function StudentProfileModal({ student, onClose }: StudentProfileModalPro
     };
 
     const estatusStyles: Record<string, string> = {
-        ACTIVE: "bg-emerald-100 text-emerald-800 border-emerald-200",
-        PENDING: "bg-zinc-100 text-zinc-800 border-zinc-200",
+        ENROLLED: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        SOFT_ADMISSION: "bg-zinc-100 text-zinc-800 border-zinc-200",
         GRADUATED: "bg-blue-100 text-blue-800 border-blue-200",
-        SUSPENDED: "bg-rose-100 text-rose-800 border-rose-200 line-through decoration-rose-400",
+        EXPELLED: "bg-rose-100 text-rose-800 border-rose-200 line-through decoration-rose-400",
     };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
 
                 {/* Header (Premium Gradient) */}
                 <div className="relative h-32 bg-gradient-to-r from-blue-600 to-indigo-700 p-6 flex items-end">
@@ -55,8 +55,8 @@ export function StudentProfileModal({ student, onClose }: StudentProfileModalPro
                             </div>
 
                             <div className="flex flex-wrap gap-2">
-                                <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${estatusStyles[student.enrollment_status || ''] || 'bg-zinc-100 text-zinc-800 border-zinc-200'}`}>
-                                    {student.enrollment_status || 'N/A'} Student
+                                <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-full border ${estatusStyles[student.enrollment_status || ''] || 'bg-zinc-100 text-zinc-800 border-zinc-200'}`}>
+                                    {(student.enrollment_status || 'N/A').replace('_', ' ')} Student
                                 </span>
                                 <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${statusStyles[student.financial_status_badge || 'Cleared'] || statusStyles.Cleared}`}>
                                     Fee: {student.financial_status_badge || 'Cleared'}

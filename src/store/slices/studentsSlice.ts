@@ -50,10 +50,19 @@ const initialState: StudentsState = {
 
 // ─── Async Thunks ─────────────────────────────────────────────────────────────
 
+export interface FetchStudentsParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  campus_id?: number;
+  status?: 'SOFT_ADMISSION' | 'ENROLLED' | 'EXPELLED' | 'GRADUATED';
+  fields?: string;
+}
+
 export const fetchStudents = createAsyncThunk(
   'students/fetchAll',
   async (
-    params: { page?: number; limit?: number; search?: string; campus?: string; status?: string; fields?: string } = {},
+    params: FetchStudentsParams = {},
     { rejectWithValue }
   ) => {
     try {
@@ -86,10 +95,10 @@ export const studentsSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(fetchStudents.fulfilled, (state, action: PayloadAction<{ items: StudentListItem[]; pagination: PaginatedMeta }>) => {
+      .addCase(fetchStudents.fulfilled, (state, action: PayloadAction<{ items: StudentListItem[]; meta: PaginatedMeta }>) => {
         state.isLoading = false;
         state.items = action.payload.items;
-        state.meta = action.payload.pagination;
+        state.meta = action.payload.meta;
       })
       .addCase(fetchStudents.rejected, (state, action) => {
         state.isLoading = false;
