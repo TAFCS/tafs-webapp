@@ -209,6 +209,7 @@ export function AdmissionForm() {
                 primary_guardian_cnic: primaryGuardian?.cnic,
                 date_of_birth: rawStudent.dob,
                 registration_number: rawStudent.cc_number,
+                date_of_admission: rawStudent.created_at,
                 house_and_color: null,
                 residential_address: rawStudent.families?.primary_address || primaryGuardian?.house_appt_name,
                 father_name: rawStudent.student_guardians?.find((sg: any) => sg.relationship === 'Father')?.guardians?.full_name,
