@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Save } from "lucide-react";
 import Image from "next/image";
+import LogoImage from "@/public/logo.png";
 import api from "@/lib/api";
 
 export function AdmissionForm() {
@@ -62,7 +63,7 @@ export function AdmissionForm() {
             {/* Left Sidebar - Administrative Data (Visible across steps but static conceptually) */}
             <div className="w-full md:w-64 bg-zinc-50 border-b md:border-b-0 md:border-r border-zinc-200 p-6 flex-shrink-0">
                 <div className="flex flex-col items-center justify-center mb-8 gap-3">
-                    <Image src="/alvl-logo.png" alt="TAFSync Logo" width={80} height={80} className="object-contain" priority />
+                    <Image src={LogoImage} alt="TAFSync Logo" width={80} height={80} className="object-contain" priority unoptimized />
                     <h2 className="text-xl font-bold tracking-tight text-primary">TAFSync</h2>
                 </div>
 
