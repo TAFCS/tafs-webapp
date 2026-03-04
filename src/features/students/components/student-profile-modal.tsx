@@ -71,6 +71,34 @@ export function StudentProfileModal({ student, onClose }: StudentProfileModalPro
                                 <InfoItem icon={<Tag />} label="House" value={student.house_and_color || "N/A"} />
                             </div>
 
+                            {/* Siblings Section */}
+                            {student.siblings && student.siblings.length > 0 && (
+                                <div className="mt-4">
+                                    <div className="w-full h-px bg-zinc-100 my-4"></div>
+                                    <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                        <User className="h-3 w-3 text-indigo-500" /> Sibling / Family Members
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {student.siblings.map((sibling) => (
+                                            <div key={sibling.id} className="flex items-center justify-between p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl group transition-all hover:bg-indigo-50 hover:border-indigo-200">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-indigo-500 shadow-sm">
+                                                        <User className="h-4 w-4" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-zinc-900 leading-none">{sibling.full_name}</p>
+                                                        {sibling.father_name && (
+                                                            <p className="text-[9px] text-indigo-600 font-bold mt-1 uppercase tracking-tight">S/O: {sibling.father_name}</p>
+                                                        )}
+                                                        <p className="text-[10px] text-zinc-500 font-medium mt-1 uppercase tracking-tight">{sibling.cc_number} • {sibling.grade || 'N/A'}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                         </div>
 
                         {/* Detailed Tabs/Grid (Right side) */}
@@ -85,6 +113,7 @@ export function StudentProfileModal({ student, onClose }: StudentProfileModalPro
                                     <DataPoint label="Date of Birth" value={student.date_of_birth?.toString() || ""} />
                                     <DataPoint label="Registration No." value={student.registration_number?.toString() || ""} />
                                     <DataPoint label="Primary Guardian" value={student.primary_guardian_name?.toString() || ""} />
+                                    <DataPoint label="Father's Name" value={student.father_name?.toString() || ""} />
                                     <DataPoint label="Guardian CNIC" value={student.primary_guardian_cnic?.toString() || ""} />
                                     <DataPoint label="WhatsApp Number" value={student.whatsapp_number?.toString() || ""} />
                                     <DataPoint label="Family / Household ID" value={student.family_id?.toString() || ""} />
