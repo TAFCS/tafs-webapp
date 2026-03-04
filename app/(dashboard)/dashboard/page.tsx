@@ -12,14 +12,14 @@ export default function DashboardPage() {
 
                 <div className="flex items-center space-x-3">
                     <Link
-                        href="/erp/identity/register"
+                        href="/identity/register"
                         className="inline-flex items-center justify-center px-4 py-2.5 bg-secondary hover:bg-secondary/90 text-white text-sm font-medium rounded-lg shadow-sm shadow-secondary/20 transition-all active:scale-95"
                     >
                         <UserPlus className="h-4 w-4 mr-2" />
                         New Registration
                     </Link>
                     <Link
-                        href="/erp/identity/admission"
+                        href="/identity/admission"
                         className="inline-flex items-center justify-center px-4 py-2.5 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg shadow-sm shadow-primary/20 transition-all active:scale-95"
                     >
                         <UserPlus className="h-4 w-4 mr-2" />
@@ -43,7 +43,7 @@ export default function DashboardPage() {
                         <p className="text-sm font-medium text-zinc-500  mb-1">Pending Registrations</p>
                         <p className="text-3xl font-bold text-zinc-900 ">34</p>
                     </div>
-                    <Link href="/erp/identity/register" className="mt-4 text-sm font-medium text-primary hover:text-primary/80 flex items-center group transition-colors">
+                    <Link href="/identity/register" className="mt-4 text-sm font-medium text-primary hover:text-primary/80 flex items-center group transition-colors">
                         Start new registration <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
                     </Link>
                 </div>

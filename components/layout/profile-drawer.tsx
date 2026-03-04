@@ -78,17 +78,17 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         Account Management
                     </p>
 
-                    <Link href="/erp/identity/verification" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
+                    <Link href="/identity/verification" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
                         <UserCheck className="h-5 w-5 mr-3 text-primary" />
                         <span className="font-medium text-sm">ID Verification</span>
                     </Link>
 
-                    <Link href="/erp/settings/security" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
+                    <Link href="/settings/security" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
                         <Shield className="h-5 w-5 mr-3 text-primary" />
                         <span className="font-medium text-sm">Security &amp; Access</span>
                     </Link>
 
-                    <Link href="/erp/support" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
+                    <Link href="/support" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
                         <LifeBuoy className="h-5 w-5 mr-3 text-secondary" />
                         <span className="font-medium text-sm">IT Support Helpdesk</span>
                     </Link>

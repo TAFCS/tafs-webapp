@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const { accessToken, refreshToken, user } = await authService.loginStaff(username, password);
             saveSession(accessToken, refreshToken, user);
             dispatch(setCredentials({ accessToken, refreshToken, user }));
-            router.push('/erp/dashboard');
+            router.push('/dashboard');
         },
         [dispatch, router]
     );

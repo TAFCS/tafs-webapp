@@ -10,7 +10,7 @@ export default function IdentityHubPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Link href="/erp/identity/students" className="p-6 border rounded-xl hover:border-primary/50 hover:bg-zinc-50 transition-all flex flex-col gap-3 group">
+                <Link href="/identity/students" className="p-6 border rounded-xl hover:border-primary/50 hover:bg-zinc-50 transition-all flex flex-col gap-3 group">
                     <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
                         <Users className="h-6 w-6 text-blue-700" />
                     </div>
@@ -20,7 +20,7 @@ export default function IdentityHubPage() {
                     </div>
                 </Link>
 
-                <Link href="/erp/identity/register" className="p-6 border rounded-xl hover:border-primary/50 hover:bg-zinc-50 transition-all flex flex-col gap-3 group">
+                <Link href="/identity/register" className="p-6 border rounded-xl hover:border-primary/50 hover:bg-zinc-50 transition-all flex flex-col gap-3 group">
                     <div className="h-12 w-12 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
                         <UserPlus className="h-6 w-6 text-emerald-700" />
                     </div>

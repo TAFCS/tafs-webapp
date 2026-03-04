@@ -8,10 +8,10 @@ export function BottomNav() {
     const pathname = usePathname();
 
     const navItems = [
-        { name: "Dashboard", href: "/erp/dashboard", icon: LayoutDashboard },
-        { name: "Identity", href: "/erp/identity", icon: Users },
-        { name: "Families", href: "/erp/families", icon: Home },
-        { name: "Finance", href: "/erp/finance", icon: CreditCard },
+        { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { name: "Identity", href: "/identity", icon: Users },
+        { name: "Families", href: "/families", icon: Home },
+        { name: "Finance", href: "/finance", icon: CreditCard },
     ];
 
     return (
@@ -24,8 +24,8 @@ export function BottomNav() {
                         key={item.name}
                         href={item.href}
                         className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${isActive
-                                ? "text-primary"
-                                : "text-zinc-400 hover:text-zinc-600 :text-zinc-300"
+                            ? "text-primary"
+                            : "text-zinc-400 hover:text-zinc-600 :text-zinc-300"
                             }`}
                     >
                         <item.icon className={`h-6 w-6 ${isActive ? "fill-primary/10" : ""}`} />
