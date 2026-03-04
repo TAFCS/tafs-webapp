@@ -21,6 +21,7 @@ export interface StudentListItem {
   primary_guardian_cnic: string | null;
   date_of_birth: string | null;
   registration_number: string | null;
+  date_of_admission: string | null;
   house_and_color: string | null;
   residential_address: string | null;
 }
@@ -57,6 +58,11 @@ export interface FetchStudentsParams {
   campus_id?: number;
   status?: 'SOFT_ADMISSION' | 'ENROLLED' | 'EXPELLED' | 'GRADUATED';
   fields?: string;
+  grade?: string;
+  section?: string;
+  financial_status?: string[];
+  has_siblings?: boolean;
+  house?: string;
 }
 
 export const fetchStudents = createAsyncThunk(

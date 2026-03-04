@@ -51,6 +51,7 @@ const COLUMNS: ColumnDef[] = [
     { id: "total_outstanding_balance", label: "Total Outstanding Balance", isDefault: false },
     { id: "advance_credit_balance", label: "Advance Credit Balance", isDefault: false },
     { id: "primary_guardian_cnic", label: "Primary Guardian CNIC", isDefault: false },
+    { id: "date_of_admission", label: "Date of Admission", isDefault: false },
     { id: "date_of_birth", label: "Date of Birth (DOB)", isDefault: false },
     { id: "registration_number", label: "Registration Number", isDefault: false },
     { id: "house_and_color", label: "House & Color", isDefault: false },
@@ -79,6 +80,7 @@ const COL_TO_CATEGORY_MAP: Record<keyof StudentListItem, string> = {
     primary_guardian_cnic: "contact",
 
     date_of_birth: "demographic",
+    date_of_admission: "core",
 
     total_outstanding_balance: "core",
     advance_credit_balance: "core"
@@ -127,6 +129,11 @@ export function StudentDataTable() {
 
     const [campusIdFilter, setCampusIdFilter] = useState<number | "All">("All");
     const [statusFilter, setStatusFilter] = useState<EnrollmentStatus | "All">("All");
+    const [gradeFilter, setGradeFilter] = useState<string>("All");
+    const [sectionFilter, setSectionFilter] = useState<string>("All");
+    const [houseFilter, setHouseFilter] = useState<string>("All");
+    const [financialFilters, setFinancialFilters] = useState<string[]>([]);
+    const [hasSiblingsOnly, setHasSiblingsOnly] = useState(false);
 
     // Checkboxes for financial (removed logic for brevity because backend handles status)
 
@@ -144,9 +151,14 @@ export function StudentDataTable() {
             search: debouncedSearchQuery || undefined,
             campus_id: campusIdFilter !== "All" ? campusIdFilter : undefined,
             status: statusFilter !== "All" ? statusFilter : undefined,
-            fields: activeCategories || undefined
+            fields: activeCategories || undefined,
+            grade: gradeFilter !== "All" ? gradeFilter : undefined,
+            section: sectionFilter !== "All" ? sectionFilter : undefined,
+            house: houseFilter !== "All" ? houseFilter : undefined,
+            financial_status: financialFilters.length > 0 ? financialFilters : undefined,
+            has_siblings: hasSiblingsOnly || undefined
         }));
-    }, [dispatch, page, limit, debouncedSearchQuery, campusIdFilter, statusFilter, activeCategories]);
+    }, [dispatch, page, limit, debouncedSearchQuery, campusIdFilter, statusFilter, activeCategories, gradeFilter, sectionFilter, houseFilter, financialFilters, hasSiblingsOnly]);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -209,7 +221,7 @@ export function StudentDataTable() {
                     >
                         <Filter className="h-4 w-4" />
                         <span className="font-medium">Filters</span>
-                        {(campusIdFilter !== "All" || statusFilter !== "All") && (
+                        {(campusIdFilter !== "All" || statusFilter !== "All" || gradeFilter !== "All" || sectionFilter !== "All" || houseFilter !== "All" || financialFilters.length > 0 || hasSiblingsOnly) && (
                             <span className="w-2 h-2 rounded-full bg-blue-500 ml-1"></span>
                         )}
                     </button>
@@ -249,12 +261,12 @@ export function StudentDataTable() {
 
             {/* Advanced Filters Panel */}
             {showFilters && (
-                <div className="p-4 border-b bg-zinc-50 flex flex-wrap gap-4">
+                <div className="p-4 border-b bg-zinc-50 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6 items-end">
                     {/* Status */}
-                    <div className="flex flex-col gap-1.5 min-w-[200px]">
-                        <label className="text-xs font-medium text-zinc-600">Enrollment Status</label>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-zinc-500 uppercase">Enrollment Status</label>
                         <select
-                            className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm"
                             value={statusFilter}
                             onChange={(e) => {
                                 setStatusFilter(e.target.value as EnrollmentStatus | "All");
@@ -270,10 +282,10 @@ export function StudentDataTable() {
                     </div>
 
                     {/* Campus */}
-                    <div className="flex flex-col gap-1.5 min-w-[200px]">
-                        <label className="text-xs font-medium text-zinc-600">Campus</label>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-zinc-500 uppercase">Campus / Branch</label>
                         <select
-                            className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm"
                             value={campusIdFilter}
                             onChange={(e) => {
                                 const val = e.target.value;
@@ -284,6 +296,88 @@ export function StudentDataTable() {
                             <option value="All">All Campuses</option>
                             {campuses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
+                    </div>
+
+                    {/* Grade & Section */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-zinc-500 uppercase">Grade</label>
+                        <select
+                            className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm"
+                            value={gradeFilter}
+                            onChange={(e) => { setGradeFilter(e.target.value); setPage(1); }}
+                        >
+                            <option value="All">All Grades</option>
+                            {["Montessori", "KG-I", "KG-II", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "A-Level"].map(g => (
+                                <option key={g} value={g}>{g}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-zinc-500 uppercase">Section</label>
+                        <select
+                            className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm"
+                            value={sectionFilter}
+                            onChange={(e) => { setSectionFilter(e.target.value); setPage(1); }}
+                        >
+                            <option value="All">All Sections</option>
+                            {["A", "B", "C", "D", "E", "O-I", "O-II", "AS", "A2"].map(s => (
+                                <option key={s} value={s}>{s}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* House Filter */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-zinc-500 uppercase">House</label>
+                        <select
+                            className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm"
+                            value={houseFilter}
+                            onChange={(e) => { setHouseFilter(e.target.value); setPage(1); }}
+                        >
+                            <option value="All">All Houses</option>
+                            {["Jinnah", "Iqbal", "Liaquat", "Sir Syed"].map(h => (
+                                <option key={h} value={h}>{h}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Financial Checkboxes */}
+                    <div className="flex flex-col gap-2 p-2 bg-white border rounded-lg shadow-sm">
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">Financial Filters</label>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                            {[
+                                { id: "Overdue", label: "Defaulters" },
+                                { id: "Cleared", label: "Cleared" },
+                                { id: "Partial", label: "Partial" }
+                            ].map(f => (
+                                <label key={f.id} className="flex items-center gap-1.5 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-zinc-300 text-primary w-3.5 h-3.5"
+                                        checked={financialFilters.includes(f.id)}
+                                        onChange={(e) => {
+                                            if (e.target.checked) setFinancialFilters([...financialFilters, f.id]);
+                                            else setFinancialFilters(financialFilters.filter(x => x !== f.id));
+                                            setPage(1);
+                                        }}
+                                    />
+                                    <span className="text-xs text-zinc-600 group-hover:text-zinc-900 transition-colors">{f.label}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Sibling Toggle */}
+                    <div className="flex items-center gap-2 p-2 px-3 bg-white border rounded-lg shadow-sm h-[38px]">
+                        <input
+                            type="checkbox"
+                            id="siblingsOnly"
+                            className="rounded border-zinc-300 text-primary w-4 h-4"
+                            checked={hasSiblingsOnly}
+                            onChange={(e) => { setHasSiblingsOnly(e.target.checked); setPage(1); }}
+                        />
+                        <label htmlFor="siblingsOnly" className="text-xs font-semibold text-zinc-700 cursor-pointer select-none">Siblings Only</label>
                     </div>
                 </div>
             )}
