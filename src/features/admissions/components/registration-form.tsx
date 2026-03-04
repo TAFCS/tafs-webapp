@@ -8,7 +8,7 @@ export function RegistrationForm() {
     const [currentStep, setCurrentStep] = useState(1);
 
     const [formData, setFormData] = useState({
-        serialNo: "", registrationNo: "", computerCodeNo: "", grNo: "",
+        serialNo: "", registrationNo: "", computerCodeNo: "",
         candidateName: "", fatherName: "", motherName: "",
         dobDay: "", dobMonth: "", dobYear: "",
         nationalityPakistani: true, nationalityOther: "",
@@ -179,10 +179,6 @@ export function RegistrationForm() {
                     <div>
                         <label className="block text-xs font-medium text-zinc-700 mb-1">Computer Code #</label>
                         <input type="text" name="computerCodeNo" value={formData.computerCodeNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-zinc-700 mb-1">G.R. #</label>
-                        <input type="text" name="grNo" value={formData.grNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
                     </div>
                 </div>
 
