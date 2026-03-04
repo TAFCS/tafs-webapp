@@ -9,35 +9,38 @@ import { authService } from '@/lib/auth.service';
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
-const KEY_ACCESS = 'tafs_access_token';
-const KEY_REFRESH = 'tafs_refresh_token';
+// Only non-sensitive display data (name, role) is kept in localStorage.
+// Auth tokens live exclusively in httpOnly cookies set by the backend.
 const KEY_USER = 'tafs_user';
 
-export function saveSession(accessToken: string, refreshToken: string, user: StaffUser) {
-    localStorage.setItem(KEY_ACCESS, accessToken);
-    localStorage.setItem(KEY_REFRESH, refreshToken);
+// Keys from previous auth systems (old prototypes, NextAuth experiment, etc.)
+// Purged once on first load so browsers are cleaned up automatically.
+const LEGACY_KEYS = [
+    'tafs_access_token',
+    'tafs_refresh_token',
+    'access_token',
+    'admin_token',
+    'auth-storage',
+    'nextauth.message',
+];
+
+export function saveSession(user: StaffUser) {
     localStorage.setItem(KEY_USER, JSON.stringify(user));
-    // Keep api.ts interceptor in sync
-    localStorage.setItem('access_token', accessToken);
+    // Note: tafs_access, tafs_refresh, and tafs_session cookies are set by the
+    // backend via Set-Cookie headers — they are httpOnly and JS-inaccessible.
 }
 
 export function clearSession() {
-    localStorage.removeItem(KEY_ACCESS);
-    localStorage.removeItem(KEY_REFRESH);
     localStorage.removeItem(KEY_USER);
-    localStorage.removeItem('access_token');
+    // Auth cookies are cleared by the backend on logout via Set-Cookie max-age=0.
 }
 
-function loadSession(): { user: StaffUser | null; refreshToken: string | null } {
+function loadCachedUser(): StaffUser | null {
     try {
         const raw = localStorage.getItem(KEY_USER);
-        const refreshToken = localStorage.getItem(KEY_REFRESH);
-        return {
-            user: raw ? (JSON.parse(raw) as StaffUser) : null,
-            refreshToken,
-        };
+        return raw ? (JSON.parse(raw) as StaffUser) : null;
     } catch {
-        return { user: null, refreshToken: null };
+        return null;
     }
 }
 
@@ -54,33 +57,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const dispatch = useAppDispatch();
     const router = useRouter();
 
-    // On mount: rehydrate from localStorage by silently refreshing tokens
+    // On mount: purge legacy keys and silently restore session via httpOnly cookie
     useEffect(() => {
-        const { user, refreshToken } = loadSession();
+        // One-time migration: purge legacy keys left by old auth systems
+        LEGACY_KEYS.forEach((k) => localStorage.removeItem(k));
 
-        if (user && refreshToken) {
-            authService
-                .refreshStaff(refreshToken)
-                .then(({ accessToken, refreshToken: newRefresh }) => {
-                    saveSession(accessToken, newRefresh, user);
-                    dispatch(setCredentials({ accessToken, refreshToken: newRefresh, user }));
-                })
-                .catch(() => {
-                    // Refresh token expired/revoked — force re-login
-                    clearSession();
-                    dispatch(setLoading(false));
-                });
-        } else {
-            dispatch(setLoading(false));
-        }
+        // Call refresh — the browser sends the httpOnly tafs_refresh cookie
+        // automatically. If valid, backend rotates tokens + returns updated user.
+        authService
+            .refreshStaff()
+            .then(({ user }) => {
+                saveSession(user);
+                dispatch(setCredentials({ user }));
+            })
+            .catch(() => {
+                clearSession();
+                dispatch(setLoading(false));
+            });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const login = useCallback(
         async (username: string, password: string) => {
-            const { accessToken, refreshToken, user } = await authService.loginStaff(username, password);
-            saveSession(accessToken, refreshToken, user);
-            dispatch(setCredentials({ accessToken, refreshToken, user }));
+            const { user } = await authService.loginStaff(username, password);
+            saveSession(user);
+            dispatch(setCredentials({ user }));
             router.push('/dashboard');
         },
         [dispatch, router]
@@ -88,10 +89,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const logout = useCallback(async () => {
         try {
+            // Backend clears all three auth cookies via Set-Cookie
             await authService.logoutStaff();
-            console.log("Logout API success.")
         } catch (error) {
-            console.error("Logout API failed:", error);
+            console.error('Logout API failed:', error);
         } finally {
             clearSession();
             dispatch(clearCredentials());
