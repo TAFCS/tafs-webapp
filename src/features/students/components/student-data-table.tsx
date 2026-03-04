@@ -176,6 +176,12 @@ export function StudentDataTable() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    const campuses: { id: number; name: string; code: string }[] = [
+        { id: 1, name: "Gulistan-e-Johar Campus", code: "JHR" },
+        { id: 2, name: "Kaneez Fatima Campus", code: "KNF" },
+        { id: 3, name: "North Nazimabad Campus", code: "NNZ" }
+    ];
+
     const toggleColumn = (colId: keyof StudentListItem) => {
         const next = new Set(visibleColumns);
         if (next.has(colId)) {
@@ -186,14 +192,6 @@ export function StudentDataTable() {
         setVisibleColumns(next);
     };
 
-    // Mock Campuses for Local Selective Filtering (should ideally come from backend)
-    const campuses = [
-        { id: 1, name: "North Campus" },
-        { id: 2, name: "KFC Branch" },
-        { id: 3, name: "Gulshan Campus" },
-        { id: 4, name: "PECHS Branch" },
-        { id: 5, name: "DHA Branch" }
-    ];
 
     return (
         <div className="bg-white border rounded-xl shadow-sm flex flex-col w-full h-full text-base">
@@ -307,9 +305,16 @@ export function StudentDataTable() {
                             onChange={(e) => { setGradeFilter(e.target.value); setPage(1); }}
                         >
                             <option value="All">All Grades</option>
-                            {["Montessori", "KG-I", "KG-II", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "A-Level"].map(g => (
-                                <option key={g} value={g}>{g}</option>
-                            ))}
+                            <optgroup label="Cambridge System">
+                                {["pre-nursery", "nursery", "Kindergarden", "junior-1", "junior-2", "junior-3", "jr-4", "jr-5", "senior-1", "snr-2", "snr-3", "O1", "o2", "03"].map(g => (
+                                    <option key={g} value={g}>{g}</option>
+                                ))}
+                            </optgroup>
+                            <optgroup label="Secondary System">
+                                {["6", "7", "8", "9", "10"].map(g => (
+                                    <option key={g} value={g}>{g}</option>
+                                ))}
+                            </optgroup>
                         </select>
                     </div>
 
