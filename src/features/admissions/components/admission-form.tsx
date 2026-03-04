@@ -145,6 +145,21 @@ export function AdmissionForm() {
                                             }))
                                             : undefined;
 
+                                        // Helper: split a "Country, Province, City" combined string
+                                        const splitPOB = (combined: string | null | undefined) => {
+                                            const parts = (combined ?? "").split(", ");
+                                            return { country: parts[0] ?? "", province: parts[1] ?? "", city: parts[2] ?? "" };
+                                        };
+
+                                        // Helper: compose a mailing address from guardian address fields
+                                        const composeAddress = (g: any): string =>
+                                            [g?.house_appt_name, g?.area_block, g?.city, g?.province, g?.country]
+                                                .filter(Boolean).join(", ");
+
+                                        const candidatePOB = splitPOB(student.place_of_birth);
+                                        const fatherPOB = splitPOB(father?.place_of_birth);
+                                        const motherPOB = splitPOB(mother?.place_of_birth);
+
                                         setFormData((prev) => ({
                                             ...prev,
                                             computerCodeNo: student.cc_number ?? prev.computerCodeNo,
@@ -168,22 +183,58 @@ export function AdmissionForm() {
                                             dobDay: dob ? String(dob.getDate()).padStart(2, "0") : prev.dobDay,
                                             dobMonth: dob ? String(dob.getMonth() + 1).padStart(2, "0") : prev.dobMonth,
                                             dobYear: dob ? String(dob.getFullYear()) : prev.dobYear,
+
+                                            // Candidate place of birth (split combined string from registration)
+                                            placeOfBirthCountry: candidatePOB.country || prev.placeOfBirthCountry,
+                                            placeOfBirthProvince: candidatePOB.province || prev.placeOfBirthProvince,
+                                            placeOfBirthCity: candidatePOB.city || prev.placeOfBirthCity,
+
                                             admissionClass: admission?.requested_grade ?? prev.admissionClass,
                                             admissionSystem: admission?.academic_system ?? prev.admissionSystem,
+
+                                            // Father
                                             fatherName: father?.full_name ?? prev.fatherName,
                                             fatherCellPhone: father?.whatsapp_number ?? father?.primary_phone ?? prev.fatherCellPhone,
                                             fatherHomePhone: father?.primary_phone ?? prev.fatherHomePhone,
                                             fatherWorkPhone: father?.work_phone ?? prev.fatherWorkPhone,
                                             fatherCnic: father?.cnic ?? prev.fatherCnic,
                                             fatherEmail: father?.email_address ?? prev.fatherEmail,
+                                            // Father address (composed from registration mailing address fields)
+                                            fatherAddress: composeAddress(father) || prev.fatherAddress,
+                                            // Father occupation & background
+                                            fatherEducation: father?.education_level ?? prev.fatherEducation,
+                                            fatherOccupation: father?.occupation ?? prev.fatherOccupation,
+                                            fatherOrganization: father?.organization ?? prev.fatherOrganization,
+                                            fatherPosition: father?.occupational_position ?? father?.job_position ?? prev.fatherPosition,
+                                            // Father place of birth (split combined string)
+                                            fatherPOBCountry: fatherPOB.country || prev.fatherPOBCountry,
+                                            fatherPOBProvince: fatherPOB.province || prev.fatherPOBProvince,
+                                            fatherPOBCity: fatherPOB.city || prev.fatherPOBCity,
+
+                                            // Mother
                                             motherName: mother?.full_name ?? prev.motherName,
                                             motherCellPhone: mother?.whatsapp_number ?? mother?.primary_phone ?? prev.motherCellPhone,
                                             motherHomePhone: mother?.primary_phone ?? prev.motherHomePhone,
+                                            motherWorkPhone: mother?.work_phone ?? prev.motherWorkPhone,
                                             motherCnic: mother?.cnic ?? prev.motherCnic,
                                             motherEmail: mother?.email_address ?? prev.motherEmail,
+                                            // Mother address (composed from registration mailing address fields)
+                                            motherAddress: composeAddress(mother) || prev.motherAddress,
+                                            // Mother occupation & background
+                                            motherEducation: mother?.education_level ?? prev.motherEducation,
+                                            motherOccupation: mother?.occupation ?? prev.motherOccupation,
+                                            motherOrganization: mother?.organization ?? prev.motherOrganization,
+                                            motherPosition: mother?.occupational_position ?? mother?.job_position ?? prev.motherPosition,
+                                            // Mother place of birth (split combined string)
+                                            motherPOBCountry: motherPOB.country || prev.motherPOBCountry,
+                                            motherPOBProvince: motherPOB.province || prev.motherPOBProvince,
+                                            motherPOBCity: motherPOB.city || prev.motherPOBCity,
+
+                                            // Guardian / emergency contact
                                             guardianName: emergency?.full_name ?? prev.guardianName,
                                             guardianCellPhone: emergency?.primary_phone ?? prev.guardianCellPhone,
                                             guardianCnic: emergency?.cnic ?? prev.guardianCnic,
+
                                             previousSchools: previousSchools && previousSchools.length
                                                 ? previousSchools
                                                 : prev.previousSchools,
@@ -372,9 +423,25 @@ export function AdmissionForm() {
                                         </div>
                                     </div>
 
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Place of Birth (Country, Province, City)</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                    <div className="md:col-span-2 grid grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Place of Birth: Country</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.placeOfBirthCountry}
+                                                onChange={e => setFormData({ ...formData, placeOfBirthCountry: e.target.value })} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Province</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.placeOfBirthProvince}
+                                                onChange={e => setFormData({ ...formData, placeOfBirthProvince: e.target.value })} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">City</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.placeOfBirthCity}
+                                                onChange={e => setFormData({ ...formData, placeOfBirthCity: e.target.value })} />
+                                        </div>
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Identification Mark(s)</label>
@@ -397,15 +464,30 @@ export function AdmissionForm() {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* O-Level Block */}
-                                    <div className="border-2 border-primary/20 bg-primary/5 rounded-xl p-5">
-                                        <div className="flex items-center mb-4">
-                                            <input type="radio" name="system" id="sys-cambridge" className="h-4 w-4 text-primary focus:ring-primary border-zinc-300" />
-                                            <label htmlFor="sys-cambridge" className="ml-2 block font-semibold text-primary">Cambridge GCE O&apos; Level System</label>
+                                    <div className={`border-2 rounded-xl p-5 ${formData.admissionSystem === 'Cambridge' ? 'border-primary/50 bg-primary/5' : 'border-primary/20 bg-primary/5'}`}>
+                                        <div className="flex items-center mb-4 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="admissionSystem"
+                                                id="sys-cambridge"
+                                                value="Cambridge"
+                                                checked={formData.admissionSystem === 'Cambridge'}
+                                                onChange={e => setFormData({ ...formData, admissionSystem: e.target.value, admissionClass: '' })}
+                                                className="h-4 w-4 text-primary focus:ring-primary border-zinc-300"
+                                            />
+                                            <label htmlFor="sys-cambridge" className="ml-2 block font-semibold text-primary cursor-pointer">Cambridge GCE O&apos; Level System</label>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-y-2 gap-x-4 pl-6">
-                                            {['Pre-Nursery', 'Nursery', 'K.G', 'Class I', 'Class II', 'Class III', 'Class IV', 'Class V', 'Class VI', 'Class VII', 'Class VIII', 'Pre O-Level', 'O-I', 'O-II', 'O-III'].map(cls => (
+                                        <div className={`grid grid-cols-2 gap-y-2 gap-x-4 pl-6 ${formData.admissionSystem !== 'Cambridge' ? 'opacity-50 pointer-events-none' : ''}`}>
+                                            {['Pre-Nursery', 'Nursery', 'K.G.', 'JR-I', 'JR-II', 'JR-III', 'JR-IV', 'JR-V', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III'].map(cls => (
                                                 <div key={cls} className="flex items-center">
-                                                    <input type="radio" name="classReq" className="h-3.5 w-3.5 text-primary focus:ring-primary border-zinc-300" />
+                                                    <input
+                                                        type="radio"
+                                                        name="admissionClass"
+                                                        value={cls}
+                                                        checked={formData.admissionClass === cls && formData.admissionSystem === 'Cambridge'}
+                                                        onChange={e => setFormData({ ...formData, admissionClass: e.target.value })}
+                                                        className="h-3.5 w-3.5 text-primary focus:ring-primary border-zinc-300"
+                                                    />
                                                     <label className="ml-2 text-sm text-zinc-700">{cls}</label>
                                                 </div>
                                             ))}
@@ -413,15 +495,30 @@ export function AdmissionForm() {
                                     </div>
 
                                     {/* Secondary Block */}
-                                    <div className="border-2 border-secondary/20 bg-secondary/5 rounded-xl p-5">
-                                        <div className="flex items-center mb-4">
-                                            <input type="radio" name="system" id="sys-secondary" className="h-4 w-4 text-secondary focus:ring-secondary border-zinc-300" />
-                                            <label htmlFor="sys-secondary" className="ml-2 block font-semibold text-secondary">Secondary System of Studies</label>
+                                    <div className={`border-2 rounded-xl p-5 ${formData.admissionSystem === 'Secondary' ? 'border-secondary/50 bg-secondary/5' : 'border-secondary/20 bg-secondary/5'}`}>
+                                        <div className="flex items-center mb-4 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="admissionSystem"
+                                                id="sys-secondary"
+                                                value="Secondary"
+                                                checked={formData.admissionSystem === 'Secondary'}
+                                                onChange={e => setFormData({ ...formData, admissionSystem: e.target.value, admissionClass: '' })}
+                                                className="h-4 w-4 text-secondary focus:ring-secondary border-zinc-300"
+                                            />
+                                            <label htmlFor="sys-secondary" className="ml-2 block font-semibold text-secondary cursor-pointer">Secondary System of Studies</label>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-y-2 gap-x-4 pl-6">
-                                            {['Class VI', 'Class VII', 'Class VIII', 'Class IX', 'Class X'].map(cls => (
+                                        <div className={`grid grid-cols-2 gap-y-2 gap-x-4 pl-6 ${formData.admissionSystem !== 'Secondary' ? 'opacity-50 pointer-events-none' : ''}`}>
+                                            {['VI', 'VII', 'VIII', 'IX', 'X'].map(cls => (
                                                 <div key={cls} className="flex items-center">
-                                                    <input type="radio" name="classReq" className="h-3.5 w-3.5 text-secondary focus:ring-secondary border-zinc-300" />
+                                                    <input
+                                                        type="radio"
+                                                        name="admissionClass"
+                                                        value={cls}
+                                                        checked={formData.admissionClass === cls && formData.admissionSystem === 'Secondary'}
+                                                        onChange={e => setFormData({ ...formData, admissionClass: e.target.value })}
+                                                        className="h-3.5 w-3.5 text-secondary focus:ring-secondary border-zinc-300"
+                                                    />
                                                     <label className="ml-2 text-sm text-zinc-700">{cls}</label>
                                                 </div>
                                             ))}
@@ -473,24 +570,63 @@ export function AdmissionForm() {
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div>
                                                     <label className="block text-xs font-medium text-zinc-700 mb-1">Name of School</label>
-                                                    <input type="text" className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md" />
+                                                    <input
+                                                        type="text"
+                                                        className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md"
+                                                        value={school.name}
+                                                        onChange={e => {
+                                                            const updated = formData.previousSchools.map((s, i) => i === index ? { ...s, name: e.target.value } : s);
+                                                            setFormData({ ...formData, previousSchools: updated });
+                                                        }}
+                                                    />
                                                 </div>
                                                 <div>
                                                     <label className="block text-xs font-medium text-zinc-700 mb-1">Location</label>
-                                                    <input type="text" className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md" />
+                                                    <input
+                                                        type="text"
+                                                        className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md"
+                                                        value={school.location}
+                                                        onChange={e => {
+                                                            const updated = formData.previousSchools.map((s, i) => i === index ? { ...s, location: e.target.value } : s);
+                                                            setFormData({ ...formData, previousSchools: updated });
+                                                        }}
+                                                    />
                                                 </div>
                                                 <div>
                                                     <label className="block text-xs font-medium text-zinc-700 mb-1">Class/Level Studied</label>
-                                                    <input type="text" placeholder="From - Upto" className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="From - Upto"
+                                                        className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md"
+                                                        value={school.classStudied}
+                                                        onChange={e => {
+                                                            const updated = formData.previousSchools.map((s, i) => i === index ? { ...s, classStudied: e.target.value } : s);
+                                                            setFormData({ ...formData, previousSchools: updated });
+                                                        }}
+                                                    />
                                                 </div>
                                                 <div>
                                                     <label className="block text-xs font-medium text-zinc-700 mb-1">Reason for Leaving</label>
-                                                    <input type="text" className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md" />
+                                                    <input
+                                                        type="text"
+                                                        className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md"
+                                                        value={school.reasonForLeaving}
+                                                        onChange={e => {
+                                                            const updated = formData.previousSchools.map((s, i) => i === index ? { ...s, reasonForLeaving: e.target.value } : s);
+                                                            setFormData({ ...formData, previousSchools: updated });
+                                                        }}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
                                     ))}
-                                    <button type="button" className="text-sm font-medium text-primary hover:text-primary/80">+ Add another school</button>
+                                    <button
+                                        type="button"
+                                        className="text-sm font-medium text-primary hover:text-primary/80"
+                                        onClick={() => setFormData({ ...formData, previousSchools: [...formData.previousSchools, { name: "", location: "", classStudied: "", reasonForLeaving: "" }] })}
+                                    >
+                                        + Add another school
+                                    </button>
                                 </div>
                             </section>
 
@@ -518,7 +654,10 @@ export function AdmissionForm() {
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Mailing Address</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" placeholder="House/Apartment Name and No, Area and Block No, City, Province, Country, Postal Code" />
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            placeholder="House/Apartment Name and No, Area and Block No, City, Province, Country, Postal Code"
+                                            value={formData.fatherAddress}
+                                            onChange={e => setFormData({ ...formData, fatherAddress: e.target.value })} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Home Phone #</label>
@@ -540,53 +679,75 @@ export function AdmissionForm() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Emergency Contact Name & Number</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.fatherEmergencyName}
+                                            onChange={e => setFormData({ ...formData, fatherEmergencyName: e.target.value })} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Relationship with Candidate</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.fatherEmergencyRelation}
+                                            onChange={e => setFormData({ ...formData, fatherEmergencyRelation: e.target.value })} />
                                     </div>
                                     <div className="md:col-span-2 grid grid-cols-3 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: Country</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.fatherPOBCountry}
+                                                onChange={e => setFormData({ ...formData, fatherPOBCountry: e.target.value })} />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: Province</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.fatherPOBProvince}
+                                                onChange={e => setFormData({ ...formData, fatherPOBProvince: e.target.value })} />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: City</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.fatherPOBCity}
+                                                onChange={e => setFormData({ ...formData, fatherPOBCity: e.target.value })} />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 mb-1.5">Age</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.fatherAge}
+                                                onChange={e => setFormData({ ...formData, fatherAge: e.target.value })} />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 mb-1.5">Educational Level</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.fatherEducation}
+                                                onChange={e => setFormData({ ...formData, fatherEducation: e.target.value })} />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupation</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.fatherOccupation}
+                                                onChange={e => setFormData({ ...formData, fatherOccupation: e.target.value })} />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 mb-1.5">Organization</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.fatherOrganization}
+                                                onChange={e => setFormData({ ...formData, fatherOrganization: e.target.value })} />
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupational Position</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.fatherPosition}
+                                            onChange={e => setFormData({ ...formData, fatherPosition: e.target.value })} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Monthly Income</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.fatherIncome}
+                                            onChange={e => setFormData({ ...formData, fatherIncome: e.target.value })} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Work Phone #</label>
@@ -609,7 +770,9 @@ export function AdmissionForm() {
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Office Address</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.fatherOfficeAddress}
+                                            onChange={e => setFormData({ ...formData, fatherOfficeAddress: e.target.value })} />
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Email Address</label>
@@ -640,7 +803,10 @@ export function AdmissionForm() {
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Mailing Address</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            placeholder="House/Apartment Name and No, Area and Block No, City, Province, Country, Postal Code"
+                                            value={formData.motherAddress}
+                                            onChange={e => setFormData({ ...formData, motherAddress: e.target.value })} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Home Phone #</label>
@@ -662,30 +828,64 @@ export function AdmissionForm() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Emergency Contact Name & Number</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.motherEmergencyName}
+                                            onChange={e => setFormData({ ...formData, motherEmergencyName: e.target.value })} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Relationship with Candidate</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" value="Mother" readOnly />
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.motherEmergencyRelation}
+                                            onChange={e => setFormData({ ...formData, motherEmergencyRelation: e.target.value })} />
                                     </div>
 
                                     <div className="md:col-span-2 grid grid-cols-3 gap-4">
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: Country</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: Province</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: City</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
+                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: Country</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.motherPOBCountry}
+                                                onChange={e => setFormData({ ...formData, motherPOBCountry: e.target.value })} /></div>
+                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: Province</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.motherPOBProvince}
+                                                onChange={e => setFormData({ ...formData, motherPOBProvince: e.target.value })} /></div>
+                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: City</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.motherPOBCity}
+                                                onChange={e => setFormData({ ...formData, motherPOBCity: e.target.value })} /></div>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Age</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Educational Level</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
+                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Age</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.motherAge}
+                                                onChange={e => setFormData({ ...formData, motherAge: e.target.value })} /></div>
+                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Educational Level</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.motherEducation}
+                                                onChange={e => setFormData({ ...formData, motherEducation: e.target.value })} /></div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupation</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Organization</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
+                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupation</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.motherOccupation}
+                                                onChange={e => setFormData({ ...formData, motherOccupation: e.target.value })} /></div>
+                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Organization</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.motherOrganization}
+                                                onChange={e => setFormData({ ...formData, motherOrganization: e.target.value })} /></div>
                                     </div>
-                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupational Position</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
-                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Monthly Income</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
-                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Work Phone #</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
+                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupational Position</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.motherPosition}
+                                            onChange={e => setFormData({ ...formData, motherPosition: e.target.value })} /></div>
+                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Monthly Income</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.motherIncome}
+                                            onChange={e => setFormData({ ...formData, motherIncome: e.target.value })} /></div>
+                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Work Phone #</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.motherWorkPhone}
+                                            onChange={e => setFormData({ ...formData, motherWorkPhone: e.target.value })} /></div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">C.N.I.C. #</label>
                                         <input
@@ -696,7 +896,10 @@ export function AdmissionForm() {
                                             onChange={e => setFormData({ ...formData, motherCnic: e.target.value })}
                                         />
                                     </div>
-                                    <div className="md:col-span-2"><label className="block text-sm font-medium text-zinc-700 mb-1.5">Office Address</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
+                                    <div className="md:col-span-2"><label className="block text-sm font-medium text-zinc-700 mb-1.5">Office Address</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.motherOfficeAddress}
+                                            onChange={e => setFormData({ ...formData, motherOfficeAddress: e.target.value })} /></div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Email Address</label>
                                         <input
