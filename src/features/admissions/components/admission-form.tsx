@@ -1,15 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Save } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, CheckCircle } from "lucide-react";
 import Image from "next/image";
 import LogoImage from "@/public/logo.png";
 import api from "@/lib/api";
+import { StudentProfileModal } from "@/src/features/students/components/student-profile-modal";
+import { StudentListItem } from "@/src/store/slices/studentsSlice";
 
 export function AdmissionForm() {
     const [currentStep, setCurrentStep] = useState(1);
     const [isFetchingCC, setIsFetchingCC] = useState(false);
     const [ccError, setCcError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitSuccess, setSubmitSuccess] = useState<StudentListItem | null>(null);
 
     const [formData, setFormData] = useState({
         // Page 1: Personal Data
@@ -57,8 +61,173 @@ export function AdmissionForm() {
     const isFirstStep = currentStep === 1;
     const isLastStep = currentStep === 5;
 
+    const [submitError, setSubmitError] = useState<string | null>(null);
+
+    const handleSubmit = async () => {
+        setIsSubmitting(true);
+        setSubmitError(null);
+        setSubmitSuccess(null);
+
+        try {
+            // Build the payload mapping from formData to SubmitAdmissionFormDto
+            const payload = {
+                cc_number: formData.computerCodeNo,
+                gr_number: formData.grNo || undefined,
+                gender: formData.gender || undefined,
+                religion: formData.religion === 'Other' ? formData.otherReligion : formData.religion,
+                nationality: formData.nationality === 'Other' ? formData.otherNationality : formData.nationality,
+                identification_marks: formData.identificationMarks || undefined,
+                physical_impairment: formData.physicalImpairment || undefined,
+                medical_info: formData.medicalProblems || undefined,
+                interests: formData.candidateInterests || undefined,
+                consent_publicity: formData.publicizeConsent === "Consent",
+
+                admission: {
+                    academic_system: formData.admissionSystem || "N/A",
+                    requested_grade: formData.admissionClass || "N/A",
+                    academic_year: new Date().getFullYear().toString(),
+                },
+
+                previous_schools: formData.previousSchools
+                    .filter(s => s.name?.trim())
+                    .map(s => ({
+                        school_name: s.name,
+                        location: s.location || undefined,
+                        class_studied_from: undefined,
+                        class_studied_to: s.classStudied || undefined,
+                        reason_for_leaving: s.reasonForLeaving || undefined,
+                    })),
+
+                languages: [
+                    { language_name: 'English', can_speak: formData.languages.english.speaks === 'T', can_read: formData.languages.english.reads === 'T', can_write: formData.languages.english.writes === 'T' },
+                    { language_name: 'Urdu', can_speak: formData.languages.urdu.speaks === 'T', can_read: formData.languages.urdu.reads === 'T', can_write: formData.languages.urdu.writes === 'T' },
+                    { language_name: 'Other', can_speak: formData.languages.other.speaks === 'T', can_read: formData.languages.other.reads === 'T', can_write: formData.languages.other.writes === 'T' }
+                ],
+
+                father: formData.fatherName ? {
+                    full_name: formData.fatherName,
+                    cnic: formData.fatherCnic || undefined,
+                    primary_phone: formData.fatherHomePhone || undefined,
+                    whatsapp_number: formData.fatherCellPhone || undefined,
+                    work_phone: formData.fatherWorkPhone || undefined,
+                    email_address: formData.fatherEmail || undefined,
+                    education_level: formData.fatherEducation || undefined,
+                    occupation: formData.fatherOccupation || undefined,
+                    organization: formData.fatherOrganization || undefined,
+                    job_position: formData.fatherPosition || undefined,
+                    monthly_income: formData.fatherIncome ? Number(formData.fatherIncome) : undefined,
+                    place_of_birth: [formData.fatherPOBCountry, formData.fatherPOBProvince, formData.fatherPOBCity].filter(Boolean).join(', ') || undefined,
+                    work_address: formData.fatherOfficeAddress || undefined,
+                    mailing_address: formData.fatherAddress || undefined,
+                } : undefined,
+
+                mother: formData.motherName ? {
+                    full_name: formData.motherName,
+                    cnic: formData.motherCnic || undefined,
+                    primary_phone: formData.motherHomePhone || undefined,
+                    whatsapp_number: formData.motherCellPhone || undefined,
+                    work_phone: formData.motherWorkPhone || undefined,
+                    email_address: formData.motherEmail || undefined,
+                    education_level: formData.motherEducation || undefined,
+                    occupation: formData.motherOccupation || undefined,
+                    organization: formData.motherOrganization || undefined,
+                    job_position: formData.motherPosition || undefined,
+                    monthly_income: formData.motherIncome ? Number(formData.motherIncome) : undefined,
+                    place_of_birth: [formData.motherPOBCountry, formData.motherPOBProvince, formData.motherPOBCity].filter(Boolean).join(', ') || undefined,
+                    work_address: formData.motherOfficeAddress || undefined,
+                    mailing_address: formData.motherAddress || undefined,
+                } : undefined,
+
+                guardian: formData.guardianName ? {
+                    full_name: formData.guardianName,
+                    cnic: formData.guardianCnic || undefined,
+                    primary_phone: formData.guardianHomePhone || undefined,
+                    whatsapp_number: formData.guardianCellPhone || undefined,
+                    work_phone: formData.guardianWorkPhone || undefined,
+                    email_address: formData.guardianEmail || undefined,
+                    education_level: formData.guardianEducation || undefined,
+                    occupation: formData.guardianOccupation || undefined,
+                    organization: formData.guardianOrganization || undefined,
+                    job_position: formData.guardianPosition || undefined,
+                    monthly_income: formData.guardianIncome ? Number(formData.guardianIncome) : undefined,
+                    place_of_birth: [formData.guardianPOBCountry, formData.guardianPOBProvince, formData.guardianPOBCity].filter(Boolean).join(', ') || undefined,
+                    work_address: formData.guardianOfficeAddress || undefined,
+                    mailing_address: formData.guardianAddress || undefined,
+                    city: formData.guardianCity || undefined,
+                    province: formData.guardianProvince || undefined,
+                    country: formData.guardianCountry || undefined,
+                } : undefined,
+
+                siblings: formData.siblings
+                    .filter(s => s.name?.trim())
+                    .map(s => ({
+                        full_name: s.name,
+                        relationship: s.relationship || 'Sibling',
+                        age: s.age ? Number(s.age) : undefined,
+                        current_school: s.currentSchool || undefined,
+                        pick_and_drop: formData.pickAndDropRequired === 'Yes',
+                    })),
+
+                relatives: formData.relativesAtTafs
+                    .filter(r => r.name?.trim())
+                    .map(r => ({
+                        name: r.name,
+                        class: r.classLevel || 'N/A',
+                        relationship: r.relationship || 'Relative',
+                    })),
+
+                activities: formData.coCurricular
+                    .filter(a => a.activity?.trim())
+                    .map(a => ({
+                        activity_name: a.activity,
+                        grade: a.grade || undefined,
+                        honors_awards: a.honors || undefined,
+                        continue_at_tafs: a.continueAtTafs === 'Yes',
+                    }))
+            };
+
+            const { data } = await api.post('/v1/admissions/admission-form', payload);
+            const rawStudent = data.data;
+            const primaryGuardian = rawStudent.student_guardians?.find((sg: any) => sg.is_primary_contact)?.guardians;
+            const latestAdmission = rawStudent.student_admissions?.[0];
+
+            const mappedStudent: StudentListItem = {
+                id: rawStudent.id,
+                student_full_name: `${rawStudent.first_name} ${rawStudent.last_name}`.trim(),
+                gr_number: rawStudent.gr_number,
+                cc_number: rawStudent.cc_number,
+                campus: rawStudent.campuses?.campus_name || "N/A",
+                grade_and_section: latestAdmission ? `${latestAdmission.requested_grade}` : null,
+                primary_guardian_name: primaryGuardian?.full_name,
+                whatsapp_number: primaryGuardian?.whatsapp_number || primaryGuardian?.primary_phone,
+                enrollment_status: rawStudent.status,
+                financial_status_badge: 'Cleared',
+                family_id: rawStudent.families?.id,
+                household_name: rawStudent.families?.household_name,
+                total_outstanding_balance: 0,
+                advance_credit_balance: 0,
+                primary_guardian_cnic: primaryGuardian?.cnic,
+                date_of_birth: rawStudent.dob,
+                registration_number: rawStudent.cc_number,
+                house_and_color: null,
+                residential_address: rawStudent.families?.primary_address || primaryGuardian?.house_appt_name,
+            };
+
+            setSubmitSuccess(mappedStudent);
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string | string[]; statusCode?: number } } };
+            const raw = axiosErr?.response?.data?.message;
+            const msg = Array.isArray(raw)
+                ? raw.join('; ')
+                : (raw ?? 'Failed to submit admission form. Please review your entries and try again.');
+            setSubmitError(msg);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
-        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row">
+        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row relative">
 
             {/* Left Sidebar - Administrative Data (Visible across steps but static conceptually) */}
             <div className="w-full md:w-64 bg-zinc-50 border-b md:border-b-0 md:border-r border-zinc-200 p-6 flex-shrink-0">
@@ -1255,8 +1424,13 @@ export function AdmissionForm() {
                     )}
 
                 </div>
-
                 {/* Wizard Footer (Sticky controls) */}
+                {submitError && (
+                    <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-sm text-red-600 flex items-start sm:items-center">
+                        <span className="shrink-0 mr-2 mt-0.5 sm:mt-0 font-medium whitespace-nowrap">Submission Failed:</span>
+                        <span>{submitError}</span>
+                    </div>
+                )}
                 <div className="px-6 py-4 border-t border-zinc-200 bg-zinc-50 flex items-center justify-between">
                     <button
                         onClick={handlePrev}
@@ -1275,14 +1449,27 @@ export function AdmissionForm() {
                         </button>
                     ) : (
                         <button
-                            className="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/20 transition-all active:scale-95"
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                            className="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-75 disabled:cursor-wait"
                         >
-                            <Save className="h-4 w-4 mr-2" /> Submit Application
+                            {isSubmitting ? "Submitting..." : (
+                                <>
+                                    <Save className="h-4 w-4 mr-2" /> Submit Application
+                                </>
+                            )}
                         </button>
                     )}
                 </div>
 
             </div>
+
+            {submitSuccess && (
+                <StudentProfileModal
+                    student={submitSuccess}
+                    onClose={() => setSubmitSuccess(null)}
+                />
+            )}
         </div>
     );
 }
