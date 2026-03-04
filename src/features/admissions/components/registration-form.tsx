@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import api from "@/lib/api";
+import Image from "next/image";
+import LogoImage from "@/public/logo.png";
 import { StudentProfileModal } from "@/src/features/students/components/student-profile-modal";
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
 
@@ -194,8 +196,9 @@ export function RegistrationForm() {
 
             {/* Left Sidebar - Administrative Data */}
             <div className="w-full md:w-64 bg-zinc-50 border-b md:border-b-0 md:border-r border-zinc-200 p-6 flex-shrink-0">
-                <div className="flex items-center justify-center mb-8">
-                    <div className="h-16 w-16 bg-primary rounded flex items-center justify-center text-white font-bold text-xl">TAFS</div>
+                <div className="flex flex-col items-center justify-center mb-8 gap-3">
+                    <Image src={LogoImage} alt="TAFSync Logo" width={80} height={80} className="object-contain" priority unoptimized />
+                    <h2 className="text-xl font-bold tracking-tight text-primary">TAFSync</h2>
                 </div>
 
                 <div className="space-y-4">

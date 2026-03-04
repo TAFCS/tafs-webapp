@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   title: "TAFSync",
   description: "The American Foundation School — Digital Transformation",
   icons: {
-    icon: "/alvl-logo.png",
+    icon: "/logo.png",
   },
 };
 
