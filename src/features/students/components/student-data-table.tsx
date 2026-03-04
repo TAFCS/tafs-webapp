@@ -305,13 +305,13 @@ export function StudentDataTable() {
                             onChange={(e) => { setGradeFilter(e.target.value); setPage(1); }}
                         >
                             <option value="All">All Grades</option>
-                            <optgroup label="Cambridge System">
-                                {["pre-nursery", "nursery", "Kindergarden", "junior-1", "junior-2", "junior-3", "jr-4", "jr-5", "senior-1", "snr-2", "snr-3", "O1", "o2", "03"].map(g => (
+                            <optgroup label="Cambridge GCE O' Level System">
+                                {["Pre-Nursery", "Nursery", "K.G.", "JR-I", "JR-II", "JR-III", "JR-IV", "JR-V", "SR-I", "SR-II", "SR-III", "O-I", "O-II", "O-III"].map(g => (
                                     <option key={g} value={g}>{g}</option>
                                 ))}
                             </optgroup>
-                            <optgroup label="Secondary System">
-                                {["6", "7", "8", "9", "10"].map(g => (
+                            <optgroup label="Secondary System of Studies">
+                                {["VI", "VII", "VIII", "IX", "X"].map(g => (
                                     <option key={g} value={g}>{g}</option>
                                 ))}
                             </optgroup>
