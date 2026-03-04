@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Save } from "lucide-react";
+import api from "@/lib/api";
 
 export function AdmissionForm() {
     const [currentStep, setCurrentStep] = useState(1);
+    const [isFetchingCC, setIsFetchingCC] = useState(false);
+    const [ccError, setCcError] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         // Page 1: Personal Data
@@ -75,8 +78,138 @@ export function AdmissionForm() {
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-zinc-700 mb-1">Computer Code #</label>
-                        <input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-                            value={formData.computerCodeNo} onChange={e => setFormData({ ...formData, computerCodeNo: e.target.value })} />
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                                value={formData.computerCodeNo}
+                                onChange={e => {
+                                    setFormData({ ...formData, computerCodeNo: e.target.value });
+                                    setCcError(null);
+                                }}
+                                placeholder="CC-YYYY-00001"
+                            />
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    if (!formData.computerCodeNo.trim()) {
+                                        setCcError("Enter a Computer Code first.");
+                                        return;
+                                    }
+                                    setIsFetchingCC(true);
+                                    setCcError(null);
+                                    try {
+                                        const { data } = await api.get<{ data: any }>(
+                                            `/v1/admissions/by-cc/${encodeURIComponent(formData.computerCodeNo.trim())}`
+                                        );
+                                        const student = data?.data;
+                                        if (!student) {
+                                            setCcError("No admission data returned for this Computer Code.");
+                                            return;
+                                        }
+
+                                        const admission = Array.isArray(student.student_admissions)
+                                            ? student.student_admissions[0]
+                                            : null;
+
+                                        const fatherRel = Array.isArray(student.student_guardians)
+                                            ? student.student_guardians.find(
+                                                (g: any) => g.relationship === "Father"
+                                            )
+                                            : null;
+                                        const motherRel = Array.isArray(student.student_guardians)
+                                            ? student.student_guardians.find(
+                                                (g: any) => g.relationship === "Mother"
+                                            )
+                                            : null;
+                                        const emergencyRel = Array.isArray(student.student_guardians)
+                                            ? student.student_guardians.find(
+                                                (g: any) => g.is_emergency_contact
+                                            )
+                                            : null;
+
+                                        const father = fatherRel?.guardians;
+                                        const mother = motherRel?.guardians;
+                                        const emergency = emergencyRel?.guardians;
+
+                                        const dob = student.dob ? new Date(student.dob) : null;
+
+                                        const previousSchools = Array.isArray(student.student_previous_schools)
+                                            ? student.student_previous_schools.map((s: any) => ({
+                                                name: s.school_name ?? "",
+                                                location: s.location ?? "",
+                                                classStudied: [s.class_studied_from, s.class_studied_to]
+                                                    .filter(Boolean)
+                                                    .join(" - "),
+                                                reasonForLeaving: s.reason_for_leaving ?? "",
+                                            }))
+                                            : undefined;
+
+                                        setFormData((prev) => ({
+                                            ...prev,
+                                            computerCodeNo: student.cc_number ?? prev.computerCodeNo,
+                                            candidateName: `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim(),
+                                            candidatePhone: student.primary_phone ?? prev.candidatePhone,
+                                            candidateEmail: student.email ?? prev.candidateEmail,
+                                            gender: student.gender ?? prev.gender,
+                                            nationality: student.nationality ?? prev.nationality,
+                                            religion: student.religion ?? prev.religion,
+                                            identificationMarks: student.identification_marks ?? prev.identificationMarks,
+                                            ageYears: student.admission_age_years?.toString() ?? prev.ageYears,
+                                            physicalImpairment: student.physical_impairment ?? prev.physicalImpairment,
+                                            candidateInterests: student.interests ?? prev.candidateInterests,
+                                            medicalProblems: student.medical_info ?? prev.medicalProblems,
+                                            publicizeConsent:
+                                                student.consent_publicity === true
+                                                    ? "Consent"
+                                                    : student.consent_publicity === false
+                                                        ? "Dissent"
+                                                        : prev.publicizeConsent,
+                                            dobDay: dob ? String(dob.getDate()).padStart(2, "0") : prev.dobDay,
+                                            dobMonth: dob ? String(dob.getMonth() + 1).padStart(2, "0") : prev.dobMonth,
+                                            dobYear: dob ? String(dob.getFullYear()) : prev.dobYear,
+                                            admissionClass: admission?.requested_grade ?? prev.admissionClass,
+                                            admissionSystem: admission?.academic_system ?? prev.admissionSystem,
+                                            fatherName: father?.full_name ?? prev.fatherName,
+                                            fatherCellPhone: father?.whatsapp_number ?? father?.primary_phone ?? prev.fatherCellPhone,
+                                            fatherHomePhone: father?.primary_phone ?? prev.fatherHomePhone,
+                                            fatherWorkPhone: father?.work_phone ?? prev.fatherWorkPhone,
+                                            fatherCnic: father?.cnic ?? prev.fatherCnic,
+                                            fatherEmail: father?.email_address ?? prev.fatherEmail,
+                                            motherName: mother?.full_name ?? prev.motherName,
+                                            motherCellPhone: mother?.whatsapp_number ?? mother?.primary_phone ?? prev.motherCellPhone,
+                                            motherHomePhone: mother?.primary_phone ?? prev.motherHomePhone,
+                                            motherCnic: mother?.cnic ?? prev.motherCnic,
+                                            motherEmail: mother?.email_address ?? prev.motherEmail,
+                                            guardianName: emergency?.full_name ?? prev.guardianName,
+                                            guardianCellPhone: emergency?.primary_phone ?? prev.guardianCellPhone,
+                                            guardianCnic: emergency?.cnic ?? prev.guardianCnic,
+                                            previousSchools: previousSchools && previousSchools.length
+                                                ? previousSchools
+                                                : prev.previousSchools,
+                                        }));
+                                    } catch (error: any) {
+                                        const status = error?.response?.status;
+                                        if (status === 404) {
+                                            setCcError("No admission found for this Computer Code.");
+                                        } else {
+                                            setCcError("Failed to fetch admission details. Please try again.");
+                                        }
+                                    } finally {
+                                        setIsFetchingCC(false);
+                                    }
+                                }}
+                                disabled={isFetchingCC}
+                                className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded border border-primary text-primary bg-white hover:bg-primary/5 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                                {isFetchingCC ? "Fetching..." : "Fetch"}
+                            </button>
+                        </div>
+                        {ccError && (
+                            <p className="mt-1 text-[11px] text-red-600">
+                                {ccError}
+                            </p>
+                        )}
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-zinc-700 mb-1">G.R. #</label>
@@ -132,44 +265,109 @@ export function AdmissionForm() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Candidate&apos;s Full Name (In Block Letters Only)</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg uppercase focus:ring-2 mt-0 focus:ring-primary/20 focus:border-primary outline-none" />
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg uppercase focus:ring-2 mt-0 focus:ring-primary/20 focus:border-primary outline-none"
+                                            value={formData.candidateName}
+                                            onChange={e => setFormData({ ...formData, candidateName: e.target.value })}
+                                        />
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Date of Birth</label>
                                         <div className="flex gap-2">
-                                            <input type="text" placeholder="DD" className="w-1/3 px-3 py-2 border border-zinc-300 rounded-lg text-center" />
-                                            <input type="text" placeholder="MM" className="w-1/3 px-3 py-2 border border-zinc-300 rounded-lg text-center" />
-                                            <input type="text" placeholder="YYYY" className="w-1/3 px-3 py-2 border border-zinc-300 rounded-lg text-center" />
+                                            <input
+                                                type="text"
+                                                placeholder="DD"
+                                                className="w-1/3 px-3 py-2 border border-zinc-300 rounded-lg text-center"
+                                                value={formData.dobDay}
+                                                onChange={e => setFormData({ ...formData, dobDay: e.target.value })}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="MM"
+                                                className="w-1/3 px-3 py-2 border border-zinc-300 rounded-lg text-center"
+                                                value={formData.dobMonth}
+                                                onChange={e => setFormData({ ...formData, dobMonth: e.target.value })}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="YYYY"
+                                                className="w-1/3 px-3 py-2 border border-zinc-300 rounded-lg text-center"
+                                                value={formData.dobYear}
+                                                onChange={e => setFormData({ ...formData, dobYear: e.target.value })}
+                                            />
                                         </div>
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Age at time of admission</label>
                                         <div className="flex gap-2">
-                                            <div className="relative w-1/3"><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg pr-8" /><span className="absolute right-3 top-2.5 text-xs text-zinc-400">Yrs</span></div>
-                                            <div className="relative w-1/3"><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg pr-8" /><span className="absolute right-3 top-2.5 text-xs text-zinc-400">Mos</span></div>
-                                            <div className="relative w-1/3"><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg pr-8" /><span className="absolute right-3 top-2.5 text-xs text-zinc-400">Dys</span></div>
+                                            <div className="relative w-1/3">
+                                                <input
+                                                    type="text"
+                                                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg pr-8"
+                                                    value={formData.ageYears}
+                                                    onChange={e => setFormData({ ...formData, ageYears: e.target.value })}
+                                                />
+                                                <span className="absolute right-3 top-2.5 text-xs text-zinc-400">Yrs</span>
+                                            </div>
+                                            <div className="relative w-1/3">
+                                                <input
+                                                    type="text"
+                                                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg pr-8"
+                                                    value={formData.ageMonths}
+                                                    onChange={e => setFormData({ ...formData, ageMonths: e.target.value })}
+                                                />
+                                                <span className="absolute right-3 top-2.5 text-xs text-zinc-400">Mos</span>
+                                            </div>
+                                            <div className="relative w-1/3">
+                                                <input
+                                                    type="text"
+                                                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg pr-8"
+                                                    value={formData.ageDays}
+                                                    onChange={e => setFormData({ ...formData, ageDays: e.target.value })}
+                                                />
+                                                <span className="absolute right-3 top-2.5 text-xs text-zinc-400">Dys</span>
+                                            </div>
                                         </div>
                                     </div>
 
                                     <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-6">
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 mb-1.5">Gender</label>
-                                            <select className="w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white">
-                                                <option>Male</option><option>Female</option>
+                                            <select
+                                                className="w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white"
+                                                value={formData.gender}
+                                                onChange={e => setFormData({ ...formData, gender: e.target.value })}
+                                            >
+                                                <option value="">Select</option>
+                                                <option value="Male">Male</option>
+                                                <option value="Female">Female</option>
                                             </select>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 mb-1.5">Religion</label>
-                                            <select className="w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white">
-                                                <option>Muslim</option><option>Christian</option><option>Hindu</option><option>Others</option>
+                                            <select
+                                                className="w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white"
+                                                value={formData.religion}
+                                                onChange={e => setFormData({ ...formData, religion: e.target.value })}
+                                            >
+                                                <option value="Muslim">Muslim</option>
+                                                <option value="Christian">Christian</option>
+                                                <option value="Hindu">Hindu</option>
+                                                <option value="Others">Others</option>
                                             </select>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 mb-1.5">Nationality</label>
-                                            <select className="w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white">
-                                                <option>Pakistani</option><option>Other</option>
+                                            <select
+                                                className="w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white"
+                                                value={formData.nationality}
+                                                onChange={e => setFormData({ ...formData, nationality: e.target.value })}
+                                            >
+                                                <option value="Pakistani">Pakistani</option>
+                                                <option value="Other">Other</option>
                                             </select>
                                         </div>
                                     </div>
@@ -180,7 +378,12 @@ export function AdmissionForm() {
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Identification Mark(s)</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.identificationMarks}
+                                            onChange={e => setFormData({ ...formData, identificationMarks: e.target.value })}
+                                        />
                                     </div>
                                 </div>
                             </section>
@@ -306,7 +509,12 @@ export function AdmissionForm() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Name</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                            value={formData.fatherName}
+                                            onChange={e => setFormData({ ...formData, fatherName: e.target.value })}
+                                        />
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Mailing Address</label>
@@ -314,11 +522,21 @@ export function AdmissionForm() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Home Phone #</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.fatherHomePhone}
+                                            onChange={e => setFormData({ ...formData, fatherHomePhone: e.target.value })}
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Cellular Phone #</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.fatherCellPhone}
+                                            onChange={e => setFormData({ ...formData, fatherCellPhone: e.target.value })}
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Emergency Contact Name & Number</label>
@@ -372,11 +590,22 @@ export function AdmissionForm() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Work Phone #</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.fatherWorkPhone}
+                                            onChange={e => setFormData({ ...formData, fatherWorkPhone: e.target.value })}
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">C.N.I.C. #</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg placeholder-zinc-300" placeholder="00000-0000000-0" />
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg placeholder-zinc-300"
+                                            placeholder="00000-0000000-0"
+                                            value={formData.fatherCnic}
+                                            onChange={e => setFormData({ ...formData, fatherCnic: e.target.value })}
+                                        />
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Office Address</label>
@@ -384,7 +613,12 @@ export function AdmissionForm() {
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Email Address</label>
-                                        <input type="email" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input
+                                            type="email"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.fatherEmail}
+                                            onChange={e => setFormData({ ...formData, fatherEmail: e.target.value })}
+                                        />
                                     </div>
                                 </div>
                             </section>
@@ -397,7 +631,12 @@ export function AdmissionForm() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Name</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg outline-none focus:border-secondary focus:ring-1 focus:ring-secondary" />
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg outline-none focus:border-secondary focus:ring-1 focus:ring-secondary"
+                                            value={formData.motherName}
+                                            onChange={e => setFormData({ ...formData, motherName: e.target.value })}
+                                        />
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Mailing Address</label>
@@ -405,11 +644,21 @@ export function AdmissionForm() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Home Phone #</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.motherHomePhone}
+                                            onChange={e => setFormData({ ...formData, motherHomePhone: e.target.value })}
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Cellular Phone #</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.motherCellPhone}
+                                            onChange={e => setFormData({ ...formData, motherCellPhone: e.target.value })}
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Emergency Contact Name & Number</label>
@@ -437,9 +686,26 @@ export function AdmissionForm() {
                                     <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupational Position</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
                                     <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Monthly Income</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
                                     <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Work Phone #</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
-                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">C.N.I.C. #</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg placeholder-zinc-300" placeholder="00000-0000000-0" /></div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">C.N.I.C. #</label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg placeholder-zinc-300"
+                                            placeholder="00000-0000000-0"
+                                            value={formData.motherCnic}
+                                            onChange={e => setFormData({ ...formData, motherCnic: e.target.value })}
+                                        />
+                                    </div>
                                     <div className="md:col-span-2"><label className="block text-sm font-medium text-zinc-700 mb-1.5">Office Address</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
-                                    <div className="md:col-span-2"><label className="block text-sm font-medium text-zinc-700 mb-1.5">Email Address</label><input type="email" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Email Address</label>
+                                        <input
+                                            type="email"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.motherEmail}
+                                            onChange={e => setFormData({ ...formData, motherEmail: e.target.value })}
+                                        />
+                                    </div>
                                 </div>
                             </section>
                         </div>
@@ -458,16 +724,43 @@ export function AdmissionForm() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-100 p-5 rounded-xl border border-zinc-200">
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Guardian Name</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.guardianName}
+                                            onChange={e => setFormData({ ...formData, guardianName: e.target.value })}
+                                        />
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Mailing Address</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.guardianAddress}
+                                            onChange={e => setFormData({ ...formData, guardianAddress: e.target.value })}
+                                        />
                                     </div>
-                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Cellular Phone #</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Cellular Phone #</label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            value={formData.guardianCellPhone}
+                                            onChange={e => setFormData({ ...formData, guardianCellPhone: e.target.value })}
+                                        />
+                                    </div>
                                     <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Relationship with Candidate</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
                                     <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupation</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
-                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">C.N.I.C. #</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" placeholder="00000-0000000-0" /></div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">C.N.I.C. #</label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            placeholder="00000-0000000-0"
+                                            value={formData.guardianCnic}
+                                            onChange={e => setFormData({ ...formData, guardianCnic: e.target.value })}
+                                        />
+                                    </div>
                                 </div>
                             </section>
 
@@ -541,25 +834,50 @@ export function AdmissionForm() {
                                 <div className="space-y-6">
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Areas in which candidate can improve</label>
-                                        <textarea rows={2} className="w-full px-3 py-2 border border-zinc-300 rounded-lg resize-none" />
+                                        <textarea
+                                            rows={2}
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg resize-none"
+                                            value={formData.areasToImprove}
+                                            onChange={e => setFormData({ ...formData, areasToImprove: e.target.value })}
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Any medical / health problem / allergy?</label>
-                                        <textarea rows={2} className="w-full px-3 py-2 border border-zinc-300 rounded-lg resize-none bg-red-50/30 focus:bg-white" />
+                                        <textarea
+                                            rows={2}
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg resize-none bg-red-50/30 focus:bg-white"
+                                            value={formData.medicalProblems}
+                                            onChange={e => setFormData({ ...formData, medicalProblems: e.target.value })}
+                                        />
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 mb-1.5">Any medication?</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                            <input
+                                                type="text"
+                                                className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.medication}
+                                                onChange={e => setFormData({ ...formData, medication: e.target.value })}
+                                            />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 mb-1.5">Any physical impairment?</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                            <input
+                                                type="text"
+                                                className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                value={formData.physicalImpairment}
+                                                onChange={e => setFormData({ ...formData, physicalImpairment: e.target.value })}
+                                            />
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Candidate&apos;s Interests</label>
-                                        <textarea rows={2} className="w-full px-3 py-2 border border-zinc-300 rounded-lg resize-none" />
+                                        <textarea
+                                            rows={2}
+                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg resize-none"
+                                            value={formData.candidateInterests}
+                                            onChange={e => setFormData({ ...formData, candidateInterests: e.target.value })}
+                                        />
                                     </div>
                                 </div>
                             </section>
