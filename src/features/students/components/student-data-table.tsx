@@ -59,6 +59,33 @@ const COLUMNS: ColumnDef[] = [
     { id: "residential_address", label: "Residential Address", isDefault: false }
 ];
 
+const COL_TO_CATEGORY_MAP: Record<keyof StudentListItem, string> = {
+    id: "core",
+    student_full_name: "core",
+    gr_number: "core",
+    cc_number: "core",
+    campus: "core",
+    enrollment_status: "core",
+    financial_status_badge: "core",
+    registration_number: "core",
+    house_and_color: "core",
+
+    grade_and_section: "academic",
+
+    family_id: "family",
+    household_name: "family",
+    residential_address: "family",
+
+    primary_guardian_name: "contact",
+    whatsapp_number: "contact",
+    primary_guardian_cnic: "contact",
+
+    date_of_birth: "demographic",
+
+    total_outstanding_balance: "core",
+    advance_credit_balance: "core"
+};
+
 // Custom debounce hook inline
 function useDebounce<T>(value: T, delay: number): T {
     const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -87,6 +114,15 @@ export function StudentDataTable() {
     );
     const [showColumnToggles, setShowColumnToggles] = useState(false);
 
+    const activeCategories = useMemo(() => {
+        const cats = new Set<string>();
+        visibleColumns.forEach(col => {
+            const cat = COL_TO_CATEGORY_MAP[col];
+            if (cat) cats.add(cat);
+        });
+        return Array.from(cats).join(",");
+    }, [visibleColumns]);
+
     // State: Filters
     const [searchQuery, setSearchQuery] = useState("");
     const debouncedSearchQuery = useDebounce(searchQuery, 400);
@@ -109,9 +145,10 @@ export function StudentDataTable() {
             limit,
             search: debouncedSearchQuery || undefined,
             campus: campusFilter !== "All" ? campusFilter : undefined,
-            status: statusFilter !== "All" ? statusFilter : undefined
+            status: statusFilter !== "All" ? statusFilter : undefined,
+            fields: activeCategories || undefined
         }));
-    }, [dispatch, page, limit, debouncedSearchQuery, campusFilter, statusFilter]);
+    }, [dispatch, page, limit, debouncedSearchQuery, campusFilter, statusFilter, activeCategories]);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -143,7 +180,7 @@ export function StudentDataTable() {
     const campuses = ["North Campus", "KFC Branch", "Gulshan Campus", "PECHS Branch", "DHA Branch"];
 
     return (
-        <div className="bg-white border rounded-xl shadow-sm flex flex-col w-full text-sm">
+        <div className="bg-white border rounded-xl shadow-sm flex flex-col w-full h-full text-sm">
 
             {/* Top Toolbar */}
             <div className="p-4 border-b flex flex-col gap-4 lg:flex-row lg:items-center justify-between bg-zinc-50/50 rounded-t-xl">
@@ -246,8 +283,8 @@ export function StudentDataTable() {
                 </div>
             )}
 
-            {/* Table Area (Scrollable X) */}
-            <div className="overflow-x-auto w-full min-h-[400px]">
+            {/* Table Area (Scrollable X and Y) */}
+            <div className="flex-1 overflow-auto w-full min-h-0">
                 <table className="w-full text-left border-collapse whitespace-nowrap">
                     <thead>
                         <tr className="bg-zinc-50 border-b text-zinc-500 font-medium text-xs uppercase tracking-wider">

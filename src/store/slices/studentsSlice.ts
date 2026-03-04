@@ -53,7 +53,7 @@ const initialState: StudentsState = {
 export const fetchStudents = createAsyncThunk(
   'students/fetchAll',
   async (
-    params: { page?: number; limit?: number; search?: string; campus?: string; status?: string } = {},
+    params: { page?: number; limit?: number; search?: string; campus?: string; status?: string; fields?: string } = {},
     { rejectWithValue }
   ) => {
     try {
