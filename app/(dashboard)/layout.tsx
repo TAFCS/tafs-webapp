@@ -25,7 +25,7 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
 
                 {/* Scrollable Content Area */}
                 <main className="flex-1 overflow-y-auto w-full pb-20"> {/* pb-20 to account for BottomNav */}
-                    <div className="w-full h-full animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="mx-auto max-w-lg md:max-w-2xl lg:max-w-4xl p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         {children}
                     </div>
                 </main>
