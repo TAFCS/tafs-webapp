@@ -15,8 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TAFS ERP",
+  title: "TAFSync",
   description: "The American Foundation School — Digital Transformation",
+  icons: {
+    icon: "/alvl-logo.png",
+  },
 };
 
 export default function RootLayout({

@@ -1,4 +1,5 @@
 import { Bell, Menu } from "lucide-react";
+import Image from "next/image";
 
 interface GlobalHeaderProps {
     onMenuClick: () => void;
@@ -20,9 +21,12 @@ export function GlobalHeader({ onMenuClick }: GlobalHeaderProps) {
             </button>
 
             {/* Center: Branding */}
-            <div className="flex flex-col items-center justify-center">
-                <h1 className="text-lg font-bold text-primary tracking-tight leading-tight">TAFS</h1>
-                <span className="text-[10px] font-medium text-secondary uppercase tracking-widest leading-none">ERP Portal</span>
+            <div className="flex items-center gap-2">
+                <Image src="/alvl-logo.png" alt="TAFSync Logo" width={32} height={32} className="object-contain" priority />
+                <div className="flex flex-col items-start justify-center">
+                    <h1 className="text-lg font-bold text-primary tracking-tight leading-tight">TAFSync</h1>
+                    <span className="text-[10px] font-medium text-secondary uppercase tracking-widest leading-none">ERP Portal</span>
+                </div>
             </div>
 
             {/* Right: Notifications */}
