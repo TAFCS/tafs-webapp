@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, ReactNode } from "react";
+import React, { useState, useEffect, ReactNode } from "react";
 import {
     Search,
     MoreVertical,
@@ -14,76 +14,14 @@ import {
     Users
 } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
-
-// Mock Data Models for Families
-export interface Family {
-    id: number;
-    idx: number;
-    legacy_pid: string | null;
-    household_name: string;
-    primary_address: string | null;
-    consent_publicity: boolean;
-    username: string | null;
-    password_hash?: string | null;
-    created_at: string;
-    deleted_at: string | null;
-    email: string | null;
-}
-
-const MOCK_FAMILIES: Family[] = [
-    {
-        idx: 0,
-        id: 1,
-        legacy_pid: null,
-        household_name: "Test Household",
-        primary_address: null,
-        consent_publicity: false,
-        username: "testparent",
-        password_hash: "$2b$10$r7huqZ3gGnNHvgtvUtVCCuhmBGjBZIOotUJFOtmiEaPyEmId5LgU2",
-        created_at: "2026-03-03 11:04:13.37332",
-        deleted_at: null,
-        email: "parent@example.com"
-    },
-    {
-        idx: 1,
-        id: 4,
-        legacy_pid: null,
-        household_name: "dsada",
-        primary_address: null,
-        consent_publicity: false,
-        username: null,
-        password_hash: null,
-        created_at: "2026-03-03 13:21:29.778",
-        deleted_at: null,
-        email: null
-    },
-    {
-        idx: 2,
-        id: 7,
-        legacy_pid: null,
-        household_name: "asdad",
-        primary_address: null,
-        consent_publicity: false,
-        username: null,
-        password_hash: null,
-        created_at: "2026-03-04 09:20:57.824",
-        deleted_at: null,
-        email: null
-    },
-    {
-        idx: 3,
-        id: 11,
-        legacy_pid: null,
-        household_name: "fdsfasdfa",
-        primary_address: null,
-        consent_publicity: false,
-        username: null,
-        password_hash: null,
-        created_at: "2026-03-04 09:41:03.483",
-        deleted_at: null,
-        email: null
-    }
-];
+import api from "@/lib/api";
+import {
+    familiesService,
+    type Family,
+    type PaginationMeta,
+    type CreateFamilyPayload,
+} from "@/lib/families.service";
+import { FamilyDetailModal } from "./family-detail-modal";
 
 // Columns Definition
 interface ColumnDef {
@@ -104,7 +42,12 @@ const COLUMNS: ColumnDef[] = [
 ];
 
 export function FamiliesDataTable() {
+    // ── Live data state ──────────────────────────────────────────────────────
+    const [families, setFamilies] = useState<Family[]>([]);
+    const [meta, setMeta] = useState<PaginationMeta | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [page, setPage] = useState(1);
 
     // State: Columns
     const [visibleColumns, setVisibleColumns] = useState<Set<keyof Family>>(
@@ -119,6 +62,88 @@ export function FamiliesDataTable() {
 
     // Actions Menu
     const [openActionRowId, setOpenActionRowId] = useState<number | null>(null);
+
+    // Modal States
+    const [isCreateFamilyModalOpen, setIsCreateFamilyModalOpen] = useState(false);
+    const [isChangeFamilyModalOpen, setIsChangeFamilyModalOpen] = useState(false);
+    const [selectedFamilyId, setSelectedFamilyId] = useState<number | null>(null);
+    const [detailFamilyId, setDetailFamilyId] = useState<number | null>(null);
+
+    // ── Fetch families from API ───────────────────────────────────────────────
+    const fetchFamilies = React.useCallback(async (currentPage: number, search: string) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const result = await familiesService.list({
+                page: currentPage,
+                limit: 10,
+                search: search || undefined,
+            });
+            setFamilies(result.data);
+            setMeta(result.meta);
+        } catch {
+            setError("Failed to load families. Please try again.");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch]);
+
+    useEffect(() => {
+        fetchFamilies(page, debouncedSearch);
+    }, [page, debouncedSearch, fetchFamilies]);
+
+    // ── Create family form state ──────────────────────────────────────────────
+    const [createForm, setCreateForm] = useState<CreateFamilyPayload>({ household_name: "" });
+    const [isCreating, setIsCreating] = useState(false);
+    const [createError, setCreateError] = useState<string | null>(null);
+
+    const handleCreateFamily = async () => {
+        if (!createForm.household_name.trim()) return;
+        setIsCreating(true);
+        setCreateError(null);
+        try {
+            await familiesService.create(createForm);
+            setIsCreateFamilyModalOpen(false);
+            setCreateForm({ household_name: "" });
+            fetchFamilies(page, debouncedSearch);
+        } catch {
+            setCreateError("Failed to create family. Please try again.");
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
+    // ── Assign child state ────────────────────────────────────────────────────
+    const [assignStudentSearch, setAssignStudentSearch] = useState("");
+    const [assignFamilySearch, setAssignFamilySearch] = useState("");
+    const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+    const [selectedStudentName, setSelectedStudentName] = useState("");
+    const [isAssigning, setIsAssigning] = useState(false);
+    const [assignError, setAssignError] = useState<string | null>(null);
+
+    const handleAssignChild = async () => {
+        if (!selectedStudentId || !selectedFamilyId) return;
+        setIsAssigning(true);
+        setAssignError(null);
+        try {
+            await familiesService.assignChild(selectedFamilyId, selectedStudentId);
+            setIsChangeFamilyModalOpen(false);
+            setSelectedStudentId(null);
+            setSelectedStudentName("");
+            setSelectedFamilyId(null);
+            setAssignStudentSearch("");
+            setAssignFamilySearch("");
+            fetchFamilies(page, debouncedSearch);
+        } catch {
+            setAssignError("Failed to assign student. Please try again.");
+        } finally {
+            setIsAssigning(false);
+        }
+    };
 
     // Click outside listener
     useEffect(() => {
@@ -146,24 +171,6 @@ export function FamiliesDataTable() {
         }
         setVisibleColumns(next);
     };
-
-    // Derived Logic: Filters
-    const filteredData = useMemo(() => {
-        return MOCK_FAMILIES.filter(family => {
-            // 1. Global Search
-            if (debouncedSearch) {
-                const q = debouncedSearch.toLowerCase();
-                const matches =
-                    family.id.toString().includes(q) ||
-                    family.household_name.toLowerCase().includes(q) ||
-                    (family.email?.toLowerCase().includes(q) || false) ||
-                    (family.username?.toLowerCase().includes(q) || false);
-                if (!matches) return false;
-            }
-
-            return true;
-        });
-    }, [debouncedSearch]);
 
     return (
         <div className="bg-white border rounded-xl shadow-sm flex flex-col w-full text-sm flex-1 min-h-0">
@@ -221,6 +228,22 @@ export function FamiliesDataTable() {
                     </div>
                 </div>
 
+                <div className="flex items-center gap-2 ml-auto w-full lg:w-auto mt-2 lg:mt-0">
+                    <button
+                        onClick={() => setIsCreateFamilyModalOpen(true)}
+                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-sm font-medium"
+                    >
+                        <Users className="h-4 w-4" />
+                        Create New Family
+                    </button>
+                    <button
+                        onClick={() => setIsChangeFamilyModalOpen(true)}
+                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-zinc-700 rounded-lg hover:bg-zinc-50 transition-colors shadow-sm font-medium"
+                    >
+                        <LinkIcon className="h-4 w-4" />
+                        Change Student's Family
+                    </button>
+                </div>
 
             </div>
 
@@ -246,25 +269,31 @@ export function FamiliesDataTable() {
                             {COLUMNS.map(col => {
                                 if (!visibleColumns.has(col.id)) return null;
                                 return (
-                                    <th key={col.id} className="py-3 px-3 first:pl-4">
+                                    <th key={col.id} className="py-3 px-4 first:pl-6">
                                         {col.label}
                                     </th>
                                 );
                             })}
-                            <th className="py-3 px-3 text-right pr-4 sticky right-0 bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] z-10 w-[70px]">
+                            <th className="py-3 px-4 text-right pr-6 sticky right-0 bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] z-10 w-[80px]">
                                 Actions
                             </th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 relative">
-                        {filteredData.length === 0 ? (
+                        {error ? (
+                            <tr>
+                                <td colSpan={visibleColumns.size + 1} className="py-12 text-center text-red-500">
+                                    {error}
+                                </td>
+                            </tr>
+                        ) : families.length === 0 && !isLoading ? (
                             <tr>
                                 <td colSpan={visibleColumns.size + 1} className="py-12 text-center text-zinc-500">
                                     No families found matching your criteria.
                                 </td>
                             </tr>
                         ) : (
-                            filteredData.map((family) => (
+                            families.map((family) => (
                                 <tr key={family.id} className="hover:bg-zinc-50/50 transition-colors group">
                                     {COLUMNS.map(col => {
                                         if (!visibleColumns.has(col.id)) return null;
@@ -323,13 +352,13 @@ export function FamiliesDataTable() {
                                         }
 
                                         return (
-                                            <td key={col.id} className="py-3 px-3 first:pl-4 text-zinc-700">
+                                            <td key={col.id} className="py-3 px-4 first:pl-6 text-zinc-700">
                                                 {cellContent}
                                             </td>
                                         );
                                     })}
 
-                                    <td className={`py-3 px-3 text-right pr-4 sticky right-0 bg-white group-hover:bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] transition-colors w-[70px] ${openActionRowId === family.id ? 'z-30' : 'z-10'}`}>
+                                    <td className="py-3 px-4 text-right pr-6 sticky right-0 bg-white group-hover:bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] transition-colors z-10 w-[80px]">
                                         <div className="relative inline-block text-left action-menu-container">
                                             <button
                                                 onClick={() => setOpenActionRowId(openActionRowId === family.id ? null : family.id)}
@@ -341,8 +370,8 @@ export function FamiliesDataTable() {
                                             {openActionRowId === family.id && (
                                                 <div className="absolute right-0 top-8 mt-1 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black/5 focus:outline-none z-50 overflow-hidden divide-y divide-zinc-100 flex flex-col">
                                                     <div className="py-1">
-                                                        <ActionItem icon={<Eye />} label="View Family Profile" onClick={() => setOpenActionRowId(null)} />
-                                                        <ActionItem icon={<Users />} label="View Enrolled Students" />
+                                                        <ActionItem icon={<Eye />} label="View Family Profile" onClick={() => { setDetailFamilyId(family.id); setOpenActionRowId(null); }} />
+                                                        <ActionItem icon={<Users />} label="View Enrolled Students" onClick={() => { setDetailFamilyId(family.id); setOpenActionRowId(null); }} />
                                                     </div>
                                                     <div className="py-1">
                                                         <ActionItem icon={<DollarSign />} label="Billing & Ledger" color="text-emerald-600" />
@@ -363,12 +392,136 @@ export function FamiliesDataTable() {
             </div>
 
             <div className="p-4 border-t bg-zinc-50 rounded-b-xl flex flex-col sm:flex-row gap-4 justify-between items-center text-zinc-500">
-                <span>Showing {filteredData.length} records</span>
+                <span>
+                    {meta
+                        ? `Showing ${(meta.page - 1) * meta.limit + 1}–${Math.min(meta.page * meta.limit, meta.total)} of ${meta.total} records`
+                        : `Showing ${families.length} records`}
+                </span>
                 <div className="flex gap-2">
-                    <button className="px-3 py-1.5 border rounded-lg bg-white hover:bg-zinc-50 transition-colors disabled:opacity-50" disabled>Previous</button>
-                    <button className="px-3 py-1.5 border rounded-lg bg-white hover:bg-zinc-50 transition-colors disabled:opacity-50" disabled>Next</button>
+                    <button
+                        className="px-3 py-1.5 border rounded-lg bg-white hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                        disabled={!meta?.hasPrev || isLoading}
+                        onClick={() => setPage(p => p - 1)}
+                    >Previous</button>
+                    <button
+                        className="px-3 py-1.5 border rounded-lg bg-white hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                        disabled={!meta?.hasNext || isLoading}
+                        onClick={() => setPage(p => p + 1)}
+                    >Next</button>
                 </div>
             </div>
+
+            {/* Family Detail Modal */}
+            {detailFamilyId !== null && (
+                <FamilyDetailModal
+                    familyId={detailFamilyId}
+                    onClose={() => setDetailFamilyId(null)}
+                />
+            )}
+
+            {/* Create Family Modal */}
+            {isCreateFamilyModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
+                        <div className="px-6 py-4 border-b flex justify-between items-center bg-zinc-50">
+                            <h3 className="font-semibold text-lg text-zinc-900">Create New Family</h3>
+                            <button onClick={() => { setIsCreateFamilyModalOpen(false); setCreateForm({ household_name: "" }); setCreateError(null); }} className="text-zinc-400 hover:text-zinc-600">✕</button>
+                        </div>
+                        <div className="p-6 flex-1 overflow-y-auto">
+                            <p className="text-zinc-500 text-sm mb-4">Enter details to create a new household record.</p>
+                            {createError && <p className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{createError}</p>}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-zinc-700 mb-1">Household Name <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 focus:ring-primary focus:border-primary text-sm"
+                                        placeholder="e.g. The Smith Family"
+                                        value={createForm.household_name}
+                                        onChange={e => setCreateForm(f => ({ ...f, household_name: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-zinc-700 mb-1">Email</label>
+                                        <input
+                                            type="email"
+                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 focus:ring-primary focus:border-primary text-sm"
+                                            value={createForm.email ?? ""}
+                                            onChange={e => setCreateForm(f => ({ ...f, email: e.target.value || undefined }))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-zinc-700 mb-1">Username</label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 focus:ring-primary focus:border-primary text-sm"
+                                            value={createForm.username ?? ""}
+                                            onChange={e => setCreateForm(f => ({ ...f, username: e.target.value || undefined }))}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-zinc-700 mb-1">Address</label>
+                                    <textarea
+                                        rows={2}
+                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 focus:ring-primary focus:border-primary text-sm resize-none"
+                                        value={createForm.primary_address ?? ""}
+                                        onChange={e => setCreateForm(f => ({ ...f, primary_address: e.target.value || undefined }))}
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        id="consent"
+                                        type="checkbox"
+                                        className="rounded border-zinc-300 h-4 w-4 text-primary"
+                                        checked={createForm.consent_publicity ?? false}
+                                        onChange={e => setCreateForm(f => ({ ...f, consent_publicity: e.target.checked }))}
+                                    />
+                                    <label htmlFor="consent" className="text-xs text-zinc-700 cursor-pointer">Family consents to publicity use</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 border-t bg-zinc-50 flex justify-end gap-3">
+                            <button onClick={() => { setIsCreateFamilyModalOpen(false); setCreateForm({ household_name: "" }); setCreateError(null); }} className="px-4 py-2 border border-zinc-200 rounded-lg text-sm hover:bg-zinc-100 font-medium text-zinc-700 bg-white shadow-sm transition-colors">Cancel</button>
+                            <button
+                                onClick={handleCreateFamily}
+                                disabled={isCreating || !createForm.household_name.trim()}
+                                className="px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 font-medium shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                            >{isCreating ? "Creating..." : "Create Family"}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Change Student's Family Modal */}
+            {isChangeFamilyModalOpen && (
+                <AssignChildModal
+                    studentSearch={assignStudentSearch}
+                    setStudentSearch={setAssignStudentSearch}
+                    familySearch={assignFamilySearch}
+                    setFamilySearch={setAssignFamilySearch}
+                    selectedStudentId={selectedStudentId}
+                    setSelectedStudentId={setSelectedStudentId}
+                    selectedStudentName={selectedStudentName}
+                    setSelectedStudentName={setSelectedStudentName}
+                    selectedFamilyId={selectedFamilyId}
+                    setSelectedFamilyId={setSelectedFamilyId}
+                    onAssign={handleAssignChild}
+                    onClose={() => {
+                        setIsChangeFamilyModalOpen(false);
+                        setAssignStudentSearch("");
+                        setAssignFamilySearch("");
+                        setSelectedStudentId(null);
+                        setSelectedStudentName("");
+                        setSelectedFamilyId(null);
+                        setAssignError(null);
+                    }}
+                    isAssigning={isAssigning}
+                    error={assignError}
+                />
+            )}
+
         </div>
     );
 }
@@ -379,5 +532,170 @@ function ActionItem({ icon, label, color = "text-zinc-700", onClick }: { icon: R
             <span className="h-4 w-4 opacity-70">{icon}</span>
             {label}
         </button>
+    );
+}
+
+// ─── AssignChildModal ─────────────────────────────────────────────────────────
+
+interface StudentHit {
+    id: number;
+    first_name: string;
+    last_name: string;
+    cc_number: string | null;
+    gr_number: string | null;
+    families?: { household_name: string } | null;
+}
+
+interface AssignChildModalProps {
+    studentSearch: string;
+    setStudentSearch: (v: string) => void;
+    familySearch: string;
+    setFamilySearch: (v: string) => void;
+    selectedStudentId: number | null;
+    setSelectedStudentId: (id: number | null) => void;
+    selectedStudentName: string;
+    setSelectedStudentName: (n: string) => void;
+    selectedFamilyId: number | null;
+    setSelectedFamilyId: (id: number | null) => void;
+    onAssign: () => void;
+    onClose: () => void;
+    isAssigning: boolean;
+    error: string | null;
+}
+
+function AssignChildModal({
+    studentSearch, setStudentSearch,
+    familySearch, setFamilySearch,
+    selectedStudentId, setSelectedStudentId,
+    selectedStudentName, setSelectedStudentName,
+    selectedFamilyId, setSelectedFamilyId,
+    onAssign, onClose, isAssigning, error,
+}: AssignChildModalProps) {
+    const debouncedStudentQ = useDebounce(studentSearch, 350);
+    const debouncedFamilyQ = useDebounce(familySearch, 350);
+
+    const [studentResults, setStudentResults] = useState<StudentHit[]>([]);
+    const [familyResults, setFamilyResults] = useState<Family[]>([]);
+    const [selectedFamilyName, setSelectedFamilyName] = useState("");
+
+    useEffect(() => {
+        if (!debouncedStudentQ) { setStudentResults([]); return; }
+        api.get('/v1/students', { params: { search: debouncedStudentQ, limit: 8, fields: 'core,family' } })
+            .then(r => setStudentResults((r.data as { data: StudentHit[] }).data ?? []))
+            .catch(() => setStudentResults([]));
+    }, [debouncedStudentQ]);
+
+    useEffect(() => {
+        if (!debouncedFamilyQ) { setFamilyResults([]); return; }
+        familiesService.list({ search: debouncedFamilyQ, limit: 8 })
+            .then(r => setFamilyResults(r.data))
+            .catch(() => setFamilyResults([]));
+    }, [debouncedFamilyQ]);
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col h-[90vh] md:h-auto md:max-h-[85vh]">
+                <div className="px-6 py-4 border-b flex justify-between items-center bg-zinc-50 flex-shrink-0">
+                    <h3 className="font-semibold text-lg text-zinc-900">Change Student&apos;s Family</h3>
+                    <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600">✕</button>
+                </div>
+                <div className="p-6 flex-1 overflow-y-auto bg-zinc-50/50">
+                    <p className="text-zinc-500 text-sm mb-6">Search for a student and select a target household to move them to.</p>
+                    {error && <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
+
+                    {/* Student search */}
+                    <div className="mb-6">
+                        <label className="block text-xs font-medium text-zinc-700 mb-1">Select Student to Move</label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                            <input
+                                type="text"
+                                className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 focus:ring-primary focus:border-primary text-sm shadow-sm bg-white"
+                                placeholder="Search by name, CC, or GR..."
+                                value={studentSearch}
+                                onChange={e => setStudentSearch(e.target.value)}
+                            />
+                        </div>
+                        {studentResults.length > 0 && (
+                            <div className="mt-1 border rounded-lg bg-white shadow-lg z-10 max-h-44 overflow-y-auto divide-y divide-zinc-100">
+                                {studentResults.map(s => (
+                                    <button
+                                        key={s.id}
+                                        className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 flex items-center justify-between"
+                                        onClick={() => {
+                                            setSelectedStudentId(s.id);
+                                            setSelectedStudentName(`${s.first_name} ${s.last_name}`);
+                                            setStudentSearch("");
+                                            setStudentResults([]);
+                                        }}
+                                    >
+                                        <span className="font-medium text-zinc-800 text-xs">{s.first_name} {s.last_name}</span>
+                                        <span className="text-zinc-400 text-[10px]">{s.cc_number} | {s.families?.household_name ?? "—"}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {selectedStudentId && (
+                            <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                                <span className="text-xs font-medium text-blue-800">✔ Selected: {selectedStudentName}</span>
+                                <button onClick={() => { setSelectedStudentId(null); setSelectedStudentName(""); }} className="ml-auto text-blue-400 hover:text-blue-600 text-xs">✕</button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* To Column */}
+                        <div className="bg-white border rounded-xl p-5 shadow-sm md:col-span-2">
+                            <h4 className="font-semibold text-zinc-800 mb-4 flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Target Family
+                            </h4>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                                <input
+                                    type="text"
+                                    className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-1 border-emerald-300 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+                                    placeholder="Search target families..."
+                                    value={familySearch}
+                                    onChange={e => setFamilySearch(e.target.value)}
+                                />
+                            </div>
+                            {familyResults.length > 0 && (
+                                <div className="mt-1 border rounded-lg bg-white shadow-lg max-h-44 overflow-y-auto divide-y divide-zinc-100">
+                                    {familyResults.map(f => (
+                                        <button
+                                            key={f.id}
+                                            className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 flex items-center justify-between"
+                                            onClick={() => {
+                                                setSelectedFamilyId(f.id);
+                                                setSelectedFamilyName(f.household_name);
+                                                setFamilySearch("");
+                                                setFamilyResults([]);
+                                            }}
+                                        >
+                                            <span className="font-medium text-zinc-800 text-xs">{f.household_name}</span>
+                                            <span className="text-zinc-400 text-[10px]">{f.email ?? "No email"}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {selectedFamilyId && (
+                                <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                                    <span className="text-xs font-medium text-emerald-800">✔ Selected: {selectedFamilyName}</span>
+                                    <button onClick={() => { setSelectedFamilyId(null); setSelectedFamilyName(""); }} className="ml-auto text-emerald-400 hover:text-emerald-600 text-xs">✕</button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+                <div className="px-6 py-4 border-t bg-zinc-50 flex justify-end gap-3 flex-shrink-0">
+                    <button onClick={onClose} className="px-5 py-2 border border-zinc-200 rounded-lg text-sm hover:bg-zinc-100 font-medium text-zinc-700 bg-white shadow-sm transition-colors">Cancel</button>
+                    <button
+                        onClick={onAssign}
+                        disabled={!selectedStudentId || !selectedFamilyId || isAssigning}
+                        className="px-5 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 font-medium shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >{isAssigning ? "Moving..." : "Execute Move"}</button>
+                </div>
+            </div>
+        </div>
     );
 }
