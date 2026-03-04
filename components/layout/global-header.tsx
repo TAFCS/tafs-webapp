@@ -25,7 +25,7 @@ export function GlobalHeader({ onMenuClick }: GlobalHeaderProps) {
                 <Image src="/alvl-logo.png" alt="TAFSync Logo" width={32} height={32} className="object-contain" priority />
                 <div className="flex flex-col items-start justify-center">
                     <h1 className="text-lg font-bold text-primary tracking-tight leading-tight">TAFSync</h1>
-                    <span className="text-[10px] font-medium text-secondary uppercase tracking-widest leading-none">ERP Portal</span>
+                    <span className="text-[10px] font-medium text-secondary uppercase tracking-widest leading-none">All-in-One Portal</span>
                 </div>
             </div>
 
