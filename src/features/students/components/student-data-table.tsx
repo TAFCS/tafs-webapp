@@ -2,7 +2,7 @@
 
 import { StudentProfileModal } from "./student-profile-modal";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
     Search,
     MoreVertical,
