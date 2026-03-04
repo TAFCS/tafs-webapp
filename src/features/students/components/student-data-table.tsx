@@ -2,7 +2,7 @@
 
 import { StudentProfileModal } from "./student-profile-modal";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
     Search,
     MoreVertical,
@@ -14,9 +14,7 @@ import {
     DollarSign,
     Link as LinkIcon,
     Edit,
-    Calendar,
-    Check,
-    X
+    Calendar
 } from "lucide-react";
 
 export type FinancialStatus = "Cleared" | "Overdue" | "Partial";
