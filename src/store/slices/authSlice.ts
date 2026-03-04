@@ -13,8 +13,8 @@ export interface StaffUser {
 
 interface AuthState {
   user: StaffUser | null;
-  accessToken: string | null;
-  refreshToken: string | null;
+  // Tokens are NOT stored here — they live in httpOnly cookies managed by the
+  // backend. Redux only holds the in-memory user object for UI rendering.
   isAuthenticated: boolean;
   isLoading: boolean;
 }
@@ -23,10 +23,8 @@ interface AuthState {
 
 const initialState: AuthState = {
   user: null,
-  accessToken: null,
-  refreshToken: null,
   isAuthenticated: false,
-  isLoading: true, // true on boot — we check localStorage before rendering
+  isLoading: true, // true on boot — silently verifying the httpOnly refresh cookie
 };
 
 // ─── Slice ────────────────────────────────────────────────────────────────────
@@ -35,16 +33,7 @@ export const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    setCredentials(
-      state,
-      action: PayloadAction<{
-        accessToken: string;
-        refreshToken: string;
-        user: StaffUser;
-      }>
-    ) {
-      state.accessToken = action.payload.accessToken;
-      state.refreshToken = action.payload.refreshToken;
+    setCredentials(state, action: PayloadAction<{ user: StaffUser }>) {
       state.user = action.payload.user;
       state.isAuthenticated = true;
       state.isLoading = false;
@@ -54,8 +43,6 @@ export const authSlice = createSlice({
     },
     clearCredentials(state) {
       state.user = null;
-      state.accessToken = null;
-      state.refreshToken = null;
       state.isAuthenticated = false;
       state.isLoading = false;
     },

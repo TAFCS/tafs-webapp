@@ -3,15 +3,10 @@ import type { StaffUser } from '@/store/slices/authSlice';
 
 // ─── Response Types ───────────────────────────────────────────────────────────
 
-export interface StaffLoginResponse {
-  accessToken: string;
-  refreshToken: string;
+// Tokens are set as httpOnly cookies by the backend — they never appear in
+// the JSON response body. Only the user object is returned to the client.
+export interface StaffLoginResult {
   user: StaffUser;
-}
-
-export interface RefreshResponse {
-  accessToken: string;
-  refreshToken: string;
 }
 
 // Envelope that the backend always wraps responses in
@@ -26,31 +21,31 @@ interface ApiEnvelope<T> {
 export const authService = {
   /**
    * POST /api/v1/auth/staff/login
-   * Body: { username, password }
+   * Backend sets tafs_access + tafs_refresh + tafs_session httpOnly cookies.
+   * Returns only the user object in the JSON body.
    */
-  async loginStaff(username: string, password: string): Promise<StaffLoginResponse> {
-    const { data } = await api.post<ApiEnvelope<StaffLoginResponse>>('/v1/auth/staff/login', {
+  async loginStaff(username: string, password: string): Promise<StaffLoginResult> {
+    const { data } = await api.post<ApiEnvelope<StaffLoginResult>>('/v1/auth/staff/login', {
       username,
       password,
     });
-    // Backend wraps in { data: { accessToken, refreshToken, user }, status, message }
     return data.data;
   },
 
   /**
    * POST /api/v1/auth/staff/refresh
-   * Rotates both tokens (token rotation pattern).
+   * No body needed — browser sends tafs_refresh httpOnly cookie automatically.
+   * Backend rotates both tokens and returns the updated user.
    */
-  async refreshStaff(refreshToken: string): Promise<RefreshResponse> {
-    const { data } = await api.post<ApiEnvelope<RefreshResponse>>('/v1/auth/staff/refresh', {
-      refreshToken,
-    });
+  async refreshStaff(): Promise<StaffLoginResult> {
+    const { data } = await api.post<ApiEnvelope<StaffLoginResult>>('/v1/auth/staff/refresh', {});
     return data.data;
   },
 
   /**
    * POST /api/v1/auth/staff/logout
-   * Requires valid access token — handled automatically by api interceptor.
+   * Requires valid tafs_access cookie (sent automatically).
+   * Backend clears all three auth cookies via Set-Cookie.
    */
   async logoutStaff(): Promise<void> {
     await api.post('/v1/auth/staff/logout');
