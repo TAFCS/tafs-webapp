@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "@/src/store/store";
+import { fetchClasses } from "@/src/store/slices/classesSlice";
 import api from "@/lib/api";
 import Image from "next/image";
 import LogoImage from "@/public/logo.png";
@@ -9,7 +13,16 @@ import { StudentProfileModal } from "@/src/features/students/components/student-
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
 
 export function RegistrationForm() {
+    const router = useRouter();
+    const dispatch = useDispatch<AppDispatch>();
+    const { items: classes } = useSelector((state: RootState) => state.classes);
     const [currentStep, setCurrentStep] = useState(1);
+
+    useEffect(() => {
+        if (classes.length === 0) {
+            dispatch(fetchClasses());
+        }
+    }, [dispatch, classes.length]);
 
     const [formData, setFormData] = useState({
         serialNo: "", registrationNo: "", computerCodeNo: "",
@@ -178,6 +191,7 @@ export function RegistrationForm() {
                 house_and_color: null,
                 residential_address: rawStudent.families?.primary_address || primaryGuardian?.house_appt_name,
                 father_name: rawStudent.student_guardians?.find((sg: any) => sg.relationship === 'Father')?.guardians?.full_name,
+                class_id: rawStudent.class_id,
                 siblings: rawStudent.families?.students
                     ?.filter((s: any) => s.id !== rawStudent.id)
                     ?.map((s: any) => ({
@@ -615,10 +629,24 @@ export function RegistrationForm() {
                 {submitSuccess && (
                     <div className="mx-6 mb-0 mt-4 flex items-start gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-4 text-sm animate-in fade-in duration-300">
                         <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                        <div>
+                        <div className="flex-1">
                             <p className="font-semibold">Registration submitted successfully!</p>
                             <p className="text-emerald-700 mt-0.5">Computer Code assigned: <span className="font-mono font-bold">{submitSuccess.cc_number}</span>. The student record is now <span className="font-medium">PENDING</span> review.</p>
                         </div>
+                        <button
+                            onClick={() => {
+                                const matchedClass = classes.find(c =>
+                                    c.class_code === formData.admissionLevel ||
+                                    c.description === formData.admissionLevel
+                                );
+                                const classId = matchedClass?.id || "";
+                                router.push(`/studentwise-fees?ccNumber=${submitSuccess.cc_number}&classId=${classId}`);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-all shadow-md active:scale-95 whitespace-nowrap self-center"
+                        >
+                            <CreditCard className="h-4 w-4" />
+                            Setup Fee Schedule
+                        </button>
                     </div>
                 )}
                 {submitError && (

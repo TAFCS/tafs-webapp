@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, KeyboardEvent } from "react";
-import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo } from "react";
+import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Save, CheckCircle2 } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { fetchClasses } from "@/store/slices/classesSlice";
+import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -38,10 +40,16 @@ const MONTH_ORDER = [
     "January", "February", "March", "April", "May", "June", "July",
 ];
 
+const MONTH_MAP: Record<string, number> = {
+    "January": 1, "February": 2, "March": 3, "April": 4, "May": 5, "June": 6,
+    "July": 7, "August": 8, "September": 9, "October": 10, "November": 11, "December": 12
+};
+
 const COLS = ["#", "Fee Type", "Frequency", "Period", "Amount"] as const;
 const COL_AMOUNT = 4; // only this column is editable
 
-function sortMonths(months: string[]) {
+function sortMonths(monthsInput: any) {
+    const months = Array.isArray(monthsInput) ? monthsInput : (monthsInput?.months || []);
     return [...months].sort((a, b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b));
 }
 
@@ -49,6 +57,9 @@ function sortMonths(months: string[]) {
 
 export default function StudentwiseFeePage() {
     const dispatch = useAppDispatch();
+    const searchParams = useSearchParams();
+    const router = useRouter();
+
     const classes = useAppSelector((s) => s.classes.items);
     const classesLoading = useAppSelector((s) => s.classes.isLoading);
 
@@ -57,9 +68,11 @@ export default function StudentwiseFeePage() {
     const [showClassDropdown, setShowClassDropdown] = useState(false);
     const classDropdownRef = useRef<HTMLDivElement>(null);
     const [studentId, setStudentId] = useState("");
+    const [studentNumericId, setStudentNumericId] = useState<number | null>(null);
 
     const [feeRows, setFeeRows] = useState<ClassFeeRow[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
 
     // overrides: `${feeId}-${month}` -> string
@@ -71,6 +84,16 @@ export default function StudentwiseFeePage() {
 
     useEffect(() => { if (classes.length === 0) dispatch(fetchClasses()); }, [classes.length, dispatch]);
 
+    // Read params from URL
+    useEffect(() => {
+        const cc = searchParams.get("ccNumber");
+        const cid = searchParams.get("classId");
+        if (cc) setStudentId(cc);
+        if (cid && cid !== "null" && cid !== "undefined" && !isNaN(Number(cid))) {
+            setSelectedClassId(Number(cid));
+        }
+    }, [searchParams]);
+
     useEffect(() => {
         const h = (e: MouseEvent) => {
             if (classDropdownRef.current && !classDropdownRef.current.contains(e.target as Node))
@@ -80,19 +103,92 @@ export default function StudentwiseFeePage() {
         return () => document.removeEventListener("mousedown", h);
     }, []);
 
-    const fetchFeeSchedule = useCallback(async (classId: number) => {
+    const fetchFeeSchedule = useCallback(async (classId: number, ccNumber?: string) => {
         setIsLoading(true); setLoadError(null); setFeeRows([]); setOverrides({}); setActiveCell(null);
         try {
+            // 1. Fetch Class Schedule
             const { data } = await api.get("/v1/class-fee-schedule/by-class", { params: { class_id: classId } });
-            setFeeRows(Array.isArray(data?.data) ? data.data : []);
+            const classRows = Array.isArray(data?.data) ? data.data : [];
+            setFeeRows(classRows);
+
+            // 2. If student CC is provided, fetch student-specific overrides
+            if (ccNumber) {
+                try {
+                    const studentRes = await api.get(`/v1/student-fees/by-student/${ccNumber}`);
+                    const studentFees = studentRes.data?.data || [];
+
+                    // In real app, the first fetch should probably also return the student's numeric ID
+                    // For now, let's assume we get it from searching or another call if needed
+                    // But we actually need it for saving. Let's fetch student details if cc is provided.
+                    // Use the standard students list with search param
+                    const studDetailRes = await api.get(`/v1/students`, { params: { search: ccNumber, limit: 1 } });
+                    const match = studDetailRes.data?.data?.items?.find((s: any) => s.cc_number === ccNumber);
+                    if (match) setStudentNumericId(match.id);
+
+                    const newOverrides: Record<string, string> = {};
+                    studentFees.forEach((sf: any) => {
+                        const monthName = Object.keys(MONTH_MAP).find(k => MONTH_MAP[k] === sf.month);
+                        if (monthName) {
+                            newOverrides[`${sf.fee_type_id}-${monthName}`] = sf.amount.toString();
+                        }
+                    });
+                    setOverrides(newOverrides);
+                } catch (e) {
+                    console.error("Failed to load student overrides", e);
+                }
+            }
         } catch (err: any) {
             setLoadError(err.response?.data?.message || "Failed to load fee schedule.");
         } finally { setIsLoading(false); }
     }, []);
 
     useEffect(() => {
-        if (selectedClassId !== "") fetchFeeSchedule(Number(selectedClassId));
+        if (selectedClassId !== "") fetchFeeSchedule(Number(selectedClassId), studentId);
     }, [selectedClassId, fetchFeeSchedule]);
+
+    const handleSave = async () => {
+        if (!studentNumericId) {
+            // Try to find numeric ID from CC if not found yet
+            try {
+                const studDetailRes = await api.get(`/v1/students`, { params: { search: studentId, limit: 1 } });
+                const match = studDetailRes.data?.data?.items?.find((s: any) => s.cc_number === studentId);
+                if (match) {
+                    setStudentNumericId(match.id);
+                    await performSave(match.id);
+                } else {
+                    toast.error("Valid Student ID (CC) required to save overrides.");
+                }
+            } catch (e) {
+                toast.error("Failed to verify student ID.");
+            }
+            return;
+        }
+        await performSave(studentNumericId);
+    };
+
+    const performSave = async (sid: number) => {
+        setIsSaving(true);
+        try {
+            const items = Object.entries(overrides).map(([key, amount]) => {
+                const [feeId, monthName] = key.split("-");
+                return {
+                    fee_type_id: Number(feeId),
+                    amount: Number(amount),
+                    month: MONTH_MAP[monthName] || null
+                };
+            });
+
+            await api.post("/v1/student-fees/bulk", {
+                student_id: sid,
+                items
+            });
+            toast.success("Student fee schedule saved successfully!");
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to save fees.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     // ── Sort: ONE_TIME first, then MONTHLY ────────────────────────────────
     const sortedFeeRows = [...feeRows].sort((a, b) => {
@@ -256,13 +352,30 @@ export default function StudentwiseFeePage() {
                     />
                 </div>
 
-                {selectedClassId !== "" && (
-                    <button onClick={() => fetchFeeSchedule(Number(selectedClassId))} disabled={isLoading}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 border border-zinc-200 bg-white text-sm font-medium text-zinc-700 rounded-xl hover:bg-zinc-50 transition-all shadow-sm disabled:opacity-50"
-                    >
-                        <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />Refresh
-                    </button>
-                )}
+                <div className="flex items-center gap-3">
+                    {selectedClassId !== "" && (
+                        <button onClick={() => fetchFeeSchedule(Number(selectedClassId), studentId)} disabled={isLoading}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 border border-zinc-200 bg-white text-sm font-medium text-zinc-700 rounded-xl hover:bg-zinc-50 transition-all shadow-sm disabled:opacity-50"
+                        >
+                            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />Refresh
+                        </button>
+                    )}
+
+                    {selectedClassId !== "" && studentId !== "" && (
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving || isLoading}
+                            className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200 disabled:opacity-50"
+                        >
+                            {isSaving ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Save className="h-4 w-4" />
+                            )}
+                            Save Student Schedule
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* States */}

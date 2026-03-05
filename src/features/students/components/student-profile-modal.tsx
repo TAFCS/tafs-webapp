@@ -4,7 +4,11 @@ import { StudentListItem } from "../../../store/slices/studentsSlice";
 import { familiesService, type Family } from "@/lib/families.service";
 import { studentsService } from "@/lib/students.service";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../../../store/store";
+import { fetchClasses } from "../../../store/slices/classesSlice";
 
 interface StudentProfileModalProps {
     studentId: number | null;
@@ -13,7 +17,16 @@ interface StudentProfileModalProps {
 }
 
 export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentProfileModalProps) {
+    const router = useRouter();
+    const dispatch = useDispatch<AppDispatch>();
+    const { items: classes } = useSelector((state: RootState) => state.classes);
     const [student, setStudent] = useState<StudentListItem | null>(null);
+
+    useEffect(() => {
+        if (classes.length === 0) {
+            dispatch(fetchClasses());
+        }
+    }, [dispatch, classes.length]);
     const [isLoading, setIsLoading] = useState(false);
     const [isChangeFamilyOpen, setIsChangeFamilyOpen] = useState(false);
 
@@ -197,7 +210,32 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                             </div>
 
                             {/* Financial Summary */}
-                            <div className="bg-zinc-50/50 border rounded-xl p-5">
+                            <div className="bg-zinc-50/50 border rounded-xl p-5 relative overflow-hidden">
+                                {(() => {
+                                    const effectiveClassId = student.class_id ||
+                                        classes.find(c =>
+                                            c.class_code === student.grade_and_section ||
+                                            c.description === student.grade_and_section
+                                        )?.id;
+
+                                    if (!effectiveClassId) return null;
+
+                                    return (
+                                        <div className="absolute top-4 right-4 z-10">
+                                            <button
+                                                onClick={() => {
+                                                    router.push(`/studentwise-fees?ccNumber=${student.cc_number}&classId=${effectiveClassId}`);
+                                                    onClose();
+                                                }}
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-all shadow-sm group"
+                                            >
+                                                <CreditCard className="h-3 w-3 group-hover:scale-110 transition-transform" />
+                                                Setup Fee Schedule
+                                            </button>
+                                        </div>
+                                    );
+                                })()}
+
                                 <h3 className="text-sm font-semibold text-zinc-900 mb-4 border-b pb-2 flex items-center gap-2">
                                     <CreditCard className="h-4 w-4 text-rose-500" /> Financial Overview
                                 </h3>
