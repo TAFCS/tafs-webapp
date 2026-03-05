@@ -12,7 +12,9 @@ interface FeeTypeInfo {
     id: number;
     description: string;
     freq: "MONTHLY" | "ONE_TIME" | null;
-    breakup: string[] | null;
+    breakup: {
+        months: string[];
+    } | null;
 }
 
 interface ClassFeeRow {
@@ -41,7 +43,8 @@ const MONTH_ORDER = [
 const COLS = ["#", "Fee Type", "Frequency", "Period", "Amount"] as const;
 const COL_AMOUNT = 4; // only this column is editable
 
-function sortMonths(months: string[]) {
+function sortMonths(months: string[] | null | undefined) {
+    if (!Array.isArray(months)) return [];
     return [...months].sort((a, b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b));
 }
 
@@ -96,17 +99,32 @@ export default function StudentwiseFeePage() {
 
     // ── Sort: ONE_TIME first, then MONTHLY ────────────────────────────────
     const sortedFeeRows = [...feeRows].sort((a, b) => {
-        const order = (f: ClassFeeRow) => f.fee_types.freq === "ONE_TIME" ? 0 : 1;
+        const order = (f: ClassFeeRow) => f?.fee_types?.freq === "ONE_TIME" ? 0 : 1;
         return order(a) - order(b);
     });
 
     // ── Expand into flat row list ─────────────────────────────────────────
     const expandedRows: ExpandedRow[] = sortedFeeRows.flatMap((fee) => {
-        const months = sortMonths(fee.fee_types.breakup ?? []);
+        const breakupMonths = fee?.fee_types?.breakup?.months;
+        const months = sortMonths(breakupMonths);
+
+        // If no breakup is defined, we show at least one row for the title
+        if (months.length === 0) {
+            return [{
+                feeId: fee.fee_id,
+                feeDescription: fee?.fee_types?.description || "Unknown Fee",
+                freq: fee?.fee_types?.freq || null,
+                month: "—", // No specific period
+                baseAmount: fee.amount,
+                isGroupStart: true,
+                groupSize: 1,
+            }];
+        }
+
         return months.map((month, idx) => ({
             feeId: fee.fee_id,
-            feeDescription: fee.fee_types.description,
-            freq: fee.fee_types.freq,
+            feeDescription: fee?.fee_types?.description || "Unknown Fee",
+            freq: fee?.fee_types?.freq || null,
             month,
             baseAmount: fee.amount,
             isGroupStart: idx === 0,
