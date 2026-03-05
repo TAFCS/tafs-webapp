@@ -2,15 +2,14 @@ import { StudentDataTable } from "@/src/features/students/components/student-dat
 
 export default function StudentsDirectoryPage() {
     return (
-        <div className="flex flex-col h-[calc(100vh-[YOUR_LAYOUT_OFFSET]px)] w-full max-w-[95%] lg:max-w-[92%] xl:max-w-[90%] mx-auto flex-1 transition-all duration-300" style={{ height: 'calc(100vh - 120px)' }}>
-            <div className="flex-none mb-4 px-2 pt-4">
-                <h2 className="text-2xl font-bold tracking-tight text-zinc-900 border-b pb-2">Student Directory</h2>
-                <p className="text-zinc-500 mt-2">Manage all student records, filter by campus, track financial status, and perform quick actions.</p>
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Student Directory</h1>
+                <p className="text-zinc-500 mt-1">
+                    Manage all student records, filter by campus, track financial status, and perform quick actions.
+                </p>
             </div>
-
-            <div className="flex-1 min-h-0 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full pb-4">
-                <StudentDataTable />
-            </div>
+            <StudentDataTable />
         </div>
     );
 }

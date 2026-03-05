@@ -1,11 +1,9 @@
 "use client";
 
 import { StudentProfileModal } from "./student-profile-modal";
-
 import { useState, useMemo, useEffect } from "react";
 import {
     Search,
-    MoreVertical,
     Filter,
     Columns,
     ChevronDown,
@@ -14,19 +12,24 @@ import {
     DollarSign,
     Link as LinkIcon,
     Edit,
-    Calendar
+    Calendar,
+    GraduationCap,
+    Phone,
+    Users,
+    ChevronLeft,
+    ChevronRight,
+    X,
+    MoreHorizontal,
 } from "lucide-react";
 
 export type FinancialStatus = "Cleared" | "Overdue" | "Partial";
 export type EnrollmentStatus = "SOFT_ADMISSION" | "ENROLLED" | "EXPELLED" | "GRADUATED";
 
-// 1. Data Models
 import { StudentListItem } from "../../../store/slices/studentsSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../store/store";
 import { fetchStudents } from "../../../store/slices/studentsSlice";
 
-// Columns Definition
 interface ColumnDef {
     id: keyof StudentListItem;
     label: string;
@@ -34,7 +37,6 @@ interface ColumnDef {
 }
 
 const COLUMNS: ColumnDef[] = [
-    // Default Columns (Highest Priority)
     { id: "student_full_name", label: "Student Name", isDefault: true },
     { id: "gr_number", label: "G.R. Number", isDefault: true },
     { id: "cc_number", label: "C.C. Number", isDefault: true },
@@ -44,128 +46,115 @@ const COLUMNS: ColumnDef[] = [
     { id: "whatsapp_number", label: "WhatsApp Number", isDefault: true },
     { id: "financial_status_badge", label: "Financial Status", isDefault: true },
     { id: "enrollment_status", label: "Enrollment Status", isDefault: true },
-
-    // Toggleable Columns
     { id: "family_id", label: "Family ID", isDefault: false },
     { id: "household_name", label: "Household Name", isDefault: false },
-    { id: "total_outstanding_balance", label: "Total Outstanding Balance", isDefault: false },
-    { id: "advance_credit_balance", label: "Advance Credit Balance", isDefault: false },
-    { id: "primary_guardian_cnic", label: "Primary Guardian CNIC", isDefault: false },
+    { id: "total_outstanding_balance", label: "Outstanding Balance", isDefault: false },
+    { id: "advance_credit_balance", label: "Advance Credit", isDefault: false },
+    { id: "primary_guardian_cnic", label: "Guardian CNIC", isDefault: false },
     { id: "date_of_admission", label: "Date of Admission", isDefault: false },
-    { id: "date_of_birth", label: "Date of Birth (DOB)", isDefault: false },
-    { id: "registration_number", label: "Registration Number", isDefault: false },
+    { id: "date_of_birth", label: "Date of Birth", isDefault: false },
+    { id: "registration_number", label: "Registration No.", isDefault: false },
     { id: "house_and_color", label: "House & Color", isDefault: false },
-    { id: "residential_address", label: "Residential Address", isDefault: false },
+    { id: "residential_address", label: "Address", isDefault: false },
     { id: "father_name", label: "Father's Name", isDefault: false },
-    { id: "siblings", label: "Siblings", isDefault: false }
+    { id: "siblings", label: "Siblings", isDefault: false },
 ];
 
 const COL_TO_CATEGORY_MAP: Record<keyof StudentListItem, string> = {
-    id: "core",
-    student_full_name: "core",
-    gr_number: "core",
-    cc_number: "core",
-    campus: "core",
-    enrollment_status: "core",
-    financial_status_badge: "core",
-    registration_number: "core",
-    house_and_color: "core",
-
+    id: "core", student_full_name: "core", gr_number: "core", cc_number: "core",
+    campus: "core", enrollment_status: "core", financial_status_badge: "core",
+    registration_number: "core", house_and_color: "core",
     grade_and_section: "academic",
-
-    family_id: "family",
-    household_name: "family",
-    residential_address: "family",
-
-    primary_guardian_name: "contact",
-    whatsapp_number: "contact",
-    primary_guardian_cnic: "contact",
-
-    date_of_birth: "demographic",
-    date_of_admission: "core",
-
-    total_outstanding_balance: "core",
-    advance_credit_balance: "core",
-    father_name: "contact",
-    siblings: "family"
+    family_id: "family", household_name: "family", residential_address: "family",
+    primary_guardian_name: "contact", whatsapp_number: "contact", primary_guardian_cnic: "contact",
+    date_of_birth: "demographic", date_of_admission: "core",
+    total_outstanding_balance: "core", advance_credit_balance: "core",
+    father_name: "contact", siblings: "family",
 };
 
-// Custom debounce hook inline
 function useDebounce<T>(value: T, delay: number): T {
     const [debouncedValue, setDebouncedValue] = useState<T>(value);
     useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedValue(value);
-        }, delay);
-        return () => {
-            clearTimeout(handler);
-        };
+        const handler = setTimeout(() => setDebouncedValue(value), delay);
+        return () => clearTimeout(handler);
     }, [value, delay]);
     return debouncedValue;
 }
 
-// 2. Main Component
+// ─── Badge Helpers ──────────────────────────────────────────────────────────
+
+const FINANCIAL_STYLES: Record<string, { cls: string; label: string }> = {
+    Cleared: { cls: "bg-emerald-50 text-emerald-700 border border-emerald-200", label: "Cleared" },
+    Overdue: { cls: "bg-rose-50    text-rose-700    border border-rose-200", label: "Overdue" },
+    Partial: { cls: "bg-amber-50   text-amber-700   border border-amber-200", label: "Partial" },
+};
+
+const ENROLLMENT_STYLES: Record<string, { cls: string; label: string }> = {
+    ENROLLED: { cls: "bg-emerald-50 text-emerald-700 border border-emerald-200", label: "Enrolled" },
+    SOFT_ADMISSION: { cls: "bg-zinc-100   text-zinc-600    border border-zinc-200", label: "Soft Admission" },
+    GRADUATED: { cls: "bg-blue-50    text-blue-700    border border-blue-200", label: "Graduated" },
+    EXPELLED: { cls: "bg-rose-50    text-rose-700    border border-rose-200", label: "Expelled" },
+};
+
+const CAMPUS_CODES: Record<string, string> = {
+    "Gulistan-e-Johar Campus": "JHR",
+    "Kaneez Fatima Campus": "KNF",
+    "North Nazimabad Campus": "NNZ",
+};
+
+const campuses = [
+    { id: 1, name: "Gulistan-e-Johar Campus" },
+    { id: 2, name: "Kaneez Fatima Campus" },
+    { id: 3, name: "North Nazimabad Campus" },
+];
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+
 export function StudentDataTable() {
     const dispatch = useDispatch<AppDispatch>();
     const { items, meta, isLoading, error } = useSelector((state: RootState) => state.students);
 
-    // State: Fetching
     const [page, setPage] = useState(1);
-    const [limit] = useState(10);
+    const [limit] = useState(15);
     const [viewingStudentId, setViewingStudentId] = useState<number | null>(null);
-    // State: Columns
+    const [openActionRowId, setOpenActionRowId] = useState<number | null>(null);
+
     const [visibleColumns, setVisibleColumns] = useState<Set<keyof StudentListItem>>(
         new Set(COLUMNS.filter(c => c.isDefault).map(c => c.id))
     );
     const [showColumnToggles, setShowColumnToggles] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
 
-    const viewingStudent = useMemo(() =>
-        items.find(s => s.id === viewingStudentId) || null,
-        [items, viewingStudentId]);
-
-    const activeCategories = useMemo(() => {
-        const cats = new Set<string>();
-        visibleColumns.forEach(col => {
-            const cat = COL_TO_CATEGORY_MAP[col];
-            if (cat) cats.add(cat);
-        });
-
-        // Ensure full profile data if viewing a student
-        if (viewingStudentId) {
-            cats.add("family");
-            cats.add("contact");
-            cats.add("demographic");
-            cats.add("academic");
-        }
-
-        return Array.from(cats).join(",");
-    }, [visibleColumns, viewingStudentId]);
-
-    // State: Filters
     const [searchQuery, setSearchQuery] = useState("");
-    const debouncedSearchQuery = useDebounce(searchQuery, 400);
+    const debouncedSearch = useDebounce(searchQuery, 400);
 
     const [campusIdFilter, setCampusIdFilter] = useState<number | "All">("All");
     const [statusFilter, setStatusFilter] = useState<EnrollmentStatus | "All">("All");
-    const [gradeFilter, setGradeFilter] = useState<string>("All");
-    const [sectionFilter, setSectionFilter] = useState<string>("All");
-    const [houseFilter, setHouseFilter] = useState<string>("All");
+    const [gradeFilter, setGradeFilter] = useState("All");
+    const [sectionFilter, setSectionFilter] = useState("All");
+    const [houseFilter, setHouseFilter] = useState("All");
     const [financialFilters, setFinancialFilters] = useState<string[]>([]);
     const [hasSiblingsOnly, setHasSiblingsOnly] = useState(false);
 
-    // Checkboxes for financial (removed logic for brevity because backend handles status)
+    const viewingStudent = useMemo(
+        () => items.find(s => s.id === viewingStudentId) || null,
+        [items, viewingStudentId]
+    );
 
-    const [showFilters, setShowFilters] = useState(false);
+    const activeCategories = useMemo(() => {
+        const cats = new Set<string>();
+        visibleColumns.forEach(col => { const c = COL_TO_CATEGORY_MAP[col]; if (c) cats.add(c); });
+        if (viewingStudentId) { cats.add("family"); cats.add("contact"); cats.add("demographic"); cats.add("academic"); }
+        return Array.from(cats).join(",");
+    }, [visibleColumns, viewingStudentId]);
 
-    // State: Actions Menu Mapping (Row ID -> Boolean)
-    const [openActionRowId, setOpenActionRowId] = useState<number | null>(null);
+    const hasActiveFilters = campusIdFilter !== "All" || statusFilter !== "All" || gradeFilter !== "All"
+        || sectionFilter !== "All" || houseFilter !== "All" || financialFilters.length > 0 || hasSiblingsOnly;
 
-    // Redux Fetch Effect
     useEffect(() => {
         dispatch(fetchStudents({
-            page,
-            limit,
-            search: debouncedSearchQuery || undefined,
+            page, limit,
+            search: debouncedSearch || undefined,
             campus_id: campusIdFilter !== "All" ? campusIdFilter : undefined,
             status: statusFilter !== "All" ? statusFilter : undefined,
             fields: activeCategories || undefined,
@@ -173,455 +162,487 @@ export function StudentDataTable() {
             section: sectionFilter !== "All" ? sectionFilter : undefined,
             house: houseFilter !== "All" ? houseFilter : undefined,
             financial_status: financialFilters.length > 0 ? financialFilters : undefined,
-            has_siblings: hasSiblingsOnly || undefined
+            has_siblings: hasSiblingsOnly || undefined,
         }));
-    }, [dispatch, page, limit, debouncedSearchQuery, campusIdFilter, statusFilter, activeCategories, gradeFilter, sectionFilter, houseFilter, financialFilters, hasSiblingsOnly]);
+    }, [dispatch, page, limit, debouncedSearch, campusIdFilter, statusFilter, activeCategories, gradeFilter, sectionFilter, houseFilter, financialFilters, hasSiblingsOnly]);
 
     useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            const target = e.target as Element;
-            if (target && typeof target.closest === 'function') {
-                if (!target.closest('.action-menu-container')) {
-                    setOpenActionRowId(null);
-                }
-                if (!target.closest('.columns-menu-container')) {
-                    setShowColumnToggles(false);
-                }
+        const handler = (e: MouseEvent) => {
+            const t = e.target as Element;
+            if (t?.closest) {
+                if (!t.closest(".action-menu-container")) setOpenActionRowId(null);
+                if (!t.closest(".columns-menu-container")) setShowColumnToggles(false);
             }
         };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
     }, []);
 
-    const campuses: { id: number; name: string; code: string }[] = [
-        { id: 1, name: "Gulistan-e-Johar Campus", code: "JHR" },
-        { id: 2, name: "Kaneez Fatima Campus", code: "KNF" },
-        { id: 3, name: "North Nazimabad Campus", code: "NNZ" }
-    ];
+    const resetFilters = () => {
+        setCampusIdFilter("All"); setStatusFilter("All"); setGradeFilter("All");
+        setSectionFilter("All"); setHouseFilter("All"); setFinancialFilters([]); setHasSiblingsOnly(false);
+        setPage(1);
+    };
 
     const toggleColumn = (colId: keyof StudentListItem) => {
         const next = new Set(visibleColumns);
-        if (next.has(colId)) {
-            next.delete(colId);
-        } else {
-            next.add(colId);
-        }
+        if (next.has(colId)) next.delete(colId); else next.add(colId);
         setVisibleColumns(next);
     };
 
+    const buildFetchParams = () => ({
+        page, limit,
+        search: debouncedSearch || undefined,
+        campus_id: campusIdFilter !== "All" ? campusIdFilter : undefined,
+        status: statusFilter !== "All" ? statusFilter : undefined,
+        fields: activeCategories || undefined,
+        grade: gradeFilter !== "All" ? gradeFilter : undefined,
+        section: sectionFilter !== "All" ? sectionFilter : undefined,
+        house: houseFilter !== "All" ? houseFilter : undefined,
+        financial_status: financialFilters.length > 0 ? financialFilters : undefined,
+        has_siblings: hasSiblingsOnly || undefined,
+    });
+
+    // ─── Render ────────────────────────────────────────────────────────────
 
     return (
-        <div className="bg-white border rounded-xl shadow-sm flex flex-col w-full h-full text-base">
+        <div className="flex flex-col gap-4 w-full">
 
-            {/* Top Toolbar */}
-            <div className="p-4 border-b flex flex-col gap-4 lg:flex-row lg:items-center justify-between bg-zinc-50/50 rounded-t-xl">
+            {/* ── Toolbar ─────────────────────────────────────────────── */}
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
 
-                {/* Search Bar */}
-                <div className="relative w-full lg:max-w-md flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                {/* Search */}
+                <div className="relative flex-1 min-w-0">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                     <input
                         type="text"
-                        placeholder="Search Name, G.R., C.C. or Phone..."
-                        className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white"
+                        placeholder="Search name, G.R., C.C. or phone…"
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                        className="w-full pl-9 pr-4 py-2.5 bg-white border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
                     />
+                    {searchQuery && (
+                        <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
+                            <X className="h-3.5 w-3.5" />
+                        </button>
+                    )}
                 </div>
 
-                {/* Toolbar Actions */}
-                <div className="flex items-center gap-2">
+                {/* Right buttons */}
+                <div className="flex items-center gap-2 shrink-0">
                     <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className={`flex items-center gap-2 px-3 py-2 border rounded-lg hover:bg-zinc-100 transition-colors ${showFilters ? 'bg-zinc-100 border-zinc-300' : 'bg-white'}`}
+                        className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm font-medium transition-all shadow-sm ${showFilters || hasActiveFilters
+                            ? "bg-primary text-white border-primary shadow-primary/20"
+                            : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50"}`}
                     >
                         <Filter className="h-4 w-4" />
-                        <span className="font-medium">Filters</span>
-                        {(campusIdFilter !== "All" || statusFilter !== "All" || gradeFilter !== "All" || sectionFilter !== "All" || houseFilter !== "All" || financialFilters.length > 0 || hasSiblingsOnly) && (
-                            <span className="w-2 h-2 rounded-full bg-blue-500 ml-1"></span>
-                        )}
+                        Filters
+                        {hasActiveFilters && <span className="h-1.5 w-1.5 rounded-full bg-white/70" />}
                     </button>
 
                     <div className="relative columns-menu-container">
                         <button
                             onClick={() => setShowColumnToggles(!showColumnToggles)}
-                            className="flex items-center gap-2 px-3 py-2 border bg-white rounded-lg hover:bg-zinc-100 transition-colors"
+                            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-all shadow-sm"
                         >
                             <Columns className="h-4 w-4" />
-                            <span className="font-medium hidden sm:inline-block">Columns</span>
+                            <span className="hidden sm:inline">Columns</span>
                             <ChevronDown className="h-3 w-3 opacity-50" />
                         </button>
 
-                        {/* Dropdown for Columns */}
                         {showColumnToggles && (
-                            <div className="absolute right-0 top-full mt-2 w-56 bg-white border rounded-lg shadow-xl z-50 p-2 max-h-96 overflow-y-auto">
-                                <div className="text-xs font-semibold text-zinc-500 px-2 py-1 uppercase tracking-wider mb-1">Toggle Columns</div>
-                                {COLUMNS.map((col) => (
-                                    <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer">
+                            <div className="absolute right-0 top-full mt-2 w-60 bg-white border border-zinc-200 rounded-xl shadow-xl z-50 p-2 max-h-96 overflow-y-auto">
+                                <div className="text-[10px] font-semibold text-zinc-400 px-2 py-1 uppercase tracking-widest mb-1">
+                                    Toggle Columns
+                                </div>
+                                {COLUMNS.map(col => (
+                                    <label key={col.id} className="flex items-center gap-2.5 px-2 py-2 hover:bg-zinc-50 rounded-lg cursor-pointer">
                                         <input
                                             type="checkbox"
-                                            className="rounded border-zinc-300 text-primary focus:ring-primary h-4 w-4"
+                                            className="rounded border-zinc-300 text-primary focus:ring-primary h-3.5 w-3.5"
                                             checked={visibleColumns.has(col.id)}
                                             onChange={() => toggleColumn(col.id)}
-                                            disabled={col.isDefault && visibleColumns.has(col.id) && visibleColumns.size === 1} // Prevent hiding everything
                                         />
-                                        <span className="text-zinc-700">{col.label}</span>
+                                        <span className="text-sm text-zinc-700">{col.label}</span>
                                     </label>
                                 ))}
                             </div>
                         )}
                     </div>
                 </div>
-
             </div>
 
-            {/* Advanced Filters Panel */}
+            {/* ── Filter Panel ────────────────────────────────────────── */}
             {showFilters && (
-                <div className="p-4 border-b bg-zinc-50 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6 items-end">
-                    {/* Status */}
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold text-zinc-500 uppercase">Enrollment Status</label>
-                        <select
-                            className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm"
-                            value={statusFilter}
-                            onChange={(e) => {
-                                setStatusFilter(e.target.value as EnrollmentStatus | "All");
-                                setPage(1);
-                            }}
-                        >
+                <div className="bg-white border border-zinc-200 rounded-xl shadow-sm p-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Active Filters</span>
+                        {hasActiveFilters && (
+                            <button onClick={resetFilters} className="text-xs text-primary hover:underline font-medium">
+                                Clear all
+                            </button>
+                        )}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+
+                        <FilterSelect label="Status" value={statusFilter} onChange={v => { setStatusFilter(v as any); setPage(1); }}>
                             <option value="All">All Statuses</option>
                             <option value="SOFT_ADMISSION">Soft Admission</option>
                             <option value="ENROLLED">Enrolled</option>
                             <option value="EXPELLED">Expelled</option>
                             <option value="GRADUATED">Graduated</option>
-                        </select>
-                    </div>
+                        </FilterSelect>
 
-                    {/* Campus */}
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold text-zinc-500 uppercase">Campus / Branch</label>
-                        <select
-                            className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm"
-                            value={campusIdFilter}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setCampusIdFilter(val === "All" ? "All" : Number(val));
-                                setPage(1);
-                            }}
-                        >
+                        <FilterSelect label="Campus" value={String(campusIdFilter)} onChange={v => { setCampusIdFilter(v === "All" ? "All" : Number(v)); setPage(1); }}>
                             <option value="All">All Campuses</option>
                             {campuses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                    </div>
+                        </FilterSelect>
 
-                    {/* Grade & Section */}
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold text-zinc-500 uppercase">Grade</label>
-                        <select
-                            className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm"
-                            value={gradeFilter}
-                            onChange={(e) => { setGradeFilter(e.target.value); setPage(1); }}
-                        >
+                        <FilterSelect label="Grade" value={gradeFilter} onChange={v => { setGradeFilter(v); setPage(1); }}>
                             <option value="All">All Grades</option>
-                            <optgroup label="Cambridge GCE O' Level System">
-                                {["Pre-Nursery", "Nursery", "K.G.", "JR-I", "JR-II", "JR-III", "JR-IV", "JR-V", "SR-I", "SR-II", "SR-III", "O-I", "O-II", "O-III"].map(g => (
-                                    <option key={g} value={g}>{g}</option>
-                                ))}
+                            <optgroup label="Cambridge GCE O' Level">
+                                {["Pre-Nursery", "Nursery", "K.G.", "JR-I", "JR-II", "JR-III", "JR-IV", "JR-V", "SR-I", "SR-II", "SR-III", "O-I", "O-II", "O-III"].map(g => <option key={g} value={g}>{g}</option>)}
                             </optgroup>
-                            <optgroup label="Secondary System of Studies">
-                                {["VI", "VII", "VIII", "IX", "X"].map(g => (
-                                    <option key={g} value={g}>{g}</option>
-                                ))}
+                            <optgroup label="Secondary System">
+                                {["VI", "VII", "VIII", "IX", "X"].map(g => <option key={g} value={g}>{g}</option>)}
                             </optgroup>
-                        </select>
-                    </div>
+                        </FilterSelect>
 
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold text-zinc-500 uppercase">Section</label>
-                        <select
-                            className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm"
-                            value={sectionFilter}
-                            onChange={(e) => { setSectionFilter(e.target.value); setPage(1); }}
-                        >
+                        <FilterSelect label="Section" value={sectionFilter} onChange={v => { setSectionFilter(v); setPage(1); }}>
                             <option value="All">All Sections</option>
-                            {["A", "B", "C", "D", "E", "O-I", "O-II", "AS", "A2"].map(s => (
-                                <option key={s} value={s}>{s}</option>
-                            ))}
-                        </select>
-                    </div>
+                            {["A", "B", "C", "D", "E", "O-I", "O-II", "AS", "A2"].map(s => <option key={s} value={s}>{s}</option>)}
+                        </FilterSelect>
 
-                    {/* House Filter */}
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold text-zinc-500 uppercase">House</label>
-                        <select
-                            className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm"
-                            value={houseFilter}
-                            onChange={(e) => { setHouseFilter(e.target.value); setPage(1); }}
-                        >
+                        <FilterSelect label="House" value={houseFilter} onChange={v => { setHouseFilter(v); setPage(1); }}>
                             <option value="All">All Houses</option>
-                            {["Jinnah", "Iqbal", "Liaquat", "Sir Syed"].map(h => (
-                                <option key={h} value={h}>{h}</option>
-                            ))}
-                        </select>
-                    </div>
+                            {["Jinnah", "Iqbal", "Liaquat", "Sir Syed"].map(h => <option key={h} value={h}>{h}</option>)}
+                        </FilterSelect>
 
-                    {/* Financial Checkboxes */}
-                    <div className="flex flex-col gap-2 p-2 bg-white border rounded-lg shadow-sm">
-                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">Financial Filters</label>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1">
-                            {[
-                                { id: "Overdue", label: "Defaulters" },
-                                { id: "Cleared", label: "Cleared" },
-                                { id: "Partial", label: "Partial" }
-                            ].map(f => (
-                                <label key={f.id} className="flex items-center gap-1.5 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        className="rounded border-zinc-300 text-primary w-3.5 h-3.5"
-                                        checked={financialFilters.includes(f.id)}
-                                        onChange={(e) => {
-                                            if (e.target.checked) setFinancialFilters([...financialFilters, f.id]);
-                                            else setFinancialFilters(financialFilters.filter(x => x !== f.id));
-                                            setPage(1);
-                                        }}
-                                    />
-                                    <span className="text-xs text-zinc-600 group-hover:text-zinc-900 transition-colors">{f.label}</span>
-                                </label>
-                            ))}
+                        {/* Financial checkboxes */}
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Financial</span>
+                            <div className="flex flex-col gap-1.5 pt-0.5">
+                                {[{ id: "Overdue", label: "Defaulters" }, { id: "Cleared", label: "Cleared" }, { id: "Partial", label: "Partial" }].map(f => (
+                                    <label key={f.id} className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            className="rounded border-zinc-300 text-primary h-3.5 w-3.5"
+                                            checked={financialFilters.includes(f.id)}
+                                            onChange={e => {
+                                                if (e.target.checked) setFinancialFilters([...financialFilters, f.id]);
+                                                else setFinancialFilters(financialFilters.filter(x => x !== f.id));
+                                                setPage(1);
+                                            }}
+                                        />
+                                        <span className="text-sm text-zinc-700">{f.label}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Siblings */}
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Other</span>
+                            <label className="flex items-center gap-2 cursor-pointer pt-0.5">
+                                <input
+                                    type="checkbox"
+                                    className="rounded border-zinc-300 text-primary h-3.5 w-3.5"
+                                    checked={hasSiblingsOnly}
+                                    onChange={e => { setHasSiblingsOnly(e.target.checked); setPage(1); }}
+                                />
+                                <span className="text-sm text-zinc-700">Siblings only</span>
+                            </label>
                         </div>
                     </div>
-
-                    {/* Sibling Toggle */}
-                    <div className="flex items-center gap-2 p-2 px-3 bg-white border rounded-lg shadow-sm h-[38px]">
-                        <input
-                            type="checkbox"
-                            id="siblingsOnly"
-                            className="rounded border-zinc-300 text-primary w-4 h-4"
-                            checked={hasSiblingsOnly}
-                            onChange={(e) => { setHasSiblingsOnly(e.target.checked); setPage(1); }}
-                        />
-                        <label htmlFor="siblingsOnly" className="text-xs font-semibold text-zinc-700 cursor-pointer select-none">Siblings Only</label>
-                    </div>
                 </div>
             )}
 
-            {/* Table Area (Scrollable X and Y) */}
-            <div className="flex-1 overflow-auto w-full min-h-0">
-                <table className="w-full text-left border-collapse whitespace-nowrap">
-                    <thead>
-                        <tr className="bg-zinc-50 border-b text-zinc-500 font-medium text-sm uppercase tracking-wider">
-                            {COLUMNS.map(col => {
-                                if (!visibleColumns.has(col.id)) return null;
-                                return (
-                                    <th key={col.id} className="py-4 px-3 first:pl-4">
-                                        {col.label}
-                                    </th>
-                                );
-                            })}
-                            <th className="py-4 px-3 text-right pr-4 sticky right-0 bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] z-10 w-[80px]">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100">
-                        {isLoading ? (
-                            <tr>
-                                <td colSpan={visibleColumns.size + 1} className="py-12 text-center text-zinc-500">
-                                    <div className="flex items-center justify-center gap-2">
-                                        <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full" />
-                                        Loading records...
-                                    </div>
-                                </td>
-                            </tr>
-                        ) : error ? (
-                            <tr>
-                                <td colSpan={visibleColumns.size + 1} className="py-12 text-center text-red-500">
-                                    {error}
-                                </td>
-                            </tr>
-                        ) : items.length === 0 ? (
-                            <tr>
-                                <td colSpan={visibleColumns.size + 1} className="py-12 text-center text-zinc-500">
-                                    No students found matching your filters.
-                                </td>
-                            </tr>
-                        ) : (
-                            items.map((student) => (
-                                <tr key={student.id} className="hover:bg-zinc-50/50 transition-colors group">
-                                    {COLUMNS.map(col => {
-                                        if (!visibleColumns.has(col.id)) return null;
+            {/* ── Table Card ──────────────────────────────────────────── */}
+            <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
 
-                                        // Special Renders based on Column ID
-                                        let cellContent: React.ReactNode = student[col.id] as any;
+                {/* Loading */}
+                {isLoading && (
+                    <div className="flex flex-col items-center justify-center py-24 gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        </div>
+                        <p className="text-sm text-zinc-500">Loading students…</p>
+                    </div>
+                )}
 
-                                        if (col.id === "financial_status_badge") {
-                                            const statusStyles: Record<string, string> = {
-                                                Cleared: "bg-emerald-100 text-emerald-800 border-emerald-200",
-                                                Overdue: "bg-rose-100 text-rose-800 border-rose-200",
-                                                Partial: "bg-amber-100 text-amber-800 border-amber-200",
-                                            };
-                                            const statusText = typeof cellContent === 'string' && statusStyles[cellContent] ? cellContent : "Cleared";
-                                            cellContent = (
-                                                <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${statusStyles[statusText] || statusStyles.Cleared}`}>
-                                                    {statusText}
-                                                </span>
-                                            );
-                                        }
+                {/* Error */}
+                {!isLoading && error && (
+                    <div className="flex flex-col items-center justify-center py-20 gap-2 text-rose-600">
+                        <p className="font-medium">Failed to load</p>
+                        <p className="text-sm text-rose-400">{error}</p>
+                    </div>
+                )}
 
-                                        if (col.id === "enrollment_status") {
-                                            const statusStr = String(student.enrollment_status || '');
-                                            const estatusStyles: Record<string, string> = {
-                                                ENROLLED: "bg-emerald-100 text-emerald-800 border-emerald-200",
-                                                SOFT_ADMISSION: "bg-zinc-100 text-zinc-800 border-zinc-200",
-                                                GRADUATED: "bg-blue-100 text-blue-800 border-blue-200",
-                                                EXPELLED: "bg-rose-100 text-rose-800 border-rose-200 line-through decoration-rose-400",
-                                            };
-                                            cellContent = (
-                                                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-md border ${estatusStyles[statusStr] || 'bg-zinc-100 text-zinc-800 border-zinc-200'}`}>
-                                                    {(statusStr || 'N/A').replace('_', ' ')}
-                                                </span>
-                                            );
-                                        }
-
-                                        if (col.id === "student_full_name") {
-                                            cellContent = (
-                                                <div className="font-semibold text-zinc-900 group-hover:text-primary transition-colors">
-                                                    {student.student_full_name}
-                                                </div>
-                                            );
-                                        }
-
-                                        if (col.id === "total_outstanding_balance") {
-                                            cellContent = <span className={(student.total_outstanding_balance ?? 0) > 0 ? "text-rose-600 font-medium" : ""}>Rs. {(student.total_outstanding_balance ?? 0).toLocaleString()}</span>;
-                                        }
-                                        if (col.id === "advance_credit_balance") {
-                                            cellContent = <span className={(student.advance_credit_balance ?? 0) > 0 ? "text-emerald-600 font-medium" : ""}>Rs. {(student.advance_credit_balance ?? 0).toLocaleString()}</span>;
-                                        }
-
-                                        if (col.id === "siblings") {
-                                            const count = student.siblings?.length || 0;
-                                            cellContent = count > 0 ? (
-                                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-bold">
-                                                    {count} {count === 1 ? 'Sibling' : 'Siblings'}
-                                                </span>
-                                            ) : <span className="text-zinc-400">None</span>;
-                                        }
-
-                                        return (
-                                            <td key={col.id} className="py-4 px-3 first:pl-4 text-zinc-700">
-                                                {cellContent}
-                                            </td>
-                                        );
-                                    })}
-
-                                    {/* Actions Cell (Sticky Right) */}
-                                    <td className={`py-4 px-3 text-right pr-4 sticky right-0 bg-white group-hover:bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] transition-colors w-[80px] ${openActionRowId === student.id ? 'z-30' : 'z-10'}`}>
-
-                                        <div className="relative inline-block text-left action-menu-container">
-                                            <button
-                                                onClick={() => setOpenActionRowId(openActionRowId === student.id ? null : student.id)}
-                                                className="p-1.5 rounded-md hover:bg-zinc-200 text-zinc-500 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                aria-haspopup="true"
-                                            >
-                                                <MoreVertical className="h-4 w-4" />
-                                            </button>
-
-                                            {/* Action Menu Popup */}
-                                            {openActionRowId === student.id && (
-                                                <div className="absolute right-0 top-8 mt-1 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black/5 focus:outline-none z-50 overflow-hidden divide-y divide-zinc-100 flex flex-col">
-
-                                                    <div className="py-1">
-                                                        <ActionItem
-                                                            icon={<Eye />}
-                                                            label="View Full Profile"
-                                                            onClick={() => {
-                                                                setViewingStudentId(student.id);
-                                                                setOpenActionRowId(null);
-                                                            }}
-                                                        />
-                                                    </div>
-
-                                                    <div className="py-1">
-                                                        <ActionItem icon={<FileText />} label="Generate Instant Challan" />
-                                                        <ActionItem icon={<DollarSign />} label="Receive Payment" color="text-emerald-600" />
-                                                    </div>
-
-                                                    <div className="py-1">
-                                                        <ActionItem icon={<Edit />} label="Edit Details" />
-                                                        <ActionItem icon={<Calendar />} label="Edit Fee Schedule" />
-                                                        <ActionItem icon={<LinkIcon />} label="Edit Sibling Link" />
-                                                    </div>
-
-                                                </div>
-                                            )}
-                                        </div>
-
-                                    </td>
-                                </tr>
-                            ))
+                {/* Empty */}
+                {!isLoading && !error && items.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-24 gap-3 text-zinc-500">
+                        <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center">
+                            <GraduationCap className="h-6 w-6 text-zinc-400" />
+                        </div>
+                        <div className="text-center">
+                            <p className="font-medium text-zinc-700">No students found</p>
+                            <p className="text-sm text-zinc-400 mt-0.5">Try adjusting your search or filters</p>
+                        </div>
+                        {hasActiveFilters && (
+                            <button onClick={resetFilters} className="text-sm text-primary hover:underline font-medium">
+                                Clear filters
+                            </button>
                         )}
-                    </tbody>
-                </table>
+                    </div>
+                )}
+
+                {/* Table */}
+                {!isLoading && !error && items.length > 0 && (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead>
+                                <tr className="border-b border-zinc-100 bg-zinc-50/80">
+                                    <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">
+                                        Student
+                                    </th>
+                                    {visibleColumns.has("grade_and_section") && (
+                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Grade</th>
+                                    )}
+                                    {visibleColumns.has("campus") && (
+                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Campus</th>
+                                    )}
+                                    {visibleColumns.has("primary_guardian_name") && (
+                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Guardian</th>
+                                    )}
+                                    {visibleColumns.has("financial_status_badge") && (
+                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Finance</th>
+                                    )}
+                                    {visibleColumns.has("enrollment_status") && (
+                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Status</th>
+                                    )}
+                                    {/* Extra optional visible columns */}
+                                    {COLUMNS.filter(c => !["student_full_name", "gr_number", "cc_number", "campus", "grade_and_section", "primary_guardian_name", "whatsapp_number", "financial_status_badge", "enrollment_status"].includes(c.id) && visibleColumns.has(c.id)).map(c => (
+                                        <th key={c.id} className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">{c.label}</th>
+                                    ))}
+                                    <th className="px-5 py-3.5 text-right text-xs font-semibold text-zinc-500 uppercase tracking-wider sticky right-0 bg-zinc-50/80 border-l border-zinc-100 w-16">
+                                        Action
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-100">
+                                {items.map(student => {
+                                    const financialInfo = FINANCIAL_STYLES[student.financial_status_badge ?? "Cleared"] ?? FINANCIAL_STYLES.Cleared;
+                                    const enrollmentInfo = ENROLLMENT_STYLES[student.enrollment_status ?? ""] ?? ENROLLMENT_STYLES.SOFT_ADMISSION;
+
+                                    return (
+                                        <tr key={student.id} className="hover:bg-zinc-50/60 transition-colors group">
+
+                                            {/* Student core cell */}
+                                            <td className="px-5 py-4 min-w-[200px]">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <button
+                                                        onClick={() => setViewingStudentId(student.id)}
+                                                        className="font-semibold text-zinc-900 group-hover:text-primary transition-colors text-left leading-tight"
+                                                    >
+                                                        {student.student_full_name}
+                                                    </button>
+                                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                        {student.gr_number && (
+                                                            <span className="text-[11px] text-zinc-500 font-medium">GR: {student.gr_number}</span>
+                                                        )}
+                                                        {student.cc_number && (
+                                                            <>
+                                                                <span className="w-0.5 h-0.5 rounded-full bg-zinc-300 inline-block" />
+                                                                <span className="text-[11px] text-zinc-500 font-medium">CC: {student.cc_number}</span>
+                                                            </>
+                                                        )}
+                                                        {student.siblings && student.siblings.length > 0 && (
+                                                            <>
+                                                                <span className="w-0.5 h-0.5 rounded-full bg-zinc-300 inline-block" />
+                                                                <span className="inline-flex items-center gap-1 text-[11px] text-indigo-600 font-medium">
+                                                                    <Users className="h-3 w-3" />
+                                                                    {student.siblings.length} sibling{student.siblings.length > 1 ? "s" : ""}
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            {/* Grade & Section */}
+                                            {visibleColumns.has("grade_and_section") && (
+                                                <td className="px-5 py-4 whitespace-nowrap">
+                                                    <span className="text-sm font-medium text-zinc-800">
+                                                        {student.grade_and_section ?? <span className="text-zinc-300">—</span>}
+                                                    </span>
+                                                </td>
+                                            )}
+
+                                            {/* Campus */}
+                                            {visibleColumns.has("campus") && (
+                                                <td className="px-5 py-4 whitespace-nowrap">
+                                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-zinc-100 text-zinc-700 px-2.5 py-1 rounded-full">
+                                                        {CAMPUS_CODES[student.campus ?? ""] ?? student.campus ?? "—"}
+                                                    </span>
+                                                </td>
+                                            )}
+
+                                            {/* Guardian */}
+                                            {visibleColumns.has("primary_guardian_name") && (
+                                                <td className="px-5 py-4 min-w-[160px]">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-sm text-zinc-800">{student.primary_guardian_name ?? <span className="text-zinc-300">—</span>}</span>
+                                                        {visibleColumns.has("whatsapp_number") && student.whatsapp_number && (
+                                                            <span className="flex items-center gap-1 text-[11px] text-zinc-500">
+                                                                <Phone className="h-3 w-3" />
+                                                                {student.whatsapp_number}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            )}
+
+                                            {/* Financial Status */}
+                                            {visibleColumns.has("financial_status_badge") && (
+                                                <td className="px-5 py-4 whitespace-nowrap">
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${financialInfo.cls}`}>
+                                                        {financialInfo.label}
+                                                    </span>
+                                                </td>
+                                            )}
+
+                                            {/* Enrollment Status */}
+                                            {visibleColumns.has("enrollment_status") && (
+                                                <td className="px-5 py-4 whitespace-nowrap">
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${enrollmentInfo.cls}`}>
+                                                        {enrollmentInfo.label}
+                                                    </span>
+                                                </td>
+                                            )}
+
+                                            {/* Extra optional columns */}
+                                            {COLUMNS.filter(c => !["student_full_name", "gr_number", "cc_number", "campus", "grade_and_section", "primary_guardian_name", "whatsapp_number", "financial_status_badge", "enrollment_status"].includes(c.id) && visibleColumns.has(c.id)).map(c => {
+                                                let value: React.ReactNode = String(student[c.id] ?? "—");
+                                                if (c.id === "total_outstanding_balance")
+                                                    value = <span className={(student.total_outstanding_balance ?? 0) > 0 ? "text-rose-600 font-medium" : ""}>Rs. {(student.total_outstanding_balance ?? 0).toLocaleString()}</span>;
+                                                if (c.id === "advance_credit_balance")
+                                                    value = <span className={(student.advance_credit_balance ?? 0) > 0 ? "text-emerald-600 font-medium" : ""}>Rs. {(student.advance_credit_balance ?? 0).toLocaleString()}</span>;
+                                                if (c.id === "siblings") {
+                                                    const count = student.siblings?.length ?? 0;
+                                                    value = count > 0 ? `${count} sibling${count > 1 ? "s" : ""}` : "None";
+                                                }
+                                                return (
+                                                    <td key={c.id} className="px-5 py-4 text-sm text-zinc-700 whitespace-nowrap">
+                                                        {value}
+                                                    </td>
+                                                );
+                                            })}
+
+                                            {/* Actions */}
+                                            <td className={`px-5 py-4 text-right sticky right-0 bg-white group-hover:bg-zinc-50 border-l border-zinc-100 transition-colors ${openActionRowId === student.id ? "z-30" : "z-10"}`}>
+                                                <div className="relative inline-block action-menu-container">
+                                                    <button
+                                                        onClick={() => setOpenActionRowId(openActionRowId === student.id ? null : student.id)}
+                                                        className="h-8 w-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+                                                    >
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </button>
+
+                                                    {openActionRowId === student.id && (
+                                                        <div className="absolute right-0 top-9 w-52 bg-white border border-zinc-200 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-zinc-100 py-1">
+                                                            <div className="py-1">
+                                                                <ActionItem icon={<Eye />} label="View Profile" onClick={() => { setViewingStudentId(student.id); setOpenActionRowId(null); }} />
+                                                            </div>
+                                                            <div className="py-1">
+                                                                <ActionItem icon={<FileText />} label="Instant Challan" />
+                                                                <ActionItem icon={<DollarSign />} label="Receive Payment" color="text-emerald-600" />
+                                                            </div>
+                                                            <div className="py-1">
+                                                                <ActionItem icon={<Edit />} label="Edit Details" />
+                                                                <ActionItem icon={<Calendar />} label="Edit Fee Schedule" />
+                                                                <ActionItem icon={<LinkIcon />} label="Edit Sibling Link" />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {/* ── Pagination ──────────────────────────────────────── */}
+                {meta && !isLoading && (
+                    <div className="border-t border-zinc-100 px-5 py-3.5 flex items-center justify-between gap-4 bg-zinc-50/50">
+                        <span className="text-xs text-zinc-500">
+                            Showing <span className="font-semibold text-zinc-700">{(meta.page - 1) * meta.limit + 1}</span>–<span className="font-semibold text-zinc-700">{Math.min(meta.page * meta.limit, meta.total)}</span> of <span className="font-semibold text-zinc-700">{meta.total}</span> students
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={() => setPage(p => p - 1)}
+                                disabled={!meta.hasPrev}
+                                className="h-8 w-8 rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-500 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <span className="text-xs font-medium text-zinc-700 px-2">
+                                {meta.page} / {meta.pages}
+                            </span>
+                            <button
+                                onClick={() => setPage(p => p + 1)}
+                                disabled={!meta.hasNext}
+                                className="h-8 w-8 rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-500 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* Pagination / Footer Area */}
-            {meta && (
-                <div className="p-4 border-t bg-zinc-50 rounded-b-xl flex justify-between items-center text-zinc-500">
-                    <span>Showing {(meta.page - 1) * meta.limit + 1} to {Math.min(meta.page * meta.limit, meta.total)} of {meta.total} entries</span>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setPage(p => p - 1)}
-                            disabled={!meta.hasPrev || isLoading}
-                            className="px-3 py-1.5 border rounded-lg bg-white hover:bg-zinc-50 text-zinc-700 transition-colors disabled:opacity-50"
-                        >
-                            Previous
-                        </button>
-                        <span className="px-3 py-1.5 text-sm font-medium">Page {meta.page} of {meta.pages}</span>
-                        <button
-                            onClick={() => setPage(p => p + 1)}
-                            disabled={!meta.hasNext || isLoading}
-                            className="px-3 py-1.5 border rounded-lg bg-white hover:bg-zinc-50 text-zinc-700 transition-colors disabled:opacity-50"
-                        >
-                            Next
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Modals */}
+            {/* Profile Modal */}
             <StudentProfileModal
                 studentId={viewingStudentId}
                 onClose={() => setViewingStudentId(null)}
-                onUpdate={() => {
-                    dispatch(fetchStudents({
-                        page,
-                        limit,
-                        search: debouncedSearchQuery || undefined,
-                        campus_id: campusIdFilter !== "All" ? campusIdFilter : undefined,
-                        status: statusFilter !== "All" ? statusFilter : undefined,
-                        fields: activeCategories || undefined,
-                        grade: gradeFilter !== "All" ? gradeFilter : undefined,
-                        section: sectionFilter !== "All" ? sectionFilter : undefined,
-                        house: houseFilter !== "All" ? houseFilter : undefined,
-                        financial_status: financialFilters.length > 0 ? financialFilters : undefined,
-                        has_siblings: hasSiblingsOnly || undefined
-                    }));
-                }}
+                onUpdate={() => dispatch(fetchStudents(buildFetchParams()))}
             />
-
         </div>
     );
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-// Reusable Dropdown Action Item
-function ActionItem({ icon, label, color = "text-zinc-700", onClick }: { icon: React.ReactNode, label: string, color?: string, onClick?: () => void }) {
+function FilterSelect({ label, value, onChange, children }: {
+    label: string; value: string; onChange: (v: string) => void; children: React.ReactNode;
+}) {
+    return (
+        <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{label}</label>
+            <select
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                className="border border-zinc-200 rounded-lg px-3 py-2 bg-white text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            >
+                {children}
+            </select>
+        </div>
+    );
+}
+
+function ActionItem({ icon, label, color = "text-zinc-700", onClick }: {
+    icon: React.ReactNode; label: string; color?: string; onClick?: () => void;
+}) {
     return (
         <button
             onClick={onClick}
-            className={`flex w-full items-center gap-2 px-4 py-2 text-xs font-medium hover:bg-zinc-100 ${color} transition-colors`}
+            className={`flex w-full items-center gap-2.5 px-4 py-2 text-sm font-medium hover:bg-zinc-50 ${color} transition-colors`}
             role="menuitem"
         >
-            <span className="h-4 w-4 opacity-70">{icon}</span>
+            <span className="h-4 w-4 opacity-60 shrink-0">{icon}</span>
             {label}
         </button>
     );
