@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, KeyboardEvent } from "react";
+import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo } from "react";
 import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { fetchClasses } from "@/store/slices/classesSlice";
 import { fetchFeeTypes } from "@/store/slices/feeTypesSlice";
+import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -73,6 +75,9 @@ function sortMonths(months: unknown): string[] {
 
 export default function StudentwiseFeePage() {
     const dispatch = useAppDispatch();
+    const searchParams = useSearchParams();
+    const router = useRouter();
+
     const classes = useAppSelector((s) => s.classes.items);
     const classesLoading = useAppSelector((s) => s.classes.isLoading);
     const feeTypes = useAppSelector((s) => s.feeTypes.items);
@@ -87,9 +92,8 @@ export default function StudentwiseFeePage() {
     const [rows, setRows] = useState<SpreadsheetRow[]>([]);
     const [feeToAmountMap, setFeeToAmountMap] = useState<Record<number, string>>({});
     const [isLoading, setIsLoading] = useState(false);
-    const [loadError, setLoadError] = useState<string | null>(null);
-
     const [isSaving, setIsSaving] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
     const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
@@ -100,6 +104,16 @@ export default function StudentwiseFeePage() {
         if (feeTypes.length === 0) dispatch(fetchFeeTypes());
     }, [classes.length, feeTypes.length, dispatch]);
 
+    // Read params from URL
+    useEffect(() => {
+        const cc = searchParams.get("ccNumber");
+        const cid = searchParams.get("classId");
+        if (cc) setStudentId(cc);
+        if (cid && cid !== "null" && cid !== "undefined" && !isNaN(Number(cid))) {
+            setSelectedClassId(Number(cid));
+        }
+    }, [searchParams]);
+
     useEffect(() => {
         const h = (e: MouseEvent) => {
             if (classDropdownRef.current && !classDropdownRef.current.contains(e.target as Node))
@@ -109,13 +123,14 @@ export default function StudentwiseFeePage() {
         return () => document.removeEventListener("mousedown", h);
     }, []);
 
-    const fetchFeeSchedule = useCallback(async (classId: number) => {
+    const fetchFeeSchedule = useCallback(async (classId: number, ccNumber?: string) => {
         setIsLoading(true); setLoadError(null); setRows([]); setActiveCell(null);
         try {
+            // 1. Fetch Class Schedule
             const { data } = await api.get("/v1/class-fee-schedule/by-class", { params: { class_id: classId } });
             const feeRows: ClassFeeRow[] = Array.isArray(data?.data) ? data.data : [];
 
-            // Build designated amount lookup for this class
+            // Build designated amount lookup
             const lookup: Record<number, string> = {};
             feeRows.forEach(f => { lookup[f.fee_id] = f.amount; });
             setFeeToAmountMap(lookup);
@@ -138,14 +153,32 @@ export default function StudentwiseFeePage() {
                 }));
             });
 
-            setRows(expanded);
+            // 2. Fetch Student-specific overrides if CC provided
+            let finalRows = expanded;
+            if (ccNumber) {
+                try {
+                    const studentRes = await api.get(`/v1/student-fees/by-student/${ccNumber}`);
+                    const studentFees = studentRes.data?.data || [];
+
+                    // Merge student overrides into the expanded rows
+                    finalRows = expanded.map(row => {
+                        const monthNum = MONTH_TO_NUM[row.month];
+                        const override = studentFees.find((sf: any) => sf.fee_type_id === row.feeId && sf.month === monthNum);
+                        return override ? { ...row, amount: override.amount.toString() } : row;
+                    });
+                } catch (e) {
+                    console.error("No student overrides found or error fetching them.", e);
+                }
+            }
+
+            setRows(finalRows);
         } catch (err: any) {
             setLoadError(err.response?.data?.message || "Failed to load fee schedule.");
         } finally { setIsLoading(false); }
     }, []);
 
     useEffect(() => {
-        if (selectedClassId !== "") fetchFeeSchedule(Number(selectedClassId));
+        if (selectedClassId !== "") fetchFeeSchedule(Number(selectedClassId), studentId);
     }, [selectedClassId, fetchFeeSchedule]);
 
     // ── Keyboard navigation ───────────────────────────────────────────────
@@ -216,9 +249,14 @@ export default function StudentwiseFeePage() {
                 };
             });
             await api.post("/v1/fees/student", { cc_number: studentId.trim(), items });
-            setSaveStatus({ type: "success", message: `${items.length} records saved for ${studentId.trim()}.` });
+
+            const msg = `${items.length} records saved for student ${studentId.trim()}.`;
+            setSaveStatus({ type: "success", message: msg });
+            toast.success("Student fee schedule saved successfully!");
         } catch (err: any) {
-            setSaveStatus({ type: "error", message: err.response?.data?.message || "Failed to save fees." });
+            const msg = err.response?.data?.message || "Failed to save fees.";
+            setSaveStatus({ type: "error", message: msg });
+            toast.error(msg);
         } finally { setIsSaving(false); }
     };
 
@@ -245,7 +283,6 @@ export default function StudentwiseFeePage() {
             if (i !== idx) return r;
             const updated = { ...r, [field]: val };
 
-            // Magic logic: if fee type changes, fetch designated amount from lookup
             if (field === "feeId") {
                 const ft = feeTypes.find(f => f.id === val);
                 if (ft) {
@@ -268,7 +305,6 @@ export default function StudentwiseFeePage() {
         c.class_code.toLowerCase().includes(classSearch.toLowerCase())
     );
 
-    const cellBase = "border-r border-b border-zinc-200 focus:outline-none transition-all h-10";
     const isCellActive = (r: number, c: number) => activeCell?.row === r && activeCell?.col === c;
 
     return (
@@ -276,7 +312,7 @@ export default function StudentwiseFeePage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Studentwise Fee Editor</h1>
-                    <p className="text-zinc-500 mt-0.5 text-sm">Every cell is editable. Type or select values directly.</p>
+                    <p className="text-zinc-500 mt-0.5 text-sm">Every cell is editable. Load template, adjust, then save.</p>
                 </div>
                 {rows.length > 0 && (
                     <button onClick={addRow} className="group flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 transition-all active:scale-95">
@@ -289,7 +325,7 @@ export default function StudentwiseFeePage() {
             {/* Config Bar */}
             <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm p-5 flex flex-col lg:flex-row lg:items-end gap-5">
                 <div className="flex-1">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Load Schedule Template</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Schedule Template</label>
                     <div className="relative" ref={classDropdownRef}>
                         <button type="button" onClick={() => setShowClassDropdown(!showClassDropdown)}
                             className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm transition-all hover:bg-white hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
@@ -338,15 +374,15 @@ export default function StudentwiseFeePage() {
 
                 <div className="flex gap-3">
                     {selectedClassId !== "" && (
-                        <button onClick={() => fetchFeeSchedule(Number(selectedClassId))} disabled={isLoading} title="Reload template"
-                            className="h-11 w-11 flex items-center justify-center bg-zinc-100 text-zinc-600 rounded-xl hover:bg-zinc-200 transition-all active:scale-95"
+                        <button onClick={() => fetchFeeSchedule(Number(selectedClassId), studentId)} disabled={isLoading} title="Refresh/Reload"
+                            className="inline-flex items-center gap-2 h-11 px-4 border border-zinc-200 bg-white text-sm font-medium text-zinc-700 rounded-xl hover:bg-zinc-50 transition-all shadow-sm disabled:opacity-50"
                         >
-                            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+                            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} /> Refresh
                         </button>
                     )}
                     {rows.length > 0 && (
                         <button onClick={handleSave} disabled={isSaving || !studentId.trim()}
-                            className="h-11 px-8 bg-primary text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50 active:scale-95 flex items-center gap-3"
+                            className="inline-flex items-center gap-2 h-11 px-8 bg-primary text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50 active:scale-95"
                         >
                             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Schedule"}
                         </button>
@@ -362,6 +398,14 @@ export default function StudentwiseFeePage() {
                     </div>
                     <span className="text-sm font-semibold">{saveStatus.message}</span>
                     <button onClick={() => setSaveStatus(null)} className="ml-auto p-1.5 hover:bg-black/5 rounded-lg transition-colors"><X className="h-4 w-4 opacity-40" /></button>
+                </div>
+            )}
+
+            {/* Error States */}
+            {loadError && (
+                <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 text-sm">
+                    <AlertCircle className="h-5 w-5 text-red-400 shrink-0" /><span>{loadError}</span>
+                    <button onClick={() => setLoadError(null)} className="ml-auto p-1 hover:bg-black/5 rounded-lg"><X className="h-4 w-4 opacity-40" /></button>
                 </div>
             )}
 
@@ -454,7 +498,7 @@ export default function StudentwiseFeePage() {
                                                     {MONTH_ORDER.map(m => <option key={m} value={m}>{m}</option>)}
                                                     <option value="—">—</option>
                                                 </select>
-                                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />
+                                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-300 pointer-events-none" />
                                             </td>
 
                                             {/* Amount Input */}

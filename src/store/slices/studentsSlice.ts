@@ -8,6 +8,7 @@ export interface StudentListItem {
   student_full_name: string;
   gr_number: string | null;
   cc_number: string | null;
+  class_id?: number | null;
   campus: string | null;
   grade_and_section: string | null;
   primary_guardian_name: string | null;
