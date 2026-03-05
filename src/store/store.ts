@@ -3,6 +3,7 @@ import authReducer from './slices/authSlice';
 import studentsReducer from './slices/studentsSlice';
 import classesReducer from './slices/classesSlice';
 import feeTypesReducer from './slices/feeTypesSlice';
+import sectionsReducer from './slices/sectionsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     students: studentsReducer,
     classes: classesReducer,
     feeTypes: feeTypesReducer,
+    sections: sectionsReducer,
   },
 });
 
