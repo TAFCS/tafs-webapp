@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Layers, Save, Loader2, RefreshCw, AlertCircle, CheckCircle } from "lucide-react";
+import { Layers, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus } from "lucide-react";
 import api from "@/lib/api";
 
 interface SectionItem {
@@ -18,6 +18,11 @@ export default function SectionsPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+    // State for Add Modal
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isAdding, setIsAdding] = useState(false);
+    const [newSection, setNewSection] = useState({ description: "" });
 
     const fetchSections = async () => {
         setIsLoading(true);
@@ -89,24 +94,52 @@ export default function SectionsPage() {
             setOriginalSections(JSON.parse(JSON.stringify(sections)));
         } catch (err: any) {
             console.error("Error saving data:", err);
-            const errMsg = err.response?.data?.message || "Failed to save changes. Please try again.";
+            const errMsg = err.response?.data?.message || err.response?.data?.error || "Failed to save changes. Please try again.";
             setError(Array.isArray(errMsg) ? errMsg.join("; ") : errMsg);
         } finally {
             setIsSaving(false);
         }
     };
 
+    const handleAddSection = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsAdding(true);
+        setError(null);
+        setSuccessMessage(null);
+
+        try {
+            await api.post("/v1/sections", newSection);
+            setSuccessMessage("Section added successfully.");
+            setIsAddModalOpen(false);
+            setNewSection({ description: "" });
+            fetchSections(); // Refresh list to get the actual ID
+        } catch (err: any) {
+            console.error("Error adding section:", err);
+            const errMsg = err.response?.data?.message || err.response?.data?.error || "Failed to add section.";
+            setError(Array.isArray(errMsg) ? errMsg.join("; ") : errMsg);
+        } finally {
+            setIsAdding(false);
+        }
+    };
+
     const hasChanges = JSON.stringify(sections) !== JSON.stringify(originalSections);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Sections</h1>
                     <p className="text-zinc-500 mt-1">Manage class sections and divisions.</p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                    <button
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="inline-flex items-center justify-center px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95"
+                    >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Section
+                    </button>
                     <button
                         onClick={fetchSections}
                         disabled={isLoading || isSaving}
@@ -196,6 +229,58 @@ export default function SectionsPage() {
                     </div>
                 )}
             </div>
+
+            {/* Add Section Modal */}
+            {isAddModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+                        <form onSubmit={handleAddSection}>
+                            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+                                <h2 className="text-lg font-semibold text-zinc-900">Add New Section</h2>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAddModalOpen(false)}
+                                    className="text-zinc-400 hover:text-zinc-600 p-1"
+                                >
+                                    <span className="sr-only">Close</span>
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-zinc-700 mb-1">Description</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={newSection.description}
+                                        onChange={(e) => setNewSection({ ...newSection, description: e.target.value })}
+                                        className="w-full px-4 py-2 bg-white border border-zinc-300 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl text-sm outline-none transition-all"
+                                        placeholder="e.g. Yellow"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="px-6 py-4 border-t border-zinc-100 flex justify-end gap-3 bg-zinc-50/50">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAddModalOpen(false)}
+                                    className="px-4 py-2 text-sm font-medium text-zinc-700 hover:text-zinc-900 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isAdding}
+                                    className="inline-flex items-center justify-center px-6 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-xl shadow-sm shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
+                                >
+                                    {isAdding ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Adding...</> : 'Add Section'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
