@@ -228,22 +228,7 @@ export function FamiliesDataTable() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 ml-auto w-full lg:w-auto mt-2 lg:mt-0">
-                    <button
-                        onClick={() => setIsCreateFamilyModalOpen(true)}
-                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-sm font-medium"
-                    >
-                        <Users className="h-4 w-4" />
-                        Create New Family
-                    </button>
-                    <button
-                        onClick={() => setIsChangeFamilyModalOpen(true)}
-                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-zinc-700 rounded-lg hover:bg-zinc-50 transition-colors shadow-sm font-medium"
-                    >
-                        <LinkIcon className="h-4 w-4" />
-                        Change Student's Family
-                    </button>
-                </div>
+
 
             </div>
 

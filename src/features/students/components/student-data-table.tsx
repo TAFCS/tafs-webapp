@@ -55,7 +55,9 @@ const COLUMNS: ColumnDef[] = [
     { id: "date_of_birth", label: "Date of Birth (DOB)", isDefault: false },
     { id: "registration_number", label: "Registration Number", isDefault: false },
     { id: "house_and_color", label: "House & Color", isDefault: false },
-    { id: "residential_address", label: "Residential Address", isDefault: false }
+    { id: "residential_address", label: "Residential Address", isDefault: false },
+    { id: "father_name", label: "Father's Name", isDefault: false },
+    { id: "siblings", label: "Siblings", isDefault: false }
 ];
 
 const COL_TO_CATEGORY_MAP: Record<keyof StudentListItem, string> = {
@@ -83,7 +85,9 @@ const COL_TO_CATEGORY_MAP: Record<keyof StudentListItem, string> = {
     date_of_admission: "core",
 
     total_outstanding_balance: "core",
-    advance_credit_balance: "core"
+    advance_credit_balance: "core",
+    father_name: "contact",
+    siblings: "family"
 };
 
 // Custom debounce hook inline
@@ -434,7 +438,7 @@ export function StudentDataTable() {
                                         if (!visibleColumns.has(col.id)) return null;
 
                                         // Special Renders based on Column ID
-                                        let cellContent: React.ReactNode = student[col.id];
+                                        let cellContent: React.ReactNode = student[col.id] as any;
 
                                         if (col.id === "financial_status_badge") {
                                             const statusStyles: Record<string, string> = {
@@ -478,6 +482,15 @@ export function StudentDataTable() {
                                         }
                                         if (col.id === "advance_credit_balance") {
                                             cellContent = <span className={(student.advance_credit_balance ?? 0) > 0 ? "text-emerald-600 font-medium" : ""}>Rs. {(student.advance_credit_balance ?? 0).toLocaleString()}</span>;
+                                        }
+
+                                        if (col.id === "siblings") {
+                                            const count = student.siblings?.length || 0;
+                                            cellContent = count > 0 ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-bold">
+                                                    {count} {count === 1 ? 'Sibling' : 'Siblings'}
+                                                </span>
+                                            ) : <span className="text-zinc-400">None</span>;
                                         }
 
                                         return (
