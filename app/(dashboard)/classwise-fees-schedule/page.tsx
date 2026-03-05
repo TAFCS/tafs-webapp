@@ -119,7 +119,7 @@ export default function ClasswiseFeesSchedulePage() {
             type: "new",
             data: { _localId: `new-${Date.now()}`, class_id: "", fee_id: "", amount: "" },
         };
-        setRows((prev) => [...prev, newRow]);
+        setRows((prev) => [newRow, ...prev]);
     };
 
     const handleNewChange = (
@@ -346,8 +346,8 @@ export default function ClasswiseFeesSchedulePage() {
                                             <tr
                                                 key={`existing-${item.id}`}
                                                 className={`border-b border-zinc-100 transition-colors ${row.dirty
-                                                        ? "bg-amber-50/50"
-                                                        : "hover:bg-zinc-50/50"
+                                                    ? "bg-amber-50/50"
+                                                    : "hover:bg-zinc-50/50"
                                                     }`}
                                             >
                                                 <td className="px-6 py-3 font-medium text-zinc-400 text-xs">
