@@ -41,7 +41,19 @@ const COLUMNS: ColumnDef[] = [
     { id: "legacy_pid", label: "Legacy ID", isDefault: false },
 ];
 
-export function FamiliesDataTable() {
+interface FamiliesDataTableProps {
+    isCreateOpen?: boolean;
+    onCloseCreate?: () => void;
+    isAssignOpen?: boolean;
+    onCloseAssign?: () => void;
+}
+
+export function FamiliesDataTable({
+    isCreateOpen = false,
+    onCloseCreate,
+    isAssignOpen = false,
+    onCloseAssign,
+}: FamiliesDataTableProps = {}) {
     // ── Live data state ──────────────────────────────────────────────────────
     const [families, setFamilies] = useState<Family[]>([]);
     const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -63,11 +75,29 @@ export function FamiliesDataTable() {
     // Actions Menu
     const [openActionRowId, setOpenActionRowId] = useState<number | null>(null);
 
-    // Modal States
-    const [isCreateFamilyModalOpen, setIsCreateFamilyModalOpen] = useState(false);
-    const [isChangeFamilyModalOpen, setIsChangeFamilyModalOpen] = useState(false);
+    // Detail modal
     const [selectedFamilyId, setSelectedFamilyId] = useState<number | null>(null);
     const [detailFamilyId, setDetailFamilyId] = useState<number | null>(null);
+
+    // Aliases so the rest of the component can use concise names
+    const isCreateFamilyModalOpen = isCreateOpen;
+    const setIsCreateFamilyModalOpen = (open: boolean) => { if (!open) onCloseCreate?.(); };
+    const isChangeFamilyModalOpen = isAssignOpen;
+    const setIsChangeFamilyModalOpen = (open: boolean) => { if (!open) onCloseAssign?.(); };
+
+    // Reset all assign-modal state whenever the modal opens (prevents stale selectedFamilyId
+    // from a previous row action causing a 409 conflict on submit)
+    useEffect(() => {
+        if (isAssignOpen) {
+            setSelectedFamilyId(null);
+            setSelectedStudentId(null);
+            setSelectedStudentName("");
+            setAssignStudentSearch("");
+            setAssignFamilySearch("");
+            setAssignError(null);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAssignOpen]);
 
     // ── Fetch families from API ───────────────────────────────────────────────
     const fetchFamilies = React.useCallback(async (currentPage: number, search: string) => {
@@ -227,8 +257,6 @@ export function FamiliesDataTable() {
                         )}
                     </div>
                 </div>
-
-
 
             </div>
 
@@ -522,13 +550,19 @@ function ActionItem({ icon, label, color = "text-zinc-700", onClick }: { icon: R
 
 // ─── AssignChildModal ─────────────────────────────────────────────────────────
 
+// Students API returns items in a nested shape: { id, core: {...}, family: {...} }
 interface StudentHit {
     id: number;
-    first_name: string;
-    last_name: string;
-    cc_number: string | null;
-    gr_number: string | null;
-    families?: { household_name: string } | null;
+    core?: {
+        first_name: string;
+        last_name: string;
+        full_name: string;
+        cc_number: string | null;
+        gr_number: string | null;
+    };
+    family?: {
+        household_name: string | null;
+    } | null;
 }
 
 interface AssignChildModalProps {
@@ -566,7 +600,7 @@ function AssignChildModal({
     useEffect(() => {
         if (!debouncedStudentQ) { setStudentResults([]); return; }
         api.get('/v1/students', { params: { search: debouncedStudentQ, limit: 8, fields: 'core,family' } })
-            .then(r => setStudentResults((r.data as { data: StudentHit[] }).data ?? []))
+            .then(r => setStudentResults((r.data as { data: { items: StudentHit[] } }).data?.items ?? []))
             .catch(() => setStudentResults([]));
     }, [debouncedStudentQ]);
 
@@ -609,13 +643,13 @@ function AssignChildModal({
                                         className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 flex items-center justify-between"
                                         onClick={() => {
                                             setSelectedStudentId(s.id);
-                                            setSelectedStudentName(`${s.first_name} ${s.last_name}`);
+                                            setSelectedStudentName(s.core?.full_name ?? `${s.core?.first_name ?? ''} ${s.core?.last_name ?? ''}`.trim());
                                             setStudentSearch("");
                                             setStudentResults([]);
                                         }}
                                     >
-                                        <span className="font-medium text-zinc-800 text-xs">{s.first_name} {s.last_name}</span>
-                                        <span className="text-zinc-400 text-[10px]">{s.cc_number} | {s.families?.household_name ?? "—"}</span>
+                                        <span className="font-medium text-zinc-800 text-xs">{s.core?.full_name ?? `${s.core?.first_name} ${s.core?.last_name}`}</span>
+                                        <span className="text-zinc-400 text-[10px]">{s.core?.cc_number ?? '—'} | {s.family?.household_name ?? "No family"}</span>
                                     </button>
                                 ))}
                             </div>
