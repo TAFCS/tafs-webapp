@@ -188,9 +188,8 @@ export default function StudentwiseFeePage() {
     const academicYearStart = today.getMonth() >= 7 ? today.getFullYear() : today.getFullYear() - 1;
 
     const handleSave = async () => {
-        const numericId = parseInt(studentId, 10);
-        if (!studentId.trim() || isNaN(numericId) || numericId <= 0) {
-            setSaveStatus({ type: "error", message: "Please enter a valid numeric Student ID before saving." });
+        if (!studentId.trim()) {
+            setSaveStatus({ type: "error", message: "Please enter a Student CC number (e.g. CC-2026-00003) before saving." });
             return;
         }
         if (expandedRows.length === 0) return;
@@ -209,8 +208,8 @@ export default function StudentwiseFeePage() {
                     due_date: `${year}-${mm}-01`,
                 };
             });
-            await api.post("/v1/fees/student", { student_id: numericId, items });
-            setSaveStatus({ type: "success", message: `${items.length} fee record(s) saved for student #${numericId}.` });
+            await api.post("/v1/fees/student", { cc_number: studentId.trim(), items });
+            setSaveStatus({ type: "success", message: `${items.length} fee record(s) saved for student ${studentId.trim()}.` });
         } catch (err: any) {
             setSaveStatus({ type: "error", message: err.response?.data?.message || "Failed to save fees. Please try again." });
         } finally {
@@ -301,13 +300,13 @@ export default function StudentwiseFeePage() {
                 </div>
 
                 {/* Student ID */}
-                <div className="w-44">
+                <div className="w-52">
                     <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">
-                        Student ID
+                        Student CC No.
                     </label>
                     <input
                         type="text"
-                        placeholder="e.g. 10042"
+                        placeholder="e.g. CC-2026-00003"
                         value={studentId}
                         onChange={(e) => setStudentId(e.target.value)}
                         className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
