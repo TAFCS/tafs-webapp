@@ -319,7 +319,7 @@ function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, o
                         <input
                             autoFocus
                             type="text"
-                            placeholder="Search Household or ID..."
+                            placeholder="Search Household, CNIC or ID..."
                             className="w-full pl-9 pr-4 py-2.5 text-sm border-zinc-200 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
                             value={searchQ}
                             onChange={(e) => setSearchQ(e.target.value)}
@@ -346,12 +346,24 @@ function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, o
                                             {family.household_name.charAt(0).toUpperCase()}
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold text-zinc-900">{family.household_name}</p>
-                                            <p className="text-[10px] text-zinc-500">ID: #{family.id} • {family.email || "No email"}</p>
+                                            <p className="text-xs font-bold text-zinc-900 group-hover:text-indigo-600 transition-colors">
+                                                {family.household_name}
+                                            </p>
+                                            <div className="flex flex-col gap-0.5 mt-0.5">
+                                                <p className="text-[10px] text-zinc-500 font-medium flex items-center gap-1.5">
+                                                    <span className="opacity-70">ID: #{family.id}</span>
+                                                    {family.legacy_pid && <span className="px-1 bg-zinc-100 rounded text-[9px]">PID: {family.legacy_pid}</span>}
+                                                </p>
+                                                {family.primary_guardian && (
+                                                    <p className="text-[10px] font-bold text-indigo-600/80 bg-indigo-50/50 px-1.5 py-0.5 rounded-md self-start mt-1">
+                                                        {family.primary_guardian.name} {family.primary_guardian.cnic ? `(${family.primary_guardian.cnic})` : ""}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     {family.id === currentFamilyId && (
-                                        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Current</span>
+                                        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider bg-zinc-100 px-2 py-0.5 rounded-full">Current</span>
                                     )}
                                     {selectedFamily?.id === family.id && (
                                         <ChevronRight className="h-4 w-4 text-indigo-500" />

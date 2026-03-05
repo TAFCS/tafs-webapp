@@ -10,6 +10,10 @@ export interface Family {
   legacy_pid: string | null;
   created_at: string;
   student_count?: number;
+  primary_guardian?: {
+    name: string;
+    cnic: string | null;
+  } | null;
 }
 
 export interface FamilyStudent {
