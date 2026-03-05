@@ -1,12 +1,53 @@
-import { X, User, MapPin, Phone, CreditCard, GraduationCap, Hash, LayoutGrid, Calendar as CalendarIcon, Hash as Tag } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, User, MapPin, CreditCard, GraduationCap, LayoutGrid, Hash as Tag, Search, RefreshCw, AlertCircle, ChevronRight } from "lucide-react";
 import { StudentListItem } from "../../../store/slices/studentsSlice";
+import { familiesService, type Family } from "@/lib/families.service";
+import { studentsService } from "@/lib/students.service";
+import { useDebounce } from "@/hooks/use-debounce";
+import toast from "react-hot-toast";
 
 interface StudentProfileModalProps {
-    student: StudentListItem | null;
+    studentId: number | null;
     onClose: () => void;
+    onUpdate?: () => void;
 }
 
-export function StudentProfileModal({ student, onClose }: StudentProfileModalProps) {
+export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentProfileModalProps) {
+    const [student, setStudent] = useState<StudentListItem | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isChangeFamilyOpen, setIsChangeFamilyOpen] = useState(false);
+
+    const loadStudent = async () => {
+        if (!studentId) return;
+        setIsLoading(true);
+        try {
+            const data = await studentsService.getById(studentId);
+            setStudent(data);
+        } catch (err) {
+            toast.error("Failed to load student details");
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadStudent();
+    }, [studentId]);
+
+    if (!studentId) return null;
+
+    if (isLoading && !student) {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                <div className="bg-white p-8 rounded-2xl shadow-xl flex items-center gap-4">
+                    <RefreshCw className="h-6 w-6 animate-spin text-indigo-500" />
+                    <p className="font-bold text-zinc-900">Loading profile...</p>
+                </div>
+            </div>
+        );
+    }
+
     if (!student) return null;
 
     const statusStyles: Record<string, string> = {
@@ -79,13 +120,22 @@ export function StudentProfileModal({ student, onClose }: StudentProfileModalPro
                                         <User className="h-3 w-3 text-indigo-500" /> Sibling / Family Members
                                     </h3>
                                     {student.household_name && (
-                                        <div className="mb-3">
-                                            <p className="text-[11px] font-bold text-indigo-600 italic">
-                                                {student.household_name}&apos;s Family
-                                            </p>
-                                            <p className="text-[10px] font-medium text-zinc-500 mt-0.5">
-                                                Family ID: {student.family_id || "N/A"}
-                                            </p>
+                                        <div className="mb-3 flex items-start justify-between gap-2">
+                                            <div>
+                                                <p className="text-[11px] font-bold text-indigo-600 italic">
+                                                    {student.household_name}&apos;s Family
+                                                </p>
+                                                <p className="text-[10px] font-medium text-zinc-500 mt-0.5">
+                                                    Family ID: {student.family_id || "N/A"}
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => setIsChangeFamilyOpen(true)}
+                                                className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-colors"
+                                            >
+                                                <RefreshCw className="h-2.5 w-2.5" />
+                                                Change
+                                            </button>
                                         </div>
                                     )}
                                     {student.siblings && student.siblings.length > 0 ? (
@@ -173,7 +223,7 @@ export function StudentProfileModal({ student, onClose }: StudentProfileModalPro
                 </div>
 
                 {/* Footer Actions */}
-                <div className="bg-zinc-50 p-4 border-t flex justify-end gap-3">
+                <div className="bg-zinc-50 p-4 border-t flex justify-end gap-3 flex-shrink-0">
                     <button
                         onClick={onClose}
                         className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
@@ -182,6 +232,163 @@ export function StudentProfileModal({ student, onClose }: StudentProfileModalPro
                     </button>
                     <button className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-all shadow-sm">
                         Edit Profile
+                    </button>
+                </div>
+
+                {/* Family Reassignment Modal */}
+                {isChangeFamilyOpen && (
+                    <ChangeFamilyModal
+                        studentId={student.id}
+                        studentName={student.student_full_name}
+                        currentFamilyId={student.family_id}
+                        onClose={() => setIsChangeFamilyOpen(false)}
+                        onSuccess={() => {
+                            setIsChangeFamilyOpen(false);
+                            loadStudent(); // Refresh local profile
+                            onUpdate?.(); // Refresh background list
+                        }}
+                    />
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─── Sub-Components ───────────────────────────────────────────────────────────
+
+interface ChangeFamilyModalProps {
+    studentId: number;
+    studentName: string;
+    currentFamilyId: number | null;
+    onClose: () => void;
+    onSuccess: () => void;
+}
+
+function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, onSuccess }: ChangeFamilyModalProps) {
+    const [searchQ, setSearchQ] = useState("");
+    const debouncedSearch = useDebounce(searchQ, 350);
+    const [results, setResults] = useState<Family[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [selectedFamily, setSelectedFamily] = useState<Family | null>(null);
+    const [isAssigning, setIsAssigning] = useState(false);
+
+    useEffect(() => {
+        if (!debouncedSearch || debouncedSearch.length < 2) {
+            setResults([]);
+            return;
+        }
+
+        setIsLoading(true);
+        familiesService.list({ search: debouncedSearch, limit: 6 })
+            .then(res => setResults(res.data))
+            .finally(() => setIsLoading(false));
+    }, [debouncedSearch]);
+
+    const handleAssign = async () => {
+        if (!selectedFamily) return;
+        setIsAssigning(true);
+        try {
+            await familiesService.assignChild(selectedFamily.id, studentId);
+            toast.success("Family updated successfully");
+            onSuccess(); // Now triggers loadStudent() in the parent
+            onClose();
+        } catch (err) {
+            toast.error("Failed to update family");
+            console.error(err);
+        } finally {
+            setIsAssigning(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                <div className="px-6 py-4 border-b flex justify-between items-center bg-zinc-50/50">
+                    <div>
+                        <h3 className="font-bold text-zinc-900">Change Family</h3>
+                        <p className="text-[10px] text-zinc-500 font-medium">Reassigning: {studentName}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-zinc-200 rounded-full transition-colors">
+                        <X className="h-4 w-4 text-zinc-400" />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-4">
+                    <div className="relative">
+                        <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${isLoading ? 'text-indigo-500 animate-pulse' : 'text-zinc-400'}`} />
+                        <input
+                            autoFocus
+                            type="text"
+                            placeholder="Search Household or ID..."
+                            className="w-full pl-9 pr-4 py-2.5 text-sm border-zinc-200 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                            value={searchQ}
+                            onChange={(e) => setSearchQ(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="space-y-1 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                        {results.length > 0 ? (
+                            results.map(family => (
+                                <button
+                                    key={family.id}
+                                    onClick={() => setSelectedFamily(family)}
+                                    className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between group ${selectedFamily?.id === family.id
+                                        ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200"
+                                        : family.id === currentFamilyId
+                                            ? "bg-zinc-50 border-zinc-100 opacity-60 cursor-not-allowed"
+                                            : "hover:bg-zinc-50 border-transparent hover:border-zinc-200"
+                                        }`}
+                                    disabled={family.id === currentFamilyId}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center font-bold text-xs ${selectedFamily?.id === family.id ? "bg-indigo-500 text-white" : "bg-zinc-100 text-zinc-500"
+                                            }`}>
+                                            {family.household_name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-zinc-900">{family.household_name}</p>
+                                            <p className="text-[10px] text-zinc-500">ID: #{family.id} • {family.email || "No email"}</p>
+                                        </div>
+                                    </div>
+                                    {family.id === currentFamilyId && (
+                                        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Current</span>
+                                    )}
+                                    {selectedFamily?.id === family.id && (
+                                        <ChevronRight className="h-4 w-4 text-indigo-500" />
+                                    )}
+                                </button>
+                            ))
+                        ) : debouncedSearch.length >= 2 && !isLoading ? (
+                            <div className="py-8 text-center bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
+                                <AlertCircle className="h-6 w-6 text-zinc-300 mx-auto mb-2" />
+                                <p className="text-xs text-zinc-500">No households found</p>
+                            </div>
+                        ) : (
+                            <p className="text-[10px] text-zinc-400 text-center py-4 italic">Type to search for a new family...</p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="px-6 py-4 bg-zinc-50 border-t flex items-center justify-between">
+                    <button
+                        onClick={onClose}
+                        className="text-xs font-semibold text-zinc-500 hover:text-zinc-800 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        disabled={!selectedFamily || isAssigning}
+                        onClick={handleAssign}
+                        className="px-6 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-200/50 flex items-center gap-2"
+                    >
+                        {isAssigning ? (
+                            <>
+                                <RefreshCw className="h-3 w-3 animate-spin" />
+                                Updating...
+                            </>
+                        ) : (
+                            "Confirm Reassign"
+                        )}
                     </button>
                 </div>
             </div>

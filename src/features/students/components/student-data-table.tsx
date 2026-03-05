@@ -112,11 +112,16 @@ export function StudentDataTable() {
     // State: Fetching
     const [page, setPage] = useState(1);
     const [limit] = useState(10);
+    const [viewingStudentId, setViewingStudentId] = useState<number | null>(null);
     // State: Columns
     const [visibleColumns, setVisibleColumns] = useState<Set<keyof StudentListItem>>(
         new Set(COLUMNS.filter(c => c.isDefault).map(c => c.id))
     );
     const [showColumnToggles, setShowColumnToggles] = useState(false);
+
+    const viewingStudent = useMemo(() =>
+        items.find(s => s.id === viewingStudentId) || null,
+        [items, viewingStudentId]);
 
     const activeCategories = useMemo(() => {
         const cats = new Set<string>();
@@ -124,8 +129,17 @@ export function StudentDataTable() {
             const cat = COL_TO_CATEGORY_MAP[col];
             if (cat) cats.add(cat);
         });
+
+        // Ensure full profile data if viewing a student
+        if (viewingStudentId) {
+            cats.add("family");
+            cats.add("contact");
+            cats.add("demographic");
+            cats.add("academic");
+        }
+
         return Array.from(cats).join(",");
-    }, [visibleColumns]);
+    }, [visibleColumns, viewingStudentId]);
 
     // State: Filters
     const [searchQuery, setSearchQuery] = useState("");
@@ -145,7 +159,6 @@ export function StudentDataTable() {
 
     // State: Actions Menu Mapping (Row ID -> Boolean)
     const [openActionRowId, setOpenActionRowId] = useState<number | null>(null);
-    const [viewingStudent, setViewingStudent] = useState<StudentListItem | null>(null);
 
     // Redux Fetch Effect
     useEffect(() => {
@@ -521,8 +534,7 @@ export function StudentDataTable() {
                                                             icon={<Eye />}
                                                             label="View Full Profile"
                                                             onClick={() => {
-                                                                // @ts-ignore
-                                                                setViewingStudent(student);
+                                                                setViewingStudentId(student.id);
                                                                 setOpenActionRowId(null);
                                                             }}
                                                         />
@@ -576,7 +588,25 @@ export function StudentDataTable() {
             )}
 
             {/* Modals */}
-            <StudentProfileModal student={viewingStudent as any} onClose={() => setViewingStudent(null)} />
+            <StudentProfileModal
+                studentId={viewingStudentId}
+                onClose={() => setViewingStudentId(null)}
+                onUpdate={() => {
+                    dispatch(fetchStudents({
+                        page,
+                        limit,
+                        search: debouncedSearchQuery || undefined,
+                        campus_id: campusIdFilter !== "All" ? campusIdFilter : undefined,
+                        status: statusFilter !== "All" ? statusFilter : undefined,
+                        fields: activeCategories || undefined,
+                        grade: gradeFilter !== "All" ? gradeFilter : undefined,
+                        section: sectionFilter !== "All" ? sectionFilter : undefined,
+                        house: houseFilter !== "All" ? houseFilter : undefined,
+                        financial_status: financialFilters.length > 0 ? financialFilters : undefined,
+                        has_siblings: hasSiblingsOnly || undefined
+                    }));
+                }}
+            />
 
         </div>
     );
