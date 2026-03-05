@@ -16,8 +16,11 @@ import {
     ChevronDown,
 } from "lucide-react";
 import api from "@/lib/api";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchClasses } from "@/store/slices/classesSlice";
+import { fetchFeeTypes } from "@/store/slices/feeTypesSlice";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Local types (schedule rows) ─────────────────────────────────────────────
 
 interface ClassInfo {
     id: number;
@@ -36,14 +39,14 @@ interface FeeScheduleItem {
     id: number;
     class_id: number;
     fee_id: number;
-    amount: string; // Decimal comes as string from API
+    amount: string;
     classes: ClassInfo;
     fee_types: FeeTypeInfo;
 }
 
 // Local-only "new row" — no id yet
 interface NewRow {
-    _localId: string; // temp key
+    _localId: string;
     class_id: string;
     fee_id: string;
     amount: string;
@@ -59,6 +62,14 @@ type SortKey = "id" | "class_id" | "fee_id" | "amount" | "class" | "fee_type";
 type SortDir = "asc" | "desc";
 
 export default function ClasswiseFeesSchedulePage() {
+    const dispatch = useAppDispatch();
+
+    // ── Redux store ────────────────────────────────────────────────────────
+    const classes = useAppSelector((s) => s.classes.items);
+    const feeTypes = useAppSelector((s) => s.feeTypes.items);
+    const classesLoading = useAppSelector((s) => s.classes.isLoading);
+    const feeTypesLoading = useAppSelector((s) => s.feeTypes.isLoading);
+
     const [rows, setRows] = useState<EditableRow[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -67,7 +78,7 @@ export default function ClasswiseFeesSchedulePage() {
     const [sortKey, setSortKey] = useState<SortKey>("id");
     const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-    // ── Fetch ──────────────────────────────────────────────────────────────
+    // ── Fetch schedule + bootstrap store lookups ────────────────────────
     const fetchSchedules = useCallback(async () => {
         setIsLoading(true);
         setError(null);
@@ -87,6 +98,9 @@ export default function ClasswiseFeesSchedulePage() {
 
     useEffect(() => {
         fetchSchedules();
+        // Bootstrap store lookups — only fetch if not already cached
+        if (classes.length === 0) dispatch(fetchClasses());
+        if (feeTypes.length === 0) dispatch(fetchFeeTypes());
     }, [fetchSchedules]);
 
     // ── Helpers ────────────────────────────────────────────────────────────
@@ -390,11 +404,7 @@ export default function ClasswiseFeesSchedulePage() {
                                     <th className="px-6 py-4 font-semibold"><SortHeader label="Class ID" colKey="class_id" /></th>
                                     <th className="px-6 py-4 font-semibold"><SortHeader label="Fee ID" colKey="fee_id" /></th>
                                     <th className="px-6 py-4 font-semibold"><SortHeader label="Amount" colKey="amount" /></th>
-                                    <th className="px-6 py-4 font-semibold"><SortHeader label="Class" colKey="class" /></th>
-                                    <th className="px-6 py-4 font-semibold"><SortHeader label="Fee Type" colKey="fee_type" /></th>
-                                    <th className="px-6 py-4 font-semibold w-16 text-center text-zinc-500">
-                                        Del
-                                    </th>
+                                    <th className="px-6 py-4 font-semibold w-16 text-center text-zinc-500">Del</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -404,34 +414,62 @@ export default function ClasswiseFeesSchedulePage() {
                                         return (
                                             <tr
                                                 key={`existing-${item.id}`}
-                                                className={`border-b border-zinc-100 transition-colors ${row.dirty
-                                                    ? "bg-amber-50/50"
-                                                    : "hover:bg-zinc-50/50"
+                                                className={`border-b border-zinc-100 transition-colors ${row.dirty ? "bg-amber-50/50" : "hover:bg-zinc-50/50"
                                                     }`}
                                             >
                                                 <td className="px-6 py-3 font-medium text-zinc-400 text-xs">
                                                     {item.id}
                                                 </td>
+
+                                                {/* Class ID + live class name */}
                                                 <td className="px-6 py-3">
-                                                    <input
-                                                        type="number"
-                                                        value={item.class_id}
-                                                        onChange={(e) =>
-                                                            handleExistingChange(item.id, "class_id", e.target.value)
-                                                        }
-                                                        className="w-24 px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
-                                                    />
+                                                    <div className="flex flex-col gap-1">
+                                                        <input
+                                                            type="number"
+                                                            value={item.class_id}
+                                                            onChange={(e) =>
+                                                                handleExistingChange(item.id, "class_id", e.target.value)
+                                                            }
+                                                            className="w-24 px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                                                        />
+                                                        {(() => {
+                                                            const match = classes.find((c) => c.id === Number(item.class_id));
+                                                            return match ? (
+                                                                <span className="bg-zinc-100 text-zinc-600 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit transition-all">
+                                                                    {match.description}
+                                                                </span>
+                                                            ) : item.class_id ? (
+                                                                <span className="text-[11px] text-red-400 italic">No match</span>
+                                                            ) : null;
+                                                        })()}
+                                                    </div>
                                                 </td>
+
+                                                {/* Fee ID + live fee type name */}
                                                 <td className="px-6 py-3">
-                                                    <input
-                                                        type="number"
-                                                        value={item.fee_id}
-                                                        onChange={(e) =>
-                                                            handleExistingChange(item.id, "fee_id", e.target.value)
-                                                        }
-                                                        className="w-24 px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
-                                                    />
+                                                    <div className="flex flex-col gap-1">
+                                                        <input
+                                                            type="number"
+                                                            value={item.fee_id}
+                                                            onChange={(e) =>
+                                                                handleExistingChange(item.id, "fee_id", e.target.value)
+                                                            }
+                                                            className="w-24 px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                                                        />
+                                                        {(() => {
+                                                            const match = feeTypes.find((f) => f.id === Number(item.fee_id));
+                                                            return match ? (
+                                                                <span className="bg-blue-50 text-blue-700 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit transition-all">
+                                                                    {match.description}
+                                                                </span>
+                                                            ) : item.fee_id ? (
+                                                                <span className="text-[11px] text-red-400 italic">No match</span>
+                                                            ) : null;
+                                                        })()}
+                                                    </div>
                                                 </td>
+
+                                                {/* Amount */}
                                                 <td className="px-6 py-3">
                                                     <div className="relative">
                                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs pointer-events-none">
@@ -448,16 +486,7 @@ export default function ClasswiseFeesSchedulePage() {
                                                         />
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-3 text-zinc-600">
-                                                    <span className="bg-zinc-100 text-zinc-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                                                        {item.classes?.description ?? "—"}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-3 text-zinc-600">
-                                                    <span className="bg-blue-50 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                                                        {item.fee_types?.description ?? "—"}
-                                                    </span>
-                                                </td>
+
                                                 <td className="px-6 py-3 text-center">
                                                     <button
                                                         onClick={() => handleRemoveExisting(item.id)}
@@ -483,28 +512,58 @@ export default function ClasswiseFeesSchedulePage() {
                                                     New
                                                 </span>
                                             </td>
+
+                                            {/* Class ID + live class name */}
                                             <td className="px-6 py-3">
-                                                <input
-                                                    type="number"
-                                                    value={nr.class_id}
-                                                    onChange={(e) =>
-                                                        handleNewChange(nr._localId, "class_id", e.target.value)
-                                                    }
-                                                    placeholder="Class ID"
-                                                    className="w-24 px-3 py-1.5 bg-white border border-blue-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
-                                                />
+                                                <div className="flex flex-col gap-1">
+                                                    <input
+                                                        type="number"
+                                                        value={nr.class_id}
+                                                        onChange={(e) =>
+                                                            handleNewChange(nr._localId, "class_id", e.target.value)
+                                                        }
+                                                        placeholder="Class ID"
+                                                        className="w-24 px-3 py-1.5 bg-white border border-blue-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                                                    />
+                                                    {(() => {
+                                                        const match = classes.find((c) => c.id === Number(nr.class_id));
+                                                        return match ? (
+                                                            <span className="bg-zinc-100 text-zinc-600 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit">
+                                                                {match.description}
+                                                            </span>
+                                                        ) : nr.class_id ? (
+                                                            <span className="text-[11px] text-red-400 italic">No match</span>
+                                                        ) : null;
+                                                    })()}
+                                                </div>
                                             </td>
+
+                                            {/* Fee ID + live fee type name */}
                                             <td className="px-6 py-3">
-                                                <input
-                                                    type="number"
-                                                    value={nr.fee_id}
-                                                    onChange={(e) =>
-                                                        handleNewChange(nr._localId, "fee_id", e.target.value)
-                                                    }
-                                                    placeholder="Fee ID"
-                                                    className="w-24 px-3 py-1.5 bg-white border border-blue-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
-                                                />
+                                                <div className="flex flex-col gap-1">
+                                                    <input
+                                                        type="number"
+                                                        value={nr.fee_id}
+                                                        onChange={(e) =>
+                                                            handleNewChange(nr._localId, "fee_id", e.target.value)
+                                                        }
+                                                        placeholder="Fee ID"
+                                                        className="w-24 px-3 py-1.5 bg-white border border-blue-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                                                    />
+                                                    {(() => {
+                                                        const match = feeTypes.find((f) => f.id === Number(nr.fee_id));
+                                                        return match ? (
+                                                            <span className="bg-blue-50 text-blue-700 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit">
+                                                                {match.description}
+                                                            </span>
+                                                        ) : nr.fee_id ? (
+                                                            <span className="text-[11px] text-red-400 italic">No match</span>
+                                                        ) : null;
+                                                    })()}
+                                                </div>
                                             </td>
+
+                                            {/* Amount */}
                                             <td className="px-6 py-3">
                                                 <div className="relative">
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs pointer-events-none">
@@ -522,12 +581,7 @@ export default function ClasswiseFeesSchedulePage() {
                                                     />
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-3 text-zinc-400 text-xs italic">
-                                                — auto-filled on save
-                                            </td>
-                                            <td className="px-6 py-3 text-zinc-400 text-xs italic">
-                                                — auto-filled on save
-                                            </td>
+
                                             <td className="px-6 py-3 text-center">
                                                 <button
                                                     onClick={() => handleRemoveNew(nr._localId)}
