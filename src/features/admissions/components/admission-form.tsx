@@ -1477,7 +1477,7 @@ export function AdmissionForm() {
 
             {submitSuccess && (
                 <StudentProfileModal
-                    student={submitSuccess}
+                    studentId={submitSuccess.id}
                     onClose={() => setSubmitSuccess(null)}
                 />
             )}

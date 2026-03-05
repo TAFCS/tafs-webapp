@@ -6,9 +6,7 @@ export interface Family {
   id: number;
   household_name: string;
   email: string | null;
-  username: string | null;
   primary_address: string | null;
-  consent_publicity: boolean | null;
   legacy_pid: string | null;
   created_at: string;
   student_count?: number;
@@ -58,9 +56,7 @@ export interface CreateFamilyPayload {
   household_name: string;
   primary_address?: string;
   email?: string;
-  username?: string;
   password?: string;
-  consent_publicity?: boolean;
   legacy_pid?: string;
 }
 

@@ -669,7 +669,7 @@ export function RegistrationForm() {
             {/* View Profile Modal - triggered directly on complete */}
             {submitSuccess && (
                 <StudentProfileModal
-                    student={submitSuccess}
+                    studentId={submitSuccess.id}
                     onClose={() => setSubmitSuccess(null)}
                 />
             )}
