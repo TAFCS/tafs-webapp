@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent } from "react";
-import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw } from "lucide-react";
+import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus } from "lucide-react";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { fetchClasses } from "@/store/slices/classesSlice";
+import { fetchFeeTypes } from "@/store/slices/feeTypesSlice";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -23,14 +24,15 @@ interface ClassFeeRow {
     fee_types: FeeTypeInfo;
 }
 
-interface ExpandedRow {
+interface SpreadsheetRow {
     feeId: number;
     feeDescription: string;
     freq: "MONTHLY" | "ONE_TIME" | null;
     month: string;
-    baseAmount: string;
-    isGroupStart: boolean;
-    groupSize: number;
+    amount: string;
+    // UI state
+    isGroupStart?: boolean;
+    groupSize?: number;
 }
 
 const MONTH_ORDER = [
@@ -43,17 +45,20 @@ const MONTH_TO_NUM: Record<string, number> = {
     January: 1, February: 2, March: 3, April: 4, May: 5, June: 6, July: 7,
 };
 
-/** Given the academic-year start (e.g. 2025) and a month number, return the calendar year. */
-function calendarYear(academicYearStart: number, month: number): number {
-    return month >= 8 ? academicYearStart : academicYearStart + 1;
+function calendarYear(academicYearStart: number, monthNum: number): number {
+    return monthNum >= 8 ? academicYearStart : academicYearStart + 1;
 }
 
-const COLS = ["#", "Fee Type", "Frequency", "Period", "Amount"] as const;
-const COL_AMOUNT = 4; // only this column is editable
+const COLS = ["Actions", "#", "Fee Type", "Frequency", "Period", "Amount"] as const;
+const COL_ACTIONS = 0;
+const COL_NUM = 1;
+const COL_FEE_TYPE = 2;
+const COL_FREQ = 3;
+const COL_PERIOD = 4;
+const COL_AMOUNT = 5;
 
 function sortMonths(months: unknown): string[] {
     let arr = months;
-    // DB stores breakup as { months: [...] } or a plain array
     if (arr && typeof arr === "object" && !Array.isArray(arr) && Array.isArray((arr as Record<string, unknown>).months)) {
         arr = (arr as Record<string, unknown>).months;
     }
@@ -70,6 +75,8 @@ export default function StudentwiseFeePage() {
     const dispatch = useAppDispatch();
     const classes = useAppSelector((s) => s.classes.items);
     const classesLoading = useAppSelector((s) => s.classes.isLoading);
+    const feeTypes = useAppSelector((s) => s.feeTypes.items);
+    const feeTypesLoading = useAppSelector((s) => s.feeTypes.isLoading);
 
     const [selectedClassId, setSelectedClassId] = useState<number | "">("");
     const [classSearch, setClassSearch] = useState("");
@@ -77,21 +84,21 @@ export default function StudentwiseFeePage() {
     const classDropdownRef = useRef<HTMLDivElement>(null);
     const [studentId, setStudentId] = useState("");
 
-    const [feeRows, setFeeRows] = useState<ClassFeeRow[]>([]);
+    const [rows, setRows] = useState<SpreadsheetRow[]>([]);
+    const [feeToAmountMap, setFeeToAmountMap] = useState<Record<number, string>>({});
     const [isLoading, setIsLoading] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
 
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-    // overrides: `${feeId}-${month}` -> string
-    const [overrides, setOverrides] = useState<Record<string, string>>({});
-
-    // Active cell: {row, col}
     const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
     const tbodyRef = useRef<HTMLTableSectionElement>(null);
 
-    useEffect(() => { if (classes.length === 0) dispatch(fetchClasses()); }, [classes.length, dispatch]);
+    useEffect(() => {
+        if (classes.length === 0) dispatch(fetchClasses());
+        if (feeTypes.length === 0) dispatch(fetchFeeTypes());
+    }, [classes.length, feeTypes.length, dispatch]);
 
     useEffect(() => {
         const h = (e: MouseEvent) => {
@@ -103,11 +110,35 @@ export default function StudentwiseFeePage() {
     }, []);
 
     const fetchFeeSchedule = useCallback(async (classId: number) => {
-        setIsLoading(true); setLoadError(null); setFeeRows([]); setOverrides({}); setActiveCell(null);
+        setIsLoading(true); setLoadError(null); setRows([]); setActiveCell(null);
         try {
             const { data } = await api.get("/v1/class-fee-schedule/by-class", { params: { class_id: classId } });
-            const rows = Array.isArray(data?.data) ? data.data : [];
-            setFeeRows(rows);
+            const feeRows: ClassFeeRow[] = Array.isArray(data?.data) ? data.data : [];
+
+            // Build designated amount lookup for this class
+            const lookup: Record<number, string> = {};
+            feeRows.forEach(f => { lookup[f.fee_id] = f.amount; });
+            setFeeToAmountMap(lookup);
+
+            const sorted = [...feeRows].sort((a, b) => {
+                const order = (f: ClassFeeRow) => f.fee_types.freq === "ONE_TIME" ? 0 : 1;
+                return order(a) - order(b);
+            });
+
+            const expanded = sorted.flatMap((fee) => {
+                const months = sortMonths(fee.fee_types.breakup ?? []);
+                return months.map((month, idx) => ({
+                    feeId: fee.fee_id,
+                    feeDescription: fee.fee_types.description,
+                    freq: fee.fee_types.freq,
+                    month,
+                    amount: fee.amount,
+                    isGroupStart: idx === 0,
+                    groupSize: months.length,
+                }));
+            });
+
+            setRows(expanded);
         } catch (err: any) {
             setLoadError(err.response?.data?.message || "Failed to load fee schedule.");
         } finally { setIsLoading(false); }
@@ -117,30 +148,10 @@ export default function StudentwiseFeePage() {
         if (selectedClassId !== "") fetchFeeSchedule(Number(selectedClassId));
     }, [selectedClassId, fetchFeeSchedule]);
 
-    // ── Sort: ONE_TIME first, then MONTHLY ────────────────────────────────
-    const sortedFeeRows = [...feeRows].sort((a, b) => {
-        const order = (f: ClassFeeRow) => f.fee_types.freq === "ONE_TIME" ? 0 : 1;
-        return order(a) - order(b);
-    });
-
-    // ── Expand into flat row list ─────────────────────────────────────────
-    const expandedRows: ExpandedRow[] = sortedFeeRows.flatMap((fee) => {
-        const months = sortMonths(fee.fee_types.breakup ?? []);
-        return months.map((month, idx) => ({
-            feeId: fee.fee_id,
-            feeDescription: fee.fee_types.description,
-            freq: fee.fee_types.freq,
-            month,
-            baseAmount: fee.amount,
-            isGroupStart: idx === 0,
-            groupSize: months.length,
-        }));
-    });
-
-    const totalRows = expandedRows.length;
+    // ── Keyboard navigation ───────────────────────────────────────────────
+    const totalRows = rows.length;
     const totalCols = COLS.length;
 
-    // ── Keyboard navigation ───────────────────────────────────────────────
     const navigate = useCallback((dr: number, dc: number) => {
         setActiveCell((prev) => {
             const r = prev ? Math.max(0, Math.min(totalRows - 1, prev.row + dr)) : 0;
@@ -151,8 +162,10 @@ export default function StudentwiseFeePage() {
 
     const handleTableKeyDown = useCallback((e: KeyboardEvent<HTMLElement>) => {
         if (!activeCell) return;
-        // When in the amount input, only trap arrow up/down (left/right go inside input)
-        if (activeCell.col === COL_AMOUNT) {
+
+        const isInput = (e.target as HTMLElement).tagName === "INPUT";
+
+        if (isInput) {
             if (e.key === "ArrowUp") { e.preventDefault(); navigate(-1, 0); }
             if (e.key === "ArrowDown") { e.preventDefault(); navigate(1, 0); }
             if (e.key === "Enter") { e.preventDefault(); navigate(1, 0); }
@@ -167,66 +180,87 @@ export default function StudentwiseFeePage() {
         }
     }, [activeCell, navigate]);
 
-    // Focus input when landing on amount col
     useEffect(() => {
-        if (!activeCell || activeCell.col !== COL_AMOUNT || !tbodyRef.current) return;
-        const input = tbodyRef.current.querySelector<HTMLInputElement>(`[data-row="${activeCell.row}"][data-col="${COL_AMOUNT}"]`);
-        input?.focus({ preventScroll: false });
-        input?.scrollIntoView({ block: "nearest" });
+        if (!activeCell || !tbodyRef.current) return;
+        const selector = `[data-row="${activeCell.row}"][data-col="${activeCell.col}"]`;
+        const el = tbodyRef.current.querySelector<HTMLElement>(selector);
+        if (el) {
+            el.focus({ preventScroll: false });
+            el.scrollIntoView({ block: "nearest" });
+        }
     }, [activeCell]);
 
-    // Focus cell div when on non-amount col
-    useEffect(() => {
-        if (!activeCell || activeCell.col === COL_AMOUNT || !tbodyRef.current) return;
-        const el = tbodyRef.current.querySelector<HTMLElement>(`[data-row="${activeCell.row}"][data-col="${activeCell.col}"]`);
-        el?.focus({ preventScroll: false });
-        el?.scrollIntoView({ block: "nearest" });
-    }, [activeCell]);
-
-    // ── Derive academic year from current date (Aug = start of new year) ──
+    // ── Saving ──────────────────────────────────────────────────────────
     const today = new Date();
     const academicYearStart = today.getMonth() >= 7 ? today.getFullYear() : today.getFullYear() - 1;
 
     const handleSave = async () => {
         if (!studentId.trim()) {
-            setSaveStatus({ type: "error", message: "Please enter a Student CC number (e.g. CC-2026-00003) before saving." });
+            setSaveStatus({ type: "error", message: "Please enter a Student CC number before saving." });
             return;
         }
-        if (expandedRows.length === 0) return;
+        if (rows.length === 0) return;
 
         setSaveStatus(null);
         setIsSaving(true);
         try {
-            const items = expandedRows.map((row) => {
-                const monthNum = MONTH_TO_NUM[row.month];
+            const items = rows.map((row) => {
+                const monthNum = MONTH_TO_NUM[row.month] || 8;
                 const year = calendarYear(academicYearStart, monthNum);
                 const mm = String(monthNum).padStart(2, "0");
                 return {
                     fee_type_id: row.feeId,
                     month: monthNum,
-                    amount: parseFloat(getAmount(row) || "0"),
+                    amount: parseFloat(row.amount || "0"),
                     due_date: `${year}-${mm}-01`,
                 };
             });
             await api.post("/v1/fees/student", { cc_number: studentId.trim(), items });
-            setSaveStatus({ type: "success", message: `${items.length} fee record(s) saved for student ${studentId.trim()}.` });
+            setSaveStatus({ type: "success", message: `${items.length} records saved for ${studentId.trim()}.` });
         } catch (err: any) {
-            setSaveStatus({ type: "error", message: err.response?.data?.message || "Failed to save fees. Please try again." });
-        } finally {
-            setIsSaving(false);
-        }
+            setSaveStatus({ type: "error", message: err.response?.data?.message || "Failed to save fees." });
+        } finally { setIsSaving(false); }
     };
 
-    const overrideKey = (feeId: number, month: string) => `${feeId}-${month}`;
-    const getAmount = (row: ExpandedRow) => overrides[overrideKey(row.feeId, row.month)] ?? row.baseAmount;
-    const isOverridden = (row: ExpandedRow) => {
-        const k = overrideKey(row.feeId, row.month);
-        return k in overrides && overrides[k] !== row.baseAmount;
+    // ── Row Mutators ────────────────────────────────────────────────────
+    const deleteRow = (idx: number) => {
+        setRows((prev) => prev.filter((_, i) => i !== idx));
     };
-    const handleAmountChange = (feeId: number, month: string, value: string) =>
-        setOverrides((p) => ({ ...p, [overrideKey(feeId, month)]: value }));
 
-    const grandTotal = expandedRows.reduce((s, r) => s + parseFloat(getAmount(r) || "0"), 0);
+    const addRow = () => {
+        const firstType = feeTypes[0];
+        const newRow: SpreadsheetRow = {
+            feeId: firstType?.id || 0,
+            feeDescription: firstType?.description || "",
+            freq: firstType?.freq || "MONTHLY",
+            month: "August",
+            amount: "0",
+        };
+        setRows((prev) => [...prev, newRow]);
+        setTimeout(() => setActiveCell({ row: rows.length, col: COL_FEE_TYPE }), 50);
+    };
+
+    const updateRow = (idx: number, field: keyof SpreadsheetRow, val: any) => {
+        setRows((prev) => prev.map((r, i) => {
+            if (i !== idx) return r;
+            const updated = { ...r, [field]: val };
+
+            // Magic logic: if fee type changes, fetch designated amount from lookup
+            if (field === "feeId") {
+                const ft = feeTypes.find(f => f.id === val);
+                if (ft) {
+                    updated.feeDescription = ft.description;
+                    updated.freq = ft.freq;
+                    if (feeToAmountMap[val]) {
+                        updated.amount = feeToAmountMap[val];
+                    }
+                }
+            }
+            return updated;
+        }));
+    };
+
+    const grandTotal = rows.reduce((s, r) => s + parseFloat(r.amount || "0"), 0);
 
     const selectedClass = classes.find((c) => c.id === Number(selectedClassId));
     const filteredClasses = classes.filter((c) =>
@@ -234,271 +268,206 @@ export default function StudentwiseFeePage() {
         c.class_code.toLowerCase().includes(classSearch.toLowerCase())
     );
 
-    // ── Spreadsheet cell wrapper ──────────────────────────────────────────
-    const cellBase =
-        "border-r border-b border-zinc-200 focus:outline-none select-none transition-colors";
-
+    const cellBase = "border-r border-b border-zinc-200 focus:outline-none transition-all h-10";
     const isCellActive = (r: number, c: number) => activeCell?.row === r && activeCell?.col === c;
-    const isRowActive = (r: number) => activeCell?.row === r;
-
-    // ─── Render ──────────────────────────────────────────────────────────
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Studentwise Fee</h1>
-                <p className="text-zinc-500 mt-1">Select a class to view its fee schedule broken down by fee type and period.</p>
+        <div className="space-y-6 pb-20">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Studentwise Fee Editor</h1>
+                    <p className="text-zinc-500 mt-0.5 text-sm">Every cell is editable. Type or select values directly.</p>
+                </div>
+                {rows.length > 0 && (
+                    <button onClick={addRow} className="group flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 transition-all active:scale-95">
+                        <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+                        New Row
+                    </button>
+                )}
             </div>
 
-            {/* Class + Student Selector */}
-            <div className="bg-white border border-zinc-200 rounded-xl shadow-sm p-5 flex flex-col sm:flex-row sm:items-end gap-4">
-                {/* Class dropdown */}
+            {/* Config Bar */}
+            <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm p-5 flex flex-col lg:flex-row lg:items-end gap-5">
                 <div className="flex-1">
-                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">Select Class</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Load Schedule Template</label>
                     <div className="relative" ref={classDropdownRef}>
-                        <button
-                            type="button"
-                            onClick={() => setShowClassDropdown((v) => !v)}
-                            className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-zinc-200 rounded-xl text-sm text-left hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                        <button type="button" onClick={() => setShowClassDropdown(!showClassDropdown)}
+                            className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm transition-all hover:bg-white hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
                         >
-                            <span className={selectedClass ? "text-zinc-900 font-medium" : "text-zinc-400"}>
-                                {selectedClass ? `${selectedClass.description} (${selectedClass.class_code})` : "Choose a class…"}
+                            <span className={selectedClass ? "text-zinc-800 font-semibold" : "text-zinc-400"}>
+                                {selectedClass ? `${selectedClass.description}` : "Choose a class..."}
                             </span>
-                            <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${showClassDropdown ? "rotate-180" : ""}`} />
+                            <div className="flex items-center gap-2">
+                                {selectedClass && <span className="text-[10px] font-bold px-2 py-0.5 bg-zinc-200 text-zinc-600 rounded-md">{selectedClass.class_code}</span>}
+                                <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${showClassDropdown ? "rotate-180" : ""}`} />
+                            </div>
                         </button>
-
                         {showClassDropdown && (
-                            <div className="absolute z-50 top-full mt-1.5 w-full bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden">
-                                <div className="p-2 border-b border-zinc-100">
+                            <div className="absolute z-50 top-full mt-2 w-full bg-white border border-zinc-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
                                     <div className="relative">
-                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
-                                        <input autoFocus type="text" placeholder="Search class…" value={classSearch}
-                                            onChange={(e) => setClassSearch(e.target.value)}
-                                            className="w-full pl-8 pr-3 py-1.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:border-primary"
+                                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                                        <input autoFocus type="text" placeholder="Filter classes..." value={classSearch} onChange={(e) => setClassSearch(e.target.value)}
+                                            className="w-full pl-10 pr-4 h-9 text-sm bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-primary"
                                         />
                                     </div>
                                 </div>
-                                <div className="max-h-60 overflow-y-auto">
-                                    {classesLoading
-                                        ? <div className="flex items-center gap-2 px-4 py-3 text-sm text-zinc-500"><Loader2 className="h-4 w-4 animate-spin" />Loading…</div>
-                                        : filteredClasses.length === 0
-                                            ? <div className="px-4 py-3 text-sm text-zinc-400">No classes found</div>
+                                <div className="max-h-64 overflow-y-auto p-1 space-y-1">
+                                    {classesLoading ? <div className="p-6 text-sm text-zinc-400 text-center flex items-center justify-center gap-3"><Loader2 className="h-5 w-5 animate-spin" /> Loading...</div>
+                                        : filteredClasses.length === 0 ? <div className="p-6 text-sm text-zinc-400 text-center">No results</div>
                                             : filteredClasses.map((c) => (
-                                                <button key={c.id} type="button"
-                                                    onClick={() => { setSelectedClassId(c.id); setShowClassDropdown(false); setClassSearch(""); }}
-                                                    className={`w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-zinc-50 transition-colors text-left ${selectedClassId === c.id ? "bg-primary/5 text-primary font-medium" : "text-zinc-700"}`}
+                                                <button key={c.id} type="button" onClick={() => { setSelectedClassId(c.id); setShowClassDropdown(false); }}
+                                                    className={`w-full flex items-center justify-between px-4 h-10 text-sm rounded-lg transition-all ${selectedClassId === c.id ? "bg-primary text-white font-semibold" : "text-zinc-700 hover:bg-zinc-100"}`}
                                                 >
                                                     <span>{c.description}</span>
-                                                    <span className="text-xs bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full font-mono">{c.class_code}</span>
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${selectedClassId === c.id ? "bg-white/20" : "bg-zinc-100 text-zinc-500"}`}>{c.class_code}</span>
                                                 </button>
-                                            ))
-                                    }
+                                            ))}
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Student ID */}
-                <div className="w-52">
-                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">
-                        Student CC No.
-                    </label>
-                    <input
-                        type="text"
-                        placeholder="e.g. CC-2026-00003"
-                        value={studentId}
-                        onChange={(e) => setStudentId(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                <div className="w-full lg:w-64">
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Student CC Number</label>
+                    <input type="text" placeholder="e.g. CC-2026-00003" value={studentId} onChange={(e) => setStudentId(e.target.value.toUpperCase())}
+                        className="w-full h-11 px-5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-medium transition-all"
                     />
                 </div>
 
-                {selectedClassId !== "" && (
-                    <button onClick={() => fetchFeeSchedule(Number(selectedClassId))} disabled={isLoading}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 border border-zinc-200 bg-white text-sm font-medium text-zinc-700 rounded-xl hover:bg-zinc-50 transition-all shadow-sm disabled:opacity-50"
-                    >
-                        <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />Refresh
-                    </button>
-                )}
-
-                {expandedRows.length > 0 && (
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving || !studentId.trim()}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-sm disabled:opacity-50"
-                    >
-                        {isSaving
-                            ? <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
-                            : "Save Fees"}
-                    </button>
-                )}
+                <div className="flex gap-3">
+                    {selectedClassId !== "" && (
+                        <button onClick={() => fetchFeeSchedule(Number(selectedClassId))} disabled={isLoading} title="Reload template"
+                            className="h-11 w-11 flex items-center justify-center bg-zinc-100 text-zinc-600 rounded-xl hover:bg-zinc-200 transition-all active:scale-95"
+                        >
+                            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+                        </button>
+                    )}
+                    {rows.length > 0 && (
+                        <button onClick={handleSave} disabled={isSaving || !studentId.trim()}
+                            className="h-11 px-8 bg-primary text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50 active:scale-95 flex items-center gap-3"
+                        >
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Schedule"}
+                        </button>
+                    )}
+                </div>
             </div>
 
-            {/* Save status banner */}
+            {/* Banner Notifications */}
             {saveStatus && (
-                <div className={`flex items-center gap-3 rounded-xl p-4 text-sm border ${saveStatus.type === "success" ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"}`}>
-                    {saveStatus.type === "success"
-                        ? <span className="font-medium">✓</span>
-                        : <AlertCircle className="h-5 w-5 shrink-0" />}
-                    <span>{saveStatus.message}</span>
-                    <button onClick={() => setSaveStatus(null)} title="Dismiss" className="ml-auto"><X className="h-4 w-4" /></button>
-                </div>
-            )}
-
-            {/* States */}
-            {isLoading && (
-                <div className="flex items-center justify-center py-20 gap-3">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" /><span className="text-sm text-zinc-500">Loading…</span>
-                </div>
-            )}
-            {loadError && (
-                <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 text-sm">
-                    <AlertCircle className="h-5 w-5 text-red-400 shrink-0" /><span>{loadError}</span>
-                    <button onClick={() => setLoadError(null)} className="ml-auto"><X className="h-4 w-4" /></button>
-                </div>
-            )}
-            {!isLoading && !loadError && selectedClassId === "" && (
-                <div className="flex flex-col items-center justify-center py-24 text-zinc-400 gap-3">
-                    <div className="h-14 w-14 rounded-full bg-zinc-100 flex items-center justify-center">
-                        <GraduationCap className="h-7 w-7 text-zinc-300" />
+                <div className={`p-4 rounded-2xl border flex items-center gap-4 animate-in slide-in-from-top-4 duration-300 ${saveStatus.type === "success" ? "bg-emerald-50 border-emerald-100 text-emerald-800" : "bg-rose-50 border-rose-100 text-rose-800"}`}>
+                    <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-xs ${saveStatus.type === "success" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"}`}>
+                        {saveStatus.type === "success" ? "✓" : "!"}
                     </div>
-                    <p className="text-sm font-medium text-zinc-500">Select a class to load its fee schedule</p>
-                </div>
-            )}
-            {!isLoading && !loadError && selectedClassId !== "" && feeRows.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-20 text-zinc-400 gap-2">
-                    <AlertCircle className="h-6 w-6 text-zinc-300" />
-                    <p className="text-sm font-medium text-zinc-600">No fee schedule for this class</p>
-                </div>
-            )}
-            {!isLoading && !loadError && feeRows.length > 0 && expandedRows.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-20 text-zinc-400 gap-2">
-                    <AlertCircle className="h-6 w-6 text-zinc-300" />
-                    <p className="text-sm font-medium text-zinc-600">Fee schedule loaded but no period breakup is defined for any fee type</p>
+                    <span className="text-sm font-semibold">{saveStatus.message}</span>
+                    <button onClick={() => setSaveStatus(null)} className="ml-auto p-1.5 hover:bg-black/5 rounded-lg transition-colors"><X className="h-4 w-4 opacity-40" /></button>
                 </div>
             )}
 
-            {/* ── Spreadsheet ─────────────────────────────────────────── */}
-            {!isLoading && !loadError && expandedRows.length > 0 && (
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-zinc-500">
-                        <div className="flex items-center gap-2">
-                            <span className="font-semibold text-zinc-700">{selectedClass?.description}</span>
-                            <span>·</span>
-                            <span>{feeRows.length} fee types · {expandedRows.length} line items</span>
-                            <span>·</span>
-                            <span className="text-zinc-400">Arrow keys to navigate · Enter / Tab to move</span>
-                        </div>
+            {/* Main Table */}
+            {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-40 gap-4">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary/30" />
+                    <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Crunching Data...</p>
+                </div>
+            ) : rows.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-40 bg-zinc-50 border border-zinc-200 rounded-[28px] gap-6 opacity-60">
+                    <div className="p-7 bg-zinc-100 rounded-full border border-zinc-200 shadow-sm"><GraduationCap className="h-10 w-10 text-zinc-400" /></div>
+                    <div className="text-center space-y-1">
+                        <p className="font-bold text-zinc-900">Workspace Empty</p>
+                        <p className="text-sm text-zinc-500">Pick a template or add a row to begin.</p>
                     </div>
-
-                    {/* Spreadsheet wrapper */}
-                    <div
-                        className="border border-zinc-300 rounded-xl overflow-auto max-h-[70vh] shadow-sm bg-white"
-                        onKeyDown={handleTableKeyDown}
-                    >
-                        <table className="w-full text-sm border-collapse">
-                            {/* Column header row */}
-                            <thead className="sticky top-0 z-20">
+                </div>
+            ) : (
+                <div className="bg-white border border-zinc-200 rounded-[24px] shadow-sm overflow-hidden flex flex-col">
+                    <div className="overflow-auto max-h-[60vh] custom-scrollbar" onKeyDown={handleTableKeyDown}>
+                        <table className="w-full border-collapse table-fixed select-none">
+                            <thead className="sticky top-0 z-40 bg-zinc-50/95 backdrop-blur-md">
                                 <tr>
-                                    <th className="border-r border-b border-zinc-300 bg-zinc-100 px-3 py-3 text-left text-[11px] font-bold text-zinc-500 uppercase tracking-wider w-10">
-                                        #
-                                    </th>
-                                    <th className="border-r border-b border-zinc-300 bg-zinc-100 px-4 py-3 text-left text-[11px] font-bold text-zinc-500 uppercase tracking-wider min-w-[180px]">
-                                        Fee Type
-                                    </th>
-                                    <th className="border-r border-b border-zinc-300 bg-zinc-100 px-4 py-3 text-center text-[11px] font-bold text-zinc-500 uppercase tracking-wider w-28">
-                                        Frequency
-                                    </th>
-                                    <th className="border-r border-b border-zinc-300 bg-zinc-100 px-4 py-3 text-left text-[11px] font-bold text-zinc-500 uppercase tracking-wider w-36">
-                                        Period
-                                    </th>
-                                    <th className="border-b border-zinc-300 bg-zinc-100 px-4 py-3 text-right text-[11px] font-bold text-zinc-500 uppercase tracking-wider min-w-[160px]">
-                                        Amount (Rs.)
-                                    </th>
+                                    <th className="w-12 border-b border-r border-zinc-200 px-3 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Act</th>
+                                    <th className="w-10 border-b border-r border-zinc-200 px-1 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">#</th>
+                                    <th className="w-[30%] border-b border-r border-zinc-200 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee Description</th>
+                                    <th className="w-36 border-b border-r border-zinc-200 px-5 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Frequency</th>
+                                    <th className="w-40 border-b border-r border-zinc-200 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month / Period</th>
+                                    <th className="border-b border-zinc-200 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount (Rs.)</th>
                                 </tr>
                             </thead>
-
                             <tbody ref={tbodyRef}>
-                                {expandedRows.map((row, rIdx) => {
-                                    const overridden = isOverridden(row);
-                                    const rowActive = isRowActive(rIdx);
-                                    // thick top border at group start (except first row)
-                                    const groupTop = row.isGroupStart && rIdx > 0 ? "border-t-2 border-t-zinc-400" : "";
+                                {rows.map((row, rIdx) => {
+                                    const aCell = (c: number) => isCellActive(rIdx, c);
+                                    const isCurrentRowActive = activeCell?.row === rIdx;
+                                    const groupSeparator = row.isGroupStart && rIdx > 0 ? "border-t-2 border-zinc-100" : "";
 
                                     return (
-                                        <tr
-                                            key={`${row.feeId}-${row.month}`}
-                                            className={`${groupTop} ${rowActive ? "bg-blue-50/60" : "bg-white hover:bg-zinc-50/40"}`}
-                                        >
-                                            {/* # */}
-                                            <td
-                                                data-row={rIdx} data-col={0}
-                                                tabIndex={0}
-                                                onFocus={() => setActiveCell({ row: rIdx, col: 0 })}
-                                                onClick={() => setActiveCell({ row: rIdx, col: 0 })}
-                                                className={`${cellBase} px-3 py-0 text-xs font-mono text-zinc-300 text-center h-10 cursor-cell
-                                                    ${isCellActive(rIdx, 0) ? "ring-2 ring-inset ring-primary bg-white z-10" : ""}`}
+                                        <tr key={rIdx} className={`${groupSeparator} ${isCurrentRowActive ? "bg-primary/[0.02]" : "bg-white hover:bg-zinc-50/40"} transition-colors relative`}>
+                                            <td data-row={rIdx} data-col={COL_ACTIONS} tabIndex={0} onFocus={() => setActiveCell({ row: rIdx, col: COL_ACTIONS })}
+                                                className={`border-r border-b border-zinc-100 text-center ${aCell(COL_ACTIONS) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white" : ""}`}
                                             >
-                                                {rIdx + 1}
+                                                <button onClick={() => deleteRow(rIdx)} className="p-2 rounded-lg hover:bg-rose-50 text-zinc-300 hover:text-rose-600 transition-all active:scale-90">
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </button>
                                             </td>
 
-                                            {/* Fee Type */}
-                                            <td
-                                                data-row={rIdx} data-col={1}
-                                                tabIndex={0}
-                                                onFocus={() => setActiveCell({ row: rIdx, col: 1 })}
-                                                onClick={() => setActiveCell({ row: rIdx, col: 1 })}
-                                                className={`${cellBase} px-4 py-0 h-10 cursor-cell
-                                                    ${isCellActive(rIdx, 1) ? "ring-2 ring-inset ring-primary bg-white z-10" : ""}`}
-                                            >
-                                                <span className="font-medium text-zinc-800">{row.feeDescription}</span>
+                                            <td className="border-r border-b border-zinc-100 text-center font-mono text-[10px] text-zinc-400">{rIdx + 1}</td>
+
+                                            {/* Fee Type Select */}
+                                            <td data-row={rIdx} data-col={COL_FEE_TYPE} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FEE_TYPE) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white shadow-inner" : ""}`}>
+                                                <select
+                                                    data-row={rIdx} data-col={COL_FEE_TYPE}
+                                                    value={row.feeId}
+                                                    onChange={(e) => updateRow(rIdx, "feeId", Number(e.target.value))}
+                                                    onFocus={() => setActiveCell({ row: rIdx, col: COL_FEE_TYPE })}
+                                                    className="w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-800 text-[13px] cursor-pointer"
+                                                >
+                                                    {feeTypes.map(ft => <option key={ft.id} value={ft.id}>{ft.description}</option>)}
+                                                </select>
+                                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />
                                             </td>
 
-                                            {/* Frequency */}
-                                            <td
-                                                data-row={rIdx} data-col={2}
-                                                tabIndex={0}
-                                                onFocus={() => setActiveCell({ row: rIdx, col: 2 })}
-                                                onClick={() => setActiveCell({ row: rIdx, col: 2 })}
-                                                className={`${cellBase} px-4 py-0 h-10 text-center cursor-cell
-                                                    ${isCellActive(rIdx, 2) ? "ring-2 ring-inset ring-primary bg-white z-10" : ""}`}
-                                            >
-                                                {row.isGroupStart && (
-                                                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${row.freq === "MONTHLY" ? "bg-blue-50 text-blue-600" : "bg-amber-50 text-amber-600"}`}>
-                                                        {row.freq === "MONTHLY" ? "Monthly" : "One-time"}
-                                                    </span>
-                                                )}
+                                            {/* Frequency Select */}
+                                            <td data-row={rIdx} data-col={COL_FREQ} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FREQ) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white shadow-inner" : ""}`}>
+                                                <div className="relative h-10 w-full px-5 flex items-center justify-center">
+                                                    <select
+                                                        data-row={rIdx} data-col={COL_FREQ}
+                                                        value={row.freq || "MONTHLY"}
+                                                        onChange={(e) => updateRow(rIdx, "freq", e.target.value)}
+                                                        onFocus={() => setActiveCell({ row: rIdx, col: COL_FREQ })}
+                                                        className="w-full h-full appearance-none outline-none bg-transparent text-center font-bold text-[10px] uppercase tracking-wider cursor-pointer z-10"
+                                                    >
+                                                        <option value="MONTHLY">Monthly</option>
+                                                        <option value="ONE_TIME">One-Time</option>
+                                                    </select>
+                                                    <div className={`absolute inset-x-4 inset-y-2 rounded-md ${row.freq === "MONTHLY" ? "bg-blue-50 text-blue-600" : "bg-amber-50 text-amber-600"}`} />
+                                                </div>
                                             </td>
 
-                                            {/* Period */}
-                                            <td
-                                                data-row={rIdx} data-col={3}
-                                                tabIndex={0}
-                                                onFocus={() => setActiveCell({ row: rIdx, col: 3 })}
-                                                onClick={() => setActiveCell({ row: rIdx, col: 3 })}
-                                                className={`${cellBase} px-4 py-0 h-10 cursor-cell
-                                                    ${isCellActive(rIdx, 3) ? "ring-2 ring-inset ring-primary bg-white z-10" : ""}`}
-                                            >
-                                                <span className="text-zinc-600">{row.month}</span>
+                                            {/* Period Select */}
+                                            <td data-row={rIdx} data-col={COL_PERIOD} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_PERIOD) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white shadow-inner" : ""}`}>
+                                                <select
+                                                    data-row={rIdx} data-col={COL_PERIOD}
+                                                    value={row.month}
+                                                    onChange={(e) => updateRow(rIdx, "month", e.target.value)}
+                                                    onFocus={() => setActiveCell({ row: rIdx, col: COL_PERIOD })}
+                                                    className="w-full h-10 px-5 appearance-none outline-none bg-transparent font-medium text-zinc-600 text-[13px] cursor-pointer"
+                                                >
+                                                    {MONTH_ORDER.map(m => <option key={m} value={m}>{m}</option>)}
+                                                    <option value="—">—</option>
+                                                </select>
+                                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />
                                             </td>
 
-                                            {/* Amount — editable */}
-                                            <td className={`border-b border-zinc-200 p-0 h-10 ${isCellActive(rIdx, COL_AMOUNT) ? "z-10 relative" : ""}`}>
-                                                <div className="relative h-full">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400 pointer-events-none">
-                                                        Rs.
-                                                    </span>
+                                            {/* Amount Input */}
+                                            <td data-row={rIdx} data-col={COL_AMOUNT} className={`p-0 border-b border-zinc-100 ${aCell(COL_AMOUNT) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white shadow-inner" : ""}`}>
+                                                <div className="relative h-10 flex items-center">
+                                                    <span className="pl-5 text-[10px] font-bold text-zinc-300">Rs.</span>
                                                     <input
-                                                        data-row={rIdx}
-                                                        data-col={COL_AMOUNT}
+                                                        data-row={rIdx} data-col={COL_AMOUNT}
                                                         type="number"
-                                                        value={getAmount(row)}
-                                                        onChange={(e) => handleAmountChange(row.feeId, row.month, e.target.value)}
+                                                        value={row.amount}
+                                                        onChange={(e) => updateRow(rIdx, "amount", e.target.value)}
                                                         onFocus={() => setActiveCell({ row: rIdx, col: COL_AMOUNT })}
-                                                        onClick={() => setActiveCell({ row: rIdx, col: COL_AMOUNT })}
-                                                        className={`w-full h-full pl-9 pr-4 text-right font-mono text-sm bg-transparent outline-none transition-all cursor-cell
-                                                            ${isCellActive(rIdx, COL_AMOUNT) ? "ring-2 ring-inset ring-primary bg-white" : "hover:bg-zinc-50/60"}
-                                                            ${overridden ? "text-primary font-semibold" : "text-zinc-700"}`}
+                                                        className="w-full h-full px-5 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-zinc-900 placeholder:text-zinc-200"
                                                     />
                                                 </div>
                                             </td>
@@ -506,41 +475,47 @@ export default function StudentwiseFeePage() {
                                     );
                                 })}
                             </tbody>
-
-                            {/* Grand total footer */}
-                            <tfoot className="sticky bottom-0 z-20">
-                                <tr className="bg-zinc-100 border-t-2 border-zinc-300">
-                                    <td className="border-r border-zinc-300 px-3 py-3" colSpan={3}>
-                                        <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Annual Grand Total</span>
-                                    </td>
-                                    <td className="border-r border-zinc-300 px-4 py-3 text-xs text-zinc-400">
-                                        {expandedRows.length} items
-                                    </td>
-                                    <td className="px-4 py-3 text-right font-mono font-bold text-zinc-900 text-base">
-                                        Rs. {grandTotal.toLocaleString()}
-                                    </td>
-                                </tr>
-                            </tfoot>
                         </table>
                     </div>
 
-                    {/* Legend */}
-                    <div className="flex items-center gap-4 text-xs text-zinc-400">
-                        <span className="flex items-center gap-1.5">
-                            <span className="h-3 w-3 rounded-sm bg-blue-50 border border-primary/30 inline-block" />
-                            Active row
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                            <span className="h-3 w-3 rounded-sm bg-white border-2 border-primary inline-block" />
-                            Active cell
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                            <span className="text-primary font-semibold">Rs. 0</span>
-                            Overridden
-                        </span>
+                    {/* Stats Summary */}
+                    <div className="bg-zinc-50 border-t border-zinc-200 px-6 py-5 flex items-center justify-between">
+                        <div className="flex gap-8">
+                            <div>
+                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Records</p>
+                                <p className="text-lg font-bold text-zinc-700">{rows.length} <span className="text-xs font-medium text-zinc-400 ml-1">items</span></p>
+                            </div>
+                            <div className="w-px h-8 bg-zinc-200 mt-2" />
+                            <div>
+                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Student</p>
+                                <p className="text-lg font-bold text-zinc-700 truncate max-w-[200px]">{studentId || "—"}</p>
+                            </div>
+                        </div>
+
+                        <div className="text-right">
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Total Annual Charges</p>
+                            <div className="flex items-baseline gap-2 justify-end">
+                                <span className="text-zinc-300 font-mono text-sm">PKR</span>
+                                <span className="text-2xl font-black text-zinc-900 tracking-tight tabular-nums">
+                                    {grandTotal.toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
+
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-5 py-2.5 bg-zinc-900 text-white rounded-full shadow-2xl z-50">
+                <div className="flex items-center gap-2 pr-4 border-r border-white/20">
+                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-[9px] font-bold uppercase tracking-widest">Editor Active</span>
+                </div>
+                <div className="flex items-center gap-4 text-[9px] font-medium text-white/50 uppercase tracking-widest">
+                    <span>Arrows/Tab: Move</span>
+                    <span>•</span>
+                    <span>Enter: Commit Change</span>
+                </div>
+            </div>
         </div>
     );
 }
