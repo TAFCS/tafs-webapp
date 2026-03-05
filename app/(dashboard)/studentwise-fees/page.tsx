@@ -12,9 +12,7 @@ interface FeeTypeInfo {
     id: number;
     description: string;
     freq: "MONTHLY" | "ONE_TIME" | null;
-    breakup: {
-        months: string[];
-    } | null;
+    breakup: string[] | null;
 }
 
 interface ClassFeeRow {
@@ -40,12 +38,30 @@ const MONTH_ORDER = [
     "January", "February", "March", "April", "May", "June", "July",
 ];
 
+const MONTH_TO_NUM: Record<string, number> = {
+    August: 8, September: 9, October: 10, November: 11, December: 12,
+    January: 1, February: 2, March: 3, April: 4, May: 5, June: 6, July: 7,
+};
+
+/** Given the academic-year start (e.g. 2025) and a month number, return the calendar year. */
+function calendarYear(academicYearStart: number, month: number): number {
+    return month >= 8 ? academicYearStart : academicYearStart + 1;
+}
+
 const COLS = ["#", "Fee Type", "Frequency", "Period", "Amount"] as const;
 const COL_AMOUNT = 4; // only this column is editable
 
-function sortMonths(months: string[] | null | undefined) {
-    if (!Array.isArray(months)) return [];
-    return [...months].sort((a, b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b));
+function sortMonths(months: unknown): string[] {
+    let arr = months;
+    // DB stores breakup as { months: [...] } or a plain array
+    if (arr && typeof arr === "object" && !Array.isArray(arr) && Array.isArray((arr as Record<string, unknown>).months)) {
+        arr = (arr as Record<string, unknown>).months;
+    }
+    if (typeof arr === "string") {
+        try { arr = JSON.parse(arr); } catch { return []; }
+    }
+    if (!Array.isArray(arr)) return [];
+    return [...arr].sort((a, b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b));
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -64,6 +80,9 @@ export default function StudentwiseFeePage() {
     const [feeRows, setFeeRows] = useState<ClassFeeRow[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
+
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
     // overrides: `${feeId}-${month}` -> string
     const [overrides, setOverrides] = useState<Record<string, string>>({});
@@ -87,7 +106,8 @@ export default function StudentwiseFeePage() {
         setIsLoading(true); setLoadError(null); setFeeRows([]); setOverrides({}); setActiveCell(null);
         try {
             const { data } = await api.get("/v1/class-fee-schedule/by-class", { params: { class_id: classId } });
-            setFeeRows(Array.isArray(data?.data) ? data.data : []);
+            const rows = Array.isArray(data?.data) ? data.data : [];
+            setFeeRows(rows);
         } catch (err: any) {
             setLoadError(err.response?.data?.message || "Failed to load fee schedule.");
         } finally { setIsLoading(false); }
@@ -99,32 +119,17 @@ export default function StudentwiseFeePage() {
 
     // ── Sort: ONE_TIME first, then MONTHLY ────────────────────────────────
     const sortedFeeRows = [...feeRows].sort((a, b) => {
-        const order = (f: ClassFeeRow) => f?.fee_types?.freq === "ONE_TIME" ? 0 : 1;
+        const order = (f: ClassFeeRow) => f.fee_types.freq === "ONE_TIME" ? 0 : 1;
         return order(a) - order(b);
     });
 
     // ── Expand into flat row list ─────────────────────────────────────────
     const expandedRows: ExpandedRow[] = sortedFeeRows.flatMap((fee) => {
-        const breakupMonths = fee?.fee_types?.breakup?.months;
-        const months = sortMonths(breakupMonths);
-
-        // If no breakup is defined, we show at least one row for the title
-        if (months.length === 0) {
-            return [{
-                feeId: fee.fee_id,
-                feeDescription: fee?.fee_types?.description || "Unknown Fee",
-                freq: fee?.fee_types?.freq || null,
-                month: "—", // No specific period
-                baseAmount: fee.amount,
-                isGroupStart: true,
-                groupSize: 1,
-            }];
-        }
-
+        const months = sortMonths(fee.fee_types.breakup ?? []);
         return months.map((month, idx) => ({
             feeId: fee.fee_id,
-            feeDescription: fee?.fee_types?.description || "Unknown Fee",
-            freq: fee?.fee_types?.freq || null,
+            feeDescription: fee.fee_types.description,
+            freq: fee.fee_types.freq,
             month,
             baseAmount: fee.amount,
             isGroupStart: idx === 0,
@@ -177,6 +182,41 @@ export default function StudentwiseFeePage() {
         el?.focus({ preventScroll: false });
         el?.scrollIntoView({ block: "nearest" });
     }, [activeCell]);
+
+    // ── Derive academic year from current date (Aug = start of new year) ──
+    const today = new Date();
+    const academicYearStart = today.getMonth() >= 7 ? today.getFullYear() : today.getFullYear() - 1;
+
+    const handleSave = async () => {
+        const numericId = parseInt(studentId, 10);
+        if (!studentId.trim() || isNaN(numericId) || numericId <= 0) {
+            setSaveStatus({ type: "error", message: "Please enter a valid numeric Student ID before saving." });
+            return;
+        }
+        if (expandedRows.length === 0) return;
+
+        setSaveStatus(null);
+        setIsSaving(true);
+        try {
+            const items = expandedRows.map((row) => {
+                const monthNum = MONTH_TO_NUM[row.month];
+                const year = calendarYear(academicYearStart, monthNum);
+                const mm = String(monthNum).padStart(2, "0");
+                return {
+                    fee_type_id: row.feeId,
+                    month: monthNum,
+                    amount: parseFloat(getAmount(row) || "0"),
+                    due_date: `${year}-${mm}-01`,
+                };
+            });
+            await api.post("/v1/fees/student", { student_id: numericId, items });
+            setSaveStatus({ type: "success", message: `${items.length} fee record(s) saved for student #${numericId}.` });
+        } catch (err: any) {
+            setSaveStatus({ type: "error", message: err.response?.data?.message || "Failed to save fees. Please try again." });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const overrideKey = (feeId: number, month: string) => `${feeId}-${month}`;
     const getAmount = (row: ExpandedRow) => overrides[overrideKey(row.feeId, row.month)] ?? row.baseAmount;
@@ -281,7 +321,30 @@ export default function StudentwiseFeePage() {
                         <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />Refresh
                     </button>
                 )}
+
+                {expandedRows.length > 0 && (
+                    <button
+                        onClick={handleSave}
+                        disabled={isSaving || !studentId.trim()}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-sm disabled:opacity-50"
+                    >
+                        {isSaving
+                            ? <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
+                            : "Save Fees"}
+                    </button>
+                )}
             </div>
+
+            {/* Save status banner */}
+            {saveStatus && (
+                <div className={`flex items-center gap-3 rounded-xl p-4 text-sm border ${saveStatus.type === "success" ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"}`}>
+                    {saveStatus.type === "success"
+                        ? <span className="font-medium">✓</span>
+                        : <AlertCircle className="h-5 w-5 shrink-0" />}
+                    <span>{saveStatus.message}</span>
+                    <button onClick={() => setSaveStatus(null)} title="Dismiss" className="ml-auto"><X className="h-4 w-4" /></button>
+                </div>
+            )}
 
             {/* States */}
             {isLoading && (
@@ -307,6 +370,12 @@ export default function StudentwiseFeePage() {
                 <div className="flex flex-col items-center justify-center py-20 text-zinc-400 gap-2">
                     <AlertCircle className="h-6 w-6 text-zinc-300" />
                     <p className="text-sm font-medium text-zinc-600">No fee schedule for this class</p>
+                </div>
+            )}
+            {!isLoading && !loadError && feeRows.length > 0 && expandedRows.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 text-zinc-400 gap-2">
+                    <AlertCircle className="h-6 w-6 text-zinc-300" />
+                    <p className="text-sm font-medium text-zinc-600">Fee schedule loaded but no period breakup is defined for any fee type</p>
                 </div>
             )}
 
