@@ -56,6 +56,7 @@ export default function StudentwiseFeePage() {
     const [classSearch, setClassSearch] = useState("");
     const [showClassDropdown, setShowClassDropdown] = useState(false);
     const classDropdownRef = useRef<HTMLDivElement>(null);
+    const [studentId, setStudentId] = useState("");
 
     const [feeRows, setFeeRows] = useState<ClassFeeRow[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -192,8 +193,9 @@ export default function StudentwiseFeePage() {
                 <p className="text-zinc-500 mt-1">Select a class to view its fee schedule broken down by fee type and period.</p>
             </div>
 
-            {/* Class Selector */}
+            {/* Class + Student Selector */}
             <div className="bg-white border border-zinc-200 rounded-xl shadow-sm p-5 flex flex-col sm:flex-row sm:items-end gap-4">
+                {/* Class dropdown */}
                 <div className="flex-1">
                     <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">Select Class</label>
                     <div className="relative" ref={classDropdownRef}>
@@ -239,6 +241,21 @@ export default function StudentwiseFeePage() {
                         )}
                     </div>
                 </div>
+
+                {/* Student ID */}
+                <div className="w-44">
+                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">
+                        Student ID
+                    </label>
+                    <input
+                        type="text"
+                        placeholder="e.g. 10042"
+                        value={studentId}
+                        onChange={(e) => setStudentId(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                </div>
+
                 {selectedClassId !== "" && (
                     <button onClick={() => fetchFeeSchedule(Number(selectedClassId))} disabled={isLoading}
                         className="inline-flex items-center gap-2 px-4 py-2.5 border border-zinc-200 bg-white text-sm font-medium text-zinc-700 rounded-xl hover:bg-zinc-50 transition-all shadow-sm disabled:opacity-50"
