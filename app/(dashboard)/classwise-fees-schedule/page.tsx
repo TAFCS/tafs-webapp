@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
     Receipt,
     Save,
@@ -11,6 +11,9 @@ import {
     Plus,
     Trash2,
     X,
+    ChevronsUpDown,
+    ChevronUp,
+    ChevronDown,
 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -52,12 +55,17 @@ type EditableRow = EditableExisting | EditableNew;
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
+type SortKey = "id" | "class_id" | "fee_id" | "amount" | "class" | "fee_type";
+type SortDir = "asc" | "desc";
+
 export default function ClasswiseFeesSchedulePage() {
     const [rows, setRows] = useState<EditableRow[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [sortKey, setSortKey] = useState<SortKey>("id");
+    const [sortDir, setSortDir] = useState<SortDir>("asc");
 
     // ── Fetch ──────────────────────────────────────────────────────────────
     const fetchSchedules = useCallback(async () => {
@@ -218,6 +226,57 @@ export default function ClasswiseFeesSchedulePage() {
     const hasPendingChanges =
         rows.some((r) => (r.type === "existing" && r.dirty) || r.type === "new");
 
+    // ── Sorting ────────────────────────────────────────────────────────────
+    const handleSort = (key: SortKey) => {
+        if (sortKey === key) {
+            setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        } else {
+            setSortKey(key);
+            setSortDir("asc");
+        }
+    };
+
+    const sortedRows = useMemo(() => {
+        const newRows = rows.filter((r) => r.type === "new");
+        const existingRows = rows.filter((r): r is EditableExisting => r.type === "existing");
+
+        const sorted = [...existingRows].sort((a, b) => {
+            let aVal: string | number = 0;
+            let bVal: string | number = 0;
+            switch (sortKey) {
+                case "id": aVal = a.data.id; bVal = b.data.id; break;
+                case "class_id": aVal = a.data.class_id; bVal = b.data.class_id; break;
+                case "fee_id": aVal = a.data.fee_id; bVal = b.data.fee_id; break;
+                case "amount": aVal = parseFloat(a.data.amount); bVal = parseFloat(b.data.amount); break;
+                case "class": aVal = a.data.classes?.description ?? ""; bVal = b.data.classes?.description ?? ""; break;
+                case "fee_type": aVal = a.data.fee_types?.description ?? ""; bVal = b.data.fee_types?.description ?? ""; break;
+            }
+            if (aVal < bVal) return sortDir === "asc" ? -1 : 1;
+            if (aVal > bVal) return sortDir === "asc" ? 1 : -1;
+            return 0;
+        });
+
+        // New rows always pinned to the top
+        return [...newRows, ...sorted];
+    }, [rows, sortKey, sortDir]);
+
+    // ── Sort header helper ──────────────────────────────────────────────────
+    const SortHeader = ({ label, colKey }: { label: string; colKey: SortKey }) => {
+        const active = sortKey === colKey;
+        const Icon = active ? (sortDir === "asc" ? ChevronUp : ChevronDown) : ChevronsUpDown;
+        return (
+            <button
+                onClick={() => handleSort(colKey)}
+                className={`flex items-center gap-1 group select-none ${active ? "text-primary" : "text-zinc-500 hover:text-zinc-700"
+                    }`}
+            >
+                {label}
+                <Icon className={`h-3.5 w-3.5 transition-colors ${active ? "text-primary" : "text-zinc-400 group-hover:text-zinc-600"
+                    }`} />
+            </button>
+        );
+    };
+
     // ── Render ─────────────────────────────────────────────────────────────
     return (
         <div className="space-y-6">
@@ -325,21 +384,21 @@ export default function ClasswiseFeesSchedulePage() {
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left whitespace-nowrap">
-                            <thead className="text-xs text-zinc-500 uppercase bg-zinc-50 border-b border-zinc-200">
+                            <thead className="text-xs uppercase bg-zinc-50 border-b border-zinc-200">
                                 <tr>
-                                    <th className="px-6 py-4 font-semibold w-20">ID</th>
-                                    <th className="px-6 py-4 font-semibold">Class ID</th>
-                                    <th className="px-6 py-4 font-semibold">Fee ID</th>
-                                    <th className="px-6 py-4 font-semibold">Amount</th>
-                                    <th className="px-6 py-4 font-semibold">Class</th>
-                                    <th className="px-6 py-4 font-semibold">Fee Type</th>
-                                    <th className="px-6 py-4 font-semibold w-16 text-center">
+                                    <th className="px-6 py-4 font-semibold w-20"><SortHeader label="ID" colKey="id" /></th>
+                                    <th className="px-6 py-4 font-semibold"><SortHeader label="Class ID" colKey="class_id" /></th>
+                                    <th className="px-6 py-4 font-semibold"><SortHeader label="Fee ID" colKey="fee_id" /></th>
+                                    <th className="px-6 py-4 font-semibold"><SortHeader label="Amount" colKey="amount" /></th>
+                                    <th className="px-6 py-4 font-semibold"><SortHeader label="Class" colKey="class" /></th>
+                                    <th className="px-6 py-4 font-semibold"><SortHeader label="Fee Type" colKey="fee_type" /></th>
+                                    <th className="px-6 py-4 font-semibold w-16 text-center text-zinc-500">
                                         Del
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {rows.map((row) => {
+                                {sortedRows.map((row) => {
                                     if (row.type === "existing") {
                                         const item = row.data;
                                         return (
