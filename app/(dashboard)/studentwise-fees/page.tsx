@@ -40,17 +40,30 @@ const MONTH_ORDER = [
     "January", "February", "March", "April", "May", "June", "July",
 ];
 
-const MONTH_MAP: Record<string, number> = {
-    "January": 1, "February": 2, "March": 3, "April": 4, "May": 5, "June": 6,
-    "July": 7, "August": 8, "September": 9, "October": 10, "November": 11, "December": 12
+const MONTH_TO_NUM: Record<string, number> = {
+    August: 8, September: 9, October: 10, November: 11, December: 12,
+    January: 1, February: 2, March: 3, April: 4, May: 5, June: 6, July: 7,
 };
+
+/** Given the academic-year start (e.g. 2025) and a month number, return the calendar year. */
+function calendarYear(academicYearStart: number, month: number): number {
+    return month >= 8 ? academicYearStart : academicYearStart + 1;
+}
 
 const COLS = ["#", "Fee Type", "Frequency", "Period", "Amount"] as const;
 const COL_AMOUNT = 4; // only this column is editable
 
-function sortMonths(monthsInput: any) {
-    const months = Array.isArray(monthsInput) ? monthsInput : (monthsInput?.months || []);
-    return [...months].sort((a, b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b));
+function sortMonths(months: unknown): string[] {
+    let arr = months;
+    // DB stores breakup as { months: [...] } or a plain array
+    if (arr && typeof arr === "object" && !Array.isArray(arr) && Array.isArray((arr as Record<string, unknown>).months)) {
+        arr = (arr as Record<string, unknown>).months;
+    }
+    if (typeof arr === "string") {
+        try { arr = JSON.parse(arr); } catch { return []; }
+    }
+    if (!Array.isArray(arr)) return [];
+    return [...arr].sort((a, b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b));
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -74,6 +87,7 @@ export default function StudentwiseFeePage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
     // overrides: `${feeId}-${month}` -> string
     const [overrides, setOverrides] = useState<Record<string, string>>({});
@@ -108,8 +122,8 @@ export default function StudentwiseFeePage() {
         try {
             // 1. Fetch Class Schedule
             const { data } = await api.get("/v1/class-fee-schedule/by-class", { params: { class_id: classId } });
-            const classRows = Array.isArray(data?.data) ? data.data : [];
-            setFeeRows(classRows);
+            const rows = Array.isArray(data?.data) ? data.data : [];
+            setFeeRows(rows);
 
             // 2. If student CC is provided, fetch student-specific overrides
             if (ccNumber) {
@@ -117,17 +131,9 @@ export default function StudentwiseFeePage() {
                     const studentRes = await api.get(`/v1/student-fees/by-student/${ccNumber}`);
                     const studentFees = studentRes.data?.data || [];
 
-                    // In real app, the first fetch should probably also return the student's numeric ID
-                    // For now, let's assume we get it from searching or another call if needed
-                    // But we actually need it for saving. Let's fetch student details if cc is provided.
-                    // Use the standard students list with search param
-                    const studDetailRes = await api.get(`/v1/students`, { params: { search: ccNumber, limit: 1 } });
-                    const match = studDetailRes.data?.data?.items?.find((s: any) => s.cc_number === ccNumber);
-                    if (match) setStudentNumericId(match.id);
-
                     const newOverrides: Record<string, string> = {};
                     studentFees.forEach((sf: any) => {
-                        const monthName = Object.keys(MONTH_MAP).find(k => MONTH_MAP[k] === sf.month);
+                        const monthName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === sf.month);
                         if (monthName) {
                             newOverrides[`${sf.fee_type_id}-${monthName}`] = sf.amount.toString();
                         }
@@ -146,69 +152,29 @@ export default function StudentwiseFeePage() {
         if (selectedClassId !== "") fetchFeeSchedule(Number(selectedClassId), studentId);
     }, [selectedClassId, fetchFeeSchedule]);
 
-    const handleSave = async () => {
-        if (!studentNumericId) {
-            // Try to find numeric ID from CC if not found yet
-            try {
-                const studDetailRes = await api.get(`/v1/students`, { params: { search: studentId, limit: 1 } });
-                const match = studDetailRes.data?.data?.items?.find((s: any) => s.cc_number === studentId);
-                if (match) {
-                    setStudentNumericId(match.id);
-                    await performSave(match.id);
-                } else {
-                    toast.error("Valid Student ID (CC) required to save overrides.");
-                }
-            } catch (e) {
-                toast.error("Failed to verify student ID.");
-            }
-            return;
-        }
-        await performSave(studentNumericId);
-    };
-
-    const performSave = async (sid: number) => {
-        setIsSaving(true);
-        try {
-            const items = Object.entries(overrides).map(([key, amount]) => {
-                const [feeId, monthName] = key.split("-");
-                return {
-                    fee_type_id: Number(feeId),
-                    amount: Number(amount),
-                    month: MONTH_MAP[monthName] || null
-                };
-            });
-
-            await api.post("/v1/student-fees/bulk", {
-                student_id: sid,
-                items
-            });
-            toast.success("Student fee schedule saved successfully!");
-        } catch (err: any) {
-            toast.error(err.response?.data?.message || "Failed to save fees.");
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
     // ── Sort: ONE_TIME first, then MONTHLY ────────────────────────────────
-    const sortedFeeRows = [...feeRows].sort((a, b) => {
-        const order = (f: ClassFeeRow) => f.fee_types.freq === "ONE_TIME" ? 0 : 1;
-        return order(a) - order(b);
-    });
+    const sortedFeeRows = useMemo(() => {
+        return [...feeRows].sort((a, b) => {
+            const order = (f: ClassFeeRow) => f.fee_types.freq === "ONE_TIME" ? 0 : 1;
+            return order(a) - order(b);
+        });
+    }, [feeRows]);
 
     // ── Expand into flat row list ─────────────────────────────────────────
-    const expandedRows: ExpandedRow[] = sortedFeeRows.flatMap((fee) => {
-        const months = sortMonths(fee.fee_types.breakup ?? []);
-        return months.map((month, idx) => ({
-            feeId: fee.fee_id,
-            feeDescription: fee.fee_types.description,
-            freq: fee.fee_types.freq,
-            month,
-            baseAmount: fee.amount,
-            isGroupStart: idx === 0,
-            groupSize: months.length,
-        }));
-    });
+    const expandedRows: ExpandedRow[] = useMemo(() => {
+        return sortedFeeRows.flatMap((fee) => {
+            const months = sortMonths(fee.fee_types.breakup ?? []);
+            return months.map((month, idx) => ({
+                feeId: fee.fee_id,
+                feeDescription: fee.fee_types.description,
+                freq: fee.fee_types.freq,
+                month,
+                baseAmount: fee.amount,
+                isGroupStart: idx === 0,
+                groupSize: months.length,
+            }));
+        });
+    }, [sortedFeeRows]);
 
     const totalRows = expandedRows.length;
     const totalCols = COLS.length;
@@ -255,6 +221,43 @@ export default function StudentwiseFeePage() {
         el?.focus({ preventScroll: false });
         el?.scrollIntoView({ block: "nearest" });
     }, [activeCell]);
+
+    // ── Derive academic year from current date (Aug = start of new year) ──
+    const today = new Date();
+    const academicYearStart = today.getMonth() >= 7 ? today.getFullYear() : today.getFullYear() - 1;
+
+    const handleSave = async () => {
+        if (!studentId.trim()) {
+            setSaveStatus({ type: "error", message: "Please enter a Student CC number (e.g. CC-2026-00003) before saving." });
+            return;
+        }
+        if (expandedRows.length === 0) return;
+
+        setSaveStatus(null);
+        setIsSaving(true);
+        try {
+            const items = expandedRows.map((row) => {
+                const monthNum = MONTH_TO_NUM[row.month];
+                const year = calendarYear(academicYearStart, monthNum);
+                const mm = String(monthNum).padStart(2, "0");
+                return {
+                    fee_type_id: row.feeId,
+                    month: monthNum,
+                    amount: parseFloat(getAmount(row) || "0"),
+                    due_date: `${year}-${mm}-01`,
+                };
+            });
+            await api.post("/v1/fees/student", { cc_number: studentId.trim(), items });
+            setSaveStatus({ type: "success", message: `${items.length} fee record(s) saved for student ${studentId.trim()}.` });
+            toast.success("Student fee schedule saved successfully!");
+        } catch (err: any) {
+            const msg = err.response?.data?.message || "Failed to save fees. Please try again.";
+            setSaveStatus({ type: "error", message: msg });
+            toast.error(msg);
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const overrideKey = (feeId: number, month: string) => `${feeId}-${month}`;
     const getAmount = (row: ExpandedRow) => overrides[overrideKey(row.feeId, row.month)] ?? row.baseAmount;
@@ -339,13 +342,13 @@ export default function StudentwiseFeePage() {
                 </div>
 
                 {/* Student ID */}
-                <div className="w-44">
+                <div className="w-52">
                     <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">
-                        Student ID
+                        Student CC No.
                     </label>
                     <input
                         type="text"
-                        placeholder="e.g. 10042"
+                        placeholder="e.g. CC-2026-00003"
                         value={studentId}
                         onChange={(e) => setStudentId(e.target.value)}
                         className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
@@ -361,22 +364,30 @@ export default function StudentwiseFeePage() {
                         </button>
                     )}
 
-                    {selectedClassId !== "" && studentId !== "" && (
+                    {expandedRows.length > 0 && (
                         <button
                             onClick={handleSave}
-                            disabled={isSaving || isLoading}
-                            className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200 disabled:opacity-50"
+                            disabled={isSaving || !studentId.trim()}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-sm disabled:opacity-50"
                         >
-                            {isSaving ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <Save className="h-4 w-4" />
-                            )}
-                            Save Student Schedule
+                            {isSaving
+                                ? <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
+                                : "Save Fees"}
                         </button>
                     )}
                 </div>
             </div>
+
+            {/* Save status banner */}
+            {saveStatus && (
+                <div className={`flex items-center gap-3 rounded-xl p-4 text-sm border ${saveStatus.type === "success" ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"}`}>
+                    {saveStatus.type === "success"
+                        ? <span className="font-medium">✓</span>
+                        : <AlertCircle className="h-5 w-5 shrink-0" />}
+                    <span>{saveStatus.message}</span>
+                    <button onClick={() => setSaveStatus(null)} title="Dismiss" className="ml-auto"><X className="h-4 w-4" /></button>
+                </div>
+            )}
 
             {/* States */}
             {isLoading && (
@@ -402,6 +413,12 @@ export default function StudentwiseFeePage() {
                 <div className="flex flex-col items-center justify-center py-20 text-zinc-400 gap-2">
                     <AlertCircle className="h-6 w-6 text-zinc-300" />
                     <p className="text-sm font-medium text-zinc-600">No fee schedule for this class</p>
+                </div>
+            )}
+            {!isLoading && !loadError && feeRows.length > 0 && expandedRows.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 text-zinc-400 gap-2">
+                    <AlertCircle className="h-6 w-6 text-zinc-300" />
+                    <p className="text-sm font-medium text-zinc-600">Fee schedule loaded but no period breakup is defined for any fee type</p>
                 </div>
             )}
 

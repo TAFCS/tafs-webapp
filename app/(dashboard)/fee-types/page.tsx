@@ -4,6 +4,11 @@ import { useState, useEffect } from "react";
 import { Banknote, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus } from "lucide-react";
 import api from "@/lib/api";
 
+const ACADEMIC_MONTHS = [
+    'August', 'September', 'October', 'November', 'December', 'January',
+    'February', 'March', 'April', 'May', 'June', 'July'
+];
+
 interface FeeTypeItem {
     id: string | number;
     description: string;
@@ -23,7 +28,7 @@ export default function FeeTypesPage() {
     // State for Add Modal
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
-    const [newFeeType, setNewFeeType] = useState({ description: "", freq: "MONTHLY", breakup: "" });
+    const [newFeeType, setNewFeeType] = useState({ description: "", freq: "MONTHLY", breakup: ACADEMIC_MONTHS.join(", ") });
 
     const fetchFeeTypes = async () => {
         setIsLoading(true);
@@ -35,14 +40,25 @@ export default function FeeTypesPage() {
             const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
 
             // Map the items to ensure they at least have id, description, freq
-            const mappedItems = items.map((item: any) => ({
-                id: item.id || Math.random().toString(36).substring(7),
-                description: item.description || item.name || "",
-                freq: item.freq || "MONTHLY",
-                // Handle the array from backend, converting to comma separated string for easy editing
-                breakup: Array.isArray(item.breakup) ? item.breakup.join(", ") : "",
-                ...item
-            }));
+            const mappedItems = items.map((item: any) => {
+                let breakupArray: string[] = [];
+                if (Array.isArray(item.breakup)) {
+                    breakupArray = item.breakup;
+                } else if (item.breakup && Array.isArray(item.breakup.months)) {
+                    breakupArray = item.breakup.months;
+                } else if (typeof item.breakup === 'string') {
+                    breakupArray = item.breakup.split(',').map((s: string) => s.trim()).filter(Boolean);
+                }
+
+                return {
+                    ...item,
+                    id: item.id || Math.random().toString(36).substring(7),
+                    description: item.description || item.name || "",
+                    freq: item.freq || "MONTHLY",
+                    // Handle the backend object or array, cleanly parsing to string for local state
+                    breakup: breakupArray.length > 0 ? breakupArray.join(", ") : "",
+                };
+            });
 
             setFeeTypes(mappedItems);
             setOriginalFeeTypes(JSON.parse(JSON.stringify(mappedItems)));
@@ -91,13 +107,26 @@ export default function FeeTypesPage() {
         }
 
         try {
-            const payload = modifiedFeeTypes.map(item => ({
-                id: item.id,
-                description: item.description,
-                freq: item.freq,
-                // Split string by commas, trim whitespace, and filter out empties to reconstruct an array
-                breakup: item.breakup ? item.breakup.split(',').map((s: string) => s.trim()).filter(Boolean) : null
-            }));
+            const payload = modifiedFeeTypes.map(item => {
+                let breakupVal = null;
+                if (Array.isArray(item.breakup)) {
+                    breakupVal = item.breakup;
+                } else if (typeof item.breakup === 'string' && item.breakup) {
+                    breakupVal = item.breakup.split(',').map((s: string) => s.trim()).filter(Boolean);
+                }
+
+                return {
+                    id: item.id,
+                    description: item.description,
+                    freq: item.freq,
+                    // The backend DTO expects an Object (like JSON in Prisma), so arrays are sent differently 
+                    // or wrapped. We send it directly as JSON if the backend accepts standard JSON lists via IsObject (in JS arrays are objects).
+                    // Wait, class-validator "@IsObject()" rejects primitive arrays depending on versions. We wrap it in an object key if needed, or pass it as Object.assign({}, arr).
+                    // To be safe and compliant with Prisma Json and class validator IsObject, we convert the string array to a dictionary / object representation or wrap it.
+                    // Actually, if it's meant to be a list, Prisma JSON handles arrays. But IsObject strictly rejects `[]`. 
+                    breakup: breakupVal ? { months: breakupVal } : null
+                };
+            });
 
             await api.patch("/v1/fee-types/bulk", { items: payload });
 
@@ -119,10 +148,15 @@ export default function FeeTypesPage() {
         setSuccessMessage(null);
 
         try {
+            let breakupVal = null;
+            if (newFeeType.breakup) {
+                breakupVal = newFeeType.breakup.split(',').map((s: string) => s.trim()).filter(Boolean);
+            }
+
             await api.post("/v1/fee-types", {
                 ...newFeeType,
-                // Add breakup parsing for new item
-                breakup: newFeeType.breakup ? newFeeType.breakup.split(',').map((s: string) => s.trim()).filter(Boolean) : null
+                // Convert to object so @IsObject validation passes
+                breakup: breakupVal ? { months: breakupVal } : null
             });
             setSuccessMessage("Fee type added successfully.");
             setIsAddModalOpen(false);
@@ -240,13 +274,46 @@ export default function FeeTypesPage() {
                                             />
                                         </td>
                                         <td className="px-6 py-3">
-                                            <input
-                                                type="text"
-                                                value={item.breakup || ""}
-                                                onChange={(e) => handleFieldChange(item.id, "breakup", e.target.value)}
-                                                className="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
-                                                placeholder="e.g. August, September"
-                                            />
+                                            {item.freq === "ONE_TIME" ? (
+                                                <select
+                                                    value={item.breakup || ""}
+                                                    onChange={(e) => handleFieldChange(item.id, "breakup", e.target.value)}
+                                                    className="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                                                >
+                                                    <option value="">Select Month...</option>
+                                                    {ACADEMIC_MONTHS.map((month) => (
+                                                        <option key={month} value={month}>{month}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-1 max-w-[240px]">
+                                                    {ACADEMIC_MONTHS.map((month) => {
+                                                        const currentBreakups = Array.isArray(item.breakup)
+                                                            ? item.breakup
+                                                            : typeof item.breakup === 'string'
+                                                                ? item.breakup.split(',').map((s: string) => s.trim()).filter(Boolean)
+                                                                : [];
+                                                        const isSelected = currentBreakups.includes(month);
+                                                        return (
+                                                            <button
+                                                                key={month}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const newBreakups = isSelected
+                                                                        ? currentBreakups.filter((m: string) => m !== month)
+                                                                        : [...currentBreakups, month];
+                                                                    handleFieldChange(item.id, "breakup", newBreakups.join(", "));
+                                                                }}
+                                                                className={`px-2 py-1 text-[10px] font-medium rounded transition-colors ${isSelected ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
+                                                                    }`}
+                                                                title={month}
+                                                            >
+                                                                {month.substring(0, 3)}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-6 py-3">
                                             <select
@@ -300,12 +367,69 @@ export default function FeeTypesPage() {
                                     <select
                                         required
                                         value={newFeeType.freq}
-                                        onChange={(e) => setNewFeeType({ ...newFeeType, freq: e.target.value })}
+                                        onChange={(e) => setNewFeeType({ ...newFeeType, freq: e.target.value, breakup: e.target.value === "MONTHLY" ? ACADEMIC_MONTHS.join(", ") : "August" })}
                                         className="w-full px-4 py-2 bg-white border border-zinc-300 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl text-sm outline-none transition-all"
                                     >
                                         <option value="MONTHLY">Monthly</option>
                                         <option value="ONE_TIME">One Time</option>
                                     </select>
+                                </div>
+                                <div className="pt-2">
+                                    <label className="block text-sm font-medium text-zinc-700 mb-1">Breakup (Applicable Months)</label>
+                                    {newFeeType.freq === "ONE_TIME" ? (
+                                        <select
+                                            value={newFeeType.breakup}
+                                            onChange={(e) => setNewFeeType({ ...newFeeType, breakup: e.target.value })}
+                                            className="w-full px-4 py-2 bg-white border border-zinc-300 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl text-sm outline-none transition-all"
+                                        >
+                                            <option value="">Select Month</option>
+                                            {ACADEMIC_MONTHS.map(month => (
+                                                <option key={month} value={month}>{month}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-2 pt-1 border border-zinc-200 rounded-xl p-3 bg-zinc-50/50">
+                                            {ACADEMIC_MONTHS.map((month) => {
+                                                const currentBreakups = Array.isArray(newFeeType.breakup)
+                                                    ? newFeeType.breakup
+                                                    : typeof newFeeType.breakup === 'string'
+                                                        ? newFeeType.breakup.split(',').map((s: string) => s.trim()).filter(Boolean)
+                                                        : [];
+                                                const isSelected = currentBreakups.includes(month);
+                                                return (
+                                                    <div
+                                                        key={month}
+                                                        onClick={() => {
+                                                            const newBreakups = isSelected
+                                                                ? currentBreakups.filter((m: string) => m !== month)
+                                                                : [...currentBreakups, month];
+                                                            setNewFeeType({ ...newFeeType, breakup: newBreakups.join(", ") });
+                                                        }}
+                                                        className={`px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer transition-colors border select-none ${isSelected ? 'bg-zinc-800 border-zinc-800 text-white' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+                                                            }`}
+                                                    >
+                                                        {month}
+                                                    </div>
+                                                );
+                                            })}
+                                            <div className="w-full flex gap-3 pt-2 mt-1 border-t border-zinc-200">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setNewFeeType({ ...newFeeType, breakup: ACADEMIC_MONTHS.join(", ") })}
+                                                    className="text-xs text-primary hover:text-primary/80 font-medium"
+                                                >
+                                                    Select All
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setNewFeeType({ ...newFeeType, breakup: "" })}
+                                                    className="text-xs text-zinc-500 hover:text-zinc-700 font-medium"
+                                                >
+                                                    Clear All
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
