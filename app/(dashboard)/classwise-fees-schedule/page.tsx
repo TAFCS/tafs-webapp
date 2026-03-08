@@ -254,62 +254,177 @@ export default function ClasswiseFeesSchedulePage() {
     const hasPendingChanges =
         rows.some((r) => (r.type === "existing" && r.dirty) || r.type === "new");
 
-    // ── Sorting ────────────────────────────────────────────────────────────
-    const handleSort = (key: SortKey) => {
-        if (sortKey === key) {
-            setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-        } else {
-            setSortKey(key);
-            setSortDir("asc");
-        }
-    };
+    // ── Grouping ───────────────────────────────────────────────────────────
+    const groupedRows = useMemo(() => {
+        const groups: Record<string, Record<string, EditableRow[]>> = {};
 
-    const sortedRows = useMemo(() => {
-        const newRows = rows.filter((r) => r.type === "new");
-        const existingRows = rows.filter((r): r is EditableExisting => r.type === "existing");
+        const getKeys = (row: EditableRow) => {
+            const campusId = row.type === "existing" ? row.data.campus_id : row.data.campus_id;
+            const classId = row.type === "existing" ? row.data.class_id : row.data.class_id;
+            return {
+                campusKey: campusId ? String(campusId) : "unassigned",
+                classKey: classId ? String(classId) : "unassigned",
+            };
+        };
 
-        const sorted = [...existingRows].sort((a, b) => {
-            let aVal: string | number = 0;
-            let bVal: string | number = 0;
-            switch (sortKey) {
-                case "id": aVal = a.data.id; bVal = b.data.id; break;
-                case "campus_id": aVal = a.data.campus_id ?? 0; bVal = b.data.campus_id ?? 0; break;
-                case "class_id": aVal = a.data.class_id; bVal = b.data.class_id; break;
-                case "fee_id": aVal = a.data.fee_id; bVal = b.data.fee_id; break;
-                case "amount": aVal = parseFloat(a.data.amount); bVal = parseFloat(b.data.amount); break;
-                case "class": aVal = a.data.classes?.description ?? ""; bVal = b.data.classes?.description ?? ""; break;
-                case "fee_type": aVal = a.data.fee_types?.description ?? ""; bVal = b.data.fee_types?.description ?? ""; break;
-            }
-            if (aVal < bVal) return sortDir === "asc" ? -1 : 1;
-            if (aVal > bVal) return sortDir === "asc" ? 1 : -1;
-            return 0;
+        rows.forEach((row) => {
+            const { campusKey, classKey } = getKeys(row);
+            if (!groups[campusKey]) groups[campusKey] = {};
+            if (!groups[campusKey][classKey]) groups[campusKey][classKey] = [];
+            groups[campusKey][classKey].push(row);
         });
 
-        // New rows always pinned to the top
-        return [...newRows, ...sorted];
-    }, [rows, sortKey, sortDir]);
+        return groups;
+    }, [rows]);
 
-    // ── Sort header helper ──────────────────────────────────────────────────
-    const SortHeader = ({ label, colKey }: { label: string; colKey: SortKey }) => {
-        const active = sortKey === colKey;
-        const Icon = active ? (sortDir === "asc" ? ChevronUp : ChevronDown) : ChevronsUpDown;
+    const getCampusName = (campusKey: string) => {
+        if (campusKey === "unassigned") return "Global / All Campuses";
+        const match = campuses.find((c) => c.id === Number(campusKey));
+        return match ? match.campus_name : `Campus ID: ${campusKey} (Unknown)`;
+    };
+
+    const getClassName = (classKey: string) => {
+        if (classKey === "unassigned") return "Unassigned Class";
+        const match = classes.find((c) => c.id === Number(classKey));
+        return match ? `${match.description} (${match.class_code})` : `Class ID: ${classKey} (Unknown)`;
+    };
+
+    const handleAddSpecific = (campusId: string, classId: string) => {
+        clearFeedback();
+        const newRow: EditableNew = {
+            type: "new",
+            data: {
+                _localId: `new-${Date.now()}`,
+                campus_id: campusId === "unassigned" ? "" : campusId,
+                class_id: classId === "unassigned" ? "" : classId,
+                fee_id: "",
+                amount: "",
+            },
+        };
+        setRows((prev) => [newRow, ...prev]);
+    };
+
+    // ── Render Helpers ─────────────────────────────────────────────────────
+    const renderRow = (row: EditableRow) => {
+        const isExisting = row.type === "existing";
+        const id = isExisting ? row.data.id : row.data._localId;
+        const dirty = isExisting ? row.dirty : true;
+        
+        const campusId = isExisting ? (row.data.campus_id ?? "") : row.data.campus_id;
+        const classId = isExisting ? row.data.class_id : row.data.class_id;
+        const feeId = isExisting ? row.data.fee_id : row.data.fee_id;
+        const amount = isExisting ? row.data.amount : row.data.amount;
+
+        const handleChange = (field: "campus_id" | "class_id" | "fee_id" | "amount", val: string) => {
+            if (isExisting) {
+                handleExistingChange(id as number, field, val);
+            } else {
+                handleNewChange(id as string, field, val);
+            }
+        };
+
+        const handleRemove = () => {
+            if (isExisting) {
+                handleRemoveExisting(id as number);
+            } else {
+                handleRemoveNew(id as string);
+            }
+        };
+
         return (
-            <button
-                onClick={() => handleSort(colKey)}
-                className={`flex items-center gap-1 group select-none ${active ? "text-primary" : "text-zinc-500 hover:text-zinc-700"
-                    }`}
+            <tr
+                key={`${row.type}-${id}`}
+                className={`border-b border-zinc-100 transition-colors ${
+                    !isExisting ? "bg-blue-50/40" : dirty ? "bg-amber-50/50" : "hover:bg-zinc-50/50"
+                }`}
             >
-                {label}
-                <Icon className={`h-3.5 w-3.5 transition-colors ${active ? "text-primary" : "text-zinc-400 group-hover:text-zinc-600"
-                    }`} />
-            </button>
+                <td className="px-4 py-3 font-medium text-zinc-400 text-xs w-20">
+                    {!isExisting ? (
+                        <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide">
+                            New
+                        </span>
+                    ) : (
+                        id
+                    )}
+                </td>
+
+                <td className="px-4 py-3">
+                    <select
+                        value={campusId}
+                        onChange={(e) => handleChange("campus_id", e.target.value)}
+                        className="w-full min-w-[140px] px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                    >
+                        <option value="">Global / All Campuses</option>
+                        {campuses.map((c) => (
+                            <option key={c.id} value={c.id}>
+                                {c.campus_name}
+                            </option>
+                        ))}
+                    </select>
+                </td>
+
+                <td className="px-4 py-3">
+                    <select
+                        value={classId}
+                        onChange={(e) => handleChange("class_id", e.target.value)}
+                        className="w-full min-w-[140px] px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                    >
+                        <option value="" disabled>Select Class</option>
+                        {classes.map((c) => (
+                            <option key={c.id} value={c.id}>
+                                {c.description}
+                            </option>
+                        ))}
+                    </select>
+                </td>
+
+                <td className="px-4 py-3">
+                    <select
+                        value={feeId}
+                        onChange={(e) => handleChange("fee_id", e.target.value)}
+                        className="w-full min-w-[140px] px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                    >
+                        <option value="" disabled>Select Fee Type</option>
+                        {feeTypes.map((f) => (
+                            <option key={f.id} value={f.id}>
+                                {f.description}
+                            </option>
+                        ))}
+                    </select>
+                </td>
+
+                <td className="px-4 py-3">
+                    <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs pointer-events-none">
+                            Rs.
+                        </span>
+                        <input
+                            type="number"
+                            value={amount}
+                            onChange={(e) => handleChange("amount", e.target.value)}
+                            step="0.01"
+                            placeholder="0.00"
+                            className="w-32 pl-9 pr-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                        />
+                    </div>
+                </td>
+
+                <td className="px-4 py-3 text-center">
+                    <button
+                        onClick={handleRemove}
+                        className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title={isExisting ? "Remove from view" : "Discard new row"}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                </td>
+            </tr>
         );
     };
 
     // ── Render ─────────────────────────────────────────────────────────────
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
@@ -327,7 +442,7 @@ export default function ClasswiseFeesSchedulePage() {
                         className="inline-flex items-center justify-center px-4 py-2 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50"
                     >
                         <Plus className="h-4 w-4 mr-2" />
-                        Add New
+                        Add New (Unassigned)
                     </button>
                     <button
                         onClick={fetchSchedules}
@@ -357,7 +472,6 @@ export default function ClasswiseFeesSchedulePage() {
                 </div>
             </div>
 
-            {/* Error Banner */}
             {error && (
                 <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 text-sm animate-in fade-in duration-300">
                     <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -371,7 +485,6 @@ export default function ClasswiseFeesSchedulePage() {
                 </div>
             )}
 
-            {/* Success Banner */}
             {successMessage && (
                 <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-4 text-sm animate-in fade-in duration-300">
                     <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
@@ -385,287 +498,94 @@ export default function ClasswiseFeesSchedulePage() {
                 </div>
             )}
 
-            {/* Table */}
-            <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
-                {isLoading ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                            <Loader2 className="text-primary h-6 w-6 animate-spin" />
-                        </div>
-                        <h3 className="text-sm font-medium text-zinc-900">Loading schedules…</h3>
+            {isLoading ? (
+                <div className="bg-white border border-zinc-200 rounded-xl shadow-sm flex flex-col items-center justify-center py-20 text-center">
+                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                        <Loader2 className="text-primary h-6 w-6 animate-spin" />
                     </div>
-                ) : rows.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center mb-4">
-                            <Receipt className="text-zinc-400 h-6 w-6" />
-                        </div>
-                        <h3 className="text-sm font-medium text-zinc-900">No schedules found</h3>
-                        <p className="mt-1 text-sm text-zinc-500">
-                            There are currently no fee schedules defined.
-                        </p>
-                        <button
-                            onClick={handleAddRow}
-                            className="mt-4 text-primary text-sm font-medium hover:underline"
-                        >
-                            Create your first schedule
-                        </button>
+                    <h3 className="text-sm font-medium text-zinc-900">Loading schedules…</h3>
+                </div>
+            ) : rows.length === 0 ? (
+                <div className="bg-white border border-zinc-200 rounded-xl shadow-sm flex flex-col items-center justify-center py-20 text-center">
+                    <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center mb-4">
+                        <Receipt className="text-zinc-400 h-6 w-6" />
                     </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left whitespace-nowrap">
-                            <thead className="text-xs uppercase bg-zinc-50 border-b border-zinc-200">
-                                <tr>
-                                    <th className="px-6 py-4 font-semibold w-20"><SortHeader label="ID" colKey="id" /></th>
-                                    <th className="px-6 py-4 font-semibold"><SortHeader label="Campus ID" colKey="campus_id" /></th>
-                                    <th className="px-6 py-4 font-semibold"><SortHeader label="Class ID" colKey="class_id" /></th>
-                                    <th className="px-6 py-4 font-semibold"><SortHeader label="Fee ID" colKey="fee_id" /></th>
-                                    <th className="px-6 py-4 font-semibold"><SortHeader label="Amount" colKey="amount" /></th>
-                                    <th className="px-6 py-4 font-semibold w-16 text-center text-zinc-500">Del</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {sortedRows.map((row) => {
-                                    if (row.type === "existing") {
-                                        const item = row.data;
-                                        return (
-                                            <tr
-                                                key={`existing-${item.id}`}
-                                                className={`border-b border-zinc-100 transition-colors ${row.dirty ? "bg-amber-50/50" : "hover:bg-zinc-50/50"
-                                                    }`}
-                                            >
-                                                <td className="px-6 py-3 font-medium text-zinc-400 text-xs">
-                                                    {item.id}
-                                                </td>
+                    <h3 className="text-sm font-medium text-zinc-900">No schedules found</h3>
+                    <p className="mt-1 text-sm text-zinc-500">
+                        There are currently no fee schedules defined.
+                    </p>
+                    <button
+                        onClick={handleAddRow}
+                        className="mt-4 text-primary text-sm font-medium hover:underline"
+                    >
+                        Create your first schedule
+                    </button>
+                </div>
+            ) : (
+                <div className="space-y-8">
+                    {Object.entries(groupedRows)
+                        .sort(([keyA], [keyB]) => {
+                            if (keyA === "unassigned") return -1;
+                            if (keyB === "unassigned") return 1;
+                            return getCampusName(keyA).localeCompare(getCampusName(keyB));
+                        })
+                        .map(([campusKey, classesGroup]) => (
+                            <div key={`campus-${campusKey}`} className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
+                                <div className="bg-zinc-50 border-b border-zinc-200 px-6 py-4 flex items-center justify-between">
+                                    <h2 className="text-lg font-semibold text-zinc-900 flex items-center gap-2">
+                                        <div className="h-2 w-2 rounded-full bg-violet-500" />
+                                        {getCampusName(campusKey)}
+                                    </h2>
+                                </div>
 
-                                                {/* Campus ID + live campus name */}
-                                                <td className="px-6 py-3">
-                                                    <div className="flex flex-col gap-1">
-                                                        <input
-                                                            type="number"
-                                                            value={item.campus_id ?? ""}
-                                                            onChange={(e) =>
-                                                                handleExistingChange(item.id, "campus_id", e.target.value)
-                                                            }
-                                                            className="w-24 px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
-                                                        />
-                                                        {(() => {
-                                                            const match = campuses.find((c) => c.id === Number(item.campus_id));
-                                                            return match ? (
-                                                                <span className="bg-violet-50 text-violet-700 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit transition-all">
-                                                                    {match.campus_name}
-                                                                </span>
-                                                            ) : item.campus_id ? (
-                                                                <span className="text-[11px] text-red-400 italic">No match</span>
-                                                            ) : null;
-                                                        })()}
-                                                    </div>
-                                                </td>
-
-                                                {/* Class ID + live class name */}
-                                                <td className="px-6 py-3">
-                                                    <div className="flex flex-col gap-1">
-                                                        <input
-                                                            type="number"
-                                                            value={item.class_id}
-                                                            onChange={(e) =>
-                                                                handleExistingChange(item.id, "class_id", e.target.value)
-                                                            }
-                                                            className="w-24 px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
-                                                        />
-                                                        {(() => {
-                                                            const match = classes.find((c) => c.id === Number(item.class_id));
-                                                            return match ? (
-                                                                <span className="bg-zinc-100 text-zinc-600 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit transition-all">
-                                                                    {match.description}
-                                                                </span>
-                                                            ) : item.class_id ? (
-                                                                <span className="text-[11px] text-red-400 italic">No match</span>
-                                                            ) : null;
-                                                        })()}
-                                                    </div>
-                                                </td>
-
-                                                {/* Fee ID + live fee type name */}
-                                                <td className="px-6 py-3">
-                                                    <div className="flex flex-col gap-1">
-                                                        <input
-                                                            type="number"
-                                                            value={item.fee_id}
-                                                            onChange={(e) =>
-                                                                handleExistingChange(item.id, "fee_id", e.target.value)
-                                                            }
-                                                            className="w-24 px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
-                                                        />
-                                                        {(() => {
-                                                            const match = feeTypes.find((f) => f.id === Number(item.fee_id));
-                                                            return match ? (
-                                                                <span className="bg-blue-50 text-blue-700 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit transition-all">
-                                                                    {match.description}
-                                                                </span>
-                                                            ) : item.fee_id ? (
-                                                                <span className="text-[11px] text-red-400 italic">No match</span>
-                                                            ) : null;
-                                                        })()}
-                                                    </div>
-                                                </td>
-
-                                                {/* Amount */}
-                                                <td className="px-6 py-3">
-                                                    <div className="relative">
-                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs pointer-events-none">
-                                                            Rs.
-                                                        </span>
-                                                        <input
-                                                            type="number"
-                                                            value={item.amount}
-                                                            onChange={(e) =>
-                                                                handleExistingChange(item.id, "amount", e.target.value)
-                                                            }
-                                                            step="0.01"
-                                                            className="w-36 pl-9 pr-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
-                                                        />
-                                                    </div>
-                                                </td>
-
-                                                <td className="px-6 py-3 text-center">
+                                <div className="divide-y divide-zinc-200">
+                                    {Object.entries(classesGroup)
+                                        .sort(([keyA], [keyB]) => {
+                                            if (keyA === "unassigned") return -1;
+                                            if (keyB === "unassigned") return 1;
+                                            return getClassName(keyA).localeCompare(getClassName(keyB));
+                                        })
+                                        .map(([classKey, classRows]) => (
+                                            <div key={`class-${classKey}`} className="p-6 bg-white/50">
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                                                    <h3 className="text-base font-semibold text-zinc-800 flex items-center gap-2">
+                                                        <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                                                        {getClassName(classKey)}
+                                                    </h3>
                                                     <button
-                                                        onClick={() => handleRemoveExisting(item.id)}
-                                                        className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title="Remove from view"
+                                                        onClick={() => handleAddSpecific(campusKey, classKey)}
+                                                        className="inline-flex items-center justify-center px-3 py-1.5 bg-white border border-zinc-200 hover:bg-zinc-50 hover:border-blue-200 text-blue-600 text-xs font-semibold rounded-lg shadow-sm transition-all active:scale-95"
                                                     >
-                                                        <Trash2 className="h-4 w-4" />
+                                                        <Plus className="h-3.5 w-3.5 mr-1" />
+                                                        Add Fee
                                                     </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    }
-
-                                    // New row
-                                    const nr = row.data;
-                                    return (
-                                        <tr
-                                            key={`new-${nr._localId}`}
-                                            className="border-b border-blue-100 bg-blue-50/40 transition-colors"
-                                        >
-                                            <td className="px-6 py-3">
-                                                <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide">
-                                                    New
-                                                </span>
-                                            </td>
-
-                                            {/* Campus ID + live campus name */}
-                                            <td className="px-6 py-3">
-                                                <div className="flex flex-col gap-1">
-                                                    <input
-                                                        type="number"
-                                                        value={nr.campus_id}
-                                                        onChange={(e) =>
-                                                            handleNewChange(nr._localId, "campus_id", e.target.value)
-                                                        }
-                                                        placeholder="Campus ID"
-                                                        className="w-24 px-3 py-1.5 bg-white border border-blue-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
-                                                    />
-                                                    {(() => {
-                                                        const match = campuses.find((c) => c.id === Number(nr.campus_id));
-                                                        return match ? (
-                                                            <span className="bg-violet-50 text-violet-700 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit">
-                                                                {match.campus_name}
-                                                            </span>
-                                                        ) : nr.campus_id ? (
-                                                            <span className="text-[11px] text-red-400 italic">No match</span>
-                                                        ) : null;
-                                                    })()}
                                                 </div>
-                                            </td>
 
-                                            {/* Class ID + live class name */}
-                                            <td className="px-6 py-3">
-                                                <div className="flex flex-col gap-1">
-                                                    <input
-                                                        type="number"
-                                                        value={nr.class_id}
-                                                        onChange={(e) =>
-                                                            handleNewChange(nr._localId, "class_id", e.target.value)
-                                                        }
-                                                        placeholder="Class ID"
-                                                        className="w-24 px-3 py-1.5 bg-white border border-blue-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
-                                                    />
-                                                    {(() => {
-                                                        const match = classes.find((c) => c.id === Number(nr.class_id));
-                                                        return match ? (
-                                                            <span className="bg-zinc-100 text-zinc-600 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit">
-                                                                {match.description}
-                                                            </span>
-                                                        ) : nr.class_id ? (
-                                                            <span className="text-[11px] text-red-400 italic">No match</span>
-                                                        ) : null;
-                                                    })()}
+                                                <div className="border border-zinc-200 rounded-lg overflow-x-auto shadow-sm">
+                                                    <table className="w-full text-sm text-left whitespace-nowrap">
+                                                        <thead className="text-xs uppercase bg-zinc-50/80 border-b border-zinc-200 text-zinc-500">
+                                                            <tr>
+                                                                <th className="px-4 py-3 font-semibold w-20">ID</th>
+                                                                <th className="px-4 py-3 font-semibold">Campus</th>
+                                                                <th className="px-4 py-3 font-semibold">Class</th>
+                                                                <th className="px-4 py-3 font-semibold">Fee Type</th>
+                                                                <th className="px-4 py-3 font-semibold">Amount</th>
+                                                                <th className="px-4 py-3 font-semibold text-center w-16">Act</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {classRows.map(renderRow)}
+                                                        </tbody>
+                                                    </table>
                                                 </div>
-                                            </td>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        ))}
+                </div>
+            )}
 
-                                            {/* Fee ID + live fee type name */}
-                                            <td className="px-6 py-3">
-                                                <div className="flex flex-col gap-1">
-                                                    <input
-                                                        type="number"
-                                                        value={nr.fee_id}
-                                                        onChange={(e) =>
-                                                            handleNewChange(nr._localId, "fee_id", e.target.value)
-                                                        }
-                                                        placeholder="Fee ID"
-                                                        className="w-24 px-3 py-1.5 bg-white border border-blue-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
-                                                    />
-                                                    {(() => {
-                                                        const match = feeTypes.find((f) => f.id === Number(nr.fee_id));
-                                                        return match ? (
-                                                            <span className="bg-blue-50 text-blue-700 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit">
-                                                                {match.description}
-                                                            </span>
-                                                        ) : nr.fee_id ? (
-                                                            <span className="text-[11px] text-red-400 italic">No match</span>
-                                                        ) : null;
-                                                    })()}
-                                                </div>
-                                            </td>
-
-                                            {/* Amount */}
-                                            <td className="px-6 py-3">
-                                                <div className="relative">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs pointer-events-none">
-                                                        Rs.
-                                                    </span>
-                                                    <input
-                                                        type="number"
-                                                        value={nr.amount}
-                                                        onChange={(e) =>
-                                                            handleNewChange(nr._localId, "amount", e.target.value)
-                                                        }
-                                                        placeholder="0.00"
-                                                        step="0.01"
-                                                        className="w-36 pl-9 pr-3 py-1.5 bg-white border border-blue-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
-                                                    />
-                                                </div>
-                                            </td>
-
-                                            <td className="px-6 py-3 text-center">
-                                                <button
-                                                    onClick={() => handleRemoveNew(nr._localId)}
-                                                    className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                    title="Discard new row"
-                                                >
-                                                    <X className="h-4 w-4" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
-
-            {/* Legend */}
             {!isLoading && rows.length > 0 && (
                 <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
                     <span className="flex items-center gap-1.5">

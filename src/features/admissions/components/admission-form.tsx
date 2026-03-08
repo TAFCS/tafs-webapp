@@ -129,7 +129,9 @@ export function AdmissionForm() {
                     organization: formData.fatherOrganization || undefined,
                     job_position: formData.fatherPosition || undefined,
                     monthly_income: formData.fatherIncome ? Number(formData.fatherIncome) : undefined,
-                    place_of_birth: [formData.fatherPOBCountry, formData.fatherPOBProvince, formData.fatherPOBCity].filter(Boolean).join(', ') || undefined,
+                    country: formData.fatherPOBCountry || undefined,
+                    province: formData.fatherPOBProvince || undefined,
+                    city: formData.fatherPOBCity || undefined,
                     work_address: formData.fatherOfficeAddress || undefined,
                     mailing_address: formData.fatherAddress || undefined,
                 } : undefined,
@@ -146,7 +148,9 @@ export function AdmissionForm() {
                     organization: formData.motherOrganization || undefined,
                     job_position: formData.motherPosition || undefined,
                     monthly_income: formData.motherIncome ? Number(formData.motherIncome) : undefined,
-                    place_of_birth: [formData.motherPOBCountry, formData.motherPOBProvince, formData.motherPOBCity].filter(Boolean).join(', ') || undefined,
+                    country: formData.motherPOBCountry || undefined,
+                    province: formData.motherPOBProvince || undefined,
+                    city: formData.motherPOBCity || undefined,
                     work_address: formData.motherOfficeAddress || undefined,
                     mailing_address: formData.motherAddress || undefined,
                 } : undefined,
@@ -163,7 +167,6 @@ export function AdmissionForm() {
                     organization: formData.guardianOrganization || undefined,
                     job_position: formData.guardianPosition || undefined,
                     monthly_income: formData.guardianIncome ? Number(formData.guardianIncome) : undefined,
-                    place_of_birth: [formData.guardianPOBCountry, formData.guardianPOBProvince, formData.guardianPOBCity].filter(Boolean).join(', ') || undefined,
                     work_address: formData.guardianOfficeAddress || undefined,
                     mailing_address: formData.guardianAddress || undefined,
                     city: formData.guardianCity || undefined,
@@ -342,12 +345,6 @@ export function AdmissionForm() {
                                             }))
                                             : undefined;
 
-                                        // Helper: split a "Country, Province, City" combined string
-                                        const splitPOB = (combined: string | null | undefined) => {
-                                            const parts = (combined ?? "").split(", ");
-                                            return { country: parts[0] ?? "", province: parts[1] ?? "", city: parts[2] ?? "" };
-                                        };
-
                                         // Helper: compose a mailing address from guardian address fields
                                         const composeAddress = (g: any): string =>
                                             [g?.house_appt_name, g?.area_block, g?.city, g?.province, g?.country]
@@ -359,8 +356,8 @@ export function AdmissionForm() {
                                             province: student.province ?? "",
                                             city: student.city ?? "",
                                         };
-                                        const fatherPOB = splitPOB(father?.place_of_birth);
-                                        const motherPOB = splitPOB(mother?.place_of_birth);
+                                        const fatherPOB = { country: father?.country ?? "", province: father?.province ?? "", city: father?.city ?? "" };
+                                        const motherPOB = { country: mother?.country ?? "", province: mother?.province ?? "", city: mother?.city ?? "" };
 
                                         setFormData((prev) => ({
                                             ...prev,
