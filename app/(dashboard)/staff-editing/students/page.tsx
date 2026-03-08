@@ -11,7 +11,8 @@ import {
     Filter,
     Building2,
     GraduationCap,
-    LayoutGrid
+    LayoutGrid,
+    Heart
 } from "lucide-react";
 import api from "@/lib/api";
 import { useSelector, useDispatch } from "react-redux";
@@ -19,6 +20,7 @@ import { RootState, AppDispatch } from "@/store/store";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchClasses } from "@/store/slices/classesSlice";
 import { fetchSections } from "@/store/slices/sectionsSlice";
+import { GuardianModal } from "@/components/staff-editing/guardian-modal";
 
 // Custom debounce function to avoid lodash dependency
 function debounce(func: Function, wait: number) {
@@ -93,6 +95,10 @@ export default function StudentsSpreadsheetPage() {
     const [selectedSection, setSelectedSection] = useState<string>("");
     const [searchTerm, setSearchTerm] = useState("");
 
+    // Modal state
+    const [isGuardianModalOpen, setIsGuardianModalOpen] = useState(false);
+    const [selectedStudentForGuardians, setSelectedStudentForGuardians] = useState<{ id: number, name: string } | null>(null);
+
     // Data states
     const [students, setStudents] = useState<StudentItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -115,7 +121,8 @@ export default function StudentsSpreadsheetPage() {
         country: 140,
         province: 140,
         city: 140,
-        academic_system: 160
+        academic_system: 160,
+        guardians: 120
     });
 
     const [isResizing, setIsResizing] = useState<string | null>(null);
@@ -145,6 +152,11 @@ export default function StudentsSpreadsheetPage() {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const openGuardianModal = (id: number, name: string) => {
+        setSelectedStudentForGuardians({ id, name });
+        setIsGuardianModalOpen(true);
     };
 
     useEffect(() => {
@@ -365,7 +377,8 @@ export default function StudentsSpreadsheetPage() {
                                         { key: 'country', label: 'Country', resizable: true },
                                         { key: 'province', label: 'Province', resizable: true },
                                         { key: 'city', label: 'City', resizable: true },
-                                        { key: 'academic_system', label: 'System', resizable: true }
+                                        { key: 'academic_system', label: 'System', resizable: true },
+                                        { key: 'guardians', label: 'Guardians', resizable: true }
                                     ].map((col) => (
                                         <th
                                             key={col.key}
@@ -521,6 +534,15 @@ export default function StudentsSpreadsheetPage() {
                                                 placeholder="System"
                                             />
                                         </td>
+                                        <td className="p-1 border-r border-zinc-100 text-center">
+                                            <button
+                                                onClick={() => openGuardianModal(student.cc, student.full_name)}
+                                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-50 hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900 rounded-lg text-[10px] font-bold transition-all border border-zinc-200 shadow-sm whitespace-nowrap active:scale-95"
+                                            >
+                                                <Heart className="h-3 w-3 text-emerald-500 fill-emerald-500/10" />
+                                                Manage
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -545,6 +567,14 @@ export default function StudentsSpreadsheetPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Modal */}
+            <GuardianModal
+                isOpen={isGuardianModalOpen}
+                onClose={() => setIsGuardianModalOpen(false)}
+                studentId={selectedStudentForGuardians?.id || 0}
+                studentName={selectedStudentForGuardians?.name || ""}
+            />
         </div>
     );
 }
