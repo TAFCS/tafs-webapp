@@ -45,6 +45,10 @@ function formatNIC(value: string): string {
     return res;
 }
 
+const RELATIONSHIP_OPTIONS = ["NULL", "MOTHER", "FATHER", "OTHER"];
+const COUNTRY_OPTIONS = ["NULL", "PAKISTAN", "OTHER"];
+const PAKISTAN_PROVINCES = ["NULL", "SINDH", "BALOCHISTAN", "PUNJAB", "KPK", "GILGIT BALTISTAN", "OTHER"];
+
 interface Guardian {
     id?: number;
     relationship: string;
@@ -174,14 +178,37 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
         [studentId]
     );
 
-    const handleEdit = (index: number, field: keyof Guardian, value: any) => {
+    const handleEdit = async (index: number, field: keyof Guardian, value: any) => {
         const guardian = guardians[index];
-        let transformedValue = value;
+        // Transform "NULL" to null
+        let transformedValue = value === "NULL" ? null : value;
+
         if (field === 'cnic') {
             transformedValue = formatNIC(value);
-        } else if (field !== 'dob' && typeof value === 'string') {
-            transformedValue = value.toUpperCase();
+        } else if (field !== 'dob' && field !== 'is_primary_contact' && field !== 'is_emergency_contact' && typeof transformedValue === 'string') {
+            transformedValue = transformedValue.toUpperCase();
         }
+
+        // Logic for unique father
+        if (field === 'relationship' && transformedValue === 'FATHER') {
+            const otherFatherIndex = guardians.findIndex((g, i) => i !== index && g.relationship === 'FATHER');
+            if (otherFatherIndex !== -1) {
+                const otherGuardian = guardians[otherFatherIndex];
+                setGuardians(prev => prev.map((g, i) => i === otherFatherIndex ? { ...g, relationship: "OTHER" } : g));
+                debouncedSave(otherGuardian, 'relationship', 'OTHER', otherFatherIndex);
+            }
+        }
+
+        // Logic for unique primary contact
+        if (field === 'is_primary_contact' && transformedValue === true) {
+            const otherPrimaryIndex = guardians.findIndex((g, i) => i !== index && g.is_primary_contact === true);
+            if (otherPrimaryIndex !== -1) {
+                const otherGuardian = guardians[otherPrimaryIndex];
+                setGuardians(prev => prev.map((g, i) => i === otherPrimaryIndex ? { ...g, is_primary_contact: false } : g));
+                debouncedSave(otherGuardian, 'is_primary_contact', false, otherPrimaryIndex);
+            }
+        }
+
         setGuardians(prev => prev.map((g, i) => i === index ? { ...g, [field]: transformedValue } : g));
         debouncedSave(guardian, field, transformedValue, index);
     };
@@ -297,13 +324,35 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                         {status === 'idle' && <div className="h-1.5 w-1.5 rounded-full bg-zinc-200 mx-auto" />}
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100 sticky left-16 bg-white group-hover:bg-zinc-50 transition-colors z-10">
-                                                        <input
-                                                            type="text"
-                                                            value={guardian.relationship}
-                                                            onChange={(e) => handleEdit(idx, "relationship", e.target.value)}
-                                                            placeholder="Relation"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all font-medium truncate"
-                                                        />
+                                                        {(!RELATIONSHIP_OPTIONS.includes(guardian.relationship || "NULL") && guardian.relationship !== null) ? (
+                                                            <input
+                                                                type="text"
+                                                                value={guardian.relationship || ""}
+                                                                onChange={(e) => handleEdit(idx, "relationship", e.target.value)}
+                                                                onBlur={(e) => {
+                                                                    if (e.target.value === "") handleEdit(idx, "relationship", null);
+                                                                }}
+                                                                autoFocus
+                                                                className="w-full px-2 py-2 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
+                                                            />
+                                                        ) : (
+                                                            <select
+                                                                value={guardian.relationship === null ? "NULL" : (RELATIONSHIP_OPTIONS.includes(guardian.relationship) ? guardian.relationship : "OTHER")}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value;
+                                                                    if (val === "OTHER") {
+                                                                        handleEdit(idx, "relationship", " ");
+                                                                    } else {
+                                                                        handleEdit(idx, "relationship", val);
+                                                                    }
+                                                                }}
+                                                                className="w-full px-2 py-2 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-zinc-900 rounded-md transition-all appearance-none cursor-pointer truncate"
+                                                            >
+                                                                {RELATIONSHIP_OPTIONS.map(opt => (
+                                                                    <option key={opt} value={opt}>{opt}</option>
+                                                                ))}
+                                                            </select>
+                                                        )}
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100 sticky left-56 bg-white group-hover:bg-zinc-50 transition-colors z-10">
                                                         <input
@@ -456,22 +505,76 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
-                                                        <input
-                                                            type="text"
-                                                            value={guardian.country || ""}
-                                                            onChange={(e) => handleEdit(idx, "country", e.target.value)}
-                                                            placeholder="Country"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
-                                                        />
+                                                        {(!COUNTRY_OPTIONS.includes(guardian.country || "NULL") && guardian.country !== null) ? (
+                                                            <input
+                                                                type="text"
+                                                                value={guardian.country || ""}
+                                                                onChange={(e) => handleEdit(idx, "country", e.target.value)}
+                                                                onBlur={(e) => {
+                                                                    if (e.target.value === "") handleEdit(idx, "country", null);
+                                                                }}
+                                                                autoFocus
+                                                                className="w-full px-2 py-2 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all text-zinc-600 truncate"
+                                                            />
+                                                        ) : (
+                                                            <select
+                                                                value={guardian.country === null ? "NULL" : (COUNTRY_OPTIONS.includes(guardian.country) ? guardian.country : "OTHER")}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value;
+                                                                    if (val === "OTHER") {
+                                                                        handleEdit(idx, "country", " ");
+                                                                    } else {
+                                                                        handleEdit(idx, "country", val);
+                                                                    }
+                                                                }}
+                                                                className="w-full px-2 py-2 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-zinc-900 rounded-md transition-all appearance-none cursor-pointer text-zinc-600 truncate"
+                                                            >
+                                                                {COUNTRY_OPTIONS.map(opt => (
+                                                                    <option key={opt} value={opt}>{opt}</option>
+                                                                ))}
+                                                            </select>
+                                                        )}
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
-                                                        <input
-                                                            type="text"
-                                                            value={guardian.province || ""}
-                                                            onChange={(e) => handleEdit(idx, "province", e.target.value)}
-                                                            placeholder="Province"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
-                                                        />
+                                                        {guardian.country === "PAKISTAN" ? (
+                                                            (!PAKISTAN_PROVINCES.includes(guardian.province || "NULL") && guardian.province !== null) ? (
+                                                                <input
+                                                                    type="text"
+                                                                    value={guardian.province || ""}
+                                                                    onChange={(e) => handleEdit(idx, "province", e.target.value)}
+                                                                    onBlur={(e) => {
+                                                                        if (e.target.value === "") handleEdit(idx, "province", null);
+                                                                    }}
+                                                                    autoFocus
+                                                                    className="w-full px-2 py-2 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all text-zinc-600 truncate"
+                                                                />
+                                                            ) : (
+                                                                <select
+                                                                    value={guardian.province === null ? "NULL" : (PAKISTAN_PROVINCES.includes(guardian.province) ? guardian.province : "OTHER")}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        if (val === "OTHER") {
+                                                                            handleEdit(idx, "province", " ");
+                                                                        } else {
+                                                                            handleEdit(idx, "province", val);
+                                                                        }
+                                                                    }}
+                                                                    className="w-full px-2 py-2 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-zinc-900 rounded-md transition-all appearance-none cursor-pointer text-zinc-600 truncate"
+                                                                >
+                                                                    {PAKISTAN_PROVINCES.map(opt => (
+                                                                        <option key={opt} value={opt}>{opt}</option>
+                                                                    ))}
+                                                                </select>
+                                                            )
+                                                        ) : (
+                                                            <input
+                                                                type="text"
+                                                                value={guardian.province || ""}
+                                                                onChange={(e) => handleEdit(idx, "province", e.target.value)}
+                                                                placeholder="Province"
+                                                                className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            />
+                                                        )}
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
                                                         <input

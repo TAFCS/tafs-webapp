@@ -72,6 +72,7 @@ interface StudentItem {
 }
 
 const STATUS_OPTIONS = [
+    "NULL",
     "SOFT_ADMISSION",
     "ENROLLED",
     "EXPELLED",
@@ -79,7 +80,12 @@ const STATUS_OPTIONS = [
     "WITHDRAWN"
 ];
 
-const GENDER_OPTIONS = ["MALE", "FEMALE", "OTHER"];
+const GENDER_OPTIONS = ["NULL", "MALE", "FEMALE", "OTHER"];
+
+const NATIONALITY_OPTIONS = ["NULL", "PAKISTANI", "OTHER"];
+const RELIGION_OPTIONS = ["NULL", "MUSLIM", "CHRISTIAN", "HINDU", "OTHER"];
+const COUNTRY_OPTIONS = ["NULL", "PAKISTAN", "OTHER"];
+const PAKISTAN_PROVINCES = ["NULL", "SINDH", "BALOCHISTAN", "PUNJAB", "KPK", "GILGIT BALTISTAN", "OTHER"];
 
 export default function StudentsSpreadsheetPage() {
     const dispatch = useDispatch<AppDispatch>();
@@ -121,7 +127,6 @@ export default function StudentsSpreadsheetPage() {
         country: 140,
         province: 140,
         city: 140,
-        academic_system: 160,
         guardians: 120
     });
 
@@ -188,8 +193,13 @@ export default function StudentsSpreadsheetPage() {
     );
 
     const handleCellEdit = (id: number, field: keyof StudentItem, value: any) => {
+        // Transform "NULL" to null
+        let transformedValue = value === "NULL" ? null : value;
+
         // Transform text values to ALL CAPS
-        const transformedValue = typeof value === 'string' ? value.toUpperCase() : value;
+        if (typeof transformedValue === 'string') {
+            transformedValue = transformedValue.toUpperCase();
+        }
 
         // Optimistic update
         setStudents(prev => prev.map(s => s.cc === id ? { ...s, [field]: transformedValue } : s));
@@ -380,7 +390,6 @@ export default function StudentsSpreadsheetPage() {
                                         { key: 'country', label: 'Country of Birth', resizable: true },
                                         { key: 'province', label: 'Province of Birth', resizable: true },
                                         { key: 'city', label: 'City of Birth', resizable: true },
-                                        { key: 'academic_system', label: 'System', resizable: true },
                                         { key: 'guardians', label: 'Guardians', resizable: true }
                                     ].map((col) => (
                                         <th
@@ -438,43 +447,87 @@ export default function StudentsSpreadsheetPage() {
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
                                             <select
-                                                value={student.status}
+                                                value={student.status || "NULL"}
                                                 onChange={(e) => handleCellEdit(student.cc, "status", e.target.value)}
                                                 className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
                                             >
                                                 {STATUS_OPTIONS.map(opt => (
-                                                    <option key={opt} value={opt}>{opt.replace('_', ' ')}</option>
+                                                    <option key={opt} value={opt}>{opt === "NULL" ? "NULL" : opt.replace('_', ' ')}</option>
                                                 ))}
                                             </select>
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
                                             <select
-                                                value={student.gender}
+                                                value={student.gender || "NULL"}
                                                 onChange={(e) => handleCellEdit(student.cc, "gender", e.target.value)}
                                                 className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer"
                                             >
-                                                <option value="">Select...</option>
                                                 {GENDER_OPTIONS.map(opt => (
                                                     <option key={opt} value={opt}>{opt}</option>
                                                 ))}
                                             </select>
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="text"
-                                                value={student.nationality || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "nationality", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                            />
+                                            {(!NATIONALITY_OPTIONS.includes(student.nationality || "NULL") && student.nationality !== null) ? (
+                                                <input
+                                                    type="text"
+                                                    value={student.nationality || ""}
+                                                    onChange={(e) => handleCellEdit(student.cc, "nationality", e.target.value)}
+                                                    onBlur={(e) => {
+                                                        if (e.target.value === "") handleCellEdit(student.cc, "nationality", null);
+                                                    }}
+                                                    autoFocus
+                                                    className="w-full px-2 py-1.5 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                />
+                                            ) : (
+                                                <select
+                                                    value={student.nationality === null ? "NULL" : (NATIONALITY_OPTIONS.includes(student.nationality) ? student.nationality : "OTHER")}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val === "OTHER") {
+                                                            handleCellEdit(student.cc, "nationality", " "); // Space to trigger input mode
+                                                        } else {
+                                                            handleCellEdit(student.cc, "nationality", val);
+                                                        }
+                                                    }}
+                                                    className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
+                                                >
+                                                    {NATIONALITY_OPTIONS.map(opt => (
+                                                        <option key={opt} value={opt}>{opt}</option>
+                                                    ))}
+                                                </select>
+                                            )}
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="text"
-                                                value={student.religion || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "religion", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                placeholder="Religion"
-                                            />
+                                            {(!RELIGION_OPTIONS.includes(student.religion || "NULL") && student.religion !== null) ? (
+                                                <input
+                                                    type="text"
+                                                    value={student.religion || ""}
+                                                    onChange={(e) => handleCellEdit(student.cc, "religion", e.target.value)}
+                                                    onBlur={(e) => {
+                                                        if (e.target.value === "") handleCellEdit(student.cc, "religion", null);
+                                                    }}
+                                                    autoFocus
+                                                    className="w-full px-2 py-1.5 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                />
+                                            ) : (
+                                                <select
+                                                    value={student.religion === null ? "NULL" : (RELIGION_OPTIONS.includes(student.religion) ? student.religion : "OTHER")}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val === "OTHER") {
+                                                            handleCellEdit(student.cc, "religion", " ");
+                                                        } else {
+                                                            handleCellEdit(student.cc, "religion", val);
+                                                        }
+                                                    }}
+                                                    className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
+                                                >
+                                                    {RELIGION_OPTIONS.map(opt => (
+                                                        <option key={opt} value={opt}>{opt}</option>
+                                                    ))}
+                                                </select>
+                                            )}
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
                                             <input
@@ -502,22 +555,76 @@ export default function StudentsSpreadsheetPage() {
                                             />
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="text"
-                                                value={student.country || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "country", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                placeholder="Country of Birth"
-                                            />
+                                            {(!COUNTRY_OPTIONS.includes(student.country || "NULL") && student.country !== null) ? (
+                                                <input
+                                                    type="text"
+                                                    value={student.country || ""}
+                                                    onChange={(e) => handleCellEdit(student.cc, "country", e.target.value)}
+                                                    onBlur={(e) => {
+                                                        if (e.target.value === "") handleCellEdit(student.cc, "country", null);
+                                                    }}
+                                                    autoFocus
+                                                    className="w-full px-2 py-1.5 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                />
+                                            ) : (
+                                                <select
+                                                    value={student.country === null ? "NULL" : (COUNTRY_OPTIONS.includes(student.country) ? student.country : "OTHER")}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val === "OTHER") {
+                                                            handleCellEdit(student.cc, "country", " ");
+                                                        } else {
+                                                            handleCellEdit(student.cc, "country", val);
+                                                        }
+                                                    }}
+                                                    className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
+                                                >
+                                                    {COUNTRY_OPTIONS.map(opt => (
+                                                        <option key={opt} value={opt}>{opt}</option>
+                                                    ))}
+                                                </select>
+                                            )}
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="text"
-                                                value={student.province || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "province", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                placeholder="Province of Birth"
-                                            />
+                                            {student.country === "PAKISTAN" ? (
+                                                (!PAKISTAN_PROVINCES.includes(student.province || "NULL") && student.province !== null) ? (
+                                                    <input
+                                                        type="text"
+                                                        value={student.province || ""}
+                                                        onChange={(e) => handleCellEdit(student.cc, "province", e.target.value)}
+                                                        onBlur={(e) => {
+                                                            if (e.target.value === "") handleCellEdit(student.cc, "province", null);
+                                                        }}
+                                                        autoFocus
+                                                        className="w-full px-2 py-1.5 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                    />
+                                                ) : (
+                                                    <select
+                                                        value={student.province === null ? "NULL" : (PAKISTAN_PROVINCES.includes(student.province) ? student.province : "OTHER")}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            if (val === "OTHER") {
+                                                                handleCellEdit(student.cc, "province", " ");
+                                                            } else {
+                                                                handleCellEdit(student.cc, "province", val);
+                                                            }
+                                                        }}
+                                                        className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
+                                                    >
+                                                        {PAKISTAN_PROVINCES.map(opt => (
+                                                            <option key={opt} value={opt}>{opt}</option>
+                                                        ))}
+                                                    </select>
+                                                )
+                                            ) : (
+                                                <input
+                                                    type="text"
+                                                    value={student.province || ""}
+                                                    onChange={(e) => handleCellEdit(student.cc, "province", e.target.value)}
+                                                    className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                    placeholder="Province of Birth"
+                                                />
+                                            )}
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
                                             <input
@@ -526,15 +633,6 @@ export default function StudentsSpreadsheetPage() {
                                                 onChange={(e) => handleCellEdit(student.cc, "city", e.target.value)}
                                                 className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
                                                 placeholder="City of Birth"
-                                            />
-                                        </td>
-                                        <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="text"
-                                                value={student.academic_system || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "academic_system", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                placeholder="System"
                                             />
                                         </td>
                                         <td className="p-1 border-r border-zinc-100 text-center">
