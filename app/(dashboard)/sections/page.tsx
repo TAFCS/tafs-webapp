@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Layers, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus } from "lucide-react";
+import { Layers, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2 } from "lucide-react";
 import api from "@/lib/api";
 
 interface SectionItem {
@@ -23,6 +23,10 @@ export default function SectionsPage() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
     const [newSection, setNewSection] = useState({ description: "" });
+
+    // State for Delete Confirmation
+    const [deleteId, setDeleteId] = useState<string | number | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchSections = async () => {
         setIsLoading(true);
@@ -122,6 +126,25 @@ export default function SectionsPage() {
         }
     };
 
+    const handleDelete = async () => {
+        if (deleteId === null) return;
+        setIsDeleting(true);
+        setError(null);
+        setSuccessMessage(null);
+        try {
+            await api.delete(`/v1/sections/${deleteId}`);
+            setSuccessMessage("Section deleted successfully.");
+            setDeleteId(null);
+            fetchSections();
+        } catch (err: any) {
+            console.error("Error deleting section:", err);
+            const errMsg = err.response?.data?.message || err.response?.data?.error || "Failed to delete section.";
+            setError(Array.isArray(errMsg) ? errMsg.join("; ") : errMsg);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const hasChanges = JSON.stringify(sections) !== JSON.stringify(originalSections);
 
     return (
@@ -205,6 +228,7 @@ export default function SectionsPage() {
                                 <tr>
                                     <th className="px-6 py-4 font-semibold w-32">ID</th>
                                     <th className="px-6 py-4 font-semibold">Description</th>
+                                    <th className="px-6 py-4 font-semibold w-24 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -221,6 +245,15 @@ export default function SectionsPage() {
                                                 className="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
                                                 placeholder="Enter description..."
                                             />
+                                        </td>
+                                        <td className="px-6 py-3 text-right">
+                                            <button
+                                                onClick={() => setDeleteId(item.id)}
+                                                className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all active:scale-90"
+                                                title="Delete Section"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
@@ -278,6 +311,38 @@ export default function SectionsPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteId !== null && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            <div className="h-14 w-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Trash2 className="h-7 w-7" />
+                            </div>
+                            <h2 className="text-lg font-bold text-zinc-900">Delete Section?</h2>
+                            <p className="text-zinc-500 mt-2">
+                                This action cannot be undone. The system will prevent deletion if students are still assigned to this section.
+                            </p>
+                        </div>
+                        <div className="px-6 py-4 bg-zinc-50 flex gap-3">
+                            <button
+                                onClick={() => setDeleteId(null)}
+                                className="flex-1 py-2.5 font-medium text-zinc-600 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                disabled={isDeleting}
+                                className="flex-1 py-2.5 font-medium text-white bg-rose-600 rounded-xl hover:bg-rose-700 transition-all active:scale-95 shadow-sm shadow-rose-200 disabled:opacity-50"
+                            >
+                                {isDeleting ? "Deleting..." : "Delete"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
