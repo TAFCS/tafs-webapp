@@ -32,6 +32,7 @@ interface Guardian {
     full_name: string;
     cnic: string | null;
     dob: string | null;
+    country_code: string | null;
     primary_phone: string | null;
     whatsapp_number: string | null;
     work_phone: string | null;
@@ -143,6 +144,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
             is_emergency_contact: false,
             cnic: null,
             dob: null,
+            country_code: "+92",
             primary_phone: null,
             whatsapp_number: null,
             work_phone: null,
@@ -281,13 +283,10 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
-                                                        <input
-                                                            type="text"
-                                                            value={guardian.primary_phone || ""}
-                                                            onChange={(e) => handleEdit(idx, "primary_phone", e.target.value)}
-                                                            placeholder="Primary Phone"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
-                                                        />
+                                                        <div className="flex border border-zinc-200 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
+                                                            <input type="text" value={guardian.country_code || ""} onChange={(e) => handleEdit(idx, "country_code", e.target.value)} placeholder="+92" className="w-12 flex-shrink-0 px-1.5 py-2 bg-zinc-50 border-0 text-zinc-600 text-xs outline-none truncate" />
+                                                            <input type="text" value={guardian.primary_phone || ""} onChange={(e) => handleEdit(idx, "primary_phone", e.target.value)} placeholder="Phone" className="flex-1 min-w-0 px-2 py-2 bg-transparent border-0 outline-none focus:bg-white text-zinc-600 truncate" />
+                                                        </div>
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
                                                         <input

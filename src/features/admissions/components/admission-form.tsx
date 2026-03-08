@@ -45,11 +45,11 @@ export function AdmissionForm() {
         },
 
         // Page 2: Family Background
-        fatherName: "", fatherAddress: "", fatherHomePhone: "", fatherCellPhone: "", fatherEmergencyName: "", fatherEmergencyRelation: "", fatherPOBCountry: "", fatherPOBProvince: "", fatherPOBCity: "", fatherAge: "", fatherEducation: "", fatherOccupation: "", fatherOrganization: "", fatherPosition: "", fatherIncome: "", fatherWorkPhone: "", fatherOfficeAddress: "", fatherCnic: "", fatherEmail: "",
-        motherName: "", motherAddress: "", motherHomePhone: "", motherCellPhone: "", motherEmergencyName: "", motherEmergencyRelation: "", motherPOBCountry: "", motherPOBProvince: "", motherPOBCity: "", motherAge: "", motherEducation: "", motherOccupation: "", motherOrganization: "", motherPosition: "", motherIncome: "", motherWorkPhone: "", motherOfficeAddress: "", motherCnic: "", motherEmail: "",
+        fatherName: "", fatherAddress: "", fatherCountryCode: "+92", fatherHomePhone: "", fatherCellPhone: "", fatherEmergencyName: "", fatherEmergencyRelation: "", fatherPOBCountry: "", fatherPOBProvince: "", fatherPOBCity: "", fatherAge: "", fatherEducation: "", fatherOccupation: "", fatherOrganization: "", fatherPosition: "", fatherIncome: "", fatherWorkPhone: "", fatherOfficeAddress: "", fatherCnic: "", fatherEmail: "",
+        motherName: "", motherAddress: "", motherCountryCode: "+92", motherHomePhone: "", motherCellPhone: "", motherEmergencyName: "", motherEmergencyRelation: "", motherPOBCountry: "", motherPOBProvince: "", motherPOBCity: "", motherAge: "", motherEducation: "", motherOccupation: "", motherOrganization: "", motherPosition: "", motherIncome: "", motherWorkPhone: "", motherOfficeAddress: "", motherCnic: "", motherEmail: "",
 
         // Page 3: General Information
-        guardianName: "", guardianAddress: "", guardianCity: "", guardianProvince: "", guardianCountry: "", guardianPostal: "", guardianHomePhone: "", guardianCellPhone: "", guardianEmergencyName: "", guardianEmergencyRelation: "", guardianPOBCountry: "", guardianPOBProvince: "", guardianPOBCity: "", guardianAge: "", guardianEducation: "", guardianOccupation: "", guardianOrganization: "", guardianPosition: "", guardianIncome: "", guardianWorkPhone: "", guardianOfficeAddress: "", guardianCnic: "", guardianEmail: "",
+        guardianName: "", guardianAddress: "", guardianCountryCode: "+92", guardianCity: "", guardianProvince: "", guardianCountry: "", guardianPostal: "", guardianHomePhone: "", guardianCellPhone: "", guardianEmergencyName: "", guardianEmergencyRelation: "", guardianPOBCountry: "", guardianPOBProvince: "", guardianPOBCity: "", guardianAge: "", guardianEducation: "", guardianOccupation: "", guardianOrganization: "", guardianPosition: "", guardianIncome: "", guardianWorkPhone: "", guardianOfficeAddress: "", guardianCnic: "", guardianEmail: "",
         siblings: [{ name: "", relationship: "", age: "", currentSchool: "" }],
         siblingNumber: "", pickAndDropRequired: "No",
         relativesAtTafs: [{ name: "", classLevel: "", relationship: "" }],
@@ -120,6 +120,7 @@ export function AdmissionForm() {
                 father: formData.fatherName ? {
                     full_name: formData.fatherName,
                     cnic: formData.fatherCnic || undefined,
+                    country_code: formData.fatherCountryCode || "+92",
                     primary_phone: formData.fatherHomePhone || undefined,
                     whatsapp_number: formData.fatherCellPhone || undefined,
                     work_phone: formData.fatherWorkPhone || undefined,
@@ -139,6 +140,7 @@ export function AdmissionForm() {
                 mother: formData.motherName ? {
                     full_name: formData.motherName,
                     cnic: formData.motherCnic || undefined,
+                    country_code: formData.motherCountryCode || "+92",
                     primary_phone: formData.motherHomePhone || undefined,
                     whatsapp_number: formData.motherCellPhone || undefined,
                     work_phone: formData.motherWorkPhone || undefined,
@@ -158,6 +160,7 @@ export function AdmissionForm() {
                 guardian: formData.guardianName ? {
                     full_name: formData.guardianName,
                     cnic: formData.guardianCnic || undefined,
+                    country_code: formData.guardianCountryCode || "+92",
                     primary_phone: formData.guardianHomePhone || undefined,
                     whatsapp_number: formData.guardianCellPhone || undefined,
                     work_phone: formData.guardianWorkPhone || undefined,
@@ -393,6 +396,7 @@ export function AdmissionForm() {
 
                                             // Father
                                             fatherName: father?.full_name ?? prev.fatherName,
+                                            fatherCountryCode: father?.country_code ?? prev.fatherCountryCode ?? "+92",
                                             fatherCellPhone: father?.whatsapp_number ?? father?.primary_phone ?? prev.fatherCellPhone,
                                             fatherHomePhone: father?.primary_phone ?? prev.fatherHomePhone,
                                             fatherWorkPhone: father?.work_phone ?? prev.fatherWorkPhone,
@@ -412,6 +416,7 @@ export function AdmissionForm() {
 
                                             // Mother
                                             motherName: mother?.full_name ?? prev.motherName,
+                                            motherCountryCode: mother?.country_code ?? prev.motherCountryCode ?? "+92",
                                             motherCellPhone: mother?.whatsapp_number ?? mother?.primary_phone ?? prev.motherCellPhone,
                                             motherHomePhone: mother?.primary_phone ?? prev.motherHomePhone,
                                             motherWorkPhone: mother?.work_phone ?? prev.motherWorkPhone,
@@ -431,6 +436,7 @@ export function AdmissionForm() {
 
                                             // Guardian / emergency contact
                                             guardianName: emergency?.full_name ?? prev.guardianName,
+                                            guardianCountryCode: emergency?.country_code ?? prev.guardianCountryCode ?? "+92",
                                             guardianCellPhone: emergency?.primary_phone ?? prev.guardianCellPhone,
                                             guardianCnic: emergency?.cnic ?? prev.guardianCnic,
 
@@ -860,21 +866,17 @@ export function AdmissionForm() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Home Phone #</label>
-                                        <input
-                                            type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
-                                            value={formData.fatherHomePhone}
-                                            onChange={e => setFormData({ ...formData, fatherHomePhone: e.target.value })}
-                                        />
+                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.fatherCountryCode} onChange={e => setFormData({ ...formData, fatherCountryCode: e.target.value })} />
+                                            <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.fatherHomePhone} onChange={e => setFormData({ ...formData, fatherHomePhone: e.target.value })} />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Cellular Phone #</label>
-                                        <input
-                                            type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
-                                            value={formData.fatherCellPhone}
-                                            onChange={e => setFormData({ ...formData, fatherCellPhone: e.target.value })}
-                                        />
+                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.fatherCountryCode} onChange={e => setFormData({ ...formData, fatherCountryCode: e.target.value })} />
+                                            <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.fatherCellPhone} onChange={e => setFormData({ ...formData, fatherCellPhone: e.target.value })} />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Emergency Contact Name & Number</label>
@@ -950,12 +952,10 @@ export function AdmissionForm() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Work Phone #</label>
-                                        <input
-                                            type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
-                                            value={formData.fatherWorkPhone}
-                                            onChange={e => setFormData({ ...formData, fatherWorkPhone: e.target.value })}
-                                        />
+                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.fatherCountryCode} onChange={e => setFormData({ ...formData, fatherCountryCode: e.target.value })} />
+                                            <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.fatherWorkPhone} onChange={e => setFormData({ ...formData, fatherWorkPhone: e.target.value })} />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">C.N.I.C. #</label>
@@ -1009,21 +1009,17 @@ export function AdmissionForm() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Home Phone #</label>
-                                        <input
-                                            type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
-                                            value={formData.motherHomePhone}
-                                            onChange={e => setFormData({ ...formData, motherHomePhone: e.target.value })}
-                                        />
+                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-secondary/20 focus-within:border-secondary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.motherCountryCode} onChange={e => setFormData({ ...formData, motherCountryCode: e.target.value })} />
+                                            <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.motherHomePhone} onChange={e => setFormData({ ...formData, motherHomePhone: e.target.value })} />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Cellular Phone #</label>
-                                        <input
-                                            type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
-                                            value={formData.motherCellPhone}
-                                            onChange={e => setFormData({ ...formData, motherCellPhone: e.target.value })}
-                                        />
+                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-secondary/20 focus-within:border-secondary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.motherCountryCode} onChange={e => setFormData({ ...formData, motherCountryCode: e.target.value })} />
+                                            <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.motherCellPhone} onChange={e => setFormData({ ...formData, motherCellPhone: e.target.value })} />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Emergency Contact Name & Number</label>
@@ -1082,9 +1078,10 @@ export function AdmissionForm() {
                                             value={formData.motherIncome}
                                             onChange={e => setFormData({ ...formData, motherIncome: e.target.value })} /></div>
                                     <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Work Phone #</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
-                                            value={formData.motherWorkPhone}
-                                            onChange={e => setFormData({ ...formData, motherWorkPhone: e.target.value })} /></div>
+                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-secondary/20 focus-within:border-secondary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.motherCountryCode} onChange={e => setFormData({ ...formData, motherCountryCode: e.target.value })} />
+                                            <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.motherWorkPhone} onChange={e => setFormData({ ...formData, motherWorkPhone: e.target.value })} />
+                                        </div></div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">C.N.I.C. #</label>
                                         <input
@@ -1144,12 +1141,10 @@ export function AdmissionForm() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Cellular Phone #</label>
-                                        <input
-                                            type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
-                                            value={formData.guardianCellPhone}
-                                            onChange={e => setFormData({ ...formData, guardianCellPhone: e.target.value })}
-                                        />
+                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.guardianCountryCode} onChange={e => setFormData({ ...formData, guardianCountryCode: e.target.value })} />
+                                            <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.guardianCellPhone} onChange={e => setFormData({ ...formData, guardianCellPhone: e.target.value })} />
+                                        </div>
                                     </div>
                                     <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Relationship with Candidate</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
                                     <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupation</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
