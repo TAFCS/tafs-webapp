@@ -66,4 +66,23 @@ export const campusesService = {
     async delete(id: number): Promise<void> {
         await api.delete(`/v1/campuses/${id}`);
     },
+
+    async addClassToCampus(campusId: number, classId: number): Promise<CampusClass> {
+        const { data } = await api.post<ApiEnvelope<CampusClass>>(`/v1/campuses/${campusId}/classes/${classId}`);
+        return data.data;
+    },
+
+    async updateCampusClass(campusId: number, classId: number, isActive: boolean): Promise<CampusClass> {
+        const { data } = await api.patch<ApiEnvelope<CampusClass>>(`/v1/campuses/${campusId}/classes/${classId}`, { is_active: isActive });
+        return data.data;
+    },
+
+    async removeClassFromCampus(campusId: number, classId: number): Promise<void> {
+        await api.delete(`/v1/campuses/${campusId}/classes/${classId}`);
+    },
+
+    async listAllClasses(): Promise<CampusClassInfo[]> {
+        const { data } = await api.get<ApiEnvelope<CampusClassInfo[]>>('/v1/campuses/options/classes');
+        return data.data;
+    },
 };
