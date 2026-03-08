@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BookOpen, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus } from "lucide-react";
+import { BookOpen, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X } from "lucide-react";
 import api from "@/lib/api";
 
 interface ClassItem {
@@ -25,6 +25,10 @@ export default function ClassesPage() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
     const [newClass, setNewClass] = useState({ description: "", class_code: "", academic_system: "" });
+
+    // State for Delete Confirmation
+    const [deleteId, setDeleteId] = useState<string | number | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchClasses = async () => {
         setIsLoading(true);
@@ -129,6 +133,25 @@ export default function ClassesPage() {
         }
     };
 
+    const handleDelete = async () => {
+        if (deleteId === null) return;
+        setIsDeleting(true);
+        setError(null);
+        setSuccessMessage(null);
+        try {
+            await api.delete(`/v1/classes/${deleteId}`);
+            setSuccessMessage("Class deleted successfully.");
+            setDeleteId(null);
+            fetchClasses();
+        } catch (err: any) {
+            console.error("Error deleting class:", err);
+            const errMsg = err.response?.data?.message || err.response?.data?.error || "Failed to delete class.";
+            setError(Array.isArray(errMsg) ? errMsg.join("; ") : errMsg);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const hasChanges = JSON.stringify(classes) !== JSON.stringify(originalClasses);
 
     return (
@@ -214,6 +237,7 @@ export default function ClassesPage() {
                                     <th className="px-6 py-4 font-semibold">Description</th>
                                     <th className="px-6 py-4 font-semibold">Class Code</th>
                                     <th className="px-6 py-4 font-semibold">Academic System</th>
+                                    <th className="px-6 py-4 font-semibold w-24 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -248,6 +272,15 @@ export default function ClassesPage() {
                                                 className="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
                                                 placeholder="System (e.g. Secondary)"
                                             />
+                                        </td>
+                                        <td className="px-6 py-3 text-right">
+                                            <button
+                                                onClick={() => setDeleteId(item.id)}
+                                                className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all active:scale-90"
+                                                title="Delete Class"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
@@ -329,6 +362,38 @@ export default function ClassesPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteId !== null && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            <div className="h-14 w-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Trash2 className="h-7 w-7" />
+                            </div>
+                            <h2 className="text-lg font-bold text-zinc-900">Delete Class?</h2>
+                            <p className="text-zinc-500 mt-2">
+                                This action cannot be undone. The system will prevent deletion if students or sections are still assigned to this class.
+                            </p>
+                        </div>
+                        <div className="px-6 py-4 bg-zinc-50 flex gap-3">
+                            <button
+                                onClick={() => setDeleteId(null)}
+                                className="flex-1 py-2.5 font-medium text-zinc-600 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                disabled={isDeleting}
+                                className="flex-1 py-2.5 font-medium text-white bg-rose-600 rounded-xl hover:bg-rose-700 transition-all active:scale-95 shadow-sm shadow-rose-200 disabled:opacity-50"
+                            >
+                                {isDeleting ? "Deleting..." : "Delete"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
