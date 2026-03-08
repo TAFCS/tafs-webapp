@@ -127,6 +127,11 @@ export default function StudentsSpreadsheetPage() {
         country: 140,
         province: 140,
         city: 140,
+        identification_marks: 200,
+        medical_info: 200,
+        interests: 200,
+        admission_age_years: 140,
+        physical_impairment: 200,
         guardians: 120
     });
 
@@ -390,6 +395,11 @@ export default function StudentsSpreadsheetPage() {
                                         { key: 'country', label: 'Country of Birth', resizable: true },
                                         { key: 'province', label: 'Province of Birth', resizable: true },
                                         { key: 'city', label: 'City of Birth', resizable: true },
+                                        { key: 'identification_marks', label: 'ID Marks', resizable: true },
+                                        { key: 'medical_info', label: 'Medical Info', resizable: true },
+                                        { key: 'interests', label: 'Interests', resizable: true },
+                                        { key: 'admission_age_years', label: 'Adm Age', resizable: true },
+                                        { key: 'physical_impairment', label: 'Impairs', resizable: true },
                                         { key: 'guardians', label: 'Guardians', resizable: true }
                                     ].map((col) => (
                                         <th
@@ -633,6 +643,51 @@ export default function StudentsSpreadsheetPage() {
                                                 onChange={(e) => handleCellEdit(student.cc, "city", e.target.value)}
                                                 className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
                                                 placeholder="City of Birth"
+                                            />
+                                        </td>
+                                        <td className="p-1 border-r border-zinc-100">
+                                            <input
+                                                type="text"
+                                                value={student.identification_marks || ""}
+                                                onChange={(e) => handleCellEdit(student.cc, "identification_marks", e.target.value)}
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                placeholder="ID Marks"
+                                            />
+                                        </td>
+                                        <td className="p-1 border-r border-zinc-100">
+                                            <input
+                                                type="text"
+                                                value={student.medical_info || ""}
+                                                onChange={(e) => handleCellEdit(student.cc, "medical_info", e.target.value)}
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                placeholder="Medical Info"
+                                            />
+                                        </td>
+                                        <td className="p-1 border-r border-zinc-100">
+                                            <input
+                                                type="text"
+                                                value={student.interests || ""}
+                                                onChange={(e) => handleCellEdit(student.cc, "interests", e.target.value)}
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                placeholder="Interests"
+                                            />
+                                        </td>
+                                        <td className="p-1 border-r border-zinc-100">
+                                            <input
+                                                type="number"
+                                                value={student.admission_age_years || ""}
+                                                onChange={(e) => handleCellEdit(student.cc, "admission_age_years", e.target.value ? parseInt(e.target.value) : null)}
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                placeholder="Age"
+                                            />
+                                        </td>
+                                        <td className="p-1 border-r border-zinc-100">
+                                            <input
+                                                type="text"
+                                                value={student.physical_impairment || ""}
+                                                onChange={(e) => handleCellEdit(student.cc, "physical_impairment", e.target.value)}
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                placeholder="Impairments"
                                             />
                                         </td>
                                         <td className="p-1 border-r border-zinc-100 text-center">
