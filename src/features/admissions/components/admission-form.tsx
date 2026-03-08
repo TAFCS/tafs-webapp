@@ -258,7 +258,7 @@ export function AdmissionForm() {
     };
 
     return (
-        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row relative">
+        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row relative max-w-5xl mx-auto">
 
             {/* Left Sidebar - Administrative Data (Visible across steps but static conceptually) */}
             <div className="w-full md:w-64 bg-zinc-50 border-b md:border-b-0 md:border-r border-zinc-200 p-6 flex-shrink-0">

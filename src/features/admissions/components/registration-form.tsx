@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/src/store/store";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
+import { fetchCampuses } from "@/src/store/slices/campusesSlice";
 import api from "@/lib/api";
 import Image from "next/image";
 import LogoImage from "@/public/logo.png";
@@ -15,17 +16,23 @@ import { StudentListItem } from "@/src/store/slices/studentsSlice";
 export function RegistrationForm() {
     const router = useRouter();
     const dispatch = useDispatch<AppDispatch>();
-    const { items: classes } = useSelector((state: RootState) => state.classes);
+    const { items: classes, isLoading: isClassesLoading } = useSelector((state: RootState) => state.classes);
+    const { items: campuses, isLoading: isCampusesLoading } = useSelector((state: RootState) => state.campuses);
     const [currentStep, setCurrentStep] = useState(1);
 
+    const isMetadataLoading = (isClassesLoading && classes.length === 0) || (isCampusesLoading && campuses.length === 0);
+
     useEffect(() => {
-        if (classes.length === 0) {
+        if (classes.length === 0 && !isClassesLoading) {
             dispatch(fetchClasses());
         }
-    }, [dispatch, classes.length]);
+        if (campuses.length === 0 && !isCampusesLoading) {
+            dispatch(fetchCampuses());
+        }
+    }, [dispatch, classes.length, campuses.length, isClassesLoading, isCampusesLoading]);
 
     const [formData, setFormData] = useState({
-        serialNo: "", registrationNo: "", computerCodeNo: "",
+        serialNo: "", registrationNo: "", campusId: "",
         candidateName: "", fatherName: "", motherName: "",
         fatherCnic: "", motherCnic: "",
         dobDay: "", dobMonth: "", dobYear: "",
@@ -111,6 +118,7 @@ export function RegistrationForm() {
         const academicSystem = formData.admissionSystem === 'cambridge' ? 'Cambridge' : 'Secondary';
 
         const payload = {
+            campus_id: formData.campusId ? parseInt(formData.campusId) : undefined,
             first_name: firstName,
             last_name: lastName,
             dob,
@@ -222,8 +230,17 @@ export function RegistrationForm() {
         }
     };
 
+    if (isMetadataLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[400px] bg-white border border-zinc-200 rounded-xl shadow-sm space-y-4">
+                <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                <p className="text-sm font-medium text-zinc-500">Initializing form data...</p>
+            </div>
+        );
+    }
+
     return (
-        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row">
+        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row max-w-5xl mx-auto">
 
             {/* Left Sidebar - Administrative Data */}
             <div className="w-full md:w-64 bg-zinc-50 border-b md:border-b-0 md:border-r border-zinc-200 p-6 flex-shrink-0">
@@ -243,8 +260,13 @@ export function RegistrationForm() {
                         <input type="text" name="registrationNo" value={formData.registrationNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-zinc-700 mb-1">Computer Code #</label>
-                        <input type="text" name="computerCodeNo" value={formData.computerCodeNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
+                        <label className="block text-xs font-medium text-zinc-700 mb-1">Campus</label>
+                        <select name="campusId" value={formData.campusId} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none bg-white">
+                            <option value="">Select Campus...</option>
+                            {campuses.map(campus => (
+                                <option key={campus.id} value={campus.id}>{campus.campus_name} ({campus.campus_code})</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 
@@ -714,12 +736,14 @@ export function RegistrationForm() {
             </div>
 
             {/* View Profile Modal - triggered directly on complete */}
-            {submitSuccess && (
-                <StudentProfileModal
-                    studentId={submitSuccess.id}
-                    onClose={() => setSubmitSuccess(null)}
-                />
-            )}
-        </div>
+            {
+                submitSuccess && (
+                    <StudentProfileModal
+                        studentId={submitSuccess.id}
+                        onClose={() => setSubmitSuccess(null)}
+                    />
+                )
+            }
+        </div >
     );
 }
