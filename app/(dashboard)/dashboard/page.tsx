@@ -3,6 +3,7 @@ import {
     BookOpen,
     Layers,
     Banknote,
+    Building2,
     UserPlus,
     GraduationCap,
     Users,
@@ -23,7 +24,7 @@ export default function DashboardPage() {
             {/* Entity Functions / Configuration Group */}
             <div className="space-y-4 pt-2">
                 <h2 className="text-lg font-medium text-zinc-800">Entity Functions</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <Link href="/classes" className="group">
                         <div className="bg-white border border-zinc-200 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex flex-col items-center justify-center text-center h-full gap-4">
                             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
@@ -44,6 +45,18 @@ export default function DashboardPage() {
                             <div>
                                 <h2 className="text-xl font-semibold text-zinc-900 group-hover:text-primary transition-colors">Sections</h2>
                                 <p className="text-sm text-zinc-500 mt-1">Manage class divisions</p>
+                            </div>
+                        </div>
+                    </Link>
+
+                    <Link href="/campuses" className="group">
+                        <div className="bg-white border border-zinc-200 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex flex-col items-center justify-center text-center h-full gap-4">
+                            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                                <Building2 className="h-8 w-8 text-primary" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-semibold text-zinc-900 group-hover:text-primary transition-colors">Campuses</h2>
+                                <p className="text-sm text-zinc-500 mt-1">Manage school branches</p>
                             </div>
                         </div>
                     </Link>
