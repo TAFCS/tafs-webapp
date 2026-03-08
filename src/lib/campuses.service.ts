@@ -1,9 +1,23 @@
 import api from './api';
 
+export interface CampusClassInfo {
+    id: number;
+    description: string;
+    class_code: string;
+    academic_system: string;
+}
+
+export interface CampusClass {
+    id: number;
+    is_active: boolean;
+    classes: CampusClassInfo;
+}
+
 export interface Campus {
     id: number;
     campus_code: string;
     campus_name: string;
+    campus_classes?: CampusClass[];
 }
 
 export interface CreateCampusPayload {
