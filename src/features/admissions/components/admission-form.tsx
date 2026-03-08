@@ -353,7 +353,12 @@ export function AdmissionForm() {
                                             [g?.house_appt_name, g?.area_block, g?.city, g?.province, g?.country]
                                                 .filter(Boolean).join(", ");
 
-                                        const candidatePOB = splitPOB(student.place_of_birth);
+                                        // Candidate place of birth — now stored as separate country/province/city fields
+                                        const candidatePOB = {
+                                            country: student.country ?? "",
+                                            province: student.province ?? "",
+                                            city: student.city ?? "",
+                                        };
                                         const fatherPOB = splitPOB(father?.place_of_birth);
                                         const motherPOB = splitPOB(mother?.place_of_birth);
 
