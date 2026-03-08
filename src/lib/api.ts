@@ -1,7 +1,11 @@
 import axios from "axios";
 
+const baseURL = typeof window !== 'undefined'
+    ? '/api'
+    : process.env.NEXT_PUBLIC_API_URL;
+
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL,
+    baseURL,
     headers: {
         "Content-Type": "application/json",
     },
@@ -49,7 +53,7 @@ api.interceptors.response.use(
                 // No body needed — the browser sends the httpOnly tafs_refresh
                 // cookie automatically because withCredentials = true
                 await axios.post(
-                    `${process.env.NEXT_PUBLIC_API_URL}/v1/auth/staff/refresh`,
+                    `${baseURL}/v1/auth/staff/refresh`,
                     {},
                     { withCredentials: true },
                 );

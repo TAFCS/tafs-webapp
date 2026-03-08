@@ -47,7 +47,7 @@ function loadCachedUser(): StaffUser | null {
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 interface AuthContextValue {
-    login: (username: string, password: string) => Promise<void>;
+    login: (username: string, password: string, redirectUrl?: string | null) => Promise<void>;
     logout: () => Promise<void>;
 }
 
@@ -78,11 +78,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const login = useCallback(
-        async (username: string, password: string) => {
+        async (username: string, password: string, redirectUrl?: string | null) => {
             const { user } = await authService.loginStaff(username, password);
             saveSession(user);
             dispatch(setCredentials({ user }));
-            router.push('/dashboard');
+            router.push(redirectUrl || '/dashboard');
         },
         [dispatch, router]
     );

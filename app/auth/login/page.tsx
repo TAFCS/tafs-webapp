@@ -1,11 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useSearchParams } from 'next/navigation';
 
-export default function LoginPage() {
+function LoginForm() {
     const { login } = useAuth();
+    const searchParams = useSearchParams();
+    const redirectUrl = searchParams.get('redirect');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -16,7 +19,7 @@ export default function LoginPage() {
         setError(null);
         setLoading(true);
         try {
-            await login(username, password);
+            await login(username, password, redirectUrl);
             // redirect handled inside AuthContext
         } catch (err: unknown) {
             const msg =
@@ -156,5 +159,13 @@ export default function LoginPage() {
                 <p>Protected by TAFS Identity. V1.0.0</p>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center p-4">Loading...</div>}>
+            <LoginForm />
+        </Suspense>
     );
 }
