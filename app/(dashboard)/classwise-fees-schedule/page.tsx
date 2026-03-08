@@ -19,6 +19,7 @@ import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchClasses } from "@/store/slices/classesSlice";
 import { fetchFeeTypes } from "@/store/slices/feeTypesSlice";
+import { fetchCampuses } from "@/store/slices/campusesSlice";
 
 // ─── Local types (schedule rows) ─────────────────────────────────────────────
 
@@ -27,6 +28,12 @@ interface ClassInfo {
     description: string;
     class_code: string;
     academic_system: string;
+}
+
+interface CampusInfo {
+    id: number;
+    campus_code: string;
+    campus_name: string;
 }
 
 interface FeeTypeInfo {
@@ -40,13 +47,16 @@ interface FeeScheduleItem {
     class_id: number;
     fee_id: number;
     amount: string;
+    campus_id: number | null;
     classes: ClassInfo;
     fee_types: FeeTypeInfo;
+    campuses: CampusInfo | null;
 }
 
 // Local-only "new row" — no id yet
 interface NewRow {
     _localId: string;
+    campus_id: string;
     class_id: string;
     fee_id: string;
     amount: string;
@@ -58,7 +68,7 @@ type EditableRow = EditableExisting | EditableNew;
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-type SortKey = "id" | "class_id" | "fee_id" | "amount" | "class" | "fee_type";
+type SortKey = "id" | "campus_id" | "class_id" | "fee_id" | "amount" | "class" | "fee_type";
 type SortDir = "asc" | "desc";
 
 export default function ClasswiseFeesSchedulePage() {
@@ -67,6 +77,7 @@ export default function ClasswiseFeesSchedulePage() {
     // ── Redux store ────────────────────────────────────────────────────────
     const classes = useAppSelector((s) => s.classes.items);
     const feeTypes = useAppSelector((s) => s.feeTypes.items);
+    const campuses = useAppSelector((s) => s.campuses.items);
     const classesLoading = useAppSelector((s) => s.classes.isLoading);
     const feeTypesLoading = useAppSelector((s) => s.feeTypes.isLoading);
 
@@ -101,6 +112,7 @@ export default function ClasswiseFeesSchedulePage() {
         // Bootstrap store lookups — only fetch if not already cached
         if (classes.length === 0) dispatch(fetchClasses());
         if (feeTypes.length === 0) dispatch(fetchFeeTypes());
+        if (campuses.length === 0) dispatch(fetchCampuses());
     }, [fetchSchedules]);
 
     // ── Helpers ────────────────────────────────────────────────────────────
@@ -112,7 +124,7 @@ export default function ClasswiseFeesSchedulePage() {
     // ── Handlers — existing rows ───────────────────────────────────────────
     const handleExistingChange = (
         id: number,
-        field: "class_id" | "fee_id" | "amount",
+        field: "campus_id" | "class_id" | "fee_id" | "amount",
         value: string
     ) => {
         clearFeedback();
@@ -139,7 +151,7 @@ export default function ClasswiseFeesSchedulePage() {
         clearFeedback();
         const newRow: EditableNew = {
             type: "new",
-            data: { _localId: `new-${Date.now()}`, class_id: "", fee_id: "", amount: "" },
+            data: { _localId: `new-${Date.now()}`, campus_id: "", class_id: "", fee_id: "", amount: "" },
         };
         setRows((prev) => [newRow, ...prev]);
     };
@@ -201,6 +213,7 @@ export default function ClasswiseFeesSchedulePage() {
                     class_id: Number(row.data.class_id),
                     fee_id: Number(row.data.fee_id),
                     amount: Number(row.data.amount),
+                    ...(row.data.campus_id ? { campus_id: Number(row.data.campus_id) } : {}),
                 });
                 createdCount++;
             }
@@ -213,6 +226,7 @@ export default function ClasswiseFeesSchedulePage() {
                         class_id: Number(r.data.class_id),
                         fee_id: Number(r.data.fee_id),
                         amount: Number(r.data.amount),
+                        campus_id: r.data.campus_id !== null ? Number(r.data.campus_id) : undefined,
                     })),
                 };
                 await api.patch("/v1/class-fee-schedule/bulk", payload);
@@ -259,6 +273,7 @@ export default function ClasswiseFeesSchedulePage() {
             let bVal: string | number = 0;
             switch (sortKey) {
                 case "id": aVal = a.data.id; bVal = b.data.id; break;
+                case "campus_id": aVal = a.data.campus_id ?? 0; bVal = b.data.campus_id ?? 0; break;
                 case "class_id": aVal = a.data.class_id; bVal = b.data.class_id; break;
                 case "fee_id": aVal = a.data.fee_id; bVal = b.data.fee_id; break;
                 case "amount": aVal = parseFloat(a.data.amount); bVal = parseFloat(b.data.amount); break;
@@ -401,6 +416,7 @@ export default function ClasswiseFeesSchedulePage() {
                             <thead className="text-xs uppercase bg-zinc-50 border-b border-zinc-200">
                                 <tr>
                                     <th className="px-6 py-4 font-semibold w-20"><SortHeader label="ID" colKey="id" /></th>
+                                    <th className="px-6 py-4 font-semibold"><SortHeader label="Campus ID" colKey="campus_id" /></th>
                                     <th className="px-6 py-4 font-semibold"><SortHeader label="Class ID" colKey="class_id" /></th>
                                     <th className="px-6 py-4 font-semibold"><SortHeader label="Fee ID" colKey="fee_id" /></th>
                                     <th className="px-6 py-4 font-semibold"><SortHeader label="Amount" colKey="amount" /></th>
@@ -419,6 +435,30 @@ export default function ClasswiseFeesSchedulePage() {
                                             >
                                                 <td className="px-6 py-3 font-medium text-zinc-400 text-xs">
                                                     {item.id}
+                                                </td>
+
+                                                {/* Campus ID + live campus name */}
+                                                <td className="px-6 py-3">
+                                                    <div className="flex flex-col gap-1">
+                                                        <input
+                                                            type="number"
+                                                            value={item.campus_id ?? ""}
+                                                            onChange={(e) =>
+                                                                handleExistingChange(item.id, "campus_id", e.target.value)
+                                                            }
+                                                            className="w-24 px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                                                        />
+                                                        {(() => {
+                                                            const match = campuses.find((c) => c.id === Number(item.campus_id));
+                                                            return match ? (
+                                                                <span className="bg-violet-50 text-violet-700 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit transition-all">
+                                                                    {match.campus_name}
+                                                                </span>
+                                                            ) : item.campus_id ? (
+                                                                <span className="text-[11px] text-red-400 italic">No match</span>
+                                                            ) : null;
+                                                        })()}
+                                                    </div>
                                                 </td>
 
                                                 {/* Class ID + live class name */}
@@ -511,6 +551,31 @@ export default function ClasswiseFeesSchedulePage() {
                                                 <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide">
                                                     New
                                                 </span>
+                                            </td>
+
+                                            {/* Campus ID + live campus name */}
+                                            <td className="px-6 py-3">
+                                                <div className="flex flex-col gap-1">
+                                                    <input
+                                                        type="number"
+                                                        value={nr.campus_id}
+                                                        onChange={(e) =>
+                                                            handleNewChange(nr._localId, "campus_id", e.target.value)
+                                                        }
+                                                        placeholder="Campus ID"
+                                                        className="w-24 px-3 py-1.5 bg-white border border-blue-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                                                    />
+                                                    {(() => {
+                                                        const match = campuses.find((c) => c.id === Number(nr.campus_id));
+                                                        return match ? (
+                                                            <span className="bg-violet-50 text-violet-700 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit">
+                                                                {match.campus_name}
+                                                            </span>
+                                                        ) : nr.campus_id ? (
+                                                            <span className="text-[11px] text-red-400 italic">No match</span>
+                                                        ) : null;
+                                                    })()}
+                                                </div>
                                             </td>
 
                                             {/* Class ID + live class name */}
