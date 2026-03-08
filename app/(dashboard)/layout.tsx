@@ -1,11 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { GlobalHeader } from "@/components/layout/global-header";
 import { ProfileDrawer } from "@/components/layout/profile-drawer";
+import { useAuthState } from "@/context/AuthContext";
 
 export default function ERPLayout({ children }: { children: React.ReactNode }) {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const { user } = useAuthState();
+    const router = useRouter();
+    const pathname = usePathname();
+
+    useEffect(() => {
+        if (user?.role === "STAFF_EDITOR") {
+            if (!pathname.startsWith("/staff-editing/students")) {
+                router.replace("/staff-editing/students");
+            }
+        }
+    }, [user, pathname, router]);
 
     return (
         <div className="flex h-screen bg-zinc-50 overflow-hidden selection:bg-primary/30 font-sans">
