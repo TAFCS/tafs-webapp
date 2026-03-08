@@ -1,6 +1,6 @@
 'use client';
 
-import { X, UserCheck, Shield, LifeBuoy, LogOut } from "lucide-react";
+import { X, UserCheck, Shield, LifeBuoy, LogOut, Users } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -74,6 +74,15 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
 
                 {/* Drawer Content */}
                 <div className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1">
+                    <p className="px-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 mt-2">
+                        Staff Tools
+                    </p>
+
+                    <Link href="/staff-editing/students" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
+                        <Users className="h-5 w-5 mr-3 text-primary" />
+                        <span className="font-medium text-sm">Student Spreadsheet</span>
+                    </Link>
+
                     <p className="px-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 mt-2">
                         Account Management
                     </p>
