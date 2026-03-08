@@ -298,7 +298,7 @@ export default function CampusesPage() {
                         <table className="w-full text-left whitespace-nowrap">
                             <thead className="text-[11px] text-zinc-500 uppercase bg-zinc-50 border-b border-zinc-200 font-bold tracking-wider">
                                 <tr>
-                                    <th className="px-4 py-4 w-10"></th>
+                                    <th className="px-4 py-4 w-40">Actions</th>
                                     <th className="px-6 py-4 w-20">ID</th>
                                     <th className="px-6 py-4 w-40">Code</th>
                                     <th className="px-6 py-4">Campus Name</th>
@@ -312,9 +312,14 @@ export default function CampusesPage() {
                                             <td className="px-4 py-3">
                                                 <button
                                                     onClick={() => toggleRow(item.id)}
-                                                    className="p-1 hover:bg-zinc-200/50 rounded transition-colors text-zinc-400 hover:text-zinc-600"
+                                                    className={`px-4 py-2 text-[11px] font-bold rounded-lg border transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${expandedRows.has(item.id)
+                                                            ? 'bg-primary border-primary text-white shadow-md shadow-primary/20 scale-105'
+                                                            : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 shadow-sm'
+                                                        }`}
                                                 >
-                                                    {expandedRows.has(item.id) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                                    <GraduationCap className="h-4 w-4" />
+                                                    {expandedRows.has(item.id) ? 'Hide Classes' : 'Manage Classes'}
+                                                    {expandedRows.has(item.id) ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                                                 </button>
                                             </td>
                                             <td className="px-6 py-3 font-mono text-zinc-400">
