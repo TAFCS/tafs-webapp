@@ -64,7 +64,7 @@ const COL_TO_CATEGORY_MAP: Record<keyof StudentListItem, string> = {
     id: "core", student_full_name: "core", gr_number: "core", cc_number: "core",
     campus: "core", enrollment_status: "core", financial_status_badge: "core",
     registration_number: "core", house_and_color: "core",
-    grade_and_section: "academic",
+    grade_and_section: "academic", class_id: "academic",
     family_id: "family", household_name: "family", residential_address: "family",
     primary_guardian_name: "contact", whatsapp_number: "contact", primary_guardian_cnic: "contact",
     date_of_birth: "demographic", date_of_admission: "core",
