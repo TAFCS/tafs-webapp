@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo, Suspense } from "react";
 import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
@@ -73,7 +73,7 @@ function sortMonths(months: unknown): string[] {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function StudentwiseFeePage() {
+function StudentwiseFeeEditor() {
     const dispatch = useAppDispatch();
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -561,5 +561,18 @@ export default function StudentwiseFeePage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function StudentwiseFeePage() {
+    return (
+        <Suspense fallback={
+            <div className="flex flex-col items-center justify-center py-40 gap-4">
+                <Loader2 className="h-10 w-10 animate-spin text-primary/30" />
+                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Initializing...</p>
+            </div>
+        }>
+            <StudentwiseFeeEditor />
+        </Suspense>
     );
 }
