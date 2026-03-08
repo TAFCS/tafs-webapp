@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Building2, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ChevronDown, ChevronRight, GraduationCap, ToggleLeft, ToggleRight, LayoutGrid } from "lucide-react";
-import { campusesService, Campus, CampusClassInfo } from "@/lib/campuses.service";
+import { campusesService, Campus, CampusClassInfo, SectionInfo } from "@/lib/campuses.service";
 
 export default function CampusesPage() {
     const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -15,11 +15,14 @@ export default function CampusesPage() {
     // State for Expandable Rows
     const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
     const [classOptions, setClassOptions] = useState<CampusClassInfo[]>([]);
+    const [sectionOptions, setSectionOptions] = useState<SectionInfo[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<Record<number, string>>({});
+    const [selectedSectionId, setSelectedSectionId] = useState<Record<string, string>>({}); // key: campusId-classId
 
     // State for Add Modal
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
+    const [isAddingSection, setIsAddingSection] = useState<Record<string, boolean>>({});
     const [newCampus, setNewCampus] = useState({ campus_code: "", campus_name: "" });
 
     // State for Delete Confirmation
@@ -30,13 +33,15 @@ export default function CampusesPage() {
         setIsLoading(true);
         setError(null);
         try {
-            const [data, options] = await Promise.all([
+            const [data, cOptions, sOptions] = await Promise.all([
                 campusesService.list(),
-                campusesService.listAllClasses()
+                campusesService.listAllClasses(),
+                campusesService.listAllSections()
             ]);
             setCampuses(data);
             setOriginalCampuses(JSON.parse(JSON.stringify(data)));
-            setClassOptions(options);
+            setClassOptions(cOptions);
+            setSectionOptions(sOptions);
         } catch (err: any) {
             console.error("Error fetching data:", err);
             setError("Failed to load data. Please try again.");
@@ -171,6 +176,45 @@ export default function CampusesPage() {
             fetchCampuses();
         } catch (err: any) {
             setError(err.response?.data?.message || "Failed to remove class.");
+        }
+    };
+
+    // --- Section Management Handlers ---
+
+    const handleAddSection = async (campusId: number, classId: number) => {
+        const comboKey = `${campusId}-${classId}`;
+        const sectionId = parseInt(selectedSectionId[comboKey]);
+        if (!sectionId) return;
+
+        setIsAddingSection(prev => ({ ...prev, [comboKey]: true }));
+        try {
+            await campusesService.addSectionToCampus(campusId, classId, sectionId);
+            setSuccessMessage("Section added.");
+            fetchCampuses();
+            setSelectedSectionId(prev => ({ ...prev, [comboKey]: "" }));
+        } catch (err: any) {
+            setError(err.response?.data?.message || "Failed to add section.");
+        } finally {
+            setIsAddingSection(prev => ({ ...prev, [comboKey]: false }));
+        }
+    };
+
+    const handleToggleSectionStatus = async (campusId: number, classId: number, sectionId: number, currentStatus: boolean) => {
+        try {
+            await campusesService.updateCampusSection(campusId, classId, sectionId, !currentStatus);
+            fetchCampuses();
+        } catch (err: any) {
+            setError(err.response?.data?.message || "Failed to toggle status.");
+        }
+    };
+
+    const handleRemoveSection = async (campusId: number, classId: number, sectionId: number) => {
+        try {
+            await campusesService.removeSectionFromCampus(campusId, classId, sectionId);
+            setSuccessMessage("Section removed.");
+            fetchCampuses();
+        } catch (err: any) {
+            setError(err.response?.data?.message || "Failed to remove section.");
         }
     };
 
@@ -344,33 +388,83 @@ export default function CampusesPage() {
                                                             <p className="text-zinc-500 text-xs">No classes assigned to this campus yet.</p>
                                                         </div>
                                                     ) : (
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                                             {item.campus_classes.map((cc) => (
-                                                                <div key={cc.id} className="flex items-center justify-between p-4 bg-white border border-zinc-200 rounded-xl hover:shadow-md hover:border-primary/20 transition-all group/card">
-                                                                    <div className="flex items-center gap-3">
-                                                                        <div className={`p-2 rounded-lg ${cc.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-zinc-100 text-zinc-400'}`}>
-                                                                            <LayoutGrid className="h-4 w-4" />
+                                                                <div key={cc.id} className="bg-white border border-zinc-200 rounded-xl overflow-hidden hover:shadow-md hover:border-primary/20 transition-all group/card">
+                                                                    <div className="flex items-center justify-between p-4 bg-zinc-50/50 border-b border-zinc-100">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className={`p-2 rounded-lg ${cc.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-zinc-100 text-zinc-400'}`}>
+                                                                                <LayoutGrid className="h-4 w-4" />
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="font-bold text-zinc-900 leading-tight">{cc.classes.description}</p>
+                                                                                <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{cc.classes.class_code} · {cc.classes.academic_system}</p>
+                                                                            </div>
                                                                         </div>
-                                                                        <div>
-                                                                            <p className="font-bold text-zinc-900 leading-tight">{cc.classes.description}</p>
-                                                                            <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{cc.classes.class_code} · {cc.classes.academic_system}</p>
+                                                                        <div className="flex items-center gap-1">
+                                                                            <button
+                                                                                onClick={() => handleRemoveClass(item.id, cc.classes.id)}
+                                                                                className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                                                title="Remove Class"
+                                                                            >
+                                                                                <Trash2 className="h-4 w-4" />
+                                                                            </button>
                                                                         </div>
                                                                     </div>
-                                                                    <div className="flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
-                                                                        <button
-                                                                            onClick={() => handleToggleClassStatus(item.id, cc.classes.id, cc.is_active)}
-                                                                            className={`p-2 rounded-lg transition-colors ${cc.is_active ? 'text-emerald-500 hover:bg-emerald-50' : 'text-zinc-400 hover:bg-zinc-100'}`}
-                                                                            title={cc.is_active ? "Deactivate" : "Activate"}
-                                                                        >
-                                                                            {cc.is_active ? <ToggleRight className="h-5 w-5" /> : <ToggleLeft className="h-5 w-5" />}
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleRemoveClass(item.id, cc.classes.id)}
-                                                                            className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                                                            title="Remove Class"
-                                                                        >
-                                                                            <Trash2 className="h-4 w-4" />
-                                                                        </button>
+
+                                                                    <div className="p-4 bg-white">
+                                                                        <div className="flex items-center justify-between mb-3 px-1">
+                                                                            <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Sections</h4>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <select
+                                                                                    className="px-2 py-1 bg-white border border-zinc-200 rounded text-[10px] outline-none w-28 focus:ring-1 focus:ring-primary/20"
+                                                                                    value={selectedSectionId[`${item.id}-${cc.classes.id}`] || ""}
+                                                                                    onChange={(e) => setSelectedSectionId({ ...selectedSectionId, [`${item.id}-${cc.classes.id}`]: e.target.value })}
+                                                                                >
+                                                                                    <option value="">Add Section...</option>
+                                                                                    {sectionOptions
+                                                                                        .filter(opt => !item.campus_sections?.some(cs => cs.class_id === cc.classes.id && cs.section_id === opt.id))
+                                                                                        .map(opt => (
+                                                                                            <option key={opt.id} value={opt.id}>{opt.description}</option>
+                                                                                        ))
+                                                                                    }
+                                                                                </select>
+                                                                                <button
+                                                                                    onClick={() => handleAddSection(item.id, cc.classes.id)}
+                                                                                    disabled={isAddingSection[`${item.id}-${cc.classes.id}`]}
+                                                                                    className="p-1.5 bg-zinc-900 text-white rounded hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                                                                                >
+                                                                                    {isAddingSection[`${item.id}-${cc.classes.id}`] ? (
+                                                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                                                    ) : (
+                                                                                        <Plus className="h-3 w-3" />
+                                                                                    )}
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="flex flex-wrap gap-2">
+                                                                            {item.campus_sections?.filter(cs => cs.class_id === cc.classes.id).length === 0 ? (
+                                                                                <p className="text-[10px] text-zinc-400 italic px-1">No sections assigned.</p>
+                                                                            ) : (
+                                                                                item.campus_sections?.filter(cs => cs.class_id === cc.classes.id).map(cs => (
+                                                                                    <div
+                                                                                        key={cs.id}
+                                                                                        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all group/section ${cs.is_active ? 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:border-primary/20 hover:bg-white' : 'bg-white border-zinc-100 text-zinc-400 italic'}`}
+                                                                                    >
+                                                                                        {cs.sections.description}
+                                                                                        <div className="flex items-center gap-0.5 ml-1 overflow-hidden w-0 group-hover/section:w-5 transition-all duration-200">
+                                                                                            <button
+                                                                                                onClick={() => handleRemoveSection(item.id, cc.classes.id, cs.section_id)}
+                                                                                                className="p-1 hover:text-rose-500 transition-colors"
+                                                                                            >
+                                                                                                <X className="h-3.5 w-3.5" />
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                ))
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             ))}
