@@ -9,6 +9,8 @@ export interface Family {
   primary_address: string | null;
   legacy_pid: string | null;
   created_at: string;
+  username: string | null;
+  consent_publicity: boolean;
   student_count?: number;
   primary_guardian?: {
     name: string;
@@ -62,6 +64,8 @@ export interface CreateFamilyPayload {
   email?: string;
   password?: string;
   legacy_pid?: string;
+  username?: string;
+  consent_publicity?: boolean;
 }
 
 export type UpdateFamilyPayload = Partial<CreateFamilyPayload>;
