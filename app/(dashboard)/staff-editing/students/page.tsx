@@ -201,8 +201,8 @@ export default function StudentsSpreadsheetPage() {
         // Transform "NULL" to null
         let transformedValue = value === "NULL" ? null : value;
 
-        // Transform text values to ALL CAPS
-        if (typeof transformedValue === 'string') {
+        // Transform text values to ALL CAPS (except email)
+        if (typeof transformedValue === 'string' && field !== 'email') {
             transformedValue = transformedValue.toUpperCase();
         }
 
@@ -326,7 +326,7 @@ export default function StudentsSpreadsheetPage() {
                             type="text"
                             placeholder="SEARCH STUDENTS..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all font-medium"
                         />
                     </form>
