@@ -13,10 +13,18 @@ import type { NextRequest } from 'next/server';
  */
 export function middleware(request: NextRequest) {
     const session = request.cookies.get('tafs_session');
+    const isRoot = request.nextUrl.pathname === '/';
+
+    if (isRoot) {
+        if (session) {
+            return NextResponse.redirect(new URL('/dashboard', request.url));
+        } else {
+            return NextResponse.redirect(new URL('/auth/login', request.url));
+        }
+    }
 
     if (!session) {
         const loginUrl = new URL('/auth/login', request.url);
-        // Preserve the intended destination so we can redirect back after login
         loginUrl.searchParams.set('redirect', request.nextUrl.pathname);
         return NextResponse.redirect(loginUrl);
     }
