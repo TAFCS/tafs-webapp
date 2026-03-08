@@ -33,11 +33,16 @@ function formatDateToDisplay(dateStr: string | null): string {
 }
 
 function formatDateToJSON(dateStr: string | null): string | null {
-    if (!dateStr) return null;
-    const parts = dateStr.split("/");
-    if (parts.length !== 3) return dateStr; // Fallback or handle error
-    const [day, month, year] = parts;
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    return dateStr; // Backend now expects DD/MM/YYYY, so we just pass it through
+}
+
+function formatNIC(value: string): string {
+    const digits = value.replace(/\D/g, "").slice(0, 13);
+    let res = "";
+    if (digits.length > 0) res += digits.slice(0, 5);
+    if (digits.length > 5) res += "-" + digits.slice(5, 12);
+    if (digits.length > 12) res += "-" + digits.slice(12, 13);
+    return res;
 }
 
 interface Guardian {
@@ -88,11 +93,8 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
         setIsLoading(true);
         try {
             const { data } = await api.get(`/v1/staff-editing/students/${studentId}/guardians`);
-            const transformedData = (data?.data || []).map((g: Guardian) => ({
-                ...g,
-                dob: formatDateToDisplay(g.dob)
-            }));
-            setGuardians(transformedData);
+            // Backend now returns DD/MM/YYYY
+            setGuardians(data?.data || []);
         } catch (err) {
             console.error("Error fetching guardians:", err);
         } finally {
@@ -116,9 +118,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                 if (guardian.isNew) {
                     // Prepare the full guardian object with the new value
                     let transformedValue = value;
-                    if (field === 'dob') {
-                        transformedValue = formatDateToJSON(value);
-                    } else if (typeof value === 'string') {
+                    if (typeof value === 'string' && field !== 'dob') {
                         transformedValue = value.toUpperCase();
                     }
 
@@ -139,8 +139,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
 
                     setGuardians(prev => prev.map((g, i) => i === index ? {
                         ...createdGuardian,
-                        isNew: false,
-                        dob: formatDateToDisplay(createdGuardian.dob)
+                        isNew: false
                     } : g));
                     setPatchingStatus(prev => {
                         const next = { ...prev };
@@ -154,9 +153,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                     }, 2000);
                 } else {
                     let transformedValue = value;
-                    if (field === 'dob') {
-                        transformedValue = formatDateToJSON(value);
-                    } else if (typeof value === 'string') {
+                    if (typeof value === 'string' && field !== 'dob') {
                         transformedValue = value.toUpperCase();
                     }
 
@@ -180,7 +177,9 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
     const handleEdit = (index: number, field: keyof Guardian, value: any) => {
         const guardian = guardians[index];
         let transformedValue = value;
-        if (field !== 'dob' && typeof value === 'string') {
+        if (field === 'cnic') {
+            transformedValue = formatNIC(value);
+        } else if (field !== 'dob' && typeof value === 'string') {
             transformedValue = value.toUpperCase();
         }
         setGuardians(prev => prev.map((g, i) => i === index ? { ...g, [field]: transformedValue } : g));

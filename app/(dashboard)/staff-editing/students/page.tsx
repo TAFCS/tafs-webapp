@@ -377,9 +377,9 @@ export default function StudentsSpreadsheetPage() {
                                         { key: 'email', label: 'Email', resizable: true },
                                         { key: 'primary_phone', label: 'Phone', resizable: true },
                                         { key: 'whatsapp_number', label: 'WhatsApp', resizable: true },
-                                        { key: 'country', label: 'Country', resizable: true },
-                                        { key: 'province', label: 'Province', resizable: true },
-                                        { key: 'city', label: 'City', resizable: true },
+                                        { key: 'country', label: 'Country of Birth', resizable: true },
+                                        { key: 'province', label: 'Province of Birth', resizable: true },
+                                        { key: 'city', label: 'City of Birth', resizable: true },
                                         { key: 'academic_system', label: 'System', resizable: true },
                                         { key: 'guardians', label: 'Guardians', resizable: true }
                                     ].map((col) => (
@@ -507,7 +507,7 @@ export default function StudentsSpreadsheetPage() {
                                                 value={student.country || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "country", e.target.value)}
                                                 className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                placeholder="Country"
+                                                placeholder="Country of Birth"
                                             />
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
@@ -516,7 +516,7 @@ export default function StudentsSpreadsheetPage() {
                                                 value={student.province || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "province", e.target.value)}
                                                 className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                placeholder="Province"
+                                                placeholder="Province of Birth"
                                             />
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
@@ -525,7 +525,7 @@ export default function StudentsSpreadsheetPage() {
                                                 value={student.city || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "city", e.target.value)}
                                                 className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                placeholder="City"
+                                                placeholder="City of Birth"
                                             />
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
