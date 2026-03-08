@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
     Users,
     Loader2,
@@ -56,7 +56,6 @@ interface StudentItem {
     house_id: number | null;
     house_name: string | null;
     admission_age_years: number;
-    place_of_birth: string | null;
     country: string | null;
     province: string | null;
     city: string | null;
@@ -108,8 +107,22 @@ export default function StudentsSpreadsheetPage() {
     // Data states
     const [students, setStudents] = useState<StudentItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isFetchingMore, setIsFetchingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [patchingStatus, setPatchingStatus] = useState<Record<number, 'idle' | 'loading' | 'success' | 'error'>>({});
+
+    // Pagination refs
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const cursorRef = useRef<number | null>(null);  // last cc seen; null = first page
+    const hasMoreRef = useRef(false);
+    const isFetchingMoreRef = useRef(false);
+
+    // Filter value refs — keep in sync so stable callbacks always read the latest values
+    const selectedCampusRef = useRef(selectedCampus);
+    const selectedClassRef = useRef(selectedClass);
+    const selectedSectionRef = useRef(selectedSection);
+    const searchTermRef = useRef(searchTerm);
 
     // Column resizing state
     const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
@@ -143,35 +156,86 @@ export default function StudentsSpreadsheetPage() {
         dispatch(fetchSections());
     }, [dispatch]);
 
-    const fetchStudents = async () => {
+    // Initial load / filter reset — always reloads from the beginning
+    const loadStudents = useCallback(async () => {
+        cursorRef.current = null;
+        hasMoreRef.current = false;
+        isFetchingMoreRef.current = false;
+        setHasMore(false);
+        setIsFetchingMore(false);
         setIsLoading(true);
+        setStudents([]);
         setError(null);
         try {
-            const params = {
-                campus_id: selectedCampus || undefined,
-                class_id: selectedClass || undefined,
-                section_id: selectedSection || undefined,
-                search: searchTerm || undefined
-            };
-            const { data } = await api.get("/v1/staff-editing/students", { params });
-            // Extract from { data: { items: [...] } }
-            setStudents(data?.data?.items || []);
+            const { data } = await api.get("/v1/staff-editing/students", {
+                params: {
+                    limit: 50,
+                    campus_id: selectedCampusRef.current || undefined,
+                    class_id: selectedClassRef.current || undefined,
+                    section_id: selectedSectionRef.current || undefined,
+                    search: searchTermRef.current || undefined,
+                },
+            });
+            const items: StudentItem[] = data?.data?.items || [];
+            const more: boolean = data?.data?.hasMore ?? items.length === 50;
+            const nextCursor: number | null = data?.data?.nextCursor ?? null;
+            setStudents(items);
+            hasMoreRef.current = more;
+            cursorRef.current = nextCursor;
+            setHasMore(more);
         } catch (err: any) {
             console.error("Error fetching students:", err);
             setError("Failed to load students. Please try again.");
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
+
+    // Append next batch — triggered by scroll threshold
+    const loadMore = useCallback(async () => {
+        if (isFetchingMoreRef.current || !hasMoreRef.current) return;
+        isFetchingMoreRef.current = true;
+        setIsFetchingMore(true);
+        try {
+            const { data } = await api.get("/v1/staff-editing/students", {
+                params: {
+                    cursor: cursorRef.current ?? undefined,
+                    limit: 50,
+                    campus_id: selectedCampusRef.current || undefined,
+                    class_id: selectedClassRef.current || undefined,
+                    section_id: selectedSectionRef.current || undefined,
+                    search: searchTermRef.current || undefined,
+                },
+            });
+            const items: StudentItem[] = data?.data?.items || [];
+            const more: boolean = data?.data?.hasMore ?? items.length === 50;
+            const nextCursor: number | null = data?.data?.nextCursor ?? null;
+            setStudents(prev => [...prev, ...items]);
+            hasMoreRef.current = more;
+            cursorRef.current = nextCursor;
+            setHasMore(more);
+        } catch {
+            // Silent — don't disrupt the existing view on a load-more failure
+        } finally {
+            isFetchingMoreRef.current = false;
+            setIsFetchingMore(false);
+        }
+    }, []);
 
     const openGuardianModal = (id: number, name: string) => {
         setSelectedStudentForGuardians({ id, name });
         setIsGuardianModalOpen(true);
     };
 
+    // Keep filter refs current so stable callbacks always use latest values
+    useEffect(() => { selectedCampusRef.current = selectedCampus; }, [selectedCampus]);
+    useEffect(() => { selectedClassRef.current = selectedClass; }, [selectedClass]);
+    useEffect(() => { selectedSectionRef.current = selectedSection; }, [selectedSection]);
+
+    // Reload from page 1 whenever a filter dropdown changes
     useEffect(() => {
-        fetchStudents();
-    }, [selectedCampus, selectedClass, selectedSection]);
+        loadStudents();
+    }, [selectedCampus, selectedClass, selectedSection, loadStudents]);
 
     // Debounced patch function
     const debouncedPatch = useMemo(
@@ -215,7 +279,8 @@ export default function StudentsSpreadsheetPage() {
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        fetchStudents();
+        searchTermRef.current = searchTerm;
+        loadStudents();
     };
 
     // Resizing logic
@@ -257,7 +322,7 @@ export default function StudentsSpreadsheetPage() {
                     </div>
 
                     <button
-                        onClick={fetchStudents}
+                        onClick={loadStudents}
                         className="p-2 hover:bg-zinc-100 rounded-lg transition-colors text-zinc-500"
                         title="Refresh data"
                     >
@@ -376,7 +441,14 @@ export default function StudentsSpreadsheetPage() {
                         </button>
                     </div>
                 ) : (
-                    <div className="flex-1 overflow-auto">
+                    <div
+                        ref={scrollContainerRef}
+                        className="flex-1 overflow-auto"
+                        onScroll={(e) => {
+                            const el = e.currentTarget;
+                            if (el.scrollHeight - el.scrollTop - el.clientHeight < 600) loadMore();
+                        }}
+                    >
                         <table className="w-full text-sm text-left border-separate border-spacing-0 table-fixed">
                             <thead className="sticky top-0 z-10 bg-zinc-50">
                                 <tr>
@@ -703,6 +775,17 @@ export default function StudentsSpreadsheetPage() {
                                 ))}
                             </tbody>
                         </table>
+                        {isFetchingMore && (
+                            <div className="flex items-center justify-center gap-2 py-5 text-zinc-400">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span className="text-[11px] font-bold uppercase tracking-widest">Loading more…</span>
+                            </div>
+                        )}
+                        {!hasMore && students.length > 0 && !isLoading && (
+                            <div className="flex items-center justify-center py-4">
+                                <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">— End of records —</span>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -715,7 +798,7 @@ export default function StudentsSpreadsheetPage() {
                         </span>
                         <span className="h-4 w-px bg-zinc-200"></span>
                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                            {students.length} Records Loaded
+                            {students.length} Records Loaded{hasMore ? " · scroll for more" : ""}
                         </span>
                     </div>
                     <div className="text-[10px] font-medium text-zinc-400 italic">
