@@ -79,7 +79,7 @@ const STATUS_OPTIONS = [
     "WITHDRAWN"
 ];
 
-const GENDER_OPTIONS = ["Male", "Female", "Other"];
+const GENDER_OPTIONS = ["MALE", "FEMALE", "OTHER"];
 
 export default function StudentsSpreadsheetPage() {
     const dispatch = useDispatch<AppDispatch>();
@@ -188,11 +188,14 @@ export default function StudentsSpreadsheetPage() {
     );
 
     const handleCellEdit = (id: number, field: keyof StudentItem, value: any) => {
+        // Transform text values to ALL CAPS
+        const transformedValue = typeof value === 'string' ? value.toUpperCase() : value;
+
         // Optimistic update
-        setStudents(prev => prev.map(s => s.cc === id ? { ...s, [field]: value } : s));
+        setStudents(prev => prev.map(s => s.cc === id ? { ...s, [field]: transformedValue } : s));
 
         // Trigger debounced patch
-        debouncedPatch(id, field, value);
+        debouncedPatch(id, field, transformedValue);
     };
 
     const handleSearch = (e: React.FormEvent) => {
@@ -306,9 +309,9 @@ export default function StudentsSpreadsheetPage() {
                         </div>
                         <input
                             type="text"
-                            placeholder="Search students..."
+                            placeholder="SEARCH STUDENTS..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
                             className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all font-medium"
                         />
                     </form>

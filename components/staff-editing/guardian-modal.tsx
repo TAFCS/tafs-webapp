@@ -24,6 +24,22 @@ function debounce(func: Function, wait: number) {
     };
 }
 
+// Date helpers
+function formatDateToDisplay(dateStr: string | null): string {
+    if (!dateStr) return "";
+    const [year, month, day] = dateStr.split("-");
+    if (!year || !month || !day) return dateStr;
+    return `${day}/${month}/${year}`;
+}
+
+function formatDateToJSON(dateStr: string | null): string | null {
+    if (!dateStr) return null;
+    const parts = dateStr.split("/");
+    if (parts.length !== 3) return dateStr; // Fallback or handle error
+    const [day, month, year] = parts;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
 interface Guardian {
     id?: number;
     relationship: string;
@@ -72,7 +88,11 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
         setIsLoading(true);
         try {
             const { data } = await api.get(`/v1/staff-editing/students/${studentId}/guardians`);
-            setGuardians(data?.data || []);
+            const transformedData = (data?.data || []).map((g: Guardian) => ({
+                ...g,
+                dob: formatDateToDisplay(g.dob)
+            }));
+            setGuardians(transformedData);
         } catch (err) {
             console.error("Error fetching guardians:", err);
         } finally {
@@ -95,13 +115,33 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
             try {
                 if (guardian.isNew) {
                     // Prepare the full guardian object with the new value
-                    const payload = { ...guardian, [field]: value };
+                    let transformedValue = value;
+                    if (field === 'dob') {
+                        transformedValue = formatDateToJSON(value);
+                    } else if (typeof value === 'string') {
+                        transformedValue = value.toUpperCase();
+                    }
+
+                    const payload = { ...guardian, [field]: transformedValue };
+
+                    // Transform other fields in guardian if they are strings (during initial creation)
+                    Object.keys(payload).forEach(k => {
+                        const key = k as keyof Guardian;
+                        if (key !== 'dob' && typeof payload[key] === 'string') {
+                            (payload as any)[key] = (payload[key] as string).toUpperCase();
+                        }
+                    });
+
                     delete payload.isNew; // Remove UI-only flag
 
                     const { data } = await api.post(`/v1/staff-editing/students/${studentId}/guardians`, payload);
                     const createdGuardian = data?.data;
 
-                    setGuardians(prev => prev.map((g, i) => i === index ? { ...createdGuardian, isNew: false } : g));
+                    setGuardians(prev => prev.map((g, i) => i === index ? {
+                        ...createdGuardian,
+                        isNew: false,
+                        dob: formatDateToDisplay(createdGuardian.dob)
+                    } : g));
                     setPatchingStatus(prev => {
                         const next = { ...prev };
                         delete next[key]; // Remove temp key status
@@ -113,8 +153,15 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                         setPatchingStatus(prev => ({ ...prev, [String(createdGuardian.id)]: 'idle' }));
                     }, 2000);
                 } else {
+                    let transformedValue = value;
+                    if (field === 'dob') {
+                        transformedValue = formatDateToJSON(value);
+                    } else if (typeof value === 'string') {
+                        transformedValue = value.toUpperCase();
+                    }
+
                     await api.patch(`/v1/staff-editing/students/${studentId}/guardians/${guardian.id}`, {
-                        [field]: value
+                        [field]: transformedValue
                     });
                     setPatchingStatus(prev => ({ ...prev, [key]: 'success' }));
 
@@ -132,8 +179,12 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
 
     const handleEdit = (index: number, field: keyof Guardian, value: any) => {
         const guardian = guardians[index];
-        setGuardians(prev => prev.map((g, i) => i === index ? { ...g, [field]: value } : g));
-        debouncedSave(guardian, field, value, index);
+        let transformedValue = value;
+        if (field !== 'dob' && typeof value === 'string') {
+            transformedValue = value.toUpperCase();
+        }
+        setGuardians(prev => prev.map((g, i) => i === index ? { ...g, [field]: transformedValue } : g));
+        debouncedSave(guardian, field, transformedValue, index);
     };
 
     const addRow = () => {
@@ -278,7 +329,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             type="text"
                                                             value={guardian.dob || ""}
                                                             onChange={(e) => handleEdit(idx, "dob", e.target.value)}
-                                                            placeholder="YYYY-MM-DD"
+                                                            placeholder="DD/MM/YYYY"
                                                             className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
                                                         />
                                                     </td>
