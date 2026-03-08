@@ -1,6 +1,7 @@
 import { Bell, Menu } from "lucide-react";
 import Image from "next/image";
 import LogoImage from "@/public/logo.png";
+import Link from "next/link";
 
 interface GlobalHeaderProps {
     onMenuClick: () => void;
@@ -22,13 +23,13 @@ export function GlobalHeader({ onMenuClick }: GlobalHeaderProps) {
             </button>
 
             {/* Center: Branding */}
-            <div className="flex items-center gap-2">
+            <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity active:scale-[0.98]">
                 <Image src={LogoImage} alt="TAFSync Logo" width={32} height={32} className="object-contain" priority unoptimized />
                 <div className="flex flex-col items-start justify-center">
                     <h1 className="text-lg font-bold text-primary tracking-tight leading-tight">TAFSync</h1>
                     <span className="text-[10px] font-medium text-secondary uppercase tracking-widest leading-none">All-in-One Portal</span>
                 </div>
-            </div>
+            </Link>
 
             {/* Right: Notifications */}
             <button
