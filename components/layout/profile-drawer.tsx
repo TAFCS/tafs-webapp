@@ -36,13 +36,13 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             {/* Backdrop */}
             {isOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 transition-opacity animate-in fade-in"
+                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity animate-in fade-in"
                     onClick={onClose}
                 />
             )}
 
             {/* Drawer Canvas */}
-            <div className={`fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white z-40 transform transition-transform duration-300 ease-in-out border-r border-zinc-200 shadow-xl flex flex-col ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
+            <div className={`fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white z-[60] transform transition-transform duration-300 ease-in-out border-r border-zinc-200 shadow-xl flex flex-col ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
 
                 {/* Drawer Header */}
                 <div className="h-40 bg-gradient-to-br from-primary to-primary/80 p-6 flex flex-col justify-end relative overflow-hidden flex-shrink-0">
