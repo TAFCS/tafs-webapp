@@ -11,6 +11,7 @@ export default function CampusesPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [isConfiguring, setIsConfiguring] = useState(false);
 
     // State for Configuration Panel
     const [configCampusId, setConfigCampusId] = useState<number | null>(null);
@@ -148,6 +149,7 @@ export default function CampusesPage() {
         const classId = parseInt(selectedClassId[campusId]);
         if (!classId) return;
 
+        setIsConfiguring(true);
         try {
             const updatedCampus = await campusesService.upsertCampusClass(campusId, classId);
             setSuccessMessage("Class added to campus.");
@@ -155,16 +157,21 @@ export default function CampusesPage() {
             setSelectedClassId(prev => ({ ...prev, [campusId]: "" }));
         } catch (err: any) {
             setError(err.response?.data?.message || "Failed to add class.");
+        } finally {
+            setIsConfiguring(false);
         }
     };
 
     const handleRemoveClass = async (campusId: number, classId: number) => {
+        setIsConfiguring(true);
         try {
             const updatedCampus = await campusesService.removeClassFromCampus(campusId, classId);
             setSuccessMessage("Class removed from campus.");
             updateLocalCampus(updatedCampus);
         } catch (err: any) {
             setError(err.response?.data?.message || "Failed to remove class.");
+        } finally {
+            setIsConfiguring(false);
         }
     };
 
@@ -175,6 +182,7 @@ export default function CampusesPage() {
         const sectionId = parseInt(selectedSectionId[comboKey]);
         if (!sectionId) return;
 
+        setIsConfiguring(true);
         try {
             const updatedCampus = await campusesService.upsertCampusSection(campusId, classId, sectionId);
             setSuccessMessage("Section added.");
@@ -182,16 +190,21 @@ export default function CampusesPage() {
             setSelectedSectionId(prev => ({ ...prev, [comboKey]: "" }));
         } catch (err: any) {
             setError(err.response?.data?.message || "Failed to add section.");
+        } finally {
+            setIsConfiguring(false);
         }
     };
 
     const handleRemoveSection = async (campusId: number, classId: number, sectionId: number) => {
+        setIsConfiguring(true);
         try {
             const updatedCampus = await campusesService.removeSectionFromCampus(campusId, classId, sectionId);
             setSuccessMessage("Section removed.");
             updateLocalCampus(updatedCampus);
         } catch (err: any) {
             setError(err.response?.data?.message || "Failed to remove section.");
+        } finally {
+            setIsConfiguring(false);
         }
     };
 
@@ -391,9 +404,10 @@ export default function CampusesPage() {
                                                     </div>
                                                     <button
                                                         onClick={() => handleRemoveClass(activeCampus.id, cc.id)}
-                                                        className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                        disabled={isConfiguring}
+                                                        className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all disabled:opacity-30"
                                                     >
-                                                        <Trash2 className="h-4 w-4" />
+                                                        {isConfiguring ? <Loader2 className="h-4 w-4 animate-spin text-zinc-400" /> : <Trash2 className="h-4 w-4" />}
                                                     </button>
                                                 </div>
 
@@ -411,9 +425,10 @@ export default function CampusesPage() {
                                                                 {cs.description}
                                                                 <button
                                                                     onClick={() => handleRemoveSection(activeCampus.id, cc.id, cs.id)}
-                                                                    className="text-zinc-400 hover:text-rose-600 transition-colors"
+                                                                    disabled={isConfiguring}
+                                                                    className="text-zinc-400 hover:text-rose-600 transition-colors disabled:opacity-30"
                                                                 >
-                                                                    <X className="h-3 w-3" />
+                                                                    {isConfiguring ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
                                                                 </button>
                                                             </div>
                                                         ))}
@@ -434,10 +449,10 @@ export default function CampusesPage() {
                                                             </select>
                                                             <button
                                                                 onClick={() => handleAddSection(activeCampus.id, cc.id)}
-                                                                disabled={!selectedSectionId[`${activeCampus.id}-${cc.id}`]}
-                                                                className="p-1.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 disabled:opacity-30 transition-all"
+                                                                disabled={!selectedSectionId[`${activeCampus.id}-${cc.id}`] || isConfiguring}
+                                                                className="p-1.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 disabled:opacity-30 transition-all flex items-center justify-center min-w-[32px] min-h-[32px]"
                                                             >
-                                                                <Plus className="h-3.5 w-3.5" />
+                                                                {isConfiguring ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                                                             </button>
                                                         </div>
                                                     </div>
@@ -478,11 +493,17 @@ export default function CampusesPage() {
                                     </div>
                                     <button
                                         onClick={() => handleAddClass(activeCampus.id)}
-                                        disabled={!selectedClassId[activeCampus.id]}
+                                        disabled={!selectedClassId[activeCampus.id] || isConfiguring}
                                         className="w-full h-12 bg-zinc-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-zinc-800 active:scale-[0.98] transition-all disabled:opacity-50"
                                     >
-                                        Provision Class
-                                        <Plus className="h-4 w-4" />
+                                        {isConfiguring ? (
+                                            <Loader2 className="h-5 w-5 animate-spin" />
+                                        ) : (
+                                            <>
+                                                Provision Class
+                                                <Plus className="h-4 w-4" />
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             </section>
