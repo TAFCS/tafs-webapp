@@ -33,6 +33,15 @@ function debounce(func: Function, wait: number) {
     };
 }
 
+function formatNIC(value: string): string {
+    const digits = value.replace(/\D/g, "").slice(0, 13);
+    let res = "";
+    if (digits.length > 0) res += digits.slice(0, 5);
+    if (digits.length > 5) res += "-" + digits.slice(5, 12);
+    if (digits.length > 12) res += "-" + digits.slice(12, 13);
+    return res;
+}
+
 interface StudentItem {
     cc: number;
     gr_number: string | null;
@@ -271,7 +280,7 @@ export default function StudentsSpreadsheetPage() {
         []
     );
 
-    const handleCellEdit = (id: number, field: keyof StudentItem, value: any) => {
+    const handleCellEdit = async (id: number, field: keyof StudentItem, value: any) => {
         // Transform "NULL" to null
         let transformedValue = value === "NULL" ? null : value;
 
@@ -280,11 +289,35 @@ export default function StudentsSpreadsheetPage() {
             transformedValue = transformedValue.toUpperCase();
         }
 
+        // Apply NIC formatting
+        if (field === 'father_cnic' || field === 'mother_cnic') {
+            transformedValue = formatNIC(transformedValue || "");
+        }
+
         // Optimistic update
         setStudents(prev => prev.map(s => s.cc === id ? { ...s, [field]: transformedValue } : s));
 
         // Trigger debounced patch
         debouncedPatch(id, field, transformedValue);
+
+        // Autofill Name by NIC lookup
+        if ((field === 'father_cnic' || field === 'mother_cnic') && transformedValue?.length === 15) {
+            try {
+                const { data } = await api.get(`/v1/staff-editing/guardians/by-nic/${transformedValue}`);
+                if (data?.data?.full_name) {
+                    const nameField = field === 'father_cnic' ? 'father_name' : 'mother_name';
+                    const nameValue = data.data.full_name.toUpperCase();
+
+                    // Update frontend state
+                    setStudents(prev => prev.map(s => s.cc === id ? { ...s, [nameField]: nameValue } : s));
+
+                    // Trigger patch for the name field as well
+                    debouncedPatch(id, nameField, nameValue);
+                }
+            } catch (err) {
+                console.error("Error fetching guardian by NIC:", err);
+            }
+        }
     };
 
     const handleSearch = (e: React.FormEvent) => {
@@ -467,10 +500,10 @@ export default function StudentsSpreadsheetPage() {
                                         { key: 'cc', label: 'CC', resizable: true, sticky: true, left: columnWidths.status },
                                         { key: 'full_name', label: 'Full Name', resizable: true, sticky: true, left: columnWidths.status + columnWidths.cc },
                                         { key: 'gr_number', label: 'GR Number', resizable: true },
-                                        { key: 'father_name', label: 'Father Name', resizable: true },
                                         { key: 'father_cnic', label: 'Father CNIC', resizable: true },
-                                        { key: 'mother_name', label: 'Mother Name', resizable: true },
+                                        { key: 'father_name', label: 'Father Name', resizable: true },
                                         { key: 'mother_cnic', label: 'Mother CNIC', resizable: true },
+                                        { key: 'mother_name', label: 'Mother Name', resizable: true },
                                         { key: 'status_field', label: 'Status', resizable: true },
                                         { key: 'gender', label: 'Gender', resizable: true },
                                         { key: 'nationality', label: 'Nationality', resizable: true },
@@ -554,16 +587,6 @@ export default function StudentsSpreadsheetPage() {
                                                 placeholder="N/A"
                                             />
                                         </td>
-                                        {/* Father Name */}
-                                        <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="text"
-                                                value={student.father_name || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "father_name", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
-                                                placeholder="N/A"
-                                            />
-                                        </td>
                                         {/* Father CNIC */}
                                         <td className="p-1 border-r border-zinc-100">
                                             <input
@@ -574,12 +597,12 @@ export default function StudentsSpreadsheetPage() {
                                                 placeholder="N/A"
                                             />
                                         </td>
-                                        {/* Mother Name */}
+                                        {/* Father Name */}
                                         <td className="p-1 border-r border-zinc-100">
                                             <input
                                                 type="text"
-                                                value={student.mother_name || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "mother_name", e.target.value)}
+                                                value={student.father_name || ""}
+                                                onChange={(e) => handleCellEdit(student.cc, "father_name", e.target.value)}
                                                 className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
                                                 placeholder="N/A"
                                             />
@@ -591,6 +614,16 @@ export default function StudentsSpreadsheetPage() {
                                                 value={student.mother_cnic || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "mother_cnic", e.target.value)}
                                                 className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all text-zinc-600 truncate"
+                                                placeholder="N/A"
+                                            />
+                                        </td>
+                                        {/* Mother Name */}
+                                        <td className="p-1 border-r border-zinc-100">
+                                            <input
+                                                type="text"
+                                                value={student.mother_name || ""}
+                                                onChange={(e) => handleCellEdit(student.cc, "mother_name", e.target.value)}
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
                                                 placeholder="N/A"
                                             />
                                         </td>
