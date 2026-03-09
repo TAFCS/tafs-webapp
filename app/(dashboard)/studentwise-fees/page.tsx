@@ -452,7 +452,7 @@ function StudentwiseFeeEditor() {
             </div>
 
             {/* Config Bar / Search Bar */}
-            <div className="bg-white border border-zinc-200 rounded-[32px] shadow-sm p-6 overflow-hidden">
+            <div className="bg-white border border-zinc-200 rounded-[32px] shadow-sm p-6">
                 {activeTab === "search" ? (
                     <div className="flex flex-col xl:flex-row xl:items-end gap-6 animate-in slide-in-from-left-4 duration-300">
                         <div className="flex-1 relative" ref={searchDropdownRef}>
