@@ -1,6 +1,6 @@
 'use client';
 
-import { X, UserCheck, Shield, LifeBuoy, LogOut, Users } from "lucide-react";
+import { X, UserCheck, Shield, LifeBuoy, LogOut, Users, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -81,6 +81,11 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                     <Link href="/staff-editing/students" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
                         <Users className="h-5 w-5 mr-3 text-primary" />
                         <span className="font-medium text-sm">Student Spreadsheet</span>
+                    </Link>
+
+                    <Link href="/fee-challan" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
+                        <CreditCard className="h-5 w-5 mr-3 text-primary" />
+                        <span className="font-medium text-sm">Fee Challan Generator</span>
                     </Link>
 
                     <div className="mt-auto pt-4 border-t border-zinc-100">

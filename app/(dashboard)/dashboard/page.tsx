@@ -9,6 +9,7 @@ import {
     Users,
     ClipboardList,
     UserSearch,
+    CreditCard,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -99,6 +100,18 @@ export default function DashboardPage() {
                             <div>
                                 <h2 className="text-xl font-semibold text-zinc-900 group-hover:text-primary transition-colors">Studentwise Fee</h2>
                                 <p className="text-sm text-zinc-500 mt-1">Individual student fee overrides</p>
+                            </div>
+                        </div>
+                    </Link>
+
+                    <Link href="/fee-challan" className="group">
+                        <div className="bg-white border border-zinc-200 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex flex-col items-center justify-center text-center h-full gap-4">
+                            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                                <CreditCard className="h-8 w-8 text-primary" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-semibold text-zinc-900 group-hover:text-primary transition-colors">Fee Challan</h2>
+                                <p className="text-sm text-zinc-500 mt-1">Generate student fee vouchers</p>
                             </div>
                         </div>
                     </Link>
