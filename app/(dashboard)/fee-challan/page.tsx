@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
 
 // --- Types ---
 interface StudentProfile {
@@ -37,11 +39,30 @@ const MONTHS = [
 ];
 
 const BANKS = [
-    "Meezan Bank Limited",
-    "Habib Bank Limited (HBL)",
-    "Bank Al-Falah",
-    "United Bank Limited (UBL)",
-    "Faysal Bank"
+    {
+        name: "Meezan Bank Limited",
+        title: "TAFS SCHOOL SYSTEM",
+        account: "1234-567890-001",
+        branch: "0102",
+        address: "DHA Phase 6 Branch, Karachi",
+        iban: "PK00 MEZN 0000 1234 5678 9001"
+    },
+    {
+        name: "Habib Bank Limited (HBL)",
+        title: "TAFSYNC PRIVATE LIMITED",
+        account: "0042-345678-002",
+        branch: "0042",
+        address: "Main Boulevard, Lahore",
+        iban: "PK72 HABB 0000 0042 3456 7802"
+    },
+    {
+        name: "Bank Al-Falah",
+        title: "THE ACADEMY OF FUTURE STUDIES",
+        account: "5500-112233-005",
+        branch: "5500",
+        address: "I.I. Chundrigar Road, Karachi",
+        iban: "PK11 ALFH 0000 5500 1122 3305"
+    }
 ];
 
 export default function FeeChallanGenerator() {
@@ -56,9 +77,22 @@ export default function FeeChallanGenerator() {
     const [dueDate, setDueDate] = useState("");
     const [validityDate, setValidityDate] = useState("");
     const [selectedBank, setSelectedBank] = useState(BANKS[0]);
+
+    // Bank Detail States (Pre-filled from selectedBank)
+    const [accTitle, setAccTitle] = useState(BANKS[0].title);
+    const [accNo, setAccNo] = useState(BANKS[0].account);
+    const [branchCode, setBranchCode] = useState(BANKS[0].branch);
+    const [bankAddress, setBankAddress] = useState(BANKS[0].address);
+    const [iban, setIban] = useState(BANKS[0].iban);
+
     const [applyLateFee, setApplyLateFee] = useState(false);
 
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
     // Default dates logic
     useEffect(() => {
@@ -265,14 +299,73 @@ export default function FeeChallanGenerator() {
                                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Collection Bank</label>
                                 <div className="relative">
                                     <select
-                                        value={selectedBank}
-                                        onChange={(e) => setSelectedBank(e.target.value)}
+                                        value={selectedBank.name}
+                                        onChange={(e) => {
+                                            const b = BANKS.find(x => x.name === e.target.value);
+                                            if (b) {
+                                                setSelectedBank(b);
+                                                setAccTitle(b.title);
+                                                setAccNo(b.account);
+                                                setBranchCode(b.branch);
+                                                setBankAddress(b.address);
+                                                setIban(b.iban);
+                                            }
+                                        }}
                                         className="w-full h-12 pl-12 pr-12 bg-zinc-50 border border-zinc-200 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all appearance-none cursor-pointer"
                                     >
-                                        {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+                                        {BANKS.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
                                     </select>
                                     <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                                     <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                                </div>
+                            </div>
+
+                            {/* Bank Account Details (Automatic but editable) */}
+                            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-zinc-50 rounded-[24px] border border-zinc-100">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Account Title</label>
+                                    <input
+                                        type="text"
+                                        value={accTitle}
+                                        onChange={(e) => setAccTitle(e.target.value)}
+                                        className="w-full h-10 px-4 bg-white border border-zinc-200 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Account No.</label>
+                                    <input
+                                        type="text"
+                                        value={accNo}
+                                        onChange={(e) => setAccNo(e.target.value)}
+                                        className="w-full h-10 px-4 bg-white border border-zinc-200 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Branch Code</label>
+                                    <input
+                                        type="text"
+                                        value={branchCode}
+                                        onChange={(e) => setBranchCode(e.target.value)}
+                                        className="w-full h-10 px-4 bg-white border border-zinc-200 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all"
+                                    />
+                                </div>
+                                <div className="md:col-span-2 space-y-2">
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Bank Address</label>
+                                    <input
+                                        type="text"
+                                        value={bankAddress}
+                                        onChange={(e) => setBankAddress(e.target.value)}
+                                        className="w-full h-10 px-4 bg-white border border-zinc-200 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">IBAN</label>
+                                    <input
+                                        type="text"
+                                        value={iban}
+                                        onChange={(e) => setIban(e.target.value)}
+                                        className="w-full h-10 px-4 bg-white border border-zinc-200 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all text-primary"
+                                    />
                                 </div>
                             </div>
 
@@ -347,15 +440,55 @@ export default function FeeChallanGenerator() {
                                 </div>
                             </div>
 
-                            <button
-                                onClick={handleGenerate}
-                                disabled={isGenerating || !student}
-                                className="w-full md:w-auto h-14 px-12 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:bg-zinc-800 transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-30 disabled:grayscale group shadow-xl shadow-zinc-200"
-                            >
-                                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4 group-hover:scale-110 transition-transform" />}
-                                Generate & Print
-                                <ArrowRight className="h-4 w-4 opacity-30 group-hover:translate-x-1 transition-transform" />
-                            </button>
+                            {isClient && student ? (
+                                <PDFDownloadLink
+                                    document={
+                                        <FeeChallanPDF
+                                            student={{
+                                                cc: student.cc,
+                                                student_full_name: student.student_full_name,
+                                                gr_number: student.gr_number,
+                                                campus: student.campus,
+                                                grade_and_section: student.grade_and_section
+                                            }}
+                                            details={{
+                                                month,
+                                                issueDate,
+                                                dueDate,
+                                                validityDate,
+                                                applyLateFee,
+                                                bank: {
+                                                    name: selectedBank.name,
+                                                    title: accTitle,
+                                                    account: accNo,
+                                                    branch: branchCode,
+                                                    address: bankAddress,
+                                                    iban: iban
+                                                }
+                                            }}
+                                        />
+                                    }
+                                    fileName={`Challan_${student.cc}_${month}.pdf`}
+                                    className="w-full md:w-auto h-14 px-12 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:bg-zinc-800 transition-all flex items-center justify-center gap-3 active:scale-[0.98] shadow-xl shadow-zinc-200 group"
+                                >
+                                    {({ loading }) => (
+                                        <>
+                                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4 group-hover:scale-110 transition-transform" />}
+                                            {loading ? "Preparing..." : "Generate & Print"}
+                                            <ArrowRight className="h-4 w-4 opacity-30 group-hover:translate-x-1 transition-transform" />
+                                        </>
+                                    )}
+                                </PDFDownloadLink>
+                            ) : (
+                                <button
+                                    disabled
+                                    className="w-full md:w-auto h-14 px-12 bg-zinc-300 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3 cursor-not-allowed grayscale"
+                                >
+                                    <Printer className="h-4 w-4" />
+                                    Generate & Print
+                                    <ArrowRight className="h-4 w-4 opacity-30" />
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
