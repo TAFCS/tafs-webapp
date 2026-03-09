@@ -94,10 +94,11 @@ function StudentwiseFeeEditor() {
     const [selectedSectionId, setSelectedSectionId] = useState<number | "">("");
     const [activeTab, setActiveTab] = useState<"template" | "search">("template");
 
-    // Search Mode States
-    const [searchGR, setSearchGR] = useState("");
-    const [searchCC, setSearchCC] = useState("");
     const [isSearching, setIsSearching] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<{ cc: number; full_name: string; gr_number: string }[]>([]);
+    const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+    const searchDropdownRef = useRef<HTMLDivElement>(null);
 
     const [classSearch, setClassSearch] = useState("");
     const [showClassDropdown, setShowClassDropdown] = useState(false);
@@ -145,10 +146,32 @@ function StudentwiseFeeEditor() {
             if (classDropdownRef.current && !classDropdownRef.current.contains(e.target as Node)) setShowClassDropdown(false);
             if (campusDropdownRef.current && !campusDropdownRef.current.contains(e.target as Node)) setShowCampusDropdown(false);
             if (sectionDropdownRef.current && !sectionDropdownRef.current.contains(e.target as Node)) setShowSectionDropdown(false);
+            if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) setShowSearchDropdown(false);
         };
         document.addEventListener("mousedown", h);
         return () => document.removeEventListener("mousedown", h);
     }, []);
+
+    // Search effect
+    useEffect(() => {
+        if (!searchQuery.trim()) {
+            setSearchResults([]);
+            setShowSearchDropdown(false);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            try {
+                const { data } = await api.get(`/v1/students/search-simple?q=${searchQuery}`);
+                setSearchResults(data?.data || []);
+                setShowSearchDropdown(true);
+            } catch (err) {
+                console.error("Search failed:", err);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     const fetchFeeSchedule = useCallback(async (classId: number, campusId?: number | "", ccNumber?: string) => {
         setIsLoading(true); setLoadError(null); setRows([]); setActiveCell(null);
@@ -218,34 +241,25 @@ function StudentwiseFeeEditor() {
         }
     }, [selectedClassId, selectedCampusId, studentId, fetchFeeSchedule]);
 
-    const handleSearchStudent = async () => {
-        if (!searchCC && !searchGR) {
-            toast.error("Enter CC or GR Number to search.");
-            return;
-        }
+    const handleSelectStudent = async (student: { cc: number; full_name: string; gr_number: string }) => {
         setIsSearching(true);
         try {
-            let student = null;
-            if (searchCC) {
-                const id = parseInt(searchCC.match(/\d+$/)?.[0] || searchCC);
-                const { data } = await api.get(`/v1/students/${id}`);
-                student = data?.data;
-            } else if (searchGR) {
-                const { data } = await api.get("/v1/students", { params: { search: searchGR, limit: 1 } });
-                student = data?.data?.items?.[0];
-            }
+            const { data } = await api.get(`/v1/students/${student.cc}`);
+            const fullStudent = data?.data;
 
-            if (student) {
-                if (student.campus_id) setSelectedCampusId(student.campus_id);
-                if (student.class_id) setSelectedClassId(student.class_id);
-                if (student.section_id) setSelectedSectionId(student.section_id);
-                setStudentId(searchCC || `CC-${student.cc_number || student.cc}`);
-                toast.success(`Loaded profile for ${student.student_full_name || student.full_name}`);
+            if (fullStudent) {
+                if (fullStudent.campus_id) setSelectedCampusId(fullStudent.campus_id);
+                if (fullStudent.class_id) setSelectedClassId(fullStudent.class_id);
+                if (fullStudent.section_id) setSelectedSectionId(fullStudent.section_id);
+                setStudentId(`CC-${fullStudent.cc_number || fullStudent.cc}`);
+                setSearchQuery("");
+                setShowSearchDropdown(false);
+                toast.success(`Loaded profile for ${fullStudent.student_full_name || fullStudent.full_name}`);
             } else {
                 toast.error("Student not found.");
             }
         } catch (e) {
-            toast.error("Search failed.");
+            toast.error("Failed to load student details.");
         } finally {
             setIsSearching(false);
         }
@@ -441,67 +455,60 @@ function StudentwiseFeeEditor() {
             <div className="bg-white border border-zinc-200 rounded-[32px] shadow-sm p-6 overflow-hidden">
                 {activeTab === "search" ? (
                     <div className="flex flex-col xl:flex-row xl:items-end gap-6 animate-in slide-in-from-left-4 duration-300">
-                        {/* Campus Select (Same as template but for filtering search if needed) */}
-                        <div className="w-full xl:w-64">
-                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] block mb-2 ml-1">Location Context</label>
-                            <div className="relative" ref={campusDropdownRef}>
-                                <button type="button" onClick={() => setShowCampusDropdown(!showCampusDropdown)}
-                                    className="w-full h-12 flex items-center justify-between px-5 bg-zinc-50 border border-zinc-200 rounded-2xl text-[13px] transition-all hover:bg-white hover:border-primary/40 focus:ring-4 focus:ring-primary/5 shadow-sm"
-                                >
-                                    <span className={selectedCampus ? "text-zinc-900 font-bold" : "text-zinc-400"}>
-                                        {selectedCampus ? selectedCampus.campus_name : "Select Campus..."}
-                                    </span>
-                                    <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${showCampusDropdown ? "rotate-180" : ""}`} />
-                                </button>
-                                {showCampusDropdown && (
-                                    <div className="absolute z-50 top-full mt-2 w-full bg-white border border-zinc-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                        <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
-                                            <div className="relative">
-                                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                                                <input autoFocus type="text" placeholder="Filter campuses..." value={campusSearch} onChange={(e) => setCampusSearch(e.target.value)}
-                                                    className="w-full pl-10 pr-4 h-10 text-[13px] bg-white border border-zinc-200 rounded-xl focus:outline-none focus:border-primary"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="max-h-64 overflow-y-auto p-1.5">
-                                            {campusesLoading ? <div className="p-4 text-xs text-zinc-400 text-center flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Syncing...</div>
-                                                : filteredCampuses.map((c) => (
-                                                    <button key={c.id} type="button" onClick={() => { setSelectedCampusId(c.id); setShowCampusDropdown(false); }}
-                                                        className={`w-full flex items-center px-4 h-11 text-[13px] rounded-xl transition-all ${selectedCampusId === c.id ? "bg-primary text-white font-bold" : "hover:bg-zinc-100 text-zinc-700"}`}
-                                                    >
-                                                        {c.campus_name}
-                                                    </button>
-                                                ))}
-                                        </div>
+                        <div className="flex-1 relative" ref={searchDropdownRef}>
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] block mb-2 ml-1">Search Student (CC, GR, or Name)</label>
+                            <div className="relative">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Start typing to search..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    autoFocus
+                                    className="w-full h-12 pl-12 pr-5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 font-medium transition-all shadow-sm"
+                                />
+                                {isSearching && (
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
                                     </div>
                                 )}
                             </div>
+
+                            {showSearchDropdown && searchResults.length > 0 && (
+                                <div className="absolute z-50 top-full mt-2 w-full bg-white border border-zinc-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="max-h-80 overflow-y-auto p-2">
+                                        {searchResults.map((s) => (
+                                            <button
+                                                key={s.cc}
+                                                type="button"
+                                                onClick={() => handleSelectStudent(s)}
+                                                className="w-full flex items-center justify-between px-4 h-14 rounded-xl hover:bg-zinc-50 transition-all border border-transparent hover:border-zinc-100 group"
+                                            >
+                                                <div className="flex flex-col items-start">
+                                                    <span className="text-sm font-bold text-zinc-900 group-hover:text-primary transition-colors">{s.full_name}</span>
+                                                    <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">GR: {s.gr_number || "N/A"}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[11px] font-black bg-zinc-100 text-zinc-600 px-3 py-1 rounded-full group-hover:bg-primary group-hover:text-white transition-all">CC-{s.cc}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {showSearchDropdown && searchResults.length === 0 && searchQuery.length > 2 && (
+                                <div className="absolute z-50 top-full mt-2 w-full bg-white border border-zinc-200 rounded-2xl shadow-xl p-8 text-center animate-in fade-in zoom-in-95 duration-200">
+                                    <UserSearch className="h-8 w-8 text-zinc-200 mx-auto mb-3" />
+                                    <p className="text-sm font-bold text-zinc-900">No students found</p>
+                                    <p className="text-xs text-zinc-400 mt-1">Try a different CC, GR, or Name</p>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="w-full xl:w-48">
-                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] block mb-2 ml-1">GR Number</label>
-                            <input type="text" placeholder="GR-XXXX" value={searchGR} onChange={(e) => setSearchGR(e.target.value.toUpperCase())}
-                                className="w-full h-12 px-5 bg-zinc-50 border border-zinc-200 rounded-2xl text-[13px] focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 font-bold transition-all shadow-sm"
-                            />
-                        </div>
-
-                        <div className="w-full xl:w-64">
-                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] block mb-2 ml-1">CC ID Number</label>
-                            <input type="text" placeholder="CC-2026-XXXXX" value={searchCC} onChange={(e) => setSearchCC(e.target.value.toUpperCase())}
-                                className="w-full h-12 px-5 bg-zinc-50 border border-zinc-200 rounded-2xl text-[13px] focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 font-bold transition-all shadow-sm"
-                            />
-                        </div>
-
-                        <button onClick={handleSearchStudent} disabled={isSearching}
-                            className="h-12 px-8 bg-zinc-900 text-white text-[13px] font-black uppercase tracking-widest rounded-2xl hover:bg-zinc-800 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 shadow-lg shadow-zinc-200"
-                        >
-                            {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                            Find Student
-                        </button>
-
-                        <div className="ml-auto flex items-center gap-3 h-12 px-5 bg-zinc-50 border border-zinc-200 rounded-2xl border-dashed border-2">
+                        <div className="flex items-center gap-3 h-12 px-5 bg-zinc-50 border border-zinc-200 rounded-2xl border-dashed border-2">
                             <div className={`h-2 w-2 rounded-full ${studentId ? "bg-emerald-500" : "bg-zinc-300"}`} />
-                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Active: {studentId || "NONE"}</span>
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Active Selector: {studentId || "NONE"}</span>
                         </div>
                     </div>
                 ) : (
