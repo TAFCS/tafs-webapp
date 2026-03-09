@@ -25,6 +25,7 @@ export interface Campus {
     id: number;
     campus_code: string;
     campus_name: string;
+    address?: string;
     offered_classes?: OfferedClass[];
 }
 

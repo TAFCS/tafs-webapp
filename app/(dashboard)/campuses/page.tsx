@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Building2, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ChevronDown, ChevronRight, GraduationCap, ToggleLeft, ToggleRight, LayoutGrid } from "lucide-react";
+import { Building2, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ChevronDown, ChevronRight, GraduationCap, ToggleLeft, ToggleRight, LayoutGrid, MapPin } from "lucide-react";
 import { campusesService, Campus, CampusClassInfo, SectionInfo } from "@/lib/campuses.service";
 
 export default function CampusesPage() {
@@ -23,7 +23,7 @@ export default function CampusesPage() {
     // State for Add Modal
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
-    const [newCampus, setNewCampus] = useState({ campus_code: "", campus_name: "" });
+    const [newCampus, setNewCampus] = useState({ campus_code: "", campus_name: "", address: "" });
 
     // State for Delete Confirmation
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -77,13 +77,17 @@ export default function CampusesPage() {
         // Filter campuses that are completely new (no ID) or have modified basic fields
         const itemsToSave = campuses.map(updated => {
             const original = originalCampuses.find(o => o.id === updated.id);
-            const isModified = !original || original.campus_code !== updated.campus_code || original.campus_name !== updated.campus_name;
+            const isModified = !original ||
+                original.campus_code !== updated.campus_code ||
+                original.campus_name !== updated.campus_name ||
+                original.address !== updated.address;
 
             if (isModified) {
                 return {
                     id: updated.id > 0 ? updated.id : undefined,
                     campus_code: updated.campus_code,
-                    campus_name: updated.campus_name
+                    campus_name: updated.campus_name,
+                    address: updated.address
                 };
             }
             return null;
@@ -116,7 +120,7 @@ export default function CampusesPage() {
             await campusesService.create(newCampus);
             setSuccessMessage("Campus added successfully.");
             setIsAddModalOpen(false);
-            setNewCampus({ campus_code: "", campus_name: "" });
+            setNewCampus({ campus_code: "", campus_name: "", address: "" });
             fetchCampuses();
         } catch (err: any) {
             const errMsg = err.response?.data?.message || "Failed to add campus.";
@@ -208,8 +212,8 @@ export default function CampusesPage() {
         }
     };
 
-    const hasChanges = JSON.stringify(campuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name }))) !==
-        JSON.stringify(originalCampuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name })));
+    const hasChanges = JSON.stringify(campuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name, address: c.address }))) !==
+        JSON.stringify(originalCampuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name, address: c.address })));
 
     const activeCampus = campuses.find(c => c.id === configCampusId);
 
@@ -323,6 +327,16 @@ export default function CampusesPage() {
                                         className="w-full text-xl font-bold text-zinc-900 bg-transparent border-none p-0 focus:ring-0 block"
                                         placeholder="Campus Name"
                                     />
+                                    <div className="flex items-start gap-2 pt-1">
+                                        <MapPin className="h-3.5 w-3.5 text-zinc-400 mt-1 flex-shrink-0" />
+                                        <textarea
+                                            value={item.address || ""}
+                                            onChange={(e) => handleChange(item.id, 'address', e.target.value)}
+                                            className="w-full text-xs text-zinc-500 bg-transparent border-none p-0 focus:ring-0 resize-none min-h-[40px]"
+                                            placeholder="Add address..."
+                                            rows={2}
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="mt-6 flex items-center gap-4 text-xs font-medium text-zinc-500">
@@ -364,7 +378,10 @@ export default function CampusesPage() {
                         <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
                             <div>
                                 <h2 className="text-xl font-bold text-zinc-900">{activeCampus.campus_name}</h2>
-                                <p className="text-xs text-zinc-500 mt-0.5 font-mono uppercase tracking-widest">Campus Configuration</p>
+                                <p className="text-xs text-zinc-500 mt-0.5 font-mono uppercase tracking-widest flex items-center gap-1.5">
+                                    <MapPin className="h-3 w-3" />
+                                    {activeCampus.address || "NO ADDRESS SET"}
+                                </p>
                             </div>
                             <button
                                 onClick={() => setConfigCampusId(null)}
@@ -549,6 +566,15 @@ export default function CampusesPage() {
                                             value={newCampus.campus_name}
                                             onChange={(e) => setNewCampus({ ...newCampus, campus_name: e.target.value })}
                                             className="w-full h-12 px-4 bg-white border border-zinc-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Address</label>
+                                        <textarea
+                                            value={newCampus.address}
+                                            onChange={(e) => setNewCampus({ ...newCampus, address: e.target.value })}
+                                            className="w-full h-24 p-4 bg-white border border-zinc-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary resize-none"
+                                            placeholder="Enter full campus address..."
                                         />
                                     </div>
                                 </div>
