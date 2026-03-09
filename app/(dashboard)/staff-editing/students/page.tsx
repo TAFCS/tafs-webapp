@@ -43,7 +43,9 @@ interface StudentItem {
     religion: string | null;
     status: string;
     whatsapp_number: string | null;
+    whatsapp_country_code: string | null;
     primary_phone: string | null;
+    primary_phone_country_code: string | null;
     email: string | null;
     campus_id: number;
     campus_name: string;
@@ -621,20 +623,40 @@ export default function StudentsSpreadsheetPage() {
                                             />
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="text"
-                                                value={student.primary_phone || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "primary_phone", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                            />
+                                            <div className="flex border border-zinc-200 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
+                                                <input
+                                                    type="text"
+                                                    value={student.primary_phone_country_code || ""}
+                                                    onChange={(e) => handleCellEdit(student.cc, "primary_phone_country_code", e.target.value)}
+                                                    placeholder="+92"
+                                                    className="w-12 flex-shrink-0 px-1.5 py-1.5 bg-zinc-50 border-0 text-zinc-500 text-xs outline-none truncate"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={student.primary_phone || ""}
+                                                    onChange={(e) => handleCellEdit(student.cc, "primary_phone", e.target.value)}
+                                                    className="flex-1 min-w-0 px-2 py-1.5 bg-transparent border-0 outline-none focus:bg-white transition-all truncate"
+                                                    placeholder="Phone"
+                                                />
+                                            </div>
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="text"
-                                                value={student.whatsapp_number || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "whatsapp_number", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                            />
+                                            <div className="flex border border-zinc-200 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
+                                                <input
+                                                    type="text"
+                                                    value={student.whatsapp_country_code || ""}
+                                                    onChange={(e) => handleCellEdit(student.cc, "whatsapp_country_code", e.target.value)}
+                                                    placeholder="+92"
+                                                    className="w-12 flex-shrink-0 px-1.5 py-1.5 bg-zinc-50 border-0 text-zinc-500 text-xs outline-none truncate"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={student.whatsapp_number || ""}
+                                                    onChange={(e) => handleCellEdit(student.cc, "whatsapp_number", e.target.value)}
+                                                    className="flex-1 min-w-0 px-2 py-1.5 bg-transparent border-0 outline-none focus:bg-white transition-all truncate"
+                                                    placeholder="WhatsApp"
+                                                />
+                                            </div>
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
                                             {(!COUNTRY_OPTIONS.includes(student.country || "NULL") && student.country !== null) ? (
