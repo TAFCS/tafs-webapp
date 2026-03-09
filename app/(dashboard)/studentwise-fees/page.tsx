@@ -7,6 +7,8 @@ import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { fetchClasses } from "@/store/slices/classesSlice";
 import { fetchFeeTypes } from "@/store/slices/feeTypesSlice";
+import { fetchCampuses } from "@/store/slices/campusesSlice";
+import { fetchSections } from "@/store/slices/sectionsSlice";
 import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -82,11 +84,27 @@ function StudentwiseFeeEditor() {
     const classesLoading = useAppSelector((s) => s.classes.isLoading);
     const feeTypes = useAppSelector((s) => s.feeTypes.items);
     const feeTypesLoading = useAppSelector((s) => s.feeTypes.isLoading);
+    const campuses = useAppSelector((s) => s.campuses.items);
+    const campusesLoading = useAppSelector((s) => s.campuses.isLoading);
+    const sections = useAppSelector((s) => s.sections.items);
+    const sectionsLoading = useAppSelector((s) => s.sections.isLoading);
 
+    const [selectedCampusId, setSelectedCampusId] = useState<number | "">("");
     const [selectedClassId, setSelectedClassId] = useState<number | "">("");
+    const [selectedSectionId, setSelectedSectionId] = useState<number | "">("");
+
     const [classSearch, setClassSearch] = useState("");
     const [showClassDropdown, setShowClassDropdown] = useState(false);
     const classDropdownRef = useRef<HTMLDivElement>(null);
+
+    const [campusSearch, setCampusSearch] = useState("");
+    const [showCampusDropdown, setShowCampusDropdown] = useState(false);
+    const campusDropdownRef = useRef<HTMLDivElement>(null);
+
+    const [sectionSearch, setSectionSearch] = useState("");
+    const [showSectionDropdown, setShowSectionDropdown] = useState(false);
+    const sectionDropdownRef = useRef<HTMLDivElement>(null);
+
     const [studentId, setStudentId] = useState("");
 
     const [rows, setRows] = useState<SpreadsheetRow[]>([]);
@@ -102,7 +120,9 @@ function StudentwiseFeeEditor() {
     useEffect(() => {
         if (classes.length === 0) dispatch(fetchClasses());
         if (feeTypes.length === 0) dispatch(fetchFeeTypes());
-    }, [classes.length, feeTypes.length, dispatch]);
+        if (campuses.length === 0) dispatch(fetchCampuses());
+        if (sections.length === 0) dispatch(fetchSections());
+    }, [classes.length, feeTypes.length, campuses.length, sections.length, dispatch]);
 
     // Read params from URL
     useEffect(() => {
@@ -116,18 +136,22 @@ function StudentwiseFeeEditor() {
 
     useEffect(() => {
         const h = (e: MouseEvent) => {
-            if (classDropdownRef.current && !classDropdownRef.current.contains(e.target as Node))
-                setShowClassDropdown(false);
+            if (classDropdownRef.current && !classDropdownRef.current.contains(e.target as Node)) setShowClassDropdown(false);
+            if (campusDropdownRef.current && !campusDropdownRef.current.contains(e.target as Node)) setShowCampusDropdown(false);
+            if (sectionDropdownRef.current && !sectionDropdownRef.current.contains(e.target as Node)) setShowSectionDropdown(false);
         };
         document.addEventListener("mousedown", h);
         return () => document.removeEventListener("mousedown", h);
     }, []);
 
-    const fetchFeeSchedule = useCallback(async (classId: number, ccNumber?: string) => {
+    const fetchFeeSchedule = useCallback(async (classId: number, campusId?: number | "") => {
         setIsLoading(true); setLoadError(null); setRows([]); setActiveCell(null);
         try {
             // 1. Fetch Class Schedule
-            const { data } = await api.get("/v1/class-fee-schedule/by-class", { params: { class_id: classId } });
+            const params: any = { class_id: classId };
+            if (campusId) params.campus_id = campusId;
+
+            const { data } = await api.get("/v1/class-fee-schedule/by-class", { params });
             const feeRows: ClassFeeRow[] = Array.isArray(data?.data) ? data.data : [];
 
             // Build designated amount lookup
@@ -140,6 +164,7 @@ function StudentwiseFeeEditor() {
                 return order(a) - order(b);
             });
 
+            // 2. Expand rows (removing override logic for now as requested)
             const expanded = sorted.flatMap((fee) => {
                 const months = sortMonths(fee.fee_types.breakup ?? []);
                 return months.map((month, idx) => ({
@@ -153,33 +178,19 @@ function StudentwiseFeeEditor() {
                 }));
             });
 
-            // 2. Fetch Student-specific overrides if CC provided
-            let finalRows = expanded;
-            if (ccNumber) {
-                try {
-                    const studentRes = await api.get(`/v1/student-fees/by-student/${ccNumber}`);
-                    const studentFees = studentRes.data?.data || [];
-
-                    // Merge student overrides into the expanded rows
-                    finalRows = expanded.map(row => {
-                        const monthNum = MONTH_TO_NUM[row.month];
-                        const override = studentFees.find((sf: any) => sf.fee_type_id === row.feeId && sf.month === monthNum);
-                        return override ? { ...row, amount: override.amount.toString() } : row;
-                    });
-                } catch (e) {
-                    console.error("No student overrides found or error fetching them.", e);
-                }
-            }
-
-            setRows(finalRows);
+            setRows(expanded);
         } catch (err: any) {
             setLoadError(err.response?.data?.message || "Failed to load fee schedule.");
         } finally { setIsLoading(false); }
     }, []);
 
     useEffect(() => {
-        if (selectedClassId !== "") fetchFeeSchedule(Number(selectedClassId), studentId);
-    }, [selectedClassId, fetchFeeSchedule]);
+        if (selectedClassId !== "") {
+            fetchFeeSchedule(Number(selectedClassId), selectedCampusId);
+        } else {
+            setRows([]);
+        }
+    }, [selectedClassId, selectedCampusId, fetchFeeSchedule]);
 
     // ── Keyboard navigation ───────────────────────────────────────────────
     const totalRows = rows.length;
@@ -248,13 +259,31 @@ function StudentwiseFeeEditor() {
                     due_date: `${year}-${mm}-01`,
                 };
             });
-            await api.post("/v1/fees/student", { cc_number: studentId.trim(), items });
 
-            const msg = `${items.length} records saved for student ${studentId.trim()}.`;
+            const numericMatch = studentId.match(/\d+$/);
+            const ccValue = numericMatch ? parseInt(numericMatch[0]) : 0;
+
+            // Prepare parallel API calls
+            const requests: Promise<any>[] = [
+                api.post("/v1/fees/student", { cc: ccValue, items })
+            ];
+
+            // If Campus/Class/Section are fully selected, also sync the Campus Config
+            if (selectedCampusId && selectedClassId && selectedSectionId) {
+                requests.push(
+                    api.put(`/v1/campuses/${selectedCampusId}/classes/${selectedClassId}/sections/${selectedSectionId}`, {
+                        is_active: true
+                    })
+                );
+            }
+
+            await Promise.all(requests);
+
+            const msg = `${items.length} records saved for student ${studentId.trim()}. Campus configuration synced.`;
             setSaveStatus({ type: "success", message: msg });
-            toast.success("Student fee schedule saved successfully!");
+            toast.success("Student records and campus configuration saved!");
         } catch (err: any) {
-            const msg = err.response?.data?.message || "Failed to save fees.";
+            const msg = err.response?.data?.message || "Failed to save data. Please verify all fields.";
             setSaveStatus({ type: "error", message: msg });
             toast.error(msg);
         } finally { setIsSaving(false); }
@@ -305,6 +334,17 @@ function StudentwiseFeeEditor() {
         c.class_code.toLowerCase().includes(classSearch.toLowerCase())
     );
 
+    const selectedCampus = campuses.find((c) => c.id === Number(selectedCampusId));
+    const filteredCampuses = campuses.filter((c) =>
+        c.campus_name.toLowerCase().includes(campusSearch.toLowerCase()) ||
+        c.campus_code.toLowerCase().includes(campusSearch.toLowerCase())
+    );
+
+    const selectedSection = sections.find((s) => s.id === Number(selectedSectionId));
+    const filteredSections = sections.filter((s) =>
+        s.description.toLowerCase().includes(sectionSearch.toLowerCase())
+    );
+
     const isCellActive = (r: number, c: number) => activeCell?.row === r && activeCell?.col === c;
 
     return (
@@ -323,9 +363,46 @@ function StudentwiseFeeEditor() {
             </div>
 
             {/* Config Bar */}
-            <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm p-5 flex flex-col lg:flex-row lg:items-end gap-5">
+            <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm p-5 flex flex-col xl:flex-row xl:items-end gap-5">
+                {/* Campus Select */}
+                <div className="w-full xl:w-64">
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Campus</label>
+                    <div className="relative" ref={campusDropdownRef}>
+                        <button type="button" onClick={() => setShowCampusDropdown(!showCampusDropdown)}
+                            className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm transition-all hover:bg-white hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
+                        >
+                            <span className={selectedCampus ? "text-zinc-800 font-semibold" : "text-zinc-400"}>
+                                {selectedCampus ? selectedCampus.campus_name : "Select Campus..."}
+                            </span>
+                            <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${showCampusDropdown ? "rotate-180" : ""}`} />
+                        </button>
+                        {showCampusDropdown && (
+                            <div className="absolute z-50 top-full mt-2 w-full bg-white border border-zinc-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
+                                    <div className="relative">
+                                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                                        <input autoFocus type="text" placeholder="Filter campuses..." value={campusSearch} onChange={(e) => setCampusSearch(e.target.value)}
+                                            className="w-full pl-10 pr-4 h-9 text-sm bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-primary"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="max-h-64 overflow-y-auto p-1">
+                                    {campusesLoading ? <div className="p-4 text-xs text-zinc-400 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto mb-1" />Loading...</div>
+                                        : filteredCampuses.map((c) => (
+                                            <button key={c.id} type="button" onClick={() => { setSelectedCampusId(c.id); setShowCampusDropdown(false); }}
+                                                className={`w-full flex items-center px-4 h-10 text-sm rounded-lg ${selectedCampusId === c.id ? "bg-primary text-white font-semibold" : "hover:bg-zinc-100"}`}
+                                            >
+                                                {c.campus_name}
+                                            </button>
+                                        ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 <div className="flex-1">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Schedule Template</label>
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Class / Grade</label>
                     <div className="relative" ref={classDropdownRef}>
                         <button type="button" onClick={() => setShowClassDropdown(!showClassDropdown)}
                             className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm transition-all hover:bg-white hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
@@ -365,16 +442,45 @@ function StudentwiseFeeEditor() {
                     </div>
                 </div>
 
-                <div className="w-full lg:w-64">
+                {/* Section Select */}
+                <div className="w-full xl:w-40">
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Section</label>
+                    <div className="relative" ref={sectionDropdownRef}>
+                        <button type="button" onClick={() => setShowSectionDropdown(!showSectionDropdown)}
+                            className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm transition-all hover:bg-white hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
+                        >
+                            <span className={selectedSection ? "text-zinc-800 font-semibold" : "text-zinc-400"}>
+                                {selectedSection ? selectedSection.description : "Section..."}
+                            </span>
+                            <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${showSectionDropdown ? "rotate-180" : ""}`} />
+                        </button>
+                        {showSectionDropdown && (
+                            <div className="absolute z-50 top-full mt-2 w-full bg-white border border-zinc-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="max-h-64 overflow-y-auto p-1">
+                                    {sectionsLoading ? <div className="p-4 text-xs text-zinc-400 text-center">Loading...</div>
+                                        : filteredSections.map((s) => (
+                                            <button key={s.id} type="button" onClick={() => { setSelectedSectionId(s.id); setShowSectionDropdown(false); }}
+                                                className={`w-full flex items-center px-4 h-10 text-sm rounded-lg ${selectedSectionId === s.id ? "bg-primary text-white font-semibold" : "hover:bg-zinc-100"}`}
+                                            >
+                                                {s.description}
+                                            </button>
+                                        ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="w-full xl:w-64 relative">
                     <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Student CC Number</label>
                     <input type="text" placeholder="e.g. CC-2026-00003" value={studentId} onChange={(e) => setStudentId(e.target.value.toUpperCase())}
-                        className="w-full h-11 px-5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-medium transition-all"
+                        className="w-full h-11 px-5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-bold transition-all"
                     />
                 </div>
 
                 <div className="flex gap-3">
                     {selectedClassId !== "" && (
-                        <button onClick={() => fetchFeeSchedule(Number(selectedClassId), studentId)} disabled={isLoading} title="Refresh/Reload"
+                        <button onClick={() => fetchFeeSchedule(Number(selectedClassId), selectedCampusId)} disabled={isLoading} title="Refresh/Reload"
                             className="inline-flex items-center gap-2 h-11 px-4 border border-zinc-200 bg-white text-sm font-medium text-zinc-700 rounded-xl hover:bg-zinc-50 transition-all shadow-sm disabled:opacity-50"
                         >
                             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} /> Refresh
