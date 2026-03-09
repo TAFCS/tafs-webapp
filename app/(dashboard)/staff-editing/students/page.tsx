@@ -558,9 +558,9 @@ export default function StudentsSpreadsheetPage() {
                                         <td className="p-1 border-r border-zinc-100">
                                             <input
                                                 type="text"
-                                                readOnly
                                                 value={student.father_name || ""}
-                                                className="w-full px-2 py-1.5 bg-transparent outline-none border-none rounded-md font-medium text-zinc-500 truncate cursor-not-allowed"
+                                                onChange={(e) => handleCellEdit(student.cc, "father_name", e.target.value)}
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
                                                 placeholder="N/A"
                                             />
                                         </td>
@@ -568,9 +568,9 @@ export default function StudentsSpreadsheetPage() {
                                         <td className="p-1 border-r border-zinc-100">
                                             <input
                                                 type="text"
-                                                readOnly
                                                 value={student.father_cnic || ""}
-                                                className="w-full px-2 py-1.5 bg-transparent outline-none border-none rounded-md text-zinc-500 truncate cursor-not-allowed"
+                                                onChange={(e) => handleCellEdit(student.cc, "father_cnic", e.target.value)}
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all text-zinc-600 truncate"
                                                 placeholder="N/A"
                                             />
                                         </td>
@@ -578,9 +578,9 @@ export default function StudentsSpreadsheetPage() {
                                         <td className="p-1 border-r border-zinc-100">
                                             <input
                                                 type="text"
-                                                readOnly
                                                 value={student.mother_name || ""}
-                                                className="w-full px-2 py-1.5 bg-transparent outline-none border-none rounded-md font-medium text-zinc-500 truncate cursor-not-allowed"
+                                                onChange={(e) => handleCellEdit(student.cc, "mother_name", e.target.value)}
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
                                                 placeholder="N/A"
                                             />
                                         </td>
@@ -588,9 +588,9 @@ export default function StudentsSpreadsheetPage() {
                                         <td className="p-1 border-r border-zinc-100">
                                             <input
                                                 type="text"
-                                                readOnly
                                                 value={student.mother_cnic || ""}
-                                                className="w-full px-2 py-1.5 bg-transparent outline-none border-none rounded-md text-zinc-500 truncate cursor-not-allowed"
+                                                onChange={(e) => handleCellEdit(student.cc, "mother_cnic", e.target.value)}
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all text-zinc-600 truncate"
                                                 placeholder="N/A"
                                             />
                                         </td>
