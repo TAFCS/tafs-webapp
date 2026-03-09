@@ -43,7 +43,7 @@ export function RegistrationForm() {
         previousSchools: [{ id: 1, name: "", location: "", levelStudied: "", reasonForLeaving: "" }],
         admissionSystem: "", admissionLevel: "",
         houseNo: "", areaBlock: "", city: "", postalCode: "", province: "", country: "", homePhone: "",
-        fatherCountryCode: "+92", motherCountryCode: "+92", emergencyCountryCode: "+92",
+        fatherPrimaryPhoneCountryCode: "+92", motherPrimaryPhoneCountryCode: "+92", emergencyPrimaryPhoneCountryCode: "+92",
         candidatePhone: "", candidateEmail: "", fatherPhone: "", fatherEmail: "", fatherFax: "",
         motherPhone: "", motherEmail: "", motherFax: "",
         emergencyContactName: "", emergencyRelationship: "",
@@ -134,7 +134,7 @@ export function RegistrationForm() {
             father: {
                 full_name: fatherFullName,
                 cnic: formData.fatherCnic || undefined,
-                country_code: formData.fatherCountryCode || "+92",
+                primary_phone_country_code: formData.fatherPrimaryPhoneCountryCode || "+92",
                 primary_phone: formData.fatherPhone || undefined,
                 email_address: formData.fatherEmail || undefined,
                 house_appt_name: formData.houseNo || undefined,
@@ -146,14 +146,14 @@ export function RegistrationForm() {
             mother: {
                 full_name: motherFullName,
                 cnic: formData.motherCnic || undefined,
-                country_code: formData.motherCountryCode || "+92",
+                primary_phone_country_code: formData.motherPrimaryPhoneCountryCode || "+92",
                 primary_phone: formData.motherPhone || undefined,
                 email_address: formData.motherEmail || undefined,
             },
             emergency_contact: formData.emergencyContactName
                 ? {
                     full_name: formData.emergencyContactName,
-                    country_code: formData.emergencyCountryCode || "+92",
+                    primary_phone_country_code: formData.emergencyPrimaryPhoneCountryCode || "+92",
                     primary_phone: formData.homePhone || '0000-0000000',
                     relationship: formData.emergencyRelationship || 'Guardian',
                 }
@@ -505,7 +505,7 @@ export function RegistrationForm() {
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 mb-1.5">Home Phone #</label>
                                         <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
-                                            <input type="text" name="emergencyCountryCode" value={formData.emergencyCountryCode} onChange={handleInputChange} placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" />
+                                            <input type="text" name="emergencyPrimaryPhoneCountryCode" value={formData.emergencyPrimaryPhoneCountryCode} onChange={handleInputChange} placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" />
                                             <input type="text" name="homePhone" value={formData.homePhone} onChange={handleInputChange} className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" />
                                         </div>
                                     </div>
@@ -537,7 +537,7 @@ export function RegistrationForm() {
                                                 <td className="px-4 py-3 font-medium text-zinc-700">Father</td>
                                                 <td className="px-2 py-2">
                                                     <div className="flex border border-zinc-200 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
-                                                        <input type="text" name="fatherCountryCode" value={formData.fatherCountryCode} onChange={handleInputChange} placeholder="+92" className="w-14 px-1.5 py-1.5 border-0 rounded-l text-sm outline-none bg-zinc-50" />
+                                                        <input type="text" name="fatherPrimaryPhoneCountryCode" value={formData.fatherPrimaryPhoneCountryCode} onChange={handleInputChange} placeholder="+92" className="w-14 px-1.5 py-1.5 border-0 rounded-l text-sm outline-none bg-zinc-50" />
                                                         <input type="text" name="fatherPhone" value={formData.fatherPhone} onChange={handleInputChange} className="flex-1 min-w-0 px-2 py-1.5 border-0 rounded-r text-sm outline-none" />
                                                     </div>
                                                 </td>
@@ -548,7 +548,7 @@ export function RegistrationForm() {
                                                 <td className="px-4 py-3 font-medium text-zinc-700">Mother</td>
                                                 <td className="px-2 py-2">
                                                     <div className="flex border border-zinc-200 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
-                                                        <input type="text" name="motherCountryCode" value={formData.motherCountryCode} onChange={handleInputChange} placeholder="+92" className="w-14 px-1.5 py-1.5 border-0 rounded-l text-sm outline-none bg-zinc-50" />
+                                                        <input type="text" name="motherPrimaryPhoneCountryCode" value={formData.motherPrimaryPhoneCountryCode} onChange={handleInputChange} placeholder="+92" className="w-14 px-1.5 py-1.5 border-0 rounded-l text-sm outline-none bg-zinc-50" />
                                                         <input type="text" name="motherPhone" value={formData.motherPhone} onChange={handleInputChange} className="flex-1 min-w-0 px-2 py-1.5 border-0 rounded-r text-sm outline-none" />
                                                     </div>
                                                 </td>
