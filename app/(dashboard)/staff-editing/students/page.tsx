@@ -70,6 +70,10 @@ interface StudentItem {
     requested_grade: string;
     academic_system: string;
     academic_year: string;
+    father_name: string | null;
+    father_cnic: string | null;
+    mother_name: string | null;
+    mother_cnic: string | null;
 }
 
 const STATUS_OPTIONS = [
@@ -132,6 +136,10 @@ export default function StudentsSpreadsheetPage() {
         cc: 80,
         full_name: 240,
         gr_number: 120,
+        father_name: 200,
+        father_cnic: 150,
+        mother_name: 200,
+        mother_cnic: 150,
         status_field: 160,
         gender: 120,
         nationality: 140,
@@ -452,13 +460,17 @@ export default function StudentsSpreadsheetPage() {
                         }}
                     >
                         <table className="w-full text-sm text-left border-separate border-spacing-0 table-fixed">
-                            <thead className="sticky top-0 z-10 bg-zinc-50">
+                            <thead className="sticky top-0 z-30 bg-zinc-50">
                                 <tr>
                                     {[
-                                        { key: 'status', label: 'St', resizable: true },
-                                        { key: 'cc', label: 'CC', resizable: true },
-                                        { key: 'full_name', label: 'Full Name', resizable: true },
+                                        { key: 'status', label: 'St', resizable: true, sticky: true, left: 0 },
+                                        { key: 'cc', label: 'CC', resizable: true, sticky: true, left: columnWidths.status },
+                                        { key: 'full_name', label: 'Full Name', resizable: true, sticky: true, left: columnWidths.status + columnWidths.cc },
                                         { key: 'gr_number', label: 'GR Number', resizable: true },
+                                        { key: 'father_name', label: 'Father Name', resizable: true },
+                                        { key: 'father_cnic', label: 'Father CNIC', resizable: true },
+                                        { key: 'mother_name', label: 'Mother Name', resizable: true },
+                                        { key: 'mother_cnic', label: 'Mother CNIC', resizable: true },
                                         { key: 'status_field', label: 'Status', resizable: true },
                                         { key: 'gender', label: 'Gender', resizable: true },
                                         { key: 'nationality', label: 'Nationality', resizable: true },
@@ -478,14 +490,18 @@ export default function StudentsSpreadsheetPage() {
                                     ].map((col) => (
                                         <th
                                             key={col.key}
-                                            style={{ width: columnWidths[col.key] }}
-                                            className="p-3 font-bold text-zinc-500 uppercase tracking-wider text-[10px] border-b border-r border-zinc-200 relative group truncate"
+                                            style={{
+                                                width: columnWidths[col.key],
+                                                left: col.sticky ? col.left : undefined,
+                                                zIndex: col.sticky ? 40 : undefined
+                                            }}
+                                            className={`${col.sticky ? 'sticky z-40 bg-zinc-50' : 'relative'} p-3 font-bold text-zinc-500 uppercase tracking-wider text-[10px] border-b border-r border-zinc-200 group truncate`}
                                         >
                                             {col.label}
                                             {col.resizable && (
                                                 <div
                                                     onMouseDown={(e) => startResizing(col.key, e)}
-                                                    className={`absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary transition-colors z-20 ${isResizing === col.key ? 'bg-primary' : 'bg-transparent'}`}
+                                                    className={`absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary transition-colors z-50 ${isResizing === col.key ? 'bg-primary' : 'bg-transparent'}`}
                                                 />
                                             )}
                                         </th>
@@ -495,7 +511,10 @@ export default function StudentsSpreadsheetPage() {
                             <tbody className="divide-y divide-zinc-100">
                                 {students.map((student) => (
                                     <tr key={student.cc} className="hover:bg-zinc-50 transition-colors group">
-                                        <td className="p-3 text-center border-r border-zinc-100">
+                                        <td
+                                            style={{ left: 0 }}
+                                            className="sticky left-0 z-10 bg-white group-hover:bg-zinc-50 p-3 text-center border-r border-zinc-100"
+                                        >
                                             {patchingStatus[student.cc] === 'loading' && (
                                                 <Loader2 className="h-4 w-4 animate-spin text-zinc-400 mx-auto" />
                                             )}
@@ -509,10 +528,16 @@ export default function StudentsSpreadsheetPage() {
                                                 <div className="h-1.5 w-1.5 rounded-full bg-zinc-200 mx-auto" />
                                             )}
                                         </td>
-                                        <td className="p-3 font-mono text-zinc-400 text-xs border-r border-zinc-100 bg-zinc-50/30">
+                                        <td
+                                            style={{ left: columnWidths.status }}
+                                            className="sticky z-10 bg-zinc-50/80 group-hover:bg-zinc-100 p-3 font-mono text-zinc-400 text-xs border-r border-zinc-100"
+                                        >
                                             {student.cc}
                                         </td>
-                                        <td className="p-1 border-r border-zinc-100">
+                                        <td
+                                            style={{ left: columnWidths.status + columnWidths.cc }}
+                                            className="sticky z-10 bg-white group-hover:bg-zinc-50 p-1 border-r border-zinc-100"
+                                        >
                                             <input
                                                 type="text"
                                                 value={student.full_name || ""}
@@ -526,6 +551,46 @@ export default function StudentsSpreadsheetPage() {
                                                 value={student.gr_number || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "gr_number", e.target.value)}
                                                 className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all sm:text-zinc-600 truncate"
+                                                placeholder="N/A"
+                                            />
+                                        </td>
+                                        {/* Father Name */}
+                                        <td className="p-1 border-r border-zinc-100">
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                value={student.father_name || ""}
+                                                className="w-full px-2 py-1.5 bg-transparent outline-none border-none rounded-md font-medium text-zinc-500 truncate cursor-not-allowed"
+                                                placeholder="N/A"
+                                            />
+                                        </td>
+                                        {/* Father CNIC */}
+                                        <td className="p-1 border-r border-zinc-100">
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                value={student.father_cnic || ""}
+                                                className="w-full px-2 py-1.5 bg-transparent outline-none border-none rounded-md text-zinc-500 truncate cursor-not-allowed"
+                                                placeholder="N/A"
+                                            />
+                                        </td>
+                                        {/* Mother Name */}
+                                        <td className="p-1 border-r border-zinc-100">
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                value={student.mother_name || ""}
+                                                className="w-full px-2 py-1.5 bg-transparent outline-none border-none rounded-md font-medium text-zinc-500 truncate cursor-not-allowed"
+                                                placeholder="N/A"
+                                            />
+                                        </td>
+                                        {/* Mother CNIC */}
+                                        <td className="p-1 border-r border-zinc-100">
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                value={student.mother_cnic || ""}
+                                                className="w-full px-2 py-1.5 bg-transparent outline-none border-none rounded-md text-zinc-500 truncate cursor-not-allowed"
                                                 placeholder="N/A"
                                             />
                                         </td>
