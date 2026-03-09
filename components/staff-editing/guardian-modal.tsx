@@ -9,7 +9,8 @@ import {
     AlertCircle,
     UserPlus,
     UserCircle,
-    Star
+    Star,
+    Trash2
 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -92,6 +93,10 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
     const [isLoading, setIsLoading] = useState(false);
     const [patchingStatus, setPatchingStatus] = useState<Record<string, 'idle' | 'loading' | 'success' | 'error'>>({});
 
+    // Delete state
+    const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
     const fetchGuardians = async () => {
         if (!studentId) return;
         setIsLoading(true);
@@ -126,17 +131,20 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                         transformedValue = value.toUpperCase();
                     }
 
-                    const payload = { ...guardian, [field]: transformedValue };
+                    const payload: any = { ...guardian, [field]: transformedValue };
 
-                    // Transform other fields in guardian if they are strings (during initial creation)
-                    Object.keys(payload).forEach(k => {
-                        const key = k as keyof Guardian;
-                        if (key !== 'dob' && typeof payload[key] === 'string') {
-                            (payload as any)[key] = (payload[key] as string).toUpperCase();
-                        }
-                    });
+                    // 1. Strip metadata/internal fields that the CreateGuardianDto doesn't accept
+                    delete payload.isNew;
+                    delete payload.id;
+                    delete payload.created_at;
+                    delete payload.updated_at;
+                    delete payload.deleted_at;
 
-                    delete payload.isNew; // Remove UI-only flag
+                    // 2. Validate mandatory fields for Creation
+                    if (!payload.full_name?.trim() || !payload.relationship?.trim() || payload.relationship === "NULL") {
+                        setPatchingStatus(prev => ({ ...prev, [key]: 'idle' }));
+                        return;
+                    }
 
                     const { data } = await api.post(`/v1/staff-editing/students/${studentId}/guardians`, payload);
                     const createdGuardian = data?.data;
@@ -185,6 +193,33 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
 
         if (field === 'cnic') {
             transformedValue = formatNIC(value);
+
+            // Auto-fill logic
+            if (transformedValue.length === 15) {
+                try {
+                    const { data } = await api.get(`/v1/staff-editing/guardians/by-nic/${transformedValue}`);
+                    const existing = data?.data;
+                    if (existing) {
+                        setGuardians(prev => prev.map((g, i) => {
+                            if (i === index) {
+                                return {
+                                    ...g,
+                                    ...existing,
+                                    // Preserve relationship-specific fields
+                                    relationship: g.relationship,
+                                    is_primary_contact: g.is_primary_contact,
+                                    is_emergency_contact: g.is_emergency_contact,
+                                    isNew: g.isNew,
+                                    id: g.id
+                                };
+                            }
+                            return g;
+                        }));
+                    }
+                } catch (err) {
+                    console.error("Error auto-filling guardian:", err);
+                }
+            }
         } else if (field !== 'dob' && field !== 'is_primary_contact' && field !== 'is_emergency_contact' && typeof transformedValue === 'string') {
             transformedValue = transformedValue.toUpperCase();
         }
@@ -213,9 +248,24 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
         debouncedSave(guardian, field, transformedValue, index);
     };
 
+    const handleDelete = async () => {
+        if (!deleteId || !studentId) return;
+        setIsDeleting(true);
+        try {
+            await api.delete(`/v1/staff-editing/students/${studentId}/guardians/${deleteId}`);
+            setGuardians(prev => prev.filter(g => g.id !== deleteId));
+            setDeleteId(null);
+        } catch (err) {
+            console.error("Error deleting guardian:", err);
+            alert("Failed to delete guardian mapping.");
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const addRow = () => {
         setGuardians(prev => [...prev, {
-            relationship: "",
+            relationship: "OTHER",
             full_name: "",
             is_primary_contact: false,
             is_emergency_contact: false,
@@ -283,9 +333,9 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                     <thead>
                                         <tr className="bg-zinc-50 border-b border-zinc-200">
                                             <th className="p-3 w-16 text-center text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 sticky left-0 bg-zinc-50 z-20">Stat</th>
-                                            <th className="p-3 w-40 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 sticky left-16 bg-zinc-50 z-20">Relationship</th>
-                                            <th className="p-3 w-64 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 sticky left-56 bg-zinc-50 z-20">Full Name</th>
-                                            <th className="p-3 w-44 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">CNIC</th>
+                                            <th className="p-3 w-44 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 sticky left-16 bg-zinc-50 z-20">CNIC</th>
+                                            <th className="p-3 w-64 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 sticky left-[240px] bg-zinc-50 z-20">Full Name</th>
+                                            <th className="p-3 w-40 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Relationship</th>
                                             <th className="p-3 w-44 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">DOB</th>
                                             <th className="p-3 w-44 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Phone</th>
                                             <th className="p-3 w-44 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">WhatsApp</th>
@@ -307,7 +357,8 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                             <th className="p-3 w-40 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Occ Pos</th>
                                             <th className="p-3 w-40 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">POB</th>
                                             <th className="p-3 w-16 text-center text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Pri</th>
-                                            <th className="p-3 w-16 text-center text-zinc-500 uppercase text-[10px] font-bold tracking-widest">Emg</th>
+                                            <th className="p-3 w-16 text-center text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Emg</th>
+                                            <th className="p-3 w-16 text-center text-zinc-500 uppercase text-[10px] font-bold tracking-widest">Del</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-zinc-100">
@@ -324,6 +375,24 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                         {status === 'idle' && <div className="h-1.5 w-1.5 rounded-full bg-zinc-200 mx-auto" />}
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100 sticky left-16 bg-white group-hover:bg-zinc-50 transition-colors z-10">
+                                                        <input
+                                                            type="text"
+                                                            value={guardian.cnic || ""}
+                                                            onChange={(e) => handleEdit(idx, "cnic", e.target.value)}
+                                                            placeholder="CNIC"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all font-bold truncate"
+                                                        />
+                                                    </td>
+                                                    <td className="p-1 border-r border-zinc-100 sticky left-[240px] bg-white group-hover:bg-zinc-50 transition-colors z-10">
+                                                        <input
+                                                            type="text"
+                                                            value={guardian.full_name}
+                                                            onChange={(e) => handleEdit(idx, "full_name", e.target.value)}
+                                                            placeholder="Full Name"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all font-bold truncate"
+                                                        />
+                                                    </td>
+                                                    <td className="p-1 border-r border-zinc-100">
                                                         {(!RELATIONSHIP_OPTIONS.includes(guardian.relationship || "NULL") && guardian.relationship !== null) ? (
                                                             <input
                                                                 type="text"
@@ -346,31 +415,13 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                                         handleEdit(idx, "relationship", val);
                                                                     }
                                                                 }}
-                                                                className="w-full px-2 py-2 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-zinc-900 rounded-md transition-all appearance-none cursor-pointer truncate"
+                                                                className="w-full px-2 py-2 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-zinc-900 rounded-md transition-all appearance-none cursor-pointer truncate font-medium text-zinc-500"
                                                             >
                                                                 {RELATIONSHIP_OPTIONS.map(opt => (
                                                                     <option key={opt} value={opt}>{opt}</option>
                                                                 ))}
                                                             </select>
                                                         )}
-                                                    </td>
-                                                    <td className="p-1 border-r border-zinc-100 sticky left-56 bg-white group-hover:bg-zinc-50 transition-colors z-10">
-                                                        <input
-                                                            type="text"
-                                                            value={guardian.full_name}
-                                                            onChange={(e) => handleEdit(idx, "full_name", e.target.value)}
-                                                            placeholder="Full Name"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all font-bold truncate"
-                                                        />
-                                                    </td>
-                                                    <td className="p-1 border-r border-zinc-100">
-                                                        <input
-                                                            type="text"
-                                                            value={guardian.cnic || ""}
-                                                            onChange={(e) => handleEdit(idx, "cnic", e.target.value)}
-                                                            placeholder="CNIC"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
-                                                        />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
                                                         <input
@@ -611,13 +662,28 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer"
                                                         />
                                                     </td>
-                                                    <td className="p-3 text-center">
+                                                    <td className="p-3 text-center border-r border-zinc-100">
                                                         <input
                                                             type="checkbox"
                                                             checked={guardian.is_emergency_contact}
                                                             onChange={(e) => handleEdit(idx, "is_emergency_contact", e.target.checked)}
                                                             className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer"
                                                         />
+                                                    </td>
+                                                    <td className="p-3 text-center">
+                                                        <button
+                                                            onClick={() => {
+                                                                if (guardian.id) {
+                                                                    setDeleteId(guardian.id);
+                                                                } else {
+                                                                    setGuardians(prev => prev.filter((_, i) => i !== idx));
+                                                                }
+                                                            }}
+                                                            className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all active:scale-90"
+                                                            title="Remove Guardian"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             );
@@ -665,6 +731,38 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                         </button>
                     )}
                 </div>
+
+                {/* Delete Confirmation Modal */}
+                {deleteId !== null && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-sm">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                            <div className="p-6 text-center">
+                                <div className="h-14 w-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Trash2 className="h-7 w-7" />
+                                </div>
+                                <h2 className="text-lg font-bold text-zinc-900">Remove Guardian?</h2>
+                                <p className="text-zinc-500 mt-2">
+                                    This will un-link this guardian from the student. The guardian record itself will remain in the system.
+                                </p>
+                            </div>
+                            <div className="px-6 py-4 bg-zinc-50 flex gap-3">
+                                <button
+                                    onClick={() => setDeleteId(null)}
+                                    className="flex-1 py-2.5 font-medium text-zinc-600 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDelete}
+                                    disabled={isDeleting}
+                                    className="flex-1 py-2.5 font-medium text-white bg-rose-600 rounded-xl hover:bg-rose-700 transition-all active:scale-95 shadow-sm shadow-rose-200 disabled:opacity-50"
+                                >
+                                    {isDeleting ? "Removing..." : "Remove"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
