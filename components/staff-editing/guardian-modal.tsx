@@ -127,7 +127,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                 if (guardian.isNew) {
                     // Prepare the full guardian object with the new value
                     let transformedValue = value;
-                    if (typeof value === 'string' && field !== 'dob') {
+                    if (typeof value === 'string' && field !== 'dob' && field !== 'email_address') {
                         transformedValue = value.toUpperCase();
                     }
 
@@ -165,7 +165,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                     }, 2000);
                 } else {
                     let transformedValue = value;
-                    if (typeof value === 'string' && field !== 'dob') {
+                    if (typeof value === 'string' && field !== 'dob' && field !== 'email_address') {
                         transformedValue = value.toUpperCase();
                     }
 
@@ -220,7 +220,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                     console.error("Error auto-filling guardian:", err);
                 }
             }
-        } else if (field !== 'dob' && field !== 'is_primary_contact' && field !== 'is_emergency_contact' && typeof transformedValue === 'string') {
+        } else if (field !== 'dob' && field !== 'is_primary_contact' && field !== 'is_emergency_contact' && field !== 'email_address' && typeof transformedValue === 'string') {
             transformedValue = transformedValue.toUpperCase();
         }
 
