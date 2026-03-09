@@ -70,6 +70,12 @@ export default function CampusesPage() {
         if (successMessage) setSuccessMessage(null);
     };
 
+    const updateLocalCampus = (updatedCampus: Campus) => {
+        setCampuses(prev => prev.map(c => c.id === updatedCampus.id ? updatedCampus : c));
+        // Also update original campuses so the "Save Changes" button state is accurate for basic fields
+        setOriginalCampuses(prev => prev.map(c => c.id === updatedCampus.id ? JSON.parse(JSON.stringify(updatedCampus)) : c));
+    };
+
     const handleSave = async () => {
         setIsSaving(true);
         setError(null);
@@ -151,9 +157,9 @@ export default function CampusesPage() {
         if (!classId) return;
 
         try {
-            await campusesService.addClassToCampus(campusId, classId);
+            const updatedCampus = await campusesService.upsertCampusClass(campusId, classId);
             setSuccessMessage("Class added to campus.");
-            fetchCampuses();
+            updateLocalCampus(updatedCampus);
             setSelectedClassId(prev => ({ ...prev, [campusId]: "" }));
         } catch (err: any) {
             setError(err.response?.data?.message || "Failed to add class.");
@@ -162,8 +168,8 @@ export default function CampusesPage() {
 
     const handleToggleClassStatus = async (campusId: number, classId: number, currentStatus: boolean) => {
         try {
-            await campusesService.updateCampusClass(campusId, classId, !currentStatus);
-            fetchCampuses();
+            const updatedCampus = await campusesService.upsertCampusClass(campusId, classId, !currentStatus);
+            updateLocalCampus(updatedCampus);
         } catch (err: any) {
             setError(err.response?.data?.message || "Failed to toggle status.");
         }
@@ -171,9 +177,9 @@ export default function CampusesPage() {
 
     const handleRemoveClass = async (campusId: number, classId: number) => {
         try {
-            await campusesService.removeClassFromCampus(campusId, classId);
+            const updatedCampus = await campusesService.removeClassFromCampus(campusId, classId);
             setSuccessMessage("Class removed from campus.");
-            fetchCampuses();
+            updateLocalCampus(updatedCampus);
         } catch (err: any) {
             setError(err.response?.data?.message || "Failed to remove class.");
         }
@@ -188,9 +194,9 @@ export default function CampusesPage() {
 
         setIsAddingSection(prev => ({ ...prev, [comboKey]: true }));
         try {
-            await campusesService.addSectionToCampus(campusId, classId, sectionId);
+            const updatedCampus = await campusesService.upsertCampusSection(campusId, classId, sectionId);
             setSuccessMessage("Section added.");
-            fetchCampuses();
+            updateLocalCampus(updatedCampus);
             setSelectedSectionId(prev => ({ ...prev, [comboKey]: "" }));
         } catch (err: any) {
             setError(err.response?.data?.message || "Failed to add section.");
@@ -201,8 +207,8 @@ export default function CampusesPage() {
 
     const handleToggleSectionStatus = async (campusId: number, classId: number, sectionId: number, currentStatus: boolean) => {
         try {
-            await campusesService.updateCampusSection(campusId, classId, sectionId, !currentStatus);
-            fetchCampuses();
+            const updatedCampus = await campusesService.upsertCampusSection(campusId, classId, sectionId, !currentStatus);
+            updateLocalCampus(updatedCampus);
         } catch (err: any) {
             setError(err.response?.data?.message || "Failed to toggle status.");
         }
@@ -210,9 +216,9 @@ export default function CampusesPage() {
 
     const handleRemoveSection = async (campusId: number, classId: number, sectionId: number) => {
         try {
-            await campusesService.removeSectionFromCampus(campusId, classId, sectionId);
+            const updatedCampus = await campusesService.removeSectionFromCampus(campusId, classId, sectionId);
             setSuccessMessage("Section removed.");
-            fetchCampuses();
+            updateLocalCampus(updatedCampus);
         } catch (err: any) {
             setError(err.response?.data?.message || "Failed to remove section.");
         }
@@ -313,8 +319,8 @@ export default function CampusesPage() {
                                                 <button
                                                     onClick={() => toggleRow(item.id)}
                                                     className={`px-4 py-2 text-[11px] font-bold rounded-lg border transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${expandedRows.has(item.id)
-                                                            ? 'bg-primary border-primary text-white shadow-md shadow-primary/20 scale-105'
-                                                            : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 shadow-sm'
+                                                        ? 'bg-primary border-primary text-white shadow-md shadow-primary/20 scale-105'
+                                                        : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 shadow-sm'
                                                         }`}
                                                 >
                                                     <GraduationCap className="h-4 w-4" />
@@ -370,7 +376,7 @@ export default function CampusesPage() {
                                                             >
                                                                 <option value="">Select a class to add...</option>
                                                                 {classOptions
-                                                                    .filter(opt => !item.campus_classes?.some(cc => cc.classes.id === opt.id))
+                                                                    .filter(opt => !item.offered_classes?.some(cc => cc.id === opt.id))
                                                                     .map(opt => (
                                                                         <option key={opt.id} value={opt.id}>
                                                                             {opt.description} ({opt.class_code})
@@ -387,14 +393,14 @@ export default function CampusesPage() {
                                                         </div>
                                                     </div>
 
-                                                    {!item.campus_classes?.length ? (
+                                                    {!item.offered_classes?.length ? (
                                                         <div className="text-center py-10 bg-white/50 border border-dashed border-zinc-200 rounded-xl">
                                                             <LayoutGrid className="h-8 w-8 text-zinc-300 mx-auto mb-2" />
                                                             <p className="text-zinc-500 text-xs">No classes assigned to this campus yet.</p>
                                                         </div>
                                                     ) : (
                                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                                            {item.campus_classes.map((cc) => (
+                                                            {item.offered_classes.map((cc) => (
                                                                 <div key={cc.id} className="bg-white border border-zinc-200 rounded-xl overflow-hidden hover:shadow-md hover:border-primary/20 transition-all group/card">
                                                                     <div className="flex items-center justify-between p-4 bg-zinc-50/50 border-b border-zinc-100">
                                                                         <div className="flex items-center gap-3">
@@ -402,13 +408,13 @@ export default function CampusesPage() {
                                                                                 <LayoutGrid className="h-4 w-4" />
                                                                             </div>
                                                                             <div>
-                                                                                <p className="font-bold text-zinc-900 leading-tight">{cc.classes.description}</p>
-                                                                                <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{cc.classes.class_code} · {cc.classes.academic_system}</p>
+                                                                                <p className="font-bold text-zinc-900 leading-tight">{cc.description}</p>
+                                                                                <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{cc.class_code} · {cc.academic_system}</p>
                                                                             </div>
                                                                         </div>
                                                                         <div className="flex items-center gap-1">
                                                                             <button
-                                                                                onClick={() => handleRemoveClass(item.id, cc.classes.id)}
+                                                                                onClick={() => handleRemoveClass(item.id, cc.id)}
                                                                                 className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                                                                                 title="Remove Class"
                                                                             >
@@ -423,23 +429,23 @@ export default function CampusesPage() {
                                                                             <div className="flex items-center gap-2">
                                                                                 <select
                                                                                     className="px-2 py-1 bg-white border border-zinc-200 rounded text-[10px] outline-none w-28 focus:ring-1 focus:ring-primary/20"
-                                                                                    value={selectedSectionId[`${item.id}-${cc.classes.id}`] || ""}
-                                                                                    onChange={(e) => setSelectedSectionId({ ...selectedSectionId, [`${item.id}-${cc.classes.id}`]: e.target.value })}
+                                                                                    value={selectedSectionId[`${item.id}-${cc.id}`] || ""}
+                                                                                    onChange={(e) => setSelectedSectionId({ ...selectedSectionId, [`${item.id}-${cc.id}`]: e.target.value })}
                                                                                 >
                                                                                     <option value="">Add Section...</option>
                                                                                     {sectionOptions
-                                                                                        .filter(opt => !item.campus_sections?.some(cs => cs.class_id === cc.classes.id && cs.section_id === opt.id))
+                                                                                        .filter(opt => !cc.sections?.some(cs => cs.id === opt.id))
                                                                                         .map(opt => (
                                                                                             <option key={opt.id} value={opt.id}>{opt.description}</option>
                                                                                         ))
                                                                                     }
                                                                                 </select>
                                                                                 <button
-                                                                                    onClick={() => handleAddSection(item.id, cc.classes.id)}
-                                                                                    disabled={isAddingSection[`${item.id}-${cc.classes.id}`]}
+                                                                                    onClick={() => handleAddSection(item.id, cc.id)}
+                                                                                    disabled={isAddingSection[`${item.id}-${cc.id}`]}
                                                                                     className="p-1.5 bg-zinc-900 text-white rounded hover:bg-zinc-800 transition-colors disabled:opacity-50"
                                                                                 >
-                                                                                    {isAddingSection[`${item.id}-${cc.classes.id}`] ? (
+                                                                                    {isAddingSection[`${item.id}-${cc.id}`] ? (
                                                                                         <Loader2 className="h-3 w-3 animate-spin" />
                                                                                     ) : (
                                                                                         <Plus className="h-3 w-3" />
@@ -449,18 +455,18 @@ export default function CampusesPage() {
                                                                         </div>
 
                                                                         <div className="flex flex-wrap gap-2">
-                                                                            {item.campus_sections?.filter(cs => cs.class_id === cc.classes.id).length === 0 ? (
+                                                                            {!cc.sections?.length ? (
                                                                                 <p className="text-[10px] text-zinc-400 italic px-1">No sections assigned.</p>
                                                                             ) : (
-                                                                                item.campus_sections?.filter(cs => cs.class_id === cc.classes.id).map(cs => (
+                                                                                cc.sections.map(cs => (
                                                                                     <div
                                                                                         key={cs.id}
                                                                                         className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all group/section ${cs.is_active ? 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:border-primary/20 hover:bg-white' : 'bg-white border-zinc-100 text-zinc-400 italic'}`}
                                                                                     >
-                                                                                        {cs.sections.description}
+                                                                                        {cs.description}
                                                                                         <div className="flex items-center gap-0.5 ml-1 overflow-hidden w-0 group-hover/section:w-5 transition-all duration-200">
                                                                                             <button
-                                                                                                onClick={() => handleRemoveSection(item.id, cc.classes.id, cs.section_id)}
+                                                                                                onClick={() => handleRemoveSection(item.id, cc.id, cs.id)}
                                                                                                 className="p-1 hover:text-rose-500 transition-colors"
                                                                                             >
                                                                                                 <X className="h-3.5 w-3.5" />
