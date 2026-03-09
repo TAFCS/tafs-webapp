@@ -12,8 +12,8 @@ export default function CampusesPage() {
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-    // State for Expandable Rows
-    const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+    // State for Configuration Panel
+    const [configCampusId, setConfigCampusId] = useState<number | null>(null);
     const [classOptions, setClassOptions] = useState<CampusClassInfo[]>([]);
     const [sectionOptions, setSectionOptions] = useState<SectionInfo[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<Record<number, string>>({});
@@ -53,13 +53,6 @@ export default function CampusesPage() {
     useEffect(() => {
         fetchCampuses();
     }, []);
-
-    const toggleRow = (id: number) => {
-        const next = new Set(expandedRows);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        setExpandedRows(next);
-    };
 
     const handleChange = (id: number, field: keyof Campus, value: string) => {
         setCampuses(prev =>
@@ -160,15 +153,6 @@ export default function CampusesPage() {
         }
     };
 
-    const handleToggleClassStatus = async (campusId: number, classId: number, currentStatus: boolean) => {
-        try {
-            await campusesService.updateCampusClass(campusId, classId, !currentStatus);
-            fetchCampuses();
-        } catch (err: any) {
-            setError(err.response?.data?.message || "Failed to toggle status.");
-        }
-    };
-
     const handleRemoveClass = async (campusId: number, classId: number) => {
         try {
             await campusesService.removeClassFromCampus(campusId, classId);
@@ -199,15 +183,6 @@ export default function CampusesPage() {
         }
     };
 
-    const handleToggleSectionStatus = async (campusId: number, classId: number, sectionId: number, currentStatus: boolean) => {
-        try {
-            await campusesService.updateCampusSection(campusId, classId, sectionId, !currentStatus);
-            fetchCampuses();
-        } catch (err: any) {
-            setError(err.response?.data?.message || "Failed to toggle status.");
-        }
-    };
-
     const handleRemoveSection = async (campusId: number, classId: number, sectionId: number) => {
         try {
             await campusesService.removeSectionFromCampus(campusId, classId, sectionId);
@@ -221,315 +196,354 @@ export default function CampusesPage() {
     const hasChanges = JSON.stringify(campuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name }))) !==
         JSON.stringify(originalCampuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name })));
 
+    const activeCampus = campuses.find(c => c.id === configCampusId);
+
     return (
-        <div className="space-y-6 relative pb-20">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sm">
+        <div className="space-y-6 relative pb-20 max-w-7xl mx-auto">
+            {/* Header Section */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Campuses</h1>
-                    <p className="text-zinc-500 mt-1">Manage school branches, campus codes, and offered classes.</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-zinc-900">Campus Management</h1>
+                    <p className="text-zinc-500 mt-1 flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        Configure branches, classes, and academic sections.
+                    </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                    <button
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white font-medium rounded-lg shadow-sm transition-all active:scale-95"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Campus
-                    </button>
+                <div className="flex flex-wrap items-center gap-2">
                     <button
                         onClick={fetchCampuses}
                         disabled={isLoading || isSaving}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 font-medium rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                        className="inline-flex items-center justify-center h-10 px-4 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 font-medium rounded-xl shadow-sm transition-all active:scale-95 disabled:opacity-50"
                     >
                         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                         Refresh
                     </button>
                     <button
-                        onClick={handleSave}
-                        disabled={isLoading || isSaving || !hasChanges}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg shadow-sm shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="inline-flex items-center justify-center h-10 px-6 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold rounded-xl shadow-sm transition-all active:scale-95"
                     >
-                        {isSaving ? (
-                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
-                        ) : (
-                            <><Save className="h-4 w-4 mr-2" /> Save Changes</>
-                        )}
+                        <Plus className="h-4 w-4 mr-2" />
+                        New Campus
                     </button>
+                    {hasChanges && (
+                        <button
+                            onClick={handleSave}
+                            disabled={isLoading || isSaving}
+                            className="inline-flex items-center justify-center h-10 px-6 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl shadow-md shadow-primary/20 transition-all active:scale-95"
+                        >
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                            Save Changes
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {error && (
-                <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 text-xs animate-in fade-in duration-300">
-                    <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                        <p className="font-semibold">Error</p>
-                        <p className="text-red-700 mt-0.5">{error}</p>
+            {/* Notifications */}
+            <div className="space-y-3">
+                {error && (
+                    <div className="flex items-center gap-3 bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl p-4 text-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                        <AlertCircle className="h-5 w-5 text-rose-500 flex-shrink-0" />
+                        <p className="flex-1">{error}</p>
+                        <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-600"><X className="h-4 w-4" /></button>
                     </div>
-                    <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600"><X className="h-4 w-4" /></button>
-                </div>
-            )}
-
-            {successMessage && (
-                <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-4 text-xs animate-in fade-in duration-300">
-                    <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                        <p className="font-semibold">Success</p>
-                        <p className="text-emerald-700 mt-0.5">{successMessage}</p>
-                    </div>
-                    <button onClick={() => setSuccessMessage(null)} className="text-emerald-400 hover:text-emerald-600"><X className="h-4 w-4" /></button>
-                </div>
-            )}
-
-            <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden text-sm">
-                {isLoading ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <Loader2 className="text-primary h-8 w-8 animate-spin mb-4" />
-                        <h3 className="font-medium text-zinc-900">Loading campuses...</h3>
-                    </div>
-                ) : campuses.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <Building2 className="text-zinc-400 h-10 w-10 mb-4" />
-                        <h3 className="font-medium text-zinc-900">No campuses found</h3>
-                        <p className="mt-1 text-zinc-500">Add a new campus to get started.</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left whitespace-nowrap">
-                            <thead className="text-[11px] text-zinc-500 uppercase bg-zinc-50 border-b border-zinc-200 font-bold tracking-wider">
-                                <tr>
-                                    <th className="px-4 py-4 w-40">Actions</th>
-                                    <th className="px-6 py-4 w-20">ID</th>
-                                    <th className="px-6 py-4 w-40">Code</th>
-                                    <th className="px-6 py-4">Campus Name</th>
-                                    <th className="px-6 py-4 w-20 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-zinc-100">
-                                {campuses.map((item) => (
-                                    <React.Fragment key={item.id}>
-                                        <tr className={`hover:bg-zinc-50/50 transition-colors group ${expandedRows.has(item.id) ? 'bg-zinc-50/30' : ''}`}>
-                                            <td className="px-4 py-3">
-                                                <button
-                                                    onClick={() => toggleRow(item.id)}
-                                                    className={`px-4 py-2 text-[11px] font-bold rounded-lg border transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${expandedRows.has(item.id)
-                                                            ? 'bg-primary border-primary text-white shadow-md shadow-primary/20 scale-105'
-                                                            : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 shadow-sm'
-                                                        }`}
-                                                >
-                                                    <GraduationCap className="h-4 w-4" />
-                                                    {expandedRows.has(item.id) ? 'Hide Classes' : 'Manage Classes'}
-                                                    {expandedRows.has(item.id) ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                                </button>
-                                            </td>
-                                            <td className="px-6 py-3 font-mono text-zinc-400">
-                                                #{item.id}
-                                            </td>
-                                            <td className="px-6 py-3">
-                                                <input
-                                                    type="text"
-                                                    value={item.campus_code}
-                                                    maxLength={10}
-                                                    onChange={(e) => handleChange(item.id, 'campus_code', e.target.value.toUpperCase())}
-                                                    className="w-full px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary focus:ring-1 focus:ring-primary/20 rounded-lg outline-none transition-all uppercase font-medium"
-                                                />
-                                            </td>
-                                            <td className="px-6 py-3 font-medium text-zinc-900">
-                                                <input
-                                                    type="text"
-                                                    value={item.campus_name}
-                                                    onChange={(e) => handleChange(item.id, 'campus_name', e.target.value)}
-                                                    className="w-full px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary focus:ring-1 focus:ring-primary/20 rounded-lg outline-none transition-all font-medium text-zinc-900"
-                                                />
-                                            </td>
-                                            <td className="px-6 py-3 text-right">
-                                                <button
-                                                    onClick={() => setDeleteId(item.id)}
-                                                    className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all active:scale-90"
-                                                    title="Delete Campus"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        {expandedRows.has(item.id) && (
-                                            <tr className="bg-zinc-50/30">
-                                                <td colSpan={5} className="px-10 py-6 border-l-2 border-primary/20 animate-in slide-in-from-top-1 duration-200">
-                                                    <div className="flex items-center justify-between mb-6">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                                                                <GraduationCap className="h-5 w-5" />
-                                                            </div>
-                                                            <h3 className="font-bold text-zinc-900">Campus Classes</h3>
-                                                        </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <select
-                                                                className="px-3 py-2 bg-white border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/10 text-xs w-48"
-                                                                value={selectedClassId[item.id] || ""}
-                                                                onChange={(e) => setSelectedClassId({ ...selectedClassId, [item.id]: e.target.value })}
-                                                            >
-                                                                <option value="">Select a class to add...</option>
-                                                                {classOptions
-                                                                    .filter(opt => !item.campus_classes?.some(cc => cc.classes.id === opt.id))
-                                                                    .map(opt => (
-                                                                        <option key={opt.id} value={opt.id}>
-                                                                            {opt.description} ({opt.class_code})
-                                                                        </option>
-                                                                    ))
-                                                                }
-                                                            </select>
-                                                            <button
-                                                                onClick={() => handleAddClass(item.id)}
-                                                                className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 active:scale-95 transition-all"
-                                                            >
-                                                                Add Class
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    {!item.campus_classes?.length ? (
-                                                        <div className="text-center py-10 bg-white/50 border border-dashed border-zinc-200 rounded-xl">
-                                                            <LayoutGrid className="h-8 w-8 text-zinc-300 mx-auto mb-2" />
-                                                            <p className="text-zinc-500 text-xs">No classes assigned to this campus yet.</p>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                                            {item.campus_classes.map((cc) => (
-                                                                <div key={cc.id} className="bg-white border border-zinc-200 rounded-xl overflow-hidden hover:shadow-md hover:border-primary/20 transition-all group/card">
-                                                                    <div className="flex items-center justify-between p-4 bg-zinc-50/50 border-b border-zinc-100">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div className={`p-2 rounded-lg ${cc.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-zinc-100 text-zinc-400'}`}>
-                                                                                <LayoutGrid className="h-4 w-4" />
-                                                                            </div>
-                                                                            <div>
-                                                                                <p className="font-bold text-zinc-900 leading-tight">{cc.classes.description}</p>
-                                                                                <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{cc.classes.class_code} · {cc.classes.academic_system}</p>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-1">
-                                                                            <button
-                                                                                onClick={() => handleRemoveClass(item.id, cc.classes.id)}
-                                                                                className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                                                                title="Remove Class"
-                                                                            >
-                                                                                <Trash2 className="h-4 w-4" />
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className="p-4 bg-white">
-                                                                        <div className="flex items-center justify-between mb-3 px-1">
-                                                                            <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Sections</h4>
-                                                                            <div className="flex items-center gap-2">
-                                                                                <select
-                                                                                    className="px-2 py-1 bg-white border border-zinc-200 rounded text-[10px] outline-none w-28 focus:ring-1 focus:ring-primary/20"
-                                                                                    value={selectedSectionId[`${item.id}-${cc.classes.id}`] || ""}
-                                                                                    onChange={(e) => setSelectedSectionId({ ...selectedSectionId, [`${item.id}-${cc.classes.id}`]: e.target.value })}
-                                                                                >
-                                                                                    <option value="">Add Section...</option>
-                                                                                    {sectionOptions
-                                                                                        .filter(opt => !item.campus_sections?.some(cs => cs.class_id === cc.classes.id && cs.section_id === opt.id))
-                                                                                        .map(opt => (
-                                                                                            <option key={opt.id} value={opt.id}>{opt.description}</option>
-                                                                                        ))
-                                                                                    }
-                                                                                </select>
-                                                                                <button
-                                                                                    onClick={() => handleAddSection(item.id, cc.classes.id)}
-                                                                                    disabled={isAddingSection[`${item.id}-${cc.classes.id}`]}
-                                                                                    className="p-1.5 bg-zinc-900 text-white rounded hover:bg-zinc-800 transition-colors disabled:opacity-50"
-                                                                                >
-                                                                                    {isAddingSection[`${item.id}-${cc.classes.id}`] ? (
-                                                                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                                                                    ) : (
-                                                                                        <Plus className="h-3 w-3" />
-                                                                                    )}
-                                                                                </button>
-                                                                            </div>
-                                                                        </div>
-
-                                                                        <div className="flex flex-wrap gap-2">
-                                                                            {item.campus_sections?.filter(cs => cs.class_id === cc.classes.id).length === 0 ? (
-                                                                                <p className="text-[10px] text-zinc-400 italic px-1">No sections assigned.</p>
-                                                                            ) : (
-                                                                                item.campus_sections?.filter(cs => cs.class_id === cc.classes.id).map(cs => (
-                                                                                    <div
-                                                                                        key={cs.id}
-                                                                                        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all group/section ${cs.is_active ? 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:border-primary/20 hover:bg-white' : 'bg-white border-zinc-100 text-zinc-400 italic'}`}
-                                                                                    >
-                                                                                        {cs.sections.description}
-                                                                                        <div className="flex items-center gap-0.5 ml-1 overflow-hidden w-0 group-hover/section:w-5 transition-all duration-200">
-                                                                                            <button
-                                                                                                onClick={() => handleRemoveSection(item.id, cc.classes.id, cs.section_id)}
-                                                                                                className="p-1 hover:text-rose-500 transition-colors"
-                                                                                            >
-                                                                                                <X className="h-3.5 w-3.5" />
-                                                                                            </button>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ))
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </React.Fragment>
-                                ))}
-                            </tbody>
-                        </table>
+                )}
+                {successMessage && (
+                    <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-2xl p-4 text-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                        <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                        <p className="flex-1">{successMessage}</p>
+                        <button onClick={() => setSuccessMessage(null)} className="text-emerald-400 hover:text-emerald-600"><X className="h-4 w-4" /></button>
                     </div>
                 )}
             </div>
 
-            {/* Add Modal */}
-            {isAddModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 text-sm">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-                        <form onSubmit={handleAddCampus}>
-                            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
-                                <h2 className="text-lg font-semibold text-zinc-900">Add New Campus</h2>
-                                <button type="button" onClick={() => setIsAddModalOpen(false)} className="text-zinc-400 hover:text-zinc-600 transition-colors">
-                                    <X className="h-5 w-5" />
+            {/* Main Content Grid */}
+            {isLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="h-48 bg-white border border-zinc-200 rounded-3xl animate-pulse shadow-sm" />
+                    ))}
+                </div>
+            ) : campuses.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-32 bg-white border-2 border-dashed border-zinc-200 rounded-3xl text-center">
+                    <div className="p-4 bg-zinc-50 rounded-full mb-4">
+                        <Building2 className="text-zinc-400 h-12 w-12" />
+                    </div>
+                    <h3 className="text-xl font-bold text-zinc-900">No Campuses Found</h3>
+                    <p className="mt-2 text-zinc-500 max-w-xs">Get started by creating your school's first campus or branch.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {campuses.map((item) => (
+                        <div key={item.id} className="group bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-300 overflow-hidden flex flex-col">
+                            <div className="p-6 flex-1">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="p-3 bg-zinc-100 rounded-2xl group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                        <Building2 className="h-6 w-6" />
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={() => setDeleteId(item.id)}
+                                            className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                            title="Delete Campus"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <input
+                                        type="text"
+                                        value={item.campus_code}
+                                        maxLength={10}
+                                        onChange={(e) => handleChange(item.id, 'campus_code', e.target.value.toUpperCase())}
+                                        className="text-xs font-mono font-bold tracking-widest text-primary/70 bg-transparent border-none p-0 focus:ring-0 uppercase mb-1"
+                                        placeholder="CODE"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={item.campus_name}
+                                        onChange={(e) => handleChange(item.id, 'campus_name', e.target.value)}
+                                        className="w-full text-xl font-bold text-zinc-900 bg-transparent border-none p-0 focus:ring-0 block"
+                                        placeholder="Campus Name"
+                                    />
+                                </div>
+
+                                <div className="mt-6 flex items-center gap-4 text-xs font-medium text-zinc-500">
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 rounded-full">
+                                        <GraduationCap className="h-3.5 w-3.5" />
+                                        {item.campus_classes?.length || 0} Classes
+                                    </div>
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 rounded-full">
+                                        <LayoutGrid className="h-3.5 w-3.5" />
+                                        {item.campus_sections?.length || 0} Sections
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between">
+                                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter">ID: #{item.id}</span>
+                                <button
+                                    onClick={() => setConfigCampusId(item.id)}
+                                    className="px-4 py-2 bg-white border border-zinc-200 text-zinc-900 text-xs font-bold rounded-xl hover:border-primary hover:text-primary shadow-sm active:scale-95 transition-all flex items-center gap-2"
+                                >
+                                    Manage Classes
+                                    <ChevronRight className="h-3.5 w-3.5" />
                                 </button>
                             </div>
-                            <div className="p-6 space-y-4">
-                                <div>
-                                    <label className="block font-medium text-zinc-700 mb-1.5">Campus Code</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        maxLength={10}
-                                        value={newCampus.campus_code}
-                                        onChange={(e) => setNewCampus({ ...newCampus, campus_code: e.target.value.toUpperCase() })}
-                                        className="w-full px-4 py-2 border border-zinc-200 focus:border-primary focus:ring-1 focus:ring-primary/20 rounded-xl outline-none transition-all uppercase"
-                                        placeholder="e.g. GSH"
-                                    />
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Configuration Side Drawer */}
+            {configCampusId && activeCampus && (
+                <>
+                    <div
+                        className="fixed inset-0 bg-zinc-950/20 backdrop-blur-sm z-40 animate-in fade-in duration-300"
+                        onClick={() => setConfigCampusId(null)}
+                    />
+                    <div className="fixed inset-y-0 right-0 w-full sm:w-[500px] bg-white shadow-2xl z-50 animate-in slide-in-from-right duration-500 ease-out border-l border-zinc-200 flex flex-col">
+                        {/* Drawer Header */}
+                        <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+                            <div>
+                                <h2 className="text-xl font-bold text-zinc-900">{activeCampus.campus_name}</h2>
+                                <p className="text-xs text-zinc-500 mt-0.5 font-mono uppercase tracking-widest">Campus Configuration</p>
+                            </div>
+                            <button
+                                onClick={() => setConfigCampusId(null)}
+                                className="p-2 hover:bg-zinc-200 rounded-full transition-colors"
+                            >
+                                <X className="h-5 w-5 text-zinc-500" />
+                            </button>
+                        </div>
+
+                        {/* Drawer content with internal scroll */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+                            {/* Inventory Section */}
+                            <section>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="h-1 w-4 bg-primary rounded-full" />
+                                    <h3 className="text-sm font-bold text-zinc-900 uppercase tracking-wider">Active Classes</h3>
                                 </div>
-                                <div>
-                                    <label className="block font-medium text-zinc-700 mb-1.5">Campus Name</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={newCampus.campus_name}
-                                        onChange={(e) => setNewCampus({ ...newCampus, campus_name: e.target.value })}
-                                        className="w-full px-4 py-2 border border-zinc-200 focus:border-primary focus:ring-1 focus:ring-primary/20 rounded-xl outline-none transition-all"
-                                        placeholder="e.g. Gulshan Campus"
-                                    />
+
+                                {!activeCampus.campus_classes?.length ? (
+                                    <div className="text-center py-12 bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl">
+                                        <GraduationCap className="h-10 w-10 text-zinc-300 mx-auto mb-3" />
+                                        <p className="text-zinc-500 text-sm">No classes assigned yet.</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 gap-4">
+                                        {activeCampus.campus_classes.map((cc) => (
+                                            <div key={cc.id} className="bg-white border border-zinc-200 rounded-2xl overflow-hidden hover:border-primary/30 transition-all shadow-sm group/class">
+                                                <div className="p-4 flex items-center justify-between border-b border-zinc-100 bg-zinc-50/30">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-white rounded-xl shadow-sm border border-zinc-100 text-primary">
+                                                            <GraduationCap className="h-5 w-5" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-zinc-900 text-sm leading-tight">{cc.classes.description}</p>
+                                                            <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{cc.classes.class_code} · {cc.classes.academic_system}</p>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleRemoveClass(activeCampus.id, cc.classes.id)}
+                                                        className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+
+                                                <div className="p-4 space-y-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Assigned Sections</h4>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {activeCampus.campus_sections?.filter(cs => cs.class_id === cc.classes.id).map(cs => (
+                                                            <div
+                                                                key={cs.id}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-700 hover:bg-white hover:border-primary/30 transition-all group/section"
+                                                            >
+                                                                {cs.sections.description}
+                                                                <button
+                                                                    onClick={() => handleRemoveSection(activeCampus.id, cc.classes.id, cs.section_id)}
+                                                                    className="text-zinc-400 hover:text-rose-600 transition-colors"
+                                                                >
+                                                                    <X className="h-3 w-3" />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+
+                                                        <div className="flex items-center gap-2">
+                                                            <select
+                                                                className="text-xs bg-white border border-zinc-200 rounded-xl px-2 py-1.5 outline-none focus:ring-1 focus:ring-primary/20 w-32"
+                                                                value={selectedSectionId[`${activeCampus.id}-${cc.classes.id}`] || ""}
+                                                                onChange={(e) => setSelectedSectionId({ ...selectedSectionId, [`${activeCampus.id}-${cc.classes.id}`]: e.target.value })}
+                                                            >
+                                                                <option value="">Add...</option>
+                                                                {sectionOptions
+                                                                    .filter(opt => !activeCampus.campus_sections?.some(cs => cs.class_id === cc.classes.id && cs.section_id === opt.id))
+                                                                    .map(opt => (
+                                                                        <option key={opt.id} value={opt.id}>{opt.description}</option>
+                                                                    ))
+                                                                }
+                                                            </select>
+                                                            <button
+                                                                onClick={() => handleAddSection(activeCampus.id, cc.classes.id)}
+                                                                disabled={!selectedSectionId[`${activeCampus.id}-${cc.classes.id}`]}
+                                                                className="p-1.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 disabled:opacity-30 transition-all"
+                                                            >
+                                                                <Plus className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </section>
+
+                            <div className="h-px bg-zinc-100" />
+
+                            {/* Provisioning Section */}
+                            <section>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="h-1 w-4 bg-emerald-500 rounded-full" />
+                                    <h3 className="text-sm font-bold text-zinc-900 uppercase tracking-wider">Add New Class</h3>
+                                </div>
+
+                                <div className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-3xl space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest ml-1">Select Catalog Item</label>
+                                        <select
+                                            className="w-full h-12 px-4 bg-white border border-emerald-200 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm font-medium"
+                                            value={selectedClassId[activeCampus.id] || ""}
+                                            onChange={(e) => setSelectedClassId({ ...selectedClassId, [activeCampus.id]: e.target.value })}
+                                        >
+                                            <option value="">Choose a class from catalog...</option>
+                                            {classOptions
+                                                .filter(opt => !activeCampus.campus_classes?.some(cc => cc.classes.id === opt.id))
+                                                .map(opt => (
+                                                    <option key={opt.id} value={opt.id}>
+                                                        {opt.description} ({opt.class_code})
+                                                    </option>
+                                                ))
+                                            }
+                                        </select>
+                                    </div>
+                                    <button
+                                        onClick={() => handleAddClass(activeCampus.id)}
+                                        disabled={!selectedClassId[activeCampus.id]}
+                                        className="w-full h-12 bg-zinc-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-zinc-800 active:scale-[0.98] transition-all disabled:opacity-50"
+                                    >
+                                        Provision Class
+                                        <Plus className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* Add Modal */}
+            {isAddModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-zinc-950/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300">
+                        <form onSubmit={handleAddCampus}>
+                            <div className="p-8 border-b border-zinc-100">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="h-12 w-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
+                                        <Plus className="h-6 w-6" />
+                                    </div>
+                                    <button type="button" onClick={() => setIsAddModalOpen(false)} className="text-zinc-400 hover:text-zinc-600 transition-colors">
+                                        <X className="h-6 w-6" />
+                                    </button>
+                                </div>
+                                <h2 className="text-2xl font-bold text-zinc-900">New Campus</h2>
+                                <p className="text-zinc-500 mt-1">Initialize a new school branch in the system.</p>
+                            </div>
+
+                            <div className="p-8 bg-zinc-50/30 space-y-6">
+                                <div className="grid grid-cols-1 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Campus Code</label>
+                                        <input
+                                            required
+                                            maxLength={10}
+                                            value={newCampus.campus_code}
+                                            onChange={(e) => setNewCampus({ ...newCampus, campus_code: e.target.value.toUpperCase() })}
+                                            className="w-full h-12 px-4 bg-white border border-zinc-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono uppercase focus:border-primary"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Campus Name</label>
+                                        <input
+                                            required
+                                            value={newCampus.campus_name}
+                                            onChange={(e) => setNewCampus({ ...newCampus, campus_name: e.target.value })}
+                                            className="w-full h-12 px-4 bg-white border border-zinc-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary"
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="px-6 py-4 border-t border-zinc-100 flex justify-end gap-3 bg-zinc-50/50">
-                                <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 font-medium text-zinc-600 hover:text-zinc-900 transition-colors">Cancel</button>
+                            <div className="p-8 flex justify-end gap-4 bg-white">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAddModalOpen(false)}
+                                    className="px-6 h-12 font-bold text-zinc-500 hover:text-zinc-900 transition-colors"
+                                >
+                                    Cancel
+                                </button>
                                 <button
                                     type="submit"
                                     disabled={isAdding}
-                                    className="px-6 py-2 bg-zinc-900 text-white font-medium rounded-xl hover:bg-zinc-800 transition-all active:scale-95 disabled:opacity-50"
+                                    className="px-8 h-12 bg-zinc-900 text-white font-bold rounded-2xl hover:bg-zinc-800 transition-all active:scale-95 disabled:opacity-50"
                                 >
-                                    {isAdding ? "Adding..." : "Add Campus"}
+                                    {isAdding ? <Loader2 className="h-5 w-5 animate-spin" /> : "Create Campus"}
                                 </button>
                             </div>
                         </form>
@@ -537,32 +551,32 @@ export default function CampusesPage() {
                 </div>
             )}
 
-            {/* Delete Modal */}
+            {/* Delete Confirmation Modal */}
             {deleteId !== null && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className="p-6 text-center">
-                            <div className="h-14 w-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Trash2 className="h-7 w-7" />
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-zinc-950/60 backdrop-blur-lg p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300 text-center">
+                        <div className="p-8">
+                            <div className="h-20 w-20 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Trash2 className="h-10 w-10" />
                             </div>
-                            <h2 className="text-lg font-bold text-zinc-900">Delete Campus?</h2>
-                            <p className="text-zinc-500 mt-2">
-                                This action cannot be undone. The system will prevent deletion if students or users are still assigned to this campus.
+                            <h2 className="text-xl font-bold text-zinc-900">Delete Campus?</h2>
+                            <p className="text-zinc-500 mt-2 text-sm leading-relaxed">
+                                This action is permanent. You cannot delete a campus if it contains active student records.
                             </p>
                         </div>
-                        <div className="px-6 py-4 bg-zinc-50 flex gap-3">
+                        <div className="p-6 bg-zinc-50 flex gap-3">
                             <button
                                 onClick={() => setDeleteId(null)}
-                                className="flex-1 py-2.5 font-medium text-zinc-600 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-all"
+                                className="flex-1 h-12 font-bold text-zinc-600 bg-white border border-zinc-200 rounded-2xl hover:bg-zinc-50 transition-all"
                             >
-                                Cancel
+                                Nevermind
                             </button>
                             <button
                                 onClick={handleDelete}
                                 disabled={isDeleting}
-                                className="flex-1 py-2.5 font-medium text-white bg-rose-600 rounded-xl hover:bg-rose-700 transition-all active:scale-95 shadow-sm shadow-rose-200 disabled:opacity-50"
+                                className="flex-1 h-12 font-bold text-white bg-rose-600 rounded-2xl hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-200 disabled:opacity-50"
                             >
-                                {isDeleting ? "Deleting..." : "Delete"}
+                                {isDeleting ? "..." : "Confirm Delete"}
                             </button>
                         </div>
                     </div>
