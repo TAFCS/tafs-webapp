@@ -22,6 +22,7 @@ import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
+import { bankAccountsService, BankAccount } from "@/lib/bank-accounts.service";
 
 // --- Types ---
 interface StudentProfile {
@@ -38,32 +39,7 @@ const MONTHS = [
     "January", "February", "March", "April", "May", "June", "July"
 ];
 
-const BANKS = [
-    {
-        name: "Meezan Bank Limited",
-        title: "TAFS SCHOOL SYSTEM",
-        account: "1234-567890-001",
-        branch: "0102",
-        address: "DHA Phase 6 Branch, Karachi",
-        iban: "PK00 MEZN 0000 1234 5678 9001"
-    },
-    {
-        name: "Habib Bank Limited (HBL)",
-        title: "TAFSYNC PRIVATE LIMITED",
-        account: "0042-345678-002",
-        branch: "0042",
-        address: "Main Boulevard, Lahore",
-        iban: "PK72 HABB 0000 0042 3456 7802"
-    },
-    {
-        name: "Bank Al-Falah",
-        title: "THE ACADEMY OF FUTURE STUDIES",
-        account: "5500-112233-005",
-        branch: "5500",
-        address: "I.I. Chundrigar Road, Karachi",
-        iban: "PK11 ALFH 0000 5500 1122 3305"
-    }
-];
+
 
 export default function FeeChallanGenerator() {
     // --- Form States ---
@@ -76,14 +52,18 @@ export default function FeeChallanGenerator() {
     const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
     const [dueDate, setDueDate] = useState("");
     const [validityDate, setValidityDate] = useState("");
-    const [selectedBank, setSelectedBank] = useState(BANKS[0]);
 
-    // Bank Detail States (Pre-filled from selectedBank)
-    const [accTitle, setAccTitle] = useState(BANKS[0].title);
-    const [accNo, setAccNo] = useState(BANKS[0].account);
-    const [branchCode, setBranchCode] = useState(BANKS[0].branch);
-    const [bankAddress, setBankAddress] = useState(BANKS[0].address);
-    const [iban, setIban] = useState(BANKS[0].iban);
+    // --- Bank States ---
+    const [banks, setBanks] = useState<BankAccount[]>([]);
+    const [isBanksLoading, setIsBanksLoading] = useState(true);
+    const [selectedBank, setSelectedBank] = useState<BankAccount | null>(null);
+
+    // Bank Detail States (editable overrides)
+    const [accTitle, setAccTitle] = useState("");
+    const [accNo, setAccNo] = useState("");
+    const [branchCode, setBranchCode] = useState("");
+    const [bankAddress, setBankAddress] = useState("");
+    const [iban, setIban] = useState("");
 
     const [applyLateFee, setApplyLateFee] = useState(false);
 
@@ -92,7 +72,32 @@ export default function FeeChallanGenerator() {
 
     useEffect(() => {
         setIsClient(true);
+        fetchBanks();
     }, []);
+
+    const fetchBanks = async () => {
+        setIsBanksLoading(true);
+        try {
+            const data = await bankAccountsService.getAll();
+            setBanks(data);
+            if (data.length > 0) {
+                selectBank(data[0]);
+            }
+        } catch (err) {
+            toast.error("Failed to load bank accounts");
+        } finally {
+            setIsBanksLoading(false);
+        }
+    };
+
+    const selectBank = (bank: BankAccount) => {
+        setSelectedBank(bank);
+        setAccTitle(bank.account_title);
+        setAccNo(bank.account_number);
+        setBranchCode(bank.branch_code || "");
+        setBankAddress(bank.bank_address || "");
+        setIban(bank.iban || "");
+    };
 
     // Default dates logic
     useEffect(() => {
@@ -299,21 +304,21 @@ export default function FeeChallanGenerator() {
                                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Collection Bank</label>
                                 <div className="relative">
                                     <select
-                                        value={selectedBank.name}
+                                        value={selectedBank?.id ?? ""}
                                         onChange={(e) => {
-                                            const b = BANKS.find(x => x.name === e.target.value);
-                                            if (b) {
-                                                setSelectedBank(b);
-                                                setAccTitle(b.title);
-                                                setAccNo(b.account);
-                                                setBranchCode(b.branch);
-                                                setBankAddress(b.address);
-                                                setIban(b.iban);
-                                            }
+                                            const b = banks.find(x => x.id === Number(e.target.value));
+                                            if (b) selectBank(b);
                                         }}
-                                        className="w-full h-12 pl-12 pr-12 bg-zinc-50 border border-zinc-200 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all appearance-none cursor-pointer"
+                                        disabled={isBanksLoading || banks.length === 0}
+                                        className="w-full h-12 pl-12 pr-12 bg-zinc-50 border border-zinc-200 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all appearance-none cursor-pointer disabled:opacity-50"
                                     >
-                                        {BANKS.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
+                                        {isBanksLoading ? (
+                                            <option>Loading banks...</option>
+                                        ) : banks.length === 0 ? (
+                                            <option>No banks configured</option>
+                                        ) : (
+                                            banks.map(b => <option key={b.id} value={b.id}>{b.bank_name}</option>)
+                                        )}
                                     </select>
                                     <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                                     <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
@@ -440,7 +445,7 @@ export default function FeeChallanGenerator() {
                                 </div>
                             </div>
 
-                            {isClient && student ? (
+                            {isClient && student && selectedBank ? (
                                 <PDFDownloadLink
                                     document={
                                         <FeeChallanPDF
@@ -458,7 +463,7 @@ export default function FeeChallanGenerator() {
                                                 validityDate,
                                                 applyLateFee,
                                                 bank: {
-                                                    name: selectedBank.name,
+                                                    name: selectedBank?.bank_name ?? "",
                                                     title: accTitle,
                                                     account: accNo,
                                                     branch: branchCode,
