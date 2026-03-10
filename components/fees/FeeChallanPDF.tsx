@@ -4,23 +4,26 @@ import { Page, Text, View, Document, StyleSheet, Image, Font } from '@react-pdf/
 // Define styles
 const styles = StyleSheet.create({
     page: {
-        flexDirection: 'column',
+        flexDirection: 'row', // Horizontal layout for the 3 copies side-by-side
         backgroundColor: '#ffffff',
-        padding: 30,
+        padding: 15,
         fontSize: 9,
         fontFamily: 'Helvetica',
     },
     section: {
-        borderBottomWidth: 1,
-        borderBottomColor: '#e4e4e4',
-        borderBottomStyle: 'dashed',
-        marginBottom: 20,
-        paddingBottom: 20,
+        flex: 1, // Each copy takes 1/3 of the page horizontally
+        paddingHorizontal: 15,
+        borderRightWidth: 1, // Vertical separator instead of horizontal dashed border
+        borderRightColor: '#e4e4e4',
+        borderRightStyle: 'dashed',
+    },
+    lastSection: {
+        borderRightWidth: 0, // Remove right border for the last (3rd) copy
     },
     copyLabel: {
         position: 'absolute',
-        right: 0,
-        top: 10,
+        right: 15,
+        top: 0,
         backgroundColor: '#000000',
         color: '#ffffff',
         padding: '2px 8px',
@@ -31,97 +34,99 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
     header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 15,
+        flexDirection: 'column',
+        marginBottom: 5,
         alignItems: 'center',
+        textAlign: 'center',
     },
     logo: {
-        width: 50,
-        height: 50,
+        width: 30,
+        height: 30,
+        marginBottom: 5,
     },
     schoolInfo: {
-        flex: 1,
-        marginLeft: 15,
+        alignItems: 'center',
+        marginBottom: 5,
     },
     schoolName: {
-        fontSize: 16,
+        fontSize: 12,
         fontWeight: 'bold',
         color: '#1a1a1a',
         letterSpacing: 0.5,
     },
     schoolAddress: {
-        fontSize: 8,
+        fontSize: 7,
         color: '#666666',
-        marginTop: 2,
+        marginTop: 1,
     },
     bankInfo: {
-        textAlign: 'right',
+        alignItems: 'center',
     },
     bankName: {
-        fontSize: 10,
+        fontSize: 9,
         fontWeight: 'bold',
         color: '#1a1a1a',
     },
     accountNo: {
-        fontSize: 8,
+        fontSize: 7,
         color: '#666666',
-        marginTop: 2,
+        marginTop: 1,
     },
     studentSection: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+        flexDirection: 'column', // Stack vertically instead of row since it's narrower
         backgroundColor: '#f9f9f9',
-        padding: 10,
+        padding: 5,
         borderRadius: 8,
-        marginBottom: 15,
+        marginBottom: 5,
         borderWidth: 1,
         borderColor: '#efefef',
+        gap: 3,
     },
     studentCol: {
-        flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
     },
     label: {
-        fontSize: 7,
+        fontSize: 6,
         textTransform: 'uppercase',
         color: '#999999',
-        marginBottom: 2,
     },
     value: {
-        fontSize: 10,
+        fontSize: 8,
         fontWeight: 'bold',
         color: '#1a1a1a',
     },
     datesSection: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 15,
+        flexWrap: 'wrap', // Allow wrapping if space is tight
+        marginBottom: 5,
+        gap: 2,
     },
     dateItem: {
-        textAlign: 'center',
-        flex: 1,
+        width: '48%', // Show 2 per row now that columns are narrower
     },
     feeTable: {
         width: '100%',
-        marginBottom: 15,
+        marginBottom: 5,
     },
     tableHeader: {
         flexDirection: 'row',
         borderBottomWidth: 1,
         borderBottomColor: '#333333',
-        paddingBottom: 4,
-        marginBottom: 4,
+        paddingBottom: 2,
+        marginBottom: 2,
     },
     tableRow: {
         flexDirection: 'row',
-        paddingVertical: 3,
+        paddingVertical: 2,
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
     },
     totalRow: {
         flexDirection: 'row',
-        marginTop: 5,
-        paddingVertical: 5,
+        marginTop: 3,
+        paddingVertical: 3,
         borderTopWidth: 1,
         borderTopColor: '#333333',
         fontWeight: 'bold',
@@ -129,21 +134,21 @@ const styles = StyleSheet.create({
     colDesc: { flex: 3 },
     colAmount: { flex: 1, textAlign: 'right' },
     instructions: {
-        fontSize: 7,
+        fontSize: 6,
         color: '#888888',
-        marginTop: 10,
-        fontStyle: 'italic',
+        lineHeight: 1.2,
     },
     bankDetailsSection: {
         marginTop: 10,
-        padding: 10,
+        marginBottom: 10,
+        padding: 5,
         borderWidth: 1,
         borderColor: '#e4e4e4',
         borderRadius: 6,
     },
     bankDetailsRow: {
         flexDirection: 'row',
-        marginBottom: 4,
+        marginBottom: 2,
     },
     bankDetailsLabel: {
         width: 100,
@@ -158,18 +163,18 @@ const styles = StyleSheet.create({
     },
     footer: {
         marginTop: 15,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-end',
+        flexDirection: 'column',
     },
     signature: {
         borderTopWidth: 1,
         borderTopColor: '#cccccc',
-        width: 120,
+        width: 100,
         textAlign: 'center',
         paddingTop: 5,
         fontSize: 8,
         color: '#666666',
+        alignSelf: 'flex-end',
+        marginTop: 20,
     }
 });
 
@@ -196,17 +201,18 @@ interface FeeChallanPDFProps {
             iban: string;
         }
     };
+    siblings?: { full_name: string; gr_number: string; }[];
 }
 
-const ChallanCopy = ({ copyType, student, details }: { copyType: string } & FeeChallanPDFProps) => (
-    <View style={styles.section}>
+const ChallanCopy = ({ copyType, student, details, siblings, isLast }: { copyType: string, isLast?: boolean } & FeeChallanPDFProps) => (
+    <View style={[styles.section, isLast && styles.lastSection]}>
         <Text style={styles.copyLabel}>{copyType}</Text>
 
         <View style={styles.header}>
             <Image src="/logo.png" style={styles.logo} />
             <View style={styles.schoolInfo}>
-                <Text style={styles.schoolName}>TAFSYNC SCHOOL SYSTEM</Text>
-                <Text style={styles.schoolAddress}>{student.campus || "Main Campus"} - Karachi, Pakistan</Text>
+                <Text style={styles.schoolName}>TAFSYNC SCHOOL</Text>
+                <Text style={styles.schoolAddress}>{student.campus || "Main Campus"}</Text>
             </View>
             <View style={styles.bankInfo}>
                 <Text style={styles.bankName}>{details.bank.name}</Text>
@@ -219,13 +225,25 @@ const ChallanCopy = ({ copyType, student, details }: { copyType: string } & FeeC
                 <Text style={styles.label}>Student Name</Text>
                 <Text style={styles.value}>{student.student_full_name}</Text>
             </View>
-            <View style={[styles.studentCol, { alignItems: 'center' }]}>
+            <View style={styles.studentCol}>
                 <Text style={styles.label}>Class / Section</Text>
                 <Text style={styles.value}>{student.grade_and_section}</Text>
             </View>
-            <View style={[styles.studentCol, { alignItems: 'flex-end' }]}>
+            <View style={styles.studentCol}>
                 <Text style={styles.label}>CC ID / GR No.</Text>
                 <Text style={styles.value}>CC-{student.cc} / {student.gr_number}</Text>
+            </View>
+            <View style={[styles.studentCol, { flexDirection: 'column' }]}>
+                <Text style={[styles.label, { marginBottom: 2 }]}>Siblings</Text>
+                {siblings && siblings.length > 0 ? (
+                    siblings.map((s, i) => (
+                        <Text key={i} style={{ fontSize: 8, color: '#333333', marginBottom: 1 }}>
+                            {s.full_name}{"  "}GR-{s.gr_number}
+                        </Text>
+                    ))
+                ) : (
+                    <Text style={{ fontSize: 8, color: '#aaaaaa' }}>—</Text>
+                )}
             </View>
         </View>
 
@@ -295,23 +313,40 @@ const ChallanCopy = ({ copyType, student, details }: { copyType: string } & FeeC
         </View>
 
         <View style={styles.footer}>
-            <Text style={styles.instructions}>
-                * Please pay by the due date to avoid late fee.{"\n"}
-                * This is a computer generated document and does not require a stamp.
-            </Text>
-            <View style={styles.signature}>
-                <Text>Authorized Signatory</Text>
+            <View style={{ flex: 1, marginRight: 10 }}>
+                <Text style={[styles.instructions, { fontStyle: 'normal', fontWeight: 'bold' }]}>
+                    MBL CODE: TAFCS
+                </Text>
+                <Text style={[styles.instructions, { fontStyle: 'normal', fontWeight: 'bold', marginTop: 2 }]}>NOTE:</Text>
+                <Text style={styles.instructions}>
+                    {"• "} Only Cash & MBL Cheque/Pay order will be accepted.{"\n"}
+                    {"• "} After Due Date student will pay PKR 1000/- as charity on late deposit.{"\n"}
+                    {"• "} The additional amount collected after due date will be donated for Charitable purpose.{"\n"}
+                    {"• "} Admission and Tuition Fee once paid are non-refundable.
+                </Text>
+                <Text style={[styles.instructions, { fontStyle: 'normal', fontWeight: 'bold', marginTop: 3 }]}>Payment Options:</Text>
+                <Text style={styles.instructions}>
+                    For MBL Counters:{"\n"}
+                    Pay via CMS Online Deposit Module — Customer Code: TAFCS{"\n"}
+                    For Payment via MBL Mobile/Internet Banking:{"\n"}
+                    Select School as beneficiary from Biller Option and Pay.{"\n"}
+                    For Payment via Any Other Bank Counter/Digital Channel:{"\n"}
+                    Payment via 1Bill Invoices option using 24-digit 1Bill Invoice No.
+                </Text>
             </View>
+        </View>
+        <View style={styles.signature}>
+            <Text>Authorized Signatory</Text>
         </View>
     </View>
 );
 
-export const FeeChallanPDF = ({ student, details }: FeeChallanPDFProps) => (
+export const FeeChallanPDF = ({ student, details, siblings }: FeeChallanPDFProps) => (
     <Document>
-        <Page size="A4" style={styles.page}>
-            <ChallanCopy copyType="Bank Copy" student={student} details={details} />
-            <ChallanCopy copyType="School Copy" student={student} details={details} />
-            <ChallanCopy copyType="Student Copy" student={student} details={details} />
+        <Page size={[841.89, 595.28]} wrap={false} style={styles.page}>
+            <ChallanCopy copyType="Bank Copy" student={student} details={details} siblings={siblings} />
+            <ChallanCopy copyType="School Copy" student={student} details={details} siblings={siblings} />
+            <ChallanCopy copyType="Student Copy" student={student} details={details} siblings={siblings} isLast={true} />
         </Page>
     </Document>
 );
