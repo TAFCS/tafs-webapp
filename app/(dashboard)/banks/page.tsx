@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     Building2,
     Plus,
@@ -15,100 +15,107 @@ import {
     ChevronRight,
     Loader2,
     CheckCircle2,
-    X
+    X,
+    AlertCircle
 } from "lucide-react";
 import toast from "react-hot-toast";
-
-interface Bank {
-    id: string;
-    name: string;
-    title: string;
-    account: string;
-    branch: string;
-    address: string;
-    iban: string;
-    isActive: boolean;
-}
-
-const DUMMY_BANKS: Bank[] = [
-    {
-        id: "1",
-        name: "Meezan Bank Limited",
-        title: "TAFS SCHOOL SYSTEM",
-        account: "1234-567890-001",
-        branch: "0102",
-        address: "DHA Phase 6 Branch, Karachi",
-        iban: "PK00 MEZN 0000 1234 5678 9001",
-        isActive: true
-    },
-    {
-        id: "2",
-        name: "Habib Bank Limited (HBL)",
-        title: "TAFSYNC PRIVATE LIMITED",
-        account: "0042-345678-002",
-        branch: "0042",
-        address: "Main Boulevard, Lahore",
-        iban: "PK72 HABB 0000 0042 3456 7802",
-        isActive: true
-    },
-    {
-        id: "3",
-        name: "Bank Al-Falah",
-        title: "THE ACADEMY OF FUTURE STUDIES",
-        account: "5500-112233-005",
-        branch: "5500",
-        address: "I.I. Chundrigar Road, Karachi",
-        iban: "PK11 ALFH 0000 5500 1122 3305",
-        isActive: true
-    }
-];
+import { bankAccountsService, BankAccount } from "@/lib/bank-accounts.service";
 
 export default function BanksManagement() {
-    const [banks, setBanks] = useState<Bank[]>(DUMMY_BANKS);
+    const [banks, setBanks] = useState<BankAccount[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
-    const [showAddModal, setShowAddModal] = useState(false);
+    const [showModal, setShowModal] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [editingBank, setEditingBank] = useState<BankAccount | null>(null);
 
     // Form State
     const [formData, setFormData] = useState({
-        name: "",
-        title: "",
-        account: "",
-        branch: "",
-        address: "",
+        bank_name: "",
+        account_title: "",
+        account_number: "",
+        branch_code: "",
+        bank_address: "",
         iban: ""
     });
 
+    useEffect(() => {
+        fetchBanks();
+    }, []);
+
+    const fetchBanks = async () => {
+        setIsLoading(true);
+        try {
+            const data = await bankAccountsService.getAll();
+            setBanks(data);
+        } catch (err) {
+            toast.error("Failed to fetch bank accounts");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const filteredBanks = banks.filter(b =>
-        b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        b.title.toLowerCase().includes(searchTerm.toLowerCase())
+        b.bank_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        b.account_title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const handleAddBank = async (e: React.FormEvent) => {
+    const handleOpenAdd = () => {
+        setEditingBank(null);
+        setFormData({
+            bank_name: "",
+            account_title: "",
+            account_number: "",
+            branch_code: "",
+            bank_address: "",
+            iban: ""
+        });
+        setShowModal(true);
+    };
+
+    const handleOpenEdit = (bank: BankAccount) => {
+        setEditingBank(bank);
+        setFormData({
+            bank_name: bank.bank_name,
+            account_title: bank.account_title,
+            account_number: bank.account_number,
+            branch_code: bank.branch_code || "",
+            bank_address: bank.bank_address || "",
+            iban: bank.iban || ""
+        });
+        setShowModal(true);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
         try {
-            await new Promise(r => setTimeout(r, 800)); // Simulate
-            const newBank: Bank = {
-                id: Math.random().toString(36).substr(2, 9),
-                ...formData,
-                isActive: true
-            };
-            setBanks([newBank, ...banks]);
-            setShowAddModal(false);
-            setFormData({ name: "", title: "", account: "", branch: "", address: "", iban: "" });
-            toast.success("Bank account added successfully!");
-        } catch (err) {
-            toast.error("Failed to add bank.");
+            if (editingBank) {
+                await bankAccountsService.update(editingBank.id, formData);
+                toast.success("Bank account updated successfully!");
+            } else {
+                await bankAccountsService.create(formData);
+                toast.success("Bank account added successfully!");
+            }
+            fetchBanks();
+            setShowModal(false);
+        } catch (err: any) {
+            const msg = err.response?.data?.message || "Failed to save bank details";
+            toast.error(typeof msg === 'string' ? msg : "Duplicate details found");
         } finally {
             setIsSaving(false);
         }
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: number) => {
         if (confirm("Are you sure you want to remove this bank account?")) {
-            setBanks(banks.filter(b => b.id !== id));
-            toast.success("Bank removed.");
+            try {
+                await bankAccountsService.delete(id);
+                setBanks(banks.filter(b => b.id !== id));
+                toast.success("Bank removed.");
+            } catch (err) {
+                toast.error("Failed to delete bank.");
+            }
         }
     };
 
@@ -138,7 +145,7 @@ export default function BanksManagement() {
                         />
                     </div>
                     <button
-                        onClick={() => setShowAddModal(true)}
+                        onClick={handleOpenAdd}
                         className="h-12 px-6 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-zinc-800 transition-all flex items-center gap-2 shadow-lg shadow-zinc-200 active:scale-95"
                     >
                         <Plus className="h-4 w-4" /> Add New Bank
@@ -148,7 +155,11 @@ export default function BanksManagement() {
 
             {/* Banks Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredBanks.map((bank) => (
+                {isLoading ? (
+                    Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="h-[400px] bg-zinc-50 rounded-[32px] animate-pulse border border-zinc-100" />
+                    ))
+                ) : filteredBanks.map((bank) => (
                     <div
                         key={bank.id}
                         className="group relative bg-white border border-zinc-200 rounded-[32px] p-8 hover:border-zinc-300 hover:shadow-2xl hover:shadow-zinc-200/50 transition-all duration-500 overflow-hidden"
@@ -165,8 +176,8 @@ export default function BanksManagement() {
                                 <Building2 className="h-7 w-7 text-zinc-400 group-hover:text-zinc-900" />
                             </div>
                             <div className="flex-1 pr-12">
-                                <h3 className="text-lg font-black text-zinc-900 leading-tight group-hover:text-primary transition-colors">{bank.name}</h3>
-                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mt-1 line-clamp-1">{bank.address}</p>
+                                <h3 className="text-lg font-black text-zinc-900 leading-tight group-hover:text-primary transition-colors">{bank.bank_name}</h3>
+                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mt-1 line-clamp-1">{bank.bank_address || "No address provided"}</p>
                             </div>
                         </div>
 
@@ -177,7 +188,7 @@ export default function BanksManagement() {
                                     <User className="h-3.5 w-3.5 text-zinc-400" />
                                     <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Account Title</span>
                                 </div>
-                                <p className="text-sm font-black text-zinc-800 ml-6.5">{bank.title}</p>
+                                <p className="text-sm font-black text-zinc-800 ml-6.5">{bank.account_title}</p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
@@ -186,14 +197,14 @@ export default function BanksManagement() {
                                         <Hash className="h-3.5 w-3.5 text-zinc-400" />
                                         <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Account No.</span>
                                     </div>
-                                    <p className="text-sm font-black text-zinc-800 ml-6.5">{bank.account}</p>
+                                    <p className="text-sm font-black text-zinc-800 ml-6.5">{bank.account_number}</p>
                                 </div>
                                 <div className="p-4 bg-zinc-50 rounded-[20px] border border-zinc-100 group-hover:bg-white transition-colors duration-500">
                                     <div className="flex items-center gap-3 mb-2">
                                         <ChevronRight className="h-3.5 w-3.5 text-zinc-400" />
                                         <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Br. Code</span>
                                     </div>
-                                    <p className="text-sm font-black text-zinc-800 ml-6.5">{bank.branch}</p>
+                                    <p className="text-sm font-black text-zinc-800 ml-6.5">{bank.branch_code || "N/A"}</p>
                                 </div>
                             </div>
 
@@ -202,14 +213,17 @@ export default function BanksManagement() {
                                     <CreditCard className="h-3.5 w-3.5 text-zinc-500" />
                                     <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">IBAN Number</span>
                                 </div>
-                                <p className="text-xs font-mono font-bold tracking-wider ml-6.5 text-zinc-300">{bank.iban}</p>
+                                <p className="text-xs font-mono font-bold tracking-wider ml-6.5 text-zinc-300">{bank.iban || "NOT PROVIDED"}</p>
                             </div>
                         </div>
 
                         {/* Actions Overlay */}
                         <div className="mt-8 pt-8 border-t border-zinc-50 flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <button className="p-2.5 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-zinc-900 hover:text-white transition-all shadow-sm">
+                                <button
+                                    onClick={() => handleOpenEdit(bank)}
+                                    className="p-2.5 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-zinc-900 hover:text-white transition-all shadow-sm"
+                                >
                                     <Edit2 className="h-4 w-4" />
                                 </button>
                                 <button
@@ -227,7 +241,7 @@ export default function BanksManagement() {
                 ))}
 
                 {/* Empty State */}
-                {filteredBanks.length === 0 && (
+                {!isLoading && filteredBanks.length === 0 && (
                     <div className="col-span-full py-32 text-center bg-zinc-50 rounded-[40px] border-2 border-dashed border-zinc-200">
                         <div className="h-20 w-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-zinc-200">
                             <Building2 className="h-10 w-10 text-zinc-300" />
@@ -235,7 +249,7 @@ export default function BanksManagement() {
                         <h3 className="text-2xl font-black text-zinc-900">No banks found</h3>
                         <p className="text-zinc-500 font-medium mt-2">Adjust your search or add a new bank account to get started.</p>
                         <button
-                            onClick={() => setShowAddModal(true)}
+                            onClick={handleOpenAdd}
                             className="mt-8 px-8 h-12 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-zinc-800 transition-all shadow-lg"
                         >
                             Create First Bank
@@ -244,11 +258,11 @@ export default function BanksManagement() {
                 )}
             </div>
 
-            {/* Add Bank Modal */}
-            {showAddModal && (
+            {/* Add/Edit Bank Modal */}
+            {showModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 min-h-screen">
                     {/* Backdrop */}
-                    <div className="absolute inset-0 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-300" onClick={() => !isSaving && setShowAddModal(false)} />
+                    <div className="absolute inset-0 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-300" onClick={() => !isSaving && setShowModal(false)} />
 
                     {/* Modal Content */}
                     <div className="relative bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-300">
@@ -256,20 +270,22 @@ export default function BanksManagement() {
                             <div className="flex items-center justify-between mb-10">
                                 <div>
                                     <h2 className="text-2xl font-black text-zinc-900 tracking-tight flex items-center gap-3">
-                                        <Plus className="h-6 w-6 text-primary" />
-                                        Add Bank Account
+                                        {editingBank ? <Edit2 className="h-6 w-6 text-primary" /> : <Plus className="h-6 w-6 text-primary" />}
+                                        {editingBank ? "Update Bank Account" : "Add Bank Account"}
                                     </h2>
-                                    <p className="text-zinc-500 text-sm font-medium mt-1">Fill in the details for the new collection bank.</p>
+                                    <p className="text-zinc-500 text-sm font-medium mt-1">
+                                        {editingBank ? "Modify the existing bank account details." : "Fill in the details for the new collection bank."}
+                                    </p>
                                 </div>
                                 <button
-                                    onClick={() => setShowAddModal(false)}
+                                    onClick={() => setShowModal(false)}
                                     className="h-10 w-10 bg-zinc-100 rounded-full flex items-center justify-center hover:bg-zinc-200 transition-colors"
                                 >
                                     <X className="h-5 w-5 text-zinc-500" />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleAddBank} className="space-y-8">
+                            <form onSubmit={handleSubmit} className="space-y-8">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Bank Name</label>
@@ -277,8 +293,8 @@ export default function BanksManagement() {
                                             required
                                             type="text"
                                             placeholder="e.g. Meezan Bank"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            value={formData.bank_name}
+                                            onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
                                             className="w-full h-14 px-6 bg-zinc-50 border border-zinc-200 rounded-[20px] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-zinc-100 transition-all"
                                         />
                                     </div>
@@ -288,8 +304,8 @@ export default function BanksManagement() {
                                             required
                                             type="text"
                                             placeholder="Holder Name"
-                                            value={formData.title}
-                                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                            value={formData.account_title}
+                                            onChange={(e) => setFormData({ ...formData, account_title: e.target.value })}
                                             className="w-full h-14 px-6 bg-zinc-50 border border-zinc-200 rounded-[20px] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-zinc-100 transition-all"
                                         />
                                     </div>
@@ -299,28 +315,26 @@ export default function BanksManagement() {
                                             required
                                             type="text"
                                             placeholder="0000-000000-00"
-                                            value={formData.account}
-                                            onChange={(e) => setFormData({ ...formData, account: e.target.value })}
+                                            value={formData.account_number}
+                                            onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
                                             className="w-full h-14 px-6 bg-zinc-50 border border-zinc-200 rounded-[20px] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-zinc-100 transition-all"
                                         />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Branch Code</label>
                                         <input
-                                            required
                                             type="text"
-                                            placeholder="4 Digits"
-                                            value={formData.branch}
-                                            onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
+                                            placeholder="4 Digits (Optional)"
+                                            value={formData.branch_code}
+                                            onChange={(e) => setFormData({ ...formData, branch_code: e.target.value })}
                                             className="w-full h-14 px-6 bg-zinc-50 border border-zinc-200 rounded-[20px] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-zinc-100 transition-all"
                                         />
                                     </div>
                                     <div className="md:col-span-2 space-y-2">
                                         <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">IBAN Number</label>
                                         <input
-                                            required
                                             type="text"
-                                            placeholder="PK00 XXXX 0000..."
+                                            placeholder="PK00 XXXX 0000... (Optional)"
                                             value={formData.iban}
                                             onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
                                             className="w-full h-14 px-6 bg-zinc-900 text-white rounded-[20px] text-sm font-bold tracking-widest focus:outline-none transition-all placeholder:text-zinc-600"
@@ -329,11 +343,10 @@ export default function BanksManagement() {
                                     <div className="md:col-span-2 space-y-2">
                                         <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Bank Address</label>
                                         <input
-                                            required
                                             type="text"
-                                            placeholder="Complete branch location"
-                                            value={formData.address}
-                                            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                            placeholder="Complete branch location (Optional)"
+                                            value={formData.bank_address}
+                                            onChange={(e) => setFormData({ ...formData, bank_address: e.target.value })}
                                             className="w-full h-14 px-6 bg-zinc-50 border border-zinc-200 rounded-[20px] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-zinc-100 transition-all"
                                         />
                                     </div>
@@ -342,7 +355,7 @@ export default function BanksManagement() {
                                 <div className="flex items-center gap-4 pt-4">
                                     <button
                                         type="button"
-                                        onClick={() => setShowAddModal(false)}
+                                        onClick={() => setShowModal(false)}
                                         className="flex-1 h-14 bg-zinc-50 text-zinc-500 rounded-[20px] font-black uppercase tracking-widest text-[11px] hover:bg-zinc-100 transition-all"
                                     >
                                         Cancel
@@ -353,7 +366,7 @@ export default function BanksManagement() {
                                         className="flex-[2] h-14 bg-zinc-900 text-white rounded-[20px] font-black uppercase tracking-widest text-[11px] hover:bg-zinc-800 transition-all flex items-center justify-center gap-4 shadow-2xl shadow-zinc-200 disabled:opacity-50 active:scale-[0.98]"
                                     >
                                         {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                                        {isSaving ? "Saving Details..." : "Confirm & Create"}
+                                        {isSaving ? "Saving Details..." : (editingBank ? "Update Account" : "Confirm & Create")}
                                     </button>
                                 </div>
                             </form>
