@@ -178,12 +178,19 @@ const styles = StyleSheet.create({
     }
 });
 
+export interface FeeItem {
+    description: string;
+    amount: number;
+}
+
 interface FeeChallanPDFProps {
     student: {
         cc: number | string;
         student_full_name: string;
         gr_number: string;
         campus: string;
+        class_id: number;
+        section_id?: number;
         grade_and_section: string;
     };
     details: {
@@ -201,22 +208,20 @@ interface FeeChallanPDFProps {
             iban: string;
         }
     };
+    fees: FeeItem[];
+    totalAmount: number;
     siblings?: { full_name: string; gr_number: string; }[];
 }
 
-const ChallanCopy = ({ copyType, student, details, siblings, isLast }: { copyType: string, isLast?: boolean } & FeeChallanPDFProps) => (
-    <View style={[styles.section, isLast && styles.lastSection]}>
+const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, isLast }: { copyType: string, isLast?: boolean } & FeeChallanPDFProps) => (
+    <View style={[styles.section, isLast ? styles.lastSection : {}]}>
         <Text style={styles.copyLabel}>{copyType}</Text>
 
         <View style={styles.header}>
             <Image src="/logo.png" style={styles.logo} />
             <View style={styles.schoolInfo}>
-                <Text style={styles.schoolName}>TAFSYNC SCHOOL</Text>
+                <Text style={styles.schoolName}>THE AMERICAN FOUNDATION SCHOOL</Text>
                 <Text style={styles.schoolAddress}>{student.campus || "Main Campus"}</Text>
-            </View>
-            <View style={styles.bankInfo}>
-                <Text style={styles.bankName}>{details.bank.name}</Text>
-                <Text style={styles.accountNo}>A/C: {details.bank.account}</Text>
             </View>
         </View>
 
@@ -233,43 +238,41 @@ const ChallanCopy = ({ copyType, student, details, siblings, isLast }: { copyTyp
                 <Text style={styles.label}>CC ID / GR No.</Text>
                 <Text style={styles.value}>CC-{student.cc} / {student.gr_number}</Text>
             </View>
-            <View style={[styles.studentCol, { flexDirection: 'column' }]}>
-                <Text style={[styles.label, { marginBottom: 2 }]}>Siblings</Text>
-                {siblings && siblings.length > 0 ? (
-                    siblings.map((s, i) => (
-                        <Text key={i} style={{ fontSize: 8, color: '#333333', marginBottom: 1 }}>
-                            {s.full_name}{"  "}GR-{s.gr_number}
-                        </Text>
-                    ))
-                ) : (
-                    <Text style={{ fontSize: 8, color: '#aaaaaa' }}>—</Text>
-                )}
+        </View>
+
+        <View style={[styles.studentSection, { backgroundColor: '#ffffff', borderColor: '#d1d5db' }]}>
+            <View style={styles.datesSection}>
+                <View style={styles.dateItem}>
+                    <Text style={styles.label}>Billing Month</Text>
+                    <Text style={styles.value}>{details.month} 2026</Text>
+                </View>
+                <View style={styles.dateItem}>
+                    <Text style={styles.label}>Issue Date</Text>
+                    <Text style={styles.value}>{details.issueDate}</Text>
+                </View>
+                <View style={styles.dateItem}>
+                    <Text style={styles.label}>Due Date</Text>
+                    <Text style={styles.value}>{details.dueDate}</Text>
+                </View>
+                <View style={styles.dateItem}>
+                    <Text style={styles.label}>Valid Till</Text>
+                    <Text style={[styles.value, { color: '#e11d48' }]}>{details.validityDate}</Text>
+                </View>
             </View>
         </View>
 
-        <View style={styles.datesSection}>
-            <View style={styles.dateItem}>
-                <Text style={styles.label}>Billing Month</Text>
-                <Text style={styles.value}>{details.month} 2026</Text>
+        <View style={[styles.studentSection, { backgroundColor: '#f8fafc', borderColor: '#cbd5e1' }]}>
+            <View style={styles.bankDetailsRow}>
+                <Text style={styles.bankDetailsLabel}>Collection Bank:</Text>
+                <Text style={styles.bankDetailsValue}>{details.bank.name}</Text>
             </View>
-            <View style={styles.dateItem}>
-                <Text style={styles.label}>Issue Date</Text>
-                <Text style={styles.value}>{details.issueDate}</Text>
-            </View>
-            <View style={styles.dateItem}>
-                <Text style={styles.label}>Due Date</Text>
-                <Text style={styles.value}>{details.dueDate}</Text>
-            </View>
-            <View style={styles.dateItem}>
-                <Text style={styles.label}>Valid Till</Text>
-                <Text style={[styles.value, { color: '#e11d48' }]}>{details.validityDate}</Text>
-            </View>
-        </View>
-
-        <View style={styles.bankDetailsSection}>
             <View style={styles.bankDetailsRow}>
                 <Text style={styles.bankDetailsLabel}>Account Title:</Text>
                 <Text style={styles.bankDetailsValue}>{details.bank.title}</Text>
+            </View>
+            <View style={styles.bankDetailsRow}>
+                <Text style={styles.bankDetailsLabel}>Account No:</Text>
+                <Text style={styles.bankDetailsValue}>{details.bank.account}</Text>
             </View>
             <View style={styles.bankDetailsRow}>
                 <Text style={styles.bankDetailsLabel}>Branch Code:</Text>
@@ -279,35 +282,29 @@ const ChallanCopy = ({ copyType, student, details, siblings, isLast }: { copyTyp
                 <Text style={styles.bankDetailsLabel}>IBAN:</Text>
                 <Text style={styles.bankDetailsValue}>{details.bank.iban}</Text>
             </View>
-            <View style={styles.bankDetailsRow}>
-                <Text style={styles.bankDetailsLabel}>Address:</Text>
-                <Text style={styles.bankDetailsValue}>{details.bank.address}</Text>
-            </View>
         </View>
 
-        <View style={styles.feeTable}>
+        <View style={[styles.feeTable, { marginTop: 5 }]}>
             <View style={styles.tableHeader}>
                 <Text style={[styles.colDesc, { fontWeight: 'bold' }]}>Description</Text>
                 <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>Amount (PKR)</Text>
             </View>
-            <View style={styles.tableRow}>
-                <Text style={styles.colDesc}>Monthly Tuition Fee</Text>
-                <Text style={styles.colAmount}>8,500.00</Text>
-            </View>
-            <View style={styles.tableRow}>
-                <Text style={styles.colDesc}>Exam Fund</Text>
-                <Text style={styles.colAmount}>1,000.00</Text>
-            </View>
+            {fees.map((fee, idx) => (
+                <View key={idx} style={styles.tableRow}>
+                    <Text style={styles.colDesc}>{fee.description}</Text>
+                    <Text style={styles.colAmount}>{fee.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                </View>
+            ))}
             {details.applyLateFee && (
                 <View style={styles.tableRow}>
                     <Text style={styles.colDesc}>Late Payment Surcharge</Text>
-                    <Text style={styles.colAmount}>500.00</Text>
+                    <Text style={styles.colAmount}>{(500).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                 </View>
             )}
             <View style={styles.totalRow}>
                 <Text style={[styles.colDesc, { fontWeight: 'bold' }]}>NET PAYABLE AMOUNT</Text>
                 <Text style={[styles.colAmount, { fontWeight: 'bold', fontSize: 12 }]}>
-                    {details.applyLateFee ? '10,000.00' : '9,500.00'}
+                    {(totalAmount + (details.applyLateFee ? 500 : 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </Text>
             </View>
         </View>
@@ -341,12 +338,25 @@ const ChallanCopy = ({ copyType, student, details, siblings, isLast }: { copyTyp
     </View>
 );
 
-export const FeeChallanPDF = ({ student, details, siblings }: FeeChallanPDFProps) => (
+export const FeeChallanPDF = ({ student, details, fees, totalAmount, siblings }: FeeChallanPDFProps) => (
     <Document>
         <Page size={[841.89, 595.28]} wrap={false} style={styles.page}>
-            <ChallanCopy copyType="Bank Copy" student={student} details={details} siblings={siblings} />
-            <ChallanCopy copyType="School Copy" student={student} details={details} siblings={siblings} />
-            <ChallanCopy copyType="Student Copy" student={student} details={details} siblings={siblings} isLast={true} />
+            {/* Left 85% for the 3 Challan Copies */}
+            <View style={{ width: '85%', flexDirection: 'row' }}>
+                <ChallanCopy copyType="Bank Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} siblings={siblings} />
+                <ChallanCopy copyType="School Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} siblings={siblings} />
+                <ChallanCopy copyType="Student Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} siblings={siblings} isLast={true} />
+            </View>
+
+            {/* Right 15% for the 4th Column */}
+            <View style={{ width: '15%', paddingLeft: 15, borderLeftWidth: 1, borderLeftColor: '#e4e4e4', borderLeftStyle: 'solid', flexDirection: 'column', height: '100%' }}>
+                <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 10, textTransform: 'uppercase' }}>Future Features</Text>
+                <View style={{ backgroundColor: '#f1f5f9', padding: 10, borderRadius: 6, flex: 1 }}>
+                    <Text style={{ fontSize: 8, color: '#64748b', lineHeight: 1.4, textAlign: 'center', marginTop: 20 }}>
+                        This column will contain sibling data, payment history and discount breakdowns.
+                    </Text>
+                </View>
+            </View>
         </Page>
     </Document>
 );
