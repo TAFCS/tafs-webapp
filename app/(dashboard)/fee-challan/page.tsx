@@ -20,7 +20,11 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
-import { PDFDownloadLink } from "@react-pdf/renderer";
+import dynamic from "next/dynamic";
+const PDFDownloadLink = dynamic(
+    () => import("@react-pdf/renderer").then((m) => m.PDFDownloadLink),
+    { ssr: false }
+);
 import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
 
 // --- Types ---

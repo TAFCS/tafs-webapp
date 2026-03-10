@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.3.2",
     "@reduxjs/toolkit": "^2.11.2",
     "axios": "^1.13.6",
     "immer": "^11.1.4",
