@@ -303,21 +303,21 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-[1200px] h-[80vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border border-zinc-200">
+            <div className="bg-white dark:bg-zinc-950 w-full max-w-[1200px] h-[80vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border border-zinc-200 dark:border-zinc-800">
                 {/* Header */}
-                <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+                <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50 dark:bg-zinc-900/50">
                     <div className="flex items-center gap-4">
                         <div className="h-12 w-12 rounded-2xl bg-zinc-900 flex items-center justify-center text-white shadow-lg">
                             <UserCircle className="h-6 w-6" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-zinc-900">Guardian Management</h2>
-                            <p className="text-sm text-zinc-500 font-medium">Viewing guardians for <span className="text-zinc-900 font-bold">{studentName}</span></p>
+                            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Guardian Management</h2>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">Viewing guardians for <span className="text-zinc-900 dark:text-zinc-100 font-bold">{studentName}</span></p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-zinc-200 rounded-xl transition-colors text-zinc-400 hover:text-zinc-600"
+                        className="p-2 hover:bg-zinc-200 rounded-xl transition-colors text-zinc-400 hover:text-zinc-600 dark:text-zinc-400"
                     >
                         <X className="h-6 w-6" />
                     </button>
@@ -328,41 +328,41 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                     {isLoading ? (
                         <div className="h-full flex flex-col items-center justify-center space-y-4">
                             <Loader2 className="h-10 w-10 animate-spin text-zinc-300" />
-                            <p className="text-sm text-zinc-500 font-medium font-mono">LOADING_RECORDS...</p>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium font-mono">LOADING_RECORDS...</p>
                         </div>
                     ) : (
-                        <div className="border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
                             <div className="max-w-full overflow-x-auto">
                                 <table className="w-full text-sm text-left border-collapse table-fixed">
                                     <thead>
-                                        <tr className="bg-zinc-50 border-b border-zinc-200">
-                                            <th className="p-3 w-16 text-center text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 sticky left-0 bg-zinc-50 z-20">Stat</th>
-                                            <th className="p-3 w-44 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 sticky left-16 bg-zinc-50 z-20">CNIC</th>
-                                            <th className="p-3 w-64 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 sticky left-[240px] bg-zinc-50 z-20">Full Name</th>
-                                            <th className="p-3 w-40 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Relationship</th>
-                                            <th className="p-3 w-44 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">DOB</th>
-                                            <th className="p-3 w-44 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Phone</th>
-                                            <th className="p-3 w-44 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">WhatsApp</th>
-                                            <th className="p-3 w-44 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Work Phone</th>
-                                            <th className="p-3 w-56 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Email</th>
-                                            <th className="p-3 w-48 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Education</th>
-                                            <th className="p-3 w-48 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Occupation</th>
-                                            <th className="p-3 w-48 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Organization</th>
-                                            <th className="p-3 w-48 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Job Pos</th>
-                                            <th className="p-3 w-40 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Income</th>
-                                            <th className="p-3 w-64 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Work Addr</th>
-                                            <th className="p-3 w-64 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Mail Addr</th>
-                                            <th className="p-3 w-48 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Hse Name</th>
-                                            <th className="p-3 w-32 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Hse No</th>
-                                            <th className="p-3 w-48 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Area</th>
-                                            <th className="p-3 w-40 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Country</th>
-                                            <th className="p-3 w-40 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Province</th>
-                                            <th className="p-3 w-40 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">City</th>
-                                            <th className="p-3 w-40 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Occ Pos</th>
-                                            <th className="p-3 w-40 text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">POB</th>
-                                            <th className="p-3 w-16 text-center text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Pri</th>
-                                            <th className="p-3 w-16 text-center text-zinc-500 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200">Emg</th>
-                                            <th className="p-3 w-16 text-center text-zinc-500 uppercase text-[10px] font-bold tracking-widest">Del</th>
+                                        <tr className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+                                            <th className="p-3 w-16 text-center text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800 sticky left-0 bg-zinc-50 dark:bg-zinc-900 z-20">Stat</th>
+                                            <th className="p-3 w-44 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800 sticky left-16 bg-zinc-50 dark:bg-zinc-900 z-20">CNIC</th>
+                                            <th className="p-3 w-64 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800 sticky left-[240px] bg-zinc-50 dark:bg-zinc-900 z-20">Full Name</th>
+                                            <th className="p-3 w-40 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Relationship</th>
+                                            <th className="p-3 w-44 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">DOB</th>
+                                            <th className="p-3 w-44 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Phone</th>
+                                            <th className="p-3 w-44 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">WhatsApp</th>
+                                            <th className="p-3 w-44 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Work Phone</th>
+                                            <th className="p-3 w-56 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Email</th>
+                                            <th className="p-3 w-48 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Education</th>
+                                            <th className="p-3 w-48 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Occupation</th>
+                                            <th className="p-3 w-48 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Organization</th>
+                                            <th className="p-3 w-48 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Job Pos</th>
+                                            <th className="p-3 w-40 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Income</th>
+                                            <th className="p-3 w-64 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Work Addr</th>
+                                            <th className="p-3 w-64 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Mail Addr</th>
+                                            <th className="p-3 w-48 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Hse Name</th>
+                                            <th className="p-3 w-32 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Hse No</th>
+                                            <th className="p-3 w-48 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Area</th>
+                                            <th className="p-3 w-40 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Country</th>
+                                            <th className="p-3 w-40 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Province</th>
+                                            <th className="p-3 w-40 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">City</th>
+                                            <th className="p-3 w-40 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Occ Pos</th>
+                                            <th className="p-3 w-40 text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">POB</th>
+                                            <th className="p-3 w-16 text-center text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Pri</th>
+                                            <th className="p-3 w-16 text-center text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest border-r border-zinc-200 dark:border-zinc-800">Emg</th>
+                                            <th className="p-3 w-16 text-center text-zinc-500 dark:text-zinc-400 uppercase text-[10px] font-bold tracking-widest">Del</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-zinc-100">
@@ -371,29 +371,29 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                             const status = patchingStatus[key] || 'idle';
 
                                             return (
-                                                <tr key={key} className="hover:bg-zinc-50/50 transition-colors group">
-                                                    <td className="p-3 text-center border-r border-zinc-100 sticky left-0 bg-white group-hover:bg-zinc-50 transition-colors z-10">
+                                                <tr key={key} className="hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/50 transition-colors group">
+                                                    <td className="p-3 text-center border-r border-zinc-100 sticky left-0 bg-white dark:bg-zinc-950 group-hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-colors z-10">
                                                         {status === 'loading' && <Loader2 className="h-4 w-4 animate-spin text-zinc-400 mx-auto" />}
                                                         {status === 'success' && <CheckCircle className="h-4 w-4 text-emerald-500 mx-auto" />}
                                                         {status === 'error' && <AlertCircle className="h-4 w-4 text-red-500 mx-auto" />}
                                                         {status === 'idle' && <div className="h-1.5 w-1.5 rounded-full bg-zinc-200 mx-auto" />}
                                                     </td>
-                                                    <td className="p-1 border-r border-zinc-100 sticky left-16 bg-white group-hover:bg-zinc-50 transition-colors z-10">
+                                                    <td className="p-1 border-r border-zinc-100 sticky left-16 bg-white dark:bg-zinc-950 group-hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-colors z-10">
                                                         <input
                                                             type="text"
                                                             value={guardian.cnic || ""}
                                                             onChange={(e) => handleEdit(idx, "cnic", e.target.value)}
                                                             placeholder="CNIC"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all font-bold truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all font-bold truncate"
                                                         />
                                                     </td>
-                                                    <td className="p-1 border-r border-zinc-100 sticky left-[240px] bg-white group-hover:bg-zinc-50 transition-colors z-10">
+                                                    <td className="p-1 border-r border-zinc-100 sticky left-[240px] bg-white dark:bg-zinc-950 group-hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-colors z-10">
                                                         <input
                                                             type="text"
                                                             value={guardian.full_name}
                                                             onChange={(e) => handleEdit(idx, "full_name", e.target.value)}
                                                             placeholder="Full Name"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all font-bold truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all font-bold truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -406,7 +406,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                                     if (e.target.value === "") handleEdit(idx, "relationship", null);
                                                                 }}
                                                                 autoFocus
-                                                                className="w-full px-2 py-2 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
+                                                                className="w-full px-2 py-2 bg-white dark:bg-zinc-950 outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
                                                             />
                                                         ) : (
                                                             <select
@@ -419,7 +419,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                                         handleEdit(idx, "relationship", val);
                                                                     }
                                                                 }}
-                                                                className="w-full px-2 py-2 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-zinc-900 rounded-md transition-all appearance-none cursor-pointer truncate font-medium text-zinc-500"
+                                                                className="w-full px-2 py-2 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-zinc-900 rounded-md transition-all appearance-none cursor-pointer truncate font-medium text-zinc-500 dark:text-zinc-400"
                                                             >
                                                                 {RELATIONSHIP_OPTIONS.map(opt => (
                                                                     <option key={opt} value={opt}>{opt}</option>
@@ -433,25 +433,25 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.dob || ""}
                                                             onChange={(e) => handleEdit(idx, "dob", e.target.value)}
                                                             placeholder="DD/MM/YYYY"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
-                                                        <div className="flex border border-zinc-200 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
-                                                            <input type="text" value={guardian.primary_phone_country_code || ""} onChange={(e) => handleEdit(idx, "primary_phone_country_code", e.target.value)} placeholder="+92" className="w-12 flex-shrink-0 px-1.5 py-2 bg-zinc-50 border-0 text-zinc-600 text-xs outline-none truncate" />
-                                                            <input type="text" value={guardian.primary_phone || ""} onChange={(e) => handleEdit(idx, "primary_phone", e.target.value)} placeholder="Phone" className="flex-1 min-w-0 px-2 py-2 bg-transparent border-0 outline-none focus:bg-white text-zinc-600 truncate" />
+                                                        <div className="flex border border-zinc-200 dark:border-zinc-800 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
+                                                            <input type="text" value={guardian.primary_phone_country_code || ""} onChange={(e) => handleEdit(idx, "primary_phone_country_code", e.target.value)} placeholder="+92" className="w-12 flex-shrink-0 px-1.5 py-2 bg-zinc-50 dark:bg-zinc-900 border-0 text-zinc-600 dark:text-zinc-400 text-xs outline-none truncate" />
+                                                            <input type="text" value={guardian.primary_phone || ""} onChange={(e) => handleEdit(idx, "primary_phone", e.target.value)} placeholder="Phone" className="flex-1 min-w-0 px-2 py-2 bg-transparent border-0 outline-none focus:bg-white dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 truncate" />
                                                         </div>
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
-                                                        <div className="flex border border-zinc-200 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
-                                                            <input type="text" value={guardian.whatsapp_country_code || ""} onChange={(e) => handleEdit(idx, "whatsapp_country_code", e.target.value)} placeholder="+92" className="w-12 flex-shrink-0 px-1.5 py-2 bg-zinc-50 border-0 text-zinc-600 text-xs outline-none truncate" />
-                                                            <input type="text" value={guardian.whatsapp_number || ""} onChange={(e) => handleEdit(idx, "whatsapp_number", e.target.value)} placeholder="WhatsApp" className="flex-1 min-w-0 px-2 py-2 bg-transparent border-0 outline-none focus:bg-white text-zinc-600 truncate" />
+                                                        <div className="flex border border-zinc-200 dark:border-zinc-800 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
+                                                            <input type="text" value={guardian.whatsapp_country_code || ""} onChange={(e) => handleEdit(idx, "whatsapp_country_code", e.target.value)} placeholder="+92" className="w-12 flex-shrink-0 px-1.5 py-2 bg-zinc-50 dark:bg-zinc-900 border-0 text-zinc-600 dark:text-zinc-400 text-xs outline-none truncate" />
+                                                            <input type="text" value={guardian.whatsapp_number || ""} onChange={(e) => handleEdit(idx, "whatsapp_number", e.target.value)} placeholder="WhatsApp" className="flex-1 min-w-0 px-2 py-2 bg-transparent border-0 outline-none focus:bg-white dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 truncate" />
                                                         </div>
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
-                                                        <div className="flex border border-zinc-200 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
-                                                            <input type="text" value={guardian.work_phone_country_code || ""} onChange={(e) => handleEdit(idx, "work_phone_country_code", e.target.value)} placeholder="+92" className="w-12 flex-shrink-0 px-1.5 py-2 bg-zinc-50 border-0 text-zinc-600 text-xs outline-none truncate" />
-                                                            <input type="text" value={guardian.work_phone || ""} onChange={(e) => handleEdit(idx, "work_phone", e.target.value)} placeholder="Work Phone" className="flex-1 min-w-0 px-2 py-2 bg-transparent border-0 outline-none focus:bg-white text-zinc-600 truncate" />
+                                                        <div className="flex border border-zinc-200 dark:border-zinc-800 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
+                                                            <input type="text" value={guardian.work_phone_country_code || ""} onChange={(e) => handleEdit(idx, "work_phone_country_code", e.target.value)} placeholder="+92" className="w-12 flex-shrink-0 px-1.5 py-2 bg-zinc-50 dark:bg-zinc-900 border-0 text-zinc-600 dark:text-zinc-400 text-xs outline-none truncate" />
+                                                            <input type="text" value={guardian.work_phone || ""} onChange={(e) => handleEdit(idx, "work_phone", e.target.value)} placeholder="Work Phone" className="flex-1 min-w-0 px-2 py-2 bg-transparent border-0 outline-none focus:bg-white dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 truncate" />
                                                         </div>
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -460,7 +460,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.email_address || ""}
                                                             onChange={(e) => handleEdit(idx, "email_address", e.target.value)}
                                                             placeholder="Email"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -469,7 +469,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.education_level || ""}
                                                             onChange={(e) => handleEdit(idx, "education_level", e.target.value)}
                                                             placeholder="Education"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -478,7 +478,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.occupation || ""}
                                                             onChange={(e) => handleEdit(idx, "occupation", e.target.value)}
                                                             placeholder="Occupation"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -487,7 +487,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.organization || ""}
                                                             onChange={(e) => handleEdit(idx, "organization", e.target.value)}
                                                             placeholder="Organization"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -496,7 +496,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.job_position || ""}
                                                             onChange={(e) => handleEdit(idx, "job_position", e.target.value)}
                                                             placeholder="Job Position"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -505,7 +505,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.monthly_income || ""}
                                                             onChange={(e) => handleEdit(idx, "monthly_income", e.target.value)}
                                                             placeholder="Income"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -514,7 +514,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.work_address || ""}
                                                             onChange={(e) => handleEdit(idx, "work_address", e.target.value)}
                                                             placeholder="Work Address"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -523,7 +523,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.mailing_address || ""}
                                                             onChange={(e) => handleEdit(idx, "mailing_address", e.target.value)}
                                                             placeholder="Mailing Address"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -532,7 +532,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.house_appt_name || ""}
                                                             onChange={(e) => handleEdit(idx, "house_appt_name", e.target.value)}
                                                             placeholder="House Name"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -541,7 +541,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.house_appt_number || ""}
                                                             onChange={(e) => handleEdit(idx, "house_appt_number", e.target.value)}
                                                             placeholder="Hse No"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -550,7 +550,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.area_block || ""}
                                                             onChange={(e) => handleEdit(idx, "area_block", e.target.value)}
                                                             placeholder="Area/Block"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -563,7 +563,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                                     if (e.target.value === "") handleEdit(idx, "country", null);
                                                                 }}
                                                                 autoFocus
-                                                                className="w-full px-2 py-2 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all text-zinc-600 truncate"
+                                                                className="w-full px-2 py-2 bg-white dark:bg-zinc-950 outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                             />
                                                         ) : (
                                                             <select
@@ -576,7 +576,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                                         handleEdit(idx, "country", val);
                                                                     }
                                                                 }}
-                                                                className="w-full px-2 py-2 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-zinc-900 rounded-md transition-all appearance-none cursor-pointer text-zinc-600 truncate"
+                                                                className="w-full px-2 py-2 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-zinc-900 rounded-md transition-all appearance-none cursor-pointer text-zinc-600 dark:text-zinc-400 truncate"
                                                             >
                                                                 {COUNTRY_OPTIONS.map(opt => (
                                                                     <option key={opt} value={opt}>{opt}</option>
@@ -595,7 +595,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                                         if (e.target.value === "") handleEdit(idx, "province", null);
                                                                     }}
                                                                     autoFocus
-                                                                    className="w-full px-2 py-2 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all text-zinc-600 truncate"
+                                                                    className="w-full px-2 py-2 bg-white dark:bg-zinc-950 outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                                 />
                                                             ) : (
                                                                 <select
@@ -608,7 +608,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                                             handleEdit(idx, "province", val);
                                                                         }
                                                                     }}
-                                                                    className="w-full px-2 py-2 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-zinc-900 rounded-md transition-all appearance-none cursor-pointer text-zinc-600 truncate"
+                                                                    className="w-full px-2 py-2 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-zinc-900 rounded-md transition-all appearance-none cursor-pointer text-zinc-600 dark:text-zinc-400 truncate"
                                                                 >
                                                                     {PAKISTAN_PROVINCES.map(opt => (
                                                                         <option key={opt} value={opt}>{opt}</option>
@@ -621,7 +621,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                                 value={guardian.province || ""}
                                                                 onChange={(e) => handleEdit(idx, "province", e.target.value)}
                                                                 placeholder="Province"
-                                                                className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                                className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                             />
                                                         )}
                                                     </td>
@@ -631,7 +631,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.city || ""}
                                                             onChange={(e) => handleEdit(idx, "city", e.target.value)}
                                                             placeholder="City"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -640,7 +640,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.occupational_position || ""}
                                                             onChange={(e) => handleEdit(idx, "occupational_position", e.target.value)}
                                                             placeholder="Occ Pos"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
@@ -649,7 +649,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             value={guardian.place_of_birth || ""}
                                                             onChange={(e) => handleEdit(idx, "place_of_birth", e.target.value)}
                                                             placeholder="POB"
-                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 truncate"
+                                                            className="w-full px-2 py-2 bg-transparent outline-none focus:bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-zinc-900 rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                         />
                                                     </td>
                                                     <td className="p-3 text-center border-r border-zinc-100">
@@ -657,7 +657,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             type="checkbox"
                                                             checked={guardian.is_primary_contact}
                                                             onChange={(e) => handleEdit(idx, "is_primary_contact", e.target.checked)}
-                                                            className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer"
+                                                            className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-zinc-900 cursor-pointer"
                                                         />
                                                     </td>
                                                     <td className="p-3 text-center border-r border-zinc-100">
@@ -665,7 +665,7 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                             type="checkbox"
                                                             checked={guardian.is_emergency_contact}
                                                             onChange={(e) => handleEdit(idx, "is_emergency_contact", e.target.checked)}
-                                                            className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer"
+                                                            className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-zinc-900 cursor-pointer"
                                                         />
                                                     </td>
                                                     <td className="p-3 text-center">
@@ -690,12 +690,12 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                 </table>
                             </div>
                             {guardians.length === 0 && !isLoading && (
-                                <div className="p-12 text-center bg-zinc-50/30">
-                                    <div className="h-20 w-20 rounded-3xl bg-white border border-zinc-200 flex items-center justify-center text-zinc-300 mx-auto mb-6 shadow-sm">
+                                <div className="p-12 text-center bg-zinc-50 dark:bg-zinc-900/30">
+                                    <div className="h-20 w-20 rounded-3xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-300 mx-auto mb-6 shadow-sm">
                                         <UserPlus className="h-10 w-10" />
                                     </div>
-                                    <h3 className="text-base font-bold text-zinc-900">No guardian information found</h3>
-                                    <p className="text-sm text-zinc-500 mb-8 max-w-xs mx-auto">Click the button below to add the first guardian for this student.</p>
+                                    <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">No guardian information found</h3>
+                                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-8 max-w-xs mx-auto">Click the button below to add the first guardian for this student.</p>
                                     <button
                                         onClick={addRow}
                                         className="inline-flex items-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-2xl text-sm font-bold hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-200 active:scale-95"
@@ -710,19 +710,19 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between">
+                <div className="p-6 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-100 flex items-center justify-between">
                     <div className="flex items-center gap-6">
                         <div className="flex items-center gap-2">
                             <Star className="h-4 w-4 text-emerald-500 fill-emerald-500" />
                             <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">REAL-TIME SYNC</span>
                         </div>
                         <div className="h-4 w-px bg-zinc-200 sm:block hidden"></div>
-                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest sm:block hidden">{guardians.length} Guardian{guardians.length !== 1 ? 's' : ''} Record{guardians.length !== 1 ? 's' : ''}</span>
+                        <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest sm:block hidden">{guardians.length} Guardian{guardians.length !== 1 ? 's' : ''} Record{guardians.length !== 1 ? 's' : ''}</span>
                     </div>
                     {guardians.length > 0 && (
                         <button
                             onClick={addRow}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-zinc-200 text-zinc-900 rounded-2xl text-sm font-bold hover:bg-zinc-50 transition-all shadow-sm active:scale-95 border-b-2"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl text-sm font-bold hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all shadow-sm active:scale-95 border-b-2"
                         >
                             <Plus className="h-4 w-4 text-emerald-500" />
                             Add New Row
@@ -733,20 +733,20 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                 {/* Delete Confirmation Modal */}
                 {deleteId !== null && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-sm">
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
                             <div className="p-6 text-center">
                                 <div className="h-14 w-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <Trash2 className="h-7 w-7" />
                                 </div>
-                                <h2 className="text-lg font-bold text-zinc-900">Remove Guardian?</h2>
-                                <p className="text-zinc-500 mt-2">
+                                <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Remove Guardian?</h2>
+                                <p className="text-zinc-500 dark:text-zinc-400 mt-2">
                                     This will un-link this guardian from the student. The guardian record itself will remain in the system.
                                 </p>
                             </div>
-                            <div className="px-6 py-4 bg-zinc-50 flex gap-3">
+                            <div className="px-6 py-4 bg-zinc-50 dark:bg-zinc-900 flex gap-3">
                                 <button
                                     onClick={() => setDeleteId(null)}
-                                    className="flex-1 py-2.5 font-medium text-zinc-600 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-all"
+                                    className="flex-1 py-2.5 font-medium text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all"
                                 >
                                     Cancel
                                 </button>

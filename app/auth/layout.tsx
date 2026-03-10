@@ -25,7 +25,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             </div>
 
             {/* Right side: Auth Form Content */}
-            <div className="flex flex-col justify-center items-center p-8 bg-white ">
+            <div className="flex flex-col justify-center items-center p-8 bg-white dark:bg-zinc-950 ">
                 {/* Logo visible on mobile (left panel is hidden) */}
                 <div className="md:hidden mb-8">
                     <Image

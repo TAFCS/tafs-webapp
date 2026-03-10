@@ -203,17 +203,17 @@ export function FamiliesDataTable({
     };
 
     return (
-        <div className="bg-white border rounded-xl shadow-sm flex flex-col w-full text-sm flex-1 min-h-0">
+        <div className="bg-white dark:bg-zinc-950 border rounded-xl shadow-sm flex flex-col w-full text-sm flex-1 min-h-0">
 
             {/* Top Toolbar */}
-            <div className="p-4 border-b flex flex-col gap-4 lg:flex-row lg:items-center justify-between bg-zinc-50/50 rounded-t-xl">
+            <div className="p-4 border-b flex flex-col gap-4 lg:flex-row lg:items-center justify-between bg-zinc-50 dark:bg-zinc-900/50 rounded-t-xl">
 
                 <div className="relative w-full lg:max-w-md flex-1">
                     <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${isLoading ? 'text-primary animate-pulse' : 'text-zinc-400'}`} />
                     <input
                         type="text"
                         placeholder="Search Household, ID, Email..."
-                        className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white"
+                        className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white dark:bg-zinc-950"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -222,7 +222,7 @@ export function FamiliesDataTable({
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className={`flex items-center gap-2 px-3 py-2 border rounded-lg hover:bg-zinc-100 transition-colors ${showFilters ? 'bg-zinc-100 border-zinc-300' : 'bg-white'}`}
+                        className={`flex items-center gap-2 px-3 py-2 border rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors ${showFilters ? 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700' : 'bg-white dark:bg-zinc-950'}`}
                     >
                         <Filter className="h-4 w-4" />
                         <span className="font-medium">Filters</span>
@@ -231,7 +231,7 @@ export function FamiliesDataTable({
                     <div className="relative columns-menu-container">
                         <button
                             onClick={() => setShowColumnToggles(!showColumnToggles)}
-                            className="flex items-center gap-2 px-3 py-2 border bg-white rounded-lg hover:bg-zinc-100 transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 border bg-white dark:bg-zinc-950 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors"
                         >
                             <Columns className="h-4 w-4" />
                             <span className="font-medium hidden sm:inline-block">Columns</span>
@@ -239,18 +239,18 @@ export function FamiliesDataTable({
                         </button>
 
                         {showColumnToggles && (
-                            <div className="absolute right-0 top-full mt-2 w-56 bg-white border rounded-lg shadow-xl z-50 p-2 max-h-96 overflow-y-auto">
-                                <div className="text-xs font-semibold text-zinc-500 px-2 py-1 uppercase tracking-wider mb-1">Toggle Columns</div>
+                            <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-zinc-950 border rounded-lg shadow-xl z-50 p-2 max-h-96 overflow-y-auto">
+                                <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-2 py-1 uppercase tracking-wider mb-1">Toggle Columns</div>
                                 {COLUMNS.map((col) => (
-                                    <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer">
+                                    <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 rounded cursor-pointer">
                                         <input
                                             type="checkbox"
-                                            className="rounded border-zinc-300 text-primary focus:ring-primary h-4 w-4"
+                                            className="rounded border-zinc-300 dark:border-zinc-700 text-primary focus:ring-primary h-4 w-4"
                                             checked={visibleColumns.has(col.id)}
                                             onChange={() => toggleColumn(col.id)}
                                             disabled={col.isDefault && visibleColumns.has(col.id) && visibleColumns.size === 1}
                                         />
-                                        <span className="text-zinc-700">{col.label}</span>
+                                        <span className="text-zinc-700 dark:text-zinc-300">{col.label}</span>
                                     </label>
                                 ))}
                             </div>
@@ -262,10 +262,10 @@ export function FamiliesDataTable({
 
             {/* Advanced Filters Panel (Placeholder for now) */}
             {showFilters && (
-                <div className="p-4 border-b bg-zinc-50 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 border-b bg-zinc-50 dark:bg-zinc-900 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-medium text-zinc-600">Consent Status</label>
-                        <select className="border rounded-md px-3 py-1.5 bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20">
+                        <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Consent Status</label>
+                        <select className="border rounded-md px-3 py-1.5 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/20">
                             <option value="All">All Families</option>
                             <option value="Consent">Has Consent</option>
                             <option value="NoConsent">No Consent</option>
@@ -278,7 +278,7 @@ export function FamiliesDataTable({
             <div className={`overflow-auto flex-1 w-full min-h-0 transition-opacity duration-200 ${isLoading ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
                 <table className="w-full text-left border-collapse whitespace-nowrap">
                     <thead>
-                        <tr className="bg-zinc-50 border-b text-zinc-500 font-medium text-xs uppercase tracking-wider">
+                        <tr className="bg-zinc-50 dark:bg-zinc-900 border-b text-zinc-500 dark:text-zinc-400 font-medium text-xs uppercase tracking-wider">
                             {COLUMNS.map(col => {
                                 if (!visibleColumns.has(col.id)) return null;
                                 return (
@@ -287,7 +287,7 @@ export function FamiliesDataTable({
                                     </th>
                                 );
                             })}
-                            <th className="py-3 px-4 text-right pr-6 sticky right-0 bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] z-10 w-[80px]">
+                            <th className="py-3 px-4 text-right pr-6 sticky right-0 bg-zinc-50 dark:bg-zinc-900 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] z-10 w-[80px]">
                                 Actions
                             </th>
                         </tr>
@@ -301,13 +301,13 @@ export function FamiliesDataTable({
                             </tr>
                         ) : families.length === 0 && !isLoading ? (
                             <tr>
-                                <td colSpan={visibleColumns.size + 1} className="py-12 text-center text-zinc-500">
+                                <td colSpan={visibleColumns.size + 1} className="py-12 text-center text-zinc-500 dark:text-zinc-400">
                                     No families found matching your criteria.
                                 </td>
                             </tr>
                         ) : (
                             families.map((family) => (
-                                <tr key={family.id} className="hover:bg-zinc-50/50 transition-colors group">
+                                <tr key={family.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/50 transition-colors group">
                                     {COLUMNS.map(col => {
                                         if (!visibleColumns.has(col.id)) return null;
 
@@ -315,13 +315,13 @@ export function FamiliesDataTable({
 
                                         if (col.id === "id") {
                                             cellContent = (
-                                                <span className="font-mono text-zinc-400 bg-zinc-50 px-1.5 py-0.5 rounded border border-zinc-200 text-xs">#{family.id}</span>
+                                                <span className="font-mono text-zinc-400 bg-zinc-50 dark:bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-800 text-xs">#{family.id}</span>
                                             );
                                         }
 
                                         if (col.id === "household_name") {
                                             cellContent = (
-                                                <div className="font-semibold text-zinc-900 flex items-center gap-2">
+                                                <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                                                     <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
                                                         {family.household_name.charAt(0).toUpperCase()}
                                                     </div>
@@ -332,7 +332,7 @@ export function FamiliesDataTable({
 
                                         if (col.id === "email") {
                                             cellContent = family.email ? (
-                                                <span className="text-zinc-600 lowercase">{family.email}</span>
+                                                <span className="text-zinc-600 dark:text-zinc-400 lowercase">{family.email}</span>
                                             ) : (
                                                 <span className="text-zinc-300 italic">No email provided</span>
                                             );
@@ -350,7 +350,7 @@ export function FamiliesDataTable({
                                             const date = new Date(family.created_at);
                                             cellContent = (
                                                 <div className="flex flex-col">
-                                                    <span className="text-zinc-700">{date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                                    <span className="text-zinc-700 dark:text-zinc-300">{date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                                                     <span className="text-[10px] text-zinc-400">{date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                 </div>
                                             );
@@ -358,30 +358,30 @@ export function FamiliesDataTable({
 
                                         if (col.id === "consent_publicity") {
                                             cellContent = (
-                                                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border ${family.consent_publicity ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-zinc-50 text-zinc-500 border-zinc-200"}`}>
+                                                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border ${family.consent_publicity ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800"}`}>
                                                     {family.consent_publicity ? "Granted" : "Not Provided"}
                                                 </span>
                                             );
                                         }
 
                                         return (
-                                            <td key={col.id} className="py-3 px-4 first:pl-6 text-zinc-700">
+                                            <td key={col.id} className="py-3 px-4 first:pl-6 text-zinc-700 dark:text-zinc-300">
                                                 {cellContent}
                                             </td>
                                         );
                                     })}
 
-                                    <td className="py-3 px-4 text-right pr-6 sticky right-0 bg-white group-hover:bg-zinc-50 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] transition-colors z-10 w-[80px]">
+                                    <td className="py-3 px-4 text-right pr-6 sticky right-0 bg-white dark:bg-zinc-950 group-hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] transition-colors z-10 w-[80px]">
                                         <div className="relative inline-block text-left action-menu-container">
                                             <button
                                                 onClick={() => setOpenActionRowId(openActionRowId === family.id ? null : family.id)}
-                                                className="p-1.5 rounded-md hover:bg-zinc-200 text-zinc-500 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                                className="p-1.5 rounded-md hover:bg-zinc-200 text-zinc-500 dark:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20"
                                             >
                                                 <MoreVertical className="h-4 w-4" />
                                             </button>
 
                                             {openActionRowId === family.id && (
-                                                <div className="absolute right-0 top-8 mt-1 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black/5 focus:outline-none z-50 overflow-hidden divide-y divide-zinc-100 flex flex-col">
+                                                <div className="absolute right-0 top-8 mt-1 w-56 origin-top-right rounded-md bg-white dark:bg-zinc-950 shadow-lg ring-1 ring-black/5 focus:outline-none z-50 overflow-hidden divide-y divide-zinc-100 flex flex-col">
                                                     <div className="py-1">
                                                         <ActionItem icon={<Eye />} label="View Family Profile" onClick={() => { setDetailFamilyId(family.id); setOpenActionRowId(null); }} />
                                                         <ActionItem icon={<Users />} label="View Enrolled Students" onClick={() => { setDetailFamilyId(family.id); setOpenActionRowId(null); }} />
@@ -404,7 +404,7 @@ export function FamiliesDataTable({
                 </table>
             </div>
 
-            <div className="p-4 border-t bg-zinc-50 rounded-b-xl flex flex-col sm:flex-row gap-4 justify-between items-center text-zinc-500">
+            <div className="p-4 border-t bg-zinc-50 dark:bg-zinc-900 rounded-b-xl flex flex-col sm:flex-row gap-4 justify-between items-center text-zinc-500 dark:text-zinc-400">
                 <span>
                     {meta
                         ? `Showing ${(meta.page - 1) * meta.limit + 1}–${Math.min(meta.page * meta.limit, meta.total)} of ${meta.total} records`
@@ -412,12 +412,12 @@ export function FamiliesDataTable({
                 </span>
                 <div className="flex gap-2">
                     <button
-                        className="px-3 py-1.5 border rounded-lg bg-white hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                        className="px-3 py-1.5 border rounded-lg bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-colors disabled:opacity-50"
                         disabled={!meta?.hasPrev || isLoading}
                         onClick={() => setPage(p => p - 1)}
                     >Previous</button>
                     <button
-                        className="px-3 py-1.5 border rounded-lg bg-white hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                        className="px-3 py-1.5 border rounded-lg bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-colors disabled:opacity-50"
                         disabled={!meta?.hasNext || isLoading}
                         onClick={() => setPage(p => p + 1)}
                     >Next</button>
@@ -435,20 +435,20 @@ export function FamiliesDataTable({
             {/* Create Family Modal */}
             {isCreateFamilyModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
-                        <div className="px-6 py-4 border-b flex justify-between items-center bg-zinc-50">
-                            <h3 className="font-semibold text-lg text-zinc-900">Create New Family</h3>
-                            <button onClick={() => { setIsCreateFamilyModalOpen(false); setCreateForm({ household_name: "" }); setCreateError(null); }} className="text-zinc-400 hover:text-zinc-600">✕</button>
+                    <div className="bg-white dark:bg-zinc-950 rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
+                        <div className="px-6 py-4 border-b flex justify-between items-center bg-zinc-50 dark:bg-zinc-900">
+                            <h3 className="font-semibold text-lg text-zinc-900 dark:text-zinc-100">Create New Family</h3>
+                            <button onClick={() => { setIsCreateFamilyModalOpen(false); setCreateForm({ household_name: "" }); setCreateError(null); }} className="text-zinc-400 hover:text-zinc-600 dark:text-zinc-400">✕</button>
                         </div>
                         <div className="p-6 flex-1 overflow-y-auto">
-                            <p className="text-zinc-500 text-sm mb-4">Enter details to create a new household record.</p>
+                            <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">Enter details to create a new household record.</p>
                             {createError && <p className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{createError}</p>}
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-zinc-700 mb-1">Household Name <span className="text-red-500">*</span></label>
+                                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Household Name <span className="text-red-500">*</span></label>
                                     <input
                                         type="text"
-                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 focus:ring-primary focus:border-primary text-sm"
+                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 dark:border-zinc-700 focus:ring-primary focus:border-primary text-sm"
                                         placeholder="e.g. The Smith Family"
                                         value={createForm.household_name}
                                         onChange={e => setCreateForm(f => ({ ...f, household_name: e.target.value }))}
@@ -456,29 +456,29 @@ export function FamiliesDataTable({
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-medium text-zinc-700 mb-1">Email</label>
+                                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Email</label>
                                         <input
                                             type="email"
-                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 focus:ring-primary focus:border-primary text-sm"
+                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 dark:border-zinc-700 focus:ring-primary focus:border-primary text-sm"
                                             value={createForm.email ?? ""}
                                             onChange={e => setCreateForm(f => ({ ...f, email: e.target.value || undefined }))}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-zinc-700 mb-1">Username</label>
+                                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Username</label>
                                         <input
                                             type="text"
-                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 focus:ring-primary focus:border-primary text-sm"
+                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 dark:border-zinc-700 focus:ring-primary focus:border-primary text-sm"
                                             value={createForm.username ?? ""}
                                             onChange={e => setCreateForm(f => ({ ...f, username: e.target.value || undefined }))}
                                         />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-zinc-700 mb-1">Address</label>
+                                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Address</label>
                                     <textarea
                                         rows={2}
-                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 focus:ring-primary focus:border-primary text-sm resize-none"
+                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 dark:border-zinc-700 focus:ring-primary focus:border-primary text-sm resize-none"
                                         value={createForm.primary_address ?? ""}
                                         onChange={e => setCreateForm(f => ({ ...f, primary_address: e.target.value || undefined }))}
                                     />
@@ -487,16 +487,16 @@ export function FamiliesDataTable({
                                     <input
                                         id="consent"
                                         type="checkbox"
-                                        className="rounded border-zinc-300 h-4 w-4 text-primary"
+                                        className="rounded border-zinc-300 dark:border-zinc-700 h-4 w-4 text-primary"
                                         checked={createForm.consent_publicity ?? false}
                                         onChange={e => setCreateForm(f => ({ ...f, consent_publicity: e.target.checked }))}
                                     />
-                                    <label htmlFor="consent" className="text-xs text-zinc-700 cursor-pointer">Family consents to publicity use</label>
+                                    <label htmlFor="consent" className="text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">Family consents to publicity use</label>
                                 </div>
                             </div>
                         </div>
-                        <div className="px-6 py-4 border-t bg-zinc-50 flex justify-end gap-3">
-                            <button onClick={() => { setIsCreateFamilyModalOpen(false); setCreateForm({ household_name: "" }); setCreateError(null); }} className="px-4 py-2 border border-zinc-200 rounded-lg text-sm hover:bg-zinc-100 font-medium text-zinc-700 bg-white shadow-sm transition-colors">Cancel</button>
+                        <div className="px-6 py-4 border-t bg-zinc-50 dark:bg-zinc-900 flex justify-end gap-3">
+                            <button onClick={() => { setIsCreateFamilyModalOpen(false); setCreateForm({ household_name: "" }); setCreateError(null); }} className="px-4 py-2 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-950 shadow-sm transition-colors">Cancel</button>
                             <button
                                 onClick={handleCreateFamily}
                                 disabled={isCreating || !createForm.household_name.trim()}
@@ -539,9 +539,9 @@ export function FamiliesDataTable({
     );
 }
 
-function ActionItem({ icon, label, color = "text-zinc-700", onClick }: { icon: ReactNode, label: string, color?: string, onClick?: () => void }) {
+function ActionItem({ icon, label, color = "text-zinc-700 dark:text-zinc-300", onClick }: { icon: ReactNode, label: string, color?: string, onClick?: () => void }) {
     return (
-        <button onClick={onClick} className={`flex w-full items-center gap-2 px-4 py-2 text-xs font-medium hover:bg-zinc-100 ${color} transition-colors`}>
+        <button onClick={onClick} className={`flex w-full items-center gap-2 px-4 py-2 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 ${color} transition-colors`}>
             <span className="h-4 w-4 opacity-70">{icon}</span>
             {label}
         </button>
@@ -613,34 +613,34 @@ function AssignChildModal({
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col h-[90vh] md:h-auto md:max-h-[85vh]">
-                <div className="px-6 py-4 border-b flex justify-between items-center bg-zinc-50 flex-shrink-0">
-                    <h3 className="font-semibold text-lg text-zinc-900">Change Student&apos;s Family</h3>
-                    <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600">✕</button>
+            <div className="bg-white dark:bg-zinc-950 rounded-xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col h-[90vh] md:h-auto md:max-h-[85vh]">
+                <div className="px-6 py-4 border-b flex justify-between items-center bg-zinc-50 dark:bg-zinc-900 flex-shrink-0">
+                    <h3 className="font-semibold text-lg text-zinc-900 dark:text-zinc-100">Change Student&apos;s Family</h3>
+                    <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 dark:text-zinc-400">✕</button>
                 </div>
-                <div className="p-6 flex-1 overflow-y-auto bg-zinc-50/50">
-                    <p className="text-zinc-500 text-sm mb-6">Search for a student and select a target household to move them to.</p>
+                <div className="p-6 flex-1 overflow-y-auto bg-zinc-50 dark:bg-zinc-900/50">
+                    <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">Search for a student and select a target household to move them to.</p>
                     {error && <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
                     {/* Student search */}
                     <div className="mb-6">
-                        <label className="block text-xs font-medium text-zinc-700 mb-1">Select Student to Move</label>
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Select Student to Move</label>
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                             <input
                                 type="text"
-                                className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 focus:ring-primary focus:border-primary text-sm shadow-sm bg-white"
+                                className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 dark:border-zinc-700 focus:ring-primary focus:border-primary text-sm shadow-sm bg-white dark:bg-zinc-950"
                                 placeholder="Search by name, CC, or GR..."
                                 value={studentSearch}
                                 onChange={e => setStudentSearch(e.target.value)}
                             />
                         </div>
                         {studentResults.length > 0 && (
-                            <div className="mt-1 border rounded-lg bg-white shadow-lg z-10 max-h-44 overflow-y-auto divide-y divide-zinc-100">
+                            <div className="mt-1 border rounded-lg bg-white dark:bg-zinc-950 shadow-lg z-10 max-h-44 overflow-y-auto divide-y divide-zinc-100">
                                 {studentResults.map(s => (
                                     <button
                                         key={s.id}
-                                        className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 flex items-center justify-between"
+                                        className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 flex items-center justify-between"
                                         onClick={() => {
                                             setSelectedStudentId(s.id);
                                             setSelectedStudentName(s.core?.full_name ?? `${s.core?.first_name ?? ''} ${s.core?.last_name ?? ''}`.trim());
@@ -648,7 +648,7 @@ function AssignChildModal({
                                             setStudentResults([]);
                                         }}
                                     >
-                                        <span className="font-medium text-zinc-800 text-xs">{s.core?.full_name ?? `${s.core?.first_name} ${s.core?.last_name}`}</span>
+                                        <span className="font-medium text-zinc-800 dark:text-zinc-200 text-xs">{s.core?.full_name ?? `${s.core?.first_name} ${s.core?.last_name}`}</span>
                                         <span className="text-zinc-400 text-[10px]">{s.core?.cc_number ?? '—'} | {s.family?.household_name ?? "No family"}</span>
                                     </button>
                                 ))}
@@ -664,26 +664,26 @@ function AssignChildModal({
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* To Column */}
-                        <div className="bg-white border rounded-xl p-5 shadow-sm md:col-span-2">
-                            <h4 className="font-semibold text-zinc-800 mb-4 flex items-center gap-2">
+                        <div className="bg-white dark:bg-zinc-950 border rounded-xl p-5 shadow-sm md:col-span-2">
+                            <h4 className="font-semibold text-zinc-800 dark:text-zinc-200 mb-4 flex items-center gap-2">
                                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Target Family
                             </h4>
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                                 <input
                                     type="text"
-                                    className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-1 border-emerald-300 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+                                    className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-1 border-emerald-300 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white dark:bg-zinc-950"
                                     placeholder="Search target families..."
                                     value={familySearch}
                                     onChange={e => setFamilySearch(e.target.value)}
                                 />
                             </div>
                             {familyResults.length > 0 && (
-                                <div className="mt-1 border rounded-lg bg-white shadow-lg max-h-44 overflow-y-auto divide-y divide-zinc-100">
+                                <div className="mt-1 border rounded-lg bg-white dark:bg-zinc-950 shadow-lg max-h-44 overflow-y-auto divide-y divide-zinc-100">
                                     {familyResults.map(f => (
                                         <button
                                             key={f.id}
-                                            className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 flex items-center justify-between"
+                                            className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 flex items-center justify-between"
                                             onClick={() => {
                                                 setSelectedFamilyId(f.id);
                                                 setSelectedFamilyName(f.household_name);
@@ -691,7 +691,7 @@ function AssignChildModal({
                                                 setFamilyResults([]);
                                             }}
                                         >
-                                            <span className="font-medium text-zinc-800 text-xs">{f.household_name}</span>
+                                            <span className="font-medium text-zinc-800 dark:text-zinc-200 text-xs">{f.household_name}</span>
                                             <span className="text-zinc-400 text-[10px]">{f.email ?? "No email"}</span>
                                         </button>
                                     ))}
@@ -706,8 +706,8 @@ function AssignChildModal({
                         </div>
                     </div>
                 </div>
-                <div className="px-6 py-4 border-t bg-zinc-50 flex justify-end gap-3 flex-shrink-0">
-                    <button onClick={onClose} className="px-5 py-2 border border-zinc-200 rounded-lg text-sm hover:bg-zinc-100 font-medium text-zinc-700 bg-white shadow-sm transition-colors">Cancel</button>
+                <div className="px-6 py-4 border-t bg-zinc-50 dark:bg-zinc-900 flex justify-end gap-3 flex-shrink-0">
+                    <button onClick={onClose} className="px-5 py-2 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-950 shadow-sm transition-colors">Cancel</button>
                     <button
                         onClick={onAssign}
                         disabled={!selectedStudentId || !selectedFamilyId || isAssigning}

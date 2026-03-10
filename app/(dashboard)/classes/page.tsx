@@ -158,8 +158,8 @@ export default function ClassesPage() {
         <div className="space-y-6 relative">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Classes</h1>
-                    <p className="text-zinc-500 mt-1">Manage academic classes and grade levels.</p>
+                    <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Classes</h1>
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-1">Manage academic classes and grade levels.</p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
@@ -173,7 +173,7 @@ export default function ClassesPage() {
                     <button
                         onClick={fetchClasses}
                         disabled={isLoading || isSaving}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                        className="inline-flex items-center justify-center px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50"
                     >
                         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                         Refresh
@@ -212,26 +212,26 @@ export default function ClassesPage() {
                 </div>
             )}
 
-            <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
                         <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                             <Loader2 className="text-primary h-6 w-6 animate-spin" />
                         </div>
-                        <h3 className="text-sm font-medium text-zinc-900">Loading data...</h3>
+                        <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Loading data...</h3>
                     </div>
                 ) : classes.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center mb-4">
+                        <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
                             <BookOpen className="text-zinc-400 h-6 w-6" />
                         </div>
-                        <h3 className="text-sm font-medium text-zinc-900">No data found</h3>
-                        <p className="mt-1 text-sm text-zinc-500">There are currently no records to display.</p>
+                        <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">No data found</h3>
+                        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">There are currently no records to display.</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left whitespace-nowrap">
-                            <thead className="text-xs text-zinc-500 uppercase bg-zinc-50 border-b border-zinc-200">
+                            <thead className="text-xs text-zinc-500 dark:text-zinc-400 uppercase bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
                                 <tr>
                                     <th className="px-6 py-4 font-semibold w-24">ID</th>
                                     <th className="px-6 py-4 font-semibold">Description</th>
@@ -242,8 +242,8 @@ export default function ClassesPage() {
                             </thead>
                             <tbody>
                                 {classes.map((item) => (
-                                    <tr key={item.id} className="border-b border-zinc-100 hover:bg-zinc-50/50 transition-colors">
-                                        <td className="px-6 py-3 font-medium text-zinc-500">
+                                    <tr key={item.id} className="border-b border-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/50 transition-colors">
+                                        <td className="px-6 py-3 font-medium text-zinc-500 dark:text-zinc-400">
                                             {item.id}
                                         </td>
                                         <td className="px-6 py-3 min-w-[200px]">
@@ -251,7 +251,7 @@ export default function ClassesPage() {
                                                 type="text"
                                                 value={item.description || ""}
                                                 onChange={(e) => handleFieldChange(item.id, "description", e.target.value)}
-                                                className="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                                                className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-lg text-sm outline-none transition-colors"
                                                 placeholder="Description..."
                                             />
                                         </td>
@@ -260,7 +260,7 @@ export default function ClassesPage() {
                                                 type="text"
                                                 value={item.class_code || ""}
                                                 onChange={(e) => handleFieldChange(item.id, "class_code", e.target.value)}
-                                                className="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors uppercase"
+                                                className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-lg text-sm outline-none transition-colors uppercase"
                                                 placeholder="Code (e.g. IX)"
                                             />
                                         </td>
@@ -269,7 +269,7 @@ export default function ClassesPage() {
                                                 type="text"
                                                 value={item.academic_system || ""}
                                                 onChange={(e) => handleFieldChange(item.id, "academic_system", e.target.value)}
-                                                className="w-full px-3 py-2 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                                                className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-lg text-sm outline-none transition-colors"
                                                 placeholder="System (e.g. Secondary)"
                                             />
                                         </td>
@@ -293,14 +293,14 @@ export default function ClassesPage() {
             {/* Add Class Modal */}
             {isAddModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+                    <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
                         <form onSubmit={handleAddClass}>
-                            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
-                                <h2 className="text-lg font-semibold text-zinc-900">Add New Class</h2>
+                            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50 dark:bg-zinc-900/50">
+                                <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Add New Class</h2>
                                 <button
                                     type="button"
                                     onClick={() => setIsAddModalOpen(false)}
-                                    className="text-zinc-400 hover:text-zinc-600 p-1"
+                                    className="text-zinc-400 hover:text-zinc-600 dark:text-zinc-400 p-1"
                                 >
                                     <span className="sr-only">Close</span>
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -309,47 +309,47 @@ export default function ClassesPage() {
 
                             <div className="p-6 space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-zinc-700 mb-1">Description</label>
+                                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Description</label>
                                     <input
                                         type="text"
                                         required
                                         value={newClass.description}
                                         onChange={(e) => setNewClass({ ...newClass, description: e.target.value })}
-                                        className="w-full px-4 py-2 bg-white border border-zinc-300 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl text-sm outline-none transition-all"
+                                        className="w-full px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl text-sm outline-none transition-all"
                                         placeholder="e.g. Grade 1"
                                     />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1">Class Code</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Class Code</label>
                                         <input
                                             type="text"
                                             required
                                             value={newClass.class_code}
                                             onChange={(e) => setNewClass({ ...newClass, class_code: e.target.value })}
-                                            className="w-full px-4 py-2 bg-white border border-zinc-300 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl text-sm outline-none transition-all uppercase"
+                                            className="w-full px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl text-sm outline-none transition-all uppercase"
                                             placeholder="e.g. GR1"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1">Academic System</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Academic System</label>
                                         <input
                                             type="text"
                                             required
                                             value={newClass.academic_system}
                                             onChange={(e) => setNewClass({ ...newClass, academic_system: e.target.value })}
-                                            className="w-full px-4 py-2 bg-white border border-zinc-300 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl text-sm outline-none transition-all"
+                                            className="w-full px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl text-sm outline-none transition-all"
                                             placeholder="e.g. Primary"
                                         />
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="px-6 py-4 border-t border-zinc-100 flex justify-end gap-3 bg-zinc-50/50">
+                            <div className="px-6 py-4 border-t border-zinc-100 flex justify-end gap-3 bg-zinc-50 dark:bg-zinc-900/50">
                                 <button
                                     type="button"
                                     onClick={() => setIsAddModalOpen(false)}
-                                    className="px-4 py-2 text-sm font-medium text-zinc-700 hover:text-zinc-900 transition-colors"
+                                    className="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:text-zinc-100 transition-colors"
                                 >
                                     Cancel
                                 </button>
@@ -369,20 +369,20 @@ export default function ClassesPage() {
             {/* Delete Confirmation Modal */}
             {deleteId !== null && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="p-6 text-center">
                             <div className="h-14 w-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Trash2 className="h-7 w-7" />
                             </div>
-                            <h2 className="text-lg font-bold text-zinc-900">Delete Class?</h2>
-                            <p className="text-zinc-500 mt-2">
+                            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Delete Class?</h2>
+                            <p className="text-zinc-500 dark:text-zinc-400 mt-2">
                                 This action cannot be undone. The system will prevent deletion if students or sections are still assigned to this class.
                             </p>
                         </div>
-                        <div className="px-6 py-4 bg-zinc-50 flex gap-3">
+                        <div className="px-6 py-4 bg-zinc-50 dark:bg-zinc-900 flex gap-3">
                             <button
                                 onClick={() => setDeleteId(null)}
-                                className="flex-1 py-2.5 font-medium text-zinc-600 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-all"
+                                className="flex-1 py-2.5 font-medium text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all"
                             >
                                 Cancel
                             </button>

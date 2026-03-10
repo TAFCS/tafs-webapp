@@ -169,14 +169,14 @@ export default function FeeChallanGenerator() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black tracking-tight text-zinc-900 flex items-center gap-3">
+                    <h1 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-3">
                         <CreditCard className="h-8 w-8 text-primary" />
                         Fee Challan Generator
                     </h1>
-                    <p className="text-zinc-500 mt-1.5 font-medium">Issue and manage student fee vouchers with custom validity.</p>
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-1.5 font-medium">Issue and manage student fee vouchers with custom validity.</p>
                 </div>
 
-                <div className="flex items-center gap-3 bg-white p-1.5 rounded-2xl border border-zinc-200 shadow-sm">
+                <div className="flex items-center gap-3 bg-white dark:bg-zinc-950 p-1.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
                     <button className="px-5 py-2.5 bg-zinc-900 text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-all flex items-center gap-2">
                         <Download className="h-3.5 w-3.5" /> Bulk Generate
                     </button>
@@ -186,12 +186,12 @@ export default function FeeChallanGenerator() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Left Column: Student Search & Selection */}
                 <div className="lg:col-span-5 space-y-6">
-                    <div className="bg-white border border-zinc-200 rounded-[32px] shadow-sm overflow-hidden p-8">
+                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm overflow-hidden p-8">
                         <div className="flex items-center gap-3 mb-8">
                             <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center">
                                 <UserSearch className="h-5 w-5 text-primary" />
                             </div>
-                            <h2 className="text-lg font-bold text-zinc-900">1. Select Student</h2>
+                            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">1. Select Student</h2>
                         </div>
 
                         <div className="space-y-5">
@@ -203,7 +203,7 @@ export default function FeeChallanGenerator() {
                                         placeholder="e.g. CC-2026-001"
                                         value={searchCC}
                                         onChange={(e) => setSearchCC(e.target.value)}
-                                        className="w-full h-12 px-4 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
+                                        className="w-full h-12 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -213,7 +213,7 @@ export default function FeeChallanGenerator() {
                                         placeholder="e.g. 5421"
                                         value={searchGR}
                                         onChange={(e) => setSearchGR(e.target.value)}
-                                        className="w-full h-12 px-4 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
+                                        className="w-full h-12 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
                                     />
                                 </div>
                             </div>
@@ -230,21 +230,21 @@ export default function FeeChallanGenerator() {
 
                         {/* Student Profile Preview */}
                         {student ? (
-                            <div className="mt-8 p-6 bg-zinc-50 border border-zinc-200 rounded-[24px] animate-in fade-in zoom-in-95 duration-300">
+                            <div className="mt-8 p-6 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] animate-in fade-in zoom-in-95 duration-300">
                                 <div className="flex items-start gap-4">
-                                    <div className="h-14 w-14 rounded-2xl bg-white border border-zinc-200 shadow-sm flex items-center justify-center overflow-hidden">
+                                    <div className="h-14 w-14 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-center overflow-hidden">
                                         <UserCircle className="h-10 w-10 text-zinc-200" />
                                     </div>
                                     <div className="flex-1">
-                                        <h3 className="font-black text-zinc-900 text-base leading-tight">
+                                        <h3 className="font-black text-zinc-900 dark:text-zinc-100 text-base leading-tight">
                                             {student.student_full_name}
                                         </h3>
-                                        <p className="text-zinc-500 text-xs font-bold mt-0.5 flex items-center gap-1.5 uppercase tracking-wide">
+                                        <p className="text-zinc-500 dark:text-zinc-400 text-xs font-bold mt-0.5 flex items-center gap-1.5 uppercase tracking-wide">
                                             <Building2 className="h-3 w-3" /> {student.campus || "Main Campus"}
                                         </p>
 
                                         <div className="flex flex-wrap gap-2 mt-3">
-                                            <span className="px-2.5 py-1 bg-zinc-200 text-zinc-600 rounded-lg text-[10px] font-black uppercase tracking-wider">{student.grade_and_section || "O-I"}</span>
+                                            <span className="px-2.5 py-1 bg-zinc-200 text-zinc-600 dark:text-zinc-400 rounded-lg text-[10px] font-black uppercase tracking-wider">{student.grade_and_section || "O-I"}</span>
                                             <span className="px-2.5 py-1 bg-primary/10 text-primary rounded-lg text-[10px] font-black uppercase tracking-wider">CC: {student.cc}</span>
                                         </div>
                                     </div>
@@ -255,7 +255,7 @@ export default function FeeChallanGenerator() {
                             </div>
                         ) : (
                             <div className="mt-8 py-10 border-2 border-dashed border-zinc-100 rounded-[28px] flex flex-col items-center justify-center gap-3">
-                                <div className="p-3 bg-zinc-50 rounded-full">
+                                <div className="p-3 bg-zinc-50 dark:bg-zinc-900 rounded-full">
                                     <FileText className="h-6 w-6 text-zinc-300" />
                                 </div>
                                 <p className="text-[11px] font-black text-zinc-300 uppercase tracking-widest">No student selected</p>
@@ -277,13 +277,13 @@ export default function FeeChallanGenerator() {
 
                 {/* Right Column: Challan Details Form */}
                 <div className="lg:col-span-7">
-                    <div className="bg-white border border-zinc-200 rounded-[32px] shadow-sm overflow-hidden">
+                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm overflow-hidden">
                         <div className="p-8 border-b border-zinc-100">
                             <div className="flex items-center gap-3">
                                 <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center">
                                     <SettingsIcon className="h-5 w-5 text-primary" />
                                 </div>
-                                <h2 className="text-lg font-bold text-zinc-900">2. Define Parameters</h2>
+                                <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">2. Define Parameters</h2>
                             </div>
                         </div>
 
@@ -295,7 +295,7 @@ export default function FeeChallanGenerator() {
                                     <select
                                         value={month}
                                         onChange={(e) => setMonth(e.target.value)}
-                                        className="w-full h-12 pl-5 pr-12 bg-zinc-50 border border-zinc-200 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all appearance-none cursor-pointer"
+                                        className="w-full h-12 pl-5 pr-12 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all appearance-none cursor-pointer"
                                     >
                                         {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
@@ -314,7 +314,7 @@ export default function FeeChallanGenerator() {
                                             if (b) selectBank(b);
                                         }}
                                         disabled={isBanksLoading || banks.length === 0}
-                                        className="w-full h-12 pl-12 pr-12 bg-zinc-50 border border-zinc-200 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all appearance-none cursor-pointer disabled:opacity-50"
+                                        className="w-full h-12 pl-12 pr-12 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all appearance-none cursor-pointer disabled:opacity-50"
                                     >
                                         {isBanksLoading ? (
                                             <option>Loading banks...</option>
@@ -330,14 +330,14 @@ export default function FeeChallanGenerator() {
                             </div>
 
                             {/* Bank Account Details (Automatic but editable) */}
-                            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-zinc-50 rounded-[24px] border border-zinc-100">
+                            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-zinc-50 dark:bg-zinc-900 rounded-[24px] border border-zinc-100">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Account Title</label>
                                     <input
                                         type="text"
                                         value={accTitle}
                                         onChange={(e) => setAccTitle(e.target.value)}
-                                        className="w-full h-10 px-4 bg-white border border-zinc-200 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all"
+                                        className="w-full h-10 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -346,7 +346,7 @@ export default function FeeChallanGenerator() {
                                         type="text"
                                         value={accNo}
                                         onChange={(e) => setAccNo(e.target.value)}
-                                        className="w-full h-10 px-4 bg-white border border-zinc-200 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all"
+                                        className="w-full h-10 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -355,7 +355,7 @@ export default function FeeChallanGenerator() {
                                         type="text"
                                         value={branchCode}
                                         onChange={(e) => setBranchCode(e.target.value)}
-                                        className="w-full h-10 px-4 bg-white border border-zinc-200 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all"
+                                        className="w-full h-10 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all"
                                     />
                                 </div>
                                 <div className="md:col-span-2 space-y-2">
@@ -364,7 +364,7 @@ export default function FeeChallanGenerator() {
                                         type="text"
                                         value={bankAddress}
                                         onChange={(e) => setBankAddress(e.target.value)}
-                                        className="w-full h-10 px-4 bg-white border border-zinc-200 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all"
+                                        className="w-full h-10 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -373,7 +373,7 @@ export default function FeeChallanGenerator() {
                                         type="text"
                                         value={iban}
                                         onChange={(e) => setIban(e.target.value)}
-                                        className="w-full h-10 px-4 bg-white border border-zinc-200 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all text-primary"
+                                        className="w-full h-10 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold focus:outline-none focus:border-primary transition-all text-primary"
                                     />
                                 </div>
                             </div>
@@ -386,7 +386,7 @@ export default function FeeChallanGenerator() {
                                         type="date"
                                         value={issueDate}
                                         onChange={(e) => setIssueDate(e.target.value)}
-                                        className="w-full h-12 px-5 bg-zinc-50 border border-zinc-200 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
+                                        className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
                                     />
                                 </div>
                             </div>
@@ -399,7 +399,7 @@ export default function FeeChallanGenerator() {
                                         type="date"
                                         value={dueDate}
                                         onChange={(e) => setDueDate(e.target.value)}
-                                        className="w-full h-12 px-5 bg-zinc-50 border border-zinc-200 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
+                                        className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
                                     />
                                 </div>
                             </div>
@@ -412,7 +412,7 @@ export default function FeeChallanGenerator() {
                                         type="date"
                                         value={validityDate}
                                         onChange={(e) => setValidityDate(e.target.value)}
-                                        className="w-full h-12 px-5 bg-zinc-50 border border-zinc-200 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all text-rose-600 focus:text-zinc-900"
+                                        className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all text-rose-600 focus:text-zinc-900 dark:text-zinc-100"
                                     />
                                 </div>
                             </div>
@@ -420,16 +420,16 @@ export default function FeeChallanGenerator() {
                             {/* Late Fee Toggle */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Surcharge (Late Fee)</label>
-                                <div className="flex h-12 bg-zinc-100 p-1 rounded-2xl">
+                                <div className="flex h-12 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-2xl">
                                     <button
                                         onClick={() => setApplyLateFee(true)}
-                                        className={`flex-1 flex items-center justify-center gap-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${applyLateFee ? "bg-white text-rose-600 shadow-sm" : "text-zinc-400"}`}
+                                        className={`flex-1 flex items-center justify-center gap-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${applyLateFee ? "bg-white dark:bg-zinc-950 text-rose-600 shadow-sm" : "text-zinc-400"}`}
                                     >
                                         YES
                                     </button>
                                     <button
                                         onClick={() => setApplyLateFee(false)}
-                                        className={`flex-1 flex items-center justify-center gap-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${!applyLateFee ? "bg-white text-emerald-600 shadow-sm" : "text-zinc-400"}`}
+                                        className={`flex-1 flex items-center justify-center gap-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${!applyLateFee ? "bg-white dark:bg-zinc-950 text-emerald-600 shadow-sm" : "text-zinc-400"}`}
                                     >
                                         NO
                                     </button>
@@ -438,14 +438,14 @@ export default function FeeChallanGenerator() {
                         </div>
 
                         {/* Summary & Action */}
-                        <div className="p-8 bg-zinc-50 border-t border-zinc-100 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="p-8 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-100 flex flex-col md:flex-row items-center justify-between gap-6">
                             <div className="flex items-center gap-4">
-                                <div className="p-3 bg-white border border-zinc-200 rounded-2xl shadow-sm">
+                                <div className="p-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm">
                                     <AlertCircle className="h-5 w-5 text-amber-500" />
                                 </div>
                                 <div className="max-w-[280px]">
-                                    <p className="text-zinc-900 font-bold text-xs uppercase tracking-tight">System Notice</p>
-                                    <p className="text-zinc-500 text-[11px] leading-relaxed">Generated challans are stored in the database for financial tracking. Ensure validity periods align with campus policy.</p>
+                                    <p className="text-zinc-900 dark:text-zinc-100 font-bold text-xs uppercase tracking-tight">System Notice</p>
+                                    <p className="text-zinc-500 dark:text-zinc-400 text-[11px] leading-relaxed">Generated challans are stored in the database for financial tracking. Ensure validity periods align with campus policy.</p>
                                 </div>
                             </div>
 

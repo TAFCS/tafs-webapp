@@ -53,9 +53,9 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
     if (isLoading && !student) {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                <div className="bg-white p-8 rounded-2xl shadow-xl flex items-center gap-4">
+                <div className="bg-white dark:bg-zinc-950 p-8 rounded-2xl shadow-xl flex items-center gap-4">
                     <RefreshCw className="h-6 w-6 animate-spin text-indigo-500" />
-                    <p className="font-bold text-zinc-900">Loading profile...</p>
+                    <p className="font-bold text-zinc-900 dark:text-zinc-100">Loading profile...</p>
                 </div>
             </div>
         );
@@ -71,14 +71,14 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
 
     const estatusStyles: Record<string, string> = {
         ENROLLED: "bg-emerald-100 text-emerald-800 border-emerald-200",
-        SOFT_ADMISSION: "bg-zinc-100 text-zinc-800 border-zinc-200",
+        SOFT_ADMISSION: "bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-800",
         GRADUATED: "bg-blue-100 text-blue-800 border-blue-200",
         EXPELLED: "bg-rose-100 text-rose-800 border-rose-200 line-through decoration-rose-400",
     };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
 
                 {/* Header (Premium Gradient) */}
                 <div className="relative h-32 bg-gradient-to-r from-blue-600 to-indigo-700 p-6 flex items-end">
@@ -90,7 +90,7 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                     </button>
 
                     {/* Floating Avatar */}
-                    <div className="absolute -bottom-12 left-8 h-24 w-24 bg-white rounded-2xl p-1 shadow-lg border border-zinc-100">
+                    <div className="absolute -bottom-12 left-8 h-24 w-24 bg-white dark:bg-zinc-950 rounded-2xl p-1 shadow-lg border border-zinc-100">
                         <div className="h-full w-full bg-blue-50 rounded-xl flex items-center justify-center text-blue-500">
                             <User className="h-10 w-10" />
                         </div>
@@ -104,12 +104,12 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                         {/* Profile Summary (Left side) */}
                         <div className="flex flex-col gap-6 lg:col-span-1">
                             <div>
-                                <h2 className="text-2xl font-bold text-zinc-900 tracking-tight">{student.student_full_name}</h2>
-                                <p className="text-sm font-medium text-zinc-500 mt-1">{student.gr_number || "N/A GR"} • {student.cc_number || "N/A CC"}</p>
+                                <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">{student.student_full_name}</h2>
+                                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mt-1">{student.gr_number || "N/A GR"} • {student.cc_number || "N/A CC"}</p>
                             </div>
 
                             <div className="flex flex-wrap gap-2">
-                                <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-full border ${estatusStyles[student.enrollment_status || ''] || 'bg-zinc-100 text-zinc-800 border-zinc-200'}`}>
+                                <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-full border ${estatusStyles[student.enrollment_status || ''] || 'bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-800'}`}>
                                     {(student.enrollment_status || 'N/A').replace('_', ' ')} Student
                                 </span>
                                 <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${statusStyles[student.financial_status_badge || 'Cleared'] || statusStyles.Cleared}`}>
@@ -117,7 +117,7 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                                 </span>
                             </div>
 
-                            <div className="w-full h-px bg-zinc-100 my-2"></div>
+                            <div className="w-full h-px bg-zinc-100 dark:bg-zinc-800 my-2"></div>
 
                             <div className="flex flex-col gap-4">
                                 <InfoItem icon={<LayoutGrid />} label="Campus" value={student.campus || "N/A"} />
@@ -128,8 +128,8 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                             {/* Siblings Section */}
                             {(student.household_name || (student.siblings && student.siblings.length > 0)) && (
                                 <div className="mt-4">
-                                    <div className="w-full h-px bg-zinc-100 my-4"></div>
-                                    <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider mb-1 flex items-center gap-2">
+                                    <div className="w-full h-px bg-zinc-100 dark:bg-zinc-800 my-4"></div>
+                                    <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-1 flex items-center gap-2">
                                         <User className="h-3 w-3 text-indigo-500" /> Sibling / Family Members
                                     </h3>
                                     {student.household_name && (
@@ -138,7 +138,7 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                                                 <p className="text-[11px] font-bold text-indigo-600 italic">
                                                     {student.household_name}&apos;s Family
                                                 </p>
-                                                <p className="text-[10px] font-medium text-zinc-500 mt-0.5">
+                                                <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 mt-0.5">
                                                     Family ID: {student.family_id || "N/A"}
                                                 </p>
                                             </div>
@@ -156,23 +156,23 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                                             {student.siblings.map((sibling) => (
                                                 <div key={sibling.id} className="flex items-center justify-between p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl group transition-all hover:bg-indigo-50 hover:border-indigo-200">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-indigo-500 shadow-sm">
+                                                        <div className="h-8 w-8 rounded-lg bg-white dark:bg-zinc-950 flex items-center justify-center text-indigo-500 shadow-sm">
                                                             <User className="h-4 w-4" />
                                                         </div>
                                                         <div>
-                                                            <p className="text-xs font-bold text-zinc-900 leading-none">{sibling.full_name}</p>
+                                                            <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 leading-none">{sibling.full_name}</p>
                                                             {sibling.father_name && (
                                                                 <p className="text-[9px] text-indigo-600 font-bold mt-1 uppercase tracking-tight">S/O: {sibling.father_name}</p>
                                                             )}
-                                                            <p className="text-[10px] text-zinc-500 font-medium mt-1 uppercase tracking-tight">{sibling.cc_number} • {sibling.grade || 'N/A'}</p>
+                                                            <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium mt-1 uppercase tracking-tight">{sibling.cc_number} • {sibling.grade || 'N/A'}</p>
                                                         </div>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="p-3 bg-zinc-50 border border-zinc-100 rounded-xl">
-                                            <p className="text-xs text-zinc-500 text-center italic">No other siblings linked to this family yet.</p>
+                                        <div className="p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 rounded-xl">
+                                            <p className="text-xs text-zinc-500 dark:text-zinc-400 text-center italic">No other siblings linked to this family yet.</p>
                                         </div>
                                     )}
                                 </div>
@@ -184,8 +184,8 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                         <div className="lg:col-span-2 space-y-8">
 
                             {/* Personal Info Box */}
-                            <div className="bg-zinc-50/50 border rounded-xl p-5">
-                                <h3 className="text-sm font-semibold text-zinc-900 mb-4 border-b pb-2 flex items-center gap-2">
+                            <div className="bg-zinc-50 dark:bg-zinc-900/50 border rounded-xl p-5">
+                                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4 border-b pb-2 flex items-center gap-2">
                                     <User className="h-4 w-4 text-primary" /> Personal Information
                                 </h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 gap-y-6">
@@ -200,8 +200,8 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                             </div>
 
                             {/* Contact & Address */}
-                            <div className="bg-zinc-50/50 border rounded-xl p-5">
-                                <h3 className="text-sm font-semibold text-zinc-900 mb-4 border-b pb-2 flex items-center gap-2">
+                            <div className="bg-zinc-50 dark:bg-zinc-900/50 border rounded-xl p-5">
+                                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4 border-b pb-2 flex items-center gap-2">
                                     <MapPin className="h-4 w-4 text-emerald-500" /> Location Details
                                 </h3>
                                 <div className="grid grid-cols-1 gap-4">
@@ -210,7 +210,7 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                             </div>
 
                             {/* Financial Summary */}
-                            <div className="bg-zinc-50/50 border rounded-xl p-5 relative overflow-hidden">
+                            <div className="bg-zinc-50 dark:bg-zinc-900/50 border rounded-xl p-5 relative overflow-hidden">
                                 {(() => {
                                     const effectiveClassId = student.class_id ||
                                         classes.find(c =>
@@ -236,19 +236,19 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                                     );
                                 })()}
 
-                                <h3 className="text-sm font-semibold text-zinc-900 mb-4 border-b pb-2 flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4 border-b pb-2 flex items-center gap-2">
                                     <CreditCard className="h-4 w-4 text-rose-500" /> Financial Overview
                                 </h3>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-white border rounded-lg p-4">
-                                        <p className="text-xs text-zinc-500 font-medium">Outstanding Balance</p>
-                                        <p className={`text-xl font-bold mt-1 ${(student.total_outstanding_balance ?? 0) > 0 ? "text-rose-600" : "text-zinc-900"}`}>
+                                    <div className="bg-white dark:bg-zinc-950 border rounded-lg p-4">
+                                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Outstanding Balance</p>
+                                        <p className={`text-xl font-bold mt-1 ${(student.total_outstanding_balance ?? 0) > 0 ? "text-rose-600" : "text-zinc-900 dark:text-zinc-100"}`}>
                                             Rs. {(student.total_outstanding_balance ?? 0).toLocaleString()}
                                         </p>
                                     </div>
-                                    <div className="bg-white border rounded-lg p-4">
-                                        <p className="text-xs text-zinc-500 font-medium">Advance Credit</p>
-                                        <p className={`text-xl font-bold mt-1 ${(student.advance_credit_balance ?? 0) > 0 ? "text-emerald-600" : "text-zinc-900"}`}>
+                                    <div className="bg-white dark:bg-zinc-950 border rounded-lg p-4">
+                                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Advance Credit</p>
+                                        <p className={`text-xl font-bold mt-1 ${(student.advance_credit_balance ?? 0) > 0 ? "text-emerald-600" : "text-zinc-900 dark:text-zinc-100"}`}>
                                             Rs. {(student.advance_credit_balance ?? 0).toLocaleString()}
                                         </p>
                                     </div>
@@ -261,10 +261,10 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                 </div>
 
                 {/* Footer Actions */}
-                <div className="bg-zinc-50 p-4 border-t flex justify-end gap-3 flex-shrink-0">
+                <div className="bg-zinc-50 dark:bg-zinc-900 p-4 border-t flex justify-end gap-3 flex-shrink-0">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
+                        className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 transition-colors"
                     >
                         Close
                     </button>
@@ -340,11 +340,11 @@ function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, o
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
-                <div className="px-6 py-4 border-b flex justify-between items-center bg-zinc-50/50">
+            <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                <div className="px-6 py-4 border-b flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/50">
                     <div>
-                        <h3 className="font-bold text-zinc-900">Change Family</h3>
-                        <p className="text-[10px] text-zinc-500 font-medium">Reassigning: {studentName}</p>
+                        <h3 className="font-bold text-zinc-900 dark:text-zinc-100">Change Family</h3>
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">Reassigning: {studentName}</p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-zinc-200 rounded-full transition-colors">
                         <X className="h-4 w-4 text-zinc-400" />
@@ -358,7 +358,7 @@ function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, o
                             autoFocus
                             type="text"
                             placeholder="Search Household, CNIC or ID..."
-                            className="w-full pl-9 pr-4 py-2.5 text-sm border-zinc-200 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                            className="w-full pl-9 pr-4 py-2.5 text-sm border-zinc-200 dark:border-zinc-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
                             value={searchQ}
                             onChange={(e) => setSearchQ(e.target.value)}
                         />
@@ -373,24 +373,24 @@ function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, o
                                     className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between group ${selectedFamily?.id === family.id
                                         ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200"
                                         : family.id === currentFamilyId
-                                            ? "bg-zinc-50 border-zinc-100 opacity-60 cursor-not-allowed"
-                                            : "hover:bg-zinc-50 border-transparent hover:border-zinc-200"
+                                            ? "bg-zinc-50 dark:bg-zinc-900 border-zinc-100 opacity-60 cursor-not-allowed"
+                                            : "hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 border-transparent hover:border-zinc-200 dark:border-zinc-800"
                                         }`}
                                     disabled={family.id === currentFamilyId}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center font-bold text-xs ${selectedFamily?.id === family.id ? "bg-indigo-500 text-white" : "bg-zinc-100 text-zinc-500"
+                                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center font-bold text-xs ${selectedFamily?.id === family.id ? "bg-indigo-500 text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
                                             }`}>
                                             {family.household_name.charAt(0).toUpperCase()}
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold text-zinc-900 group-hover:text-indigo-600 transition-colors">
+                                            <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 transition-colors">
                                                 {family.household_name}
                                             </p>
                                             <div className="flex flex-col gap-0.5 mt-0.5">
-                                                <p className="text-[10px] text-zinc-500 font-medium flex items-center gap-1.5">
+                                                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium flex items-center gap-1.5">
                                                     <span className="opacity-70">ID: #{family.id}</span>
-                                                    {family.legacy_pid && <span className="px-1 bg-zinc-100 rounded text-[9px]">PID: {family.legacy_pid}</span>}
+                                                    {family.legacy_pid && <span className="px-1 bg-zinc-100 dark:bg-zinc-800 rounded text-[9px]">PID: {family.legacy_pid}</span>}
                                                 </p>
                                                 {family.primary_guardian && (
                                                     <p className="text-[10px] font-bold text-indigo-600/80 bg-indigo-50/50 px-1.5 py-0.5 rounded-md self-start mt-1">
@@ -401,7 +401,7 @@ function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, o
                                         </div>
                                     </div>
                                     {family.id === currentFamilyId && (
-                                        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider bg-zinc-100 px-2 py-0.5 rounded-full">Current</span>
+                                        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">Current</span>
                                     )}
                                     {selectedFamily?.id === family.id && (
                                         <ChevronRight className="h-4 w-4 text-indigo-500" />
@@ -409,9 +409,9 @@ function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, o
                                 </button>
                             ))
                         ) : debouncedSearch.length >= 2 && !isLoading ? (
-                            <div className="py-8 text-center bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
+                            <div className="py-8 text-center bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
                                 <AlertCircle className="h-6 w-6 text-zinc-300 mx-auto mb-2" />
-                                <p className="text-xs text-zinc-500">No households found</p>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400">No households found</p>
                             </div>
                         ) : (
                             <p className="text-[10px] text-zinc-400 text-center py-4 italic">Type to search for a new family...</p>
@@ -419,10 +419,10 @@ function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, o
                     </div>
                 </div>
 
-                <div className="px-6 py-4 bg-zinc-50 border-t flex items-center justify-between">
+                <div className="px-6 py-4 bg-zinc-50 dark:bg-zinc-900 border-t flex items-center justify-between">
                     <button
                         onClick={onClose}
-                        className="text-xs font-semibold text-zinc-500 hover:text-zinc-800 transition-colors"
+                        className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:text-zinc-200 transition-colors"
                     >
                         Cancel
                     </button>
@@ -449,12 +449,12 @@ function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, o
 function InfoItem({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) {
     return (
         <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-500">
+            <div className="h-8 w-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400">
                 {icon}
             </div>
             <div>
-                <p className="text-xs text-zinc-500 font-medium">{label}</p>
-                <p className="text-sm font-semibold text-zinc-900">{value}</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">{label}</p>
+                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{value}</p>
             </div>
         </div>
     );
@@ -463,8 +463,8 @@ function InfoItem({ icon, label, value }: { icon: React.ReactNode, label: string
 function DataPoint({ label, value }: { label: string, value: string }) {
     return (
         <div>
-            <p className="text-xs text-zinc-500 font-medium mb-1">{label}</p>
-            <p className="text-sm font-semibold text-zinc-900">{value || "N/A"}</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-1">{label}</p>
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{value || "N/A"}</p>
         </div>
     );
 }

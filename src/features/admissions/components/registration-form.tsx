@@ -232,36 +232,36 @@ export function RegistrationForm() {
 
     if (isMetadataLoading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] bg-white border border-zinc-200 rounded-xl shadow-sm space-y-4">
+            <div className="flex flex-col items-center justify-center min-h-[400px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm space-y-4">
                 <Loader2 className="w-10 h-10 text-primary animate-spin" />
-                <p className="text-sm font-medium text-zinc-500">Initializing form data...</p>
+                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Initializing form data...</p>
             </div>
         );
     }
 
     return (
-        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row max-w-5xl mx-auto">
+        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row max-w-5xl mx-auto">
 
             {/* Left Sidebar - Administrative Data */}
-            <div className="w-full md:w-64 bg-zinc-50 border-b md:border-b-0 md:border-r border-zinc-200 p-6 flex-shrink-0">
+            <div className="w-full md:w-64 bg-zinc-50 dark:bg-zinc-900 border-b md:border-b-0 md:border-r border-zinc-200 dark:border-zinc-800 p-6 flex-shrink-0">
                 <div className="flex flex-col items-center justify-center mb-8 gap-3">
                     <Image src={LogoImage} alt="TAFSync Logo" width={80} height={80} className="object-contain" priority unoptimized />
                     <h2 className="text-xl font-bold tracking-tight text-primary">TAFSync</h2>
                 </div>
 
                 <div className="space-y-4">
-                    <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Office Records</h3>
+                    <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Office Records</h3>
                     <div>
-                        <label className="block text-xs font-medium text-zinc-700 mb-1">Serial #</label>
-                        <input type="text" name="serialNo" value={formData.serialNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Serial #</label>
+                        <input type="text" name="serialNo" value={formData.serialNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-zinc-700 mb-1">Registration #</label>
-                        <input type="text" name="registrationNo" value={formData.registrationNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Registration #</label>
+                        <input type="text" name="registrationNo" value={formData.registrationNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-zinc-700 mb-1">Campus</label>
-                        <select name="campusId" value={formData.campusId} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none bg-white">
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Campus</label>
+                        <select name="campusId" value={formData.campusId} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none bg-white dark:bg-zinc-950">
                             <option value="">Select Campus...</option>
                             {campuses.map(campus => (
                                 <option key={campus.id} value={campus.id}>{campus.campus_name} ({campus.campus_code})</option>
@@ -271,14 +271,14 @@ export function RegistrationForm() {
                 </div>
 
                 <div className="mt-8 space-y-4">
-                    <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Photographs</h3>
+                    <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Photographs</h3>
                     <div className="flex flex-col gap-3">
-                        <div className="h-24 w-full border-2 border-dashed border-zinc-300 rounded-lg flex items-center justify-center bg-zinc-50 text-xs text-zinc-500 text-center px-2 cursor-pointer hover:bg-zinc-100 hover:border-primary transition-colors">
+                        <div className="h-24 w-full border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-500 dark:text-zinc-400 text-center px-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 hover:border-primary transition-colors">
                             Candidate (1.5&quot; x 2&quot;)<br />Light Blue BG
                         </div>
                         <div className="flex gap-2">
-                            <div className="h-20 w-1/2 border-2 border-dashed border-zinc-300 rounded-lg flex items-center justify-center bg-zinc-50 text-xs text-zinc-500 text-center px-1 cursor-pointer hover:bg-zinc-100 hover:border-primary transition-colors">Father</div>
-                            <div className="h-20 w-1/2 border-2 border-dashed border-zinc-300 rounded-lg flex items-center justify-center bg-zinc-50 text-xs text-zinc-500 text-center px-1 cursor-pointer hover:bg-zinc-100 hover:border-primary transition-colors">Mother</div>
+                            <div className="h-20 w-1/2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-500 dark:text-zinc-400 text-center px-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 hover:border-primary transition-colors">Father</div>
+                            <div className="h-20 w-1/2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-500 dark:text-zinc-400 text-center px-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 hover:border-primary transition-colors">Mother</div>
                         </div>
                     </div>
                 </div>
@@ -288,10 +288,10 @@ export function RegistrationForm() {
             <div className="flex-1 flex flex-col">
 
                 {/* Wizard Header Sequence */}
-                <div className="px-6 py-4 border-b border-zinc-200 bg-white flex items-center justify-between">
+                <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between">
                     <div>
-                        <h2 className="text-lg font-semibold text-zinc-900">Application for Registration (FORM #1)</h2>
-                        <p className="text-sm text-zinc-500">
+                        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Application for Registration (FORM #1)</h2>
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400">
                             Page {currentStep} of 3 — {currentStep === 1 ? 'Personal Data & Academic Target' : currentStep === 2 ? 'Contacts & Signatures' : 'Office Use Only'}
                         </p>
                     </div>
@@ -303,72 +303,72 @@ export function RegistrationForm() {
                 </div>
 
                 {/* Wizard Body (Scrollable) */}
-                <div className="flex-1 p-6 sm:p-8 bg-zinc-50/50 overflow-y-auto min-h-[500px]">
+                <div className="flex-1 p-6 sm:p-8 bg-zinc-50 dark:bg-zinc-900/50 overflow-y-auto min-h-[500px]">
 
                     {/* -- PAGE 1: PERSONAL DATA & TARGETS -- */}
                     {currentStep === 1 && (
                         <div className="space-y-8 animate-in fade-in duration-300">
 
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5">
-                                    <h3 className="text-base font-medium text-zinc-900">1. Personal Data</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">1. Personal Data</h3>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Candidate&apos;s Full Name (In Block Letters Only)</label>
-                                        <input type="text" name="candidateName" value={formData.candidateName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Candidate&apos;s Full Name (In Block Letters Only)</label>
+                                        <input type="text" name="candidateName" value={formData.candidateName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Father&apos;s Name</label>
-                                        <input type="text" name="fatherName" value={formData.fatherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Father&apos;s CNIC</label>
-                                        <input type="text" name="fatherCnic" value={formData.fatherCnic} onChange={handleInputChange} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Father&apos;s Name</label>
+                                        <input type="text" name="fatherName" value={formData.fatherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Father&apos;s CNIC</label>
+                                        <input type="text" name="fatherCnic" value={formData.fatherCnic} onChange={handleInputChange} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Mother&apos;s Name</label>
-                                        <input type="text" name="motherName" value={formData.motherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Mother&apos;s CNIC</label>
-                                        <input type="text" name="motherCnic" value={formData.motherCnic} onChange={handleInputChange} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Mother&apos;s Name</label>
+                                        <input type="text" name="motherName" value={formData.motherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Mother&apos;s CNIC</label>
+                                        <input type="text" name="motherCnic" value={formData.motherCnic} onChange={handleInputChange} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Date of Birth</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Date of Birth</label>
                                         <div className="flex gap-2">
-                                            <input type="text" name="dobDay" value={formData.dobDay} onChange={handleInputChange} placeholder="DD" className="w-1/3 px-3 py-2 border border-zinc-300 rounded-lg text-center" />
-                                            <input type="text" name="dobMonth" value={formData.dobMonth} onChange={handleInputChange} placeholder="MM" className="w-1/3 px-3 py-2 border border-zinc-300 rounded-lg text-center" />
-                                            <input type="text" name="dobYear" value={formData.dobYear} onChange={handleInputChange} placeholder="YYYY" className="w-1/3 px-3 py-2 border border-zinc-300 rounded-lg text-center" />
+                                            <input type="text" name="dobDay" value={formData.dobDay} onChange={handleInputChange} placeholder="DD" className="w-1/3 px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg text-center" />
+                                            <input type="text" name="dobMonth" value={formData.dobMonth} onChange={handleInputChange} placeholder="MM" className="w-1/3 px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg text-center" />
+                                            <input type="text" name="dobYear" value={formData.dobYear} onChange={handleInputChange} placeholder="YYYY" className="w-1/3 px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg text-center" />
                                         </div>
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Age at time of registration</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Age at time of registration</label>
                                         <div className="flex gap-2">
-                                            <div className="relative w-1/3"><input type="text" name="ageYears" value={formData.ageYears} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg pr-8" /><span className="absolute right-3 top-2.5 text-xs text-zinc-400">Yrs</span></div>
-                                            <div className="relative w-1/3"><input type="text" name="ageMonths" value={formData.ageMonths} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg pr-8" /><span className="absolute right-3 top-2.5 text-xs text-zinc-400">Mos</span></div>
-                                            <div className="relative w-1/3"><input type="text" name="ageDays" value={formData.ageDays} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg pr-8" /><span className="absolute right-3 top-2.5 text-xs text-zinc-400">Dys</span></div>
+                                            <div className="relative w-1/3"><input type="text" name="ageYears" value={formData.ageYears} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg pr-8" /><span className="absolute right-3 top-2.5 text-xs text-zinc-400">Yrs</span></div>
+                                            <div className="relative w-1/3"><input type="text" name="ageMonths" value={formData.ageMonths} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg pr-8" /><span className="absolute right-3 top-2.5 text-xs text-zinc-400">Mos</span></div>
+                                            <div className="relative w-1/3"><input type="text" name="ageDays" value={formData.ageDays} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg pr-8" /><span className="absolute right-3 top-2.5 text-xs text-zinc-400">Dys</span></div>
                                         </div>
                                     </div>
 
                                     <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-6">
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Nationality</label>
-                                            <select name="nationalityPakistani" onChange={(e) => setFormData({ ...formData, nationalityPakistani: e.target.value === 'true' })} className="w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white">
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Nationality</label>
+                                            <select name="nationalityPakistani" onChange={(e) => setFormData({ ...formData, nationalityPakistani: e.target.value === 'true' })} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-950">
                                                 <option value="true">Pakistani</option>
                                                 <option value="false">Other</option>
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Gender</label>
-                                            <select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white">
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Gender</label>
+                                            <select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-950">
                                                 <option value="">Select...</option>
                                                 <option value="Male">Male</option>
                                                 <option value="Female">Female</option>
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Religion</label>
-                                            <select name="religion" value={formData.religion} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white">
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Religion</label>
+                                            <select name="religion" value={formData.religion} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-950">
                                                 <option value="">Select...</option>
                                                 <option value="Muslim">Muslim</option><option value="Christian">Christian</option><option value="Hindu">Hindu</option><option value="Others">Others</option>
                                             </select>
@@ -377,53 +377,53 @@ export function RegistrationForm() {
 
                                     <div className="md:col-span-2 grid grid-cols-3 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Place of Birth: Country</label>
-                                            <input type="text" name="birthCountry" value={formData.birthCountry} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Place of Birth: Country</label>
+                                            <input type="text" name="birthCountry" value={formData.birthCountry} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Province</label>
-                                            <input type="text" name="birthProvince" value={formData.birthProvince} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Province</label>
+                                            <input type="text" name="birthProvince" value={formData.birthProvince} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">City</label>
-                                            <input type="text" name="birthCity" value={formData.birthCity} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">City</label>
+                                            <input type="text" name="birthCity" value={formData.birthCity} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
                                         </div>
                                     </div>
 
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Identification Mark(s)</label>
-                                        <input type="text" name="identificationMarks" value={formData.identificationMarks} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Identification Mark(s)</label>
+                                        <input type="text" name="identificationMarks" value={formData.identificationMarks} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
                                     </div>
                                 </div>
                             </section>
 
                             {/* Section: Previous Schooling */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-8 flex justify-between items-end">
-                                    <h3 className="text-base font-medium text-zinc-900">2. Previous Schooling Details</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8 flex justify-between items-end">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">2. Previous Schooling Details</h3>
                                     <span className="text-xs text-zinc-400 italic">Starting with the last school attended</span>
                                 </div>
                                 <div className="space-y-4">
                                     {formData.previousSchools.map((school, index) => (
-                                        <div key={school.id} className="p-4 border border-zinc-200 rounded-xl bg-white relative group">
+                                        <div key={school.id} className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 relative group">
                                             <div className="absolute -left-2.5 top-4 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{index + 1}</div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div>
-                                                    <label className="block text-xs font-medium text-zinc-700 mb-1">Name of School</label>
-                                                    <input type="text" value={school.name} onChange={(e) => handleSchoolChange(school.id, 'name', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md" />
+                                                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Name of School</label>
+                                                    <input type="text" value={school.name} onChange={(e) => handleSchoolChange(school.id, 'name', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md" />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-xs font-medium text-zinc-700 mb-1">Location</label>
-                                                    <input type="text" value={school.location} onChange={(e) => handleSchoolChange(school.id, 'location', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md" />
+                                                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Location</label>
+                                                    <input type="text" value={school.location} onChange={(e) => handleSchoolChange(school.id, 'location', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md" />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-xs font-medium text-zinc-700 mb-1">Class/Level Studied</label>
-                                                    <input type="text" placeholder="From - Upto" value={school.levelStudied} onChange={(e) => handleSchoolChange(school.id, 'levelStudied', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md" />
+                                                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Class/Level Studied</label>
+                                                    <input type="text" placeholder="From - Upto" value={school.levelStudied} onChange={(e) => handleSchoolChange(school.id, 'levelStudied', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md" />
                                                 </div>
                                                 <div className="flex gap-2 items-end">
                                                     <div className="flex-1">
-                                                        <label className="block text-xs font-medium text-zinc-700 mb-1">Reason for Leaving</label>
-                                                        <input type="text" value={school.reasonForLeaving} onChange={(e) => handleSchoolChange(school.id, 'reasonForLeaving', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md" />
+                                                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Reason for Leaving</label>
+                                                        <input type="text" value={school.reasonForLeaving} onChange={(e) => handleSchoolChange(school.id, 'reasonForLeaving', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md" />
                                                     </div>
                                                     <button type="button" onClick={() => removePreviousSchool(school.id)} disabled={formData.previousSchools.length === 1} className="py-1.5 px-3 text-sm border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 transition-colors">Del</button>
                                                 </div>
@@ -436,37 +436,37 @@ export function RegistrationForm() {
 
                             {/* Section: Target System */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-8">
-                                    <h3 className="text-base font-medium text-zinc-900">3. Admission Required In</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">3. Admission Required In</h3>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* O-Level Block */}
-                                    <div className={`border-2 rounded-xl p-5 ${formData.admissionSystem === "cambridge" ? 'border-primary/50 bg-primary/5' : 'border-zinc-200 bg-white'}`}>
+                                    <div className={`border-2 rounded-xl p-5 ${formData.admissionSystem === "cambridge" ? 'border-primary/50 bg-primary/5' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950'}`}>
                                         <div className="flex items-center mb-4 cursor-pointer">
-                                            <input type="radio" name="admissionSystem" value="cambridge" id="sys-cambridge-reg" checked={formData.admissionSystem === "cambridge"} onChange={handleInputChange} className="h-4 w-4 text-primary focus:ring-primary border-zinc-300" />
+                                            <input type="radio" name="admissionSystem" value="cambridge" id="sys-cambridge-reg" checked={formData.admissionSystem === "cambridge"} onChange={handleInputChange} className="h-4 w-4 text-primary focus:ring-primary border-zinc-300 dark:border-zinc-700" />
                                             <label htmlFor="sys-cambridge-reg" className="ml-2 block font-semibold text-primary cursor-pointer">Cambridge GCE O&apos; Level System</label>
                                         </div>
                                         <div className={`grid grid-cols-2 gap-y-2 gap-x-4 pl-6 ${formData.admissionSystem !== 'cambridge' ? 'opacity-50 pointer-events-none' : ''}`}>
                                             {['Pre-Nursery', 'Nursery', 'K.G.', 'JR-I', 'JR-II', 'JR-III', 'JR-IV', 'JR-V', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III'].map(cls => (
                                                 <div key={cls} className="flex items-center">
-                                                    <input type="radio" name="admissionLevel" value={cls} checked={formData.admissionLevel === cls && formData.admissionSystem === "cambridge"} onChange={handleInputChange} className="h-3.5 w-3.5 text-primary focus:ring-primary border-zinc-300" />
-                                                    <label className="ml-2 text-sm text-zinc-700">{cls}</label>
+                                                    <input type="radio" name="admissionLevel" value={cls} checked={formData.admissionLevel === cls && formData.admissionSystem === "cambridge"} onChange={handleInputChange} className="h-3.5 w-3.5 text-primary focus:ring-primary border-zinc-300 dark:border-zinc-700" />
+                                                    <label className="ml-2 text-sm text-zinc-700 dark:text-zinc-300">{cls}</label>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
 
                                     {/* Secondary Block */}
-                                    <div className={`border-2 rounded-xl p-5 ${formData.admissionSystem === "secondary" ? 'border-secondary/50 bg-secondary/5' : 'border-zinc-200 bg-white'}`}>
+                                    <div className={`border-2 rounded-xl p-5 ${formData.admissionSystem === "secondary" ? 'border-secondary/50 bg-secondary/5' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950'}`}>
                                         <div className="flex items-center mb-4 cursor-pointer">
-                                            <input type="radio" name="admissionSystem" value="secondary" id="sys-secondary-reg" checked={formData.admissionSystem === "secondary"} onChange={handleInputChange} className="h-4 w-4 text-secondary focus:ring-secondary border-zinc-300" />
+                                            <input type="radio" name="admissionSystem" value="secondary" id="sys-secondary-reg" checked={formData.admissionSystem === "secondary"} onChange={handleInputChange} className="h-4 w-4 text-secondary focus:ring-secondary border-zinc-300 dark:border-zinc-700" />
                                             <label htmlFor="sys-secondary-reg" className="ml-2 block font-semibold text-secondary cursor-pointer">Secondary System of Studies</label>
                                         </div>
                                         <div className={`grid grid-cols-2 gap-y-2 gap-x-4 pl-6 ${formData.admissionSystem !== 'secondary' ? 'opacity-50 pointer-events-none' : ''}`}>
                                             {['VI', 'VII', 'VIII', 'IX', 'X'].map(cls => (
                                                 <div key={cls} className="flex items-center">
-                                                    <input type="radio" name="admissionLevel" value={cls} checked={formData.admissionLevel === cls && formData.admissionSystem === "secondary"} onChange={handleInputChange} className="h-3.5 w-3.5 text-secondary focus:ring-secondary border-zinc-300" />
-                                                    <label className="ml-2 text-sm text-zinc-700">{cls}</label>
+                                                    <input type="radio" name="admissionLevel" value={cls} checked={formData.admissionLevel === cls && formData.admissionSystem === "secondary"} onChange={handleInputChange} className="h-3.5 w-3.5 text-secondary focus:ring-secondary border-zinc-300 dark:border-zinc-700" />
+                                                    <label className="ml-2 text-sm text-zinc-700 dark:text-zinc-300">{cls}</label>
                                                 </div>
                                             ))}
                                         </div>
@@ -482,30 +482,30 @@ export function RegistrationForm() {
                         <div className="space-y-8 animate-in fade-in duration-300">
 
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5">
-                                    <h3 className="text-base font-medium text-zinc-900">4. Mailing Address</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">4. Mailing Address</h3>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">House / Apartment Name and No.</label>
-                                        <input type="text" name="houseNo" value={formData.houseNo} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">House / Apartment Name and No.</label>
+                                        <input type="text" name="houseNo" value={formData.houseNo} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Area and Block # (If any)</label>
-                                        <input type="text" name="areaBlock" value={formData.areaBlock} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Area and Block # (If any)</label>
+                                        <input type="text" name="areaBlock" value={formData.areaBlock} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">City</label><input type="text" name="city" value={formData.city} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Postal Code</label><input type="text" name="postalCode" value={formData.postalCode} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
+                                        <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">City</label><input type="text" name="city" value={formData.city} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" /></div>
+                                        <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Postal Code</label><input type="text" name="postalCode" value={formData.postalCode} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" /></div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Province</label><input type="text" name="province" value={formData.province} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Country</label><input type="text" name="country" value={formData.country} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
+                                        <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Province</label><input type="text" name="province" value={formData.province} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" /></div>
+                                        <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Country</label><input type="text" name="country" value={formData.country} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" /></div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Home Phone #</label>
-                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
-                                            <input type="text" name="emergencyPrimaryPhoneCountryCode" value={formData.emergencyPrimaryPhoneCountryCode} onChange={handleInputChange} placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Home Phone #</label>
+                                        <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
+                                            <input type="text" name="emergencyPrimaryPhoneCountryCode" value={formData.emergencyPrimaryPhoneCountryCode} onChange={handleInputChange} placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" />
                                             <input type="text" name="homePhone" value={formData.homePhone} onChange={handleInputChange} className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" />
                                         </div>
                                     </div>
@@ -513,12 +513,12 @@ export function RegistrationForm() {
                             </section>
 
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-8">
-                                    <h3 className="text-base font-medium text-zinc-900">Contact Details Matrix</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">Contact Details Matrix</h3>
                                 </div>
-                                <div className="rounded-xl border border-zinc-200 overflow-hidden bg-white shadow-sm">
+                                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-950 shadow-sm">
                                     <table className="w-full text-sm text-left">
-                                        <thead className="text-xs text-zinc-500 uppercase bg-zinc-50 border-b border-zinc-200">
+                                        <thead className="text-xs text-zinc-500 dark:text-zinc-400 uppercase bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
                                             <tr>
                                                 <th className="px-4 py-3 font-semibold">Contact Person</th>
                                                 <th className="px-4 py-3 font-semibold w-1/4">Cellular Phone #</th>
@@ -528,32 +528,32 @@ export function RegistrationForm() {
                                         </thead>
                                         <tbody>
                                             <tr className="border-b border-zinc-100">
-                                                <td className="px-4 py-3 font-medium text-zinc-700">Candidate</td>
-                                                <td className="px-2 py-2"><input type="text" name="candidatePhone" value={formData.candidatePhone} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 focus:border-primary rounded text-sm outline-none" /></td>
-                                                <td className="px-2 py-2"><input type="email" name="candidateEmail" value={formData.candidateEmail} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 focus:border-primary rounded text-sm outline-none" /></td>
-                                                <td className="px-2 py-2"><input type="text" disabled className="w-full px-2 py-1.5 bg-zinc-50 text-zinc-400 rounded text-sm cursor-not-allowed" placeholder="N/A" /></td>
+                                                <td className="px-4 py-3 font-medium text-zinc-700 dark:text-zinc-300">Candidate</td>
+                                                <td className="px-2 py-2"><input type="text" name="candidatePhone" value={formData.candidatePhone} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none" /></td>
+                                                <td className="px-2 py-2"><input type="email" name="candidateEmail" value={formData.candidateEmail} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none" /></td>
+                                                <td className="px-2 py-2"><input type="text" disabled className="w-full px-2 py-1.5 bg-zinc-50 dark:bg-zinc-900 text-zinc-400 rounded text-sm cursor-not-allowed" placeholder="N/A" /></td>
                                             </tr>
                                             <tr className="border-b border-zinc-100">
-                                                <td className="px-4 py-3 font-medium text-zinc-700">Father</td>
+                                                <td className="px-4 py-3 font-medium text-zinc-700 dark:text-zinc-300">Father</td>
                                                 <td className="px-2 py-2">
-                                                    <div className="flex border border-zinc-200 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
-                                                        <input type="text" name="fatherPrimaryPhoneCountryCode" value={formData.fatherPrimaryPhoneCountryCode} onChange={handleInputChange} placeholder="+92" className="w-14 px-1.5 py-1.5 border-0 rounded-l text-sm outline-none bg-zinc-50" />
+                                                    <div className="flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
+                                                        <input type="text" name="fatherPrimaryPhoneCountryCode" value={formData.fatherPrimaryPhoneCountryCode} onChange={handleInputChange} placeholder="+92" className="w-14 px-1.5 py-1.5 border-0 rounded-l text-sm outline-none bg-zinc-50 dark:bg-zinc-900" />
                                                         <input type="text" name="fatherPhone" value={formData.fatherPhone} onChange={handleInputChange} className="flex-1 min-w-0 px-2 py-1.5 border-0 rounded-r text-sm outline-none" />
                                                     </div>
                                                 </td>
-                                                <td className="px-2 py-2"><input type="email" name="fatherEmail" value={formData.fatherEmail} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 focus:border-primary rounded text-sm outline-none" /></td>
-                                                <td className="px-2 py-2"><input type="text" name="fatherFax" value={formData.fatherFax} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 focus:border-primary rounded text-sm outline-none" /></td>
+                                                <td className="px-2 py-2"><input type="email" name="fatherEmail" value={formData.fatherEmail} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none" /></td>
+                                                <td className="px-2 py-2"><input type="text" name="fatherFax" value={formData.fatherFax} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none" /></td>
                                             </tr>
                                             <tr>
-                                                <td className="px-4 py-3 font-medium text-zinc-700">Mother</td>
+                                                <td className="px-4 py-3 font-medium text-zinc-700 dark:text-zinc-300">Mother</td>
                                                 <td className="px-2 py-2">
-                                                    <div className="flex border border-zinc-200 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
-                                                        <input type="text" name="motherPrimaryPhoneCountryCode" value={formData.motherPrimaryPhoneCountryCode} onChange={handleInputChange} placeholder="+92" className="w-14 px-1.5 py-1.5 border-0 rounded-l text-sm outline-none bg-zinc-50" />
+                                                    <div className="flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
+                                                        <input type="text" name="motherPrimaryPhoneCountryCode" value={formData.motherPrimaryPhoneCountryCode} onChange={handleInputChange} placeholder="+92" className="w-14 px-1.5 py-1.5 border-0 rounded-l text-sm outline-none bg-zinc-50 dark:bg-zinc-900" />
                                                         <input type="text" name="motherPhone" value={formData.motherPhone} onChange={handleInputChange} className="flex-1 min-w-0 px-2 py-1.5 border-0 rounded-r text-sm outline-none" />
                                                     </div>
                                                 </td>
-                                                <td className="px-2 py-2"><input type="email" name="motherEmail" value={formData.motherEmail} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 focus:border-primary rounded text-sm outline-none" /></td>
-                                                <td className="px-2 py-2"><input type="text" name="motherFax" value={formData.motherFax} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 focus:border-primary rounded text-sm outline-none" /></td>
+                                                <td className="px-2 py-2"><input type="email" name="motherEmail" value={formData.motherEmail} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none" /></td>
+                                                <td className="px-2 py-2"><input type="text" name="motherFax" value={formData.motherFax} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none" /></td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -561,48 +561,48 @@ export function RegistrationForm() {
                             </section>
 
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-8">
-                                    <h3 className="text-base font-medium text-zinc-900">Emergency Contact</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">Emergency Contact</h3>
                                 </div>
                                 <div className="bg-red-50/50 p-5 rounded-xl border border-red-100 flex gap-6">
                                     <div className="flex-1">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Contact Name & Number</label>
-                                        <input type="text" name="emergencyContactName" value={formData.emergencyContactName} onChange={handleInputChange} placeholder="Name - Phone" className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none" />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Contact Name & Number</label>
+                                        <input type="text" name="emergencyContactName" value={formData.emergencyContactName} onChange={handleInputChange} placeholder="Name - Phone" className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none" />
                                     </div>
                                     <div className="flex-1">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Relationship with Candidate</label>
-                                        <input type="text" name="emergencyRelationship" value={formData.emergencyRelationship} onChange={handleInputChange} className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none" />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Relationship with Candidate</label>
+                                        <input type="text" name="emergencyRelationship" value={formData.emergencyRelationship} onChange={handleInputChange} className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none" />
                                     </div>
                                 </div>
                             </section>
 
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-10">
-                                    <h3 className="text-base font-medium text-zinc-900">Signatures</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-10">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">Signatures</h3>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                     <div className="flex flex-col">
                                         <div className="flex items-center justify-between mb-4">
-                                            <span className="text-sm font-semibold text-zinc-700">Signatory:</span>
-                                            <select className="px-2 py-1 text-sm bg-white border border-zinc-200 rounded-md outline-none focus:ring-1 focus:ring-primary w-2/3">
+                                            <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Signatory:</span>
+                                            <select className="px-2 py-1 text-sm bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md outline-none focus:ring-1 focus:ring-primary w-2/3">
                                                 <option>Father</option>
                                                 <option>Mother</option>
                                                 <option>Guardian</option>
                                             </select>
                                         </div>
-                                        <div className="flex-1 border border-zinc-200 rounded-lg p-4 flex flex-col items-center justify-center bg-white h-32">
-                                            <div className="flex-1 w-full border-b border-dashed border-zinc-300 flex items-end justify-center pb-2">
+                                        <div className="flex-1 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 flex flex-col items-center justify-center bg-white dark:bg-zinc-950 h-32">
+                                            <div className="flex-1 w-full border-b border-dashed border-zinc-300 dark:border-zinc-700 flex items-end justify-center pb-2">
                                                 <span className="text-zinc-300 italic">Sign here</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="flex flex-col justify-end pb-8">
-                                        <input type="text" placeholder="Day (e.g. Monday)" className="h-10 border-b-2 border-dashed border-zinc-300 bg-transparent mb-2 outline-none focus:border-primary text-center px-4" />
-                                        <span className="text-sm font-semibold text-zinc-600 text-center uppercase tracking-wider">Day</span>
+                                        <input type="text" placeholder="Day (e.g. Monday)" className="h-10 border-b-2 border-dashed border-zinc-300 dark:border-zinc-700 bg-transparent mb-2 outline-none focus:border-primary text-center px-4" />
+                                        <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-400 text-center uppercase tracking-wider">Day</span>
                                     </div>
                                     <div className="flex flex-col justify-end pb-8">
-                                        <input type="date" className="h-10 border-b-2 border-dashed border-zinc-300 bg-transparent mb-2 outline-none focus:border-primary text-center px-4 text-sm" />
-                                        <span className="text-sm font-semibold text-zinc-600 text-center uppercase tracking-wider">Date</span>
+                                        <input type="date" className="h-10 border-b-2 border-dashed border-zinc-300 dark:border-zinc-700 bg-transparent mb-2 outline-none focus:border-primary text-center px-4 text-sm" />
+                                        <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-400 text-center uppercase tracking-wider">Date</span>
                                     </div>
                                 </div>
                             </section>
@@ -619,7 +619,7 @@ export function RegistrationForm() {
                                 <p className="text-sm text-red-600">Do not fill if you are a parent/candidate.</p>
                             </div>
 
-                            <section className="bg-white border border-dashed border-zinc-300 rounded-xl p-8 relative overflow-hidden">
+                            <section className="bg-white dark:bg-zinc-950 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-8 relative overflow-hidden">
                                 {/* Watermark */}
                                 <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] select-none pointer-events-none">
                                     <span className="text-6xl font-black uppercase text-center transform -rotate-12">Office Use</span>
@@ -628,33 +628,33 @@ export function RegistrationForm() {
                                 <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
                                     <div className="space-y-6">
                                         <div>
-                                            <label className="block text-xs font-semibold text-zinc-500 uppercase mb-2">Test Interview Allocation</label>
+                                            <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase mb-2">Test Interview Allocation</label>
                                             <div className="flex gap-2">
-                                                <input type="text" placeholder="Day" className="w-1/3 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm" />
-                                                <input type="date" className="w-1/3 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm" />
-                                                <input type="time" className="w-1/3 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm" />
+                                                <input type="text" placeholder="Day" className="w-1/3 px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm" />
+                                                <input type="date" className="w-1/3 px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm" />
+                                                <input type="time" className="w-1/3 px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm" />
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-semibold text-zinc-500 uppercase mb-2">Test for Level / Class</label>
-                                            <input type="text" className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm" />
+                                            <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase mb-2">Test for Level / Class</label>
+                                            <input type="text" className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm" />
                                         </div>
                                     </div>
 
                                     <div className="space-y-8 flex flex-col justify-end">
                                         <div className="flex flex-col justify-end pt-2">
-                                            <div className="h-10 border-b border-zinc-300 bg-transparent mb-2 w-full max-w-[200px]" />
-                                            <span className="text-xs font-semibold text-zinc-500 uppercase">Admission Registrar</span>
+                                            <div className="h-10 border-b border-zinc-300 dark:border-zinc-700 bg-transparent mb-2 w-full max-w-[200px]" />
+                                            <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase">Admission Registrar</span>
                                         </div>
 
                                         <div className="flex gap-8 items-end pt-2">
                                             <div className="flex-1">
-                                                <div className="h-10 border-b border-zinc-300 bg-transparent mb-2 w-full" />
-                                                <span className="text-xs font-semibold text-zinc-500 uppercase">Issuing Authority</span>
+                                                <div className="h-10 border-b border-zinc-300 dark:border-zinc-700 bg-transparent mb-2 w-full" />
+                                                <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase">Issuing Authority</span>
                                             </div>
                                             <div className="flex-1">
-                                                <div className="h-10 border-b border-zinc-300 bg-transparent mb-2 w-full" />
-                                                <span className="text-xs font-semibold text-zinc-500 uppercase">Date</span>
+                                                <div className="h-10 border-b border-zinc-300 dark:border-zinc-700 bg-transparent mb-2 w-full" />
+                                                <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase">Date</span>
                                             </div>
                                         </div>
                                     </div>
@@ -701,11 +701,11 @@ export function RegistrationForm() {
                 )}
 
                 {/* Wizard Footer (Sticky controls) */}
-                <div className="px-6 py-4 border-t border-zinc-200 bg-zinc-50 flex items-center justify-between">
+                <div className="px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-between">
                     <button
                         onClick={handlePrev}
                         disabled={isFirstStep || isSubmitting}
-                        className={`inline-flex items-center px-4 py-2 border rounded-lg text-sm font-medium transition-all ${isFirstStep || isSubmitting ? 'border-zinc-200 text-zinc-400 bg-zinc-50 cursor-not-allowed' : 'border-zinc-300 text-zinc-700 bg-white hover:bg-zinc-50 hover:text-zinc-900 active:scale-95'}`}
+                        className={`inline-flex items-center px-4 py-2 border rounded-lg text-sm font-medium transition-all ${isFirstStep || isSubmitting ? 'border-zinc-200 dark:border-zinc-800 text-zinc-400 bg-zinc-50 dark:bg-zinc-900 cursor-not-allowed' : 'border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 hover:text-zinc-900 dark:text-zinc-100 active:scale-95'}`}
                     >
                         <ChevronLeft className="h-4 w-4 mr-1.5" /> Previous
                     </button>

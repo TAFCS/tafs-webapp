@@ -425,18 +425,18 @@ function StudentwiseFeeEditor() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-6">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Student Fees</h1>
-                        <p className="text-zinc-500 mt-0.5 text-sm italic font-medium">Customize individual fee schedules.</p>
+                        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Student Fees</h1>
+                        <p className="text-zinc-500 dark:text-zinc-400 mt-0.5 text-sm italic font-medium">Customize individual fee schedules.</p>
                     </div>
 
-                    <div className="flex bg-zinc-100 p-1 rounded-2xl border border-zinc-200 shadow-inner translate-y-0.5">
+                    <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-inner translate-y-0.5">
                         <button onClick={() => setActiveTab("template")}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${activeTab === "template" ? "bg-white text-primary shadow-sm" : "text-zinc-400 hover:text-zinc-600"}`}
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${activeTab === "template" ? "bg-white dark:bg-zinc-950 text-primary shadow-sm" : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-400"}`}
                         >
                             <Settings2 className="h-4 w-4" /> Template Mode
                         </button>
                         <button onClick={() => setActiveTab("search")}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${activeTab === "search" ? "bg-white text-primary shadow-sm" : "text-zinc-400 hover:text-zinc-600"}`}
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${activeTab === "search" ? "bg-white dark:bg-zinc-950 text-primary shadow-sm" : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-400"}`}
                         >
                             <UserSearch className="h-4 w-4" /> Search Student
                         </button>
@@ -452,7 +452,7 @@ function StudentwiseFeeEditor() {
             </div>
 
             {/* Config Bar / Search Bar */}
-            <div className="bg-white border border-zinc-200 rounded-[32px] shadow-sm p-6">
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm p-6">
                 {activeTab === "search" ? (
                     <div className="flex flex-col xl:flex-row xl:items-end gap-6 animate-in slide-in-from-left-4 duration-300">
                         <div className="flex-1 relative" ref={searchDropdownRef}>
@@ -465,7 +465,7 @@ function StudentwiseFeeEditor() {
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     autoFocus
-                                    className="w-full h-12 pl-12 pr-5 bg-zinc-50 border border-zinc-200 rounded-2xl text-sm focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 font-medium transition-all shadow-sm"
+                                    className="w-full h-12 pl-12 pr-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 font-medium transition-all shadow-sm"
                                 />
                                 {isSearching && (
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2">
@@ -475,21 +475,21 @@ function StudentwiseFeeEditor() {
                             </div>
 
                             {showSearchDropdown && searchResults.length > 0 && (
-                                <div className="absolute z-50 top-full mt-2 w-full bg-white border border-zinc-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                                     <div className="max-h-80 overflow-y-auto p-2">
                                         {searchResults.map((s) => (
                                             <button
                                                 key={s.cc}
                                                 type="button"
                                                 onClick={() => handleSelectStudent(s)}
-                                                className="w-full flex items-center justify-between px-4 h-14 rounded-xl hover:bg-zinc-50 transition-all border border-transparent hover:border-zinc-100 group"
+                                                className="w-full flex items-center justify-between px-4 h-14 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all border border-transparent hover:border-zinc-100 group"
                                             >
                                                 <div className="flex flex-col items-start">
-                                                    <span className="text-sm font-bold text-zinc-900 group-hover:text-primary transition-colors">{s.full_name}</span>
+                                                    <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">{s.full_name}</span>
                                                     <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">GR: {s.gr_number || "N/A"}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[11px] font-black bg-zinc-100 text-zinc-600 px-3 py-1 rounded-full group-hover:bg-primary group-hover:text-white transition-all">CC-{s.cc}</span>
+                                                    <span className="text-[11px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-3 py-1 rounded-full group-hover:bg-primary group-hover:text-white transition-all">CC-{s.cc}</span>
                                                 </div>
                                             </button>
                                         ))}
@@ -498,15 +498,15 @@ function StudentwiseFeeEditor() {
                             )}
 
                             {showSearchDropdown && searchResults.length === 0 && searchQuery.length > 2 && (
-                                <div className="absolute z-50 top-full mt-2 w-full bg-white border border-zinc-200 rounded-2xl shadow-xl p-8 text-center animate-in fade-in zoom-in-95 duration-200">
+                                <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-8 text-center animate-in fade-in zoom-in-95 duration-200">
                                     <UserSearch className="h-8 w-8 text-zinc-200 mx-auto mb-3" />
-                                    <p className="text-sm font-bold text-zinc-900">No students found</p>
+                                    <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">No students found</p>
                                     <p className="text-xs text-zinc-400 mt-1">Try a different CC, GR, or Name</p>
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex items-center gap-3 h-12 px-5 bg-zinc-50 border border-zinc-200 rounded-2xl border-dashed border-2">
+                        <div className="flex items-center gap-3 h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl border-dashed border-2">
                             <div className={`h-2 w-2 rounded-full ${studentId ? "bg-emerald-500" : "bg-zinc-300"}`} />
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Active Selector: {studentId || "NONE"}</span>
                         </div>
@@ -518,20 +518,20 @@ function StudentwiseFeeEditor() {
                             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Campus</label>
                             <div className="relative" ref={campusDropdownRef}>
                                 <button type="button" onClick={() => setShowCampusDropdown(!showCampusDropdown)}
-                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm transition-all hover:bg-white hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
+                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all hover:bg-white dark:bg-zinc-950 hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
                                 >
-                                    <span className={selectedCampus ? "text-zinc-800 font-semibold" : "text-zinc-400"}>
+                                    <span className={selectedCampus ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
                                         {selectedCampus ? selectedCampus.campus_name : "Select Campus..."}
                                     </span>
                                     <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${showCampusDropdown ? "rotate-180" : ""}`} />
                                 </button>
                                 {showCampusDropdown && (
-                                    <div className="absolute z-50 top-full mt-2 w-full bg-white border border-zinc-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
+                                    <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <div className="p-3 border-b border-zinc-100 bg-zinc-50 dark:bg-zinc-900/50">
                                             <div className="relative">
                                                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                                                 <input autoFocus type="text" placeholder="Filter campuses..." value={campusSearch} onChange={(e) => setCampusSearch(e.target.value)}
-                                                    className="w-full pl-10 pr-4 h-9 text-sm bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-primary"
+                                                    className="w-full pl-10 pr-4 h-9 text-sm bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:border-primary"
                                                 />
                                             </div>
                                         </div>
@@ -539,7 +539,7 @@ function StudentwiseFeeEditor() {
                                             {campusesLoading ? <div className="p-4 text-xs text-zinc-400 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto mb-1" />Loading...</div>
                                                 : filteredCampuses.map((c) => (
                                                     <button key={c.id} type="button" onClick={() => { setSelectedCampusId(c.id); setShowCampusDropdown(false); }}
-                                                        className={`w-full flex items-center px-4 h-10 text-sm rounded-lg ${selectedCampusId === c.id ? "bg-primary text-white font-semibold" : "hover:bg-zinc-100"}`}
+                                                        className={`w-full flex items-center px-4 h-10 text-sm rounded-lg ${selectedCampusId === c.id ? "bg-primary text-white font-semibold" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800"}`}
                                                     >
                                                         {c.campus_name}
                                                     </button>
@@ -554,23 +554,23 @@ function StudentwiseFeeEditor() {
                             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Class / Grade</label>
                             <div className="relative" ref={classDropdownRef}>
                                 <button type="button" onClick={() => setShowClassDropdown(!showClassDropdown)}
-                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm transition-all hover:bg-white hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
+                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all hover:bg-white dark:bg-zinc-950 hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
                                 >
-                                    <span className={selectedClass ? "text-zinc-800 font-semibold" : "text-zinc-400"}>
+                                    <span className={selectedClass ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
                                         {selectedClass ? `${selectedClass.description}` : "Choose a class..."}
                                     </span>
                                     <div className="flex items-center gap-2">
-                                        {selectedClass && <span className="text-[10px] font-bold px-2 py-0.5 bg-zinc-200 text-zinc-600 rounded-md">{selectedClass.class_code}</span>}
+                                        {selectedClass && <span className="text-[10px] font-bold px-2 py-0.5 bg-zinc-200 text-zinc-600 dark:text-zinc-400 rounded-md">{selectedClass.class_code}</span>}
                                         <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${showClassDropdown ? "rotate-180" : ""}`} />
                                     </div>
                                 </button>
                                 {showClassDropdown && (
-                                    <div className="absolute z-50 top-full mt-2 w-full bg-white border border-zinc-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
+                                    <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <div className="p-3 border-b border-zinc-100 bg-zinc-50 dark:bg-zinc-900/50">
                                             <div className="relative">
                                                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                                                 <input autoFocus type="text" placeholder="Filter classes..." value={classSearch} onChange={(e) => setClassSearch(e.target.value)}
-                                                    className="w-full pl-10 pr-4 h-9 text-sm bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-primary"
+                                                    className="w-full pl-10 pr-4 h-9 text-sm bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:border-primary"
                                                 />
                                             </div>
                                         </div>
@@ -579,10 +579,10 @@ function StudentwiseFeeEditor() {
                                                 : filteredClasses.length === 0 ? <div className="p-6 text-sm text-zinc-400 text-center">No results</div>
                                                     : filteredClasses.map((c) => (
                                                         <button key={c.id} type="button" onClick={() => { setSelectedClassId(c.id); setShowClassDropdown(false); }}
-                                                            className={`w-full flex items-center justify-between px-4 h-10 text-sm rounded-lg transition-all ${selectedClassId === c.id ? "bg-primary text-white font-semibold" : "text-zinc-700 hover:bg-zinc-100"}`}
+                                                            className={`w-full flex items-center justify-between px-4 h-10 text-sm rounded-lg transition-all ${selectedClassId === c.id ? "bg-primary text-white font-semibold" : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800"}`}
                                                         >
                                                             <span>{c.description}</span>
-                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${selectedClassId === c.id ? "bg-white/20" : "bg-zinc-100 text-zinc-500"}`}>{c.class_code}</span>
+                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${selectedClassId === c.id ? "bg-white dark:bg-zinc-950/20" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"}`}>{c.class_code}</span>
                                                         </button>
                                                     ))}
                                         </div>
@@ -596,20 +596,20 @@ function StudentwiseFeeEditor() {
                             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Section</label>
                             <div className="relative" ref={sectionDropdownRef}>
                                 <button type="button" onClick={() => setShowSectionDropdown(!showSectionDropdown)}
-                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm transition-all hover:bg-white hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
+                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all hover:bg-white dark:bg-zinc-950 hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
                                 >
-                                    <span className={selectedSection ? "text-zinc-800 font-semibold" : "text-zinc-400"}>
+                                    <span className={selectedSection ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
                                         {selectedSection ? selectedSection.description : "Section..."}
                                     </span>
                                     <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${showSectionDropdown ? "rotate-180" : ""}`} />
                                 </button>
                                 {showSectionDropdown && (
-                                    <div className="absolute z-50 top-full mt-2 w-full bg-white border border-zinc-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                                         <div className="max-h-64 overflow-y-auto p-1">
                                             {sectionsLoading ? <div className="p-4 text-xs text-zinc-400 text-center">Loading...</div>
                                                 : filteredSections.map((s) => (
                                                     <button key={s.id} type="button" onClick={() => { setSelectedSectionId(s.id); setShowSectionDropdown(false); }}
-                                                        className={`w-full flex items-center px-4 h-10 text-sm rounded-lg ${selectedSectionId === s.id ? "bg-primary text-white font-semibold" : "hover:bg-zinc-100"}`}
+                                                        className={`w-full flex items-center px-4 h-10 text-sm rounded-lg ${selectedSectionId === s.id ? "bg-primary text-white font-semibold" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800"}`}
                                                     >
                                                         {s.description}
                                                     </button>
@@ -623,14 +623,14 @@ function StudentwiseFeeEditor() {
                         <div className="w-full xl:w-64 relative">
                             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Target CC Number</label>
                             <input type="text" placeholder="e.g. CC-2026-00003" value={studentId} onChange={(e) => setStudentId(e.target.value.toUpperCase())}
-                                className="w-full h-11 px-5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-bold transition-all"
+                                className="w-full h-11 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-bold transition-all"
                             />
                         </div>
 
                         <div className="flex gap-3">
                             {selectedClassId !== "" && (
                                 <button onClick={() => fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId)} disabled={isLoading} title="Refresh/Reload"
-                                    className="inline-flex items-center gap-2 h-11 px-4 border border-zinc-200 bg-white text-sm font-medium text-zinc-700 rounded-xl hover:bg-zinc-50 transition-all shadow-sm disabled:opacity-50"
+                                    className="inline-flex items-center gap-2 h-11 px-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-medium text-zinc-700 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all shadow-sm disabled:opacity-50"
                                 >
                                     <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} /> Refresh
                                 </button>
@@ -673,25 +673,25 @@ function StudentwiseFeeEditor() {
                     <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Crunching Data...</p>
                 </div>
             ) : rows.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-40 bg-zinc-50 border border-zinc-200 rounded-[28px] gap-6 opacity-60">
-                    <div className="p-7 bg-zinc-100 rounded-full border border-zinc-200 shadow-sm"><GraduationCap className="h-10 w-10 text-zinc-400" /></div>
+                <div className="flex flex-col items-center justify-center py-40 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[28px] gap-6 opacity-60">
+                    <div className="p-7 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-800 shadow-sm"><GraduationCap className="h-10 w-10 text-zinc-400" /></div>
                     <div className="text-center space-y-1">
-                        <p className="font-bold text-zinc-900">Workspace Empty</p>
-                        <p className="text-sm text-zinc-500">Pick a template or add a row to begin.</p>
+                        <p className="font-bold text-zinc-900 dark:text-zinc-100">Workspace Empty</p>
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400">Pick a template or add a row to begin.</p>
                     </div>
                 </div>
             ) : (
-                <div className="bg-white border border-zinc-200 rounded-[24px] shadow-sm overflow-hidden flex flex-col">
+                <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm overflow-hidden flex flex-col">
                     <div className="overflow-auto max-h-[60vh] custom-scrollbar" onKeyDown={handleTableKeyDown}>
                         <table className="w-full border-collapse table-fixed select-none">
-                            <thead className="sticky top-0 z-40 bg-zinc-50/95 backdrop-blur-md">
+                            <thead className="sticky top-0 z-40 bg-zinc-50 dark:bg-zinc-900/95 backdrop-blur-md">
                                 <tr>
-                                    <th className="w-12 border-b border-r border-zinc-200 px-3 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Act</th>
-                                    <th className="w-10 border-b border-r border-zinc-200 px-1 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">#</th>
-                                    <th className="w-[30%] border-b border-r border-zinc-200 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee Description</th>
-                                    <th className="w-36 border-b border-r border-zinc-200 px-5 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Frequency</th>
-                                    <th className="w-40 border-b border-r border-zinc-200 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month / Period</th>
-                                    <th className="border-b border-zinc-200 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount (Rs.)</th>
+                                    <th className="w-12 border-b border-r border-zinc-200 dark:border-zinc-800 px-3 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Act</th>
+                                    <th className="w-10 border-b border-r border-zinc-200 dark:border-zinc-800 px-1 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">#</th>
+                                    <th className="w-[30%] border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee Description</th>
+                                    <th className="w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Frequency</th>
+                                    <th className="w-40 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month / Period</th>
+                                    <th className="border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount (Rs.)</th>
                                 </tr>
                             </thead>
                             <tbody ref={tbodyRef}>
@@ -701,9 +701,9 @@ function StudentwiseFeeEditor() {
                                     const groupSeparator = row.isGroupStart && rIdx > 0 ? "border-t-2 border-zinc-100" : "";
 
                                     return (
-                                        <tr key={rIdx} className={`${groupSeparator} ${isCurrentRowActive ? "bg-primary/[0.02]" : "bg-white hover:bg-zinc-50/40"} transition-colors relative`}>
+                                        <tr key={rIdx} className={`${groupSeparator} ${isCurrentRowActive ? "bg-primary/[0.02]" : "bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/40"} transition-colors relative`}>
                                             <td data-row={rIdx} data-col={COL_ACTIONS} tabIndex={0} onFocus={() => setActiveCell({ row: rIdx, col: COL_ACTIONS })}
-                                                className={`border-r border-b border-zinc-100 text-center ${aCell(COL_ACTIONS) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white" : ""}`}
+                                                className={`border-r border-b border-zinc-100 text-center ${aCell(COL_ACTIONS) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950" : ""}`}
                                             >
                                                 <button onClick={() => deleteRow(rIdx)} className="p-2 rounded-lg hover:bg-rose-50 text-zinc-300 hover:text-rose-600 transition-all active:scale-90">
                                                     <Trash2 className="h-3.5 w-3.5" />
@@ -713,13 +713,13 @@ function StudentwiseFeeEditor() {
                                             <td className="border-r border-b border-zinc-100 text-center font-mono text-[10px] text-zinc-400">{rIdx + 1}</td>
 
                                             {/* Fee Type Select */}
-                                            <td data-row={rIdx} data-col={COL_FEE_TYPE} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FEE_TYPE) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white shadow-inner" : ""}`}>
+                                            <td data-row={rIdx} data-col={COL_FEE_TYPE} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FEE_TYPE) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
                                                 <select
                                                     data-row={rIdx} data-col={COL_FEE_TYPE}
                                                     value={row.feeId}
                                                     onChange={(e) => updateRow(rIdx, "feeId", Number(e.target.value))}
                                                     onFocus={() => setActiveCell({ row: rIdx, col: COL_FEE_TYPE })}
-                                                    className="w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-800 text-[13px] cursor-pointer"
+                                                    className="w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-800 dark:text-zinc-200 text-[13px] cursor-pointer"
                                                 >
                                                     {feeTypes.map(ft => <option key={ft.id} value={ft.id}>{ft.description}</option>)}
                                                 </select>
@@ -727,7 +727,7 @@ function StudentwiseFeeEditor() {
                                             </td>
 
                                             {/* Frequency Select */}
-                                            <td data-row={rIdx} data-col={COL_FREQ} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FREQ) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white shadow-inner" : ""}`}>
+                                            <td data-row={rIdx} data-col={COL_FREQ} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FREQ) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
                                                 <div className="relative h-10 w-full px-5 flex items-center justify-center">
                                                     <select
                                                         data-row={rIdx} data-col={COL_FREQ}
@@ -744,13 +744,13 @@ function StudentwiseFeeEditor() {
                                             </td>
 
                                             {/* Period Select */}
-                                            <td data-row={rIdx} data-col={COL_PERIOD} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_PERIOD) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white shadow-inner" : ""}`}>
+                                            <td data-row={rIdx} data-col={COL_PERIOD} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_PERIOD) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
                                                 <select
                                                     data-row={rIdx} data-col={COL_PERIOD}
                                                     value={row.month}
                                                     onChange={(e) => updateRow(rIdx, "month", e.target.value)}
                                                     onFocus={() => setActiveCell({ row: rIdx, col: COL_PERIOD })}
-                                                    className="w-full h-10 px-5 appearance-none outline-none bg-transparent font-medium text-zinc-600 text-[13px] cursor-pointer"
+                                                    className="w-full h-10 px-5 appearance-none outline-none bg-transparent font-medium text-zinc-600 dark:text-zinc-400 text-[13px] cursor-pointer"
                                                 >
                                                     {MONTH_ORDER.map(m => <option key={m} value={m}>{m}</option>)}
                                                     <option value="—">—</option>
@@ -759,7 +759,7 @@ function StudentwiseFeeEditor() {
                                             </td>
 
                                             {/* Amount Input */}
-                                            <td data-row={rIdx} data-col={COL_AMOUNT} className={`p-0 border-b border-zinc-100 ${aCell(COL_AMOUNT) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white shadow-inner" : ""}`}>
+                                            <td data-row={rIdx} data-col={COL_AMOUNT} className={`p-0 border-b border-zinc-100 ${aCell(COL_AMOUNT) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
                                                 <div className="relative h-10 flex items-center">
                                                     <span className="pl-5 text-[10px] font-bold text-zinc-300">Rs.</span>
                                                     <input
@@ -768,7 +768,7 @@ function StudentwiseFeeEditor() {
                                                         value={row.amount}
                                                         onChange={(e) => updateRow(rIdx, "amount", e.target.value)}
                                                         onFocus={() => setActiveCell({ row: rIdx, col: COL_AMOUNT })}
-                                                        className="w-full h-full px-5 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-zinc-900 placeholder:text-zinc-200"
+                                                        className="w-full h-full px-5 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-200"
                                                     />
                                                 </div>
                                             </td>
@@ -780,16 +780,16 @@ function StudentwiseFeeEditor() {
                     </div>
 
                     {/* Stats Summary */}
-                    <div className="bg-zinc-50 border-t border-zinc-200 px-6 py-5 flex items-center justify-between">
+                    <div className="bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 px-6 py-5 flex items-center justify-between">
                         <div className="flex gap-8">
                             <div>
                                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Records</p>
-                                <p className="text-lg font-bold text-zinc-700">{rows.length} <span className="text-xs font-medium text-zinc-400 ml-1">items</span></p>
+                                <p className="text-lg font-bold text-zinc-700 dark:text-zinc-300">{rows.length} <span className="text-xs font-medium text-zinc-400 ml-1">items</span></p>
                             </div>
                             <div className="w-px h-8 bg-zinc-200 mt-2" />
                             <div>
                                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Student</p>
-                                <p className="text-lg font-bold text-zinc-700 truncate max-w-[200px]">{studentId || "—"}</p>
+                                <p className="text-lg font-bold text-zinc-700 dark:text-zinc-300 truncate max-w-[200px]">{studentId || "—"}</p>
                             </div>
                         </div>
 
@@ -797,7 +797,7 @@ function StudentwiseFeeEditor() {
                             <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Total Annual Charges</p>
                             <div className="flex items-baseline gap-2 justify-end">
                                 <span className="text-zinc-300 font-mono text-sm">PKR</span>
-                                <span className="text-2xl font-black text-zinc-900 tracking-tight tabular-nums">
+                                <span className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight tabular-nums">
                                     {grandTotal.toLocaleString()}
                                 </span>
                             </div>

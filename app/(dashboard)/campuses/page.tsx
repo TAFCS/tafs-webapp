@@ -222,8 +222,8 @@ export default function CampusesPage() {
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-zinc-900">Campus Management</h1>
-                    <p className="text-zinc-500 mt-1 flex items-center gap-2">
+                    <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Campus Management</h1>
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-1 flex items-center gap-2">
                         <Building2 className="h-4 w-4" />
                         Configure branches, classes, and academic sections.
                     </p>
@@ -233,7 +233,7 @@ export default function CampusesPage() {
                     <button
                         onClick={fetchCampuses}
                         disabled={isLoading || isSaving}
-                        className="inline-flex items-center justify-center h-10 px-4 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 font-medium rounded-xl shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                        className="inline-flex items-center justify-center h-10 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl shadow-sm transition-all active:scale-95 disabled:opacity-50"
                     >
                         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                         Refresh
@@ -280,24 +280,24 @@ export default function CampusesPage() {
             {isLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="h-48 bg-white border border-zinc-200 rounded-3xl animate-pulse shadow-sm" />
+                        <div key={i} className="h-48 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl animate-pulse shadow-sm" />
                     ))}
                 </div>
             ) : campuses.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-32 bg-white border-2 border-dashed border-zinc-200 rounded-3xl text-center">
-                    <div className="p-4 bg-zinc-50 rounded-full mb-4">
+                <div className="flex flex-col items-center justify-center py-32 bg-white dark:bg-zinc-950 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl text-center">
+                    <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-full mb-4">
                         <Building2 className="text-zinc-400 h-12 w-12" />
                     </div>
-                    <h3 className="text-xl font-bold text-zinc-900">No Campuses Found</h3>
-                    <p className="mt-2 text-zinc-500 max-w-xs">Get started by creating your school's first campus or branch.</p>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">No Campuses Found</h3>
+                    <p className="mt-2 text-zinc-500 dark:text-zinc-400 max-w-xs">Get started by creating your school's first campus or branch.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {campuses.map((item) => (
-                        <div key={item.id} className="group bg-white border border-zinc-200 rounded-3xl shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-300 overflow-hidden flex flex-col">
+                        <div key={item.id} className="group bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-300 overflow-hidden flex flex-col">
                             <div className="p-6 flex-1">
                                 <div className="flex items-start justify-between mb-4">
-                                    <div className="p-3 bg-zinc-100 rounded-2xl group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                    <div className="p-3 bg-zinc-100 dark:bg-zinc-800 rounded-2xl group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                                         <Building2 className="h-6 w-6" />
                                     </div>
                                     <div className="flex items-center gap-1">
@@ -324,7 +324,7 @@ export default function CampusesPage() {
                                         type="text"
                                         value={item.campus_name}
                                         onChange={(e) => handleChange(item.id, 'campus_name', e.target.value)}
-                                        className="w-full text-xl font-bold text-zinc-900 bg-transparent border-none p-0 focus:ring-0 block"
+                                        className="w-full text-xl font-bold text-zinc-900 dark:text-zinc-100 bg-transparent border-none p-0 focus:ring-0 block"
                                         placeholder="Campus Name"
                                     />
                                     <div className="flex items-start gap-2 pt-1">
@@ -332,30 +332,30 @@ export default function CampusesPage() {
                                         <textarea
                                             value={item.address || ""}
                                             onChange={(e) => handleChange(item.id, 'address', e.target.value)}
-                                            className="w-full text-xs text-zinc-500 bg-transparent border-none p-0 focus:ring-0 resize-none min-h-[40px]"
+                                            className="w-full text-xs text-zinc-500 dark:text-zinc-400 bg-transparent border-none p-0 focus:ring-0 resize-none min-h-[40px]"
                                             placeholder="Add address..."
                                             rows={2}
                                         />
                                     </div>
                                 </div>
 
-                                <div className="mt-6 flex items-center gap-4 text-xs font-medium text-zinc-500">
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 rounded-full">
+                                <div className="mt-6 flex items-center gap-4 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 rounded-full">
                                         <GraduationCap className="h-3.5 w-3.5" />
                                         {item.offered_classes?.length || 0} Classes
                                     </div>
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 rounded-full">
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 rounded-full">
                                         <LayoutGrid className="h-3.5 w-3.5" />
                                         {item.offered_classes?.reduce((acc, cc) => acc + (cc.sections?.length || 0), 0) || 0} Sections
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between">
+                            <div className="p-4 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-100 flex items-center justify-between">
                                 <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter">ID: #{item.id}</span>
                                 <button
                                     onClick={() => setConfigCampusId(item.id)}
-                                    className="px-4 py-2 bg-white border border-zinc-200 text-zinc-900 text-xs font-bold rounded-xl hover:border-primary hover:text-primary shadow-sm active:scale-95 transition-all flex items-center gap-2"
+                                    className="px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs font-bold rounded-xl hover:border-primary hover:text-primary shadow-sm active:scale-95 transition-all flex items-center gap-2"
                                 >
                                     Manage Classes
                                     <ChevronRight className="h-3.5 w-3.5" />
@@ -373,12 +373,12 @@ export default function CampusesPage() {
                         className="fixed inset-0 bg-zinc-950/20 backdrop-blur-sm z-40 animate-in fade-in duration-300"
                         onClick={() => setConfigCampusId(null)}
                     />
-                    <div className="fixed inset-y-0 right-0 w-full sm:w-[500px] bg-white shadow-2xl z-50 animate-in slide-in-from-right duration-500 ease-out border-l border-zinc-200 flex flex-col">
+                    <div className="fixed inset-y-0 right-0 w-full sm:w-[500px] bg-white dark:bg-zinc-950 shadow-2xl z-50 animate-in slide-in-from-right duration-500 ease-out border-l border-zinc-200 dark:border-zinc-800 flex flex-col">
                         {/* Drawer Header */}
-                        <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+                        <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50 dark:bg-zinc-900/50">
                             <div>
-                                <h2 className="text-xl font-bold text-zinc-900">{activeCampus.campus_name}</h2>
-                                <p className="text-xs text-zinc-500 mt-0.5 font-mono uppercase tracking-widest flex items-center gap-1.5">
+                                <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{activeCampus.campus_name}</h2>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-mono uppercase tracking-widest flex items-center gap-1.5">
                                     <MapPin className="h-3 w-3" />
                                     {activeCampus.address || "NO ADDRESS SET"}
                                 </p>
@@ -387,7 +387,7 @@ export default function CampusesPage() {
                                 onClick={() => setConfigCampusId(null)}
                                 className="p-2 hover:bg-zinc-200 rounded-full transition-colors"
                             >
-                                <X className="h-5 w-5 text-zinc-500" />
+                                <X className="h-5 w-5 text-zinc-500 dark:text-zinc-400" />
                             </button>
                         </div>
 
@@ -397,26 +397,26 @@ export default function CampusesPage() {
                             <section>
                                 <div className="flex items-center gap-2 mb-4">
                                     <div className="h-1 w-4 bg-primary rounded-full" />
-                                    <h3 className="text-sm font-bold text-zinc-900 uppercase tracking-wider">Active Classes</h3>
+                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Active Classes</h3>
                                 </div>
 
                                 {!activeCampus.offered_classes?.length ? (
-                                    <div className="text-center py-12 bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl">
+                                    <div className="text-center py-12 bg-zinc-50 dark:bg-zinc-900 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl">
                                         <GraduationCap className="h-10 w-10 text-zinc-300 mx-auto mb-3" />
-                                        <p className="text-zinc-500 text-sm">No classes assigned yet.</p>
+                                        <p className="text-zinc-500 dark:text-zinc-400 text-sm">No classes assigned yet.</p>
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-1 gap-4">
                                         {activeCampus.offered_classes.map((cc) => (
-                                            <div key={cc.id} className="bg-white border border-zinc-200 rounded-2xl overflow-hidden hover:border-primary/30 transition-all shadow-sm group/class">
-                                                <div className="p-4 flex items-center justify-between border-b border-zinc-100 bg-zinc-50/30">
+                                            <div key={cc.id} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden hover:border-primary/30 transition-all shadow-sm group/class">
+                                                <div className="p-4 flex items-center justify-between border-b border-zinc-100 bg-zinc-50 dark:bg-zinc-900/30">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="p-2 bg-white rounded-xl shadow-sm border border-zinc-100 text-primary">
+                                                        <div className="p-2 bg-white dark:bg-zinc-950 rounded-xl shadow-sm border border-zinc-100 text-primary">
                                                             <GraduationCap className="h-5 w-5" />
                                                         </div>
                                                         <div>
-                                                            <p className="font-bold text-zinc-900 text-sm leading-tight">{cc.description}</p>
-                                                            <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{cc.class_code} · {cc.academic_system}</p>
+                                                            <p className="font-bold text-zinc-900 dark:text-zinc-100 text-sm leading-tight">{cc.description}</p>
+                                                            <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">{cc.class_code} · {cc.academic_system}</p>
                                                         </div>
                                                     </div>
                                                     <button
@@ -437,7 +437,7 @@ export default function CampusesPage() {
                                                         {cc.sections?.map(cs => (
                                                             <div
                                                                 key={cs.id}
-                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-700 hover:bg-white hover:border-primary/30 transition-all group/section"
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-white dark:bg-zinc-950 hover:border-primary/30 transition-all group/section"
                                                             >
                                                                 {cs.description}
                                                                 <button
@@ -452,7 +452,7 @@ export default function CampusesPage() {
 
                                                         <div className="flex items-center gap-2">
                                                             <select
-                                                                className="text-xs bg-white border border-zinc-200 rounded-xl px-2 py-1.5 outline-none focus:ring-1 focus:ring-primary/20 w-32"
+                                                                className="text-xs bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-2 py-1.5 outline-none focus:ring-1 focus:ring-primary/20 w-32"
                                                                 value={selectedSectionId[`${activeCampus.id}-${cc.id}`] || ""}
                                                                 onChange={(e) => setSelectedSectionId({ ...selectedSectionId, [`${activeCampus.id}-${cc.id}`]: e.target.value })}
                                                             >
@@ -480,20 +480,20 @@ export default function CampusesPage() {
                                 )}
                             </section>
 
-                            <div className="h-px bg-zinc-100" />
+                            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
 
                             {/* Provisioning Section */}
                             <section>
                                 <div className="flex items-center gap-2 mb-4">
                                     <div className="h-1 w-4 bg-emerald-500 rounded-full" />
-                                    <h3 className="text-sm font-bold text-zinc-900 uppercase tracking-wider">Add New Class</h3>
+                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Add New Class</h3>
                                 </div>
 
                                 <div className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-3xl space-y-4">
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest ml-1">Select Catalog Item</label>
                                         <select
-                                            className="w-full h-12 px-4 bg-white border border-emerald-200 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm font-medium"
+                                            className="w-full h-12 px-4 bg-white dark:bg-zinc-950 border border-emerald-200 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm font-medium"
                                             value={selectedClassId[activeCampus.id] || ""}
                                             onChange={(e) => setSelectedClassId({ ...selectedClassId, [activeCampus.id]: e.target.value })}
                                         >
@@ -532,22 +532,22 @@ export default function CampusesPage() {
             {/* Add Modal */}
             {isAddModalOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-zinc-950/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300">
+                    <div className="bg-white dark:bg-zinc-950 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300">
                         <form onSubmit={handleAddCampus}>
                             <div className="p-8 border-b border-zinc-100">
                                 <div className="flex items-center justify-between mb-6">
                                     <div className="h-12 w-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
                                         <Plus className="h-6 w-6" />
                                     </div>
-                                    <button type="button" onClick={() => setIsAddModalOpen(false)} className="text-zinc-400 hover:text-zinc-600 transition-colors">
+                                    <button type="button" onClick={() => setIsAddModalOpen(false)} className="text-zinc-400 hover:text-zinc-600 dark:text-zinc-400 transition-colors">
                                         <X className="h-6 w-6" />
                                     </button>
                                 </div>
-                                <h2 className="text-2xl font-bold text-zinc-900">New Campus</h2>
-                                <p className="text-zinc-500 mt-1">Initialize a new school branch in the system.</p>
+                                <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">New Campus</h2>
+                                <p className="text-zinc-500 dark:text-zinc-400 mt-1">Initialize a new school branch in the system.</p>
                             </div>
 
-                            <div className="p-8 bg-zinc-50/30 space-y-6">
+                            <div className="p-8 bg-zinc-50 dark:bg-zinc-900/30 space-y-6">
                                 <div className="grid grid-cols-1 gap-6">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Campus Code</label>
@@ -556,7 +556,7 @@ export default function CampusesPage() {
                                             maxLength={10}
                                             value={newCampus.campus_code}
                                             onChange={(e) => setNewCampus({ ...newCampus, campus_code: e.target.value.toUpperCase() })}
-                                            className="w-full h-12 px-4 bg-white border border-zinc-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono uppercase focus:border-primary"
+                                            className="w-full h-12 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono uppercase focus:border-primary"
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -565,7 +565,7 @@ export default function CampusesPage() {
                                             required
                                             value={newCampus.campus_name}
                                             onChange={(e) => setNewCampus({ ...newCampus, campus_name: e.target.value })}
-                                            className="w-full h-12 px-4 bg-white border border-zinc-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary"
+                                            className="w-full h-12 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary"
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -573,17 +573,17 @@ export default function CampusesPage() {
                                         <textarea
                                             value={newCampus.address}
                                             onChange={(e) => setNewCampus({ ...newCampus, address: e.target.value })}
-                                            className="w-full h-24 p-4 bg-white border border-zinc-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary resize-none"
+                                            className="w-full h-24 p-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary resize-none"
                                             placeholder="Enter full campus address..."
                                         />
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-8 flex justify-end gap-4 bg-white">
+                            <div className="p-8 flex justify-end gap-4 bg-white dark:bg-zinc-950">
                                 <button
                                     type="button"
                                     onClick={() => setIsAddModalOpen(false)}
-                                    className="px-6 h-12 font-bold text-zinc-500 hover:text-zinc-900 transition-colors"
+                                    className="px-6 h-12 font-bold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 transition-colors"
                                 >
                                     Cancel
                                 </button>
@@ -603,20 +603,20 @@ export default function CampusesPage() {
             {/* Delete Confirmation Modal */}
             {deleteId !== null && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center bg-zinc-950/60 backdrop-blur-lg p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300 text-center">
+                    <div className="bg-white dark:bg-zinc-950 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300 text-center">
                         <div className="p-8">
                             <div className="h-20 w-20 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-6">
                                 <Trash2 className="h-10 w-10" />
                             </div>
-                            <h2 className="text-xl font-bold text-zinc-900">Delete Campus?</h2>
-                            <p className="text-zinc-500 mt-2 text-sm leading-relaxed">
+                            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Delete Campus?</h2>
+                            <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-sm leading-relaxed">
                                 This action is permanent. You cannot delete a campus if it contains active student records.
                             </p>
                         </div>
-                        <div className="p-6 bg-zinc-50 flex gap-3">
+                        <div className="p-6 bg-zinc-50 dark:bg-zinc-900 flex gap-3">
                             <button
                                 onClick={() => setDeleteId(null)}
-                                className="flex-1 h-12 font-bold text-zinc-600 bg-white border border-zinc-200 rounded-2xl hover:bg-zinc-50 transition-all"
+                                className="flex-1 h-12 font-bold text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all"
                             >
                                 Nevermind
                             </button>

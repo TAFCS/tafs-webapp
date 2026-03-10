@@ -335,7 +335,7 @@ export default function ClasswiseFeesSchedulePage() {
             <tr
                 key={`${row.type}-${id}`}
                 className={`border-b border-zinc-100 transition-colors ${
-                    !isExisting ? "bg-blue-50/40" : dirty ? "bg-amber-50/50" : "hover:bg-zinc-50/50"
+                    !isExisting ? "bg-blue-50/40" : dirty ? "bg-amber-50/50" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/50"
                 }`}
             >
                 <td className="px-4 py-3 font-medium text-zinc-400 text-xs w-20">
@@ -352,7 +352,7 @@ export default function ClasswiseFeesSchedulePage() {
                     <select
                         value={campusId}
                         onChange={(e) => handleChange("campus_id", e.target.value)}
-                        className="w-full min-w-[140px] px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                        className="w-full min-w-[140px] px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-lg text-sm outline-none transition-colors"
                     >
                         <option value="">Global / All Campuses</option>
                         {campuses.map((c) => (
@@ -367,7 +367,7 @@ export default function ClasswiseFeesSchedulePage() {
                     <select
                         value={classId}
                         onChange={(e) => handleChange("class_id", e.target.value)}
-                        className="w-full min-w-[140px] px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                        className="w-full min-w-[140px] px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-lg text-sm outline-none transition-colors"
                     >
                         <option value="" disabled>Select Class</option>
                         {classes.map((c) => (
@@ -382,7 +382,7 @@ export default function ClasswiseFeesSchedulePage() {
                     <select
                         value={feeId}
                         onChange={(e) => handleChange("fee_id", e.target.value)}
-                        className="w-full min-w-[140px] px-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                        className="w-full min-w-[140px] px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-lg text-sm outline-none transition-colors"
                     >
                         <option value="" disabled>Select Fee Type</option>
                         {feeTypes.map((f) => (
@@ -404,7 +404,7 @@ export default function ClasswiseFeesSchedulePage() {
                             onChange={(e) => handleChange("amount", e.target.value)}
                             step="0.01"
                             placeholder="0.00"
-                            className="w-32 pl-9 pr-3 py-1.5 bg-white border border-zinc-200 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                            className="w-32 pl-9 pr-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-lg text-sm outline-none transition-colors"
                         />
                     </div>
                 </td>
@@ -427,10 +427,10 @@ export default function ClasswiseFeesSchedulePage() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+                    <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
                         Classwise Fee Schedule
                     </h1>
-                    <p className="text-zinc-500 mt-1">
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-1">
                         Define and manage fee amounts assigned to each class.
                     </p>
                 </div>
@@ -439,7 +439,7 @@ export default function ClasswiseFeesSchedulePage() {
                     <button
                         onClick={handleAddRow}
                         disabled={isSaving}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                        className="inline-flex items-center justify-center px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50"
                     >
                         <Plus className="h-4 w-4 mr-2" />
                         Add New (Unassigned)
@@ -447,7 +447,7 @@ export default function ClasswiseFeesSchedulePage() {
                     <button
                         onClick={fetchSchedules}
                         disabled={isLoading || isSaving}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                        className="inline-flex items-center justify-center px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50"
                     >
                         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                         Refresh
@@ -499,19 +499,19 @@ export default function ClasswiseFeesSchedulePage() {
             )}
 
             {isLoading ? (
-                <div className="bg-white border border-zinc-200 rounded-xl shadow-sm flex flex-col items-center justify-center py-20 text-center">
+                <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm flex flex-col items-center justify-center py-20 text-center">
                     <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                         <Loader2 className="text-primary h-6 w-6 animate-spin" />
                     </div>
-                    <h3 className="text-sm font-medium text-zinc-900">Loading schedules…</h3>
+                    <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Loading schedules…</h3>
                 </div>
             ) : rows.length === 0 ? (
-                <div className="bg-white border border-zinc-200 rounded-xl shadow-sm flex flex-col items-center justify-center py-20 text-center">
-                    <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center mb-4">
+                <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm flex flex-col items-center justify-center py-20 text-center">
+                    <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
                         <Receipt className="text-zinc-400 h-6 w-6" />
                     </div>
-                    <h3 className="text-sm font-medium text-zinc-900">No schedules found</h3>
-                    <p className="mt-1 text-sm text-zinc-500">
+                    <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">No schedules found</h3>
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                         There are currently no fee schedules defined.
                     </p>
                     <button
@@ -530,9 +530,9 @@ export default function ClasswiseFeesSchedulePage() {
                             return getCampusName(keyA).localeCompare(getCampusName(keyB));
                         })
                         .map(([campusKey, classesGroup]) => (
-                            <div key={`campus-${campusKey}`} className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
-                                <div className="bg-zinc-50 border-b border-zinc-200 px-6 py-4 flex items-center justify-between">
-                                    <h2 className="text-lg font-semibold text-zinc-900 flex items-center gap-2">
+                            <div key={`campus-${campusKey}`} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
+                                <div className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6 py-4 flex items-center justify-between">
+                                    <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                                         <div className="h-2 w-2 rounded-full bg-violet-500" />
                                         {getCampusName(campusKey)}
                                     </h2>
@@ -546,24 +546,24 @@ export default function ClasswiseFeesSchedulePage() {
                                             return getClassName(keyA).localeCompare(getClassName(keyB));
                                         })
                                         .map(([classKey, classRows]) => (
-                                            <div key={`class-${classKey}`} className="p-6 bg-white/50">
+                                            <div key={`class-${classKey}`} className="p-6 bg-white dark:bg-zinc-950/50">
                                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                                                    <h3 className="text-base font-semibold text-zinc-800 flex items-center gap-2">
+                                                    <h3 className="text-base font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
                                                         <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
                                                         {getClassName(classKey)}
                                                     </h3>
                                                     <button
                                                         onClick={() => handleAddSpecific(campusKey, classKey)}
-                                                        className="inline-flex items-center justify-center px-3 py-1.5 bg-white border border-zinc-200 hover:bg-zinc-50 hover:border-blue-200 text-blue-600 text-xs font-semibold rounded-lg shadow-sm transition-all active:scale-95"
+                                                        className="inline-flex items-center justify-center px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 hover:border-blue-200 text-blue-600 text-xs font-semibold rounded-lg shadow-sm transition-all active:scale-95"
                                                     >
                                                         <Plus className="h-3.5 w-3.5 mr-1" />
                                                         Add Fee
                                                     </button>
                                                 </div>
 
-                                                <div className="border border-zinc-200 rounded-lg overflow-x-auto shadow-sm">
+                                                <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-x-auto shadow-sm">
                                                     <table className="w-full text-sm text-left whitespace-nowrap">
-                                                        <thead className="text-xs uppercase bg-zinc-50/80 border-b border-zinc-200 text-zinc-500">
+                                                        <thead className="text-xs uppercase bg-zinc-50 dark:bg-zinc-900/80 border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400">
                                                             <tr>
                                                                 <th className="px-4 py-3 font-semibold w-20">ID</th>
                                                                 <th className="px-4 py-3 font-semibold">Campus</th>
@@ -587,7 +587,7 @@ export default function ClasswiseFeesSchedulePage() {
             )}
 
             {!isLoading && rows.length > 0 && (
-                <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+                <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
                     <span className="flex items-center gap-1.5">
                         <span className="h-3 w-3 rounded bg-amber-100 border border-amber-200 inline-block" />
                         Modified (unsaved)

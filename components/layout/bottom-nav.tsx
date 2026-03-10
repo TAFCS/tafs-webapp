@@ -22,7 +22,7 @@ export function BottomNav() {
     }
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white  border-t border-zinc-200  flex justify-around items-center px-2 z-20 pb-safe">
+        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-zinc-950  border-t border-zinc-200 dark:border-zinc-800  flex justify-around items-center px-2 z-20 pb-safe">
             {navItems.map((item) => {
                 const isActive = pathname.startsWith(item.href);
 
@@ -32,7 +32,7 @@ export function BottomNav() {
                         href={item.href}
                         className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${isActive
                             ? "text-primary"
-                            : "text-zinc-400 hover:text-zinc-600 :text-zinc-300"
+                            : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-400 :text-zinc-300"
                             }`}
                     >
                         <item.icon className={`h-6 w-6 ${isActive ? "fill-primary/10" : ""}`} />

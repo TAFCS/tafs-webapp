@@ -42,19 +42,19 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             )}
 
             {/* Drawer Canvas */}
-            <div className={`fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white z-[60] transform transition-transform duration-300 ease-in-out border-r border-zinc-200 shadow-xl flex flex-col ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
+            <div className={`fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white dark:bg-zinc-950 z-[60] transform transition-transform duration-300 ease-in-out border-r border-zinc-200 dark:border-zinc-800 shadow-xl flex flex-col ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
 
                 {/* Drawer Header */}
                 <div className="h-40 bg-gradient-to-br from-primary to-primary/80 p-6 flex flex-col justify-end relative overflow-hidden flex-shrink-0">
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+                        className="absolute top-4 right-4 p-2 text-white/70 hover:text-white hover:bg-white dark:bg-zinc-950/10 rounded-full transition-colors"
                     >
                         <X className="h-5 w-5" />
                     </button>
 
                     <div className="flex items-center space-x-3 relative z-10">
-                        <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center text-primary text-xl font-bold border-2 border-white/20 shadow-md">
+                        <div className="w-14 h-14 rounded-full bg-white dark:bg-zinc-950 flex items-center justify-center text-primary text-xl font-bold border-2 border-white/20 shadow-md">
                             {initials}
                         </div>
                         <div className="text-white">
@@ -68,27 +68,27 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                     </div>
 
                     {/* Decorative shapes */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white dark:bg-zinc-950 opacity-5 rounded-full blur-2xl -mr-10 -mt-10"></div>
                     <div className="absolute bottom-0 left-0 w-24 h-24 bg-secondary opacity-20 rounded-full blur-xl -ml-10 -mb-5"></div>
                 </div>
 
                 {/* Drawer Content */}
                 <div className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1">
-                    <p className="px-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 mt-2">
+                    <p className="px-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2 mt-2">
                         Staff Tools
                     </p>
 
-                    <Link href="/staff-editing/students" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
+                    <Link href="/staff-editing/students" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors">
                         <Users className="h-5 w-5 mr-3 text-primary" />
                         <span className="font-medium text-sm">Student Spreadsheet</span>
                     </Link>
 
-                    <Link href="/fee-challan" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
+                    <Link href="/fee-challan" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors">
                         <CreditCard className="h-5 w-5 mr-3 text-primary" />
                         <span className="font-medium text-sm">Fee Challan Generator</span>
                     </Link>
 
-                    <Link href="/banks" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 transition-colors">
+                    <Link href="/banks" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors">
                         <Building2 className="h-5 w-5 mr-3 text-primary" />
                         <span className="font-medium text-sm">Banks Management</span>
                     </Link>
@@ -97,7 +97,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         <button
                             onClick={handleLogout}
                             disabled={signingOut}
-                            className="w-full flex items-center px-3 py-3 rounded-xl text-zinc-700 hover:bg-red-50 hover:text-red-600 transition-colors group disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="w-full flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-red-50 hover:text-red-600 transition-colors group disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                             {signingOut ? (
                                 <svg className="animate-spin h-5 w-5 mr-3 text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

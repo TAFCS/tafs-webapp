@@ -38,23 +38,23 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-zinc-950 rounded-xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b flex justify-between items-center bg-zinc-50 flex-shrink-0">
+        <div className="px-6 py-4 border-b flex justify-between items-center bg-zinc-50 dark:bg-zinc-900 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-lg text-zinc-900 leading-tight">
+              <h3 className="font-semibold text-lg text-zinc-900 dark:text-zinc-100 leading-tight">
                 {family?.household_name ?? "Family Profile"}
               </h3>
-              <p className="text-xs text-zinc-500">ID #{familyId}</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">ID #{familyId}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md hover:bg-zinc-200 text-zinc-400 hover:text-zinc-600 transition-colors"
+            className="p-1.5 rounded-md hover:bg-zinc-200 text-zinc-400 hover:text-zinc-600 dark:text-zinc-400 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -89,7 +89,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
                   label="Publicity Consent"
                   value={family.consent_publicity ? "Granted" : "Not provided"}
                   icon={<Building2 className="h-4 w-4" />}
-                  valueClass={family.consent_publicity ? "text-emerald-700" : "text-zinc-500"}
+                  valueClass={family.consent_publicity ? "text-emerald-700" : "text-zinc-500 dark:text-zinc-400"}
                 />
                 {family.primary_address && (
                   <InfoTile
@@ -103,7 +103,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
 
               {/* Students */}
               <section>
-                <h4 className="text-sm font-semibold text-zinc-700 mb-3 flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
                   <GraduationCap className="h-4 w-4 text-primary" />
                   Enrolled Students ({family.students.length})
                 </h4>
@@ -121,7 +121,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
               {/* Guardians */}
               {family.guardians.length > 0 && (
                 <section>
-                  <h4 className="text-sm font-semibold text-zinc-700 mb-3 flex items-center gap-2">
+                  <h4 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" />
                     Guardians ({family.guardians.length})
                   </h4>
@@ -137,10 +137,10 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t bg-zinc-50 flex justify-end flex-shrink-0">
+        <div className="px-6 py-4 border-t bg-zinc-50 dark:bg-zinc-900 flex justify-end flex-shrink-0">
           <button
             onClick={onClose}
-            className="px-5 py-2 border border-zinc-200 rounded-lg text-sm hover:bg-zinc-100 font-medium text-zinc-700 bg-white shadow-sm transition-colors"
+            className="px-5 py-2 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-950 shadow-sm transition-colors"
           >
             Close
           </button>
@@ -157,7 +157,7 @@ function InfoTile({
   value,
   icon,
   className = "",
-  valueClass = "text-zinc-800",
+  valueClass = "text-zinc-800 dark:text-zinc-200",
 }: {
   label: string;
   value: string;
@@ -166,7 +166,7 @@ function InfoTile({
   valueClass?: string;
 }) {
   return (
-    <div className={`bg-zinc-50 border rounded-lg p-3 ${className}`}>
+    <div className={`bg-zinc-50 dark:bg-zinc-900 border rounded-lg p-3 ${className}`}>
       <div className="flex items-center gap-1.5 text-zinc-400 mb-1">
         {icon}
         <span className="text-[10px] font-semibold uppercase tracking-wider">{label}</span>
@@ -178,16 +178,16 @@ function InfoTile({
 
 function StudentRow({ student }: { student: FamilyStudent }) {
   const statusStyle =
-    STATUS_STYLES[student.status] ?? "bg-zinc-50 text-zinc-600 border-zinc-200";
+    STATUS_STYLES[student.status] ?? "bg-zinc-50 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800";
   return (
-    <div className="flex items-center justify-between px-4 py-2.5 bg-white border rounded-lg shadow-sm">
+    <div className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-zinc-950 border rounded-lg shadow-sm">
       <div className="flex items-center gap-3">
         {student.photograph_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={student.photograph_url}
             alt={`${student.first_name} ${student.last_name}`}
-            className="w-8 h-8 rounded-full object-cover border border-zinc-200"
+            className="w-8 h-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-800"
           />
         ) : (
           <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
@@ -195,7 +195,7 @@ function StudentRow({ student }: { student: FamilyStudent }) {
           </div>
         )}
         <div>
-          <p className="font-medium text-zinc-800 text-sm">
+          <p className="font-medium text-zinc-800 dark:text-zinc-200 text-sm">
             {student.first_name} {student.last_name}
           </p>
           <p className="text-xs text-zinc-400">
@@ -214,13 +214,13 @@ function StudentRow({ student }: { student: FamilyStudent }) {
 
 function GuardianRow({ guardian }: { guardian: FamilyGuardian }) {
   return (
-    <div className="flex items-center justify-between px-4 py-2.5 bg-white border rounded-lg shadow-sm">
+    <div className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-zinc-950 border rounded-lg shadow-sm">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-zinc-100 text-zinc-500 flex items-center justify-center text-xs font-bold">
+        <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 flex items-center justify-center text-xs font-bold">
           {guardian.full_name.charAt(0)}
         </div>
         <div>
-          <p className="font-medium text-zinc-800 text-sm">{guardian.full_name}</p>
+          <p className="font-medium text-zinc-800 dark:text-zinc-200 text-sm">{guardian.full_name}</p>
           <p className="text-xs text-zinc-400 capitalize">
             {guardian.relationship ?? "Guardian"}
           </p>

@@ -21,7 +21,7 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
     }, [user, pathname, router]);
 
     return (
-        <div className="flex h-screen bg-zinc-50 overflow-hidden selection:bg-primary/30 font-sans">
+        <div className="flex h-screen bg-zinc-50 dark:bg-zinc-900 overflow-hidden selection:bg-primary/30 font-sans">
             {/* Slide-out Drawer Menu */}
             <ProfileDrawer
                 isOpen={isDrawerOpen}

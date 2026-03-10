@@ -350,23 +350,23 @@ export default function StudentsSpreadsheetPage() {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-64px)] space-y-4 p-4 lg:p-6 bg-zinc-50/50 -mx-4 md:-mx-6 lg:-mx-8 max-w-none w-[calc(100%+2rem)] md:w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] overflow-hidden">
+        <div className="flex flex-col h-[calc(100vh-64px)] space-y-4 p-4 lg:p-6 bg-zinc-50 dark:bg-zinc-900/50 -mx-4 md:-mx-6 lg:-mx-8 max-w-none w-[calc(100%+2rem)] md:w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] overflow-hidden">
             {/* Header & Filters */}
-            <div className="flex flex-col gap-4 bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm mx-4 md:mx-6 lg:mx-8">
+            <div className="flex flex-col gap-4 bg-white dark:bg-zinc-950 p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm mx-4 md:mx-6 lg:mx-8">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-xl bg-zinc-900 flex items-center justify-center text-white shadow-lg shadow-zinc-200 text-center">
                             <Users className="h-5 w-5 mx-auto" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-zinc-900">Student Directory Expansion</h1>
-                            <p className="text-xs text-zinc-500 font-medium">Full-width spreadsheet with resizable columns</p>
+                            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Student Directory Expansion</h1>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Full-width spreadsheet with resizable columns</p>
                         </div>
                     </div>
 
                     <button
                         onClick={loadStudents}
-                        className="p-2 hover:bg-zinc-100 rounded-lg transition-colors text-zinc-500"
+                        className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 rounded-lg transition-colors text-zinc-500 dark:text-zinc-400"
                         title="Refresh data"
                     >
                         <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
@@ -382,7 +382,7 @@ export default function StudentsSpreadsheetPage() {
                         <select
                             value={selectedCampus}
                             onChange={(e) => setSelectedCampus(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all appearance-none font-medium"
+                            className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all appearance-none font-medium"
                         >
                             <option value="">All Campuses</option>
                             {campuses.map(campus => (
@@ -399,7 +399,7 @@ export default function StudentsSpreadsheetPage() {
                         <select
                             value={selectedClass}
                             onChange={(e) => setSelectedClass(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all appearance-none font-medium"
+                            className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all appearance-none font-medium"
                         >
                             <option value="">All Classes</option>
                             {classes.map(cls => (
@@ -416,7 +416,7 @@ export default function StudentsSpreadsheetPage() {
                         <select
                             value={selectedSection}
                             onChange={(e) => setSelectedSection(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all appearance-none font-medium"
+                            className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all appearance-none font-medium"
                         >
                             <option value="">All Sections</option>
                             {sections.map(sec => (
@@ -435,7 +435,7 @@ export default function StudentsSpreadsheetPage() {
                             placeholder="SEARCH STUDENTS..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all font-medium"
+                            className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all font-medium"
                         />
                     </form>
                 </div>
@@ -450,7 +450,7 @@ export default function StudentsSpreadsheetPage() {
             )}
 
             {/* Main Spreadsheet Content */}
-            <div className="flex-1 bg-white border-y md:border border-zinc-200 md:rounded-2xl shadow-sm overflow-hidden flex flex-col mx-0 md:mx-6 lg:mx-8">
+            <div className="flex-1 bg-white dark:bg-zinc-950 border-y md:border border-zinc-200 dark:border-zinc-800 md:rounded-2xl shadow-sm overflow-hidden flex flex-col mx-0 md:mx-6 lg:mx-8">
                 {isLoading && students.length === 0 ? (
                     <div className="flex-1 flex flex-col items-center justify-center space-y-4">
                         <div className="relative h-12 w-12">
@@ -458,18 +458,18 @@ export default function StudentsSpreadsheetPage() {
                             <div className="absolute inset-0 rounded-full border-4 border-zinc-900 border-t-transparent animate-spin"></div>
                         </div>
                         <div className="text-center">
-                            <h3 className="text-sm font-bold text-zinc-900">Loading Student Database</h3>
-                            <p className="text-xs text-zinc-500">Fetching records from secure server...</p>
+                            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Loading Student Database</h3>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">Fetching records from secure server...</p>
                         </div>
                     </div>
                 ) : !students || students.length === 0 ? (
                     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
-                        <div className="h-16 w-16 rounded-2xl bg-zinc-50 flex items-center justify-center text-zinc-300 mx-auto">
+                        <div className="h-16 w-16 rounded-2xl bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center text-zinc-300 mx-auto">
                             <Users className="h-8 w-8" />
                         </div>
                         <div>
-                            <h3 className="text-base font-bold text-zinc-900">No students found</h3>
-                            <p className="text-sm text-zinc-500 max-w-xs mx-auto">Try adjusting your filters or search term to find what you're looking for.</p>
+                            <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">No students found</h3>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto">Try adjusting your filters or search term to find what you're looking for.</p>
                         </div>
                         <button
                             onClick={() => {
@@ -478,7 +478,7 @@ export default function StudentsSpreadsheetPage() {
                                 setSelectedSection("");
                                 setSearchTerm("");
                             }}
-                            className="text-sm font-bold text-zinc-900 hover:underline mx-auto block"
+                            className="text-sm font-bold text-zinc-900 dark:text-zinc-100 hover:underline mx-auto block"
                         >
                             Clear all filters
                         </button>
@@ -493,7 +493,7 @@ export default function StudentsSpreadsheetPage() {
                         }}
                     >
                         <table className="w-full text-sm text-left border-separate border-spacing-0 table-fixed">
-                            <thead className="sticky top-0 z-30 bg-zinc-50">
+                            <thead className="sticky top-0 z-30 bg-zinc-50 dark:bg-zinc-900">
                                 <tr>
                                     {[
                                         { key: 'status', label: 'St', resizable: true, sticky: true, left: 0 },
@@ -528,7 +528,7 @@ export default function StudentsSpreadsheetPage() {
                                                 left: col.sticky ? col.left : undefined,
                                                 zIndex: col.sticky ? 40 : undefined
                                             }}
-                                            className={`${col.sticky ? 'sticky z-40 bg-zinc-50' : 'relative'} p-3 font-bold text-zinc-500 uppercase tracking-wider text-[10px] border-b border-r border-zinc-200 group truncate`}
+                                            className={`${col.sticky ? 'sticky z-40 bg-zinc-50 dark:bg-zinc-900' : 'relative'} p-3 font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider text-[10px] border-b border-r border-zinc-200 dark:border-zinc-800 group truncate`}
                                         >
                                             {col.label}
                                             {col.resizable && (
@@ -543,10 +543,10 @@ export default function StudentsSpreadsheetPage() {
                             </thead>
                             <tbody className="divide-y divide-zinc-100">
                                 {students.map((student) => (
-                                    <tr key={student.cc} className="hover:bg-zinc-50 transition-colors group">
+                                    <tr key={student.cc} className="hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-colors group">
                                         <td
                                             style={{ left: 0 }}
-                                            className="sticky left-0 z-10 bg-white group-hover:bg-zinc-50 p-3 text-center border-r border-zinc-100"
+                                            className="sticky left-0 z-10 bg-white dark:bg-zinc-950 group-hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 p-3 text-center border-r border-zinc-100"
                                         >
                                             {patchingStatus[student.cc] === 'loading' && (
                                                 <Loader2 className="h-4 w-4 animate-spin text-zinc-400 mx-auto" />
@@ -563,19 +563,19 @@ export default function StudentsSpreadsheetPage() {
                                         </td>
                                         <td
                                             style={{ left: columnWidths.status }}
-                                            className="sticky z-10 bg-zinc-50/80 group-hover:bg-zinc-100 p-3 font-mono text-zinc-400 text-xs border-r border-zinc-100"
+                                            className="sticky z-10 bg-zinc-50 dark:bg-zinc-900/80 group-hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 p-3 font-mono text-zinc-400 text-xs border-r border-zinc-100"
                                         >
                                             {student.cc}
                                         </td>
                                         <td
                                             style={{ left: columnWidths.status + columnWidths.cc }}
-                                            className="sticky z-10 bg-white group-hover:bg-zinc-50 p-1 border-r border-zinc-100"
+                                            className="sticky z-10 bg-white dark:bg-zinc-950 group-hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 p-1 border-r border-zinc-100"
                                         >
                                             <input
                                                 type="text"
                                                 value={student.full_name || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "full_name", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
                                             />
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
@@ -583,7 +583,7 @@ export default function StudentsSpreadsheetPage() {
                                                 type="text"
                                                 value={student.gr_number || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "gr_number", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all sm:text-zinc-600 truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all sm:text-zinc-600 dark:text-zinc-400 truncate"
                                                 placeholder="N/A"
                                             />
                                         </td>
@@ -593,7 +593,7 @@ export default function StudentsSpreadsheetPage() {
                                                 type="text"
                                                 value={student.father_cnic || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "father_cnic", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all text-zinc-600 truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                 placeholder="N/A"
                                             />
                                         </td>
@@ -603,7 +603,7 @@ export default function StudentsSpreadsheetPage() {
                                                 type="text"
                                                 value={student.father_name || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "father_name", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
                                                 placeholder="N/A"
                                             />
                                         </td>
@@ -613,7 +613,7 @@ export default function StudentsSpreadsheetPage() {
                                                 type="text"
                                                 value={student.mother_cnic || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "mother_cnic", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all text-zinc-600 truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all text-zinc-600 dark:text-zinc-400 truncate"
                                                 placeholder="N/A"
                                             />
                                         </td>
@@ -623,7 +623,7 @@ export default function StudentsSpreadsheetPage() {
                                                 type="text"
                                                 value={student.mother_name || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "mother_name", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all font-medium truncate"
                                                 placeholder="N/A"
                                             />
                                         </td>
@@ -631,7 +631,7 @@ export default function StudentsSpreadsheetPage() {
                                             <select
                                                 value={student.status || "NULL"}
                                                 onChange={(e) => handleCellEdit(student.cc, "status", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
                                             >
                                                 {STATUS_OPTIONS.map(opt => (
                                                     <option key={opt} value={opt}>{opt === "NULL" ? "NULL" : opt.replace('_', ' ')}</option>
@@ -642,7 +642,7 @@ export default function StudentsSpreadsheetPage() {
                                             <select
                                                 value={student.gender || "NULL"}
                                                 onChange={(e) => handleCellEdit(student.cc, "gender", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer"
                                             >
                                                 {GENDER_OPTIONS.map(opt => (
                                                     <option key={opt} value={opt}>{opt}</option>
@@ -659,7 +659,7 @@ export default function StudentsSpreadsheetPage() {
                                                         if (e.target.value === "") handleCellEdit(student.cc, "nationality", null);
                                                     }}
                                                     autoFocus
-                                                    className="w-full px-2 py-1.5 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                    className="w-full px-2 py-1.5 bg-white dark:bg-zinc-950 outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all truncate"
                                                 />
                                             ) : (
                                                 <select
@@ -672,7 +672,7 @@ export default function StudentsSpreadsheetPage() {
                                                             handleCellEdit(student.cc, "nationality", val);
                                                         }
                                                     }}
-                                                    className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
+                                                    className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
                                                 >
                                                     {NATIONALITY_OPTIONS.map(opt => (
                                                         <option key={opt} value={opt}>{opt}</option>
@@ -690,7 +690,7 @@ export default function StudentsSpreadsheetPage() {
                                                         if (e.target.value === "") handleCellEdit(student.cc, "religion", null);
                                                     }}
                                                     autoFocus
-                                                    className="w-full px-2 py-1.5 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                    className="w-full px-2 py-1.5 bg-white dark:bg-zinc-950 outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all truncate"
                                                 />
                                             ) : (
                                                 <select
@@ -703,7 +703,7 @@ export default function StudentsSpreadsheetPage() {
                                                             handleCellEdit(student.cc, "religion", val);
                                                         }
                                                     }}
-                                                    className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
+                                                    className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
                                                 >
                                                     {RELIGION_OPTIONS.map(opt => (
                                                         <option key={opt} value={opt}>{opt}</option>
@@ -716,42 +716,42 @@ export default function StudentsSpreadsheetPage() {
                                                 type="email"
                                                 value={student.email || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "email", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all sm:text-zinc-500 truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all sm:text-zinc-500 dark:text-zinc-400 truncate"
                                                 placeholder="email@example.com"
                                             />
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
-                                            <div className="flex border border-zinc-200 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
+                                            <div className="flex border border-zinc-200 dark:border-zinc-800 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
                                                 <input
                                                     type="text"
                                                     value={student.primary_phone_country_code || ""}
                                                     onChange={(e) => handleCellEdit(student.cc, "primary_phone_country_code", e.target.value)}
                                                     placeholder="+92"
-                                                    className="w-12 flex-shrink-0 px-1.5 py-1.5 bg-zinc-50 border-0 text-zinc-500 text-xs outline-none truncate"
+                                                    className="w-12 flex-shrink-0 px-1.5 py-1.5 bg-zinc-50 dark:bg-zinc-900 border-0 text-zinc-500 dark:text-zinc-400 text-xs outline-none truncate"
                                                 />
                                                 <input
                                                     type="text"
                                                     value={student.primary_phone || ""}
                                                     onChange={(e) => handleCellEdit(student.cc, "primary_phone", e.target.value)}
-                                                    className="flex-1 min-w-0 px-2 py-1.5 bg-transparent border-0 outline-none focus:bg-white transition-all truncate"
+                                                    className="flex-1 min-w-0 px-2 py-1.5 bg-transparent border-0 outline-none focus:bg-white dark:bg-zinc-950 transition-all truncate"
                                                     placeholder="Phone"
                                                 />
                                             </div>
                                         </td>
                                         <td className="p-1 border-r border-zinc-100">
-                                            <div className="flex border border-zinc-200 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
+                                            <div className="flex border border-zinc-200 dark:border-zinc-800 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
                                                 <input
                                                     type="text"
                                                     value={student.whatsapp_country_code || ""}
                                                     onChange={(e) => handleCellEdit(student.cc, "whatsapp_country_code", e.target.value)}
                                                     placeholder="+92"
-                                                    className="w-12 flex-shrink-0 px-1.5 py-1.5 bg-zinc-50 border-0 text-zinc-500 text-xs outline-none truncate"
+                                                    className="w-12 flex-shrink-0 px-1.5 py-1.5 bg-zinc-50 dark:bg-zinc-900 border-0 text-zinc-500 dark:text-zinc-400 text-xs outline-none truncate"
                                                 />
                                                 <input
                                                     type="text"
                                                     value={student.whatsapp_number || ""}
                                                     onChange={(e) => handleCellEdit(student.cc, "whatsapp_number", e.target.value)}
-                                                    className="flex-1 min-w-0 px-2 py-1.5 bg-transparent border-0 outline-none focus:bg-white transition-all truncate"
+                                                    className="flex-1 min-w-0 px-2 py-1.5 bg-transparent border-0 outline-none focus:bg-white dark:bg-zinc-950 transition-all truncate"
                                                     placeholder="WhatsApp"
                                                 />
                                             </div>
@@ -766,7 +766,7 @@ export default function StudentsSpreadsheetPage() {
                                                         if (e.target.value === "") handleCellEdit(student.cc, "country", null);
                                                     }}
                                                     autoFocus
-                                                    className="w-full px-2 py-1.5 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                    className="w-full px-2 py-1.5 bg-white dark:bg-zinc-950 outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all truncate"
                                                 />
                                             ) : (
                                                 <select
@@ -779,7 +779,7 @@ export default function StudentsSpreadsheetPage() {
                                                             handleCellEdit(student.cc, "country", val);
                                                         }
                                                     }}
-                                                    className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
+                                                    className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
                                                 >
                                                     {COUNTRY_OPTIONS.map(opt => (
                                                         <option key={opt} value={opt}>{opt}</option>
@@ -798,7 +798,7 @@ export default function StudentsSpreadsheetPage() {
                                                             if (e.target.value === "") handleCellEdit(student.cc, "province", null);
                                                         }}
                                                         autoFocus
-                                                        className="w-full px-2 py-1.5 bg-white outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                        className="w-full px-2 py-1.5 bg-white dark:bg-zinc-950 outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all truncate"
                                                     />
                                                 ) : (
                                                     <select
@@ -811,7 +811,7 @@ export default function StudentsSpreadsheetPage() {
                                                                 handleCellEdit(student.cc, "province", val);
                                                             }
                                                         }}
-                                                        className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
+                                                        className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
                                                     >
                                                         {PAKISTAN_PROVINCES.map(opt => (
                                                             <option key={opt} value={opt}>{opt}</option>
@@ -823,7 +823,7 @@ export default function StudentsSpreadsheetPage() {
                                                     type="text"
                                                     value={student.province || ""}
                                                     onChange={(e) => handleCellEdit(student.cc, "province", e.target.value)}
-                                                    className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                    className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
                                                     placeholder="Province of Birth"
                                                 />
                                             )}
@@ -833,7 +833,7 @@ export default function StudentsSpreadsheetPage() {
                                                 type="text"
                                                 value={student.city || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "city", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
                                                 placeholder="City of Birth"
                                             />
                                         </td>
@@ -842,7 +842,7 @@ export default function StudentsSpreadsheetPage() {
                                                 type="text"
                                                 value={student.identification_marks || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "identification_marks", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
                                                 placeholder="ID Marks"
                                             />
                                         </td>
@@ -851,7 +851,7 @@ export default function StudentsSpreadsheetPage() {
                                                 type="text"
                                                 value={student.medical_info || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "medical_info", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
                                                 placeholder="Medical Info"
                                             />
                                         </td>
@@ -860,7 +860,7 @@ export default function StudentsSpreadsheetPage() {
                                                 type="text"
                                                 value={student.interests || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "interests", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
                                                 placeholder="Interests"
                                             />
                                         </td>
@@ -869,7 +869,7 @@ export default function StudentsSpreadsheetPage() {
                                                 type="number"
                                                 value={student.admission_age_years || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "admission_age_years", e.target.value ? parseInt(e.target.value) : null)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
                                                 placeholder="Age"
                                             />
                                         </td>
@@ -878,14 +878,14 @@ export default function StudentsSpreadsheetPage() {
                                                 type="text"
                                                 value={student.physical_impairment || ""}
                                                 onChange={(e) => handleCellEdit(student.cc, "physical_impairment", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
+                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
                                                 placeholder="Impairments"
                                             />
                                         </td>
                                         <td className="p-1 border-r border-zinc-100 text-center">
                                             <button
                                                 onClick={() => openGuardianModal(student.cc, student.full_name)}
-                                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-50 hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900 rounded-lg text-[10px] font-bold transition-all border border-zinc-200 shadow-sm whitespace-nowrap active:scale-95"
+                                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 rounded-lg text-[10px] font-bold transition-all border border-zinc-200 dark:border-zinc-800 shadow-sm whitespace-nowrap active:scale-95"
                                             >
                                                 <Heart className="h-3 w-3 text-emerald-500 fill-emerald-500/10" />
                                                 Manage
@@ -910,14 +910,14 @@ export default function StudentsSpreadsheetPage() {
                 )}
 
                 {/* Footer / Stats */}
-                <div className="p-3 bg-zinc-50 border-t border-zinc-200 flex justify-between items-center sm:mx-0">
+                <div className="p-3 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center sm:mx-0">
                     <div className="flex items-center gap-4">
                         <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
                             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
                             Live Sync Active
                         </span>
                         <span className="h-4 w-px bg-zinc-200"></span>
-                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                        <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
                             {students.length} Records Loaded{hasMore ? " · scroll for more" : ""}
                         </span>
                     </div>

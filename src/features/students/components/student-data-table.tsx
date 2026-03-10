@@ -91,7 +91,7 @@ const FINANCIAL_STYLES: Record<string, { cls: string; label: string }> = {
 
 const ENROLLMENT_STYLES: Record<string, { cls: string; label: string }> = {
     ENROLLED: { cls: "bg-emerald-50 text-emerald-700 border border-emerald-200", label: "Enrolled" },
-    SOFT_ADMISSION: { cls: "bg-zinc-100   text-zinc-600    border border-zinc-200", label: "Soft Admission" },
+    SOFT_ADMISSION: { cls: "bg-zinc-100 dark:bg-zinc-800   text-zinc-600 dark:text-zinc-400    border border-zinc-200 dark:border-zinc-800", label: "Soft Admission" },
     GRADUATED: { cls: "bg-blue-50    text-blue-700    border border-blue-200", label: "Graduated" },
     EXPELLED: { cls: "bg-rose-50    text-rose-700    border border-rose-200", label: "Expelled" },
 };
@@ -219,10 +219,10 @@ export function StudentDataTable() {
                         placeholder="Search name, G.R., C.C. or phone…"
                         value={searchQuery}
                         onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
-                        className="w-full pl-9 pr-4 py-2.5 bg-white border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+                        className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
                     />
                     {searchQuery && (
-                        <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
+                        <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:text-zinc-400">
                             <X className="h-3.5 w-3.5" />
                         </button>
                     )}
@@ -234,17 +234,17 @@ export function StudentDataTable() {
                         onClick={() => setShowFilters(!showFilters)}
                         className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm font-medium transition-all shadow-sm ${showFilters || hasActiveFilters
                             ? "bg-primary text-white border-primary shadow-primary/20"
-                            : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50"}`}
+                            : "bg-white dark:bg-zinc-950 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900"}`}
                     >
                         <Filter className="h-4 w-4" />
                         Filters
-                        {hasActiveFilters && <span className="h-1.5 w-1.5 rounded-full bg-white/70" />}
+                        {hasActiveFilters && <span className="h-1.5 w-1.5 rounded-full bg-white dark:bg-zinc-950/70" />}
                     </button>
 
                     <div className="relative columns-menu-container">
                         <button
                             onClick={() => setShowColumnToggles(!showColumnToggles)}
-                            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-all shadow-sm"
+                            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all shadow-sm"
                         >
                             <Columns className="h-4 w-4" />
                             <span className="hidden sm:inline">Columns</span>
@@ -252,19 +252,19 @@ export function StudentDataTable() {
                         </button>
 
                         {showColumnToggles && (
-                            <div className="absolute right-0 top-full mt-2 w-60 bg-white border border-zinc-200 rounded-xl shadow-xl z-50 p-2 max-h-96 overflow-y-auto">
+                            <div className="absolute right-0 top-full mt-2 w-60 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 p-2 max-h-96 overflow-y-auto">
                                 <div className="text-[10px] font-semibold text-zinc-400 px-2 py-1 uppercase tracking-widest mb-1">
                                     Toggle Columns
                                 </div>
                                 {COLUMNS.map(col => (
-                                    <label key={col.id} className="flex items-center gap-2.5 px-2 py-2 hover:bg-zinc-50 rounded-lg cursor-pointer">
+                                    <label key={col.id} className="flex items-center gap-2.5 px-2 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 rounded-lg cursor-pointer">
                                         <input
                                             type="checkbox"
-                                            className="rounded border-zinc-300 text-primary focus:ring-primary h-3.5 w-3.5"
+                                            className="rounded border-zinc-300 dark:border-zinc-700 text-primary focus:ring-primary h-3.5 w-3.5"
                                             checked={visibleColumns.has(col.id)}
                                             onChange={() => toggleColumn(col.id)}
                                         />
-                                        <span className="text-sm text-zinc-700">{col.label}</span>
+                                        <span className="text-sm text-zinc-700 dark:text-zinc-300">{col.label}</span>
                                     </label>
                                 ))}
                             </div>
@@ -275,9 +275,9 @@ export function StudentDataTable() {
 
             {/* ── Filter Panel ────────────────────────────────────────── */}
             {showFilters && (
-                <div className="bg-white border border-zinc-200 rounded-xl shadow-sm p-4">
+                <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm p-4">
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Active Filters</span>
+                        <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Active Filters</span>
                         {hasActiveFilters && (
                             <button onClick={resetFilters} className="text-xs text-primary hover:underline font-medium">
                                 Clear all
@@ -321,13 +321,13 @@ export function StudentDataTable() {
 
                         {/* Financial checkboxes */}
                         <div className="flex flex-col gap-1.5">
-                            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Financial</span>
+                            <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Financial</span>
                             <div className="flex flex-col gap-1.5 pt-0.5">
                                 {[{ id: "Overdue", label: "Defaulters" }, { id: "Cleared", label: "Cleared" }, { id: "Partial", label: "Partial" }].map(f => (
                                     <label key={f.id} className="flex items-center gap-2 cursor-pointer">
                                         <input
                                             type="checkbox"
-                                            className="rounded border-zinc-300 text-primary h-3.5 w-3.5"
+                                            className="rounded border-zinc-300 dark:border-zinc-700 text-primary h-3.5 w-3.5"
                                             checked={financialFilters.includes(f.id)}
                                             onChange={e => {
                                                 if (e.target.checked) setFinancialFilters([...financialFilters, f.id]);
@@ -335,7 +335,7 @@ export function StudentDataTable() {
                                                 setPage(1);
                                             }}
                                         />
-                                        <span className="text-sm text-zinc-700">{f.label}</span>
+                                        <span className="text-sm text-zinc-700 dark:text-zinc-300">{f.label}</span>
                                     </label>
                                 ))}
                             </div>
@@ -343,15 +343,15 @@ export function StudentDataTable() {
 
                         {/* Siblings */}
                         <div className="flex flex-col gap-1.5">
-                            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Other</span>
+                            <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Other</span>
                             <label className="flex items-center gap-2 cursor-pointer pt-0.5">
                                 <input
                                     type="checkbox"
-                                    className="rounded border-zinc-300 text-primary h-3.5 w-3.5"
+                                    className="rounded border-zinc-300 dark:border-zinc-700 text-primary h-3.5 w-3.5"
                                     checked={hasSiblingsOnly}
                                     onChange={e => { setHasSiblingsOnly(e.target.checked); setPage(1); }}
                                 />
-                                <span className="text-sm text-zinc-700">Siblings only</span>
+                                <span className="text-sm text-zinc-700 dark:text-zinc-300">Siblings only</span>
                             </label>
                         </div>
                     </div>
@@ -359,7 +359,7 @@ export function StudentDataTable() {
             )}
 
             {/* ── Table Card ──────────────────────────────────────────── */}
-            <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
 
                 {/* Loading */}
                 {isLoading && (
@@ -367,7 +367,7 @@ export function StudentDataTable() {
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                             <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                         </div>
-                        <p className="text-sm text-zinc-500">Loading students…</p>
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading students…</p>
                     </div>
                 )}
 
@@ -381,12 +381,12 @@ export function StudentDataTable() {
 
                 {/* Empty */}
                 {!isLoading && !error && items.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-24 gap-3 text-zinc-500">
-                        <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center">
+                    <div className="flex flex-col items-center justify-center py-24 gap-3 text-zinc-500 dark:text-zinc-400">
+                        <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
                             <GraduationCap className="h-6 w-6 text-zinc-400" />
                         </div>
                         <div className="text-center">
-                            <p className="font-medium text-zinc-700">No students found</p>
+                            <p className="font-medium text-zinc-700 dark:text-zinc-300">No students found</p>
                             <p className="text-sm text-zinc-400 mt-0.5">Try adjusting your search or filters</p>
                         </div>
                         {hasActiveFilters && (
@@ -402,30 +402,30 @@ export function StudentDataTable() {
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
                             <thead>
-                                <tr className="border-b border-zinc-100 bg-zinc-50/80">
-                                    <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">
+                                <tr className="border-b border-zinc-100 bg-zinc-50 dark:bg-zinc-900/80">
+                                    <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider whitespace-nowrap">
                                         Student
                                     </th>
                                     {visibleColumns.has("grade_and_section") && (
-                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Grade</th>
+                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider whitespace-nowrap">Grade</th>
                                     )}
                                     {visibleColumns.has("campus") && (
-                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Campus</th>
+                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider whitespace-nowrap">Campus</th>
                                     )}
                                     {visibleColumns.has("primary_guardian_name") && (
-                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Guardian</th>
+                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider whitespace-nowrap">Guardian</th>
                                     )}
                                     {visibleColumns.has("financial_status_badge") && (
-                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Finance</th>
+                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider whitespace-nowrap">Finance</th>
                                     )}
                                     {visibleColumns.has("enrollment_status") && (
-                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Status</th>
+                                        <th className="px-5 py-3.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider whitespace-nowrap">Status</th>
                                     )}
                                     {/* Extra optional visible columns */}
                                     {COLUMNS.filter(c => !["student_full_name", "gr_number", "cc_number", "campus", "grade_and_section", "primary_guardian_name", "whatsapp_number", "financial_status_badge", "enrollment_status"].includes(c.id) && visibleColumns.has(c.id)).map(c => (
-                                        <th key={c.id} className="px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">{c.label}</th>
+                                        <th key={c.id} className="px-5 py-3.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider whitespace-nowrap">{c.label}</th>
                                     ))}
-                                    <th className="px-5 py-3.5 text-right text-xs font-semibold text-zinc-500 uppercase tracking-wider sticky right-0 bg-zinc-50/80 border-l border-zinc-100 w-16">
+                                    <th className="px-5 py-3.5 text-right text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider sticky right-0 bg-zinc-50 dark:bg-zinc-900/80 border-l border-zinc-100 w-16">
                                         Action
                                     </th>
                                 </tr>
@@ -436,25 +436,25 @@ export function StudentDataTable() {
                                     const enrollmentInfo = ENROLLMENT_STYLES[student.enrollment_status ?? ""] ?? ENROLLMENT_STYLES.SOFT_ADMISSION;
 
                                     return (
-                                        <tr key={student.id} className="hover:bg-zinc-50/60 transition-colors group">
+                                        <tr key={student.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/60 transition-colors group">
 
                                             {/* Student core cell */}
                                             <td className="px-5 py-4 min-w-[200px]">
                                                 <div className="flex flex-col gap-0.5">
                                                     <button
                                                         onClick={() => setViewingStudentId(student.id)}
-                                                        className="font-semibold text-zinc-900 group-hover:text-primary transition-colors text-left leading-tight"
+                                                        className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors text-left leading-tight"
                                                     >
                                                         {student.student_full_name}
                                                     </button>
                                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                                                         {student.gr_number && (
-                                                            <span className="text-[11px] text-zinc-500 font-medium">GR: {student.gr_number}</span>
+                                                            <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">GR: {student.gr_number}</span>
                                                         )}
                                                         {student.cc_number && (
                                                             <>
                                                                 <span className="w-0.5 h-0.5 rounded-full bg-zinc-300 inline-block" />
-                                                                <span className="text-[11px] text-zinc-500 font-medium">CC: {student.cc_number}</span>
+                                                                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">CC: {student.cc_number}</span>
                                                             </>
                                                         )}
                                                         {student.siblings && student.siblings.length > 0 && (
@@ -473,7 +473,7 @@ export function StudentDataTable() {
                                             {/* Grade & Section */}
                                             {visibleColumns.has("grade_and_section") && (
                                                 <td className="px-5 py-4 whitespace-nowrap">
-                                                    <span className="text-sm font-medium text-zinc-800">
+                                                    <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
                                                         {student.grade_and_section ?? <span className="text-zinc-300">—</span>}
                                                     </span>
                                                 </td>
@@ -482,7 +482,7 @@ export function StudentDataTable() {
                                             {/* Campus */}
                                             {visibleColumns.has("campus") && (
                                                 <td className="px-5 py-4 whitespace-nowrap">
-                                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-zinc-100 text-zinc-700 px-2.5 py-1 rounded-full">
+                                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-2.5 py-1 rounded-full">
                                                         {CAMPUS_CODES[student.campus ?? ""] ?? student.campus ?? "—"}
                                                     </span>
                                                 </td>
@@ -492,9 +492,9 @@ export function StudentDataTable() {
                                             {visibleColumns.has("primary_guardian_name") && (
                                                 <td className="px-5 py-4 min-w-[160px]">
                                                     <div className="flex flex-col gap-0.5">
-                                                        <span className="text-sm text-zinc-800">{student.primary_guardian_name ?? <span className="text-zinc-300">—</span>}</span>
+                                                        <span className="text-sm text-zinc-800 dark:text-zinc-200">{student.primary_guardian_name ?? <span className="text-zinc-300">—</span>}</span>
                                                         {visibleColumns.has("whatsapp_number") && student.whatsapp_number && (
-                                                            <span className="flex items-center gap-1 text-[11px] text-zinc-500">
+                                                            <span className="flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
                                                                 <Phone className="h-3 w-3" />
                                                                 {student.whatsapp_number}
                                                             </span>
@@ -533,24 +533,24 @@ export function StudentDataTable() {
                                                     value = count > 0 ? `${count} sibling${count > 1 ? "s" : ""}` : "None";
                                                 }
                                                 return (
-                                                    <td key={c.id} className="px-5 py-4 text-sm text-zinc-700 whitespace-nowrap">
+                                                    <td key={c.id} className="px-5 py-4 text-sm text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
                                                         {value}
                                                     </td>
                                                 );
                                             })}
 
                                             {/* Actions */}
-                                            <td className={`px-5 py-4 text-right sticky right-0 bg-white group-hover:bg-zinc-50 border-l border-zinc-100 transition-colors ${openActionRowId === student.id ? "z-30" : "z-10"}`}>
+                                            <td className={`px-5 py-4 text-right sticky right-0 bg-white dark:bg-zinc-950 group-hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 border-l border-zinc-100 transition-colors ${openActionRowId === student.id ? "z-30" : "z-10"}`}>
                                                 <div className="relative inline-block action-menu-container">
                                                     <button
                                                         onClick={() => setOpenActionRowId(openActionRowId === student.id ? null : student.id)}
-                                                        className="h-8 w-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+                                                        className="h-8 w-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors"
                                                     >
                                                         <MoreHorizontal className="h-4 w-4" />
                                                     </button>
 
                                                     {openActionRowId === student.id && (
-                                                        <div className="absolute right-0 top-9 w-52 bg-white border border-zinc-200 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-zinc-100 py-1">
+                                                        <div className="absolute right-0 top-9 w-52 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-zinc-100 py-1">
                                                             <div className="py-1">
                                                                 <ActionItem icon={<Eye />} label="View Profile" onClick={() => { setViewingStudentId(student.id); setOpenActionRowId(null); }} />
                                                             </div>
@@ -577,25 +577,25 @@ export function StudentDataTable() {
 
                 {/* ── Pagination ──────────────────────────────────────── */}
                 {meta && !isLoading && (
-                    <div className="border-t border-zinc-100 px-5 py-3.5 flex items-center justify-between gap-4 bg-zinc-50/50">
-                        <span className="text-xs text-zinc-500">
-                            Showing <span className="font-semibold text-zinc-700">{(meta.page - 1) * meta.limit + 1}</span>–<span className="font-semibold text-zinc-700">{Math.min(meta.page * meta.limit, meta.total)}</span> of <span className="font-semibold text-zinc-700">{meta.total}</span> students
+                    <div className="border-t border-zinc-100 px-5 py-3.5 flex items-center justify-between gap-4 bg-zinc-50 dark:bg-zinc-900/50">
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            Showing <span className="font-semibold text-zinc-700 dark:text-zinc-300">{(meta.page - 1) * meta.limit + 1}</span>–<span className="font-semibold text-zinc-700 dark:text-zinc-300">{Math.min(meta.page * meta.limit, meta.total)}</span> of <span className="font-semibold text-zinc-700 dark:text-zinc-300">{meta.total}</span> students
                         </span>
                         <div className="flex items-center gap-1.5">
                             <button
                                 onClick={() => setPage(p => p - 1)}
                                 disabled={!meta.hasPrev}
-                                className="h-8 w-8 rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-500 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                className="h-8 w-8 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             >
                                 <ChevronLeft className="h-4 w-4" />
                             </button>
-                            <span className="text-xs font-medium text-zinc-700 px-2">
+                            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 px-2">
                                 {meta.page} / {meta.pages}
                             </span>
                             <button
                                 onClick={() => setPage(p => p + 1)}
                                 disabled={!meta.hasNext}
-                                className="h-8 w-8 rounded-lg border border-zinc-200 bg-white flex items-center justify-center text-zinc-500 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                className="h-8 w-8 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             >
                                 <ChevronRight className="h-4 w-4" />
                             </button>
@@ -621,11 +621,11 @@ function FilterSelect({ label, value, onChange, children }: {
 }) {
     return (
         <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{label}</label>
+            <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{label}</label>
             <select
                 value={value}
                 onChange={e => onChange(e.target.value)}
-                className="border border-zinc-200 rounded-lg px-3 py-2 bg-white text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                className="border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 bg-white dark:bg-zinc-950 text-sm text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             >
                 {children}
             </select>
@@ -633,13 +633,13 @@ function FilterSelect({ label, value, onChange, children }: {
     );
 }
 
-function ActionItem({ icon, label, color = "text-zinc-700", onClick }: {
+function ActionItem({ icon, label, color = "text-zinc-700 dark:text-zinc-300", onClick }: {
     icon: React.ReactNode; label: string; color?: string; onClick?: () => void;
 }) {
     return (
         <button
             onClick={onClick}
-            className={`flex w-full items-center gap-2.5 px-4 py-2 text-sm font-medium hover:bg-zinc-50 ${color} transition-colors`}
+            className={`flex w-full items-center gap-2.5 px-4 py-2 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 ${color} transition-colors`}
             role="menuitem"
         >
             <span className="h-4 w-4 opacity-60 shrink-0">{icon}</span>

@@ -12,8 +12,8 @@ export default function FamiliesPage() {
         <div className="flex-1 h-[calc(100vh-64px)] flex flex-col p-6 overflow-hidden">
             <div className="mb-6 flex-shrink-0 flex flex-col lg:flex-row justify-between lg:items-end gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-zinc-900 border-b pb-2">Family & Household Directory</h2>
-                    <p className="text-zinc-500 mt-2">Manage household connections, review sibling links, and monitor family-level financial statuses.</p>
+                    <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 border-b pb-2">Family & Household Directory</h2>
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-2">Manage household connections, review sibling links, and monitor family-level financial statuses.</p>
                 </div>
 
                 {/* Global Action Buttons */}
@@ -27,7 +27,7 @@ export default function FamiliesPage() {
                     </button>
                     <button
                         onClick={() => setIsChangeFamilyModalOpen(true)}
-                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-zinc-700 rounded-lg hover:bg-zinc-50 transition-colors shadow-sm font-medium"
+                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-colors shadow-sm font-medium"
                     >
                         <LinkIcon className="h-4 w-4" />
                         Change Student&apos;s Family

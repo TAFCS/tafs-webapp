@@ -34,10 +34,10 @@ function LoginForm() {
     return (
         <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="text-center md:text-left">
-                <h2 className="text-3xl font-semibold tracking-tight text-zinc-900">
+                <h2 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
                     Welcome back
                 </h2>
-                <p className="text-zinc-500 mt-2">
+                <p className="text-zinc-500 dark:text-zinc-400 mt-2">
                     Enter your credentials to access the ERP
                 </p>
             </div>
@@ -51,7 +51,7 @@ function LoginForm() {
                     <div>
                         <label
                             htmlFor="username"
-                            className="block text-sm font-medium text-zinc-700 mb-1.5"
+                            className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5"
                         >
                             Username or Email
                         </label>
@@ -63,7 +63,7 @@ function LoginForm() {
                             required
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            className="block w-full px-3 py-2.5 border border-zinc-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white text-zinc-900 sm:text-sm transition-all"
+                            className="block w-full px-3 py-2.5 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 sm:text-sm transition-all"
                             placeholder="admin@tafs.edu"
                         />
                     </div>
@@ -72,7 +72,7 @@ function LoginForm() {
                     <div>
                         <label
                             htmlFor="password"
-                            className="block text-sm font-medium text-zinc-700 mb-1.5"
+                            className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5"
                         >
                             Password
                         </label>
@@ -84,7 +84,7 @@ function LoginForm() {
                             required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="block w-full px-3 py-2.5 border border-zinc-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white text-zinc-900 sm:text-sm transition-all"
+                            className="block w-full px-3 py-2.5 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 sm:text-sm transition-all"
                             placeholder="••••••••"
                         />
                     </div>
@@ -103,11 +103,11 @@ function LoginForm() {
                             id="remember-me"
                             name="remember-me"
                             type="checkbox"
-                            className="h-4 w-4 text-primary focus:ring-primary border-zinc-300 rounded bg-white"
+                            className="h-4 w-4 text-primary focus:ring-primary border-zinc-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-950"
                         />
                         <label
                             htmlFor="remember-me"
-                            className="ml-2 block text-sm text-zinc-700"
+                            className="ml-2 block text-sm text-zinc-700 dark:text-zinc-300"
                         >
                             Remember me
                         </label>
@@ -155,7 +155,7 @@ function LoginForm() {
                 </div>
             </form>
 
-            <div className="mt-8 text-center text-xs text-zinc-500">
+            <div className="mt-8 text-center text-xs text-zinc-500 dark:text-zinc-400">
                 <p>Protected by TAFS Identity. V1.0.0</p>
             </div>
         </div>

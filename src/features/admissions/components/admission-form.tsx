@@ -264,33 +264,33 @@ export function AdmissionForm() {
     };
 
     return (
-        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row relative max-w-5xl mx-auto">
+        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row relative max-w-5xl mx-auto">
 
             {/* Left Sidebar - Administrative Data (Visible across steps but static conceptually) */}
-            <div className="w-full md:w-64 bg-zinc-50 border-b md:border-b-0 md:border-r border-zinc-200 p-6 flex-shrink-0">
+            <div className="w-full md:w-64 bg-zinc-50 dark:bg-zinc-900 border-b md:border-b-0 md:border-r border-zinc-200 dark:border-zinc-800 p-6 flex-shrink-0">
                 <div className="flex flex-col items-center justify-center mb-8 gap-3">
                     <Image src={LogoImage} alt="TAFSync Logo" width={80} height={80} className="object-contain" priority unoptimized />
                     <h2 className="text-xl font-bold tracking-tight text-primary">TAFSync</h2>
                 </div>
 
                 <div className="space-y-4">
-                    <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Office Records</h3>
+                    <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Office Records</h3>
                     <div>
-                        <label className="block text-xs font-medium text-zinc-700 mb-1">Serial #</label>
-                        <input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Serial #</label>
+                        <input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                             value={formData.serialNo} onChange={e => setFormData({ ...formData, serialNo: e.target.value })} />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-zinc-700 mb-1">Registration #</label>
-                        <input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Registration #</label>
+                        <input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                             value={formData.registrationNo} onChange={e => setFormData({ ...formData, registrationNo: e.target.value })} />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-zinc-700 mb-1">Computer Code #</label>
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Computer Code #</label>
                         <div className="flex gap-2">
                             <input
                                 type="text"
-                                className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                                className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                                 value={formData.computerCodeNo}
                                 onChange={e => {
                                     setFormData({ ...formData, computerCodeNo: e.target.value });
@@ -468,7 +468,7 @@ export function AdmissionForm() {
                                     }
                                 }}
                                 disabled={isFetchingCC}
-                                className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded border border-primary text-primary bg-white hover:bg-primary/5 disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded border border-primary text-primary bg-white dark:bg-zinc-950 hover:bg-primary/5 disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                                 {isFetchingCC ? "Fetching..." : "Fetch"}
                             </button>
@@ -480,21 +480,21 @@ export function AdmissionForm() {
                         )}
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-zinc-700 mb-1">G.R. #</label>
-                        <input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">G.R. #</label>
+                        <input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                             value={formData.grNo} onChange={e => setFormData({ ...formData, grNo: e.target.value })} />
                     </div>
                 </div>
 
                 <div className="mt-8 space-y-4">
-                    <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Photographs</h3>
+                    <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Photographs</h3>
                     <div className="flex flex-col gap-3">
-                        <div className="h-24 w-full border-2 border-dashed border-zinc-300 rounded-lg flex items-center justify-center bg-zinc-50 text-xs text-zinc-500 text-center px-2 cursor-pointer hover:bg-zinc-100 hover:border-primary">
+                        <div className="h-24 w-full border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-500 dark:text-zinc-400 text-center px-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 hover:border-primary">
                             Candidate (1.5&quot; x 2&quot;)<br />Light Blue BG
                         </div>
                         <div className="flex gap-2">
-                            <div className="h-20 w-1/2 border-2 border-dashed border-zinc-300 rounded-lg flex items-center justify-center bg-zinc-50 text-xs text-zinc-500 text-center px-1 cursor-pointer hover:bg-zinc-100 hover:border-primary">Father</div>
-                            <div className="h-20 w-1/2 border-2 border-dashed border-zinc-300 rounded-lg flex items-center justify-center bg-zinc-50 text-xs text-zinc-500 text-center px-1 cursor-pointer hover:bg-zinc-100 hover:border-primary">Mother</div>
+                            <div className="h-20 w-1/2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-500 dark:text-zinc-400 text-center px-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 hover:border-primary">Father</div>
+                            <div className="h-20 w-1/2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-500 dark:text-zinc-400 text-center px-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 hover:border-primary">Mother</div>
                         </div>
                     </div>
                 </div>
@@ -504,10 +504,10 @@ export function AdmissionForm() {
             <div className="flex-1 flex flex-col">
 
                 {/* Wizard Header Sequence */}
-                <div className="px-6 py-4 border-b border-zinc-200 bg-white flex items-center justify-between">
+                <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between">
                     <div>
-                        <h2 className="text-lg font-semibold text-zinc-900">Application for Admission (FORM #2)</h2>
-                        <p className="text-sm text-zinc-500">
+                        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Application for Admission (FORM #2)</h2>
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400">
                             Page {currentStep} of 5 — {currentStep === 1 ? 'Personal Data & Academic History' : currentStep === 2 ? 'Family Background' : currentStep === 3 ? 'General Info & Health' : currentStep === 4 ? 'Declarations & Signatures' : 'Office Use Only'}
                         </p>
                     </div>
@@ -519,7 +519,7 @@ export function AdmissionForm() {
                 </div>
 
                 {/* Wizard Body (Scrollable) */}
-                <div className="flex-1 p-6 sm:p-8 bg-zinc-50/50 overflow-y-auto">
+                <div className="flex-1 p-6 sm:p-8 bg-zinc-50 dark:bg-zinc-900/50 overflow-y-auto">
 
                     {/* -- PAGE 1: PERSONAL DATA -- */}
                     {currentStep === 1 && (
@@ -527,41 +527,41 @@ export function AdmissionForm() {
 
                             {/* Section 1: Personal Data */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5">
-                                    <h3 className="text-base font-medium text-zinc-900">1. Personal Data</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">1. Personal Data</h3>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Candidate&apos;s Full Name (In Block Letters Only)</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Candidate&apos;s Full Name (In Block Letters Only)</label>
                                         <input
                                             type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg uppercase focus:ring-2 mt-0 focus:ring-primary/20 focus:border-primary outline-none"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 mt-0 focus:ring-primary/20 focus:border-primary outline-none"
                                             value={formData.candidateName}
                                             onChange={e => setFormData({ ...formData, candidateName: e.target.value })}
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Date of Birth</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Date of Birth</label>
                                         <div className="flex gap-2">
                                             <input
                                                 type="text"
                                                 placeholder="DD"
-                                                className="w-1/3 px-3 py-2 border border-zinc-300 rounded-lg text-center"
+                                                className="w-1/3 px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg text-center"
                                                 value={formData.dobDay}
                                                 onChange={e => setFormData({ ...formData, dobDay: e.target.value })}
                                             />
                                             <input
                                                 type="text"
                                                 placeholder="MM"
-                                                className="w-1/3 px-3 py-2 border border-zinc-300 rounded-lg text-center"
+                                                className="w-1/3 px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg text-center"
                                                 value={formData.dobMonth}
                                                 onChange={e => setFormData({ ...formData, dobMonth: e.target.value })}
                                             />
                                             <input
                                                 type="text"
                                                 placeholder="YYYY"
-                                                className="w-1/3 px-3 py-2 border border-zinc-300 rounded-lg text-center"
+                                                className="w-1/3 px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg text-center"
                                                 value={formData.dobYear}
                                                 onChange={e => setFormData({ ...formData, dobYear: e.target.value })}
                                             />
@@ -569,12 +569,12 @@ export function AdmissionForm() {
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Age at time of admission</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Age at time of admission</label>
                                         <div className="flex gap-2">
                                             <div className="relative w-1/3">
                                                 <input
                                                     type="text"
-                                                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg pr-8"
+                                                    className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg pr-8"
                                                     value={formData.ageYears}
                                                     onChange={e => setFormData({ ...formData, ageYears: e.target.value })}
                                                 />
@@ -583,7 +583,7 @@ export function AdmissionForm() {
                                             <div className="relative w-1/3">
                                                 <input
                                                     type="text"
-                                                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg pr-8"
+                                                    className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg pr-8"
                                                     value={formData.ageMonths}
                                                     onChange={e => setFormData({ ...formData, ageMonths: e.target.value })}
                                                 />
@@ -592,7 +592,7 @@ export function AdmissionForm() {
                                             <div className="relative w-1/3">
                                                 <input
                                                     type="text"
-                                                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg pr-8"
+                                                    className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg pr-8"
                                                     value={formData.ageDays}
                                                     onChange={e => setFormData({ ...formData, ageDays: e.target.value })}
                                                 />
@@ -603,9 +603,9 @@ export function AdmissionForm() {
 
                                     <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-6">
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Gender</label>
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Gender</label>
                                             <select
-                                                className="w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white"
+                                                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-950"
                                                 value={formData.gender}
                                                 onChange={e => setFormData({ ...formData, gender: e.target.value })}
                                             >
@@ -615,9 +615,9 @@ export function AdmissionForm() {
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Religion</label>
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Religion</label>
                                             <select
-                                                className="w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white"
+                                                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-950"
                                                 value={formData.religion}
                                                 onChange={e => setFormData({ ...formData, religion: e.target.value })}
                                             >
@@ -628,9 +628,9 @@ export function AdmissionForm() {
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Nationality</label>
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Nationality</label>
                                             <select
-                                                className="w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white"
+                                                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-950"
                                                 value={formData.nationality}
                                                 onChange={e => setFormData({ ...formData, nationality: e.target.value })}
                                             >
@@ -642,29 +642,29 @@ export function AdmissionForm() {
 
                                     <div className="md:col-span-2 grid grid-cols-3 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Place of Birth: Country</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Place of Birth: Country</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.placeOfBirthCountry}
                                                 onChange={e => setFormData({ ...formData, placeOfBirthCountry: e.target.value })} />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Province</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Province</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.placeOfBirthProvince}
                                                 onChange={e => setFormData({ ...formData, placeOfBirthProvince: e.target.value })} />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">City</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">City</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.placeOfBirthCity}
                                                 onChange={e => setFormData({ ...formData, placeOfBirthCity: e.target.value })} />
                                         </div>
                                     </div>
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Identification Mark(s)</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Identification Mark(s)</label>
                                         <input
                                             type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.identificationMarks}
                                             onChange={e => setFormData({ ...formData, identificationMarks: e.target.value })}
                                         />
@@ -674,9 +674,9 @@ export function AdmissionForm() {
 
                             {/* Section: Academic Ability & Systems */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-8">
-                                    <h3 className="text-base font-medium text-zinc-900">1a. Academic Ability & System target</h3>
-                                    <p className="text-sm text-zinc-500 mt-1">Select the system in which admission is required.</p>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">1a. Academic Ability & System target</h3>
+                                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Select the system in which admission is required.</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -690,7 +690,7 @@ export function AdmissionForm() {
                                                 value="Cambridge"
                                                 checked={formData.admissionSystem === 'Cambridge'}
                                                 onChange={e => setFormData({ ...formData, admissionSystem: e.target.value, admissionClass: '' })}
-                                                className="h-4 w-4 text-primary focus:ring-primary border-zinc-300"
+                                                className="h-4 w-4 text-primary focus:ring-primary border-zinc-300 dark:border-zinc-700"
                                             />
                                             <label htmlFor="sys-cambridge" className="ml-2 block font-semibold text-primary cursor-pointer">Cambridge GCE O&apos; Level System</label>
                                         </div>
@@ -703,9 +703,9 @@ export function AdmissionForm() {
                                                         value={cls}
                                                         checked={formData.admissionClass === cls && formData.admissionSystem === 'Cambridge'}
                                                         onChange={e => setFormData({ ...formData, admissionClass: e.target.value })}
-                                                        className="h-3.5 w-3.5 text-primary focus:ring-primary border-zinc-300"
+                                                        className="h-3.5 w-3.5 text-primary focus:ring-primary border-zinc-300 dark:border-zinc-700"
                                                     />
-                                                    <label className="ml-2 text-sm text-zinc-700">{cls}</label>
+                                                    <label className="ml-2 text-sm text-zinc-700 dark:text-zinc-300">{cls}</label>
                                                 </div>
                                             ))}
                                         </div>
@@ -721,7 +721,7 @@ export function AdmissionForm() {
                                                 value="Secondary"
                                                 checked={formData.admissionSystem === 'Secondary'}
                                                 onChange={e => setFormData({ ...formData, admissionSystem: e.target.value, admissionClass: '' })}
-                                                className="h-4 w-4 text-secondary focus:ring-secondary border-zinc-300"
+                                                className="h-4 w-4 text-secondary focus:ring-secondary border-zinc-300 dark:border-zinc-700"
                                             />
                                             <label htmlFor="sys-secondary" className="ml-2 block font-semibold text-secondary cursor-pointer">Secondary System of Studies</label>
                                         </div>
@@ -734,9 +734,9 @@ export function AdmissionForm() {
                                                         value={cls}
                                                         checked={formData.admissionClass === cls && formData.admissionSystem === 'Secondary'}
                                                         onChange={e => setFormData({ ...formData, admissionClass: e.target.value })}
-                                                        className="h-3.5 w-3.5 text-secondary focus:ring-secondary border-zinc-300"
+                                                        className="h-3.5 w-3.5 text-secondary focus:ring-secondary border-zinc-300 dark:border-zinc-700"
                                                     />
-                                                    <label className="ml-2 text-sm text-zinc-700">{cls}</label>
+                                                    <label className="ml-2 text-sm text-zinc-700 dark:text-zinc-300">{cls}</label>
                                                 </div>
                                             ))}
                                         </div>
@@ -746,29 +746,29 @@ export function AdmissionForm() {
 
                             {/* Section: Language Grid */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-8 flex justify-between items-end">
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8 flex justify-between items-end">
                                     <div>
-                                        <h3 className="text-base font-medium text-zinc-900">1b. Language Capability</h3>
-                                        <p className="text-sm text-zinc-500 mt-1">Rate the candidate&apos;s language proficiency.</p>
+                                        <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">1b. Language Capability</h3>
+                                        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Rate the candidate&apos;s language proficiency.</p>
                                     </div>
-                                    <div className="text-xs bg-zinc-100 text-zinc-600 px-3 py-1.5 rounded-lg border border-zinc-200">
+                                    <div className="text-xs bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800">
                                         <span className="font-semibold">Key:</span> E (Excellent) • G (Good) • F (Fair)
                                     </div>
                                 </div>
 
-                                <div className="bg-white border text-center border-zinc-200 rounded-xl overflow-hidden shadow-sm">
-                                    <div className="grid grid-cols-4 bg-zinc-50 text-sm font-medium text-zinc-600 border-b border-zinc-200">
-                                        <div className="p-3 text-left border-r border-zinc-200">Language</div>
-                                        <div className="p-3 border-r border-zinc-200">Speaks</div>
-                                        <div className="p-3 border-r border-zinc-200">Reads</div>
+                                <div className="bg-white dark:bg-zinc-950 border text-center border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+                                    <div className="grid grid-cols-4 bg-zinc-50 dark:bg-zinc-900 text-sm font-medium text-zinc-600 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
+                                        <div className="p-3 text-left border-r border-zinc-200 dark:border-zinc-800">Language</div>
+                                        <div className="p-3 border-r border-zinc-200 dark:border-zinc-800">Speaks</div>
+                                        <div className="p-3 border-r border-zinc-200 dark:border-zinc-800">Reads</div>
                                         <div className="p-3">Writes</div>
                                     </div>
                                     {['English', 'Urdu', 'Other'].map((lang, idx) => (
-                                        <div key={lang} className={`grid grid-cols-4 text-sm ${idx !== 2 ? 'border-b border-zinc-200' : ''}`}>
-                                            <div className="p-3 text-left font-medium text-zinc-900 border-r border-zinc-200 bg-zinc-50/50 flex items-center">{lang}</div>
-                                            <div className="p-3 border-r border-zinc-200 flex justify-center"><select className="w-16 text-center border-zinc-300 rounded"><option>E</option><option>G</option><option>F</option></select></div>
-                                            <div className="p-3 border-r border-zinc-200 flex justify-center"><select className="w-16 text-center border-zinc-300 rounded"><option>E</option><option>G</option><option>F</option></select></div>
-                                            <div className="p-3 flex justify-center"><select className="w-16 text-center border-zinc-300 rounded"><option>E</option><option>G</option><option>F</option></select></div>
+                                        <div key={lang} className={`grid grid-cols-4 text-sm ${idx !== 2 ? 'border-b border-zinc-200 dark:border-zinc-800' : ''}`}>
+                                            <div className="p-3 text-left font-medium text-zinc-900 dark:text-zinc-100 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 flex items-center">{lang}</div>
+                                            <div className="p-3 border-r border-zinc-200 dark:border-zinc-800 flex justify-center"><select className="w-16 text-center border-zinc-300 dark:border-zinc-700 rounded"><option>E</option><option>G</option><option>F</option></select></div>
+                                            <div className="p-3 border-r border-zinc-200 dark:border-zinc-800 flex justify-center"><select className="w-16 text-center border-zinc-300 dark:border-zinc-700 rounded"><option>E</option><option>G</option><option>F</option></select></div>
+                                            <div className="p-3 flex justify-center"><select className="w-16 text-center border-zinc-300 dark:border-zinc-700 rounded"><option>E</option><option>G</option><option>F</option></select></div>
                                         </div>
                                     ))}
                                 </div>
@@ -776,20 +776,20 @@ export function AdmissionForm() {
 
                             {/* Section: Previous Schooling */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-8">
-                                    <h3 className="text-base font-medium text-zinc-900">Previous Schooling Details</h3>
-                                    <p className="text-sm text-zinc-500 mt-1">Starting with the last school attended.</p>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">Previous Schooling Details</h3>
+                                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Starting with the last school attended.</p>
                                 </div>
                                 <div className="space-y-4">
                                     {formData.previousSchools.map((school, index) => (
-                                        <div key={index} className="p-4 border border-zinc-200 rounded-xl bg-white relative group">
+                                        <div key={index} className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 relative group">
                                             <div className="absolute -left-2.5 top-4 bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{index + 1}</div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div>
-                                                    <label className="block text-xs font-medium text-zinc-700 mb-1">Name of School</label>
+                                                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Name of School</label>
                                                     <input
                                                         type="text"
-                                                        className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md"
+                                                        className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md"
                                                         value={school.name}
                                                         onChange={e => {
                                                             const updated = formData.previousSchools.map((s, i) => i === index ? { ...s, name: e.target.value } : s);
@@ -798,10 +798,10 @@ export function AdmissionForm() {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-xs font-medium text-zinc-700 mb-1">Location</label>
+                                                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Location</label>
                                                     <input
                                                         type="text"
-                                                        className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md"
+                                                        className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md"
                                                         value={school.location}
                                                         onChange={e => {
                                                             const updated = formData.previousSchools.map((s, i) => i === index ? { ...s, location: e.target.value } : s);
@@ -810,11 +810,11 @@ export function AdmissionForm() {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-xs font-medium text-zinc-700 mb-1">Class/Level Studied</label>
+                                                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Class/Level Studied</label>
                                                     <input
                                                         type="text"
                                                         placeholder="From - Upto"
-                                                        className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md"
+                                                        className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md"
                                                         value={school.classStudied}
                                                         onChange={e => {
                                                             const updated = formData.previousSchools.map((s, i) => i === index ? { ...s, classStudied: e.target.value } : s);
@@ -823,10 +823,10 @@ export function AdmissionForm() {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-xs font-medium text-zinc-700 mb-1">Reason for Leaving</label>
+                                                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Reason for Leaving</label>
                                                     <input
                                                         type="text"
-                                                        className="w-full px-3 py-1.5 text-sm border border-zinc-300 rounded-md"
+                                                        className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md"
                                                         value={school.reasonForLeaving}
                                                         onChange={e => {
                                                             const updated = formData.previousSchools.map((s, i) => i === index ? { ...s, reasonForLeaving: e.target.value } : s);
@@ -856,140 +856,140 @@ export function AdmissionForm() {
 
                             {/* Father's Info */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5">
-                                    <h3 className="text-base font-medium text-zinc-900">2a. Father&apos;s Information</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">2a. Father&apos;s Information</h3>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Name</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Name</label>
                                         <input
                                             type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                             value={formData.fatherName}
                                             onChange={e => setFormData({ ...formData, fatherName: e.target.value })}
                                         />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Mailing Address</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Mailing Address</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             placeholder="House/Apartment Name and No, Area and Block No, City, Province, Country, Postal Code"
                                             value={formData.fatherAddress}
                                             onChange={e => setFormData({ ...formData, fatherAddress: e.target.value })} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Home Phone #</label>
-                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.fatherPrimaryPhoneCountryCode} onChange={e => setFormData({ ...formData, fatherPrimaryPhoneCountryCode: e.target.value })} />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Home Phone #</label>
+                                        <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.fatherPrimaryPhoneCountryCode} onChange={e => setFormData({ ...formData, fatherPrimaryPhoneCountryCode: e.target.value })} />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.fatherHomePhone} onChange={e => setFormData({ ...formData, fatherHomePhone: e.target.value })} />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Cellular Phone #</label>
-                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.fatherWhatsappCountryCode} onChange={e => setFormData({ ...formData, fatherWhatsappCountryCode: e.target.value })} />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Cellular Phone #</label>
+                                        <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.fatherWhatsappCountryCode} onChange={e => setFormData({ ...formData, fatherWhatsappCountryCode: e.target.value })} />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.fatherCellPhone} onChange={e => setFormData({ ...formData, fatherCellPhone: e.target.value })} />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Emergency Contact Name & Number</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Emergency Contact Name & Number</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.fatherEmergencyName}
                                             onChange={e => setFormData({ ...formData, fatherEmergencyName: e.target.value })} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Relationship with Candidate</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Relationship with Candidate</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.fatherEmergencyRelation}
                                             onChange={e => setFormData({ ...formData, fatherEmergencyRelation: e.target.value })} />
                                     </div>
                                     <div className="md:col-span-2 grid grid-cols-3 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: Country</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">POB: Country</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.fatherPOBCountry}
                                                 onChange={e => setFormData({ ...formData, fatherPOBCountry: e.target.value })} />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: Province</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">POB: Province</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.fatherPOBProvince}
                                                 onChange={e => setFormData({ ...formData, fatherPOBProvince: e.target.value })} />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: City</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">POB: City</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.fatherPOBCity}
                                                 onChange={e => setFormData({ ...formData, fatherPOBCity: e.target.value })} />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Age</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Age</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.fatherAge}
                                                 onChange={e => setFormData({ ...formData, fatherAge: e.target.value })} />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Educational Level</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Educational Level</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.fatherEducation}
                                                 onChange={e => setFormData({ ...formData, fatherEducation: e.target.value })} />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupation</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Occupation</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.fatherOccupation}
                                                 onChange={e => setFormData({ ...formData, fatherOccupation: e.target.value })} />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Organization</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Organization</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.fatherOrganization}
                                                 onChange={e => setFormData({ ...formData, fatherOrganization: e.target.value })} />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupational Position</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Occupational Position</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.fatherPosition}
                                             onChange={e => setFormData({ ...formData, fatherPosition: e.target.value })} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Monthly Income</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Monthly Income</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.fatherIncome}
                                             onChange={e => setFormData({ ...formData, fatherIncome: e.target.value })} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Work Phone #</label>
-                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.fatherWorkPhoneCountryCode} onChange={e => setFormData({ ...formData, fatherWorkPhoneCountryCode: e.target.value })} />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Work Phone #</label>
+                                        <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.fatherWorkPhoneCountryCode} onChange={e => setFormData({ ...formData, fatherWorkPhoneCountryCode: e.target.value })} />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.fatherWorkPhone} onChange={e => setFormData({ ...formData, fatherWorkPhone: e.target.value })} />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">C.N.I.C. #</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">C.N.I.C. #</label>
                                         <input
                                             type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg placeholder-zinc-300"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg placeholder-zinc-300"
                                             placeholder="00000-0000000-0"
                                             value={formData.fatherCnic}
                                             onChange={e => setFormData({ ...formData, fatherCnic: e.target.value })}
                                         />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Office Address</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Office Address</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.fatherOfficeAddress}
                                             onChange={e => setFormData({ ...formData, fatherOfficeAddress: e.target.value })} />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Email Address</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Email Address</label>
                                         <input
                                             type="email"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.fatherEmail}
                                             onChange={e => setFormData({ ...formData, fatherEmail: e.target.value })}
                                         />
@@ -999,120 +999,120 @@ export function AdmissionForm() {
 
                             {/* Mother's Info */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-8">
-                                    <h3 className="text-base font-medium text-zinc-900">2b. Mother&apos;s Information</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">2b. Mother&apos;s Information</h3>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Name</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Name</label>
                                         <input
                                             type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg outline-none focus:border-secondary focus:ring-1 focus:ring-secondary"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg outline-none focus:border-secondary focus:ring-1 focus:ring-secondary"
                                             value={formData.motherName}
                                             onChange={e => setFormData({ ...formData, motherName: e.target.value })}
                                         />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Mailing Address</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Mailing Address</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             placeholder="House/Apartment Name and No, Area and Block No, City, Province, Country, Postal Code"
                                             value={formData.motherAddress}
                                             onChange={e => setFormData({ ...formData, motherAddress: e.target.value })} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Home Phone #</label>
-                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-secondary/20 focus-within:border-secondary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.motherPrimaryPhoneCountryCode} onChange={e => setFormData({ ...formData, motherPrimaryPhoneCountryCode: e.target.value })} />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Home Phone #</label>
+                                        <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-secondary/20 focus-within:border-secondary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.motherPrimaryPhoneCountryCode} onChange={e => setFormData({ ...formData, motherPrimaryPhoneCountryCode: e.target.value })} />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.motherHomePhone} onChange={e => setFormData({ ...formData, motherHomePhone: e.target.value })} />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Cellular Phone #</label>
-                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-secondary/20 focus-within:border-secondary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.motherWhatsappCountryCode} onChange={e => setFormData({ ...formData, motherWhatsappCountryCode: e.target.value })} />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Cellular Phone #</label>
+                                        <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-secondary/20 focus-within:border-secondary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.motherWhatsappCountryCode} onChange={e => setFormData({ ...formData, motherWhatsappCountryCode: e.target.value })} />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.motherCellPhone} onChange={e => setFormData({ ...formData, motherCellPhone: e.target.value })} />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Emergency Contact Name & Number</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Emergency Contact Name & Number</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.motherEmergencyName}
                                             onChange={e => setFormData({ ...formData, motherEmergencyName: e.target.value })} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Relationship with Candidate</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Relationship with Candidate</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.motherEmergencyRelation}
                                             onChange={e => setFormData({ ...formData, motherEmergencyRelation: e.target.value })} />
                                     </div>
 
                                     <div className="md:col-span-2 grid grid-cols-3 gap-4">
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: Country</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">POB: Country</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.motherPOBCountry}
                                                 onChange={e => setFormData({ ...formData, motherPOBCountry: e.target.value })} /></div>
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: Province</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">POB: Province</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.motherPOBProvince}
                                                 onChange={e => setFormData({ ...formData, motherPOBProvince: e.target.value })} /></div>
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">POB: City</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">POB: City</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.motherPOBCity}
                                                 onChange={e => setFormData({ ...formData, motherPOBCity: e.target.value })} /></div>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Age</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Age</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.motherAge}
                                                 onChange={e => setFormData({ ...formData, motherAge: e.target.value })} /></div>
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Educational Level</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Educational Level</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.motherEducation}
                                                 onChange={e => setFormData({ ...formData, motherEducation: e.target.value })} /></div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupation</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Occupation</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.motherOccupation}
                                                 onChange={e => setFormData({ ...formData, motherOccupation: e.target.value })} /></div>
-                                        <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Organization</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                        <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Organization</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.motherOrganization}
                                                 onChange={e => setFormData({ ...formData, motherOrganization: e.target.value })} /></div>
                                     </div>
-                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupational Position</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                    <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Occupational Position</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.motherPosition}
                                             onChange={e => setFormData({ ...formData, motherPosition: e.target.value })} /></div>
-                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Monthly Income</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                    <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Monthly Income</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.motherIncome}
                                             onChange={e => setFormData({ ...formData, motherIncome: e.target.value })} /></div>
-                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Work Phone #</label>
-                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-secondary/20 focus-within:border-secondary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.motherWorkPhoneCountryCode} onChange={e => setFormData({ ...formData, motherWorkPhoneCountryCode: e.target.value })} />
+                                    <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Work Phone #</label>
+                                        <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-secondary/20 focus-within:border-secondary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.motherWorkPhoneCountryCode} onChange={e => setFormData({ ...formData, motherWorkPhoneCountryCode: e.target.value })} />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.motherWorkPhone} onChange={e => setFormData({ ...formData, motherWorkPhone: e.target.value })} />
                                         </div></div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">C.N.I.C. #</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">C.N.I.C. #</label>
                                         <input
                                             type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg placeholder-zinc-300"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg placeholder-zinc-300"
                                             placeholder="00000-0000000-0"
                                             value={formData.motherCnic}
                                             onChange={e => setFormData({ ...formData, motherCnic: e.target.value })}
                                         />
                                     </div>
-                                    <div className="md:col-span-2"><label className="block text-sm font-medium text-zinc-700 mb-1.5">Office Address</label>
-                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                    <div className="md:col-span-2"><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Office Address</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.motherOfficeAddress}
                                             onChange={e => setFormData({ ...formData, motherOfficeAddress: e.target.value })} /></div>
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Email Address</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Email Address</label>
                                         <input
                                             type="email"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.motherEmail}
                                             onChange={e => setFormData({ ...formData, motherEmail: e.target.value })}
                                         />
@@ -1128,43 +1128,43 @@ export function AdmissionForm() {
 
                             {/* Guardian Info */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5">
-                                    <h3 className="text-base font-medium text-zinc-900">2c. Guardian / Next of Kin Information</h3>
-                                    <p className="text-sm text-zinc-500 mt-1">If candidate is not living with biological parents.</p>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">2c. Guardian / Next of Kin Information</h3>
+                                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">If candidate is not living with biological parents.</p>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-100 p-5 rounded-xl border border-zinc-200">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-100 dark:bg-zinc-800 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800">
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Guardian Name</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Guardian Name</label>
                                         <input
                                             type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.guardianName}
                                             onChange={e => setFormData({ ...formData, guardianName: e.target.value })}
                                         />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Mailing Address</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Mailing Address</label>
                                         <input
                                             type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             value={formData.guardianAddress}
                                             onChange={e => setFormData({ ...formData, guardianAddress: e.target.value })}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Cellular Phone #</label>
-                                        <div className="flex border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 outline-none text-sm" value={formData.guardianWhatsappCountryCode} onChange={e => setFormData({ ...formData, guardianWhatsappCountryCode: e.target.value })} />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Cellular Phone #</label>
+                                        <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
+                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.guardianWhatsappCountryCode} onChange={e => setFormData({ ...formData, guardianWhatsappCountryCode: e.target.value })} />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.guardianCellPhone} onChange={e => setFormData({ ...formData, guardianCellPhone: e.target.value })} />
                                         </div>
                                     </div>
-                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Relationship with Candidate</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
-                                    <div><label className="block text-sm font-medium text-zinc-700 mb-1.5">Occupation</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" /></div>
+                                    <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Relationship with Candidate</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" /></div>
+                                    <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Occupation</label><input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" /></div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">C.N.I.C. #</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">C.N.I.C. #</label>
                                         <input
                                             type="text"
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                             placeholder="00000-0000000-0"
                                             value={formData.guardianCnic}
                                             onChange={e => setFormData({ ...formData, guardianCnic: e.target.value })}
@@ -1175,20 +1175,20 @@ export function AdmissionForm() {
 
                             {/* Siblings & Relatives */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-8">
-                                    <h3 className="text-base font-medium text-zinc-900">3. General Information</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">3. General Information</h3>
                                 </div>
 
                                 <div className="space-y-6">
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-3">Siblings (Brothers/Sisters)</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">Siblings (Brothers/Sisters)</label>
                                         <div className="space-y-4">
                                             {formData.siblings.map((sibling, index) => (
-                                                <div key={`sib-${index}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-zinc-200 bg-white rounded-lg">
-                                                    <div><label className="block text-xs text-zinc-500 mb-1">Name</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                                    <div><label className="block text-xs text-zinc-500 mb-1">Relationship</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                                    <div><label className="block text-xs text-zinc-500 mb-1">Age</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                                    <div><label className="block text-xs text-zinc-500 mb-1">Current School/Uni</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
+                                                <div key={`sib-${index}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-lg">
+                                                    <div><label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Name</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                                    <div><label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Relationship</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                                    <div><label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Age</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                                    <div><label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Current School/Uni</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
                                                 </div>
                                             ))}
                                             <button type="button" className="text-sm font-medium text-primary hover:text-primary/80">+ Add brother/sister</button>
@@ -1197,11 +1197,11 @@ export function AdmissionForm() {
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-zinc-100">
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">What is his/her number among siblings?</label>
-                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 rounded-lg" />
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">What is his/her number among siblings?</label>
+                                            <input type="text" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Pick & Drop facility required?</label>
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Pick & Drop facility required?</label>
                                             <div className="flex gap-4 mt-2">
                                                 <label className="flex items-center"><input type="radio" name="pickDrop" className="mr-2 text-primary focus:ring-primary" /> Yes</label>
                                                 <label className="flex items-center"><input type="radio" name="pickDrop" className="mr-2 text-primary focus:ring-primary" defaultChecked /> No</label>
@@ -1210,24 +1210,24 @@ export function AdmissionForm() {
                                     </div>
 
                                     <div className="pt-4 border-t border-zinc-100">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-3">Relatives who attended TAFS</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">Relatives who attended TAFS</label>
                                         {formData.relativesAtTafs.map((rel, index) => (
-                                            <div key={`rel-${index}`} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-zinc-200 bg-white rounded-lg">
-                                                <div><label className="block text-xs text-zinc-500 mb-1">Name</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                                <div><label className="block text-xs text-zinc-500 mb-1">Class/Level</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                                <div><label className="block text-xs text-zinc-500 mb-1">Relationship</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
+                                            <div key={`rel-${index}`} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-lg">
+                                                <div><label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Name</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                                <div><label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Class/Level</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                                <div><label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Relationship</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
                                             </div>
                                         ))}
                                     </div>
 
                                     <div className="pt-4 border-t border-zinc-100">
-                                        <label className="block text-sm font-medium text-zinc-700 mb-3">Co-curricular Activities / Hobbies</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">Co-curricular Activities / Hobbies</label>
                                         {formData.coCurricular.map((act, index) => (
-                                            <div key={`act-${index}`} className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 border border-zinc-200 bg-white rounded-lg">
-                                                <div className="sm:col-span-2"><label className="block text-xs text-zinc-500 mb-1">Activity</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                                <div><label className="block text-xs text-zinc-500 mb-1">Grade</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                                <div><label className="block text-xs text-zinc-500 mb-1">Continue at TAFS?</label>
-                                                    <select className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded"><option>Yes</option><option>No</option></select>
+                                            <div key={`act-${index}`} className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-lg">
+                                                <div className="sm:col-span-2"><label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Activity</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                                <div><label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Grade</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                                <div><label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Continue at TAFS?</label>
+                                                    <select className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded"><option>Yes</option><option>No</option></select>
                                                 </div>
                                             </div>
                                         ))}
@@ -1237,53 +1237,53 @@ export function AdmissionForm() {
 
                             {/* Medical & Health */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-8">
-                                    <h3 className="text-base font-medium text-zinc-900">Health & Additional Details</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">Health & Additional Details</h3>
                                 </div>
                                 <div className="space-y-6">
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Areas in which candidate can improve</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Areas in which candidate can improve</label>
                                         <textarea
                                             rows={2}
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg resize-none"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg resize-none"
                                             value={formData.areasToImprove}
                                             onChange={e => setFormData({ ...formData, areasToImprove: e.target.value })}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Any medical / health problem / allergy?</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Any medical / health problem / allergy?</label>
                                         <textarea
                                             rows={2}
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg resize-none bg-red-50/30 focus:bg-white"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg resize-none bg-red-50/30 focus:bg-white dark:bg-zinc-950"
                                             value={formData.medicalProblems}
                                             onChange={e => setFormData({ ...formData, medicalProblems: e.target.value })}
                                         />
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Any medication?</label>
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Any medication?</label>
                                             <input
                                                 type="text"
-                                                className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.medication}
                                                 onChange={e => setFormData({ ...formData, medication: e.target.value })}
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Any physical impairment?</label>
+                                            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Any physical impairment?</label>
                                             <input
                                                 type="text"
-                                                className="w-full px-3 py-2 border border-zinc-300 rounded-lg"
+                                                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg"
                                                 value={formData.physicalImpairment}
                                                 onChange={e => setFormData({ ...formData, physicalImpairment: e.target.value })}
                                             />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 mb-1.5">Candidate&apos;s Interests</label>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Candidate&apos;s Interests</label>
                                         <textarea
                                             rows={2}
-                                            className="w-full px-3 py-2 border border-zinc-300 rounded-lg resize-none"
+                                            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg resize-none"
                                             value={formData.candidateInterests}
                                             onChange={e => setFormData({ ...formData, candidateInterests: e.target.value })}
                                         />
@@ -1293,10 +1293,10 @@ export function AdmissionForm() {
 
                             {/* Media Consent */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-8">
-                                    <h3 className="text-base font-medium text-zinc-900">4. Permission for Publicizing Images</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">4. Permission for Publicizing Images</h3>
                                 </div>
-                                <div className="bg-white border text-sm text-zinc-700 border-zinc-200 p-5 rounded-xl flex flex-col gap-4">
+                                <div className="bg-white dark:bg-zinc-950 border text-sm text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 p-5 rounded-xl flex flex-col gap-4">
                                     <p>I agree to allow TAFS to reproduce candidate&apos;s image along with his/her name for promotional activities.</p>
                                     <div className="flex gap-6">
                                         <label className="flex items-center"><input type="radio" name="mediaConsent" className="mr-2 text-primary focus:ring-primary h-4 w-4" defaultChecked /> Consent</label>
@@ -1314,10 +1314,10 @@ export function AdmissionForm() {
 
                             {/* Rules Summary */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5">
-                                    <h3 className="text-base font-medium text-zinc-900">Rules & Regulations</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">Rules & Regulations</h3>
                                 </div>
-                                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 text-sm text-zinc-600 space-y-3 h-64 overflow-y-auto">
+                                <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 text-sm text-zinc-600 dark:text-zinc-400 space-y-3 h-64 overflow-y-auto">
                                     <p><strong>1. Document Requirements:</strong> All admissions are conditional upon the submission of a valid birth certificate, vaccination card, C.N.I.C copies of parents, and required photographs.</p>
                                     <p><strong>2. Fee Payment:</strong> Tuition and other fees must be paid before the 10th of every month. A surcharge will be applied to late payments.</p>
                                     <p><strong>3. Withdrawal Policy:</strong> One month&apos;s notice in writing is required before the withdrawal of a student, failing which one month&apos;s fee will be charged in lieu.</p>
@@ -1329,21 +1329,21 @@ export function AdmissionForm() {
 
                             {/* Declaration */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-8">
-                                    <h3 className="text-base font-medium text-zinc-900">Declaration by Parents / Guardian</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">Declaration by Parents / Guardian</h3>
                                 </div>
                                 <div className="space-y-6">
-                                    <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-700 leading-relaxed">
+                                    <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                                         <span>I,</span>
-                                        <input type="text" className="flex-1 min-w-[200px] border-b-2 border-zinc-300 px-2 py-1 focus:border-primary outline-none bg-transparent" placeholder="Name of Parent/Guardian" />
+                                        <input type="text" className="flex-1 min-w-[200px] border-b-2 border-zinc-300 dark:border-zinc-700 px-2 py-1 focus:border-primary outline-none bg-transparent" placeholder="Name of Parent/Guardian" />
                                         <span>Father/Husband of (F/O)</span>
-                                        <input type="text" className="flex-1 min-w-[200px] border-b-2 border-zinc-300 px-2 py-1 focus:border-primary outline-none bg-transparent" />
+                                        <input type="text" className="flex-1 min-w-[200px] border-b-2 border-zinc-300 dark:border-zinc-700 px-2 py-1 focus:border-primary outline-none bg-transparent" />
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-700 leading-relaxed">
+                                    <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                                         <span>Resident of</span>
-                                        <input type="text" className="flex-[2] min-w-[300px] border-b-2 border-zinc-300 px-2 py-1 focus:border-primary outline-none bg-transparent" />
+                                        <input type="text" className="flex-[2] min-w-[300px] border-b-2 border-zinc-300 dark:border-zinc-700 px-2 py-1 focus:border-primary outline-none bg-transparent" />
                                         <span>holding C.N.I.C. #</span>
-                                        <input type="text" className="flex-1 min-w-[150px] border-b-2 border-zinc-300 px-2 py-1 focus:border-primary outline-none bg-transparent placeholder-zinc-300" placeholder="00000-0000000-0" />
+                                        <input type="text" className="flex-1 min-w-[150px] border-b-2 border-zinc-300 dark:border-zinc-700 px-2 py-1 focus:border-primary outline-none bg-transparent placeholder-zinc-300" placeholder="00000-0000000-0" />
                                     </div>
                                     <div className="bg-primary/5 text-primary border border-primary/20 p-4 rounded-lg text-sm mt-4">
                                         <p className="font-medium">Hereby solemnly declare and affirm that:</p>
@@ -1358,32 +1358,32 @@ export function AdmissionForm() {
 
                             {/* Signatures */}
                             <section>
-                                <div className="border-b border-zinc-200 pb-3 mb-5 mt-8">
-                                    <h3 className="text-base font-medium text-zinc-900">Signatures</h3>
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
+                                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">Signatures</h3>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                                    <div className="border border-zinc-200 rounded-lg p-4 flex flex-col items-center justify-center bg-white h-32">
-                                        <div className="flex-1 w-full border-b border-dashed border-zinc-300 flex items-end justify-center pb-2">
+                                    <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 flex flex-col items-center justify-center bg-white dark:bg-zinc-950 h-32">
+                                        <div className="flex-1 w-full border-b border-dashed border-zinc-300 dark:border-zinc-700 flex items-end justify-center pb-2">
                                             <span className="text-zinc-300 italic">Signature</span>
                                         </div>
-                                        <p className="text-xs font-medium text-zinc-600 mt-3 uppercase tracking-wider">Father&apos;s Signature</p>
+                                        <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mt-3 uppercase tracking-wider">Father&apos;s Signature</p>
                                     </div>
-                                    <div className="border border-zinc-200 rounded-lg p-4 flex flex-col items-center justify-center bg-white h-32">
-                                        <div className="flex-1 w-full border-b border-dashed border-zinc-300 flex items-end justify-center pb-2">
+                                    <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 flex flex-col items-center justify-center bg-white dark:bg-zinc-950 h-32">
+                                        <div className="flex-1 w-full border-b border-dashed border-zinc-300 dark:border-zinc-700 flex items-end justify-center pb-2">
                                             <span className="text-zinc-300 italic">Signature</span>
                                         </div>
-                                        <p className="text-xs font-medium text-zinc-600 mt-3 uppercase tracking-wider">Mother&apos;s Signature</p>
+                                        <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mt-3 uppercase tracking-wider">Mother&apos;s Signature</p>
                                     </div>
-                                    <div className="border border-zinc-200 rounded-lg p-4 flex flex-col items-center justify-center bg-zinc-50 h-32">
-                                        <div className="flex-1 w-full border-b border-dashed border-zinc-300 flex items-end justify-center pb-2">
+                                    <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-900 h-32">
+                                        <div className="flex-1 w-full border-b border-dashed border-zinc-300 dark:border-zinc-700 flex items-end justify-center pb-2">
                                             <span className="text-zinc-300 italic">Signature</span>
                                         </div>
-                                        <p className="text-xs font-medium text-zinc-600 mt-3 uppercase tracking-wider">Guardian&apos;s Signature</p>
+                                        <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mt-3 uppercase tracking-wider">Guardian&apos;s Signature</p>
                                     </div>
                                 </div>
                                 <div className="mt-6 w-full sm:w-1/3">
-                                    <label className="block text-sm font-medium text-zinc-700 mb-1.5">Date of Signing</label>
-                                    <input type="date" className="w-full px-3 py-2 border border-zinc-300 rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
+                                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Date of Signing</label>
+                                    <input type="date" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
                                 </div>
                             </section>
                         </div>
@@ -1399,58 +1399,58 @@ export function AdmissionForm() {
                             </div>
 
                             {/* Interviewer */}
-                            <section className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm">
-                                <h3 className="text-sm font-semibold text-zinc-900 border-b border-zinc-100 pb-2 mb-4">To Be Filled By The Interviewer</h3>
+                            <section className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm">
+                                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 border-b border-zinc-100 pb-2 mb-4">To Be Filled By The Interviewer</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div><label className="block text-xs font-medium text-zinc-700 mb-1">Date</label><input type="date" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                    <div><label className="block text-xs font-medium text-zinc-700 mb-1">Class/Level Recommended</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                    <div className="sm:col-span-2"><label className="block text-xs font-medium text-zinc-700 mb-1">Remarks</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
+                                    <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Date</label><input type="date" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                    <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Class/Level Recommended</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                    <div className="sm:col-span-2"><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Remarks</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
                                 </div>
                                 <div className="mt-4 flex gap-4">
-                                    <input type="text" className="flex-1 px-2 py-1.5 text-sm border-b border-zinc-300 mt-4 focus:outline-none focus:border-primary" placeholder="Interviewer's Name" />
-                                    <div className="flex-1 text-center border-t border-zinc-300 mt-8 pt-1 text-xs text-zinc-500">Signature</div>
+                                    <input type="text" className="flex-1 px-2 py-1.5 text-sm border-b border-zinc-300 dark:border-zinc-700 mt-4 focus:outline-none focus:border-primary" placeholder="Interviewer's Name" />
+                                    <div className="flex-1 text-center border-t border-zinc-300 dark:border-zinc-700 mt-8 pt-1 text-xs text-zinc-500 dark:text-zinc-400">Signature</div>
                                 </div>
                             </section>
 
                             {/* Admission Order */}
-                            <section className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm">
-                                <h3 className="text-sm font-semibold text-zinc-900 border-b border-zinc-100 pb-2 mb-4">Admission Order</h3>
+                            <section className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm">
+                                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 border-b border-zinc-100 pb-2 mb-4">Admission Order</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div><label className="block text-xs font-medium text-zinc-700 mb-1">Found fit for Class/Level</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                    <div><label className="block text-xs font-medium text-zinc-700 mb-1">Section</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                    <div className="sm:col-span-2"><label className="block text-xs font-medium text-zinc-700 mb-1">Admin Remarks</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
+                                    <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Found fit for Class/Level</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                    <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Section</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                    <div className="sm:col-span-2"><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Admin Remarks</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
                                 </div>
                                 <div className="grid grid-cols-3 gap-6 mt-10">
-                                    <div className="text-center border-t border-zinc-300 pt-1 text-xs text-zinc-500">Accountant</div>
-                                    <div className="text-center border-t border-zinc-300 pt-1 text-xs text-zinc-500">Directress Admin & P-G</div>
-                                    <div className="text-center border-t border-zinc-300 pt-1 text-xs text-zinc-500">Directress Finance</div>
+                                    <div className="text-center border-t border-zinc-300 dark:border-zinc-700 pt-1 text-xs text-zinc-500 dark:text-zinc-400">Accountant</div>
+                                    <div className="text-center border-t border-zinc-300 dark:border-zinc-700 pt-1 text-xs text-zinc-500 dark:text-zinc-400">Directress Admin & P-G</div>
+                                    <div className="text-center border-t border-zinc-300 dark:border-zinc-700 pt-1 text-xs text-zinc-500 dark:text-zinc-400">Directress Finance</div>
                                 </div>
                             </section>
 
                             {/* Accounts */}
-                            <section className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm">
-                                <h3 className="text-sm font-semibold text-zinc-900 border-b border-zinc-100 pb-2 mb-4">To Be Filled By The Accounts Department</h3>
+                            <section className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm">
+                                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 border-b border-zinc-100 pb-2 mb-4">To Be Filled By The Accounts Department</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="md:col-span-2"><label className="block text-xs font-medium text-zinc-700 mb-1">Candidate&apos;s Name</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded bg-zinc-50" readOnly /></div>
-                                    <div><label className="block text-xs font-medium text-zinc-700 mb-1">Class/Section</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                    <div className="md:col-span-3"><label className="block text-xs font-medium text-zinc-700 mb-1">Father&apos;s Name</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded bg-zinc-50" readOnly /></div>
+                                    <div className="md:col-span-2"><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Candidate&apos;s Name</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-50 dark:bg-zinc-900" readOnly /></div>
+                                    <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Class/Section</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                    <div className="md:col-span-3"><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Father&apos;s Name</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-50 dark:bg-zinc-900" readOnly /></div>
 
-                                    <div><label className="block text-xs font-medium text-zinc-700 mb-1">Registration #</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded bg-zinc-50" readOnly /></div>
-                                    <div><label className="block text-xs font-medium text-zinc-700 mb-1">Computer Code #</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded bg-zinc-50" readOnly /></div>
-                                    <div><label className="block text-xs font-medium text-zinc-700 mb-1">G.R. #</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
+                                    <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Registration #</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-50 dark:bg-zinc-900" readOnly /></div>
+                                    <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Computer Code #</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-50 dark:bg-zinc-900" readOnly /></div>
+                                    <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">G.R. #</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
 
-                                    <div className="md:col-span-3 border-t border-zinc-100 mt-2 pt-4"><label className="block text-xs font-medium text-zinc-700 mb-1">Link to G.R. # (If sibling)</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
+                                    <div className="md:col-span-3 border-t border-zinc-100 mt-2 pt-4"><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Link to G.R. # (If sibling)</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
 
-                                    <div><label className="block text-xs font-medium text-zinc-700 mb-1">Challan #</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                    <div><label className="block text-xs font-medium text-zinc-700 mb-1">Amount in Figures</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" placeholder="₨" /></div>
-                                    <div><label className="block text-xs font-medium text-zinc-700 mb-1">Dated</label><input type="date" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
-                                    <div className="md:col-span-3"><label className="block text-xs font-medium text-zinc-700 mb-1">Amount in Words</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 rounded" /></div>
+                                    <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Challan #</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                    <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Amount in Figures</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" placeholder="₨" /></div>
+                                    <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Dated</label><input type="date" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
+                                    <div className="md:col-span-3"><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Amount in Words</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-10">
-                                    <div className="text-center border-t border-zinc-300 pt-1 text-xs text-zinc-500">Admission Registrar</div>
-                                    <div className="text-center border-t border-zinc-300 pt-1 text-xs text-zinc-500">Accountant</div>
-                                    <div className="text-center border-t border-zinc-300 pt-1 text-xs text-zinc-500">Posted By</div>
-                                    <div className="text-center border-t border-zinc-300 pt-1 text-xs font-medium text-primary">Head of Institution</div>
+                                    <div className="text-center border-t border-zinc-300 dark:border-zinc-700 pt-1 text-xs text-zinc-500 dark:text-zinc-400">Admission Registrar</div>
+                                    <div className="text-center border-t border-zinc-300 dark:border-zinc-700 pt-1 text-xs text-zinc-500 dark:text-zinc-400">Accountant</div>
+                                    <div className="text-center border-t border-zinc-300 dark:border-zinc-700 pt-1 text-xs text-zinc-500 dark:text-zinc-400">Posted By</div>
+                                    <div className="text-center border-t border-zinc-300 dark:border-zinc-700 pt-1 text-xs font-medium text-primary">Head of Institution</div>
                                 </div>
                             </section>
 
@@ -1489,11 +1489,11 @@ export function AdmissionForm() {
                         <span>{submitError}</span>
                     </div>
                 )}
-                <div className="px-6 py-4 border-t border-zinc-200 bg-zinc-50 flex items-center justify-between">
+                <div className="px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-between">
                     <button
                         onClick={handlePrev}
                         disabled={isFirstStep}
-                        className={`inline-flex items-center px-4 py-2 border rounded-lg text-sm font-medium transition-all ${isFirstStep ? 'border-zinc-200 text-zinc-400 bg-zinc-50 cursor-not-allowed' : 'border-zinc-300 text-zinc-700 bg-white hover:bg-zinc-50 hover:text-zinc-900 active:scale-95'}`}
+                        className={`inline-flex items-center px-4 py-2 border rounded-lg text-sm font-medium transition-all ${isFirstStep ? 'border-zinc-200 dark:border-zinc-800 text-zinc-400 bg-zinc-50 dark:bg-zinc-900 cursor-not-allowed' : 'border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 hover:text-zinc-900 dark:text-zinc-100 active:scale-95'}`}
                     >
                         <ChevronLeft className="h-4 w-4 mr-1.5" /> Previous
                     </button>
