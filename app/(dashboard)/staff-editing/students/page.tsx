@@ -114,6 +114,7 @@ export default function StudentsSpreadsheetPage() {
     const [selectedClass, setSelectedClass] = useState<string>("");
     const [selectedSection, setSelectedSection] = useState<string>("");
     const [searchTerm, setSearchTerm] = useState("");
+    const [filterEmptyFields, setFilterEmptyFields] = useState(false);
 
     // Modal state
     const [isGuardianModalOpen, setIsGuardianModalOpen] = useState(false);
@@ -138,6 +139,7 @@ export default function StudentsSpreadsheetPage() {
     const selectedClassRef = useRef(selectedClass);
     const selectedSectionRef = useRef(selectedSection);
     const searchTermRef = useRef(searchTerm);
+    const filterEmptyFieldsRef = useRef(filterEmptyFields);
 
     // Column resizing state
     const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
@@ -193,6 +195,7 @@ export default function StudentsSpreadsheetPage() {
                     class_id: selectedClassRef.current || undefined,
                     section_id: selectedSectionRef.current || undefined,
                     search: searchTermRef.current || undefined,
+                    filterEmptyFields: filterEmptyFieldsRef.current || undefined,
                 },
             });
             const items: StudentItem[] = data?.data?.items || [];
@@ -224,6 +227,7 @@ export default function StudentsSpreadsheetPage() {
                     class_id: selectedClassRef.current || undefined,
                     section_id: selectedSectionRef.current || undefined,
                     search: searchTermRef.current || undefined,
+                    filterEmptyFields: filterEmptyFieldsRef.current || undefined,
                 },
             });
             const items: StudentItem[] = data?.data?.items || [];
@@ -250,11 +254,12 @@ export default function StudentsSpreadsheetPage() {
     useEffect(() => { selectedCampusRef.current = selectedCampus; }, [selectedCampus]);
     useEffect(() => { selectedClassRef.current = selectedClass; }, [selectedClass]);
     useEffect(() => { selectedSectionRef.current = selectedSection; }, [selectedSection]);
+    useEffect(() => { filterEmptyFieldsRef.current = filterEmptyFields; }, [filterEmptyFields]);
 
     // Reload from page 1 whenever a filter dropdown changes
     useEffect(() => {
         loadStudents();
-    }, [selectedCampus, selectedClass, selectedSection, loadStudents]);
+    }, [selectedCampus, selectedClass, selectedSection, filterEmptyFields, loadStudents]);
 
     // Debounced patch function
     const debouncedPatch = useMemo(
@@ -438,6 +443,24 @@ export default function StudentsSpreadsheetPage() {
                             className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all font-medium"
                         />
                     </form>
+                </div>
+
+                <div className="flex items-center gap-3 px-1">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                        <div className="relative">
+                            <input
+                                type="checkbox"
+                                checked={filterEmptyFields}
+                                onChange={(e) => setFilterEmptyFields(e.target.checked)}
+                                className="sr-only peer"
+                            />
+                            <div className="w-10 h-5 bg-zinc-200 dark:bg-zinc-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-zinc-900"></div>
+                        </div>
+                        <span className="text-xs font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 transition-colors flex items-center gap-1.5">
+                            <AlertCircle className="h-3 w-3 text-red-500" />
+                            Show Records with Empty Fields
+                        </span>
+                    </label>
                 </div>
             </div>
 
