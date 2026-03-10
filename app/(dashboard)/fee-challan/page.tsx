@@ -607,6 +607,8 @@ export default function FeeChallanGenerator() {
                                                     campus: student.campus,
                                                     class_id: student.class_id,
                                                     section_id: student.section_id,
+                                                    className: classes.find(c => c.id === student.class_id)?.description || "Unknown",
+                                                    sectionName: sections.find(s => s.id === student.section_id)?.description || "N/A",
                                                     grade_and_section: student.grade_and_section
                                                 }}
                                                 details={{
