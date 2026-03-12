@@ -29,6 +29,9 @@ export interface VoucherBankAccount {
     bank_name: string;
     account_title: string;
     account_number: string;
+    branch_code: string | null;
+    bank_address: string | null;
+    iban: string | null;
 }
 
 export interface VoucherItem {
