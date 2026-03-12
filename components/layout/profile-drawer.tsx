@@ -1,6 +1,6 @@
 'use client';
 
-import { X, UserCheck, Shield, LifeBuoy, LogOut, Users, CreditCard, Building2 } from "lucide-react";
+import { X, UserCheck, Shield, LifeBuoy, LogOut, Users, CreditCard, Building2, Receipt } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -91,6 +91,11 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                     <Link href="/banks" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors">
                         <Building2 className="h-5 w-5 mr-3 text-primary" />
                         <span className="font-medium text-sm">Banks Management</span>
+                    </Link>
+
+                    <Link href="/vouchers" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors">
+                        <Receipt className="h-5 w-5 mr-3 text-primary" />
+                        <span className="font-medium text-sm">Vouchers</span>
                     </Link>
 
                     <div className="mt-auto pt-4 border-t border-zinc-100">

@@ -1,0 +1,662 @@
+"use client";
+
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+    Search, Loader2, AlertCircle, FileText, ChevronDown, X,
+    RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
+    Building2, GraduationCap, Users, Hash, CreditCard, SlidersHorizontal,
+    ChevronLeft, ChevronRight,
+} from "lucide-react";
+import api from "@/lib/api";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import { fetchClasses } from "@/store/slices/classesSlice";
+import { fetchCampuses } from "@/store/slices/campusesSlice";
+import { fetchSections } from "@/store/slices/sectionsSlice";
+import { fetchVouchers, VoucherFilters, VoucherItem } from "@/store/slices/vouchersSlice";
+import toast from "react-hot-toast";
+
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+const STATUS_OPTIONS = [
+    { value: "", label: "All Statuses", icon: Filter, color: "text-zinc-400" },
+    { value: "UNPAID", label: "Unpaid", icon: Clock, color: "text-amber-500" },
+    { value: "PAID", label: "Paid", icon: CheckCircle2, color: "text-emerald-500" },
+    { value: "OVERDUE", label: "Overdue", icon: XCircle, color: "text-rose-500" },
+];
+
+const PAGE_SIZE_OPTIONS = [20, 50, 100];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatDate(dateStr: string | null | undefined) {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString("en-PK", {
+        day: "2-digit", month: "short", year: "numeric",
+    });
+}
+
+function getStatusConfig(status: string | null) {
+    switch (status) {
+        case "PAID":
+            return { label: "Paid", classes: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800" };
+        case "OVERDUE":
+            return { label: "Overdue", classes: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800" };
+        default:
+            return { label: "Unpaid", classes: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800" };
+    }
+}
+
+// ─── Custom Dropdown ─────────────────────────────────────────────────────────
+
+interface DropdownOption { id: number; label: string; sub?: string; }
+
+function FilterDropdown({
+    label, icon: Icon, value, options, loading, placeholder, onSelect, onClear,
+}: {
+    label: string;
+    icon: React.ElementType;
+    value: number | "";
+    options: DropdownOption[];
+    loading?: boolean;
+    placeholder: string;
+    onSelect: (id: number) => void;
+    onClear: () => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const ref = useRef<HTMLDivElement>(null);
+    const selected = options.find(o => o.id === value);
+    const filtered = options.filter(o =>
+        o.label.toLowerCase().includes(search.toLowerCase()) ||
+        (o.sub && o.sub.toLowerCase().includes(search.toLowerCase()))
+    );
+
+    useEffect(() => {
+        const h = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener("mousedown", h);
+        return () => document.removeEventListener("mousedown", h);
+    }, []);
+
+    return (
+        <div className="flex flex-col gap-1.5" ref={ref}>
+            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                <Icon className="h-3 w-3" /> {label}
+            </label>
+            <div className="relative">
+                <button
+                    type="button"
+                    id={`filter-${label.toLowerCase().replace(/\s/g, "-")}`}
+                    onClick={() => { setOpen(o => !o); setSearch(""); }}
+                    className={`w-full h-11 flex items-center justify-between px-4 rounded-xl text-sm transition-all border shadow-sm
+                        ${value !== "" ? "bg-primary/5 border-primary/30 text-zinc-900 dark:text-zinc-100" : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-400"}
+                        hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/10`}
+                >
+                    <span className="font-semibold truncate">
+                        {selected ? selected.label : placeholder}
+                    </span>
+                    <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                        {value !== "" && (
+                            <span
+                                role="button"
+                                onClick={(e) => { e.stopPropagation(); onClear(); }}
+                                className="p-0.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </span>
+                        )}
+                        <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+                    </div>
+                </button>
+
+                {open && (
+                    <div className="absolute z-50 top-full mt-2 w-full min-w-[220px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                        <div className="p-2.5 border-b border-zinc-100 dark:border-zinc-800">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                                <input
+                                    autoFocus type="text" placeholder="Search..."
+                                    value={search} onChange={e => setSearch(e.target.value)}
+                                    className="w-full pl-9 pr-3 h-8 text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:border-primary placeholder:text-zinc-400"
+                                />
+                            </div>
+                        </div>
+                        <div className="max-h-56 overflow-y-auto p-1">
+                            {loading ? (
+                                <div className="flex items-center justify-center gap-2 py-6 text-zinc-400 text-xs">
+                                    <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+                                </div>
+                            ) : filtered.length === 0 ? (
+                                <div className="py-6 text-center text-xs text-zinc-400">No results</div>
+                            ) : filtered.map(o => (
+                                <button
+                                    key={o.id} type="button"
+                                    onClick={() => { onSelect(o.id); setOpen(false); }}
+                                    className={`w-full flex items-center justify-between px-3.5 h-10 rounded-lg text-sm transition-all
+                                        ${value === o.id ? "bg-primary text-white font-semibold" : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}
+                                >
+                                    <span>{o.label}</span>
+                                    {o.sub && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${value === o.id ? "bg-white/20" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400"}`}>{o.sub}</span>}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─── Voucher Row ─────────────────────────────────────────────────────────────
+
+function VoucherRow({ voucher, index }: { voucher: VoucherItem; index: number }) {
+    const status = getStatusConfig(voucher.status);
+    return (
+        <tr className="group border-b border-zinc-100 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
+            <td className="px-5 py-3.5 text-center">
+                <span className="text-[11px] font-mono text-zinc-400">{index + 1}</span>
+            </td>
+            <td className="px-5 py-3.5">
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]">
+                        {voucher.students?.full_name || "—"}
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black tracking-wider bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-2 py-0.5 rounded-md">
+                            CC-{voucher.students?.cc}
+                        </span>
+                        {voucher.students?.gr_number && (
+                            <span className="text-[10px] font-semibold text-zinc-400">
+                                GR: {voucher.students.gr_number}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </td>
+            <td className="px-5 py-3.5">
+                <span className="text-sm text-zinc-700 dark:text-zinc-300 font-medium">
+                    {voucher.campuses?.campus_name || "—"}
+                </span>
+            </td>
+            <td className="px-5 py-3.5">
+                <span className="text-sm text-zinc-700 dark:text-zinc-300 font-medium">
+                    {voucher.classes?.description || "—"}
+                </span>
+            </td>
+            <td className="px-5 py-3.5">
+                <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                    {voucher.sections?.description || <span className="text-zinc-300">—</span>}
+                </span>
+            </td>
+            <td className="px-5 py-3.5">
+                <span className="text-sm text-zinc-600 dark:text-zinc-400 font-mono">
+                    {formatDate(voucher.issue_date)}
+                </span>
+            </td>
+            <td className="px-5 py-3.5">
+                <span className="text-sm text-zinc-600 dark:text-zinc-400 font-mono">
+                    {formatDate(voucher.due_date)}
+                </span>
+            </td>
+            <td className="px-5 py-3.5">
+                <span className={`inline-flex items-center px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border ${status.classes}`}>
+                    {status.label}
+                </span>
+            </td>
+            <td className="px-5 py-3.5">
+                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md ${voucher.late_fee_charge ? "bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400" : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800"}`}>
+                    {voucher.late_fee_charge ? "Yes" : "No"}
+                </span>
+            </td>
+            <td className="px-5 py-3.5">
+                <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate max-w-[140px] block">
+                    {voucher.bank_accounts?.bank_name || "—"}
+                </span>
+            </td>
+        </tr>
+    );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+export default function VouchersPage() {
+    const dispatch = useAppDispatch();
+
+    // Redux data
+    const vouchers = useAppSelector(s => s.vouchers.items);
+    const vouchersLoading = useAppSelector(s => s.vouchers.isLoading);
+    const vouchersError = useAppSelector(s => s.vouchers.error);
+    const campuses = useAppSelector(s => s.campuses.items);
+    const campusesLoading = useAppSelector(s => s.campuses.isLoading);
+    const classes = useAppSelector(s => s.classes.items);
+    const classesLoading = useAppSelector(s => s.classes.isLoading);
+    const sections = useAppSelector(s => s.sections.items);
+    const sectionsLoading = useAppSelector(s => s.sections.isLoading);
+
+    // Filter state
+    const [campusId, setCampusId] = useState<number | "">("");
+    const [classId, setClassId] = useState<number | "">("");
+    const [sectionId, setSectionId] = useState<number | "">("");
+    const [ccInput, setCcInput] = useState("");
+    const [grInput, setGrInput] = useState("");
+    const [statusFilter, setStatusFilter] = useState("");
+    const [activeFiltersApplied, setActiveFiltersApplied] = useState<VoucherFilters>({});
+
+    // Table state
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const [showFilters, setShowFilters] = useState(true);
+
+    // Load reference data + initial vouchers
+    useEffect(() => {
+        if (campuses.length === 0) dispatch(fetchCampuses());
+        if (classes.length === 0) dispatch(fetchClasses());
+        if (sections.length === 0) dispatch(fetchSections());
+        dispatch(fetchVouchers({}));
+    }, [dispatch]);
+
+    const buildFilters = useCallback((): VoucherFilters => {
+        const f: VoucherFilters = {};
+        if (campusId !== "") f.campus_id = campusId as number;
+        if (classId !== "") f.class_id = classId as number;
+        if (sectionId !== "") f.section_id = sectionId as number;
+        if (statusFilter) f.status = statusFilter;
+
+        const ccNum = parseInt(ccInput.replace(/\D/g, ""));
+        if (!isNaN(ccNum) && ccNum > 0) f.cc = ccNum;
+        if (grInput.trim()) f.gr = grInput.trim();
+        return f;
+    }, [campusId, classId, sectionId, statusFilter, ccInput, grInput]);
+
+    const handleApplyFilters = useCallback(() => {
+        const filters = buildFilters();
+        setActiveFiltersApplied(filters);
+        setPage(1);
+        dispatch(fetchVouchers(filters));
+    }, [buildFilters, dispatch]);
+
+    const handleClearFilters = () => {
+        setCampusId("");
+        setClassId("");
+        setSectionId("");
+        setCcInput("");
+        setGrInput("");
+        setStatusFilter("");
+        setActiveFiltersApplied({});
+        setPage(1);
+        dispatch(fetchVouchers({}));
+    };
+
+    const handleRefresh = () => {
+        dispatch(fetchVouchers(activeFiltersApplied));
+        toast.success("Vouchers refreshed");
+    };
+
+    // Pagination
+    const totalPages = Math.ceil(vouchers.length / pageSize);
+    const paginatedVouchers = vouchers.slice((page - 1) * pageSize, page * pageSize);
+
+    const activeFilterCount = Object.keys(activeFiltersApplied).length;
+
+    // Stat cards
+    const stats = {
+        total: vouchers.length,
+        paid: vouchers.filter(v => v.status === "PAID").length,
+        unpaid: vouchers.filter(v => v.status !== "PAID" && v.status !== "OVERDUE").length,
+        overdue: vouchers.filter(v => v.status === "OVERDUE").length,
+    };
+
+    const campusOptions: DropdownOption[] = campuses.map(c => ({ id: c.id, label: c.campus_name, sub: c.campus_code }));
+    const classOptions: DropdownOption[] = classes.map(c => ({ id: c.id, label: c.description, sub: c.class_code }));
+    const sectionOptions: DropdownOption[] = sections.map(s => ({ id: s.id, label: s.description }));
+
+    return (
+        <div className="space-y-6 pb-20">
+            {/* ── Header ───────────────────────────────────────────────────── */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-3">
+                        <span className="p-2 bg-primary/10 rounded-xl">
+                            <Receipt className="h-6 w-6 text-primary" />
+                        </span>
+                        Vouchers
+                    </h1>
+                    <p className="text-zinc-500 dark:text-zinc-400 mt-1 text-sm">
+                        Browse and filter fee vouchers across campuses and classes.
+                    </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <button
+                        id="btn-toggle-filters"
+                        onClick={() => setShowFilters(f => !f)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all
+                            ${showFilters ? "bg-primary/10 border-primary/20 text-primary" : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:border-zinc-300"}`}
+                    >
+                        <SlidersHorizontal className="h-4 w-4" />
+                        Filters
+                        {activeFilterCount > 0 && (
+                            <span className="ml-1 bg-primary text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center">
+                                {activeFilterCount}
+                            </span>
+                        )}
+                    </button>
+
+                    <button
+                        id="btn-refresh-vouchers"
+                        onClick={handleRefresh}
+                        disabled={vouchersLoading}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:border-zinc-300 transition-all disabled:opacity-60"
+                    >
+                        <RefreshCw className={`h-4 w-4 ${vouchersLoading ? "animate-spin" : ""}`} />
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            {/* ── Stat Cards ───────────────────────────────────────────────── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { label: "Total Vouchers", value: stats.total, icon: FileText, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20" },
+                    { label: "Paid", value: stats.paid, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
+                    { label: "Unpaid", value: stats.unpaid, icon: Clock, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-900/20" },
+                    { label: "Overdue", value: stats.overdue, icon: XCircle, color: "text-rose-500", bg: "bg-rose-50 dark:bg-rose-900/20" },
+                ].map(s => (
+                    <div key={s.label} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
+                        <div className={`p-3 rounded-xl ${s.bg}`}>
+                            <s.icon className={`h-5 w-5 ${s.color}`} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{s.label}</p>
+                            <p className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tabular-nums leading-tight">
+                                {vouchersLoading ? <span className="text-zinc-300">—</span> : s.value}
+                            </p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* ── Filter Panel ─────────────────────────────────────────────── */}
+            {showFilters && (
+                <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[28px] p-6 shadow-sm animate-in slide-in-from-top-4 fade-in duration-200">
+                    <div className="flex items-center justify-between mb-5">
+                        <div className="flex items-center gap-2">
+                            <Filter className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">Filter Vouchers</span>
+                            {activeFilterCount > 0 && (
+                                <span className="text-[10px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                                    {activeFilterCount} active
+                                </span>
+                            )}
+                        </div>
+                        {activeFilterCount > 0 && (
+                            <button
+                                id="btn-clear-filters"
+                                onClick={handleClearFilters}
+                                className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-rose-500 transition-colors"
+                            >
+                                <X className="h-3.5 w-3.5" /> Clear all
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                        {/* Campus */}
+                        <FilterDropdown
+                            label="Campus"
+                            icon={Building2}
+                            value={campusId}
+                            options={campusOptions}
+                            loading={campusesLoading}
+                            placeholder="All Campuses"
+                            onSelect={v => setCampusId(v)}
+                            onClear={() => setCampusId("")}
+                        />
+
+                        {/* Class */}
+                        <FilterDropdown
+                            label="Class"
+                            icon={GraduationCap}
+                            value={classId}
+                            options={classOptions}
+                            loading={classesLoading}
+                            placeholder="All Classes"
+                            onSelect={v => setClassId(v)}
+                            onClear={() => setClassId("")}
+                        />
+
+                        {/* Section */}
+                        <FilterDropdown
+                            label="Section"
+                            icon={Users}
+                            value={sectionId}
+                            options={sectionOptions}
+                            loading={sectionsLoading}
+                            placeholder="All Sections"
+                            onSelect={v => setSectionId(v)}
+                            onClear={() => setSectionId("")}
+                        />
+
+                        {/* CC Number */}
+                        <div className="flex flex-col gap-1.5">
+                            <label htmlFor="filter-cc" className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                                <Hash className="h-3 w-3" /> CC Number
+                            </label>
+                            <div className="relative">
+                                <input
+                                    id="filter-cc"
+                                    type="text"
+                                    placeholder="e.g. 1001 or CC-1001"
+                                    value={ccInput}
+                                    onChange={e => setCcInput(e.target.value)}
+                                    className="w-full h-11 px-4 pr-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all placeholder:text-zinc-400"
+                                />
+                                {ccInput && (
+                                    <button
+                                        onClick={() => setCcInput("")}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* GR Number */}
+                        <div className="flex flex-col gap-1.5">
+                            <label htmlFor="filter-gr" className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                                <CreditCard className="h-3 w-3" /> GR Number
+                            </label>
+                            <div className="relative">
+                                <input
+                                    id="filter-gr"
+                                    type="text"
+                                    placeholder="e.g. GR-2024-001"
+                                    value={grInput}
+                                    onChange={e => setGrInput(e.target.value)}
+                                    className="w-full h-11 px-4 pr-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all placeholder:text-zinc-400"
+                                />
+                                {grInput && (
+                                    <button
+                                        onClick={() => setGrInput("")}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Status */}
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                                <CheckCircle2 className="h-3 w-3" /> Status
+                            </label>
+                            <div className="flex gap-2 flex-wrap">
+                                {STATUS_OPTIONS.map(opt => (
+                                    <button
+                                        key={opt.value}
+                                        id={`status-filter-${opt.value || "all"}`}
+                                        type="button"
+                                        onClick={() => setStatusFilter(opt.value)}
+                                        className={`flex items-center gap-1.5 px-3.5 py-2 h-11 rounded-xl text-xs font-bold border transition-all
+                                            ${statusFilter === opt.value
+                                                ? "bg-primary text-white border-primary shadow-sm"
+                                                : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-300"
+                                            }`}
+                                    >
+                                        <opt.icon className={`h-3.5 w-3.5 ${statusFilter === opt.value ? "text-white" : opt.color}`} />
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Apply Button */}
+                    <div className="mt-5 flex justify-end">
+                        <button
+                            id="btn-apply-filters"
+                            onClick={handleApplyFilters}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95"
+                        >
+                            <Filter className="h-4 w-4" />
+                            Apply Filters
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Error Banner ─────────────────────────────────────────────── */}
+            {vouchersError && (
+                <div className="flex items-center gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-xl p-4 text-sm">
+                    <AlertCircle className="h-5 w-5 shrink-0" />
+                    <span className="font-medium">{vouchersError}</span>
+                </div>
+            )}
+
+            {/* ── Table ────────────────────────────────────────────────────── */}
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm overflow-hidden">
+
+                {/* Table header bar */}
+                <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">
+                            {vouchersLoading ? "Loading…" : `${vouchers.length.toLocaleString()} voucher${vouchers.length !== 1 ? "s" : ""}`}
+                        </span>
+                        {activeFilterCount > 0 && (
+                            <span className="text-[10px] font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
+                                filtered
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Per page</label>
+                        <select
+                            id="select-page-size"
+                            value={pageSize}
+                            onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
+                            className="h-8 px-3 text-xs font-bold bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:border-primary"
+                        >
+                            {PAGE_SIZE_OPTIONS.map(n => (
+                                <option key={n} value={n}>{n}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                {vouchersLoading ? (
+                    <div className="flex flex-col items-center justify-center py-40 gap-4">
+                        <Loader2 className="h-10 w-10 animate-spin text-primary/30" />
+                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Fetching Vouchers…</p>
+                    </div>
+                ) : vouchers.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-40 gap-5 text-center">
+                        <div className="p-7 bg-zinc-50 dark:bg-zinc-900 rounded-full border border-zinc-200 dark:border-zinc-800">
+                            <Receipt className="h-10 w-10 text-zinc-200 dark:text-zinc-700" />
+                        </div>
+                        <div>
+                            <p className="font-bold text-zinc-900 dark:text-zinc-100">No vouchers found</p>
+                            <p className="text-sm text-zinc-400 mt-1">
+                                {activeFilterCount > 0 ? "Try adjusting your filters." : "No vouchers have been generated yet."}
+                            </p>
+                        </div>
+                        {activeFilterCount > 0 && (
+                            <button
+                                onClick={handleClearFilters}
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-primary border border-primary/20 bg-primary/5 rounded-xl hover:bg-primary/10 transition-colors"
+                            >
+                                <X className="h-4 w-4" /> Clear Filters
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="overflow-auto">
+                        <table className="w-full border-collapse">
+                            <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800">
+                                <tr>
+                                    {["#", "Student", "Campus", "Class", "Section", "Issue Date", "Due Date", "Status", "Late Fee", "Bank"].map(h => (
+                                        <th key={h} className="px-5 py-3.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">
+                                            {h}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedVouchers.map((v, i) => (
+                                    <VoucherRow key={v.id} voucher={v} index={(page - 1) * pageSize + i} />
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {/* Pagination */}
+                {!vouchersLoading && totalPages > 1 && (
+                    <div className="px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                        <p className="text-xs text-zinc-400 font-medium">
+                            Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, vouchers.length)} of {vouchers.length}
+                        </p>
+                        <div className="flex items-center gap-1">
+                            <button
+                                id="btn-prev-page"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            >
+                                <ChevronLeft className="h-4 w-4 text-zinc-500" />
+                            </button>
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                let p: number;
+                                if (totalPages <= 5) { p = i + 1; }
+                                else if (page <= 3) { p = i + 1; }
+                                else if (page >= totalPages - 2) { p = totalPages - 4 + i; }
+                                else { p = page - 2 + i; }
+                                return (
+                                    <button
+                                        key={p} id={`btn-page-${p}`}
+                                        onClick={() => setPage(p)}
+                                        className={`w-8 h-8 rounded-lg text-xs font-bold transition-all
+                                            ${p === page ? "bg-primary text-white" : "border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}
+                                    >
+                                        {p}
+                                    </button>
+                                );
+                            })}
+                            <button
+                                id="btn-next-page"
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page === totalPages}
+                                className="p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            >
+                                <ChevronRight className="h-4 w-4 text-zinc-500" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
