@@ -21,6 +21,7 @@ export interface StudentListItem {
   advance_credit_balance: number | null;
   primary_guardian_cnic: string | null;
   date_of_birth: string | null;
+  gender: string | null;
   registration_number: string | null;
   date_of_admission: string | null;
   house_and_color: string | null;

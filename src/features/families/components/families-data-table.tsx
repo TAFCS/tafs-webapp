@@ -96,7 +96,7 @@ export function FamiliesDataTable({
             setAssignFamilySearch("");
             setAssignError(null);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAssignOpen]);
 
     // ── Fetch families from API ───────────────────────────────────────────────
@@ -465,6 +465,15 @@ export function FamiliesDataTable({
                                         />
                                     </div>
                                     <div>
+                                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Password</label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 dark:border-zinc-700 focus:ring-primary focus:border-primary text-sm"
+                                            value={createForm.password ?? ""}
+                                            onChange={e => setCreateForm(f => ({ ...f, password: e.target.value || undefined }))}
+                                        />
+                                    </div>
+                                    <div className="col-span-2">
                                         <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Username</label>
                                         <input
                                             type="text"

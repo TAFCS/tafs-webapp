@@ -165,6 +165,39 @@ const styles = StyleSheet.create({
         color: '#666666',
         alignSelf: 'flex-end',
         marginTop: 10,
+    },
+    paymentOptionsTable: {
+        width: '100%',
+        marginTop: 4,
+        borderWidth: 0.5,
+        borderColor: '#333333',
+    },
+    paymentOptionsHeader: {
+        padding: 2,
+        backgroundColor: '#e2e8f0',
+        borderBottomWidth: 0.5,
+        borderBottomColor: '#333333',
+        fontSize: 5,
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    paymentOptionsRow: {
+        flexDirection: 'row',
+        borderBottomWidth: 0.5,
+        borderBottomColor: '#333333',
+    },
+    paymentOptionsCol1: {
+        flex: 1,
+        padding: 2,
+        borderRightWidth: 0.5,
+        borderRightColor: '#333333',
+        fontSize: 4.5,
+        justifyContent: 'center',
+    },
+    paymentOptionsCol2: {
+        flex: 1.5,
+        padding: 2,
+        fontSize: 4.5,
     }
 });
 
@@ -184,6 +217,8 @@ interface FeeChallanPDFProps {
         className: string;
         sectionName: string;
         grade_and_section: string;
+        gender?: string;
+        father_name?: string;
     };
     details: {
         month: string;
@@ -219,8 +254,14 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
 
         <View style={styles.studentSection}>
             <View style={styles.studentCol}>
-                <Text style={styles.label}>Student Name</Text>
-                <Text style={styles.value}>{student.student_full_name}</Text>
+                <View style={{ flex: 1.5 }}>
+                    <Text style={styles.label}>Student Name</Text>
+                    <Text style={styles.value}>{student.student_full_name}</Text>
+                </View>
+                <View style={{ flex: 1.5 }}>
+                    <Text style={styles.label}>Father's Name</Text>
+                    <Text style={styles.value}>{student.father_name || 'N/A'}</Text>
+                </View>
             </View>
             <View style={styles.studentCol}>
                 <View style={{ flex: 1 }}>
@@ -236,6 +277,10 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                 <View style={{ flex: 1 }}>
                     <Text style={styles.label}>Class</Text>
                     <Text style={styles.value}>{student.className}</Text>
+                </View>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                    <Text style={styles.label}>Gender</Text>
+                    <Text style={styles.value}>{student.gender || 'N/A'}</Text>
                 </View>
                 <View style={{ flex: 1, alignItems: 'flex-end' }}>
                     <Text style={[styles.label, { textAlign: 'right' }]}>Section</Text>
@@ -265,27 +310,10 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
             </View>
         </View>
 
-        <View style={[styles.studentSection, { backgroundColor: '#f8fafc', borderColor: '#cbd5e1' }]}>
-            <View style={styles.bankDetailsRow}>
-                <Text style={styles.bankDetailsLabel}>Bank:</Text>
-                <Text style={styles.bankDetailsValue}>{details.bank.name}</Text>
-            </View>
-            <View style={styles.bankDetailsRow}>
-                <Text style={styles.bankDetailsLabel}>Title:</Text>
-                <Text style={styles.bankDetailsValue}>{details.bank.title}</Text>
-            </View>
-            <View style={styles.bankDetailsRow}>
-                <Text style={styles.bankDetailsLabel}>A/C No:</Text>
-                <Text style={styles.bankDetailsValue}>{details.bank.account}</Text>
-            </View>
-            <View style={styles.bankDetailsRow}>
-                <Text style={styles.bankDetailsLabel}>Branch:</Text>
-                <Text style={styles.bankDetailsValue}>{details.bank.branch}</Text>
-            </View>
-            <View style={styles.bankDetailsRow}>
-                <Text style={styles.bankDetailsLabel}>IBAN:</Text>
-                <Text style={styles.bankDetailsValue}>{details.bank.iban}</Text>
-            </View>
+        <View style={[styles.studentSection, { backgroundColor: '#f8fafc', borderColor: '#cbd5e1', paddingVertical: 2 }]}>
+            <Text style={[styles.value, { textAlign: 'center', fontSize: 7, marginBottom: 1 }]}>Meezan bank limited</Text>
+            <Text style={[styles.value, { textAlign: 'center', fontSize: 6, color: '#4b5563', marginBottom: 1 }]}>All meezan bank branches in Pakistan</Text>
+            <Text style={[styles.value, { textAlign: 'center', fontSize: 6, color: '#4b5563' }]}>MBL Code: TAFCS</Text>
         </View>
 
         <View style={[styles.feeTable, { marginTop: 4 }]}>
@@ -321,18 +349,43 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
         </View>
 
         <View style={styles.footer}>
-            <View style={{ flex: 1 }}>
-                <Text style={[styles.instructions, { fontWeight: 'bold' }]}>MBL CODE: TAFCS</Text>
-                <Text style={[styles.instructions, { marginTop: 2 }]}>
-                    {"• "} Only Cash & MBL Cheque/Pay order will be accepted.{"\n"}
-                    {"• "} PKR 1000/- late surcharge will be donated for Charity.{"\n"}
-                    {"• "} Fees are non-refundable.{"\n"}
-                    {"• "} Payment via MBL Mobile/App: Select School Biller & Pay.
-                </Text>
+            <Text style={{ fontSize: 5, fontWeight: 'bold', marginBottom: 2 }}>NOTE:</Text>
+            <Text style={styles.instructions}>1. Only Cash & MBL Cheque/Pay order will be accepted.</Text>
+            <Text style={styles.instructions}>2. After Due Date student will pay PKR1000/- as charity on late deposit.</Text>
+            <Text style={styles.instructions}>3. The additional amount collected after due date will be donated for Charitable purpose.</Text>
+            <Text style={styles.instructions}>4. Admission and Tuition Fee once paid are non-refundable.</Text>
+
+            <View style={styles.paymentOptionsTable}>
+                <View style={styles.paymentOptionsHeader}>
+                    <Text>Payment Options</Text>
+                </View>
+                <View style={styles.paymentOptionsRow}>
+                    <View style={styles.paymentOptionsCol1}>
+                        <Text style={{ fontWeight: 'bold' }}>For MBL Counters</Text>
+                    </View>
+                    <View style={styles.paymentOptionsCol2}>
+                        <Text>Pay via CMS Online Deposit Module.</Text>
+                        <Text>Customer Code: TAFCS</Text>
+                    </View>
+                </View>
+                <View style={styles.paymentOptionsRow}>
+                    <View style={styles.paymentOptionsCol1}>
+                        <Text style={{ fontWeight: 'bold' }}>For Payment via MBL Mobile/internet Banking</Text>
+                    </View>
+                    <View style={styles.paymentOptionsCol2}>
+                        <Text>Select School as beneficiary from Biller Option and Pay</Text>
+                    </View>
+                </View>
+                <View style={[styles.paymentOptionsRow, { borderBottomWidth: 0 }]}>
+                    <View style={styles.paymentOptionsCol1}>
+                        <Text style={{ fontWeight: 'bold' }}>for Payment via Any Other Bank Counter/Digital Channel</Text>
+                    </View>
+                    <View style={styles.paymentOptionsCol2}>
+                        <Text>Payment via 1 Bill Invoices option using 24 Digit 1 Bill Invoice no.</Text>
+                        <Text style={{ fontWeight: 'bold', marginTop: 1 }}>1BILL ID: 1006259110046</Text>
+                    </View>
+                </View>
             </View>
-        </View>
-        <View style={styles.signature}>
-            <Text>Authorized Signatory</Text>
         </View>
     </View>
 );
