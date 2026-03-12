@@ -92,10 +92,10 @@ function StudentwiseFeeEditor() {
     const [selectedCampusId, setSelectedCampusId] = useState<number | "">("");
     const [selectedClassId, setSelectedClassId] = useState<number | "">("");
     const [selectedSectionId, setSelectedSectionId] = useState<number | "">("");
-    const [activeTab, setActiveTab] = useState<"template" | "search">("template");
 
     const [isSearching, setIsSearching] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [skipSearch, setSkipSearch] = useState(false);
     const [searchResults, setSearchResults] = useState<{ cc: number; full_name: string; gr_number: string }[]>([]);
     const [showSearchDropdown, setShowSearchDropdown] = useState(false);
     const searchDropdownRef = useRef<HTMLDivElement>(null);
@@ -154,6 +154,11 @@ function StudentwiseFeeEditor() {
 
     // Search effect
     useEffect(() => {
+        if (skipSearch) {
+            setSkipSearch(false);
+            return;
+        }
+
         if (!searchQuery.trim()) {
             setSearchResults([]);
             setShowSearchDropdown(false);
@@ -251,8 +256,11 @@ function StudentwiseFeeEditor() {
                 if (fullStudent.campus_id) setSelectedCampusId(fullStudent.campus_id);
                 if (fullStudent.class_id) setSelectedClassId(fullStudent.class_id);
                 if (fullStudent.section_id) setSelectedSectionId(fullStudent.section_id);
-                setStudentId(`CC-${fullStudent.cc_number || fullStudent.cc}`);
-                setSearchQuery("");
+                setStudentId(`${fullStudent.cc_number || fullStudent.cc}`);
+                
+                setSkipSearch(true);
+                setSearchQuery(`${fullStudent.student_full_name || fullStudent.full_name} (${fullStudent.cc_number || fullStudent.cc})`);
+                
                 setShowSearchDropdown(false);
                 toast.success(`Loaded profile for ${fullStudent.student_full_name || fullStudent.full_name}`);
             } else {
@@ -263,6 +271,19 @@ function StudentwiseFeeEditor() {
         } finally {
             setIsSearching(false);
         }
+    };
+
+    const handleClearSearch = () => {
+        setSearchQuery("");
+        setStudentId("");
+        setSelectedCampusId("");
+        setSelectedClassId("");
+        setSelectedSectionId("");
+        setRows([]);
+        setSearchResults([]);
+        setShowSearchDropdown(false);
+        setLoadError(null);
+        setSaveStatus(null);
     };
 
     // ── Keyboard navigation ───────────────────────────────────────────────
@@ -352,7 +373,8 @@ function StudentwiseFeeEditor() {
 
             await Promise.all(requests);
 
-            const msg = `${items.length} records saved for student ${studentId.trim()}. Campus configuration synced.`;
+            const displayId = studentId.replace(/^CC-/, "");
+            const msg = `${items.length} records saved for student ${displayId}. Campus configuration synced.`;
             setSaveStatus({ type: "success", message: msg });
             toast.success("Student records and campus configuration saved!");
         } catch (err: any) {
@@ -429,17 +451,10 @@ function StudentwiseFeeEditor() {
                         <p className="text-zinc-500 dark:text-zinc-400 mt-0.5 text-sm italic font-medium">Customize individual fee schedules.</p>
                     </div>
 
-                    <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-inner translate-y-0.5">
-                        <button onClick={() => setActiveTab("template")}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${activeTab === "template" ? "bg-white dark:bg-zinc-950 text-primary shadow-sm" : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-400"}`}
-                        >
-                            <Settings2 className="h-4 w-4" /> Template Mode
-                        </button>
-                        <button onClick={() => setActiveTab("search")}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${activeTab === "search" ? "bg-white dark:bg-zinc-950 text-primary shadow-sm" : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-400"}`}
-                        >
-                            <UserSearch className="h-4 w-4" /> Search Student
-                        </button>
+                    <div className="flex bg-zinc-100 dark:bg-zinc-800 px-4 py-2 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-inner translate-y-0.5">
+                        <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
+                            <Settings2 className="h-4 w-4" /> Individual Schedule Mode
+                        </span>
                     </div>
                 </div>
 
@@ -451,79 +466,20 @@ function StudentwiseFeeEditor() {
                 )}
             </div>
 
-            {/* Config Bar / Search Bar */}
+            {/* Config Bar */}
             <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm p-6">
-                {activeTab === "search" ? (
-                    <div className="flex flex-col xl:flex-row xl:items-end gap-6 animate-in slide-in-from-left-4 duration-300">
-                        <div className="flex-1 relative" ref={searchDropdownRef}>
-                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] block mb-2 ml-1">Search Student (CC, GR, or Name)</label>
-                            <div className="relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Start typing to search..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    autoFocus
-                                    className="w-full h-12 pl-12 pr-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 font-medium transition-all shadow-sm"
-                                />
-                                {isSearching && (
-                                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                    </div>
-                                )}
-                            </div>
-
-                            {showSearchDropdown && searchResults.length > 0 && (
-                                <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                    <div className="max-h-80 overflow-y-auto p-2">
-                                        {searchResults.map((s) => (
-                                            <button
-                                                key={s.cc}
-                                                type="button"
-                                                onClick={() => handleSelectStudent(s)}
-                                                className="w-full flex items-center justify-between px-4 h-14 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all border border-transparent hover:border-zinc-100 group"
-                                            >
-                                                <div className="flex flex-col items-start">
-                                                    <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">{s.full_name}</span>
-                                                    <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">GR: {s.gr_number || "N/A"}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[11px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-3 py-1 rounded-full group-hover:bg-primary group-hover:text-white transition-all">CC-{s.cc}</span>
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {showSearchDropdown && searchResults.length === 0 && searchQuery.length > 2 && (
-                                <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-8 text-center animate-in fade-in zoom-in-95 duration-200">
-                                    <UserSearch className="h-8 w-8 text-zinc-200 mx-auto mb-3" />
-                                    <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">No students found</p>
-                                    <p className="text-xs text-zinc-400 mt-1">Try a different CC, GR, or Name</p>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex items-center gap-3 h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl border-dashed border-2">
-                            <div className={`h-2 w-2 rounded-full ${studentId ? "bg-emerald-500" : "bg-zinc-300"}`} />
-                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Active Selector: {studentId || "NONE"}</span>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="flex flex-col xl:flex-row xl:items-end gap-5 animate-in slide-in-from-right-4 duration-300">
+                <div className="flex flex-col xl:flex-row xl:items-end gap-5 animate-in slide-in-from-right-4 duration-300">
                         {/* Campus Select */}
                         <div className="w-full xl:w-64">
                             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Campus</label>
                             <div className="relative" ref={campusDropdownRef}>
-                                <button type="button" onClick={() => setShowCampusDropdown(!showCampusDropdown)}
-                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all hover:bg-white dark:bg-zinc-950 hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
+                                <button type="button" disabled
+                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all cursor-not-allowed opacity-70"
                                 >
                                     <span className={selectedCampus ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
                                         {selectedCampus ? selectedCampus.campus_name : "Select Campus..."}
                                     </span>
-                                    <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${showCampusDropdown ? "rotate-180" : ""}`} />
+                                    <ChevronDown className="h-4 w-4 text-zinc-300" />
                                 </button>
                                 {showCampusDropdown && (
                                     <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
@@ -553,15 +509,15 @@ function StudentwiseFeeEditor() {
                         <div className="flex-1">
                             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Class / Grade</label>
                             <div className="relative" ref={classDropdownRef}>
-                                <button type="button" onClick={() => setShowClassDropdown(!showClassDropdown)}
-                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all hover:bg-white dark:bg-zinc-950 hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
+                                <button type="button" disabled
+                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all cursor-not-allowed opacity-70"
                                 >
                                     <span className={selectedClass ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
                                         {selectedClass ? `${selectedClass.description}` : "Choose a class..."}
                                     </span>
                                     <div className="flex items-center gap-2">
                                         {selectedClass && <span className="text-[10px] font-bold px-2 py-0.5 bg-zinc-200 text-zinc-600 dark:text-zinc-400 rounded-md">{selectedClass.class_code}</span>}
-                                        <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${showClassDropdown ? "rotate-180" : ""}`} />
+                                        <ChevronDown className="h-4 w-4 text-zinc-300" />
                                     </div>
                                 </button>
                                 {showClassDropdown && (
@@ -595,13 +551,13 @@ function StudentwiseFeeEditor() {
                         <div className="w-full xl:w-40">
                             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Section</label>
                             <div className="relative" ref={sectionDropdownRef}>
-                                <button type="button" onClick={() => setShowSectionDropdown(!showSectionDropdown)}
-                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all hover:bg-white dark:bg-zinc-950 hover:border-primary/40 focus:ring-2 focus:ring-primary/10"
+                                <button type="button" disabled
+                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all cursor-not-allowed opacity-70"
                                 >
                                     <span className={selectedSection ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
                                         {selectedSection ? selectedSection.description : "Section..."}
                                     </span>
-                                    <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${showSectionDropdown ? "rotate-180" : ""}`} />
+                                    <ChevronDown className="h-4 w-4 text-zinc-300" />
                                 </button>
                                 {showSectionDropdown && (
                                     <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
@@ -620,11 +576,53 @@ function StudentwiseFeeEditor() {
                             </div>
                         </div>
 
-                        <div className="w-full xl:w-64 relative">
-                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Target CC Number</label>
-                            <input type="text" placeholder="e.g. CC-2026-00003" value={studentId} onChange={(e) => setStudentId(e.target.value.toUpperCase())}
-                                className="w-full h-11 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-bold transition-all"
-                            />
+                        <div className="w-full xl:w-80 relative" ref={searchDropdownRef}>
+                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Search CC Number</label>
+                            <div className="relative">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                                <input 
+                                    type="text" 
+                                    placeholder="e.g. 2026-00003" 
+                                    value={searchQuery} 
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full h-11 pl-11 pr-24 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-bold transition-all shadow-sm"
+                                />
+                                {searchQuery && (
+                                    <button 
+                                        onClick={handleClearSearch}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-600 transition-colors"
+                                        title="Clear search"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                )}
+                                {isSearching && (
+                                    <div className="absolute right-12 top-1/2 -translate-y-1/2">
+                                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                    </div>
+                                )}
+                            </div>
+
+                            {showSearchDropdown && searchResults.length > 0 && (
+                                <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="max-h-80 overflow-y-auto p-2">
+                                        {searchResults.map((s) => (
+                                            <button
+                                                key={s.cc}
+                                                type="button"
+                                                onClick={() => handleSelectStudent(s)}
+                                                className="w-full flex items-center justify-between px-4 h-14 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all border border-transparent hover:border-zinc-100 group"
+                                            >
+                                                <div className="flex flex-col items-start text-left">
+                                                    <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">{s.full_name}</span>
+                                                    <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">GR: {s.gr_number || "N/A"}</span>
+                                                </div>
+                                                <span className="text-[11px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-3 py-1 rounded-full group-hover:bg-primary group-hover:text-white transition-all">{s.cc}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex gap-3">
@@ -644,7 +642,6 @@ function StudentwiseFeeEditor() {
                             )}
                         </div>
                     </div>
-                )}
             </div>
 
             {/* Banner Notifications */}
