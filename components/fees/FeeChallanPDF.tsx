@@ -237,7 +237,13 @@ interface FeeChallanPDFProps {
     };
     fees: FeeItem[];
     totalAmount: number;
-    siblings?: { full_name: string; gr_number: string; }[];
+    siblings?: {
+        full_name: string;
+        cc: number | string;
+        gr_number: string;
+        className: string;
+        sectionName: string;
+    }[];
 }
 
 const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, isLast }: { copyType: string, isLast?: boolean } & FeeChallanPDFProps) => (
@@ -402,11 +408,24 @@ export const FeeChallanPDF = ({ student, details, fees, totalAmount, siblings }:
 
             {/* Right 15% for the 4th Column */}
             <View style={{ width: '15%', paddingLeft: 10, borderLeftWidth: 1, borderLeftColor: '#e4e4e4', borderLeftStyle: 'solid', flexDirection: 'column', height: '100%' }}>
-                <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 5, textTransform: 'uppercase' }}>Future Features</Text>
-                <View style={{ backgroundColor: '#f1f5f9', padding: 5, borderRadius: 4, flex: 1 }}>
-                    <Text style={{ fontSize: 6, color: '#64748b', lineHeight: 1.2, textAlign: 'center', marginTop: 10 }}>
-                        This column will contain sibling data, payment history and discount breakdowns.
-                    </Text>
+                <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 5, textTransform: 'uppercase' }}>Siblings Info</Text>
+                <View style={{ backgroundColor: '#f1f5f9', padding: 8, borderRadius: 4, flex: 1 }}>
+                    {siblings && siblings.length > 0 ? (
+                        siblings.map((s, idx) => (
+                            <View key={idx} style={{ marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: '#cbd5e1', paddingBottom: 4 }}>
+                                <Text style={[styles.value, { fontSize: 7, color: '#0f172a' }]}>{s.full_name}</Text>
+                                <View style={{ marginTop: 2, gap: 1 }}>
+                                    <Text style={{ fontSize: 5.5, color: '#475569', fontWeight: 'bold' }}>CC ID: {s.cc}</Text>
+                                    <Text style={{ fontSize: 5.5, color: '#475569', fontWeight: 'bold' }}>GR NO: {s.gr_number}</Text>
+                                    <Text style={{ fontSize: 5.5, color: '#475569', fontWeight: 'bold' }}>{s.className} - {s.sectionName}</Text>
+                                </View>
+                            </View>
+                        ))
+                    ) : (
+                        <Text style={{ fontSize: 6, color: '#64748b', textAlign: 'center', marginTop: 10, fontStyle: 'italic' }}>
+                            No siblings found
+                        </Text>
+                    )}
                 </View>
             </View>
         </Page>

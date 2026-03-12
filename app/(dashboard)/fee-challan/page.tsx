@@ -115,6 +115,7 @@ export default function FeeChallanGenerator() {
     const [voucherSaved, setVoucherSaved] = useState(false);
     const [isSavingVoucher, setIsSavingVoucher] = useState(false);
     const [isClient, setIsClient] = useState(false);
+    const [siblings, setSiblings] = useState<any[]>([]);
 
     useEffect(() => {
         setIsClient(true);
@@ -166,12 +167,14 @@ export default function FeeChallanGenerator() {
         setIsFetchingFees(true);
         try {
             const { data } = await api.get(`/v1/student-fees/by-student/${cc}`);
-            const allFees: StudentFee[] = data?.data || [];
+            const allFees: StudentFee[] = data?.data?.fees || [];
+            const familyStudents = data?.data?.family?.students || [];
 
             const monthNum = MONTH_TO_NUM[selectedMonth];
             const applicableFees = allFees.filter(f => f.month === monthNum);
 
             setStudentFees(applicableFees);
+            setSiblings(familyStudents.filter((s: any) => s.cc !== cc));
         } catch (err) {
             console.error(err);
             toast.error("Failed to fetch applicable fees.");
@@ -615,6 +618,13 @@ export default function FeeChallanGenerator() {
                                                     gender: student.gender,
                                                     father_name: student.father_name
                                                 }}
+                                                siblings={siblings.map(s => ({
+                                                    full_name: s.full_name,
+                                                    cc: s.cc,
+                                                    gr_number: s.gr_number,
+                                                    className: s.classes?.description || "Unknown",
+                                                    sectionName: sections.find(sec => sec.id === s.section_id)?.description || "N/A"
+                                                }))}
                                                 details={{
                                                     month,
                                                     issueDate,
