@@ -582,7 +582,7 @@ function StudentwiseFeeEditor() {
                                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                                 <input 
                                     type="text" 
-                                    placeholder="e.g. 2026-00003" 
+                                    placeholder="e.g. 1234" 
                                     value={searchQuery} 
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="w-full h-11 pl-11 pr-24 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-bold transition-all shadow-sm"
