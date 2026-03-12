@@ -160,7 +160,7 @@ function VoucherRow({ voucher, index }: { voucher: VoucherItem; index: number })
         try {
             // Fetch fees
             const { data } = await api.get(`/v1/student-fees/by-student/${voucher.student_id}`);
-            const allFees = data?.data || [];
+            const allFees = data?.data?.fees || [];
             
             // Determine Month from Issue Date
             const issueDateObj = new Date(voucher.issue_date);
