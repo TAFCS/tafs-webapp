@@ -5,7 +5,7 @@ import {
     Search, Loader2, AlertCircle, FileText, ChevronDown, X,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Building2, GraduationCap, Users, Hash, CreditCard, SlidersHorizontal,
-    ChevronLeft, ChevronRight,
+    ChevronLeft, ChevronRight, Download
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -14,6 +14,7 @@ import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchSections } from "@/store/slices/sectionsSlice";
 import { fetchVouchers, VoucherFilters, VoucherItem } from "@/store/slices/vouchersSlice";
 import toast from "react-hot-toast";
+import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -152,6 +153,83 @@ function FilterDropdown({
 
 function VoucherRow({ voucher, index }: { voucher: VoucherItem; index: number }) {
     const status = getStatusConfig(voucher.status);
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownload = async () => {
+        setIsDownloading(true);
+        try {
+            // Fetch fees
+            const { data } = await api.get(`/v1/student-fees/by-student/${voucher.student_id}`);
+            const allFees = data?.data || [];
+            
+            // Determine Month from Issue Date
+            const issueDateObj = new Date(voucher.issue_date);
+            const monthNum = issueDateObj.getMonth() + 1;
+            const MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const monthName = MONTHS[monthNum];
+
+            const applicableFees = allFees.filter((f: any) => f.month === monthNum);
+            const pdfFees = applicableFees.map((f: any) => ({
+                description: f.fee_types?.description || 'Unknown Fee',
+                amount: Number(f.amount)
+            }));
+            const totalFeesAmount = pdfFees.reduce((sum: number, fee: any) => sum + fee.amount, 0);
+
+            // Generate document
+            const { pdf } = await import('@react-pdf/renderer');
+            
+            const doc = (
+                <FeeChallanPDF
+                    student={{
+                        cc: voucher.students.cc,
+                        student_full_name: voucher.students.full_name,
+                        gr_number: voucher.students.gr_number || "",
+                        campus: voucher.campuses?.campus_name,
+                        class_id: voucher.class_id,
+                        section_id: voucher.section_id || undefined,
+                        className: voucher.classes?.description || "Unknown",
+                        sectionName: voucher.sections?.description || "N/A",
+                        grade_and_section: `${voucher.classes?.description} ${voucher.sections?.description || ""}`
+                    }}
+                    details={{
+                        month: monthName,
+                        issueDate: voucher.issue_date.split('T')[0],
+                        dueDate: voucher.due_date.split('T')[0],
+                        validityDate: voucher.validity_date ? voucher.validity_date.split('T')[0] : voucher.due_date.split('T')[0],
+                        applyLateFee: voucher.late_fee_charge,
+                        bank: {
+                            name: voucher.bank_accounts?.bank_name || "",
+                            title: voucher.bank_accounts?.account_title || "",
+                            account: voucher.bank_accounts?.account_number || "",
+                            branch: voucher.bank_accounts?.branch_code || "",
+                            address: voucher.bank_accounts?.bank_address || "",
+                            iban: voucher.bank_accounts?.iban || ""
+                        }
+                    }}
+                    fees={pdfFees}
+                    totalAmount={totalFeesAmount}
+                />
+            );
+
+            const asPdf = pdf(doc);
+            const blob = await asPdf.toBlob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Challan_${voucher.students.cc}_${monthName}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            toast.success("Voucher downloaded successfully.");
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to generate voucher PDF.");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     return (
         <tr className="group border-b border-zinc-100 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
             <td className="px-5 py-3.5 text-center">
@@ -213,6 +291,16 @@ function VoucherRow({ voucher, index }: { voucher: VoucherItem; index: number })
                 <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate max-w-[140px] block">
                     {voucher.bank_accounts?.bank_name || "—"}
                 </span>
+            </td>
+            <td className="px-5 py-3.5">
+                <button
+                    onClick={handleDownload}
+                    disabled={isDownloading}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
+                >
+                    {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                    {isDownloading ? "..." : "PDF"}
+                </button>
             </td>
         </tr>
     );
@@ -597,7 +685,7 @@ export default function VouchersPage() {
                         <table className="w-full border-collapse">
                             <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800">
                                 <tr>
-                                    {["#", "Student", "Campus", "Class", "Section", "Issue Date", "Due Date", "Status", "Late Fee", "Bank"].map(h => (
+                                    {["#", "Student", "Campus", "Class", "Section", "Issue Date", "Due Date", "Status", "Late Fee", "Bank", "Actions"].map(h => (
                                         <th key={h} className="px-5 py-3.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">
                                             {h}
                                         </th>
