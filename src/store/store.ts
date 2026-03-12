@@ -6,6 +6,7 @@ import feeTypesReducer from './slices/feeTypesSlice';
 import sectionsReducer from './slices/sectionsSlice';
 import campusesReducer from './slices/campusesSlice';
 import banksReducer from './slices/banksSlice';
+import vouchersReducer from './slices/vouchersSlice';
 
 export const store = configureStore({
   reducer: {
@@ -16,8 +17,9 @@ export const store = configureStore({
     sections: sectionsReducer,
     campuses: campusesReducer,
     banks: banksReducer,
+    vouchers: vouchersReducer,
   },
 });
 
 export type RootState = ReturnType<typeof store.getState>;
-export type AppDispatch = typeof store.dispatch;
+export type AppDispatch = typeof store.dispatch;
