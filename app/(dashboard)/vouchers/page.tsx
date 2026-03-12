@@ -151,16 +151,21 @@ function FilterDropdown({
 
 // ─── Voucher Row ─────────────────────────────────────────────────────────────
 
-function VoucherRow({ voucher, index }: { voucher: VoucherItem; index: number }) {
+function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index: number; sections: any[] }) {
     const status = getStatusConfig(voucher.status);
     const [isDownloading, setIsDownloading] = useState(false);
 
     const handleDownload = async () => {
         setIsDownloading(true);
         try {
-            // Fetch fees
+            // Fetch detailed student data (for gender, father_name, etc.)
+            const { data: studentRes } = await api.get(`/v1/students/${voucher.student_id}`);
+            const studentData = studentRes?.data;
+
+            // Fetch fees and family info
             const { data } = await api.get(`/v1/student-fees/by-student/${voucher.student_id}`);
             const allFees = data?.data?.fees || [];
+            const familyStudents = data?.data?.family?.students || [];
             
             // Determine Month from Issue Date
             const issueDateObj = new Date(voucher.issue_date);
@@ -174,6 +179,8 @@ function VoucherRow({ voucher, index }: { voucher: VoucherItem; index: number })
                 amount: Number(f.amount)
             }));
             const totalFeesAmount = pdfFees.reduce((sum: number, fee: any) => sum + fee.amount, 0);
+
+            const siblings = familyStudents.filter((s: any) => s.cc !== voucher.student_id);
 
             // Generate document
             const { pdf } = await import('@react-pdf/renderer');
@@ -189,8 +196,17 @@ function VoucherRow({ voucher, index }: { voucher: VoucherItem; index: number })
                         section_id: voucher.section_id || undefined,
                         className: voucher.classes?.description || "Unknown",
                         sectionName: voucher.sections?.description || "N/A",
-                        grade_and_section: `${voucher.classes?.description} ${voucher.sections?.description || ""}`
+                        grade_and_section: studentData?.grade_and_section || `${voucher.classes?.description} ${voucher.sections?.description || ""}`,
+                        gender: studentData?.gender,
+                        father_name: studentData?.father_name
                     }}
+                    siblings={siblings.map((s: any) => ({
+                        full_name: s.full_name,
+                        cc: s.cc,
+                        gr_number: s.gr_number,
+                        className: s.classes?.description || "Unknown",
+                        sectionName: sections.find((sec: any) => sec.id === s.section_id)?.description || "N/A"
+                    }))}
                     details={{
                         month: monthName,
                         issueDate: voucher.issue_date.split('T')[0],
@@ -694,7 +710,7 @@ export default function VouchersPage() {
                             </thead>
                             <tbody>
                                 {paginatedVouchers.map((v, i) => (
-                                    <VoucherRow key={v.id} voucher={v} index={(page - 1) * pageSize + i} />
+                                    <VoucherRow key={v.id} voucher={v} index={(page - 1) * pageSize + i} sections={sections} />
                                 ))}
                             </tbody>
                         </table>
