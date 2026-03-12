@@ -48,7 +48,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 <div className="h-40 bg-gradient-to-br from-primary to-primary/80 p-6 flex flex-col justify-end relative overflow-hidden flex-shrink-0">
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 p-2 text-white/70 hover:text-white hover:bg-white dark:bg-zinc-950/10 rounded-full transition-colors"
+                        className="absolute top-4 right-4 p-2 text-white/70 hover:text-white hover:bg-white dark:hover:bg-zinc-800 rounded-full transition-colors z-20"
                     >
                         <X className="h-5 w-5" />
                     </button>
