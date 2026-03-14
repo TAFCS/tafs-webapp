@@ -374,12 +374,14 @@ function StudentwiseFeeEditor() {
             const items = rows.map((row) => {
                 const monthNum = MONTH_TO_NUM[row.month] || 8;
                 const year = calendarYear(academicYearStart, monthNum);
-                const mm = String(monthNum).padStart(2, "0");
+                const nextYear = year + 1;
+                const academicYearStr = `${year}-${nextYear}`;
+
                 return {
                     fee_type_id: row.feeId,
                     month: monthNum,
                     amount: parseFloat(row.amount || "0"),
-                    due_date: `${year}-${mm}-01`,
+                    academic_year: academicYearStr,
                 };
             });
 
