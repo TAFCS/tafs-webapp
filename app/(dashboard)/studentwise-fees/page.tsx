@@ -29,6 +29,7 @@ interface ClassFeeRow {
 }
 
 interface SpreadsheetRow {
+    __id: string; // Internal tracking for stable IDs
     feeId: number;
     feeDescription: string;
     freq: "MONTHLY" | "ONE_TIME" | null;
@@ -71,6 +72,21 @@ function sortMonths(months: unknown): string[] {
     }
     if (!Array.isArray(arr)) return [];
     return [...arr].sort((a, b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b));
+}
+
+function sortSpreadsheetRows(rows: SpreadsheetRow[]): SpreadsheetRow[] {
+    return [...rows].sort((a, b) => {
+        const ai = MONTH_ORDER.indexOf(a.month);
+        const bi = MONTH_ORDER.indexOf(b.month);
+        const va = ai === -1 ? 99 : ai;
+        const vb = bi === -1 ? 99 : bi;
+        if (va !== vb) return va - vb;
+        // Secondary sort by description
+        return a.feeDescription.localeCompare(b.feeDescription);
+    }).map((r, i, arr) => ({
+        ...r,
+        isGroupStart: i === 0 || r.month !== arr[i - 1].month
+    }));
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -123,6 +139,18 @@ function StudentwiseFeeEditor() {
 
     const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
     const tbodyRef = useRef<HTMLTableSectionElement>(null);
+    const pendingFocusId = useRef<string | null>(null);
+
+    // Track rows to see if we need to fix focus after a sort
+    useEffect(() => {
+        if (pendingFocusId.current) {
+            const newIdx = rows.findIndex(r => r.__id === pendingFocusId.current);
+            if (newIdx !== -1 && activeCell?.row !== newIdx) {
+                setActiveCell(prev => prev ? { ...prev, row: newIdx } : null);
+            }
+            pendingFocusId.current = null;
+        }
+    }, [rows, activeCell]);
 
     useEffect(() => {
         if (classes.length === 0) dispatch(fetchClasses());
@@ -201,19 +229,20 @@ function StudentwiseFeeEditor() {
             // 2. Expand rows
             const expanded = sorted.flatMap((fee) => {
                 const months = sortMonths(fee.fee_types.breakup ?? []);
-                return months.map((month, idx) => ({
+                return months.map((month) => ({
+                    __id: Math.random().toString(36).substring(7),
                     feeId: fee.fee_id,
                     feeDescription: fee.fee_types.description,
                     freq: fee.fee_types.freq,
                     month,
                     amount: fee.amount,
-                    isGroupStart: idx === 0,
-                    groupSize: months.length,
                 }));
             });
 
-            // 3. Fetch Student-specific overrides if CC provided
-            let finalRows = expanded;
+            // 3. Apply global sort by month
+            let finalRows = sortSpreadsheetRows(expanded);
+
+            // 4. Fetch Student-specific overrides if CC provided
             if (ccNumber) {
                 try {
                     const numericMatch = ccNumber.match(/\d+$/);
@@ -222,7 +251,7 @@ function StudentwiseFeeEditor() {
                     const studentFees = studentRes.data?.data || [];
 
                     // Merge student overrides into the expanded rows
-                    finalRows = expanded.map(row => {
+                    finalRows = finalRows.map(row => {
                         const monthNum = MONTH_TO_NUM[row.month];
                         const override = studentFees.find((sf: any) => sf.fee_type_id === row.feeId && sf.month === monthNum);
                         return override ? { ...row, amount: override.amount.toString() } : row;
@@ -232,7 +261,7 @@ function StudentwiseFeeEditor() {
                 }
             }
 
-            setRows(finalRows);
+            setRows(sortSpreadsheetRows(finalRows));
         } catch (err: any) {
             setLoadError(err.response?.data?.message || "Failed to load fee schedule.");
         } finally { setIsLoading(false); }
@@ -257,10 +286,10 @@ function StudentwiseFeeEditor() {
                 if (fullStudent.class_id) setSelectedClassId(fullStudent.class_id);
                 if (fullStudent.section_id) setSelectedSectionId(fullStudent.section_id);
                 setStudentId(`${fullStudent.cc_number || fullStudent.cc}`);
-                
+
                 setSkipSearch(true);
                 setSearchQuery(`${fullStudent.student_full_name || fullStudent.full_name} (${fullStudent.cc_number || fullStudent.cc})`);
-                
+
                 setShowSearchDropdown(false);
                 toast.success(`Loaded profile for ${fullStudent.student_full_name || fullStudent.full_name}`);
             } else {
@@ -392,33 +421,38 @@ function StudentwiseFeeEditor() {
     const addRow = () => {
         const firstType = feeTypes[0];
         const newRow: SpreadsheetRow = {
+            __id: Math.random().toString(36).substring(7),
             feeId: firstType?.id || 0,
             feeDescription: firstType?.description || "",
             freq: firstType?.freq || "MONTHLY",
             month: "August",
             amount: "0",
         };
-        setRows((prev) => [...prev, newRow]);
-        setTimeout(() => setActiveCell({ row: rows.length, col: COL_FEE_TYPE }), 50);
+        pendingFocusId.current = newRow.__id;
+        setRows((prev) => sortSpreadsheetRows([...prev, newRow]));
     };
 
     const updateRow = (idx: number, field: keyof SpreadsheetRow, val: any) => {
-        setRows((prev) => prev.map((r, i) => {
-            if (i !== idx) return r;
-            const updated = { ...r, [field]: val };
+        pendingFocusId.current = rows[idx].__id;
+        setRows((prev) => {
+            const next = prev.map((r, i) => {
+                if (i !== idx) return r;
+                const updated = { ...r, [field]: val };
 
-            if (field === "feeId") {
-                const ft = feeTypes.find(f => f.id === val);
-                if (ft) {
-                    updated.feeDescription = ft.description;
-                    updated.freq = ft.freq;
-                    if (feeToAmountMap[val]) {
-                        updated.amount = feeToAmountMap[val];
+                if (field === "feeId") {
+                    const ft = feeTypes.find(f => f.id === val);
+                    if (ft) {
+                        updated.feeDescription = ft.description;
+                        updated.freq = ft.freq;
+                        if (feeToAmountMap[val]) {
+                            updated.amount = feeToAmountMap[val];
+                        }
                     }
                 }
-            }
-            return updated;
-        }));
+                return updated;
+            });
+            return sortSpreadsheetRows(next);
+        });
     };
 
     const grandTotal = rows.reduce((s, r) => s + parseFloat(r.amount || "0"), 0);
@@ -469,179 +503,179 @@ function StudentwiseFeeEditor() {
             {/* Config Bar */}
             <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm p-6">
                 <div className="flex flex-col xl:flex-row xl:items-end gap-5 animate-in slide-in-from-right-4 duration-300">
-                        {/* Campus Select */}
-                        <div className="w-full xl:w-64">
-                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Campus</label>
-                            <div className="relative" ref={campusDropdownRef}>
-                                <button type="button" disabled
-                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all cursor-not-allowed opacity-70"
-                                >
-                                    <span className={selectedCampus ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
-                                        {selectedCampus ? selectedCampus.campus_name : "Select Campus..."}
-                                    </span>
-                                    <ChevronDown className="h-4 w-4 text-zinc-300" />
-                                </button>
-                                {showCampusDropdown && (
-                                    <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <div className="p-3 border-b border-zinc-100 bg-zinc-50 dark:bg-zinc-900/50">
-                                            <div className="relative">
-                                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                                                <input autoFocus type="text" placeholder="Filter campuses..." value={campusSearch} onChange={(e) => setCampusSearch(e.target.value)}
-                                                    className="w-full pl-10 pr-4 h-9 text-sm bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:border-primary"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="max-h-64 overflow-y-auto p-1">
-                                            {campusesLoading ? <div className="p-4 text-xs text-zinc-400 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto mb-1" />Loading...</div>
-                                                : filteredCampuses.map((c) => (
-                                                    <button key={c.id} type="button" onClick={() => { setSelectedCampusId(c.id); setShowCampusDropdown(false); }}
-                                                        className={`w-full flex items-center px-4 h-10 text-sm rounded-lg ${selectedCampusId === c.id ? "bg-primary text-white font-semibold" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800"}`}
-                                                    >
-                                                        {c.campus_name}
-                                                    </button>
-                                                ))}
+                    {/* Campus Select */}
+                    <div className="w-full xl:w-64">
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Campus</label>
+                        <div className="relative" ref={campusDropdownRef}>
+                            <button type="button" disabled
+                                className="w-full h-11 flex items-center justify-between px-5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all cursor-not-allowed opacity-70"
+                            >
+                                <span className={selectedCampus ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
+                                    {selectedCampus ? selectedCampus.campus_name : "Select Campus..."}
+                                </span>
+                                <ChevronDown className="h-4 w-4 text-zinc-300" />
+                            </button>
+                            {showCampusDropdown && (
+                                <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="p-3 border-b border-zinc-100 bg-zinc-50 dark:bg-zinc-900/50">
+                                        <div className="relative">
+                                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                                            <input autoFocus type="text" placeholder="Filter campuses..." value={campusSearch} onChange={(e) => setCampusSearch(e.target.value)}
+                                                className="w-full pl-10 pr-4 h-9 text-sm bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:border-primary"
+                                            />
                                         </div>
                                     </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex-1">
-                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Class / Grade</label>
-                            <div className="relative" ref={classDropdownRef}>
-                                <button type="button" disabled
-                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all cursor-not-allowed opacity-70"
-                                >
-                                    <span className={selectedClass ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
-                                        {selectedClass ? `${selectedClass.description}` : "Choose a class..."}
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                        {selectedClass && <span className="text-[10px] font-bold px-2 py-0.5 bg-zinc-200 text-zinc-600 dark:text-zinc-400 rounded-md">{selectedClass.class_code}</span>}
-                                        <ChevronDown className="h-4 w-4 text-zinc-300" />
-                                    </div>
-                                </button>
-                                {showClassDropdown && (
-                                    <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <div className="p-3 border-b border-zinc-100 bg-zinc-50 dark:bg-zinc-900/50">
-                                            <div className="relative">
-                                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                                                <input autoFocus type="text" placeholder="Filter classes..." value={classSearch} onChange={(e) => setClassSearch(e.target.value)}
-                                                    className="w-full pl-10 pr-4 h-9 text-sm bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:border-primary"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="max-h-64 overflow-y-auto p-1 space-y-1">
-                                            {classesLoading ? <div className="p-6 text-sm text-zinc-400 text-center flex items-center justify-center gap-3"><Loader2 className="h-5 w-5 animate-spin" /> Loading...</div>
-                                                : filteredClasses.length === 0 ? <div className="p-6 text-sm text-zinc-400 text-center">No results</div>
-                                                    : filteredClasses.map((c) => (
-                                                        <button key={c.id} type="button" onClick={() => { setSelectedClassId(c.id); setShowClassDropdown(false); }}
-                                                            className={`w-full flex items-center justify-between px-4 h-10 text-sm rounded-lg transition-all ${selectedClassId === c.id ? "bg-primary text-white font-semibold" : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800"}`}
-                                                        >
-                                                            <span>{c.description}</span>
-                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${selectedClassId === c.id ? "bg-white dark:bg-zinc-950/20" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"}`}>{c.class_code}</span>
-                                                        </button>
-                                                    ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Section Select */}
-                        <div className="w-full xl:w-40">
-                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Section</label>
-                            <div className="relative" ref={sectionDropdownRef}>
-                                <button type="button" disabled
-                                    className="w-full h-11 flex items-center justify-between px-5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all cursor-not-allowed opacity-70"
-                                >
-                                    <span className={selectedSection ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
-                                        {selectedSection ? selectedSection.description : "Section..."}
-                                    </span>
-                                    <ChevronDown className="h-4 w-4 text-zinc-300" />
-                                </button>
-                                {showSectionDropdown && (
-                                    <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <div className="max-h-64 overflow-y-auto p-1">
-                                            {sectionsLoading ? <div className="p-4 text-xs text-zinc-400 text-center">Loading...</div>
-                                                : filteredSections.map((s) => (
-                                                    <button key={s.id} type="button" onClick={() => { setSelectedSectionId(s.id); setShowSectionDropdown(false); }}
-                                                        className={`w-full flex items-center px-4 h-10 text-sm rounded-lg ${selectedSectionId === s.id ? "bg-primary text-white font-semibold" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800"}`}
-                                                    >
-                                                        {s.description}
-                                                    </button>
-                                                ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="w-full xl:w-80 relative" ref={searchDropdownRef}>
-                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Search CC Number</label>
-                            <div className="relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                                <input 
-                                    type="text" 
-                                    placeholder="e.g. 1234" 
-                                    value={searchQuery} 
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full h-11 pl-11 pr-24 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-bold transition-all shadow-sm"
-                                />
-                                {searchQuery && (
-                                    <button 
-                                        onClick={handleClearSearch}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-600 transition-colors"
-                                        title="Clear search"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                )}
-                                {isSearching && (
-                                    <div className="absolute right-12 top-1/2 -translate-y-1/2">
-                                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                    </div>
-                                )}
-                            </div>
-
-                            {showSearchDropdown && searchResults.length > 0 && (
-                                <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                    <div className="max-h-80 overflow-y-auto p-2">
-                                        {searchResults.map((s) => (
-                                            <button
-                                                key={s.cc}
-                                                type="button"
-                                                onClick={() => handleSelectStudent(s)}
-                                                className="w-full flex items-center justify-between px-4 h-14 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all border border-transparent hover:border-zinc-100 group"
-                                            >
-                                                <div className="flex flex-col items-start text-left">
-                                                    <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">{s.full_name}</span>
-                                                    <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">GR: {s.gr_number || "N/A"}</span>
-                                                </div>
-                                                <span className="text-[11px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-3 py-1 rounded-full group-hover:bg-primary group-hover:text-white transition-all">{s.cc}</span>
-                                            </button>
-                                        ))}
+                                    <div className="max-h-64 overflow-y-auto p-1">
+                                        {campusesLoading ? <div className="p-4 text-xs text-zinc-400 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto mb-1" />Loading...</div>
+                                            : filteredCampuses.map((c) => (
+                                                <button key={c.id} type="button" onClick={() => { setSelectedCampusId(c.id); setShowCampusDropdown(false); }}
+                                                    className={`w-full flex items-center px-4 h-10 text-sm rounded-lg ${selectedCampusId === c.id ? "bg-primary text-white font-semibold" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800"}`}
+                                                >
+                                                    {c.campus_name}
+                                                </button>
+                                            ))}
                                     </div>
                                 </div>
                             )}
                         </div>
+                    </div>
 
-                        <div className="flex gap-3">
-                            {selectedClassId !== "" && (
-                                <button onClick={() => fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId)} disabled={isLoading} title="Refresh/Reload"
-                                    className="inline-flex items-center gap-2 h-11 px-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-medium text-zinc-700 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all shadow-sm disabled:opacity-50"
-                                >
-                                    <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} /> Refresh
-                                </button>
-                            )}
-                            {rows.length > 0 && (
-                                <button onClick={handleSave} disabled={isSaving || !studentId.trim()}
-                                    className="inline-flex items-center gap-2 h-11 px-8 bg-primary text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50 active:scale-95"
-                                >
-                                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Schedule"}
-                                </button>
+                    <div className="flex-1">
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Class / Grade</label>
+                        <div className="relative" ref={classDropdownRef}>
+                            <button type="button" disabled
+                                className="w-full h-11 flex items-center justify-between px-5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all cursor-not-allowed opacity-70"
+                            >
+                                <span className={selectedClass ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
+                                    {selectedClass ? `${selectedClass.description}` : "Choose a class..."}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    {selectedClass && <span className="text-[10px] font-bold px-2 py-0.5 bg-zinc-200 text-zinc-600 dark:text-zinc-400 rounded-md">{selectedClass.class_code}</span>}
+                                    <ChevronDown className="h-4 w-4 text-zinc-300" />
+                                </div>
+                            </button>
+                            {showClassDropdown && (
+                                <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="p-3 border-b border-zinc-100 bg-zinc-50 dark:bg-zinc-900/50">
+                                        <div className="relative">
+                                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                                            <input autoFocus type="text" placeholder="Filter classes..." value={classSearch} onChange={(e) => setClassSearch(e.target.value)}
+                                                className="w-full pl-10 pr-4 h-9 text-sm bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:border-primary"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="max-h-64 overflow-y-auto p-1 space-y-1">
+                                        {classesLoading ? <div className="p-6 text-sm text-zinc-400 text-center flex items-center justify-center gap-3"><Loader2 className="h-5 w-5 animate-spin" /> Loading...</div>
+                                            : filteredClasses.length === 0 ? <div className="p-6 text-sm text-zinc-400 text-center">No results</div>
+                                                : filteredClasses.map((c) => (
+                                                    <button key={c.id} type="button" onClick={() => { setSelectedClassId(c.id); setShowClassDropdown(false); }}
+                                                        className={`w-full flex items-center justify-between px-4 h-10 text-sm rounded-lg transition-all ${selectedClassId === c.id ? "bg-primary text-white font-semibold" : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800"}`}
+                                                    >
+                                                        <span>{c.description}</span>
+                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${selectedClassId === c.id ? "bg-white dark:bg-zinc-950/20" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"}`}>{c.class_code}</span>
+                                                    </button>
+                                                ))}
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </div>
+
+                    {/* Section Select */}
+                    <div className="w-full xl:w-40">
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Section</label>
+                        <div className="relative" ref={sectionDropdownRef}>
+                            <button type="button" disabled
+                                className="w-full h-11 flex items-center justify-between px-5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all cursor-not-allowed opacity-70"
+                            >
+                                <span className={selectedSection ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
+                                    {selectedSection ? selectedSection.description : "Section..."}
+                                </span>
+                                <ChevronDown className="h-4 w-4 text-zinc-300" />
+                            </button>
+                            {showSectionDropdown && (
+                                <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="max-h-64 overflow-y-auto p-1">
+                                        {sectionsLoading ? <div className="p-4 text-xs text-zinc-400 text-center">Loading...</div>
+                                            : filteredSections.map((s) => (
+                                                <button key={s.id} type="button" onClick={() => { setSelectedSectionId(s.id); setShowSectionDropdown(false); }}
+                                                    className={`w-full flex items-center px-4 h-10 text-sm rounded-lg ${selectedSectionId === s.id ? "bg-primary text-white font-semibold" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800"}`}
+                                                >
+                                                    {s.description}
+                                                </button>
+                                            ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="w-full xl:w-80 relative" ref={searchDropdownRef}>
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Search CC Number</label>
+                        <div className="relative">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                            <input
+                                type="text"
+                                placeholder="e.g. 1234"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full h-11 pl-11 pr-24 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-bold transition-all shadow-sm"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={handleClearSearch}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-600 transition-colors"
+                                    title="Clear search"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            )}
+                            {isSearching && (
+                                <div className="absolute right-12 top-1/2 -translate-y-1/2">
+                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                </div>
+                            )}
+                        </div>
+
+                        {showSearchDropdown && searchResults.length > 0 && (
+                            <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                <div className="max-h-80 overflow-y-auto p-2">
+                                    {searchResults.map((s) => (
+                                        <button
+                                            key={s.cc}
+                                            type="button"
+                                            onClick={() => handleSelectStudent(s)}
+                                            className="w-full flex items-center justify-between px-4 h-14 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all border border-transparent hover:border-zinc-100 group"
+                                        >
+                                            <div className="flex flex-col items-start text-left">
+                                                <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">{s.full_name}</span>
+                                                <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">GR: {s.gr_number || "N/A"}</span>
+                                            </div>
+                                            <span className="text-[11px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-3 py-1 rounded-full group-hover:bg-primary group-hover:text-white transition-all">{s.cc}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex gap-3">
+                        {selectedClassId !== "" && (
+                            <button onClick={() => fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId)} disabled={isLoading} title="Refresh/Reload"
+                                className="inline-flex items-center gap-2 h-11 px-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-medium text-zinc-700 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all shadow-sm disabled:opacity-50"
+                            >
+                                <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} /> Refresh
+                            </button>
+                        )}
+                        {rows.length > 0 && (
+                            <button onClick={handleSave} disabled={isSaving || !studentId.trim()}
+                                className="inline-flex items-center gap-2 h-11 px-8 bg-primary text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50 active:scale-95"
+                            >
+                                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Schedule"}
+                            </button>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Banner Notifications */}
@@ -723,20 +757,15 @@ function StudentwiseFeeEditor() {
                                                 <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />
                                             </td>
 
-                                            {/* Frequency Select */}
-                                            <td data-row={rIdx} data-col={COL_FREQ} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FREQ) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
+                                            {/* Frequency (Read-only) */}
+                                            <td data-row={rIdx} data-col={COL_FREQ} tabIndex={0} onFocus={() => setActiveCell({ row: rIdx, col: COL_FREQ })}
+                                                className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FREQ) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}
+                                            >
                                                 <div className="relative h-10 w-full px-5 flex items-center justify-center">
-                                                    <select
-                                                        data-row={rIdx} data-col={COL_FREQ}
-                                                        value={row.freq || "MONTHLY"}
-                                                        onChange={(e) => updateRow(rIdx, "freq", e.target.value)}
-                                                        onFocus={() => setActiveCell({ row: rIdx, col: COL_FREQ })}
-                                                        className="w-full h-full appearance-none outline-none bg-transparent text-center font-bold text-[10px] uppercase tracking-wider cursor-pointer z-10"
-                                                    >
-                                                        <option value="MONTHLY">Monthly</option>
-                                                        <option value="ONE_TIME">One-Time</option>
-                                                    </select>
-                                                    <div className={`absolute inset-x-4 inset-y-2 rounded-md ${row.freq === "MONTHLY" ? "bg-blue-50 text-blue-600" : "bg-amber-50 text-amber-600"}`} />
+                                                    <span className={`z-10 font-bold text-[10px] uppercase tracking-wider ${row.freq === "MONTHLY" ? "text-blue-600" : "text-amber-600"}`}>
+                                                        {row.freq || "MONTHLY"}
+                                                    </span>
+                                                    <div className={`absolute inset-x-4 inset-y-2 rounded-md ${row.freq === "MONTHLY" ? "bg-blue-50" : "bg-amber-50"}`} />
                                                 </div>
                                             </td>
 
