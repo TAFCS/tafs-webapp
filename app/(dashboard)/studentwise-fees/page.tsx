@@ -166,7 +166,30 @@ function StudentwiseFeeEditor() {
     useEffect(() => {
         const cc = searchParams.get("ccNumber");
         const cid = searchParams.get("classId");
-        if (cc) setStudentId(cc);
+
+        if (cc) {
+            setStudentId(cc);
+            // Auto-load student profile if CC exists
+            const fetchProfile = async () => {
+                try {
+                    const numericMatch = cc.match(/\d+$/);
+                    const ccKey = numericMatch ? numericMatch[0] : cc;
+                    const { data } = await api.get(`/v1/students/${ccKey}`);
+                    const fullStudent = data?.data;
+                    if (fullStudent) {
+                        if (fullStudent.campus_id) setSelectedCampusId(fullStudent.campus_id);
+                        if (fullStudent.class_id) setSelectedClassId(fullStudent.class_id);
+                        if (fullStudent.section_id) setSelectedSectionId(fullStudent.section_id);
+                        setSkipSearch(true);
+                        setSearchQuery(`${fullStudent.student_full_name || fullStudent.full_name} (${fullStudent.cc_number || fullStudent.cc})`);
+                    }
+                } catch (e) {
+                    console.error("Auto-filling student profile failed:", e);
+                }
+            };
+            fetchProfile();
+        }
+
         if (cid && cid !== "null" && cid !== "undefined" && !isNaN(Number(cid))) {
             setSelectedClassId(Number(cid));
         }
@@ -245,7 +268,7 @@ function StudentwiseFeeEditor() {
             // 3. Apply global sort by month
             let finalRows = sortSpreadsheetRows(expanded);
 
-            // 4. Fetch Student-specific overrides if CC provided
+            // 4. Fetch Student-specific overrides if Computer Code provided
             if (ccNumber) {
                 try {
                     const numericMatch = ccNumber.match(/\d+$/);
@@ -256,11 +279,11 @@ function StudentwiseFeeEditor() {
                     // Merge student overrides into the expanded rows
                     finalRows = finalRows.map(row => {
                         const monthNum = MONTH_TO_NUM[row.month];
-                        const override = studentFees.find((sf: any) =>
-                            sf.fee_type_id === row.feeId &&
+                        const override = Array.isArray(studentFees) ? studentFees.find((sf: any) => 
+                            sf.fee_type_id === row.feeId && 
                             sf.month === monthNum &&
                             sf.academic_year === academicYear
-                        );
+                        ) : null;
                         return override ? { ...row, amount: override.amount.toString() } : row;
                     });
                 } catch (e) {
@@ -370,7 +393,7 @@ function StudentwiseFeeEditor() {
 
     const handleSave = async () => {
         if (!studentId.trim()) {
-            setSaveStatus({ type: "error", message: "Please enter a Student CC number before saving." });
+            setSaveStatus({ type: "error", message: "Please enter a Computer Code before saving." });
             return;
         }
         if (rows.length === 0) return;
@@ -631,7 +654,7 @@ function StudentwiseFeeEditor() {
                     </div>
 
                     <div className="w-full xl:w-80 relative" ref={searchDropdownRef}>
-                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Search CC Number</label>
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Search Computer Code</label>
                         <div className="relative">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                             <input

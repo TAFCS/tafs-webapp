@@ -190,7 +190,7 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                                 </h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 gap-y-6">
                                     <DataPoint label="Date of Birth" value={student.date_of_birth?.toString() || ""} />
-                                    <DataPoint label="Registration No." value={student.registration_number?.toString() || ""} />
+                                    <DataPoint label="Computer Code" value={student.registration_number?.toString() || ""} />
                                     <DataPoint label="Primary Guardian" value={student.primary_guardian_name?.toString() || ""} />
                                     <DataPoint label="Father's Name" value={student.father_name?.toString() || ""} />
                                     <DataPoint label="Guardian CNIC" value={student.primary_guardian_cnic?.toString() || ""} />

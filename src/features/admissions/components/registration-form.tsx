@@ -181,10 +181,10 @@ export function RegistrationForm() {
             const latestAdmission = rawStudent.student_admissions?.[0];
 
             const mappedStudent: StudentListItem = {
-                id: rawStudent.id,
+                id: rawStudent.cc,
                 student_full_name: rawStudent.full_name,
                 gr_number: rawStudent.gr_number,
-                cc_number: rawStudent.cc_number,
+                cc_number: rawStudent.cc,
                 campus: rawStudent.campuses?.campus_name || "N/A",
                 grade_and_section: latestAdmission ? `${latestAdmission.requested_grade}` : null,
                 primary_guardian_name: primaryGuardian?.full_name,
@@ -198,18 +198,18 @@ export function RegistrationForm() {
                 primary_guardian_cnic: primaryGuardian?.cnic,
                 date_of_birth: rawStudent.dob,
                 gender: rawStudent.gender,
-                registration_number: rawStudent.cc_number,
+                registration_number: rawStudent.cc,
                 date_of_admission: rawStudent.created_at,
                 house_and_color: null,
                 residential_address: rawStudent.families?.primary_address || primaryGuardian?.house_appt_name,
                 father_name: rawStudent.student_guardians?.find((sg: any) => sg.relationship === 'Father')?.guardians?.full_name,
                 class_id: rawStudent.class_id,
                 siblings: rawStudent.families?.students
-                    ?.filter((s: any) => s.id !== rawStudent.id)
+                    ?.filter((s: any) => s.cc !== rawStudent.cc)
                     ?.map((s: any) => ({
-                        id: s.id,
+                        id: s.cc,
                         full_name: s.full_name,
-                        cc_number: s.cc_number,
+                        cc_number: s.cc,
                         grade: s.student_admissions?.[0]?.requested_grade,
                         father_name: s.student_guardians?.find((sg: any) => sg.relationship === 'Father')?.guardians?.full_name,
                     })),
@@ -254,7 +254,7 @@ export function RegistrationForm() {
                         <input type="text" name="serialNo" value={formData.serialNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Registration #</label>
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Computer Code</label>
                         <input type="text" name="registrationNo" value={formData.registrationNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
                     </div>
                     <div>

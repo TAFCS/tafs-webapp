@@ -233,6 +233,7 @@ export function AdmissionForm() {
                 advance_credit_balance: 0,
                 primary_guardian_cnic: primaryGuardian?.cnic,
                 date_of_birth: rawStudent.dob,
+                gender: rawStudent.gender,
                 registration_number: rawStudent.cc_number,
                 date_of_admission: rawStudent.created_at,
                 house_and_color: null,
@@ -281,7 +282,7 @@ export function AdmissionForm() {
                             value={formData.serialNo} onChange={e => setFormData({ ...formData, serialNo: e.target.value })} />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Registration #</label>
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Computer Code</label>
                         <input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                             value={formData.registrationNo} onChange={e => setFormData({ ...formData, registrationNo: e.target.value })} />
                     </div>
@@ -1435,7 +1436,7 @@ export function AdmissionForm() {
                                     <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Class/Section</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
                                     <div className="md:col-span-3"><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Father&apos;s Name</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-50 dark:bg-zinc-900" readOnly /></div>
 
-                                    <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Registration #</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-50 dark:bg-zinc-900" readOnly /></div>
+                                    <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Computer Code</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-50 dark:bg-zinc-900" readOnly /></div>
                                     <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Computer Code #</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-50 dark:bg-zinc-900" readOnly /></div>
                                     <div><label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">G.R. #</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded" /></div>
 

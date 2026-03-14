@@ -39,7 +39,7 @@ interface ColumnDef {
 const COLUMNS: ColumnDef[] = [
     { id: "student_full_name", label: "Student Name", isDefault: true },
     { id: "gr_number", label: "G.R. Number", isDefault: true },
-    { id: "cc_number", label: "C.C. Number", isDefault: true },
+    { id: "cc_number", label: "Computer Code", isDefault: true },
     { id: "campus", label: "Campus / Branch", isDefault: true },
     { id: "grade_and_section", label: "Grade & Section", isDefault: true },
     { id: "primary_guardian_name", label: "Primary Guardian Name", isDefault: true },
@@ -53,7 +53,7 @@ const COLUMNS: ColumnDef[] = [
     { id: "primary_guardian_cnic", label: "Guardian CNIC", isDefault: false },
     { id: "date_of_admission", label: "Date of Admission", isDefault: false },
     { id: "date_of_birth", label: "Date of Birth", isDefault: false },
-    { id: "registration_number", label: "Registration No.", isDefault: false },
+    { id: "registration_number", label: "Computer Code", isDefault: false },
     { id: "house_and_color", label: "House & Color", isDefault: false },
     { id: "residential_address", label: "Address", isDefault: false },
     { id: "father_name", label: "Father's Name", isDefault: false },
@@ -63,7 +63,7 @@ const COLUMNS: ColumnDef[] = [
 const COL_TO_CATEGORY_MAP: Record<keyof StudentListItem, string> = {
     id: "core", student_full_name: "core", gr_number: "core", cc_number: "core",
     campus: "core", enrollment_status: "core", financial_status_badge: "core",
-    registration_number: "core", house_and_color: "core",
+    registration_number: "core", house_and_color: "core", gender: "demographic",
     grade_and_section: "academic", class_id: "academic",
     family_id: "family", household_name: "family", residential_address: "family",
     primary_guardian_name: "contact", whatsapp_number: "contact", primary_guardian_cnic: "contact",
@@ -216,7 +216,7 @@ export function StudentDataTable() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                     <input
                         type="text"
-                        placeholder="Search name, G.R., C.C. or phone…"
+                        placeholder="Search name, G.R., Computer Code or phone…"
                         value={searchQuery}
                         onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
                         className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
