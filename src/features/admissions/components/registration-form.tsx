@@ -104,10 +104,8 @@ export function RegistrationForm() {
             ? `${formData.dobYear}-${String(formData.dobMonth).padStart(2, '0')}-${String(formData.dobDay).padStart(2, '0')}`
             : '';
 
-        // Split candidateName into first / last
-        const nameParts = formData.candidateName.trim().split(' ');
-        const firstName = nameParts[0] ?? '';
-        const lastName = nameParts.slice(1).join(' ') || firstName;
+        // Student Name
+        const fullName = formData.candidateName.trim();
 
         const fatherFullName = formData.fatherName.trim() || 'Father';
 
@@ -118,9 +116,7 @@ export function RegistrationForm() {
         const academicSystem = formData.admissionSystem === 'cambridge' ? 'Cambridge' : 'Secondary';
 
         const payload = {
-            campus_id: formData.campusId ? parseInt(formData.campusId) : undefined,
-            first_name: firstName,
-            last_name: lastName,
+            full_name: fullName,
             dob,
             gender: formData.gender || 'Male',
             nationality: formData.nationalityPakistani ? 'Pakistani' : formData.nationalityOther || 'Pakistani',
@@ -162,6 +158,7 @@ export function RegistrationForm() {
                 academic_system: academicSystem,
                 requested_grade: formData.admissionLevel || 'N/A',
                 academic_year: new Date().getFullYear().toString(),
+                campus_id: formData.campusId ? parseInt(formData.campusId) : undefined,
             },
             previous_schools: formData.previousSchools
                 .filter(s => s.name.trim())
@@ -185,7 +182,7 @@ export function RegistrationForm() {
 
             const mappedStudent: StudentListItem = {
                 id: rawStudent.id,
-                student_full_name: `${rawStudent.first_name} ${rawStudent.last_name}`.trim(),
+                student_full_name: rawStudent.full_name,
                 gr_number: rawStudent.gr_number,
                 cc_number: rawStudent.cc_number,
                 campus: rawStudent.campuses?.campus_name || "N/A",
@@ -200,6 +197,7 @@ export function RegistrationForm() {
                 advance_credit_balance: 0,
                 primary_guardian_cnic: primaryGuardian?.cnic,
                 date_of_birth: rawStudent.dob,
+                gender: rawStudent.gender,
                 registration_number: rawStudent.cc_number,
                 date_of_admission: rawStudent.created_at,
                 house_and_color: null,
@@ -210,7 +208,7 @@ export function RegistrationForm() {
                     ?.filter((s: any) => s.id !== rawStudent.id)
                     ?.map((s: any) => ({
                         id: s.id,
-                        full_name: `${s.first_name} ${s.last_name}`.trim(),
+                        full_name: s.full_name,
                         cc_number: s.cc_number,
                         grade: s.student_admissions?.[0]?.requested_grade,
                         father_name: s.student_guardians?.find((sg: any) => sg.relationship === 'Father')?.guardians?.full_name,
