@@ -50,6 +50,8 @@ const MONTH_TO_NUM: Record<string, number> = {
     January: 1, February: 2, March: 3, April: 4, May: 5, June: 6, July: 7,
 };
 
+const ACADEMIC_YEARS = ["2024-2025", "2025-2026", "2026-2027", "2027-2028"];
+
 function calendarYear(academicYearStart: number, monthNum: number): number {
     return monthNum >= 8 ? academicYearStart : academicYearStart + 1;
 }
@@ -108,6 +110,7 @@ function StudentwiseFeeEditor() {
     const [selectedCampusId, setSelectedCampusId] = useState<number | "">("");
     const [selectedClassId, setSelectedClassId] = useState<number | "">("");
     const [selectedSectionId, setSelectedSectionId] = useState<number | "">("");
+    const [selectedYear, setSelectedYear] = useState("2024-2025");
 
     const [isSearching, setIsSearching] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -206,7 +209,7 @@ function StudentwiseFeeEditor() {
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    const fetchFeeSchedule = useCallback(async (classId: number, campusId?: number | "", ccNumber?: string) => {
+    const fetchFeeSchedule = useCallback(async (classId: number, campusId: number | "", ccNumber: string, academicYear: string) => {
         setIsLoading(true); setLoadError(null); setRows([]); setActiveCell(null);
         try {
             // 1. Fetch Class Schedule
@@ -253,7 +256,11 @@ function StudentwiseFeeEditor() {
                     // Merge student overrides into the expanded rows
                     finalRows = finalRows.map(row => {
                         const monthNum = MONTH_TO_NUM[row.month];
-                        const override = studentFees.find((sf: any) => sf.fee_type_id === row.feeId && sf.month === monthNum);
+                        const override = studentFees.find((sf: any) =>
+                            sf.fee_type_id === row.feeId &&
+                            sf.month === monthNum &&
+                            sf.academic_year === academicYear
+                        );
                         return override ? { ...row, amount: override.amount.toString() } : row;
                     });
                 } catch (e) {
@@ -269,11 +276,11 @@ function StudentwiseFeeEditor() {
 
     useEffect(() => {
         if (selectedClassId !== "") {
-            fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId);
+            fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
         } else {
             setRows([]);
         }
-    }, [selectedClassId, selectedCampusId, studentId, fetchFeeSchedule]);
+    }, [selectedClassId, selectedCampusId, studentId, selectedYear, fetchFeeSchedule]);
 
     const handleSelectStudent = async (student: { cc: number; full_name: string; gr_number: string }) => {
         setIsSearching(true);
@@ -373,15 +380,11 @@ function StudentwiseFeeEditor() {
         try {
             const items = rows.map((row) => {
                 const monthNum = MONTH_TO_NUM[row.month] || 8;
-                const year = calendarYear(academicYearStart, monthNum);
-                const nextYear = year + 1;
-                const academicYearStr = `${year}-${nextYear}`;
-
                 return {
                     fee_type_id: row.feeId,
                     month: monthNum,
                     amount: parseFloat(row.amount || "0"),
-                    academic_year: academicYearStr,
+                    academic_year: selectedYear,
                 };
             });
 
@@ -505,6 +508,21 @@ function StudentwiseFeeEditor() {
             {/* Config Bar */}
             <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm p-6">
                 <div className="flex flex-col xl:flex-row xl:items-end gap-5 animate-in slide-in-from-right-4 duration-300">
+                    {/* Academic Year Select */}
+                    <div className="w-full xl:w-48">
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Academic Year</label>
+                        <div className="relative">
+                            <select
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(e.target.value)}
+                                className="w-full h-11 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-primary appearance-none outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all cursor-pointer shadow-sm"
+                            >
+                                {ACADEMIC_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                        </div>
+                    </div>
+
                     {/* Campus Select */}
                     <div className="w-full xl:w-64">
                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Campus</label>
@@ -663,7 +681,7 @@ function StudentwiseFeeEditor() {
 
                     <div className="flex gap-3">
                         {selectedClassId !== "" && (
-                            <button onClick={() => fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId)} disabled={isLoading} title="Refresh/Reload"
+                            <button onClick={() => fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear)} disabled={isLoading} title="Refresh/Reload"
                                 className="inline-flex items-center gap-2 h-11 px-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-medium text-zinc-700 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all shadow-sm disabled:opacity-50"
                             >
                                 <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} /> Refresh
