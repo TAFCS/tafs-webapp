@@ -78,24 +78,9 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         Staff Tools
                     </p>
 
-                    <Link href="/staff-editing/students" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors">
+                    <Link href="/changer" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors">
                         <Users className="h-5 w-5 mr-3 text-primary" />
-                        <span className="font-medium text-sm">Student Spreadsheet</span>
-                    </Link>
-
-                    <Link href="/fee-challan" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors">
-                        <CreditCard className="h-5 w-5 mr-3 text-primary" />
-                        <span className="font-medium text-sm">Fee Challan Generator</span>
-                    </Link>
-
-                    <Link href="/banks" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors">
-                        <Building2 className="h-5 w-5 mr-3 text-primary" />
-                        <span className="font-medium text-sm">Banks Management</span>
-                    </Link>
-
-                    <Link href="/vouchers" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors">
-                        <Receipt className="h-5 w-5 mr-3 text-primary" />
-                        <span className="font-medium text-sm">Vouchers</span>
+                        <span className="font-medium text-sm">Changer</span>
                     </Link>
 
                     <div className="mt-auto pt-4 border-t border-zinc-100">
