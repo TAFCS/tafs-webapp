@@ -222,6 +222,7 @@ interface FeeChallanPDFProps {
     };
     details: {
         month: string;
+        academicYear: string;
         issueDate: string;
         dueDate: string;
         validityDate: string;
@@ -308,6 +309,10 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                 <View style={styles.dateItem}>
                     <Text style={styles.dateLabel}>Due</Text>
                     <Text style={styles.dateValue}>{details.dueDate}</Text>
+                </View>
+                <View style={styles.dateItem}>
+                    <Text style={styles.dateLabel}>Session</Text>
+                    <Text style={[styles.dateValue, { fontSize: 6 }]}>{details.academicYear}</Text>
                 </View>
                 <View style={styles.dateItem}>
                     <Text style={[styles.dateLabel, { textAlign: 'right' }]}>Valid</Text>

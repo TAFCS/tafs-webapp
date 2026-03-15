@@ -17,7 +17,10 @@ import {
     UserSearch,
     ChevronDown,
     Settings2 as SettingsIcon,
-    X
+    X,
+    ChevronLeft,
+    ChevronRight,
+    GripVertical
 } from "lucide-react";
 import { useRef } from "react";
 import api from "@/lib/api";
@@ -31,6 +34,7 @@ const PDFDownloadLink = dynamic(
     () => import("@react-pdf/renderer").then((m) => m.PDFDownloadLink),
     { ssr: false }
 );
+import { pdf } from "@react-pdf/renderer";
 import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
 import { bankAccountsService, BankAccount } from "@/lib/bank-accounts.service";
 
@@ -67,6 +71,8 @@ const MONTH_TO_NUM: Record<string, number> = {
     January: 1, February: 2, March: 3, April: 4, May: 5, June: 6, July: 7,
 };
 
+const ACADEMIC_YEARS = ["2023-2024", "2024-2025", "2025-2026", "2026-2027", "2027-2028"];
+
 const MONTHS = [
     "August", "September", "October", "November", "December",
     "January", "February", "March", "April", "May", "June", "July"
@@ -88,6 +94,13 @@ export default function FeeChallanGenerator() {
     const sections = useSelector((state: RootState) => state.sections.items);
 
     const [student, setStudent] = useState<StudentProfile | null>(null);
+
+    const [academicYear, setAcademicYear] = useState("2024-2025");
+    const [showYearDropdown, setShowYearDropdown] = useState(false);
+    const [baseYear, setBaseYear] = useState(new Date().getFullYear() - 2);
+    const yearDropdownRef = useRef<HTMLDivElement>(null);
+
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
     const [month, setMonth] = useState(MONTHS[new Date().getMonth() === 0 ? 5 : (new Date().getMonth() >= 8 ? new Date().getMonth() - 8 : new Date().getMonth() + 4)]);
     const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
@@ -127,6 +140,9 @@ export default function FeeChallanGenerator() {
             if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
                 setShowSearchDropdown(false);
             }
+            if (yearDropdownRef.current && !yearDropdownRef.current.contains(e.target as Node)) {
+                setShowYearDropdown(false);
+            }
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -153,25 +169,27 @@ export default function FeeChallanGenerator() {
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Fetch Fees Effect
     useEffect(() => {
         setVoucherSaved(false);
         setStudentFees([]);
 
-        if (student && month) {
-            fetchStudentFees(student.cc, month);
+        if (student && month && academicYear) {
+            fetchStudentFees(student.cc, month, academicYear);
         }
-    }, [student, month]);
+    }, [student, month, academicYear]);
 
-    const fetchStudentFees = async (cc: number, selectedMonth: string) => {
+    const fetchStudentFees = async (cc: number, selectedMonth: string, selectedYear: string) => {
         setIsFetchingFees(true);
         try {
             const { data } = await api.get(`/v1/student-fees/by-student/${cc}`);
-            const allFees: StudentFee[] = data?.data?.fees || [];
+            const allFees: any[] = data?.data?.fees || [];
             const familyStudents = data?.data?.family?.students || [];
 
             const monthNum = MONTH_TO_NUM[selectedMonth];
-            const applicableFees = allFees.filter(f => f.month === monthNum);
+            const applicableFees = allFees.filter(f => 
+                f.month === monthNum && 
+                (f.academic_year === selectedYear)
+            );
 
             setStudentFees(applicableFees);
             setSiblings(familyStudents.filter((s: any) => s.cc !== cc));
@@ -238,6 +256,31 @@ export default function FeeChallanGenerator() {
         }
     };
 
+    // DnD Handlers
+    const onDragStart = (e: React.DragEvent, index: number) => {
+        setDraggedIndex(index);
+        e.dataTransfer.effectAllowed = "move";
+        // Required for Firefox
+        e.dataTransfer.setData("text/html", (e.currentTarget as HTMLElement).innerHTML);
+    };
+
+    const onDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        if (draggedIndex === null || draggedIndex === index) return;
+
+        const newFees = [...studentFees];
+        const draggedItem = newFees[draggedIndex];
+        newFees.splice(draggedIndex, 1);
+        newFees.splice(index, 0, draggedItem);
+        
+        setDraggedIndex(index);
+        setStudentFees(newFees);
+    };
+
+    const onDragEnd = () => {
+        setDraggedIndex(null);
+    };
+
     const handleSaveVoucher = async () => {
         if (!student || !selectedBank) {
             toast.error("Please select a student and a bank.");
@@ -250,25 +293,83 @@ export default function FeeChallanGenerator() {
 
         setIsSavingVoucher(true);
         try {
-            const payload = {
-                student_id: Number(student.cc),
-                campus_id: Number(student.campus_id) || 1, // Fallback if missing
-                class_id: Number(student.class_id) || 1,
-                section_id: student.section_id ? Number(student.section_id) : null,
-                bank_account_id: selectedBank.id,
-                issue_date: issueDate,
-                due_date: dueDate,
-            };
+            // 1. Generate PDF Blob
+            const selectedClass = classes.find(c => c.id === student.class_id);
+            const selectedSection = sections.find(s => s.id === student.section_id);
 
-            // Add optional fields only if they are defined to avoid 400 errors from strict validation
-            const fullPayload = {
-                ...payload,
-                ...(validityDate ? { validity_date: validityDate } : {}),
-                late_fee_charge: applyLateFee
-            };
+            const blob = await pdf(
+                <FeeChallanPDF 
+                    student={{
+                        cc: student.cc,
+                        student_full_name: student.student_full_name,
+                        gr_number: student.gr_number,
+                        campus: student.campus,
+                        class_id: student.class_id,
+                        section_id: student.section_id,
+                        className: (selectedClass as any)?.class_name || "N/A",
+                        sectionName: (selectedSection as any)?.section_name || "N/A",
+                        grade_and_section: student.grade_and_section,
+                        gender: student.gender,
+                        father_name: student.father_name
+                    }}
+                    details={{
+                        month: month,
+                        academicYear: academicYear,
+                        issueDate: issueDate,
+                        dueDate: dueDate,
+                        validityDate: validityDate || "N/A",
+                        applyLateFee: applyLateFee,
+                        bank: {
+                            name: selectedBank.bank_name,
+                            title: selectedBank.account_title,
+                            account: selectedBank.account_number,
+                            branch: selectedBank.bank_address || "N/A", // Use address as branch if specific branch name missing
+                            address: selectedBank.bank_address || "N/A",
+                            iban: selectedBank.iban || ""
+                        }
+                    }}
+                    fees={studentFees.map(f => ({ 
+                        description: f.fee_types?.description || "Fee", 
+                        amount: Number(f.amount) 
+                    }))}
+                    totalAmount={totalFeesAmount}
+                    siblings={siblings.map(s => ({
+                        full_name: s.student_full_name,
+                        cc: s.cc,
+                        gr_number: s.gr_number,
+                        className: s.grade_and_section?.split('-')[0] || "N/A",
+                        sectionName: s.grade_and_section?.split('-')[1] || "N/A"
+                    }))}
+                />
+            ).toBlob();
 
-            await api.post('/v1/vouchers', fullPayload);
-            toast.success("Voucher saved successfully!");
+            // 2. Prepare Multipart Form Data
+            const formData = new FormData();
+            formData.append('pdf', blob, `voucher-${student.cc}-${Date.now()}.pdf`);
+            formData.append('student_id', student.cc.toString());
+            formData.append('campus_id', (student.campus_id || 1).toString());
+            formData.append('class_id', (student.class_id || 1).toString());
+            if (student.section_id) formData.append('section_id', student.section_id.toString());
+            formData.append('bank_account_id', selectedBank.id.toString());
+            formData.append('issue_date', issueDate);
+            formData.append('due_date', dueDate);
+            if (validityDate) formData.append('validity_date', validityDate);
+            formData.append('late_fee_charge', applyLateFee.toString());
+            formData.append('academic_year', academicYear);
+            formData.append('month', (MONTHS.indexOf(month) + 1).toString());
+            formData.append('precedence', '1');
+            
+            // Send ordered IDs
+            studentFees.forEach(f => {
+                formData.append('orderedFeeIds', f.id.toString());
+            });
+            
+            await api.post('/v1/vouchers', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            toast.success("Voucher generated and PDF uploaded successfully!");
             setVoucherSaved(true);
         } catch (e: any) {
             console.error(e);
@@ -283,6 +384,67 @@ export default function FeeChallanGenerator() {
         description: f.fee_types?.description || 'Unknown Fee',
         amount: Number(f.amount)
     }));
+
+    const YearPicker = () => {
+        const years = Array.from({ length: 12 }, (_, i) => {
+            const start = baseYear + i;
+            return `${start}-${start + 1}`;
+        });
+
+        return (
+            <div className="relative" ref={yearDropdownRef}>
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Academic Year</label>
+                <div className="relative mt-2">
+                    <button
+                        onClick={() => setShowYearDropdown(!showYearDropdown)}
+                        className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all flex items-center justify-between group"
+                    >
+                        <span className="text-zinc-900 dark:text-zinc-100">{academicYear}</span>
+                        <Calendar className="h-4 w-4 text-zinc-400 group-hover:text-primary transition-colors" />
+                    </button>
+
+                    {showYearDropdown && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 min-w-[280px]">
+                            {/* Header with Navigation */}
+                            <div className="p-3 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
+                                <button 
+                                    onClick={() => setBaseYear(prev => prev - 12)}
+                                    className="p-1.5 hover:bg-white dark:hover:bg-zinc-800 rounded-lg border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 transition-all active:scale-90"
+                                >
+                                    <ChevronLeft className="h-4 w-4 text-zinc-500" />
+                                </button>
+                                <span className="text-[11px] font-black uppercase tracking-widest text-zinc-400">
+                                    {baseYear} - {baseYear + 11}
+                                </span>
+                                <button 
+                                    onClick={() => setBaseYear(prev => prev + 12)}
+                                    className="p-1.5 hover:bg-white dark:hover:bg-zinc-800 rounded-lg border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 transition-all active:scale-90"
+                                >
+                                    <ChevronRight className="h-4 w-4 text-zinc-500" />
+                                </button>
+                            </div>
+
+                            {/* Year Grid */}
+                            <div className="p-3 grid grid-cols-2 gap-2">
+                                {years.map((year) => (
+                                    <button
+                                        key={year}
+                                        onClick={() => {
+                                            setAcademicYear(year);
+                                            setShowYearDropdown(false);
+                                        }}
+                                        className={`px-3 py-2.5 text-center text-[12px] font-bold rounded-xl transition-all border ${academicYear === year ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-transparent hover:border-zinc-100 dark:hover:border-zinc-800"}`}
+                                    >
+                                        {year}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 pb-20 mt-4">
@@ -426,7 +588,10 @@ export default function FeeChallanGenerator() {
                             </div>
                         </div>
 
-                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                            {/* Academic Year Selection */}
+                            <YearPicker />
+
                             {/* Month Select */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Fee Month</label>
@@ -438,7 +603,7 @@ export default function FeeChallanGenerator() {
                                     >
                                         {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
-                                    <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                                 </div>
                             </div>
 
@@ -534,7 +699,12 @@ export default function FeeChallanGenerator() {
                                 <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center">
                                     <FileText className="h-5 w-5 text-primary" />
                                 </div>
-                                <h2 className="text-lg font-bold text-zinc-900">3. Applicable Fees</h2>
+                                <div className="flex flex-col">
+                                    <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">3. Applicable Fees</h2>
+                                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-[0.15em] mt-0.5 opacity-70">
+                                        Drag rows to reorder • Top fees are settled first
+                                    </p>
+                                </div>
                             </div>
 
                             {isFetchingFees ? (
@@ -551,11 +721,31 @@ export default function FeeChallanGenerator() {
                                                 <th className="px-5 py-3 font-bold text-zinc-600 text-right">Amount (PKR)</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-zinc-100">
-                                            {studentFees.map(fee => (
-                                                <tr key={fee.id}>
-                                                    <td className="px-5 py-3 font-medium text-zinc-900">{fee.fee_types?.description || 'Unknown Fee'}</td>
-                                                    <td className="px-5 py-3 font-bold text-zinc-900 text-right">{Number(fee.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                        <tbody>
+                                            {studentFees.map((fee, idx) => (
+                                                <tr 
+                                                    key={fee.id} 
+                                                    draggable
+                                                    onDragStart={(e) => onDragStart(e, idx)}
+                                                    onDragOver={(e) => onDragOver(e, idx)}
+                                                    onDragEnd={onDragEnd}
+                                                    className={`group transition-all ${draggedIndex === idx ? "opacity-30 bg-primary/5" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"}`}
+                                                >
+                                                    <td className="py-4 px-6">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="p-1 cursor-grab active:cursor-grabbing text-zinc-300 group-hover:text-zinc-400 dark:text-zinc-600 transition-colors">
+                                                                <GripVertical className="h-4 w-4" />
+                                                            </div>
+                                                            <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
+                                                                {fee.fee_types?.description}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-4 px-6 text-right">
+                                                        <span className="text-[14px] font-black text-primary font-mono">
+                                                            {Number(fee.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                    </td>
                                                 </tr>
                                             ))}
                                             {applyLateFee && (
@@ -627,6 +817,7 @@ export default function FeeChallanGenerator() {
                                                 }))}
                                                 details={{
                                                     month,
+                                                    academicYear,
                                                     issueDate,
                                                     dueDate,
                                                     validityDate,
