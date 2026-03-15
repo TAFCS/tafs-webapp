@@ -288,7 +288,7 @@ function StudentwiseFeeEditor() {
                             sf.month === monthNum &&
                             sf.academic_year === academicYear
                         ) : null;
-                        return override ? { ...row, amount: override.amount.toString() } : row;
+                        return override ? { ...row, amount: override.amount_before_discount?.toString() || override.amount?.toString() } : row;
                     });
                 } catch (e) {
                     console.error("No student overrides found or error fetching them.", e);
@@ -410,7 +410,7 @@ function StudentwiseFeeEditor() {
                 return {
                     fee_type_id: row.feeId,
                     month: monthNum,
-                    amount: parseFloat(row.amount || "0"),
+                    amount_before_discount: parseFloat(row.amount || "0"),
                     academic_year: selectedYear,
                 };
             });
