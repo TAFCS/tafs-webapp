@@ -227,6 +227,7 @@ interface FeeChallanPDFProps {
         dueDate: string;
         validityDate: string;
         applyLateFee: boolean;
+        lateFeeAmount: number;
         bank: {
             name: string;
             title: string;
@@ -348,13 +349,13 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
 
             <View style={[styles.tableRow, { borderBottomWidth: 0, marginTop: 2 }]}>
                 <Text style={styles.colDesc}>Late Payment Surcharge</Text>
-                <Text style={styles.colAmount}>{(1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                <Text style={styles.colAmount}>{(details.lateFeeAmount || 1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
             </View>
 
             <View style={[styles.totalRow, { marginTop: 0, paddingTop: 2 }]}>
                 <Text style={[styles.colDesc, { fontWeight: 'bold', color: '#e11d48' }]}>PAYABLE AFTER DUE DATE</Text>
                 <Text style={[styles.colAmount, { fontWeight: 'bold', fontSize: 8, color: '#e11d48' }]}>
-                    {(totalAmount + 1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {(totalAmount + (details.lateFeeAmount || 1000)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </Text>
             </View>
         </View>
@@ -362,7 +363,7 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
         <View style={styles.footer}>
             <Text style={{ fontSize: 5, fontWeight: 'bold', marginBottom: 2 }}>NOTE:</Text>
             <Text style={styles.instructions}>1. Only Cash & MBL Cheque/Pay order will be accepted.</Text>
-            <Text style={styles.instructions}>2. After Due Date student will pay PKR1000/- as charity on late deposit.</Text>
+            <Text style={styles.instructions}>2. After Due Date student will pay PKR{(details.lateFeeAmount || 1000)}/- as charity on late deposit.</Text>
             <Text style={styles.instructions}>3. The additional amount collected after due date will be donated for Charitable purpose.</Text>
             <Text style={styles.instructions}>4. Admission and Tuition Fee once paid are non-refundable.</Text>
 

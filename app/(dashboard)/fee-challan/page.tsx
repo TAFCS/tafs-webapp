@@ -121,6 +121,7 @@ export default function FeeChallanGenerator() {
 
 
     const [applyLateFee, setApplyLateFee] = useState(false);
+    const [lateFeeAmount, setLateFeeAmount] = useState(1000);
 
     // --- Fees States ---
     const [studentFees, setStudentFees] = useState<StudentFee[]>([]);
@@ -320,6 +321,7 @@ export default function FeeChallanGenerator() {
                         dueDate: dueDate,
                         validityDate: validityDate || "N/A",
                         applyLateFee: applyLateFee,
+                        lateFeeAmount: lateFeeAmount,
                         bank: {
                             name: selectedBank.bank_name,
                             title: selectedBank.account_title,
@@ -356,6 +358,7 @@ export default function FeeChallanGenerator() {
             formData.append('due_date', dueDate);
             if (validityDate) formData.append('validity_date', validityDate);
             formData.append('late_fee_charge', applyLateFee.toString());
+            if (applyLateFee) formData.append('late_fee_amount', lateFeeAmount.toString());
             formData.append('academic_year', academicYear);
             formData.append('month', (MONTHS.indexOf(month) + 1).toString());
             formData.append('precedence', '1');
@@ -692,6 +695,23 @@ export default function FeeChallanGenerator() {
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Late Fee Amount Input */}
+                            {applyLateFee && (
+                                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Surcharge Amount</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            value={lateFeeAmount}
+                                            onChange={(e) => setLateFeeAmount(Number(e.target.value))}
+                                            placeholder="Enter amount (e.g. 1000)"
+                                            className="w-full h-12 pl-12 pr-5 bg-zinc-50 dark:bg-zinc-900 border border-rose-100 dark:border-rose-900/30 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-rose-500/5 focus:border-rose-500 transition-all text-rose-600"
+                                        />
+                                        <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-rose-400 pointer-events-none" />
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* 3. Applicable Fees Display */}
@@ -751,8 +771,8 @@ export default function FeeChallanGenerator() {
                                             ))}
                                             {applyLateFee && (
                                                 <tr>
-                                                    <td className="px-5 py-3 font-medium text-zinc-900">Late Payment Surcharge</td>
-                                                    <td className="px-5 py-3 font-bold text-zinc-900 text-right">1000.00</td>
+                                                    <td className="px-5 py-3 font-medium text-zinc-900 font-bold uppercase text-[12px]">Late Payment Surcharge</td>
+                                                    <td className="px-5 py-3 font-bold text-zinc-900 text-right font-mono text-[14px]">{lateFeeAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                                                 </tr>
                                             )}
                                         </tbody>
@@ -760,7 +780,7 @@ export default function FeeChallanGenerator() {
                                             <tr>
                                                 <td className="px-5 py-4 font-black tracking-wider text-zinc-900 text-[11px] uppercase">NET PAYABLE AMOUNT</td>
                                                 <td className="px-5 py-4 font-black text-primary text-right text-base">
-                                                    {(totalFeesAmount + (applyLateFee ? 1000 : 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                    {(totalFeesAmount + (applyLateFee ? lateFeeAmount : 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                 </td>
                                             </tr>
                                         </tfoot>
@@ -823,6 +843,7 @@ export default function FeeChallanGenerator() {
                                                     dueDate,
                                                     validityDate,
                                                     applyLateFee,
+                                                    lateFeeAmount,
                                                     bank: {
                                                         name: selectedBank.bank_name,
                                                         title: accTitle,
