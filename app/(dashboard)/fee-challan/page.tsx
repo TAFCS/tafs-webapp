@@ -120,7 +120,7 @@ export default function FeeChallanGenerator() {
     const [iban, setIban] = useState("");
 
 
-    const [applyLateFee, setApplyLateFee] = useState(false);
+    const [applyLateFee, setApplyLateFee] = useState(true);
     const [lateFeeAmount, setLateFeeAmount] = useState(1000);
 
     // --- Fees States ---
@@ -187,8 +187,8 @@ export default function FeeChallanGenerator() {
             const familyStudents = data?.data?.family?.students || [];
 
             const monthNum = MONTH_TO_NUM[selectedMonth];
-            const applicableFees = allFees.filter(f => 
-                f.month === monthNum && 
+            const applicableFees = allFees.filter(f =>
+                f.month === monthNum &&
                 (f.academic_year === selectedYear)
             );
 
@@ -273,7 +273,7 @@ export default function FeeChallanGenerator() {
         const draggedItem = newFees[draggedIndex];
         newFees.splice(draggedIndex, 1);
         newFees.splice(index, 0, draggedItem);
-        
+
         setDraggedIndex(index);
         setStudentFees(newFees);
         setVoucherSaved(false);
@@ -300,7 +300,7 @@ export default function FeeChallanGenerator() {
             const selectedSection = sections.find(s => s.id === student.section_id);
 
             const blob = await pdf(
-                <FeeChallanPDF 
+                <FeeChallanPDF
                     student={{
                         cc: student.cc,
                         student_full_name: student.student_full_name,
@@ -331,9 +331,9 @@ export default function FeeChallanGenerator() {
                             iban: selectedBank.iban || ""
                         }
                     }}
-                    fees={studentFees.map(f => ({ 
-                        description: f.fee_types?.description || "Fee", 
-                        amount: Number(f.amount_before_discount) 
+                    fees={studentFees.map(f => ({
+                        description: f.fee_types?.description || "Fee",
+                        amount: Number(f.amount_before_discount)
                     }))}
                     totalAmount={totalFeesAmount}
                     siblings={siblings.map(s => ({
@@ -362,12 +362,12 @@ export default function FeeChallanGenerator() {
             formData.append('academic_year', academicYear);
             formData.append('month', (MONTHS.indexOf(month) + 1).toString());
             formData.append('precedence', '1');
-            
+
             // Send ordered IDs
             studentFees.forEach(f => {
                 formData.append('orderedFeeIds', f.id.toString());
             });
-            
+
             await api.post('/v1/vouchers', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
@@ -398,7 +398,7 @@ export default function FeeChallanGenerator() {
         return (
             <div className="relative" ref={yearDropdownRef}>
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Academic Year</label>
-                <div className="relative mt-2">
+                <div className="relative mt-0">
                     <button
                         onClick={() => setShowYearDropdown(!showYearDropdown)}
                         className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all flex items-center justify-between group"
@@ -411,7 +411,7 @@ export default function FeeChallanGenerator() {
                         <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 min-w-[280px]">
                             {/* Header with Navigation */}
                             <div className="p-3 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
-                                <button 
+                                <button
                                     onClick={() => setBaseYear(prev => prev - 12)}
                                     className="p-1.5 hover:bg-white dark:hover:bg-zinc-800 rounded-lg border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 transition-all active:scale-90"
                                 >
@@ -420,7 +420,7 @@ export default function FeeChallanGenerator() {
                                 <span className="text-[11px] font-black uppercase tracking-widest text-zinc-400">
                                     {baseYear} - {baseYear + 11}
                                 </span>
-                                <button 
+                                <button
                                     onClick={() => setBaseYear(prev => prev + 12)}
                                     className="p-1.5 hover:bg-white dark:hover:bg-zinc-800 rounded-lg border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 transition-all active:scale-90"
                                 >
@@ -744,8 +744,8 @@ export default function FeeChallanGenerator() {
                                         </thead>
                                         <tbody>
                                             {studentFees.map((fee, idx) => (
-                                                <tr 
-                                                    key={fee.id} 
+                                                <tr
+                                                    key={fee.id}
                                                     draggable
                                                     onDragStart={(e) => onDragStart(e, idx)}
                                                     onDragOver={(e) => onDragOver(e, idx)}
@@ -777,9 +777,15 @@ export default function FeeChallanGenerator() {
                                             )}
                                         </tbody>
                                         <tfoot className="bg-zinc-50 border-t border-zinc-200">
+                                            <tr className="border-b border-zinc-100">
+                                                <td className="px-5 py-3 font-black tracking-wider text-zinc-900 text-[10px] uppercase opacity-70">NET BEFORE DUE DATE</td>
+                                                <td className="px-5 py-3 font-black text-emerald-600 text-right text-sm">
+                                                    {totalFeesAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                </td>
+                                            </tr>
                                             <tr>
-                                                <td className="px-5 py-4 font-black tracking-wider text-zinc-900 text-[11px] uppercase">NET PAYABLE AMOUNT</td>
-                                                <td className="px-5 py-4 font-black text-primary text-right text-base">
+                                                <td className="px-5 py-4 font-black tracking-wider text-zinc-900 text-[11px] uppercase">NET AFTER DUE DATE</td>
+                                                <td className="px-5 py-4 font-black text-primary text-right text-base underline decoration-primary/30 underline-offset-4">
                                                     {(totalFeesAmount + (applyLateFee ? lateFeeAmount : 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                 </td>
                                             </tr>

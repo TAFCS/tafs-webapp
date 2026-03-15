@@ -347,15 +347,17 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                 </Text>
             </View>
 
-            <View style={[styles.tableRow, { borderBottomWidth: 0, marginTop: 2 }]}>
-                <Text style={styles.colDesc}>Late Payment Surcharge</Text>
-                <Text style={styles.colAmount}>{(details.lateFeeAmount || 1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-            </View>
+            {details.applyLateFee && (
+                <View style={[styles.tableRow, { borderBottomWidth: 0, marginTop: 2 }]}>
+                    <Text style={styles.colDesc}>Late Payment Surcharge</Text>
+                    <Text style={styles.colAmount}>{(details.lateFeeAmount || 1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                </View>
+            )}
 
             <View style={[styles.totalRow, { marginTop: 0, paddingTop: 2 }]}>
                 <Text style={[styles.colDesc, { fontWeight: 'bold', color: '#e11d48' }]}>PAYABLE AFTER DUE DATE</Text>
                 <Text style={[styles.colAmount, { fontWeight: 'bold', fontSize: 8, color: '#e11d48' }]}>
-                    {(totalAmount + (details.lateFeeAmount || 1000)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {(totalAmount + (details.applyLateFee ? (details.lateFeeAmount || 1000) : 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </Text>
             </View>
         </View>
