@@ -166,7 +166,7 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
             const { data } = await api.get(`/v1/student-fees/by-student/${voucher.student_id}`);
             const allFees = data?.data?.fees || [];
             const familyStudents = data?.data?.family?.students || [];
-            
+
             // Determine Month from Issue Date
             const issueDateObj = new Date(voucher.issue_date);
             const monthNum = issueDateObj.getMonth() + 1;
@@ -184,7 +184,7 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
 
             // Generate document
             const { pdf } = await import('@react-pdf/renderer');
-            
+
             const doc = (
                 <FeeChallanPDF
                     student={{
@@ -209,9 +209,12 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
                     }))}
                     details={{
                         month: monthName,
+                        academicYear: `${issueDateObj.getFullYear()}-${issueDateObj.getFullYear() + 1}`, // ← add this
                         issueDate: voucher.issue_date.split('T')[0],
                         dueDate: voucher.due_date.split('T')[0],
-                        validityDate: voucher.validity_date ? voucher.validity_date.split('T')[0] : voucher.due_date.split('T')[0],
+                        validityDate: voucher.validity_date
+                            ? voucher.validity_date.split('T')[0]
+                            : voucher.due_date.split('T')[0],
                         applyLateFee: voucher.late_fee_charge,
                         bank: {
                             name: voucher.bank_accounts?.bank_name || "",
