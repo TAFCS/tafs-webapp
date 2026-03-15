@@ -275,6 +275,7 @@ export default function FeeChallanGenerator() {
         
         setDraggedIndex(index);
         setStudentFees(newFees);
+        setVoucherSaved(false);
     };
 
     const onDragEnd = () => {
