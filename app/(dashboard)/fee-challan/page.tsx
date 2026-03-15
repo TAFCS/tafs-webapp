@@ -55,7 +55,7 @@ interface StudentProfile {
 interface StudentFee {
     id: number;
     fee_type_id: number;
-    amount: number;
+    amount_before_discount: number;
     month: number;
     due_date: string;
     status: boolean;
@@ -331,7 +331,7 @@ export default function FeeChallanGenerator() {
                     }}
                     fees={studentFees.map(f => ({ 
                         description: f.fee_types?.description || "Fee", 
-                        amount: Number(f.amount) 
+                        amount: Number(f.amount_before_discount) 
                     }))}
                     totalAmount={totalFeesAmount}
                     siblings={siblings.map(s => ({
@@ -380,10 +380,10 @@ export default function FeeChallanGenerator() {
         }
     };
 
-    const totalFeesAmount = studentFees.reduce((sum, fee) => sum + Number(fee.amount), 0);
+    const totalFeesAmount = studentFees.reduce((sum, fee) => sum + Number(fee.amount_before_discount), 0);
     const pdfFees = studentFees.map(f => ({
         description: f.fee_types?.description || 'Unknown Fee',
-        amount: Number(f.amount)
+        amount: Number(f.amount_before_discount)
     }));
 
     const YearPicker = () => {
@@ -744,7 +744,7 @@ export default function FeeChallanGenerator() {
                                                     </td>
                                                     <td className="py-4 px-6 text-right">
                                                         <span className="text-[14px] font-black text-primary font-mono">
-                                                            {Number(fee.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                            {Number(fee.amount_before_discount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                         </span>
                                                     </td>
                                                 </tr>
@@ -752,7 +752,7 @@ export default function FeeChallanGenerator() {
                                             {applyLateFee && (
                                                 <tr>
                                                     <td className="px-5 py-3 font-medium text-zinc-900">Late Payment Surcharge</td>
-                                                    <td className="px-5 py-3 font-bold text-zinc-900 text-right">500.00</td>
+                                                    <td className="px-5 py-3 font-bold text-zinc-900 text-right">1000.00</td>
                                                 </tr>
                                             )}
                                         </tbody>
@@ -760,7 +760,7 @@ export default function FeeChallanGenerator() {
                                             <tr>
                                                 <td className="px-5 py-4 font-black tracking-wider text-zinc-900 text-[11px] uppercase">NET PAYABLE AMOUNT</td>
                                                 <td className="px-5 py-4 font-black text-primary text-right text-base">
-                                                    {(totalFeesAmount + (applyLateFee ? 500 : 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                    {(totalFeesAmount + (applyLateFee ? 1000 : 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                 </td>
                                             </tr>
                                         </tfoot>
