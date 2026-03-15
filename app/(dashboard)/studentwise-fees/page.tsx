@@ -18,6 +18,7 @@ interface FeeTypeInfo {
     description: string;
     freq: "MONTHLY" | "ONE_TIME" | null;
     breakup: string[] | null;
+    priority_order?: number;
 }
 
 interface ClassFeeRow {
@@ -248,6 +249,9 @@ function StudentwiseFeeEditor() {
             setFeeToAmountMap(lookup);
 
             const sorted = [...feeRows].sort((a, b) => {
+                if ((a.fee_types.priority_order ?? 0) !== (b.fee_types.priority_order ?? 0)) {
+                    return (a.fee_types.priority_order ?? 0) - (b.fee_types.priority_order ?? 0);
+                }
                 const order = (f: ClassFeeRow) => f.fee_types.freq === "ONE_TIME" ? 0 : 1;
                 return order(a) - order(b);
             });

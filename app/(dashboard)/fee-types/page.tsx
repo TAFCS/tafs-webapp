@@ -13,6 +13,7 @@ interface FeeTypeItem {
     id: string | number;
     description: string;
     freq: "MONTHLY" | "ONE_TIME" | "";
+    priority_order?: number;
     // adding index signature to allow access by dynamic keys
     [key: string]: any;
 }
@@ -30,7 +31,7 @@ export default function FeeTypesPage() {
     // State for Add Modal
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
-    const [newFeeType, setNewFeeType] = useState({ description: "", freq: "MONTHLY", breakup: ACADEMIC_MONTHS.join(", ") });
+    const [newFeeType, setNewFeeType] = useState({ description: "", freq: "MONTHLY", breakup: ACADEMIC_MONTHS.join(", "), priority_order: 0 });
 
     const fetchFeeTypes = async () => {
         setIsLoading(true);
@@ -57,6 +58,7 @@ export default function FeeTypesPage() {
                     id: item.id || Math.random().toString(36).substring(7),
                     description: item.description || item.name || "",
                     freq: item.freq || "MONTHLY",
+                    priority_order: item.priority_order || 0,
                     // Handle the backend object or array, cleanly parsing to string for local state
                     breakup: breakupArray.length > 0 ? breakupArray.join(", ") : "",
                 };
@@ -98,7 +100,8 @@ export default function FeeTypesPage() {
             return original && (
                 original.description !== updatedItem.description ||
                 original.freq !== updatedItem.freq ||
-                original.breakup !== updatedItem.breakup
+                original.breakup !== updatedItem.breakup ||
+                original.priority_order !== updatedItem.priority_order
             );
         });
 
@@ -121,6 +124,7 @@ export default function FeeTypesPage() {
                     id: item.id,
                     description: item.description,
                     freq: item.freq,
+                    priority_order: parseInt(String(item.priority_order || 0)),
                     // The backend DTO expects an Object (like JSON in Prisma), so arrays are sent differently 
                     // or wrapped. We send it directly as JSON if the backend accepts standard JSON lists via IsObject (in JS arrays are objects).
                     // Wait, class-validator "@IsObject()" rejects primitive arrays depending on versions. We wrap it in an object key if needed, or pass it as Object.assign({}, arr).
@@ -157,12 +161,13 @@ export default function FeeTypesPage() {
 
             await api.post("/v1/fee-types", {
                 ...newFeeType,
+                priority_order: parseInt(String(newFeeType.priority_order || 0)),
                 // Convert to object so @IsObject validation passes
                 breakup: breakupVal ? { months: breakupVal } : null
             });
             setSuccessMessage("Fee type added successfully.");
             setIsAddModalOpen(false);
-            setNewFeeType({ description: "", freq: "MONTHLY", breakup: "" });
+            setNewFeeType({ description: "", freq: "MONTHLY", breakup: "", priority_order: 0 });
             fetchFeeTypes(); // Refresh list to get the actual database ID
         } catch (err: any) {
             console.error("Error adding fee type:", err);
@@ -276,6 +281,7 @@ export default function FeeTypesPage() {
                                 <tr>
                                     <th className="px-6 py-4 font-semibold w-24">ID</th>
                                     <th className="px-6 py-4 font-semibold">Description</th>
+                                    <th className="px-6 py-4 font-semibold w-24">Priority</th>
                                     <th className="px-6 py-4 font-semibold w-64">Breakup (Months)</th>
                                     <th className="px-6 py-4 font-semibold w-48">Frequency</th>
                                     <th className="px-6 py-4 font-semibold w-24 text-right">Actions</th>
@@ -294,6 +300,14 @@ export default function FeeTypesPage() {
                                                 onChange={(e) => handleFieldChange(item.id, "description", e.target.value)}
                                                 className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-lg text-sm outline-none transition-colors"
                                                 placeholder="Enter fee description..."
+                                            />
+                                        </td>
+                                        <td className="px-6 py-3">
+                                            <input
+                                                type="number"
+                                                value={item.priority_order ?? 0}
+                                                onChange={(e) => handleFieldChange(item.id, "priority_order", e.target.value)}
+                                                className="w-20 px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-lg text-sm outline-none transition-colors"
                                             />
                                         </td>
                                         <td className="px-6 py-3">
@@ -405,6 +419,17 @@ export default function FeeTypesPage() {
                                         <option value="MONTHLY">Monthly</option>
                                         <option value="ONE_TIME">One Time</option>
                                     </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Priority Order</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        value={newFeeType.priority_order}
+                                        onChange={(e) => setNewFeeType({ ...newFeeType, priority_order: parseInt(e.target.value) || 0 })}
+                                        className="w-full px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl text-sm outline-none transition-all"
+                                        placeholder="Order (e.g. 1, 2, 3)"
+                                    />
                                 </div>
                                 <div className="pt-2">
                                     <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Breakup (Applicable Months)</label>

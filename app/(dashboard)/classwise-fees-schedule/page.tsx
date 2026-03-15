@@ -40,6 +40,7 @@ interface FeeTypeInfo {
     id: number;
     description: string;
     freq: string | null;
+    priority_order?: number;
 }
 
 interface FeeScheduleItem {
@@ -267,7 +268,16 @@ export default function ClasswiseFeesSchedulePage() {
             };
         };
 
-        rows.forEach((row) => {
+        const sortedRows = [...rows].sort((a, b) => {
+            const getPriority = (r: EditableRow) => {
+                const fId = r.type === "existing" ? r.data.fee_id : Number(r.data.fee_id);
+                const ft = feeTypes.find(f => f.id === fId);
+                return ft?.priority_order ?? 999;
+            };
+            return getPriority(a) - getPriority(b);
+        });
+
+        sortedRows.forEach((row) => {
             const { campusKey, classKey } = getKeys(row);
             if (!groups[campusKey]) groups[campusKey] = {};
             if (!groups[campusKey][classKey]) groups[campusKey][classKey] = [];

@@ -8,6 +8,7 @@ export interface FeeTypeItem {
     description: string;
     freq: 'MONTHLY' | 'ONE_TIME' | null;
     breakup: Record<string, any> | null;
+    priority_order?: number;
 }
 
 export interface FeeTypesState {
