@@ -46,11 +46,16 @@ export interface VoucherItem {
     validity_date: string | null;
     status: string | null;
     late_fee_charge: boolean;
+    academic_year: string | null;
+    month: number | null;
+    total_payable_before_due?: string;
+    total_payable_after_due?: string;
     students: VoucherStudent;
     campuses: VoucherCampus;
     classes: VoucherClass;
     sections: VoucherSection | null;
     bank_accounts: VoucherBankAccount;
+    voucher_heads?: any[];
 }
 
 export interface VoucherFilters {
@@ -101,6 +106,21 @@ export const fetchVouchers = createAsyncThunk(
     }
 );
 
+export const fetchVouchersByStudent = createAsyncThunk(
+    'vouchers/fetchByStudent',
+    async (cc: number, { rejectWithValue }) => {
+        try {
+            const response = await api.get(`/v1/vouchers/by-student/${cc}`);
+            const data = response.data?.data;
+            return Array.isArray(data) ? data : [];
+        } catch (err: any) {
+            return rejectWithValue(
+                err.response?.data?.message || 'Failed to fetch student vouchers.'
+            );
+        }
+    }
+);
+
 // ─── Slice ────────────────────────────────────────────────────────────────────
 
 export const vouchersSlice = createSlice({
@@ -127,6 +147,18 @@ export const vouchersSlice = createSlice({
                 state.items = action.payload;
             })
             .addCase(fetchVouchers.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload as string;
+            })
+            .addCase(fetchVouchersByStudent.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(fetchVouchersByStudent.fulfilled, (state, action: PayloadAction<VoucherItem[]>) => {
+                state.isLoading = false;
+                state.items = action.payload;
+            })
+            .addCase(fetchVouchersByStudent.rejected, (state, action) => {
                 state.isLoading = false;
                 state.error = action.payload as string;
             });
