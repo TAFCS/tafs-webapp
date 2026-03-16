@@ -60,15 +60,18 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const [isSaving, setIsSaving] = useState(false);
     const [fillingMode, setFillingMode] = useState<"auto" | "manual">("auto");
     const [manualDistributions, setManualDistributions] = useState<Record<number, string>>({});
+    const [manualLateFee, setManualLateFee] = useState<string>("0");
 
     const heads = voucher.voucher_heads || [];
     const totalBalance = heads.reduce((sum, h) => sum + Number(h.balance), 0);
-    const lateFee = (voucher.late_fee_charge && voucher.status !== "PAID") ? (Number(voucher.total_payable_after_due) - Number(voucher.total_payable_before_due)) : 0;
-    const finalTotal = totalBalance + lateFee;
+    const lateFeeAmount = (voucher.late_fee_charge && voucher.status !== "PAID") ? (Number(voucher.total_payable_after_due) - Number(voucher.total_payable_before_due)) : 0;
+    const isOverdue = new Date() > new Date(voucher.due_date);
+    const actualLateFee = isOverdue ? lateFeeAmount : 0;
+    const finalTotal = totalBalance + actualLateFee;
 
     const distributedTotal = fillingMode === "auto" 
         ? Number(amount) || 0
-        : Object.values(manualDistributions).reduce((sum, val) => sum + (Number(val) || 0), 0);
+        : Object.values(manualDistributions).reduce((sum, val) => sum + (Number(val) || 0), 0) + (Number(manualLateFee) || 0);
 
     const remainingPool = (Number(amount) || 0) - distributedTotal;
 
@@ -77,17 +80,18 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         let remaining = depositAmt;
         const dist: Record<number, string> = {};
 
-        // In auto-fill, we'd typically fill based on precedence. 
-        // For this UI, we just show how it would be distributed.
+        // 1. Prioritize Late Fee (Precedence 0)
+        const lateToFill = Math.min(remaining, actualLateFee);
+        setManualLateFee(lateToFill.toString());
+        remaining -= lateToFill;
+
+        // 2. Fill Voucher Heads
         heads.forEach(h => {
             const hBal = Number(h.balance);
             const toFill = Math.min(remaining, hBal);
             dist[h.id] = toFill.toString();
             remaining -= toFill;
         });
-
-        // If still remaining, apply to late fee or just leave it?
-        // Usually, late fee is fixed if applicable.
 
         setManualDistributions(dist);
     };
@@ -109,12 +113,18 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
             return;
         }
 
+        if (remainingPool !== 0) {
+            toast.error("Total distribution must match deposit amount.");
+            return;
+        }
+
         setIsSaving(true);
         try {
             // Placeholder for API call
             // await api.post(`/v1/vouchers/${voucher.id}/deposit`, {
             //     amount: Number(amount),
-            //     distributions: manualDistributions
+            //     distributions: manualDistributions,
+            //     late_fee: Number(manualLateFee)
             // });
             await new Promise(r => setTimeout(r, 1000));
             toast.success("Deposit recorded successfully");
@@ -211,10 +221,40 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                     {/* Heads Table */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between px-1">
-                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Voucher Heads</span>
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Distribution Breakdown</span>
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Amount to Deposit</span>
                         </div>
                         <div className="space-y-3">
+                            {/* Priority 1 (Precedence 0): Late Fee if Overdue */}
+                            {actualLateFee > 0 && (
+                                <div className="flex items-center justify-between p-4 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-900/30 rounded-2xl group hover:border-rose-200 dark:hover:border-rose-700 transition-all">
+                                    <div>
+                                        <p className="text-[13px] font-black text-rose-600 truncate max-w-[240px]">
+                                            Late Payment Surcharge
+                                        </p>
+                                        <p className="text-[10px] font-bold text-rose-400 uppercase">
+                                            Priority: 0 (System High) • Balance: Rs. {actualLateFee.toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        {fillingMode === "manual" ? (
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    value={manualLateFee}
+                                                    onChange={e => setManualLateFee(e.target.value)}
+                                                    className="w-32 h-10 px-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-right focus:outline-none focus:border-rose-500 transition-all"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <span className="text-sm font-black text-rose-600 tabular-nums">
+                                                Rs. {Number(manualLateFee || 0).toLocaleString()}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             {heads.map(h => (
                                 <div key={h.id} className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl group hover:border-zinc-200 dark:hover:border-zinc-700 transition-all">
                                     <div>
@@ -243,17 +283,6 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                     </div>
                                 </div>
                             ))}
-                            {lateFee > 0 && (
-                                <div className="flex items-center justify-between p-4 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-900/30 rounded-2xl">
-                                    <div>
-                                        <p className="text-[13px] font-black text-rose-600">Late Payment Surcharge</p>
-                                        <p className="text-[10px] font-bold text-rose-400 uppercase">Fixed Surcharge</p>
-                                    </div>
-                                    <span className="text-sm font-black text-rose-600 tabular-nums">
-                                        Rs. {lateFee.toLocaleString()}
-                                    </span>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
