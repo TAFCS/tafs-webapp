@@ -360,7 +360,7 @@ export default function FeeChallanGenerator() {
             formData.append('late_fee_charge', applyLateFee.toString());
             if (applyLateFee) formData.append('late_fee_amount', lateFeeAmount.toString());
             formData.append('academic_year', academicYear);
-            formData.append('month', (MONTHS.indexOf(month) + 1).toString());
+            formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
             formData.append('precedence', '1');
 
             // Send ordered IDs

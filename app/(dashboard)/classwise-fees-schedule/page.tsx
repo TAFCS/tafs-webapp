@@ -319,7 +319,7 @@ export default function ClasswiseFeesSchedulePage() {
         const isExisting = row.type === "existing";
         const id = isExisting ? row.data.id : row.data._localId;
         const dirty = isExisting ? row.dirty : true;
-        
+
         const campusId = isExisting ? (row.data.campus_id ?? "") : row.data.campus_id;
         const classId = isExisting ? row.data.class_id : row.data.class_id;
         const feeId = isExisting ? row.data.fee_id : row.data.fee_id;
@@ -344,9 +344,8 @@ export default function ClasswiseFeesSchedulePage() {
         return (
             <tr
                 key={`${row.type}-${id}`}
-                className={`border-b border-zinc-100 transition-colors ${
-                    !isExisting ? "bg-blue-50/40" : dirty ? "bg-amber-50/50" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/50"
-                }`}
+                className={`border-b border-zinc-100 transition-colors ${!isExisting ? "bg-blue-50/40" : dirty ? "bg-amber-50/50" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/50"
+                    }`}
             >
                 <td className="px-4 py-3 font-medium text-zinc-400 text-xs w-20">
                     {!isExisting ? (
@@ -438,7 +437,7 @@ export default function ClasswiseFeesSchedulePage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-                        Classwise Fee Schedule
+                        Classwise Fee
                     </h1>
                     <p className="text-zinc-500 dark:text-zinc-400 mt-1">
                         Define and manage fee amounts assigned to each class.

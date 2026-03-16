@@ -100,7 +100,7 @@ export default function DashboardPage() {
                                 <ClipboardList className="h-8 w-8 text-primary" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">Classwise Fee Schedule</h2>
+                                <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">Classwise Fee</h2>
                                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Assign fee amounts per class</p>
                             </div>
                         </div>

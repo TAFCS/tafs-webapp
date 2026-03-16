@@ -410,7 +410,7 @@ function StudentwiseFeeEditor() {
                 return {
                     fee_type_id: row.feeId,
                     month: monthNum,
-                    amount_before_discount: parseFloat(row.amount || "0"),
+                    amount: parseFloat(row.amount || "0"),
                     academic_year: selectedYear,
                 };
             });
