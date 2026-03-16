@@ -64,6 +64,7 @@ export interface VoucherFilters {
     section_id?: number;
     cc?: number;
     gr?: string;
+    id?: number;
     status?: string;
 }
 
@@ -94,6 +95,7 @@ export const fetchVouchers = createAsyncThunk(
             if (filters.cc) params.cc = filters.cc;
             if (filters.gr) params.gr = filters.gr;
             if (filters.status) params.status = filters.status;
+            if (filters.id) params.id = filters.id;
 
             const response = await api.get('/v1/vouchers', { params });
             const data = response.data?.data;

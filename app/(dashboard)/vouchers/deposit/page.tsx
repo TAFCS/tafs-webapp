@@ -464,7 +464,9 @@ export default function VoucherDepositPage() {
     const sections = useAppSelector(s => s.sections.items);
 
     // Search state
+    const [searchMode, setSearchMode] = useState<"student" | "voucher">("student");
     const [searchQuery, setSearchQuery] = useState("");
+    const [voucherIdInput, setVoucherIdInput] = useState("");
     const [isSearching, setIsSearching] = useState(false);
     const [searchResults, setSearchResults] = useState<{ cc: number; full_name: string; gr_number: string }[]>([]);
     const [showSearchDropdown, setShowSearchDropdown] = useState(false);
@@ -473,6 +475,7 @@ export default function VoucherDepositPage() {
     // Filter state
     const [statusFilter, setStatusFilter] = useState("");
     const [activeStudent, setActiveStudent] = useState<{ cc: number; full_name: string } | null>(null);
+    const [activeVoucherId, setActiveVoucherId] = useState<number | null>(null);
 
     // Modal state
     const [selectedVoucher, setSelectedVoucher] = useState<VoucherItem | null>(null);
@@ -496,7 +499,7 @@ export default function VoucherDepositPage() {
 
     // Simple search effect
     useEffect(() => {
-        if (!searchQuery.trim()) {
+        if (searchMode !== "student" || !searchQuery.trim()) {
             setSearchResults([]);
             setShowSearchDropdown(false);
             return;
@@ -516,18 +519,37 @@ export default function VoucherDepositPage() {
         }, 300);
 
         return () => clearTimeout(timer);
-    }, [searchQuery]);
+    }, [searchQuery, searchMode]);
 
     const handleSelectStudent = (student: { cc: number; full_name: string }) => {
         setActiveStudent(student);
+        setActiveVoucherId(null);
         setSearchQuery("");
         setShowSearchDropdown(false);
         setPage(1);
         dispatch(fetchVouchersByStudent(student.cc));
     };
 
+    const handleVoucherSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!voucherIdInput.trim()) return;
+        
+        const vid = parseInt(voucherIdInput);
+        if (isNaN(vid)) {
+            toast.error("Invalid Voucher ID");
+            return;
+        }
+
+        setActiveVoucherId(vid);
+        setActiveStudent(null);
+        setPage(1);
+        dispatch(fetchVouchers({ id: vid }));
+    };
+
     const handleClearSearch = () => {
         setActiveStudent(null);
+        setActiveVoucherId(null);
+        setVoucherIdInput("");
         dispatch(clearVouchers());
     };
 
@@ -535,6 +557,9 @@ export default function VoucherDepositPage() {
         if (activeStudent) {
             dispatch(fetchVouchersByStudent(activeStudent.cc));
             toast.success("Vouchers refreshed");
+        } else if (activeVoucherId) {
+            dispatch(fetchVouchers({ id: activeVoucherId }));
+            toast.success("Voucher refreshed");
         }
     };
 
@@ -558,7 +583,7 @@ export default function VoucherDepositPage() {
                         Pay Vouchers
                     </h1>
                     <p className="text-zinc-500 dark:text-zinc-400 mt-1.5 text-sm font-medium">
-                        Search student, manage distributions, and record deposits.
+                        Search student or voucher code, manage distributions, and record deposits.
                     </p>
                 </div>
 
@@ -582,7 +607,7 @@ export default function VoucherDepositPage() {
 
                     <button
                         onClick={handleRefresh}
-                        disabled={vouchersLoading || !activeStudent}
+                        disabled={vouchersLoading || (!activeStudent && !activeVoucherId)}
                         className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-400 hover:text-primary transition-all disabled:opacity-50"
                     >
                         <RefreshCw className={`h-5 w-5 ${vouchersLoading ? "animate-spin" : ""}`} />
@@ -595,54 +620,92 @@ export default function VoucherDepositPage() {
                 <div className="lg:col-span-12">
                     <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] p-8 shadow-sm">
                         <div className="max-w-3xl mx-auto space-y-6">
-                            <div className="relative" ref={searchDropdownRef}>
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Student Search</label>
-                                <div className="relative">
-                                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search by Name, CC, or GR Number..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full h-16 pl-14 pr-14 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] text-lg font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
-                                    />
-                                    {isSearching && (
-                                        <div className="absolute right-5 top-1/2 -translate-y-1/2">
-                                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                             {/* Search Mode Toggle */}
+                             <div className="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-[14px] w-fit mx-auto border border-zinc-200 dark:border-zinc-800">
+                                <button
+                                    onClick={() => { setSearchMode("student"); handleClearSearch(); }}
+                                    className={`px-6 py-2 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${searchMode === "student" ? "bg-white dark:bg-zinc-950 text-primary shadow-sm" : "text-zinc-400"}`}
+                                >
+                                    Search Student
+                                </button>
+                                <button
+                                    onClick={() => { setSearchMode("voucher"); handleClearSearch(); }}
+                                    className={`px-6 py-2 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${searchMode === "voucher" ? "bg-white dark:bg-zinc-950 text-primary shadow-sm" : "text-zinc-400"}`}
+                                >
+                                    Voucher Code
+                                </button>
+                            </div>
+
+                            {searchMode === "student" ? (
+                                <div className="relative" ref={searchDropdownRef}>
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Student Search</label>
+                                    <div className="relative">
+                                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search by Name, CC, or GR Number..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full h-16 pl-14 pr-14 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] text-lg font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
+                                        />
+                                        {isSearching && (
+                                            <div className="absolute right-5 top-1/2 -translate-y-1/2">
+                                                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                                            </div>
+                                        )}
+                                        {searchQuery && !isSearching && (
+                                            <button onClick={() => setSearchQuery("")} className="absolute right-5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
+                                                <X className="h-5 w-5" />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {showSearchDropdown && searchResults.length > 0 && (
+                                        <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[28px] shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-200">
+                                            <div className="max-h-[400px] overflow-y-auto p-2">
+                                                {searchResults.map((res) => (
+                                                    <button
+                                                        key={res.cc}
+                                                        onClick={() => handleSelectStudent(res)}
+                                                        className="w-full px-6 py-4 flex items-center gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all border-b border-zinc-50 dark:border-zinc-900 last:border-0 text-left group rounded-2xl"
+                                                    >
+                                                        <div className="h-12 w-12 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-primary group-hover:bg-primary/10 transition-colors">
+                                                            <UserCircle className="h-7 w-7" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-base font-black text-zinc-900 dark:text-zinc-100">{res.full_name}</p>
+                                                            <div className="flex items-center gap-3 mt-1">
+                                                                <span className="text-[10px] font-black text-primary uppercase tracking-wider bg-primary/5 px-2 py-0.5 rounded-md">CC: {res.cc}</span>
+                                                                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">GR: {res.gr_number}</span>
+                                                            </div>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
-                                    )}
-                                    {searchQuery && !isSearching && (
-                                        <button onClick={() => setSearchQuery("")} className="absolute right-5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
-                                            <X className="h-5 w-5" />
-                                        </button>
                                     )}
                                 </div>
-
-                                {showSearchDropdown && searchResults.length > 0 && (
-                                    <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[28px] shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-200">
-                                        <div className="max-h-[400px] overflow-y-auto p-2">
-                                            {searchResults.map((res) => (
-                                                <button
-                                                    key={res.cc}
-                                                    onClick={() => handleSelectStudent(res)}
-                                                    className="w-full px-6 py-4 flex items-center gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all border-b border-zinc-50 dark:border-zinc-900 last:border-0 text-left group rounded-2xl"
-                                                >
-                                                    <div className="h-12 w-12 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-primary group-hover:bg-primary/10 transition-colors">
-                                                        <UserCircle className="h-7 w-7" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-base font-black text-zinc-900 dark:text-zinc-100">{res.full_name}</p>
-                                                        <div className="flex items-center gap-3 mt-1">
-                                                            <span className="text-[10px] font-black text-primary uppercase tracking-wider bg-primary/5 px-2 py-0.5 rounded-md">CC: {res.cc}</span>
-                                                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">GR: {res.gr_number}</span>
-                                                        </div>
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
+                            ) : (
+                                <form onSubmit={handleVoucherSearch} className="relative">
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Quick Voucher ID</label>
+                                    <div className="relative">
+                                        <Hash className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
+                                        <input
+                                            type="number"
+                                            placeholder="Enter exact Voucher ID (e.g. 1042)"
+                                            value={voucherIdInput}
+                                            onChange={(e) => setVoucherIdInput(e.target.value)}
+                                            className="w-full h-16 pl-14 pr-14 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] text-lg font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
+                                        />
+                                        <button
+                                            type="submit"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-zinc-900 dark:bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all active:scale-95"
+                                        >
+                                            Lookup
+                                        </button>
                                     </div>
-                                )}
-                            </div>
+                                </form>
+                            )}
 
                             {activeStudent && (
                                 <div className="flex items-center justify-between p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-[24px] animate-in slide-in-from-bottom-2">
@@ -654,6 +717,24 @@ export default function VoucherDepositPage() {
                                             <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em]">Active Selection</p>
                                             <h3 className="text-xl font-black text-zinc-900 dark:text-zinc-100">{activeStudent.full_name}</h3>
                                             <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Student ID: CC-{activeStudent.cc}</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={handleClearSearch} className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-500/20 transition-all">
+                                        <X className="h-4 w-4" /> Reset
+                                    </button>
+                                </div>
+                            )}
+
+                            {activeVoucherId && (
+                                <div className="flex items-center justify-between p-6 bg-primary/5 border border-primary/20 rounded-[24px] animate-in slide-in-from-bottom-2">
+                                    <div className="flex items-center gap-5">
+                                        <div className="h-14 w-14 bg-white dark:bg-zinc-900 rounded-2xl border border-primary/10 flex items-center justify-center text-primary shadow-sm">
+                                            <Hash className="h-7 w-7" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Active Lookup</p>
+                                            <h3 className="text-xl font-black text-zinc-900 dark:text-zinc-100">Voucher #{activeVoucherId}</h3>
+                                            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Direct ID search results</p>
                                         </div>
                                     </div>
                                     <button onClick={handleClearSearch} className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-500/20 transition-all">
