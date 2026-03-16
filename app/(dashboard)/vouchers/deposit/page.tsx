@@ -64,9 +64,10 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
 
     const heads = voucher.voucher_heads || [];
     const totalBalance = heads.reduce((sum, h) => sum + Number(h.balance), 0);
-    const lateFeeAmount = (voucher.late_fee_charge && voucher.status !== "PAID") ? (Number(voucher.total_payable_after_due) - Number(voucher.total_payable_before_due)) : 0;
+    const totalSurcharge = (voucher.late_fee_charge) ? Math.max(Number(voucher.total_payable_after_due ?? 0) - Number(voucher.total_payable_before_due ?? 0), 0) : 0;
+    const remainingSurcharge = Math.max(totalSurcharge - Number(voucher.late_fee_deposited ?? 0), 0);
     const isOverdue = new Date() > new Date(voucher.due_date);
-    const actualLateFee = isOverdue ? lateFeeAmount : 0;
+    const actualLateFee = isOverdue ? remainingSurcharge : 0;
     const finalTotal = totalBalance + actualLateFee;
 
     const distributedTotal = fillingMode === "auto" 
@@ -120,13 +121,11 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
 
         setIsSaving(true);
         try {
-            // Placeholder for API call
-            // await api.post(`/v1/vouchers/${voucher.id}/deposit`, {
-            //     amount: Number(amount),
-            //     distributions: manualDistributions,
-            //     late_fee: Number(manualLateFee)
-            // });
-            await new Promise(r => setTimeout(r, 1000));
+            await api.post(`/v1/vouchers/${voucher.id}/deposit`, {
+                amount: Number(amount),
+                distributions: manualDistributions,
+                late_fee: Number(manualLateFee)
+            });
             toast.success("Deposit recorded successfully");
             onSuccess();
         } catch (err: any) {

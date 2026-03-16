@@ -34,6 +34,23 @@ export interface VoucherBankAccount {
     iban: string | null;
 }
 
+export interface VoucherHead {
+    id: number;
+    voucher_id: number;
+    student_fee_id: number;
+    discount_amount: string;
+    net_amount: string;
+    amount_deposited: string;
+    balance: string;
+    student_fees?: {
+        id: number;
+        amount_before_discount: string;
+        fee_types: {
+            description: string;
+        };
+    };
+}
+
 export interface VoucherItem {
     id: number;
     student_id: number;
@@ -50,12 +67,13 @@ export interface VoucherItem {
     month: number | null;
     total_payable_before_due?: string;
     total_payable_after_due?: string;
+    late_fee_deposited?: string;
     students: VoucherStudent;
     campuses: VoucherCampus;
     classes: VoucherClass;
     sections: VoucherSection | null;
     bank_accounts: VoucherBankAccount;
-    voucher_heads?: any[];
+    voucher_heads?: VoucherHead[];
 }
 
 export interface VoucherFilters {
