@@ -227,7 +227,7 @@ interface FeeChallanPDFProps {
         dueDate: string;
         validityDate: string;
         applyLateFee: boolean;
-        lateFeeAmount: number;
+        lateFeeAmount?: number;
         bank: {
             name: string;
             title: string;
