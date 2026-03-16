@@ -11,6 +11,8 @@ import {
     UserSearch,
     CreditCard,
     Landmark,
+    Receipt,
+    Wallet,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -91,7 +93,7 @@ export default function DashboardPage() {
             {/* Fee Management Group */}
             <div className="space-y-4 pt-4">
                 <h2 className="text-lg font-medium text-zinc-800 dark:text-zinc-200">Fee Management</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                     <Link href="/classwise-fees-schedule" className="group">
                         <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex flex-col items-center justify-center text-center h-full gap-4">
                             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
@@ -124,6 +126,30 @@ export default function DashboardPage() {
                             <div>
                                 <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">Fee Challan</h2>
                                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Generate student fee vouchers</p>
+                            </div>
+                        </div>
+                    </Link>
+
+                    <Link href="/vouchers" className="group">
+                        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex flex-col items-center justify-center text-center h-full gap-4">
+                            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                                <Receipt className="h-8 w-8 text-primary" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">Vouchers</h2>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">View and filter fee vouchers</p>
+                            </div>
+                        </div>
+                    </Link>
+
+                    <Link href="/vouchers/deposit" className="group">
+                        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex flex-col items-center justify-center text-center h-full gap-4">
+                            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                                <Wallet className="h-8 w-8 text-primary" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">Receive Deposit</h2>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Record student fee payments</p>
                             </div>
                         </div>
                     </Link>
