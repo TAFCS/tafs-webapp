@@ -34,7 +34,8 @@ interface SpreadsheetRow {
     feeId: number;
     feeDescription: string;
     freq: "MONTHLY" | "ONE_TIME" | null;
-    month: string;
+    initialMonth: string; // The original month reference
+    month: string;        // The editable period
     amount: string;
     // UI state
     isGroupStart?: boolean;
@@ -57,13 +58,14 @@ function calendarYear(academicYearStart: number, monthNum: number): number {
     return monthNum >= 8 ? academicYearStart : academicYearStart + 1;
 }
 
-const COLS = ["Actions", "#", "Fee Type", "Frequency", "Period", "Amount"] as const;
+const COLS = ["Actions", "#", "Fee Type", "Frequency", "Month", "Period", "Amount"] as const;
 const COL_ACTIONS = 0;
 const COL_NUM = 1;
 const COL_FEE_TYPE = 2;
 const COL_FREQ = 3;
-const COL_PERIOD = 4;
-const COL_AMOUNT = 5;
+const COL_MONTH_READONLY = 4;
+const COL_PERIOD = 5;
+const COL_AMOUNT = 6;
 
 function sortMonths(months: unknown): string[] {
     let arr = months;
@@ -88,7 +90,7 @@ function sortSpreadsheetRows(rows: SpreadsheetRow[]): SpreadsheetRow[] {
         return a.feeDescription.localeCompare(b.feeDescription);
     }).map((r, i, arr) => ({
         ...r,
-        isGroupStart: i === 0 || r.month !== arr[i - 1].month
+        isGroupStart: i === 0 || r.initialMonth !== arr[i - 1].initialMonth
     }));
 }
 
@@ -264,6 +266,7 @@ function StudentwiseFeeEditor() {
                     feeId: fee.fee_id,
                     feeDescription: fee.fee_types.description,
                     freq: fee.fee_types.freq,
+                    initialMonth: month,
                     month,
                     amount: fee.amount,
                 }));
@@ -386,7 +389,17 @@ function StudentwiseFeeEditor() {
         const selector = `[data-row="${activeCell.row}"][data-col="${activeCell.col}"]`;
         const el = tbodyRef.current.querySelector<HTMLElement>(selector);
         if (el) {
-            el.focus({ preventScroll: false });
+            // Find the most appropriate element to focus:
+            // 1. If the element itself is an input or select, use it.
+            // 2. Otherwise, look for an input or select inside it.
+            // 3. Fallback to the element itself if it has a tabIndex.
+            const target = (el.tagName === "INPUT" || el.tagName === "SELECT")
+                ? el
+                : (el.querySelector<HTMLElement>("input, select") || (el.hasAttribute("tabindex") ? el : el));
+
+            if (target && typeof target.focus === "function") {
+                target.focus({ preventScroll: false });
+            }
             el.scrollIntoView({ block: "nearest" });
         }
     }, [activeCell]);
@@ -457,6 +470,7 @@ function StudentwiseFeeEditor() {
             feeId: firstType?.id || 0,
             feeDescription: firstType?.description || "",
             freq: firstType?.freq || "MONTHLY",
+            initialMonth: "August",
             month: "August",
             amount: "0",
         };
@@ -768,6 +782,7 @@ function StudentwiseFeeEditor() {
                                     <th className="w-10 border-b border-r border-zinc-200 dark:border-zinc-800 px-1 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">#</th>
                                     <th className="w-[30%] border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee Description</th>
                                     <th className="w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Frequency</th>
+                                    <th className="w-32 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month</th>
                                     <th className="w-40 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month / Period</th>
                                     <th className="border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount (Rs.)</th>
                                 </tr>
@@ -813,6 +828,17 @@ function StudentwiseFeeEditor() {
                                                         {row.freq || "MONTHLY"}
                                                     </span>
                                                     <div className={`absolute inset-x-4 inset-y-2 rounded-md ${row.freq === "MONTHLY" ? "bg-blue-50" : "bg-amber-50"}`} />
+                                                </div>
+                                            </td>
+
+                                            {/* Month (Read-only) */}
+                                            <td data-row={rIdx} data-col={COL_MONTH_READONLY} tabIndex={0} onFocus={() => setActiveCell({ row: rIdx, col: COL_MONTH_READONLY })}
+                                                className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_MONTH_READONLY) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}
+                                            >
+                                                <div className="h-10 px-5 flex items-center">
+                                                    <span className="text-[13px] font-semibold text-zinc-500">
+                                                        {row.initialMonth}
+                                                    </span>
                                                 </div>
                                             </td>
 
