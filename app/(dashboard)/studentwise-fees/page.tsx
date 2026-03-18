@@ -36,6 +36,7 @@ interface SpreadsheetRow {
     freq: "MONTHLY" | "ONE_TIME" | null;
     initialMonth: string; // The original month reference
     month: string;        // The editable period
+    target_month: number; // The backing target month (numerical)
     amount: string;
     // UI state
     isGroupStart?: boolean;
@@ -268,6 +269,7 @@ function StudentwiseFeeEditor() {
                     freq: fee.fee_types.freq,
                     initialMonth: month,
                     month,
+                    target_month: MONTH_TO_NUM[month] || 8,
                     amount: fee.amount,
                 }));
             });
@@ -281,18 +283,53 @@ function StudentwiseFeeEditor() {
                     const numericMatch = ccNumber.match(/\d+$/);
                     const ccKey = numericMatch ? numericMatch[0] : ccNumber;
                     const studentRes = await api.get(`/v1/student-fees/by-student/${ccKey}`);
-                    const studentFees = studentRes.data?.data || [];
+                    const studentData = studentRes.data?.data;
+                    const studentFees = Array.isArray(studentData) ? studentData : (studentData?.fees || []);
 
                     // Merge student overrides into the expanded rows
                     finalRows = finalRows.map(row => {
                         const monthNum = MONTH_TO_NUM[row.month];
-                        const override = Array.isArray(studentFees) ? studentFees.find((sf: any) => 
-                            sf.fee_type_id === row.feeId && 
-                            sf.month === monthNum &&
+                        const override = Array.isArray(studentFees) ? studentFees.find((sf: any) =>
+                            sf.fee_type_id === row.feeId &&
+                            // Try matching by target_month first if it's a template row, 
+                            // but usually month is the unique key per student
+                            (sf.target_month === row.target_month || sf.month === monthNum) &&
                             sf.academic_year === academicYear
                         ) : null;
-                        return override ? { ...row, amount: override.amount_before_discount?.toString() || override.amount?.toString() } : row;
+
+                        if (override) {
+                            return {
+                                ...row,
+                                amount: override.amount_before_discount?.toString() || override.amount?.toString(),
+                                // If override has a different month, reflect that in the editable period
+                                month: Object.keys(MONTH_TO_NUM).find(key => MONTH_TO_NUM[key] === override.month) || row.month
+                            };
+                        }
+                        return row;
                     });
+
+                    // 4b. Find and append any student fees that didn't match a template row
+                    const unmatchedFees = studentFees.filter((sf: any) => {
+                        return sf.academic_year === academicYear && !finalRows.some(r =>
+                            r.feeId === sf.fee_type_id &&
+                            (r.target_month === sf.target_month || MONTH_TO_NUM[r.month] === sf.month)
+                        );
+                    });
+
+                    if (unmatchedFees.length > 0) {
+                        unmatchedFees.forEach((sf: any) => {
+                            finalRows.push({
+                                __id: Math.random().toString(36).substring(7),
+                                feeId: sf.fee_type_id,
+                                feeDescription: sf.fee_types?.description || "Unknown Fee",
+                                freq: sf.fee_types?.freq || "MONTHLY",
+                                initialMonth: Object.keys(MONTH_TO_NUM).find(key => MONTH_TO_NUM[key] === sf.target_month) || "August",
+                                month: Object.keys(MONTH_TO_NUM).find(key => MONTH_TO_NUM[key] === sf.month) || "August",
+                                target_month: sf.target_month,
+                                amount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
+                            });
+                        });
+                    }
                 } catch (e) {
                     console.error("No student overrides found or error fetching them.", e);
                 }
@@ -423,7 +460,8 @@ function StudentwiseFeeEditor() {
                 return {
                     fee_type_id: row.feeId,
                     month: monthNum,
-                    amount: parseFloat(row.amount || "0"),
+                    target_month: row.target_month,
+                    amount_before_discount: parseFloat(row.amount || "0"),
                     academic_year: selectedYear,
                 };
             });
@@ -433,7 +471,7 @@ function StudentwiseFeeEditor() {
 
             // Prepare parallel API calls
             const requests: Promise<any>[] = [
-                api.post("/v1/fees/student", { cc: ccValue, items })
+                api.post("/v1/student-fees/bulk", { student_id: ccValue, items })
             ];
 
             // If Campus/Class/Section are fully selected, also sync the Campus Config
@@ -472,6 +510,7 @@ function StudentwiseFeeEditor() {
             freq: firstType?.freq || "MONTHLY",
             initialMonth: "August",
             month: "August",
+            target_month: 8,
             amount: "0",
         };
         pendingFocusId.current = newRow.__id;
@@ -783,7 +822,7 @@ function StudentwiseFeeEditor() {
                                     <th className="w-[30%] border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee Description</th>
                                     <th className="w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Frequency</th>
                                     <th className="w-32 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month</th>
-                                    <th className="w-40 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month / Period</th>
+                                    <th className="w-40 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Period</th>
                                     <th className="border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount (Rs.)</th>
                                 </tr>
                             </thead>
