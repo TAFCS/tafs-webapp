@@ -65,7 +65,7 @@ const COL_ACTIONS = 0;
 const COL_NUM = 1;
 const COL_FEE_TYPE = 2;
 const COL_FREQ = 3;
-const COL_MONTH_READONLY = 4;
+const COL_MONTH = 4;
 const COL_PERIOD = 5;
 const COL_AMOUNT = 6;
 
@@ -585,6 +585,11 @@ function StudentwiseFeeEditor() {
                     }
                 }
 
+                if (field === "initialMonth") {
+                    updated.initialMonth = val;
+                    updated.target_month = MONTH_TO_NUM[val] ?? updated.target_month;
+                }
+
                 // For manually-added rows, target_month should follow the period
                 // the user selects — there is no fixed original slot to preserve.
                 if (field === "month" && r.isNew) {
@@ -643,8 +648,8 @@ function StudentwiseFeeEditor() {
             </div>
 
             {/* Config Bar */}
-            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm p-6">
-                <div className="flex flex-col xl:flex-row xl:items-end gap-5 animate-in slide-in-from-right-4 duration-300">
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm p-4 md:p-6 lg:p-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:flex xl:items-end gap-5 animate-in slide-in-from-right-4 duration-300">
                     {/* Academic Year Select */}
                     <div className="w-full xl:w-48">
                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Academic Year</label>
@@ -697,7 +702,7 @@ function StudentwiseFeeEditor() {
                         </div>
                     </div>
 
-                    <div className="flex-1">
+                    <div className="w-full lg:col-span-2 xl:flex-1">
                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Class / Grade</label>
                         <div className="relative" ref={classDropdownRef}>
                             <button type="button" disabled
@@ -767,7 +772,7 @@ function StudentwiseFeeEditor() {
                         </div>
                     </div>
 
-                    <div className="w-full xl:w-80 relative" ref={searchDropdownRef}>
+                    <div className="w-full lg:col-span-3 xl:w-80 relative" ref={searchDropdownRef}>
                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Search Computer Code</label>
                         <div className="relative">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
@@ -876,11 +881,11 @@ function StudentwiseFeeEditor() {
                                 <tr>
                                     <th className="w-12 border-b border-r border-zinc-200 dark:border-zinc-800 px-3 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Act</th>
                                     <th className="w-10 border-b border-r border-zinc-200 dark:border-zinc-800 px-1 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">#</th>
-                                    <th className="w-[30%] border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee Description</th>
-                                    <th className="w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Frequency</th>
-                                    <th className="w-32 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month</th>
-                                    <th className="w-40 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Period</th>
-                                    <th className="border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount (Rs.)</th>
+                                    <th className="min-w-[180px] border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee Description</th>
+                                    <th className="w-24 md:w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Frequency</th>
+                                    <th className="w-24 md:w-32 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month</th>
+                                    <th className="w-28 md:w-40 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Period</th>
+                                    <th className="min-w-[120px] border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount (Rs.)</th>
                                 </tr>
                             </thead>
                             <tbody ref={tbodyRef}>
@@ -927,15 +932,18 @@ function StudentwiseFeeEditor() {
                                                 </div>
                                             </td>
 
-                                            {/* Month (Read-only) */}
-                                            <td data-row={rIdx} data-col={COL_MONTH_READONLY} tabIndex={0} onFocus={() => setActiveCell({ row: rIdx, col: COL_MONTH_READONLY })}
-                                                className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_MONTH_READONLY) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}
-                                            >
-                                                <div className="h-10 px-5 flex items-center">
-                                                    <span className="text-[13px] font-semibold text-zinc-500">
-                                                        {row.initialMonth}
-                                                    </span>
-                                                </div>
+                                            {/* Month (Editable) */}
+                                            <td data-row={rIdx} data-col={COL_MONTH} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_MONTH) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
+                                                <select
+                                                    data-row={rIdx} data-col={COL_MONTH}
+                                                    value={row.initialMonth}
+                                                    onChange={(e) => updateRow(rIdx, "initialMonth", e.target.value)}
+                                                    onFocus={() => setActiveCell({ row: rIdx, col: COL_MONTH })}
+                                                    className="w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-500 text-[13px] cursor-pointer"
+                                                >
+                                                    {MONTH_ORDER.map(m => <option key={m} value={m}>{m}</option>)}
+                                                </select>
+                                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-300 pointer-events-none" />
                                             </td>
 
                                             {/* Period Select */}

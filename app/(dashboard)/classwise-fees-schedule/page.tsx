@@ -89,6 +89,8 @@ export default function ClasswiseFeesSchedulePage() {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [sortKey, setSortKey] = useState<SortKey>("id");
     const [sortDir, setSortDir] = useState<SortDir>("asc");
+    const [expandedCampuses, setExpandedCampuses] = useState<Record<string, boolean>>({});
+    const [expandedClasses, setExpandedClasses] = useState<Record<string, boolean>>({});
 
     // ── Fetch schedule + bootstrap store lookups ────────────────────────
     const fetchSchedules = useCallback(async () => {
@@ -297,6 +299,14 @@ export default function ClasswiseFeesSchedulePage() {
         if (classKey === "unassigned") return "Unassigned Class";
         const match = classes.find((c) => c.id === Number(classKey));
         return match ? `${match.description} (${match.class_code})` : `Class ID: ${classKey} (Unknown)`;
+    };
+
+    const toggleCampus = (key: string) => {
+        setExpandedCampuses(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+
+    const toggleClass = (key: string) => {
+        setExpandedClasses(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
     const handleAddSpecific = (campusId: string, classId: string) => {
@@ -538,60 +548,84 @@ export default function ClasswiseFeesSchedulePage() {
                             if (keyB === "unassigned") return 1;
                             return getCampusName(keyA).localeCompare(getCampusName(keyB));
                         })
-                        .map(([campusKey, classesGroup]) => (
-                            <div key={`campus-${campusKey}`} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
-                                <div className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6 py-4 flex items-center justify-between">
-                                    <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                                        <div className="h-2 w-2 rounded-full bg-violet-500" />
-                                        {getCampusName(campusKey)}
-                                    </h2>
-                                </div>
+                        .map(([campusKey, classesGroup]) => {
+                            const isCampusExpanded = expandedCampuses[campusKey] !== false; // Default true
+                            return (
+                                <div key={`campus-${campusKey}`} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
+                                    <button
+                                        onClick={() => toggleCampus(campusKey)}
+                                        className="w-full bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6 py-4 flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
+                                    >
+                                        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                            <div className="h-2 w-2 rounded-full bg-violet-500" />
+                                            {getCampusName(campusKey)}
+                                            <span className="ml-2 text-xs font-medium text-zinc-400">
+                                                ({Object.keys(classesGroup).length} Classes)
+                                            </span>
+                                        </h2>
+                                        {isCampusExpanded ? <ChevronUp className="h-5 w-5 text-zinc-400" /> : <ChevronDown className="h-5 w-5 text-zinc-400" />}
+                                    </button>
 
-                                <div className="divide-y divide-zinc-200">
-                                    {Object.entries(classesGroup)
-                                        .sort(([keyA], [keyB]) => {
-                                            if (keyA === "unassigned") return -1;
-                                            if (keyB === "unassigned") return 1;
-                                            return getClassName(keyA).localeCompare(getClassName(keyB));
-                                        })
-                                        .map(([classKey, classRows]) => (
-                                            <div key={`class-${classKey}`} className="p-6 bg-white dark:bg-zinc-950/50">
-                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                                                    <h3 className="text-base font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-                                                        {getClassName(classKey)}
-                                                    </h3>
-                                                    <button
-                                                        onClick={() => handleAddSpecific(campusKey, classKey)}
-                                                        className="inline-flex items-center justify-center px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 hover:border-blue-200 text-blue-600 text-xs font-semibold rounded-lg shadow-sm transition-all active:scale-95"
-                                                    >
-                                                        <Plus className="h-3.5 w-3.5 mr-1" />
-                                                        Add Fee
-                                                    </button>
-                                                </div>
+                                    {isCampusExpanded && (
+                                        <div className="divide-y divide-zinc-200">
+                                            {Object.entries(classesGroup)
+                                                .sort(([keyA], [keyB]) => {
+                                                    if (keyA === "unassigned") return -1;
+                                                    if (keyB === "unassigned") return 1;
+                                                    return getClassName(keyA).localeCompare(getClassName(keyB));
+                                                })
+                                                .map(([classKey, classRows]) => {
+                                                    const classFullKey = `${campusKey}-${classKey}`;
+                                                    const isClassExpanded = expandedClasses[classFullKey] !== false; // Default true
+                                                    return (
+                                                        <div key={`class-${classKey}`} className="bg-white dark:bg-zinc-950/50">
+                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 md:px-6 bg-white dark:bg-zinc-950/30">
+                                                                <button
+                                                                    onClick={() => toggleClass(classFullKey)}
+                                                                    className="flex-1 flex items-center gap-2 text-base font-semibold text-zinc-800 dark:text-zinc-200 hover:opacity-70 transition-opacity"
+                                                                >
+                                                                    {isClassExpanded ? <ChevronUp className="h-4 w-4 text-zinc-400" /> : <ChevronDown className="h-4 w-4 text-zinc-400" />}
+                                                                    <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                                                                    {getClassName(classKey)}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleAddSpecific(campusKey, classKey)}
+                                                                    className="inline-flex items-center justify-center px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 hover:border-blue-200 text-blue-600 text-xs font-semibold rounded-lg shadow-sm transition-all active:scale-95"
+                                                                >
+                                                                    <Plus className="h-3.5 w-3.5 mr-1" />
+                                                                    Add Fee
+                                                                </button>
+                                                            </div>
 
-                                                <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-x-auto shadow-sm">
-                                                    <table className="w-full text-sm text-left whitespace-nowrap">
-                                                        <thead className="text-xs uppercase bg-zinc-50 dark:bg-zinc-900/80 border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400">
-                                                            <tr>
-                                                                <th className="px-4 py-3 font-semibold w-20">ID</th>
-                                                                <th className="px-4 py-3 font-semibold">Campus</th>
-                                                                <th className="px-4 py-3 font-semibold">Class</th>
-                                                                <th className="px-4 py-3 font-semibold">Fee Type</th>
-                                                                <th className="px-4 py-3 font-semibold">Amount</th>
-                                                                <th className="px-4 py-3 font-semibold text-center w-16">Act</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {classRows.map(renderRow)}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        ))}
+                                                            {isClassExpanded && (
+                                                                <div className="px-6 pb-6 pt-2">
+                                                                    <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-x-auto shadow-sm">
+                                                                        <table className="w-full text-sm text-left whitespace-nowrap">
+                                                                            <thead className="text-xs uppercase bg-zinc-50 dark:bg-zinc-900/80 border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400">
+                                                                                <tr>
+                                                                                    <th className="px-4 py-3 font-semibold w-20">ID</th>
+                                                                                    <th className="px-4 py-3 font-semibold">Campus</th>
+                                                                                    <th className="px-4 py-3 font-semibold">Class</th>
+                                                                                    <th className="px-4 py-3 font-semibold">Fee Type</th>
+                                                                                    <th className="px-4 py-3 font-semibold">Amount</th>
+                                                                                    <th className="px-4 py-3 font-semibold text-center w-16">Act</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {classRows.map(renderRow)}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                 </div>
             )}
 
