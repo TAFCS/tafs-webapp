@@ -176,12 +176,14 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
             const MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             const monthName = MONTHS[monthNum];
 
-            const applicableFees = allFees.filter((f: any) => f.month === monthNum);
-            const pdfFees = applicableFees.map((f: any) => ({
-                description: f.fee_types?.description || 'Unknown Fee',
-                amount: Number(f.amount)
+            const pdfFees = (voucher.voucher_heads || []).map((h: any) => ({
+                description: h.student_fees?.fee_types?.description || "Fee",
+                amount: Number(h.net_amount) + Number(h.discount_amount || 0),
+                netAmount: Number(h.net_amount),
+                discount: Number(h.discount_amount || 0),
+                discountLabel: h.discount_label || ""
             }));
-            const totalFeesAmount = pdfFees.reduce((sum: number, fee: any) => sum + fee.amount, 0);
+            const totalFeesAmount = Number(voucher.total_payable_before_due || 0);
 
             const siblings = familyStudents.filter((s: any) => s.cc !== voucher.student_id);
 
@@ -297,6 +299,16 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
             <td className="px-5 py-3.5">
                 <span className="text-sm text-zinc-600 dark:text-zinc-400 font-mono">
                     {formatDate(voucher.due_date)}
+                </span>
+            </td>
+            <td className="px-5 py-3.5">
+                <span className="text-sm text-zinc-400 dark:text-zinc-600 font-mono line-through decoration-rose-300">
+                    {Number(voucher.voucher_heads?.reduce((sum, h) => sum + Number(h.net_amount) + Number(h.discount_amount || 0), 0)).toLocaleString()}
+                </span>
+            </td>
+            <td className="px-5 py-3.5">
+                <span className="text-sm text-emerald-600 dark:text-emerald-400 font-black font-mono">
+                    {Number(voucher.total_payable_before_due || 0).toLocaleString()}
                 </span>
             </td>
             <td className="px-5 py-3.5">
@@ -707,7 +719,7 @@ export default function VouchersPage() {
                         <table className="w-full border-collapse">
                             <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800">
                                 <tr>
-                                    {["ID", "Student", "Campus", "Class", "Section", "Issue Date", "Due Date", "Status", "Late Fee", "Bank", "Actions"].map(h => (
+                                    {["ID", "Student", "Campus", "Class", "Section", "Issue Date", "Due Date", "Original", "Net", "Status", "Late Fee", "Bank", "Actions"].map(h => (
                                         <th key={h} className="px-5 py-3.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">
                                             {h}
                                         </th>
