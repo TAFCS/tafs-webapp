@@ -65,6 +65,7 @@ interface StudentFee {
     id: number;
     fee_type_id: number;
     amount_before_discount: number;
+    amount: number;
     month: number;
     due_date: string;
     status: boolean;
@@ -330,15 +331,17 @@ export default function FeeChallanGenerator() {
     const getNetAmount = (fee: StudentFee): number => {
         const adHocDiscount = getAppliedDiscountTotal(fee.id);
         const voucherHead = fee.voucher_heads?.[0];
-        const existingDiscount = (voucherHead && Number(voucherHead.net_amount) > 0) ? Number(voucherHead.discount_amount) : 0;
         
-        // Priority: Ad-hoc discounts on top of existing ones if any, 
-        // but typically this page is for new vouchers where there are no existing heads yet.
-        return Number(fee.amount_before_discount) - adHocDiscount;
+        // Use student-specific amount if set, otherwise fallback to template amount
+        const currentAmount = Number(fee.amount || fee.amount_before_discount);
+        
+        return currentAmount - adHocDiscount;
     };
 
     const getDiscount = (fee: StudentFee): number => {
-        return getAppliedDiscountTotal(fee.id);
+        const adHocDiscount = getAppliedDiscountTotal(fee.id);
+        const systemDiscount = Math.max(0, Number(fee.amount_before_discount) - Number(fee.amount || fee.amount_before_discount));
+        return adHocDiscount + systemDiscount;
     };
     const hasAnyDiscount = studentFees.some(f => getDiscount(f) > 0);
     const totalFeesAmount = studentFees.reduce((sum, fee) => sum + getNetAmount(fee), 0);
@@ -399,15 +402,20 @@ export default function FeeChallanGenerator() {
                         }
                     }}
                     fees={studentFees.map(f => {
-                        const head = f.voucher_heads?.[0];
-                        const netAmt = (head && Number(head.net_amount) > 0) ? Number(head.net_amount) : Number(f.amount_before_discount);
-                        const disc = (head && Number(head.discount_amount) > 0) ? Number(head.discount_amount) : 0;
+                        const netAmt = getNetAmount(f);
+                        const disc = getDiscount(f);
+                        const labels = [];
+                        if (Number(f.amount_before_discount) > Number(f.amount || f.amount_before_discount)) {
+                            labels.push("Profile Discount");
+                        }
+                        (appliedDiscounts[f.id] || []).forEach(d => labels.push(d.title));
+
                         return {
                             description: f.fee_types?.description || "Fee",
                             amount: Number(f.amount_before_discount),
                             netAmount: netAmt,
                             discount: disc,
-                            discountLabel: (appliedDiscounts[f.id] || []).map(d => d.title).join(", "),
+                            discountLabel: labels.join(", "),
                         };
                     })}
                     totalAmount={totalFeesAmount}
@@ -970,9 +978,14 @@ export default function FeeChallanGenerator() {
                                                                     {fee.fee_types?.description}
                                                                 </span>
                                                             </div>
-                                                            {appliedDiscounts[fee.id] && appliedDiscounts[fee.id].length > 0 && (
+                                                            {( (appliedDiscounts[fee.id] && appliedDiscounts[fee.id].length > 0) || (Number(fee.amount_before_discount) > Number(fee.amount || fee.amount_before_discount)) ) && (
                                                                 <div className="mt-1 ml-10 flex flex-wrap gap-1.5">
-                                                                    {appliedDiscounts[fee.id].map(d => (
+                                                                    {Number(fee.amount_before_discount) > Number(fee.amount || fee.amount_before_discount) && (
+                                                                        <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                                                            Profile Discount: -{(Number(fee.amount_before_discount) - Number(fee.amount)).toLocaleString()}
+                                                                        </span>
+                                                                    )}
+                                                                    {appliedDiscounts[fee.id]?.map(d => (
                                                                         <span key={d.id} className="text-[9px] font-black bg-rose-50 text-rose-500 px-2 py-0.5 rounded-full uppercase tracking-tighter">
                                                                             {d.title}: -{Number(d.amount).toLocaleString()}
                                                                         </span>

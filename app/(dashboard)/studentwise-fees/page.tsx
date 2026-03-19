@@ -38,6 +38,7 @@ interface SpreadsheetRow {
     month: string;        // The editable period
     target_month: number; // The backing target month (numerical)
     amount: string;
+    originalAmount: string; // The original template amount from class-wise schedule
     // UI state
     isGroupStart?: boolean;
     groupSize?: number;
@@ -272,6 +273,7 @@ function StudentwiseFeeEditor() {
                     month,
                     target_month: MONTH_TO_NUM[month] || 8,
                     amount: fee.amount,
+                    originalAmount: fee.amount,
                 }));
             });
 
@@ -305,7 +307,8 @@ function StudentwiseFeeEditor() {
                             studentFeeMap.delete(key); // Mark as matched
                             return {
                                 ...row,
-                                amount: override.amount_before_discount?.toString() || override.amount?.toString(),
+                                amount: override.amount?.toString() || override.amount_before_discount?.toString() || row.amount,
+                                originalAmount: override.amount_before_discount?.toString() || row.originalAmount,
                                 month: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === override.month) || row.month
                             };
                         }
@@ -324,7 +327,8 @@ function StudentwiseFeeEditor() {
                             initialMonth: Object.keys(MONTH_TO_NUM).find(key => MONTH_TO_NUM[key] === sf.target_month) || "August",
                             month: Object.keys(MONTH_TO_NUM).find(key => MONTH_TO_NUM[key] === sf.month) || "August",
                             target_month: sf.target_month,
-                            amount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
+                            amount: sf.amount?.toString() || sf.amount_before_discount?.toString() || "0",
+                            originalAmount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
                         });
                     });
 
@@ -466,7 +470,8 @@ function StudentwiseFeeEditor() {
                     fee_type_id: row.feeId,
                     month: monthNum,
                     target_month: row.target_month,
-                    amount_before_discount: parseFloat(row.amount || "0"),
+                    amount: parseFloat(row.amount || "0"),
+                    amount_before_discount: parseFloat(row.originalAmount || row.amount || "0"),
                     academic_year: selectedYear,
                 };
             });
@@ -548,6 +553,7 @@ function StudentwiseFeeEditor() {
             month: unusedMonthName,
             target_month: unusedMonthNum,
             amount: defaultAmount,
+            originalAmount: defaultAmount,
             isNew: true,
         };
         pendingFocusId.current = newRow.__id;
