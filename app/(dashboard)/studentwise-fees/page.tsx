@@ -41,6 +41,7 @@ interface SpreadsheetRow {
     // UI state
     isGroupStart?: boolean;
     groupSize?: number;
+    isNew?: boolean;      // True for manually-added rows (not loaded from class schedule/DB)
 }
 
 const MONTH_ORDER = [
@@ -286,50 +287,48 @@ function StudentwiseFeeEditor() {
                     const studentData = studentRes.data?.data;
                     const studentFees = Array.isArray(studentData) ? studentData : (studentData?.fees || []);
 
-                    // Merge student overrides into the expanded rows
-                    finalRows = finalRows.map(row => {
-                        const monthNum = MONTH_TO_NUM[row.month];
-                        const override = Array.isArray(studentFees) ? studentFees.find((sf: any) =>
-                            sf.fee_type_id === row.feeId &&
-                            // Try matching by target_month first if it's a template row, 
-                            // but usually month is the unique key per student
-                            (sf.target_month === row.target_month || sf.month === monthNum) &&
-                            sf.academic_year === academicYear
-                        ) : null;
+                    // 4. Match student overrides to the expanded template rows.
+                    // A student fee for a specific slot (target_month) should override
+                    // the template row for that slot.
+                    const studentFeeMap = new Map<string, any>(
+                        studentFees
+                            .filter((sf: any) => sf.academic_year === academicYear)
+                            .map((sf: any) => [`${sf.fee_type_id}|${sf.target_month}`, sf])
+                    );
+
+                    const finalRowsProcessed = finalRows.map(row => {
+                        const key = `${row.feeId}|${row.target_month}`;
+                        const override = studentFeeMap.get(key);
 
                         if (override) {
+                            // Slot already exists in template -> Apply override
+                            studentFeeMap.delete(key); // Mark as matched
                             return {
                                 ...row,
                                 amount: override.amount_before_discount?.toString() || override.amount?.toString(),
-                                // If override has a different month, reflect that in the editable period
-                                month: Object.keys(MONTH_TO_NUM).find(key => MONTH_TO_NUM[key] === override.month) || row.month
+                                month: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === override.month) || row.month
                             };
                         }
                         return row;
                     });
 
-                    // 4b. Find and append any student fees that didn't match a template row
-                    const unmatchedFees = studentFees.filter((sf: any) => {
-                        return sf.academic_year === academicYear && !finalRows.some(r =>
-                            r.feeId === sf.fee_type_id &&
-                            (r.target_month === sf.target_month || MONTH_TO_NUM[r.month] === sf.month)
-                        );
+                    // 4b. Any student fees REMAINING in the map had no template slot.
+                    // These are manually added rows (extra slots).
+                    const extraRows: SpreadsheetRow[] = [];
+                    studentFeeMap.forEach((sf: any) => {
+                        extraRows.push({
+                            __id: Math.random().toString(36).substring(7),
+                            feeId: sf.fee_type_id,
+                            feeDescription: sf.fee_types?.description || "Unknown Fee",
+                            freq: sf.fee_types?.freq || "MONTHLY",
+                            initialMonth: Object.keys(MONTH_TO_NUM).find(key => MONTH_TO_NUM[key] === sf.target_month) || "August",
+                            month: Object.keys(MONTH_TO_NUM).find(key => MONTH_TO_NUM[key] === sf.month) || "August",
+                            target_month: sf.target_month,
+                            amount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
+                        });
                     });
 
-                    if (unmatchedFees.length > 0) {
-                        unmatchedFees.forEach((sf: any) => {
-                            finalRows.push({
-                                __id: Math.random().toString(36).substring(7),
-                                feeId: sf.fee_type_id,
-                                feeDescription: sf.fee_types?.description || "Unknown Fee",
-                                freq: sf.fee_types?.freq || "MONTHLY",
-                                initialMonth: Object.keys(MONTH_TO_NUM).find(key => MONTH_TO_NUM[key] === sf.target_month) || "August",
-                                month: Object.keys(MONTH_TO_NUM).find(key => MONTH_TO_NUM[key] === sf.month) || "August",
-                                target_month: sf.target_month,
-                                amount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
-                            });
-                        });
-                    }
+                    finalRows = [...finalRowsProcessed, ...extraRows];
                 } catch (e) {
                     console.error("No student overrides found or error fetching them.", e);
                 }
@@ -442,15 +441,21 @@ function StudentwiseFeeEditor() {
     }, [activeCell]);
 
     // ── Saving ──────────────────────────────────────────────────────────
-    const today = new Date();
-    const academicYearStart = today.getMonth() >= 7 ? today.getFullYear() : today.getFullYear() - 1;
-
     const handleSave = async () => {
         if (!studentId.trim()) {
             setSaveStatus({ type: "error", message: "Please enter a Computer Code before saving." });
             return;
         }
         if (rows.length === 0) return;
+
+        // Validate: every row must have a positive amount
+        const zeroRows = rows.filter(r => !(parseFloat(r.amount || "0") > 0));
+        if (zeroRows.length > 0) {
+            const names = zeroRows.map(r => `${r.feeDescription} (${r.month})`).join(", ");
+            setSaveStatus({ type: "error", message: `Amount must be greater than 0 for: ${names}` });
+            toast.error("Fix zero-amount rows before saving.");
+            return;
+        }
 
         setSaveStatus(null);
         setIsSaving(true);
@@ -486,9 +491,16 @@ function StudentwiseFeeEditor() {
             await Promise.all(requests);
 
             const displayId = studentId.replace(/^CC-/, "");
-            const msg = `${items.length} records saved for student ${displayId}. Campus configuration synced.`;
+            const msg = `${items.length} records saved for student ${displayId}.`;
             setSaveStatus({ type: "success", message: msg });
-            toast.success("Student records and campus configuration saved!");
+            toast.success("Fee schedule saved successfully!");
+
+            // Re-fetch from DB so isNew flags are cleared and rows reflect true
+            // persisted state. Without this, a second edit+save on a newly-added
+            // row would shift its target_month and create a duplicate.
+            if (selectedClassId !== "") {
+                await fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
+            }
         } catch (err: any) {
             const msg = err.response?.data?.message || "Failed to save data. Please verify all fields.";
             setSaveStatus({ type: "error", message: msg });
@@ -502,16 +514,41 @@ function StudentwiseFeeEditor() {
     };
 
     const addRow = () => {
+        if (feeTypes.length === 0) {
+            toast.error("No fee types available. Please set up fee types first.");
+            return;
+        }
+
         const firstType = feeTypes[0];
+        const feeId = firstType.id;
+
+        // Pick the first month slot (in academic order) not already used as
+        // target_month for this fee type — so the new row gets a unique identity.
+        const MONTH_NUM_ORDER = [8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7];
+        const usedTargetMonths = new Set(
+            rows.filter(r => r.feeId === feeId).map(r => r.target_month)
+        );
+        const unusedMonthNum = MONTH_NUM_ORDER.find(m => !usedTargetMonths.has(m));
+
+        if (unusedMonthNum === undefined) {
+            toast.error(`All 12 month slots for "${firstType.description}" are already used. Delete an existing row first.`);
+            return;
+        }
+
+        const unusedMonthName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === unusedMonthNum) ?? "August";
+        // Default amount to the class schedule amount for this fee type (if known)
+        const defaultAmount = feeToAmountMap[feeId] ?? "0";
+
         const newRow: SpreadsheetRow = {
             __id: Math.random().toString(36).substring(7),
-            feeId: firstType?.id || 0,
-            feeDescription: firstType?.description || "",
-            freq: firstType?.freq || "MONTHLY",
-            initialMonth: "August",
-            month: "August",
-            target_month: 8,
-            amount: "0",
+            feeId,
+            feeDescription: firstType.description,
+            freq: firstType.freq,
+            initialMonth: unusedMonthName,
+            month: unusedMonthName,
+            target_month: unusedMonthNum,
+            amount: defaultAmount,
+            isNew: true,
         };
         pendingFocusId.current = newRow.__id;
         setRows((prev) => sortSpreadsheetRows([...prev, newRow]));
@@ -533,7 +570,27 @@ function StudentwiseFeeEditor() {
                             updated.amount = feeToAmountMap[val];
                         }
                     }
+                    // For manually-added rows, pick a fresh unused target_month
+                    // for the new fee type so we don't collide with existing rows.
+                    if (r.isNew) {
+                        const usedForNewType = new Set(
+                            prev.filter((x, xi) => xi !== idx && x.feeId === val).map(x => x.target_month)
+                        );
+                        const MONTH_NUM_ORDER = [8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7];
+                        const unusedNum = MONTH_NUM_ORDER.find(m => !usedForNewType.has(m)) ?? 8;
+                        const unusedName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === unusedNum) ?? "August";
+                        updated.target_month = unusedNum;
+                        updated.month = unusedName;
+                        updated.initialMonth = unusedName;
+                    }
                 }
+
+                // For manually-added rows, target_month should follow the period
+                // the user selects — there is no fixed original slot to preserve.
+                if (field === "month" && r.isNew) {
+                    updated.target_month = MONTH_TO_NUM[val] ?? updated.target_month;
+                }
+
                 return updated;
             });
             return sortSpreadsheetRows(next);

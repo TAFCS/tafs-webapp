@@ -203,7 +203,9 @@ const styles = StyleSheet.create({
 
 export interface FeeItem {
     description: string;
-    amount: number;
+    amount: number;        // original (before discount)
+    netAmount?: number;    // after discount (if any)
+    discount?: number;     // discount amount
 }
 
 interface FeeChallanPDFProps {
@@ -331,14 +333,28 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
         <View style={[styles.feeTable, { marginTop: 4 }]}>
             <View style={styles.tableHeader}>
                 <Text style={[styles.colDesc, { fontWeight: 'bold' }]}>Description</Text>
-                <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>Amount</Text>
+                <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>Original</Text>
+                {fees.some(f => (f.discount ?? 0) > 0) && (
+                    <Text style={[styles.colAmount, { fontWeight: 'bold', color: '#047857' }]}>Net</Text>
+                )}
             </View>
-            {fees.map((fee, idx) => (
-                <View key={idx} style={styles.tableRow}>
-                    <Text style={styles.colDesc}>{fee.description}</Text>
-                    <Text style={styles.colAmount}>{fee.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-                </View>
-            ))}
+            {fees.map((fee, idx) => {
+                const hasDisc = (fee.discount ?? 0) > 0;
+                const effectiveNet = fee.netAmount ?? fee.amount;
+                return (
+                    <View key={idx} style={styles.tableRow}>
+                        <Text style={styles.colDesc}>{fee.description}</Text>
+                        <Text style={[styles.colAmount, hasDisc ? { textDecoration: 'line-through', color: '#9ca3af' } : {}]}>
+                            {fee.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Text>
+                        {fees.some(f => (f.discount ?? 0) > 0) && (
+                            <Text style={[styles.colAmount, hasDisc ? { color: '#047857', fontWeight: 'bold' } : {}]}>
+                                {effectiveNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Text>
+                        )}
+                    </View>
+                );
+            })}
 
             <View style={[styles.totalRow, { borderBottomWidth: 0.5, borderBottomColor: '#333333', paddingBottom: 2 }]}>
                 <Text style={[styles.colDesc, { fontWeight: 'bold' }]}>PAYABLE BY DUE DATE</Text>

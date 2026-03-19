@@ -52,6 +52,12 @@ interface StudentProfile {
     father_name?: string;
 }
 
+interface VoucherHead {
+    id: number;
+    discount_amount: number | string | null;
+    net_amount: number | string;
+}
+
 interface StudentFee {
     id: number;
     fee_type_id: number;
@@ -64,6 +70,7 @@ interface StudentFee {
         description: string;
         freq: string;
     };
+    voucher_heads?: VoucherHead[];
 }
 
 const MONTH_TO_NUM: Record<string, number> = {
@@ -283,6 +290,27 @@ export default function FeeChallanGenerator() {
         setDraggedIndex(null);
     };
 
+    // --- Discount/Net Amount Helpers (must be before handleSaveVoucher) ---
+    const getNetAmount = (fee: StudentFee): number => {
+        const head = fee.voucher_heads?.[0];
+        if (head && Number(head.net_amount) > 0) return Number(head.net_amount);
+        return Number(fee.amount_before_discount);
+    };
+    const getDiscount = (fee: StudentFee): number => {
+        const head = fee.voucher_heads?.[0];
+        if (head && Number(head.discount_amount) > 0) return Number(head.discount_amount);
+        return 0;
+    };
+    const hasAnyDiscount = studentFees.some(f => getDiscount(f) > 0);
+    const totalFeesAmount = studentFees.reduce((sum, fee) => sum + getNetAmount(fee), 0);
+    const totalBeforeDiscount = studentFees.reduce((sum, fee) => sum + Number(fee.amount_before_discount), 0);
+    const pdfFees = studentFees.map(f => ({
+        description: f.fee_types?.description || 'Unknown Fee',
+        amount: Number(f.amount_before_discount),
+        netAmount: getNetAmount(f),
+        discount: getDiscount(f),
+    }));
+
     const handleSaveVoucher = async () => {
         if (!student || !selectedBank) {
             toast.error("Please select a student and a bank.");
@@ -331,10 +359,17 @@ export default function FeeChallanGenerator() {
                             iban: selectedBank.iban || ""
                         }
                     }}
-                    fees={studentFees.map(f => ({
-                        description: f.fee_types?.description || "Fee",
-                        amount: Number(f.amount_before_discount)
-                    }))}
+                    fees={studentFees.map(f => {
+                        const head = f.voucher_heads?.[0];
+                        const netAmt = (head && Number(head.net_amount) > 0) ? Number(head.net_amount) : Number(f.amount_before_discount);
+                        const disc = (head && Number(head.discount_amount) > 0) ? Number(head.discount_amount) : 0;
+                        return {
+                            description: f.fee_types?.description || "Fee",
+                            amount: Number(f.amount_before_discount),
+                            netAmount: netAmt,
+                            discount: disc,
+                        };
+                    })}
                     totalAmount={totalFeesAmount}
                     siblings={siblings.map(s => ({
                         full_name: s.student_full_name,
@@ -383,11 +418,6 @@ export default function FeeChallanGenerator() {
         }
     };
 
-    const totalFeesAmount = studentFees.reduce((sum, fee) => sum + Number(fee.amount_before_discount), 0);
-    const pdfFees = studentFees.map(f => ({
-        description: f.fee_types?.description || 'Unknown Fee',
-        amount: Number(f.amount_before_discount)
-    }));
 
     const YearPicker = () => {
         const years = Array.from({ length: 12 }, (_, i) => {
@@ -739,52 +769,93 @@ export default function FeeChallanGenerator() {
                                         <thead className="bg-zinc-50 border-b border-zinc-200">
                                             <tr>
                                                 <th className="px-5 py-3 font-bold text-zinc-600">Fee Description</th>
-                                                <th className="px-5 py-3 font-bold text-zinc-600 text-right">Amount (PKR)</th>
+                                                <th className="px-5 py-3 font-bold text-zinc-600 text-right">Original (PKR)</th>
+                                                {hasAnyDiscount && (
+                                                    <th className="px-5 py-3 font-bold text-emerald-700 text-right">After Discount</th>
+                                                )}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {studentFees.map((fee, idx) => (
-                                                <tr
-                                                    key={fee.id}
-                                                    draggable
-                                                    onDragStart={(e) => onDragStart(e, idx)}
-                                                    onDragOver={(e) => onDragOver(e, idx)}
-                                                    onDragEnd={onDragEnd}
-                                                    className={`group transition-all ${draggedIndex === idx ? "opacity-30 bg-primary/5" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"}`}
-                                                >
-                                                    <td className="py-4 px-6">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="p-1 cursor-grab active:cursor-grabbing text-zinc-300 group-hover:text-zinc-400 dark:text-zinc-600 transition-colors">
-                                                                <GripVertical className="h-4 w-4" />
+                                            {studentFees.map((fee, idx) => {
+                                                const discount = getDiscount(fee);
+                                                const netAmt = getNetAmount(fee);
+                                                const originalAmt = Number(fee.amount_before_discount);
+                                                return (
+                                                    <tr
+                                                        key={fee.id}
+                                                        draggable
+                                                        onDragStart={(e) => onDragStart(e, idx)}
+                                                        onDragOver={(e) => onDragOver(e, idx)}
+                                                        onDragEnd={onDragEnd}
+                                                        className={`group transition-all ${draggedIndex === idx ? "opacity-30 bg-primary/5" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"}`}
+                                                    >
+                                                        <td className="py-4 px-6">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="p-1 cursor-grab active:cursor-grabbing text-zinc-300 group-hover:text-zinc-400 dark:text-zinc-600 transition-colors">
+                                                                    <GripVertical className="h-4 w-4" />
+                                                                </div>
+                                                                <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
+                                                                    {fee.fee_types?.description}
+                                                                </span>
                                                             </div>
-                                                            <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
-                                                                {fee.fee_types?.description}
+                                                        </td>
+                                                        <td className="py-4 px-6 text-right">
+                                                            <span className={`text-[14px] font-black font-mono ${discount > 0
+                                                                    ? "text-zinc-400 line-through decoration-rose-400"
+                                                                    : "text-primary"
+                                                                }`}>
+                                                                {originalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                             </span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-4 px-6 text-right">
-                                                        <span className="text-[14px] font-black text-primary font-mono">
-                                                            {Number(fee.amount_before_discount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                                        </td>
+                                                        {hasAnyDiscount && (
+                                                            <td className="py-4 px-6 text-right">
+                                                                {discount > 0 ? (
+                                                                    <div className="flex flex-col items-end gap-0.5">
+                                                                        <span className="text-[14px] font-black text-emerald-600 font-mono">
+                                                                            {netAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                        </span>
+                                                                        <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded-md">
+                                                                            -{discount.toLocaleString(undefined, { minimumFractionDigits: 2 })} disc
+                                                                        </span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-[14px] font-black text-primary font-mono">
+                                                                        {netAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                );
+                                            })}
                                             {applyLateFee && (
                                                 <tr>
                                                     <td className="px-5 py-3 font-medium text-zinc-900 font-bold uppercase text-[12px]">Late Payment Surcharge</td>
-                                                    <td className="px-5 py-3 font-bold text-zinc-900 text-right font-mono text-[14px]">{lateFeeAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                                    <td className="px-5 py-3 font-bold text-rose-600 text-right font-mono text-[14px]">{lateFeeAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                                    {hasAnyDiscount && <td />}
                                                 </tr>
                                             )}
                                         </tbody>
                                         <tfoot className="bg-zinc-50 border-t border-zinc-200">
+                                            {hasAnyDiscount && (
+                                                <tr className="border-b border-zinc-100">
+                                                    <td className="px-5 py-2 font-black tracking-wider text-zinc-500 text-[10px] uppercase opacity-70" colSpan={3}>
+                                                        Total before discount: <span className="line-through">{totalBeforeDiscount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                        &nbsp;&rarr;&nbsp;
+                                                        <span className="text-emerald-700 no-underline">
+                                                            You save: {(totalBeforeDiscount - totalFeesAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            )}
                                             <tr className="border-b border-zinc-100">
-                                                <td className="px-5 py-3 font-black tracking-wider text-zinc-900 text-[10px] uppercase opacity-70">NET BEFORE DUE DATE</td>
+                                                <td className="px-5 py-3 font-black tracking-wider text-zinc-900 text-[10px] uppercase opacity-70" colSpan={hasAnyDiscount ? 2 : 1}>NET BEFORE DUE DATE</td>
                                                 <td className="px-5 py-3 font-black text-emerald-600 text-right text-sm">
                                                     {totalFeesAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td className="px-5 py-4 font-black tracking-wider text-zinc-900 text-[11px] uppercase">NET AFTER DUE DATE</td>
+                                                <td className="px-5 py-4 font-black tracking-wider text-zinc-900 text-[11px] uppercase" colSpan={hasAnyDiscount ? 2 : 1}>NET AFTER DUE DATE</td>
                                                 <td className="px-5 py-4 font-black text-primary text-right text-base underline decoration-primary/30 underline-offset-4">
                                                     {(totalFeesAmount + (applyLateFee ? lateFeeAmount : 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                 </td>
