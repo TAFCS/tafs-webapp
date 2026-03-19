@@ -147,6 +147,29 @@ export default function FeeChallanGenerator() {
     const [discountAmount, setDiscountAmount] = useState("");
     const [discountTitle, setDiscountTitle] = useState("");
 
+    // Reset saved state when any voucher information changes
+    useEffect(() => {
+        if (student) {
+            setVoucherSaved(false);
+        }
+    }, [
+        appliedDiscounts,
+        issueDate,
+        dueDate,
+        validityDate,
+        applyLateFee,
+        lateFeeAmount,
+        selectedBank,
+        accTitle,
+        accNo,
+        branchCode,
+        bankAddress,
+        iban,
+        academicYear,
+        month,
+        studentFees
+    ]);
+
     useEffect(() => {
         setIsClient(true);
         fetchBanks();
