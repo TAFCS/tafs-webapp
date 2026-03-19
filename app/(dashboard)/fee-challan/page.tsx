@@ -20,7 +20,10 @@ import {
     X,
     ChevronLeft,
     ChevronRight,
-    GripVertical
+    GripVertical,
+    Plus,
+    Trash2,
+    PercentCircle
 } from "lucide-react";
 import { useRef } from "react";
 import api from "@/lib/api";
@@ -137,6 +140,12 @@ export default function FeeChallanGenerator() {
     const [isSavingVoucher, setIsSavingVoucher] = useState(false);
     const [isClient, setIsClient] = useState(false);
     const [siblings, setSiblings] = useState<any[]>([]);
+    const [appliedDiscounts, setAppliedDiscounts] = useState<Record<number, { amount: number; title: string; id: string }[]>>({});
+    
+    // Inline Discount States
+    const [selectedFeeId, setSelectedFeeId] = useState<number | "all">("all");
+    const [discountAmount, setDiscountAmount] = useState("");
+    const [discountTitle, setDiscountTitle] = useState("");
 
     useEffect(() => {
         setIsClient(true);
@@ -291,15 +300,22 @@ export default function FeeChallanGenerator() {
     };
 
     // --- Discount/Net Amount Helpers (must be before handleSaveVoucher) ---
-    const getNetAmount = (fee: StudentFee): number => {
-        const head = fee.voucher_heads?.[0];
-        if (head && Number(head.net_amount) > 0) return Number(head.net_amount);
-        return Number(fee.amount_before_discount);
+    const getAppliedDiscountTotal = (feeId: number): number => {
+        return (appliedDiscounts[feeId] || []).reduce((sum, d) => sum + d.amount, 0);
     };
+
+    const getNetAmount = (fee: StudentFee): number => {
+        const adHocDiscount = getAppliedDiscountTotal(fee.id);
+        const voucherHead = fee.voucher_heads?.[0];
+        const existingDiscount = (voucherHead && Number(voucherHead.net_amount) > 0) ? Number(voucherHead.discount_amount) : 0;
+        
+        // Priority: Ad-hoc discounts on top of existing ones if any, 
+        // but typically this page is for new vouchers where there are no existing heads yet.
+        return Number(fee.amount_before_discount) - adHocDiscount;
+    };
+
     const getDiscount = (fee: StudentFee): number => {
-        const head = fee.voucher_heads?.[0];
-        if (head && Number(head.discount_amount) > 0) return Number(head.discount_amount);
-        return 0;
+        return getAppliedDiscountTotal(fee.id);
     };
     const hasAnyDiscount = studentFees.some(f => getDiscount(f) > 0);
     const totalFeesAmount = studentFees.reduce((sum, fee) => sum + getNetAmount(fee), 0);
@@ -368,6 +384,7 @@ export default function FeeChallanGenerator() {
                             amount: Number(f.amount_before_discount),
                             netAmount: netAmt,
                             discount: disc,
+                            discountLabel: (appliedDiscounts[f.id] || []).map(d => d.title).join(", "),
                         };
                     })}
                     totalAmount={totalFeesAmount}
@@ -381,7 +398,14 @@ export default function FeeChallanGenerator() {
                 />
             ).toBlob();
 
-            // 2. Prepare Multipart Form Data
+            // 3. Prepare Fee Lines with Discounts
+            const feeLines = studentFees.map(f => ({
+                student_fee_id: f.id,
+                discount_amount: getDiscount(f),
+                discount_label: (appliedDiscounts[f.id] || []).map(d => d.title).join(", "),
+            }));
+
+            // 4. Prepare Multipart Form Data
             const formData = new FormData();
             formData.append('pdf', blob, `voucher-${student.cc}-${Date.now()}.pdf`);
             formData.append('student_id', student.cc.toString());
@@ -398,7 +422,10 @@ export default function FeeChallanGenerator() {
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
             formData.append('precedence', '1');
 
-            // Send ordered IDs
+            // Send fee lines as a JSON string
+            formData.append('fee_lines', JSON.stringify(feeLines));
+
+            // Keep ordered IDs for legacy/processing order
             studentFees.forEach(f => {
                 formData.append('orderedFeeIds', f.id.toString());
             });
@@ -478,6 +505,42 @@ export default function FeeChallanGenerator() {
                 </div>
             </div>
         );
+    };
+
+    const addDiscount = () => {
+        if (!discountAmount || isNaN(Number(discountAmount))) {
+            toast.error("Please enter a valid amount");
+            return;
+        }
+
+        const amount = Number(discountAmount);
+        const title = discountTitle || "Manual Discount";
+        const id = Math.random().toString(36).substr(2, 9);
+
+        if (selectedFeeId === "all") {
+            const newDiscounts = { ...appliedDiscounts };
+            studentFees.forEach(f => {
+                if (!newDiscounts[f.id]) newDiscounts[f.id] = [];
+                newDiscounts[f.id].push({ amount: amount / studentFees.length, title, id });
+            });
+            setAppliedDiscounts(newDiscounts);
+        } else {
+            setAppliedDiscounts(prev => ({
+                ...prev,
+                [selectedFeeId]: [...(prev[selectedFeeId] || []), { amount, title, id }]
+            }));
+        }
+
+        setDiscountAmount("");
+        setDiscountTitle("");
+        toast.success("Discount applied!");
+    };
+
+    const removeDiscount = (feeId: number, discId: string) => {
+        setAppliedDiscounts(prev => ({
+            ...prev,
+            [feeId]: prev[feeId].filter(d => d.id !== discId)
+        }));
     };
 
     return (
@@ -608,6 +671,92 @@ export default function FeeChallanGenerator() {
                             <p className="text-emerald-700/70 text-xs font-medium italic">Standard fee structure will be applied.</p>
                         </div>
                     </div>
+
+                    {/* Inline Discount Section */}
+                    {student && studentFees.length > 0 && (
+                        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[28px] p-8 space-y-6 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center text-emerald-600">
+                                    <PercentCircle className="h-5 w-5" />
+                                </div>
+                                <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">Quick Discounts</h3>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Target Fee</label>
+                                    <select
+                                        value={selectedFeeId}
+                                        onChange={(e) => setSelectedFeeId(e.target.value === "all" ? "all" : Number(e.target.value))}
+                                        className="w-full h-11 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[12px] font-bold focus:outline-none focus:border-emerald-500 transition-all cursor-pointer"
+                                    >
+                                        <option value="all">Apply to all (split)</option>
+                                        {studentFees.map(f => (
+                                            <option key={f.id} value={f.id}>{f.fee_types?.description}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Amount</label>
+                                        <input
+                                            type="number"
+                                            placeholder="PKR"
+                                            value={discountAmount}
+                                            onChange={(e) => setDiscountAmount(e.target.value)}
+                                            className="w-full h-11 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[12px] font-bold focus:outline-none focus:border-emerald-500 transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Label</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Label"
+                                            value={discountTitle}
+                                            onChange={(e) => setDiscountTitle(e.target.value)}
+                                            className="w-full h-11 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[12px] font-bold focus:outline-none focus:border-emerald-500 transition-all"
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={addDiscount}
+                                    className="w-full h-11 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-600/10"
+                                >
+                                    Apply Discount
+                                </button>
+                            </div>
+
+                            {/* Applied Discounts Mini List */}
+                            {Object.keys(appliedDiscounts).some(k => appliedDiscounts[Number(k)].length > 0) && (
+                                <div className="pt-4 border-t border-zinc-100 dark:border-zinc-900">
+                                    <h4 className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-3">Active Adjustments</h4>
+                                    <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                                        {Object.entries(appliedDiscounts).map(([feeId, discounts]) => (
+                                            discounts.map(d => {
+                                                const fee = studentFees.find(f => f.id === Number(feeId));
+                                                return (
+                                                    <div key={d.id} className="flex items-center justify-between p-2.5 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800/50">
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-[9px] font-black text-zinc-400 uppercase truncate">{fee?.fee_types?.description}</p>
+                                                            <p className="text-[11px] font-bold text-zinc-900 dark:text-zinc-100 truncate">{d.title}</p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 ml-3">
+                                                            <span className="text-emerald-600 font-bold text-[11px] whitespace-nowrap">-{Number(d.amount).toLocaleString()}</span>
+                                                            <button onClick={() => removeDiscount(Number(feeId), d.id)} className="p-1 text-zinc-300 hover:text-rose-500 transition-colors">
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Right Column: Challan Details Form */}
@@ -798,6 +947,15 @@ export default function FeeChallanGenerator() {
                                                                     {fee.fee_types?.description}
                                                                 </span>
                                                             </div>
+                                                            {appliedDiscounts[fee.id] && appliedDiscounts[fee.id].length > 0 && (
+                                                                <div className="mt-1 ml-10 flex flex-wrap gap-1.5">
+                                                                    {appliedDiscounts[fee.id].map(d => (
+                                                                        <span key={d.id} className="text-[9px] font-black bg-rose-50 text-rose-500 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                                                            {d.title}: -{Number(d.amount).toLocaleString()}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                         </td>
                                                         <td className="py-4 px-6 text-right">
                                                             <span className={`text-[14px] font-black font-mono ${discount > 0
@@ -971,7 +1129,7 @@ export default function FeeChallanGenerator() {
             </div>
 
             {/* Design Tokens - Floating Indicator */}
-            <div className="fixed bottom-6 right-6 z-50">
+            <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3">
                 <div className="bg-zinc-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-4">
                     <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
                     <span className="text-[10px] font-black uppercase tracking-widest opacity-80">Ready to Voucherize</span>

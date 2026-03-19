@@ -206,6 +206,7 @@ export interface FeeItem {
     amount: number;        // original (before discount)
     netAmount?: number;    // after discount (if any)
     discount?: number;     // discount amount
+    discountLabel?: string;
 }
 
 interface FeeChallanPDFProps {
@@ -343,7 +344,12 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                 const effectiveNet = fee.netAmount ?? fee.amount;
                 return (
                     <View key={idx} style={styles.tableRow}>
-                        <Text style={styles.colDesc}>{fee.description}</Text>
+                        <View style={styles.colDesc}>
+                            <Text>{fee.description}</Text>
+                            {fee.discountLabel && (
+                                <Text style={{ fontSize: 5, color: '#047857', marginTop: 1 }}>{fee.discountLabel}</Text>
+                            )}
+                        </View>
                         <Text style={[styles.colAmount, hasDisc ? { textDecoration: 'line-through', color: '#9ca3af' } : {}]}>
                             {fee.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </Text>
