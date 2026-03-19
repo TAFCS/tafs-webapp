@@ -255,7 +255,7 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
     return (
         <tr className="group border-b border-zinc-100 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
             <td className="px-5 py-3.5 text-center">
-                <span className="text-[11px] font-mono text-zinc-400">{index + 1}</span>
+                <span className="text-[11px] font-mono text-zinc-400">{voucher.id}</span>
             </td>
             <td className="px-5 py-3.5">
                 <div className="flex flex-col gap-0.5">
@@ -707,7 +707,7 @@ export default function VouchersPage() {
                         <table className="w-full border-collapse">
                             <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800">
                                 <tr>
-                                    {["#", "Student", "Campus", "Class", "Section", "Issue Date", "Due Date", "Status", "Late Fee", "Bank", "Actions"].map(h => (
+                                    {["ID", "Student", "Campus", "Class", "Section", "Issue Date", "Due Date", "Status", "Late Fee", "Bank", "Actions"].map(h => (
                                         <th key={h} className="px-5 py-3.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">
                                             {h}
                                         </th>

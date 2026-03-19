@@ -436,7 +436,7 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
     return (
         <tr className="group border-b border-zinc-100 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
             <td className="px-5 py-3.5 text-center">
-                <span className="text-[11px] font-mono text-zinc-400">{index + 1}</span>
+                <span className="text-[11px] font-mono text-zinc-400">{voucher.id}</span>
             </td>
             <td className="px-5 py-3.5">
                 <div className="flex flex-col gap-0.5">
@@ -871,7 +871,7 @@ export default function VoucherDepositPage() {
                         <table className="w-full border-collapse">
                             <thead className="sticky top-0 z-10 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800">
                                 <tr>
-                                    {["#", "Student", "Campus", "Month", "Issue Date", "Due Date", "Status", "Amount Payable", "Actions"].map(h => (
+                                    {["ID", "Student", "Campus", "Month", "Issue Date", "Due Date", "Status", "Amount Payable", "Actions"].map(h => (
                                         <th key={h} className="px-6 py-5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] whitespace-nowrap">
                                             {h}
                                         </th>
