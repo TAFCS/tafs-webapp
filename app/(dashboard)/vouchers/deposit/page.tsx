@@ -21,6 +21,7 @@ import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
 const STATUS_OPTIONS = [
     { value: "", label: "All Statuses", icon: Filter, color: "text-zinc-400" },
     { value: "UNPAID", label: "Unpaid", icon: Clock, color: "text-amber-500" },
+    { value: "PARTIALLY_PAID", label: "Partially Paid", icon: FileText, color: "text-blue-500" },
     { value: "PAID", label: "Paid", icon: CheckCircle2, color: "text-emerald-500" },
     { value: "OVERDUE", label: "Overdue", icon: XCircle, color: "text-rose-500" },
 ];
@@ -40,6 +41,8 @@ function getStatusConfig(status: string | null) {
     switch (status) {
         case "PAID":
             return { label: "Paid", classes: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800" };
+        case "PARTIALLY_PAID":
+            return { label: "Partially Paid", classes: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800" };
         case "OVERDUE":
             return { label: "Overdue", classes: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800" };
         default:
@@ -161,10 +164,25 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         <div className="relative">
                             <input
                                 autoFocus
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 placeholder="Enter amount..."
                                 value={amount}
-                                onChange={e => setAmount(e.target.value)}
+                                onChange={e => {
+                                    const val = e.target.value.replace(/[^0-9]/g, '');
+                                    if (val === "") {
+                                        setAmount("");
+                                        return;
+                                    }
+                                    const num = Number(val);
+                                    if (num > finalTotal) {
+                                        setAmount(finalTotal.toString());
+                                        toast.error(`Amount cannot exceed the total balance of Rs. ${finalTotal.toLocaleString()}`);
+                                    } else {
+                                        setAmount(val);
+                                    }
+                                }}
                                 className="w-full h-16 px-6 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] text-2xl font-black text-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/30 transition-all placeholder:text-zinc-300"
                             />
                             <div className="absolute right-6 top-1/2 -translate-y-1/2 flex flex-col items-end">
@@ -239,10 +257,19 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                         {fillingMode === "manual" ? (
                                             <div className="relative">
                                                 <input
-                                                    type="number"
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]*"
                                                     value={manualLateFee}
-                                                    onChange={e => setManualLateFee(e.target.value)}
-                                                    className="w-32 h-10 px-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-right focus:outline-none focus:border-rose-500 transition-all"
+                                                    onChange={e => {
+                                                        const val = e.target.value.replace(/[^0-9]/g, '');
+                                                        if (val === "" || Number(val) <= actualLateFee) {
+                                                            setManualLateFee(val);
+                                                        } else {
+                                                            setManualLateFee(actualLateFee.toString());
+                                                        }
+                                                    }}
+                                                    className="w-32 h-10 px-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-right focus:outline-none focus:border-rose-500 transition-all font-mono"
                                                 />
                                             </div>
                                         ) : (
@@ -268,10 +295,20 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                         {fillingMode === "manual" ? (
                                             <div className="relative">
                                                 <input
-                                                    type="number"
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]*"
                                                     value={manualDistributions[h.id] || ""}
-                                                    onChange={e => setManualDistributions({ ...manualDistributions, [h.id]: e.target.value })}
-                                                    className="w-32 h-10 px-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-right focus:outline-none focus:border-primary transition-all"
+                                                    onChange={e => {
+                                                        const val = e.target.value.replace(/[^0-9]/g, '');
+                                                        const balance = Number(h.balance);
+                                                        if (val === "" || Number(val) <= balance) {
+                                                            setManualDistributions({ ...manualDistributions, [h.id]: val });
+                                                        } else {
+                                                            setManualDistributions({ ...manualDistributions, [h.id]: balance.toString() });
+                                                        }
+                                                    }}
+                                                    className="w-32 h-10 px-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-right focus:outline-none focus:border-primary transition-all font-mono"
                                                 />
                                             </div>
                                         ) : (

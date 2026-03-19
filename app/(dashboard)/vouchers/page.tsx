@@ -21,6 +21,7 @@ import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
 const STATUS_OPTIONS = [
     { value: "", label: "All Statuses", icon: Filter, color: "text-zinc-400" },
     { value: "UNPAID", label: "Unpaid", icon: Clock, color: "text-amber-500" },
+    { value: "PARTIALLY_PAID", label: "Partially Paid", icon: FileText, color: "text-blue-500" },
     { value: "PAID", label: "Paid", icon: CheckCircle2, color: "text-emerald-500" },
     { value: "OVERDUE", label: "Overdue", icon: XCircle, color: "text-rose-500" },
 ];
@@ -40,6 +41,8 @@ function getStatusConfig(status: string | null) {
     switch (status) {
         case "PAID":
             return { label: "Paid", classes: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800" };
+        case "PARTIALLY_PAID":
+            return { label: "Partially Paid", classes: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800" };
         case "OVERDUE":
             return { label: "Overdue", classes: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800" };
         default:
