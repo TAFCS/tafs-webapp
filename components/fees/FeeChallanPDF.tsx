@@ -334,28 +334,38 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
         <View style={[styles.feeTable, { marginTop: 4 }]}>
             <View style={styles.tableHeader}>
                 <Text style={[styles.colDesc, { fontWeight: 'bold' }]}>Description</Text>
-                <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>Original</Text>
-                {fees.some(f => (f.discount ?? 0) > 0) && (
-                    <Text style={[styles.colAmount, { fontWeight: 'bold', color: '#047857' }]}>Net</Text>
+                {fees.some(f => (f.discount ?? 0) > 0) ? (
+                    <>
+                        <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>Original</Text>
+                        <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>Net</Text>
+                    </>
+                ) : (
+                    <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>Amount</Text>
                 )}
             </View>
             {fees.map((fee, idx) => {
-                const hasDisc = (fee.discount ?? 0) > 0;
+                const hasAnyDisc = fees.some(f => (f.discount ?? 0) > 0);
                 const effectiveNet = fee.netAmount ?? fee.amount;
                 return (
                     <View key={idx} style={styles.tableRow}>
                         <View style={styles.colDesc}>
                             <Text>{fee.description}</Text>
                             {fee.discountLabel && (
-                                <Text style={{ fontSize: 5, color: '#047857', marginTop: 1 }}>{fee.discountLabel}</Text>
+                                <Text style={{ fontSize: 4.5, color: '#666666', marginTop: 1, fontStyle: 'italic' }}>{fee.discountLabel}</Text>
                             )}
                         </View>
-                        <Text style={[styles.colAmount, hasDisc ? { textDecoration: 'line-through', color: '#9ca3af' } : {}]}>
-                            {fee.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </Text>
-                        {fees.some(f => (f.discount ?? 0) > 0) && (
-                            <Text style={[styles.colAmount, hasDisc ? { color: '#047857', fontWeight: 'bold' } : {}]}>
-                                {effectiveNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {hasAnyDisc ? (
+                            <>
+                                <Text style={styles.colAmount}>
+                                    {fee.amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                </Text>
+                                <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>
+                                    {effectiveNet.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                </Text>
+                            </>
+                        ) : (
+                            <Text style={styles.colAmount}>
+                                {fee.amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             </Text>
                         )}
                     </View>

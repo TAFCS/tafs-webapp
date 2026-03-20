@@ -1140,29 +1140,17 @@ export default function FeeChallanGenerator() {
                                                             )}
                                                         </td>
                                                         <td className="py-4 px-6 text-right">
-                                                            <span className={`text-[14px] font-black font-mono ${discount > 0
-                                                                    ? "text-zinc-400 line-through decoration-rose-400"
-                                                                    : "text-primary"
-                                                                }`}>
-                                                                {originalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                            <span className="text-[14px] font-medium font-mono text-zinc-500">
+                                                                {originalAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                                                             </span>
                                                         </td>
                                                         {hasAnyDiscount && (
                                                             <td className="py-4 px-6 text-right">
-                                                                {discount > 0 ? (
-                                                                    <div className="flex flex-col items-end gap-0.5">
-                                                                        <span className="text-[14px] font-black text-emerald-600 font-mono">
-                                                                            {netAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                                        </span>
-                                                                        <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded-md">
-                                                                            -{discount.toLocaleString(undefined, { minimumFractionDigits: 2 })} disc
-                                                                        </span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <span className="text-[14px] font-black text-primary font-mono">
-                                                                        {netAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                <div className="flex flex-col items-end gap-0.5">
+                                                                    <span className="text-[14px] font-black text-zinc-900 dark:text-zinc-100 font-mono">
+                                                                        {netAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                                                                     </span>
-                                                                )}
+                                                                </div>
                                                             </td>
                                                         )}
                                                     </tr>
