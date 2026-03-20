@@ -148,6 +148,11 @@ export default function FeeChallanGenerator() {
     const [discountAmount, setDiscountAmount] = useState("");
     const [discountTitle, setDiscountTitle] = useState("");
 
+    // Grouping Fees States
+    const [feeGroups, setFeeGroups] = useState<{ id: string; name: string; feeIds: number[] }[]>([]);
+    const [selectedForGrouping, setSelectedForGrouping] = useState<number[]>([]);
+    const [groupNameInput, setGroupNameInput] = useState("");
+
     // Reset saved state when any voucher information changes
     useEffect(() => {
         if (student) {
@@ -323,6 +328,46 @@ export default function FeeChallanGenerator() {
         setDraggedIndex(null);
     };
 
+    const handleToggleFeeSelection = (id: number) => {
+        setSelectedForGrouping(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const handleAddGroup = () => {
+        if (selectedForGrouping.length < 2) {
+            toast.error("Select at least 2 fees to group.");
+            return;
+        }
+        if (!groupNameInput.trim()) {
+            toast.error("Please enter a name for the group.");
+            return;
+        }
+        
+        // Ensure none of the selected fees are already in another group
+        const allGroupedIds = new Set(feeGroups.flatMap(g => g.feeIds));
+        const hasDoubleGroup = selectedForGrouping.some(id => allGroupedIds.has(id));
+        if (hasDoubleGroup) {
+            toast.error("Some selected fees are already in a group.");
+            return;
+        }
+
+        const newGroup = {
+            id: Math.random().toString(36).substr(2, 9),
+            name: groupNameInput.trim(),
+            feeIds: [...selectedForGrouping]
+        };
+        setFeeGroups([...feeGroups, newGroup]);
+        setSelectedForGrouping([]);
+        setGroupNameInput("");
+        toast.success(`Group "${newGroup.name}" created!`);
+    };
+
+    const handleRemoveGroup = (groupId: string) => {
+        setFeeGroups(feeGroups.filter(g => g.id !== groupId));
+        toast.success("Group removed.");
+    };
+
     // --- Discount/Net Amount Helpers (must be before handleSaveVoucher) ---
     const getAppliedDiscountTotal = (feeId: number): number => {
         return (appliedDiscounts[feeId] || []).reduce((sum, d) => sum + d.amount, 0);
@@ -343,15 +388,72 @@ export default function FeeChallanGenerator() {
         const systemDiscount = Math.max(0, Number(fee.amount_before_discount) - Number(fee.amount || fee.amount_before_discount));
         return adHocDiscount + systemDiscount;
     };
+    const groupedFeeIds = new Set(feeGroups.flatMap(g => g.feeIds));
+    const processedPdfFees = (() => {
+        let results: { 
+            description: string; 
+            amount: number;      // Original total
+            netAmount: number;   // Total after discounts
+            discount: number;    // Total discount
+            discountLabel: string; 
+        }[] = [];
+        
+        // 1. Add grouped fees
+        feeGroups.forEach(group => {
+            let groupAmount = 0;
+            let groupNet = 0;
+            let groupDiscount = 0;
+            let groupLabels: string[] = [];
+            
+            group.feeIds.forEach(feeId => {
+                const fee = studentFees.find(f => f.id === feeId);
+                if (fee) {
+                    groupAmount += Number(fee.amount_before_discount);
+                    groupNet += getNetAmount(fee);
+                    groupDiscount += getDiscount(fee);
+                    
+                    if (Number(fee.amount_before_discount) > Number(fee.amount || fee.amount_before_discount)) {
+                        groupLabels.push("Profile Disc");
+                    }
+                    (appliedDiscounts[fee.id] || []).forEach(d => groupLabels.push(d.title));
+                }
+            });
+            
+            results.push({
+                description: group.name,
+                amount: groupAmount,
+                netAmount: groupNet,
+                discount: groupDiscount,
+                discountLabel: [...new Set(groupLabels)].join(", ")
+            });
+        });
+
+        // 2. Add individual fees
+        studentFees.forEach(fee => {
+            if (!groupedFeeIds.has(fee.id)) {
+                const headLabels: string[] = [];
+                if (Number(fee.amount_before_discount) > Number(fee.amount || fee.amount_before_discount)) {
+                    headLabels.push("Profile Disc");
+                }
+                (appliedDiscounts[fee.id] || []).forEach(d => headLabels.push(d.title));
+
+                results.push({
+                    description: fee.fee_types?.description || 'Unknown Fee',
+                    amount: Number(fee.amount_before_discount),
+                    netAmount: getNetAmount(fee),
+                    discount: getDiscount(fee),
+                    discountLabel: headLabels.join(", ")
+                });
+            }
+        });
+
+        return results;
+    })();
+
+    const pdfFees = processedPdfFees;
     const hasAnyDiscount = studentFees.some(f => getDiscount(f) > 0);
-    const totalFeesAmount = studentFees.reduce((sum, fee) => sum + getNetAmount(fee), 0);
+    const totalFeesAmount = pdfFees.reduce((sum, f) => sum + f.netAmount, 0);
     const totalBeforeDiscount = studentFees.reduce((sum, fee) => sum + Number(fee.amount_before_discount), 0);
-    const pdfFees = studentFees.map(f => ({
-        description: f.fee_types?.description || 'Unknown Fee',
-        amount: Number(f.amount_before_discount),
-        netAmount: getNetAmount(f),
-        discount: getDiscount(f),
-    }));
 
     const handleSaveVoucher = async () => {
         if (!student || !selectedBank) {
@@ -401,23 +503,13 @@ export default function FeeChallanGenerator() {
                             iban: selectedBank.iban || ""
                         }
                     }}
-                    fees={studentFees.map(f => {
-                        const netAmt = getNetAmount(f);
-                        const disc = getDiscount(f);
-                        const labels = [];
-                        if (Number(f.amount_before_discount) > Number(f.amount || f.amount_before_discount)) {
-                            labels.push("Profile Discount");
-                        }
-                        (appliedDiscounts[f.id] || []).forEach(d => labels.push(d.title));
-
-                        return {
-                            description: f.fee_types?.description || "Fee",
-                            amount: Number(f.amount_before_discount),
-                            netAmount: netAmt,
-                            discount: disc,
-                            discountLabel: labels.join(", "),
-                        };
-                    })}
+                    fees={pdfFees.map(f => ({
+                        description: f.description,
+                        amount: f.amount,
+                        netAmount: f.netAmount,
+                        discount: f.discount,
+                        discountLabel: f.discountLabel
+                    }))}
                     totalAmount={totalFeesAmount}
                     siblings={siblings.map(s => ({
                         full_name: s.student_full_name,
@@ -944,7 +1036,48 @@ export default function FeeChallanGenerator() {
                                     <p className="text-sm font-bold text-zinc-500">Loading fees...</p>
                                 </div>
                             ) : studentFees.length > 0 ? (
-                                <div className="rounded-2xl border border-zinc-200 overflow-hidden">
+                                <div className="space-y-4">
+                                    {/* Grouping Toolbar */}
+                                    {selectedForGrouping.length >= 2 && (
+                                        <div className="flex flex-col md:flex-row items-center gap-4 p-4 bg-primary/5 border border-primary/20 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <div className="flex-1">
+                                                <p className="text-[10px] font-black text-primary uppercase tracking-widest ml-1 mb-1.5">Group {selectedForGrouping.length} Fees</p>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Enter Group Name (e.g. Tuition Aug & Sep)"
+                                                    value={groupNameInput}
+                                                    onChange={(e) => setGroupNameInput(e.target.value)}
+                                                    className="w-full h-10 px-4 bg-white dark:bg-zinc-950 border border-primary/20 rounded-xl text-[12px] font-bold focus:outline-none focus:border-primary transition-all"
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={handleAddGroup}
+                                                className="h-10 px-6 bg-primary text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-primary/90 transition-all active:scale-95 shadow-lg shadow-primary/10"
+                                            >
+                                                Create Group
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Active Groups Management */}
+                                    {feeGroups.length > 0 && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {feeGroups.map(group => (
+                                                <div key={group.id} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl group/tag">
+                                                    <span className="text-[10px] font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">{group.name}</span>
+                                                    <span className="text-[9px] font-bold text-zinc-400">({group.feeIds.length} heads)</span>
+                                                    <button 
+                                                        onClick={() => handleRemoveGroup(group.id)}
+                                                        className="p-0.5 text-zinc-300 hover:text-rose-500 transition-colors"
+                                                    >
+                                                        <Plus className="h-3 w-3 rotate-45" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className="rounded-2xl border border-zinc-200 overflow-hidden">
                                     <table className="w-full text-left text-sm">
                                         <thead className="bg-zinc-50 border-b border-zinc-200">
                                             <tr>
@@ -971,12 +1104,25 @@ export default function FeeChallanGenerator() {
                                                     >
                                                         <td className="py-4 px-6">
                                                             <div className="flex items-center gap-3">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedForGrouping.includes(fee.id)}
+                                                                    onChange={() => handleToggleFeeSelection(fee.id)}
+                                                                    className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
+                                                                />
                                                                 <div className="p-1 cursor-grab active:cursor-grabbing text-zinc-300 group-hover:text-zinc-400 dark:text-zinc-600 transition-colors">
                                                                     <GripVertical className="h-4 w-4" />
                                                                 </div>
-                                                                <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
-                                                                    {fee.fee_types?.description}
-                                                                </span>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
+                                                                        {fee.fee_types?.description}
+                                                                    </span>
+                                                                    {feeGroups.some(g => g.feeIds.includes(fee.id)) && (
+                                                                        <span className="text-[9px] font-black text-primary uppercase tracking-tighter opacity-70">
+                                                                            Part of: {feeGroups.find(g => g.feeIds.includes(fee.id))?.name}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                             {( (appliedDiscounts[fee.id] && appliedDiscounts[fee.id].length > 0) || (Number(fee.amount_before_discount) > Number(fee.amount || fee.amount_before_discount)) ) && (
                                                                 <div className="mt-1 ml-10 flex flex-wrap gap-1.5">
@@ -1057,6 +1203,7 @@ export default function FeeChallanGenerator() {
                                         </tfoot>
                                     </table>
                                 </div>
+                                </div>
                             ) : student ? (
                                 <div className="py-10 flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50">
                                     <FileText className="h-8 w-8 text-zinc-300 mb-3" />
@@ -1124,7 +1271,13 @@ export default function FeeChallanGenerator() {
                                                         iban: iban
                                                     }
                                                 }}
-                                                fees={pdfFees}
+                                                fees={pdfFees.map(f => ({ 
+                                                    description: f.description, 
+                                                    amount: f.amount,
+                                                    netAmount: f.netAmount,
+                                                    discount: f.discount,
+                                                    discountLabel: f.discountLabel
+                                                }))}
                                                 totalAmount={totalFeesAmount}
                                             />
                                         }
