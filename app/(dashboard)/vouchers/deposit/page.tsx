@@ -364,7 +364,8 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
             const MONTHS_NAMES = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             const monthName = MONTHS_NAMES[monthNum];
 
-            const pdfFees = groupFees(voucher.voucher_heads || [], {}, { groupTuitionFees: true, isVoucherHeads: true });
+            const pdfFees = groupFees(voucher.voucher_heads || [], {}, { groupTuitionFees: false, isVoucherHeads: true });
+
             const totalFeesAmount = Number(voucher.total_payable_before_due || 0);
             const siblings = familyStudents.filter((s: any) => s.cc !== voucher.student_id);
 

@@ -178,7 +178,8 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
             const MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             const monthName = MONTHS[monthNum];
 
-            const pdfFees = groupFees(voucher.voucher_heads || [], {}, { groupTuitionFees: true, isVoucherHeads: true });
+            const pdfFees = groupFees(voucher.voucher_heads || [], {}, { groupTuitionFees: false, isVoucherHeads: true });
+
             const totalFeesAmount = Number(voucher.total_payable_before_due || 0);
 
 

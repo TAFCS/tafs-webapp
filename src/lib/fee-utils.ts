@@ -157,22 +157,51 @@ export function groupFees(
                     let groupDiscount = 0;
                     let labels: string[] = [];
                     
-                    group.sort((a, b) => {
-                        const da = getFeeData(a);
-                        const db = getFeeData(b);
-                        const ma = da.target_month || da.month || 0;
-                        const mb = db.target_month || db.month || 0;
-                        const orderA = ma >= 8 ? ma : ma + 12;
-                        const orderB = mb >= 8 ? mb : mb + 12;
-                        return orderA - orderB;
+                    // Helper to get raw month and year for sequencing
+                    const getSequenceValue = (item: any) => {
+                        const data = getFeeData(item);
+                        const m = data.target_month || data.month || 0;
+                        const academicYear = data.academic_year || "";
+                        const startYear = parseInt(academicYear.split('-')[0]) || 0;
+                        const relativeMonth = m >= 8 ? m - 8 : m + 4; // Aug=0, Sep=1... Jul=11
+                        return startYear * 12 + relativeMonth;
+                    };
+
+                    group.sort((a, b) => getSequenceValue(a) - getSequenceValue(b));
+
+                    // Identify consecutive ranges
+                    const ranges: any[][] = [];
+                    let currentRange: any[] = [];
+                    
+                    group.forEach((item, index) => {
+                        if (index === 0) {
+                            currentRange.push(item);
+                        } else {
+                            const prevVal = getSequenceValue(group[index - 1]);
+                            const currVal = getSequenceValue(item);
+                            
+                            if (currVal === prevVal + 1) {
+                                currentRange.push(item);
+                            } else {
+                                ranges.push(currentRange);
+                                currentRange = [item];
+                            }
+                        }
+                    });
+                    ranges.push(currentRange);
+
+                    // Build range labels
+                    const rangeLabels = ranges.map(r => {
+                        const first = getFeeData(r[0]);
+                        const last = getFeeData(r[r.length - 1]);
+                        const firstLabel = getMonthYearLabel(first.target_month || first.month || 0, first.academic_year || "");
+                        
+                        if (r.length === 1) return firstLabel;
+                        
+                        const lastLabel = getMonthYearLabel(last.target_month || last.month || 0, last.academic_year || "");
+                        return `${firstLabel} - ${lastLabel}`;
                     });
 
-                    const firstData = getFeeData(group[0]);
-                    const lastData = getFeeData(group[group.length - 1]);
-
-                    const firstLabel = getMonthYearLabel(firstData.target_month || firstData.month || 0, firstData.academic_year || "");
-                    const lastLabel = getMonthYearLabel(lastData.target_month || lastData.month || 0, lastData.academic_year || "");
-                    
                     group.forEach(f => {
                         const data = getFeeData(f);
                         groupGross += getGrossAmount(f);
@@ -186,7 +215,7 @@ export function groupFees(
                     });
 
                     results.push({
-                        description: `${firstData.fee_types?.description} (${firstLabel} - ${lastLabel})`,
+                        description: `${(getFeeData(group[0]).fee_types?.description || "").toUpperCase()} (${rangeLabels.join(", ").toUpperCase()})`,
                         amount: groupGross,
                         netAmount: groupNet,
                         discount: groupDiscount,
@@ -194,6 +223,7 @@ export function groupFees(
                     });
                 }
             });
+
         }
     }
 
@@ -211,11 +241,12 @@ export function groupFees(
             const m = data.target_month || data.month;
             if (m) {
                 const monthLabel = getMonthYearLabel(m, data.academic_year || "");
-                desc = `${desc} ${monthLabel}`;
+                desc = `${desc.toUpperCase()} (${monthLabel.toUpperCase()})`;
             }
 
             results.push({
                 description: desc,
+
                 amount: getGrossAmount(item),
                 netAmount: getNetAmount(item),
                 discount: getDiscount(item),
