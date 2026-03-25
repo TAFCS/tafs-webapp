@@ -148,6 +148,7 @@ export default function FeeChallanGenerator() {
     const [selectedForGrouping, setSelectedForGrouping] = useState<number[]>([]);
     const [groupNameInput, setGroupNameInput] = useState("");
     const [groupTuitionFees, setGroupTuitionFees] = useState(false);
+    const [showDiscounts, setShowDiscounts] = useState(true);
 
     // Reset saved state when any voucher information changes
     useEffect(() => {
@@ -169,7 +170,8 @@ export default function FeeChallanGenerator() {
         iban,
         academicYear,
         month,
-        studentFees
+        studentFees,
+        showDiscounts
     ]);
 
     useEffect(() => {
@@ -444,10 +446,10 @@ export default function FeeChallanGenerator() {
                     }}
                     fees={pdfFees.map(f => ({
                         description: f.description,
-                        amount: f.amount,
+                        amount: showDiscounts ? f.amount : f.netAmount,
                         netAmount: f.netAmount,
-                        discount: f.discount,
-                        discountLabel: f.discountLabel
+                        discount: showDiscounts ? f.discount : 0,
+                        discountLabel: showDiscounts ? f.discountLabel : undefined
                     }))}
                     totalAmount={totalFeesAmount}
                     siblings={siblings.map(s => ({
@@ -953,6 +955,25 @@ export default function FeeChallanGenerator() {
                                     </div>
                                 </div>
                             )}
+
+                            {/* Show Discounts Toggle */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Show Discounts on PDF</label>
+                                <div className="flex h-12 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-2xl">
+                                    <button
+                                        onClick={() => setShowDiscounts(true)}
+                                        className={`flex-1 flex items-center justify-center gap-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${showDiscounts ? "bg-white dark:bg-zinc-950 text-primary shadow-sm" : "text-zinc-400"}`}
+                                    >
+                                        YES
+                                    </button>
+                                    <button
+                                        onClick={() => setShowDiscounts(false)}
+                                        className={`flex-1 flex items-center justify-center gap-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${!showDiscounts ? "bg-white dark:bg-zinc-950 text-zinc-600 shadow-sm" : "text-zinc-400"}`}
+                                    >
+                                        NO
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         {/* 3. Applicable Fees Display */}
@@ -1222,10 +1243,10 @@ export default function FeeChallanGenerator() {
                                                 }}
                                                 fees={pdfFees.map(f => ({ 
                                                     description: f.description, 
-                                                    amount: f.amount,
+                                                    amount: showDiscounts ? f.amount : f.netAmount,
                                                     netAmount: f.netAmount,
-                                                    discount: f.discount,
-                                                    discountLabel: f.discountLabel
+                                                    discount: showDiscounts ? f.discount : 0,
+                                                    discountLabel: showDiscounts ? f.discountLabel : undefined
                                                 }))}
                                                 totalAmount={totalFeesAmount}
                                             />
