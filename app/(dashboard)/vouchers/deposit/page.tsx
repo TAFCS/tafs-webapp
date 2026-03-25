@@ -15,6 +15,8 @@ import { fetchSections } from "@/store/slices/sectionsSlice";
 import { fetchVouchers, fetchVouchersByStudent, VoucherFilters, VoucherItem, clearVouchers } from "@/store/slices/vouchersSlice";
 import toast from "react-hot-toast";
 import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
+import { groupFees } from "@/lib/fee-utils";
+
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -362,13 +364,10 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
             const MONTHS_NAMES = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             const monthName = MONTHS_NAMES[monthNum];
 
-            const applicableFees = allFees.filter((f: any) => f.month === monthNum);
-            const pdfFees = applicableFees.map((f: any) => ({
-                description: f.fee_types?.description || 'Unknown Fee',
-                amount: Number(f.amount)
-            }));
-            const totalFeesAmount = pdfFees.reduce((sum: number, fee: any) => sum + fee.amount, 0);
+            const pdfFees = groupFees(voucher.voucher_heads || [], {}, { groupTuitionFees: true, isVoucherHeads: true });
+            const totalFeesAmount = Number(voucher.total_payable_before_due || 0);
             const siblings = familyStudents.filter((s: any) => s.cc !== voucher.student_id);
+
 
             const { pdf } = await import('@react-pdf/renderer');
             const doc = (

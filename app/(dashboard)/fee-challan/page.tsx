@@ -40,6 +40,8 @@ const PDFDownloadLink = dynamic(
 import { pdf } from "@react-pdf/renderer";
 import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
 import { bankAccountsService, BankAccount } from "@/lib/bank-accounts.service";
+import { groupFees, MONTHS, MONTH_TO_NUM, getMonthYearLabel } from "@/lib/fee-utils";
+
 
 // --- Types ---
 interface StudentProfile {
@@ -79,25 +81,8 @@ interface StudentFee {
     voucher_heads?: VoucherHead[];
 }
 
-const MONTH_TO_NUM: Record<string, number> = {
-    August: 8, September: 9, October: 10, November: 11, December: 12,
-    January: 1, February: 2, March: 3, April: 4, May: 5, June: 6, July: 7,
-};
 
-const ACADEMIC_YEARS = ["2023-2024", "2024-2025", "2025-2026", "2026-2027", "2027-2028"];
 
-const MONTHS = [
-    "August", "September", "October", "November", "December",
-    "January", "February", "March", "April", "May", "June", "July"
-];
-
-const getMonthYearLabel = (m: number, academicYear: string) => {
-    const monthName = MONTHS.find((_, i) => MONTH_TO_NUM[MONTHS[i]] === m) || "";
-    const [startYear, endYear] = academicYear.split('-').map(y => y.trim());
-    const year = m >= 8 ? startYear : endYear;
-    const yearShort = year.slice(-2);
-    return `${monthName.slice(0, 3)} ${yearShort}`;
-};
 
 
 
@@ -400,139 +385,9 @@ export default function FeeChallanGenerator() {
         return adHocDiscount + systemDiscount;
     };
     const groupedFeeIds = new Set(feeGroups.flatMap(g => g.feeIds));
-    const processedPdfFees = (() => {
-        let results: { 
-            description: string; 
-            amount: number;      // Original total
-            netAmount: number;   // Total after discounts
-            discount: number;    // Total discount
-            discountLabel: string; 
-            isGrouped?: boolean;
-            feeIds?: number[];
-        }[] = [];
-        
-        const alreadyHandledFeeIds = new Set<number>();
+    const processedPdfFees = groupFees(studentFees, appliedDiscounts, { groupTuitionFees, feeGroups });
 
-        // 1. Add Explicitly Grouped Fees (from feeGroups state)
-        feeGroups.forEach(group => {
-            let groupAmount = 0;
-            let groupNet = 0;
-            let groupDiscount = 0;
-            let groupLabels: string[] = [];
-            
-            group.feeIds.forEach(feeId => {
-                const fee = studentFees.find(f => f.id === feeId);
-                if (fee) {
-                    groupAmount += Number(fee.amount_before_discount);
-                    groupNet += getNetAmount(fee);
-                    groupDiscount += getDiscount(fee);
-                    
-                    if (Number(fee.amount_before_discount) > Number(fee.amount || fee.amount_before_discount)) {
-                        groupLabels.push("Profile Disc");
-                    }
-                    (appliedDiscounts[fee.id] || []).forEach(d => groupLabels.push(d.title));
-                    alreadyHandledFeeIds.add(fee.id);
-                }
-            });
-            
-            results.push({
-                description: group.name,
-                amount: groupAmount,
-                netAmount: groupNet,
-                discount: groupDiscount,
-                discountLabel: [...new Set(groupLabels)].join(", "),
-                isGrouped: true,
-                feeIds: group.feeIds
-            });
-        });
 
-        // 2. Add Tuition Fees (potentially auto-grouped)
-        if (groupTuitionFees) {
-            // Find all tuition fees not explicitly grouped yet
-            const tuitionFees = studentFees.filter(f => 
-                !alreadyHandledFeeIds.has(f.id) && 
-                f.fee_types?.description?.toLowerCase().includes("tuition")
-            );
-
-            if (tuitionFees.length > 0) {
-                // Group by fee_type_id first
-                const tuitionGroups = new Map<number, typeof tuitionFees>();
-                tuitionFees.forEach(f => {
-                    const list = tuitionGroups.get(f.fee_type_id) || [];
-                    list.push(f);
-                    tuitionGroups.set(f.fee_type_id, list);
-                });
-
-                tuitionGroups.forEach((group, feeTypeId) => {
-                    if (group.length > 1) {
-                        // Group them
-                        let groupAmount = 0;
-                        let groupNet = 0;
-                        let groupDiscount = 0;
-                        let labels: string[] = [];
-                        
-                        group.sort((a, b) => {
-                            const ma = a.target_month || a.month;
-                            const mb = b.target_month || b.month;
-                            // Need to handle year wrap-around for sorting
-                            const orderA = ma >= 8 ? ma : ma + 12;
-                            const orderB = mb >= 8 ? mb : mb + 12;
-                            return orderA - orderB;
-                        });
-
-                        const firstLabel = getMonthYearLabel(group[0].target_month || group[0].month, group[0].academic_year);
-                        const lastLabel = getMonthYearLabel(group[group.length-1].target_month || group[group.length-1].month, group[group.length-1].academic_year);
-                        
-                        group.forEach(f => {
-                            groupAmount += Number(f.amount_before_discount);
-                            groupNet += getNetAmount(f);
-                            groupDiscount += getDiscount(f);
-                            if (Number(f.amount_before_discount) > Number(f.amount || f.amount_before_discount)) labels.push("Profile Disc");
-                            (appliedDiscounts[f.id] || []).forEach(d => labels.push(d.title));
-                            alreadyHandledFeeIds.add(f.id);
-                        });
-
-                        results.push({
-                            description: `${group[0].fee_types?.description} (${firstLabel} - ${lastLabel})`,
-                            amount: groupAmount,
-                            netAmount: groupNet,
-                            discount: groupDiscount,
-                            discountLabel: [...new Set(labels)].join(", "),
-                            isGrouped: true,
-                            feeIds: group.map(f => f.id)
-                        });
-                    }
-                });
-            }
-        }
-
-        // 3. Add individual fees (everything else)
-        studentFees.forEach(fee => {
-            if (!alreadyHandledFeeIds.has(fee.id)) {
-                const headLabels: string[] = [];
-                if (Number(fee.amount_before_discount) > Number(fee.amount || fee.amount_before_discount)) {
-                    headLabels.push("Profile Disc");
-                }
-                (appliedDiscounts[fee.id] || []).forEach(d => headLabels.push(d.title));
-
-                let desc = fee.fee_types?.description || 'Unknown Fee';
-                // Add month label for individual fees too
-                const monthLabel = getMonthYearLabel(fee.target_month || fee.month, fee.academic_year);
-                desc = `${desc} ${monthLabel}`;
-
-                results.push({
-                    description: desc,
-                    amount: Number(fee.amount_before_discount),
-                    netAmount: getNetAmount(fee),
-                    discount: getDiscount(fee),
-                    discountLabel: headLabels.join(", "),
-                    feeIds: [fee.id]
-                });
-            }
-        });
-
-        return results;
-    })();
 
     const pdfFees = processedPdfFees;
     const hasAnyDiscount = studentFees.some(f => getDiscount(f) > 0);
