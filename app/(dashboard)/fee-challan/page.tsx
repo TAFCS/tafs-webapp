@@ -67,6 +67,8 @@ interface StudentFee {
     amount_before_discount: number;
     amount: number;
     month: number;
+    target_month?: number;
+    academic_year: string;
     due_date: string;
     status: boolean;
     fee_types?: {
@@ -88,6 +90,14 @@ const MONTHS = [
     "August", "September", "October", "November", "December",
     "January", "February", "March", "April", "May", "June", "July"
 ];
+
+const getMonthYearLabel = (m: number, academicYear: string) => {
+    const monthName = MONTHS.find((_, i) => MONTH_TO_NUM[MONTHS[i]] === m) || "";
+    const [startYear, endYear] = academicYear.split('-').map(y => y.trim());
+    const year = m >= 8 ? startYear : endYear;
+    const yearShort = year.slice(-2);
+    return `${monthName.slice(0, 3)} ${yearShort}`;
+};
 
 
 
@@ -152,6 +162,7 @@ export default function FeeChallanGenerator() {
     const [feeGroups, setFeeGroups] = useState<{ id: string; name: string; feeIds: number[] }[]>([]);
     const [selectedForGrouping, setSelectedForGrouping] = useState<number[]>([]);
     const [groupNameInput, setGroupNameInput] = useState("");
+    const [groupTuitionFees, setGroupTuitionFees] = useState(false);
 
     // Reset saved state when any voucher information changes
     useEffect(() => {
@@ -396,9 +407,13 @@ export default function FeeChallanGenerator() {
             netAmount: number;   // Total after discounts
             discount: number;    // Total discount
             discountLabel: string; 
+            isGrouped?: boolean;
+            feeIds?: number[];
         }[] = [];
         
-        // 1. Add grouped fees
+        const alreadyHandledFeeIds = new Set<number>();
+
+        // 1. Add Explicitly Grouped Fees (from feeGroups state)
         feeGroups.forEach(group => {
             let groupAmount = 0;
             let groupNet = 0;
@@ -416,6 +431,7 @@ export default function FeeChallanGenerator() {
                         groupLabels.push("Profile Disc");
                     }
                     (appliedDiscounts[fee.id] || []).forEach(d => groupLabels.push(d.title));
+                    alreadyHandledFeeIds.add(fee.id);
                 }
             });
             
@@ -424,25 +440,93 @@ export default function FeeChallanGenerator() {
                 amount: groupAmount,
                 netAmount: groupNet,
                 discount: groupDiscount,
-                discountLabel: [...new Set(groupLabels)].join(", ")
+                discountLabel: [...new Set(groupLabels)].join(", "),
+                isGrouped: true,
+                feeIds: group.feeIds
             });
         });
 
-        // 2. Add individual fees
+        // 2. Add Tuition Fees (potentially auto-grouped)
+        if (groupTuitionFees) {
+            // Find all tuition fees not explicitly grouped yet
+            const tuitionFees = studentFees.filter(f => 
+                !alreadyHandledFeeIds.has(f.id) && 
+                f.fee_types?.description?.toLowerCase().includes("tuition")
+            );
+
+            if (tuitionFees.length > 0) {
+                // Group by fee_type_id first
+                const tuitionGroups = new Map<number, typeof tuitionFees>();
+                tuitionFees.forEach(f => {
+                    const list = tuitionGroups.get(f.fee_type_id) || [];
+                    list.push(f);
+                    tuitionGroups.set(f.fee_type_id, list);
+                });
+
+                tuitionGroups.forEach((group, feeTypeId) => {
+                    if (group.length > 1) {
+                        // Group them
+                        let groupAmount = 0;
+                        let groupNet = 0;
+                        let groupDiscount = 0;
+                        let labels: string[] = [];
+                        
+                        group.sort((a, b) => {
+                            const ma = a.target_month || a.month;
+                            const mb = b.target_month || b.month;
+                            // Need to handle year wrap-around for sorting
+                            const orderA = ma >= 8 ? ma : ma + 12;
+                            const orderB = mb >= 8 ? mb : mb + 12;
+                            return orderA - orderB;
+                        });
+
+                        const firstLabel = getMonthYearLabel(group[0].target_month || group[0].month, group[0].academic_year);
+                        const lastLabel = getMonthYearLabel(group[group.length-1].target_month || group[group.length-1].month, group[group.length-1].academic_year);
+                        
+                        group.forEach(f => {
+                            groupAmount += Number(f.amount_before_discount);
+                            groupNet += getNetAmount(f);
+                            groupDiscount += getDiscount(f);
+                            if (Number(f.amount_before_discount) > Number(f.amount || f.amount_before_discount)) labels.push("Profile Disc");
+                            (appliedDiscounts[f.id] || []).forEach(d => labels.push(d.title));
+                            alreadyHandledFeeIds.add(f.id);
+                        });
+
+                        results.push({
+                            description: `${group[0].fee_types?.description} (${firstLabel} - ${lastLabel})`,
+                            amount: groupAmount,
+                            netAmount: groupNet,
+                            discount: groupDiscount,
+                            discountLabel: [...new Set(labels)].join(", "),
+                            isGrouped: true,
+                            feeIds: group.map(f => f.id)
+                        });
+                    }
+                });
+            }
+        }
+
+        // 3. Add individual fees (everything else)
         studentFees.forEach(fee => {
-            if (!groupedFeeIds.has(fee.id)) {
+            if (!alreadyHandledFeeIds.has(fee.id)) {
                 const headLabels: string[] = [];
                 if (Number(fee.amount_before_discount) > Number(fee.amount || fee.amount_before_discount)) {
                     headLabels.push("Profile Disc");
                 }
                 (appliedDiscounts[fee.id] || []).forEach(d => headLabels.push(d.title));
 
+                let desc = fee.fee_types?.description || 'Unknown Fee';
+                // Add month label for individual fees too
+                const monthLabel = getMonthYearLabel(fee.target_month || fee.month, fee.academic_year);
+                desc = `${desc} ${monthLabel}`;
+
                 results.push({
-                    description: fee.fee_types?.description || 'Unknown Fee',
+                    description: desc,
                     amount: Number(fee.amount_before_discount),
                     netAmount: getNetAmount(fee),
                     discount: getDiscount(fee),
-                    discountLabel: headLabels.join(", ")
+                    discountLabel: headLabels.join(", "),
+                    feeIds: [fee.id]
                 });
             }
         });
@@ -1028,6 +1112,18 @@ export default function FeeChallanGenerator() {
                                         Drag rows to reorder • Top fees are settled first
                                     </p>
                                 </div>
+                                <div className="ml-auto flex items-center gap-3 bg-zinc-50 dark:bg-zinc-900 px-4 py-2 rounded-[20px] border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-[10px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Consolidated View</span>
+                                        <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-tighter">Auto-group tuition months</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setGroupTuitionFees(!groupTuitionFees)}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 ${groupTuitionFees ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-zinc-300'}`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${groupTuitionFees ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
                             </div>
 
                             {isFetchingFees ? (
@@ -1089,53 +1185,63 @@ export default function FeeChallanGenerator() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {studentFees.map((fee, idx) => {
-                                                const discount = getDiscount(fee);
-                                                const netAmt = getNetAmount(fee);
-                                                const originalAmt = Number(fee.amount_before_discount);
+                                            {processedPdfFees.map((fee, idx) => {
+                                                const originalAmt = fee.amount;
+                                                const netAmt = fee.netAmount;
+                                                const discount = fee.discount;
+                                                
                                                 return (
                                                     <tr
-                                                        key={fee.id}
-                                                        draggable
-                                                        onDragStart={(e) => onDragStart(e, idx)}
-                                                        onDragOver={(e) => onDragOver(e, idx)}
+                                                        key={idx}
+                                                        draggable={!fee.isGrouped}
+                                                        onDragStart={(e) => !fee.isGrouped && onDragStart(e, studentFees.findIndex(f => f.id === fee.feeIds?.[0]))}
+                                                        onDragOver={(e) => !fee.isGrouped && onDragOver(e, studentFees.findIndex(f => f.id === fee.feeIds?.[0]))}
                                                         onDragEnd={onDragEnd}
-                                                        className={`group transition-all ${draggedIndex === idx ? "opacity-30 bg-primary/5" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"}`}
+                                                        className={`group transition-all ${fee.isGrouped ? "bg-zinc-50/50" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"}`}
                                                     >
                                                         <td className="py-4 px-6">
                                                             <div className="flex items-center gap-3">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={selectedForGrouping.includes(fee.id)}
-                                                                    onChange={() => handleToggleFeeSelection(fee.id)}
-                                                                    className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
-                                                                />
-                                                                <div className="p-1 cursor-grab active:cursor-grabbing text-zinc-300 group-hover:text-zinc-400 dark:text-zinc-600 transition-colors">
-                                                                    <GripVertical className="h-4 w-4" />
-                                                                </div>
+                                                                {!fee.isGrouped && (
+                                                                    <>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={selectedForGrouping.includes(fee.feeIds?.[0] || -1)}
+                                                                        onChange={() => handleToggleFeeSelection(fee.feeIds?.[0] || -1)}
+                                                                        className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
+                                                                    />
+                                                                    <div className="p-1 cursor-grab active:cursor-grabbing text-zinc-300 group-hover:text-zinc-400 dark:text-zinc-600 transition-colors">
+                                                                        <GripVertical className="h-4 w-4" />
+                                                                    </div>
+                                                                    </>
+                                                                )}
+                                                                {fee.isGrouped && (
+                                                                    <div className="w-11 flex justify-center">
+                                                                        <div className="h-5 w-5 bg-primary/10 rounded flex items-center justify-center">
+                                                                            <CheckCircle2 className="h-3 w-3 text-primary" />
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                                 <div className="flex flex-col">
                                                                     <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
-                                                                        {fee.fee_types?.description}
+                                                                        {fee.description}
                                                                     </span>
-                                                                    {feeGroups.some(g => g.feeIds.includes(fee.id)) && (
+                                                                    {fee.isGrouped && (
                                                                         <span className="text-[9px] font-black text-primary uppercase tracking-tighter opacity-70">
-                                                                            Part of: {feeGroups.find(g => g.feeIds.includes(fee.id))?.name}
+                                                                            Compiled Group
                                                                         </span>
                                                                     )}
                                                                 </div>
                                                             </div>
-                                                            {( (appliedDiscounts[fee.id] && appliedDiscounts[fee.id].length > 0) || (Number(fee.amount_before_discount) > Number(fee.amount || fee.amount_before_discount)) ) && (
+                                                            {fee.discount > 0 && (
                                                                 <div className="mt-1 ml-10 flex flex-wrap gap-1.5">
-                                                                    {Number(fee.amount_before_discount) > Number(fee.amount || fee.amount_before_discount) && (
-                                                                        <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-tighter">
-                                                                            Profile Discount: -{(Number(fee.amount_before_discount) - Number(fee.amount)).toLocaleString()}
+                                                                    <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                                                        Total Discount: -{fee.discount.toLocaleString()}
+                                                                    </span>
+                                                                    {fee.discountLabel && (
+                                                                        <span className="text-[9px] font-black text-zinc-400 uppercase tracking-tighter italic whitespace-nowrap">
+                                                                            ({fee.discountLabel})
                                                                         </span>
                                                                     )}
-                                                                    {appliedDiscounts[fee.id]?.map(d => (
-                                                                        <span key={d.id} className="text-[9px] font-black bg-rose-50 text-rose-500 px-2 py-0.5 rounded-full uppercase tracking-tighter">
-                                                                            {d.title}: -{Number(d.amount).toLocaleString()}
-                                                                        </span>
-                                                                    ))}
                                                                 </div>
                                                             )}
                                                         </td>
