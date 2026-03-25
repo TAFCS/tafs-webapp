@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/src/store/store";
@@ -19,6 +19,14 @@ export function RegistrationForm() {
     const { items: classes, isLoading: isClassesLoading } = useSelector((state: RootState) => state.classes);
     const { items: campuses, isLoading: isCampusesLoading } = useSelector((state: RootState) => state.campuses);
     const [currentStep, setCurrentStep] = useState(1);
+    const [academicYear, setAcademicYear] = useState(() => {
+        const d = new Date();
+        const year = d.getFullYear();
+        return `${year}-${year + 1}`;
+    });
+    const [showYearDropdown, setShowYearDropdown] = useState(false);
+    const [baseYear, setBaseYear] = useState(new Date().getFullYear());
+    const yearDropdownRef = useRef<HTMLDivElement>(null);
 
     const isMetadataLoading = (isClassesLoading && classes.length === 0) || (isCampusesLoading && campuses.length === 0);
 
@@ -29,6 +37,14 @@ export function RegistrationForm() {
         if (campuses.length === 0 && !isCampusesLoading) {
             dispatch(fetchCampuses());
         }
+
+        const handleClickOutside = (e: MouseEvent) => {
+            if (yearDropdownRef.current && !yearDropdownRef.current.contains(e.target as Node)) {
+                setShowYearDropdown(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [dispatch, classes.length, campuses.length, isClassesLoading, isCampusesLoading]);
 
     const [formData, setFormData] = useState({
@@ -157,7 +173,7 @@ export function RegistrationForm() {
             admission: {
                 academic_system: academicSystem,
                 requested_grade: formData.admissionLevel || 'N/A',
-                academic_year: new Date().getFullYear().toString(),
+                academic_year: academicYear,
                 campus_id: formData.campusId ? parseInt(formData.campusId) : undefined,
             },
             previous_schools: formData.previousSchools
@@ -434,8 +450,60 @@ export function RegistrationForm() {
 
                             {/* Section: Target System */}
                             <section>
-                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8 flex justify-between items-center">
                                     <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">3. Admission Required In</h3>
+                                    <div className="flex flex-col items-end">
+                                        <div className="relative" ref={yearDropdownRef}>
+                                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mr-2">Academic Year</label>
+                                            <button
+                                                onClick={() => setShowYearDropdown(!showYearDropdown)}
+                                                className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[12px] font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all border-primary/20 shadow-sm"
+                                            >
+                                                <Calendar className="h-3.5 w-3.5 text-primary" />
+                                                <span className="text-zinc-900 dark:text-zinc-100">{academicYear}</span>
+                                            </button>
+
+                                            {showYearDropdown && (
+                                                <div className="absolute top-full right-0 mt-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 min-w-[240px]">
+                                                    <div className="p-2 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
+                                                        <button
+                                                            onClick={() => setBaseYear(prev => prev - 12)}
+                                                            className="p-1 hover:bg-white dark:hover:bg-zinc-800 rounded-lg transition-all"
+                                                        >
+                                                            <ChevronLeft className="h-3.5 w-3.5 text-zinc-500" />
+                                                        </button>
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                            {baseYear} - {baseYear + 11}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => setBaseYear(prev => prev + 12)}
+                                                            className="p-1 hover:bg-white dark:hover:bg-zinc-800 rounded-lg transition-all"
+                                                        >
+                                                            <ChevronRight className="h-3.5 w-3.5 text-zinc-500" />
+                                                        </button>
+                                                    </div>
+                                                    <div className="p-2 grid grid-cols-2 gap-1">
+                                                        {Array.from({ length: 12 }, (_, i) => {
+                                                            const start = baseYear + i;
+                                                            const year = `${start}-${start + 1}`;
+                                                            return (
+                                                                <button
+                                                                    key={year}
+                                                                    onClick={() => {
+                                                                        setAcademicYear(year);
+                                                                        setShowYearDropdown(false);
+                                                                    }}
+                                                                    className={`px-2 py-2 text-center text-[11px] font-bold rounded-lg transition-all border ${academicYear === year ? "bg-primary text-white border-primary shadow-sm" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-transparent"}`}
+                                                                >
+                                                                    {year}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* O-Level Block */}
