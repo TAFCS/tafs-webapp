@@ -28,6 +28,8 @@ export default function CampusesPage() {
     // State for Delete Confirmation
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [confirmRemoveClass, setConfirmRemoveClass] = useState<{ campusId: number; classId: number; className: string } | null>(null);
+    const [confirmRemoveSection, setConfirmRemoveSection] = useState<{ campusId: number; classId: number; sectionId: number; sectionName: string } | null>(null);
 
     const fetchCampuses = async () => {
         setIsLoading(true);
@@ -420,7 +422,7 @@ export default function CampusesPage() {
                                                         </div>
                                                     </div>
                                                     <button
-                                                        onClick={() => handleRemoveClass(activeCampus.id, cc.id)}
+                                                        onClick={() => setConfirmRemoveClass({ campusId: activeCampus.id, classId: cc.id, className: cc.description })}
                                                         disabled={isConfiguring}
                                                         className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all disabled:opacity-30"
                                                     >
@@ -441,7 +443,7 @@ export default function CampusesPage() {
                                                             >
                                                                 {cs.description}
                                                                 <button
-                                                                    onClick={() => handleRemoveSection(activeCampus.id, cc.id, cs.id)}
+                                                                    onClick={() => setConfirmRemoveSection({ campusId: activeCampus.id, classId: cc.id, sectionId: cs.id, sectionName: cs.description })}
                                                                     disabled={isConfiguring}
                                                                     className="text-zinc-400 hover:text-rose-600 transition-colors disabled:opacity-30"
                                                                 >
@@ -626,6 +628,76 @@ export default function CampusesPage() {
                                 className="flex-1 h-12 font-bold text-white bg-rose-600 rounded-2xl hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-200 disabled:opacity-50"
                             >
                                 {isDeleting ? "..." : "Confirm Delete"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Remove Class Confirmation */}
+            {confirmRemoveClass && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center bg-zinc-950/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-zinc-950 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300 text-center border border-zinc-200 dark:border-zinc-800">
+                        <div className="p-8">
+                            <div className="h-16 w-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Trash2 className="h-8 w-8" />
+                            </div>
+                            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Remove Class?</h2>
+                            <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-sm leading-relaxed">
+                                Are you sure you want to remove <span className="font-bold text-zinc-900 dark:text-zinc-100">{confirmRemoveClass.className}</span> from this campus? This will also remove any assigned sections.
+                            </p>
+                        </div>
+                        <div className="p-6 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800 flex gap-3">
+                            <button
+                                onClick={() => setConfirmRemoveClass(null)}
+                                className="flex-1 h-12 font-bold text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all font-sans"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleRemoveClass(confirmRemoveClass.campusId, confirmRemoveClass.classId);
+                                    setConfirmRemoveClass(null);
+                                }}
+                                disabled={isConfiguring}
+                                className="flex-1 h-12 font-bold text-white bg-rose-600 rounded-2xl hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-200 dark:shadow-rose-900/20 disabled:opacity-50"
+                            >
+                                {isConfiguring ? "..." : "Remove"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Remove Section Confirmation */}
+            {confirmRemoveSection && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center bg-zinc-950/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-zinc-950 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300 text-center border border-zinc-200 dark:border-zinc-800">
+                        <div className="p-8">
+                            <div className="h-16 w-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Trash2 className="h-8 w-8" />
+                            </div>
+                            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Remove Section?</h2>
+                            <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-sm leading-relaxed">
+                                Are you sure you want to remove section <span className="font-bold text-zinc-900 dark:text-zinc-100">{confirmRemoveSection.sectionName}</span>?
+                            </p>
+                        </div>
+                        <div className="p-6 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800 flex gap-3">
+                            <button
+                                onClick={() => setConfirmRemoveSection(null)}
+                                className="flex-1 h-12 font-bold text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all font-sans"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleRemoveSection(confirmRemoveSection.campusId, confirmRemoveSection.classId, confirmRemoveSection.sectionId);
+                                    setConfirmRemoveSection(null);
+                                }}
+                                disabled={isConfiguring}
+                                className="flex-1 h-12 font-bold text-white bg-rose-600 rounded-2xl hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-200 dark:shadow-rose-900/20 disabled:opacity-50"
+                            >
+                                {isConfiguring ? "..." : "Remove"}
                             </button>
                         </div>
                     </div>

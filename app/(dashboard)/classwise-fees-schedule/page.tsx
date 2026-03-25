@@ -91,6 +91,8 @@ export default function ClasswiseFeesSchedulePage() {
     const [sortDir, setSortDir] = useState<SortDir>("asc");
     const [expandedCampuses, setExpandedCampuses] = useState<Record<string, boolean>>({});
     const [expandedClasses, setExpandedClasses] = useState<Record<string, boolean>>({});
+    const [deleteScheduleId, setDeleteScheduleId] = useState<number | null>(null);
+    const [isDeletingSchedule, setIsDeletingSchedule] = useState(false);
 
     // ── Fetch schedule + bootstrap store lookups ────────────────────────
     const fetchSchedules = useCallback(async () => {
@@ -144,9 +146,24 @@ export default function ClasswiseFeesSchedulePage() {
     };
 
     const handleRemoveExisting = (id: number) => {
-        // Soft-remove from UI — no DELETE endpoint currently, so just remove locally
-        clearFeedback();
-        setRows((prev) => prev.filter((row) => !(row.type === "existing" && row.data.id === id)));
+        setDeleteScheduleId(id);
+    };
+
+    const handleDeleteSchedule = async () => {
+        if (deleteScheduleId === null) return;
+        setIsDeletingSchedule(true);
+        setError(null);
+        try {
+            await api.delete(`/v1/class-fee-schedule/${deleteScheduleId}`);
+            setSuccessMessage("Schedule deleted successfully.");
+            setRows((prev) => prev.filter((row) => !(row.type === "existing" && row.data.id === deleteScheduleId)));
+            setDeleteScheduleId(null);
+        } catch (err: any) {
+            console.error("Error deleting schedule:", err);
+            setError(err.response?.data?.message || "Failed to delete schedule.");
+        } finally {
+            setIsDeletingSchedule(false);
+        }
     };
 
     // ── Handlers — new rows ────────────────────────────────────────────────
@@ -639,6 +656,38 @@ export default function ClasswiseFeesSchedulePage() {
                         <span className="h-3 w-3 rounded bg-blue-100 border border-blue-200 inline-block" />
                         New row (pending create)
                     </span>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteScheduleId !== null && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-zinc-950/60 backdrop-blur-lg p-4 animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-zinc-950 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300 text-center border border-zinc-200 dark:border-zinc-800">
+                        <div className="p-8">
+                            <div className="h-16 w-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Trash2 className="h-8 w-8" />
+                            </div>
+                            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Delete Schedule?</h2>
+                            <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-sm leading-relaxed">
+                                This will permanently remove this fee from the class schedule. Students may still have billed vouchers with this amount.
+                            </p>
+                        </div>
+                        <div className="p-6 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800 flex gap-3">
+                            <button
+                                onClick={() => setDeleteScheduleId(null)}
+                                className="flex-1 h-12 font-bold text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all font-sans"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteSchedule}
+                                disabled={isDeletingSchedule}
+                                className="flex-1 h-12 font-bold text-white bg-rose-600 rounded-2xl hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-200 dark:shadow-rose-900/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isDeletingSchedule ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm"}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
