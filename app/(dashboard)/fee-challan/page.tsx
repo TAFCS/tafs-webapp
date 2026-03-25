@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
     Search,
     Loader2,
@@ -79,6 +79,11 @@ interface StudentFee {
         freq: string;
     };
     voucher_heads?: VoucherHead[];
+    bundle_id?: number | null;
+    student_fee_bundles?: {
+        id: number;
+        bundle_name: string;
+    } | null;
 }
 
 
@@ -149,6 +154,7 @@ export default function FeeChallanGenerator() {
     const [groupNameInput, setGroupNameInput] = useState("");
     const [groupTuitionFees, setGroupTuitionFees] = useState(false);
     const [showDiscounts, setShowDiscounts] = useState(true);
+    const [isSavingBundle, setIsSavingBundle] = useState(false);
 
     // Reset saved state when any voucher information changes
     useEffect(() => {
@@ -364,6 +370,27 @@ export default function FeeChallanGenerator() {
     const handleRemoveGroup = (groupId: string) => {
         setFeeGroups(feeGroups.filter(g => g.id !== groupId));
         toast.success("Group removed.");
+    };
+
+    const handlePersistBundle = async (name: string, feeIds: number[]) => {
+        if (!student) return;
+        setIsSavingBundle(true);
+        try {
+            await api.post('/v1/student-fees/bundles', {
+                student_id: student.cc,
+                bundle_name: name,
+                academic_year: academicYear,
+                fee_ids: feeIds
+            });
+            toast.success(`Bundle "${name}" saved to database!`);
+            // Refresh fees to get the new bundle_id
+            fetchStudentFees(student.cc, month, academicYear);
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to save bundle to database.");
+        } finally {
+            setIsSavingBundle(false);
+        }
     };
 
     // --- Discount/Net Amount Helpers (must be before handleSaveVoucher) ---
@@ -1038,12 +1065,23 @@ export default function FeeChallanGenerator() {
                                                 <div key={group.id} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl group/tag">
                                                     <span className="text-[10px] font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">{group.name}</span>
                                                     <span className="text-[9px] font-bold text-zinc-400">({group.feeIds.length} heads)</span>
-                                                    <button 
-                                                        onClick={() => handleRemoveGroup(group.id)}
-                                                        className="p-0.5 text-zinc-300 hover:text-rose-500 transition-colors"
-                                                    >
-                                                        <Plus className="h-3 w-3 rotate-45" />
-                                                    </button>
+                                                    <div className="flex items-center gap-1.5 ml-1 border-l border-zinc-200 dark:border-zinc-700 pl-1.5">
+                                                        <button 
+                                                            onClick={() => handleRemoveGroup(group.id)}
+                                                            className="p-0.5 text-zinc-300 hover:text-rose-500 transition-colors"
+                                                            title="Remove group"
+                                                        >
+                                                            <Plus className="h-3 w-3 rotate-45" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handlePersistBundle(group.name, group.feeIds)}
+                                                            disabled={isSavingBundle}
+                                                            className="p-0.5 text-zinc-300 hover:text-emerald-500 transition-colors disabled:opacity-50"
+                                                            title="Save as Permanent Bundle"
+                                                        >
+                                                            {isSavingBundle ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
