@@ -128,6 +128,8 @@ export function groupFees(
                 netAmount: groupNet,
                 discount: groupDiscount,
                 discountLabel: [...new Set(groupLabels.filter(Boolean))].join(", "),
+                feeIds: group.feeIds,
+                isGrouped: true,
             });
         });
     }
@@ -220,6 +222,8 @@ export function groupFees(
                         netAmount: groupNet,
                         discount: groupDiscount,
                         discountLabel: [...new Set(labels.filter(Boolean))].join(", "),
+                        feeIds: group.map(f => f.id),
+                        isGrouped: true,
                     });
                 }
             });
@@ -251,6 +255,8 @@ export function groupFees(
                 netAmount: getNetAmount(item),
                 discount: getDiscount(item),
                 discountLabel: [...new Set(headLabels.filter(Boolean))].join(", "),
+                feeIds: [item.id],
+                isGrouped: false,
             });
         }
     });
