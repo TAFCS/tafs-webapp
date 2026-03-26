@@ -276,6 +276,15 @@ export interface FeeItem {
     discountLabel?: string;
 }
 
+const formatDateToDDMMYYYY = (dateStr: string) => {
+    if (!dateStr || dateStr === 'N/A') return dateStr;
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+};
+
 interface FeeChallanPDFProps {
     student: {
         cc: number | string;
@@ -348,8 +357,8 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
             </View>
             <View style={styles.studentCol}>
                 <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>CC ID</Text>
-                    <Text style={styles.value}>CC-{student.cc}</Text>
+                    <Text style={styles.label}>Computer Code</Text>
+                    <Text style={styles.value}>{student.cc}</Text>
                 </View>
                 <View style={{ flex: 1, alignItems: 'flex-end' }}>
                     <Text style={[styles.label, { textAlign: 'right' }]}>GR No.</Text>
@@ -380,11 +389,11 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                 </View>
                 <View style={styles.dateItem}>
                     <Text style={styles.dateLabel}>Issue</Text>
-                    <Text style={styles.dateValue}>{details.issueDate}</Text>
+                    <Text style={styles.dateValue}>{formatDateToDDMMYYYY(details.issueDate)}</Text>
                 </View>
                 <View style={styles.dateItem}>
                     <Text style={styles.dateLabel}>Due</Text>
-                    <Text style={styles.dateValue}>{details.dueDate}</Text>
+                    <Text style={styles.dateValue}>{formatDateToDDMMYYYY(details.dueDate)}</Text>
                 </View>
                 <View style={styles.dateItem}>
                     <Text style={styles.dateLabel}>Session</Text>
@@ -392,7 +401,7 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                 </View>
                 <View style={styles.dateItem}>
                     <Text style={[styles.dateLabel, { textAlign: 'right' }]}>Valid</Text>
-                    <Text style={[styles.dateValue, { color: '#e11d48', textAlign: 'right' }]}>{details.validityDate}</Text>
+                    <Text style={[styles.dateValue, { color: '#e11d48', textAlign: 'right' }]}>{formatDateToDDMMYYYY(details.validityDate)}</Text>
                 </View>
             </View>
             <View style={{ marginTop: 2, borderTopWidth: 0.5, borderTopColor: '#efefef', paddingTop: 2, flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -412,8 +421,8 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                 <Text style={[styles.colDesc, { fontWeight: 'bold' }]}>Description</Text>
                 {fees.some(f => (f.discount ?? 0) > 0) ? (
                     <>
-                        <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>Original</Text>
-                        <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>Net</Text>
+                        <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>{ (student.class_id === 21 || student.class_id === 22 || student.className === 'AS Level' || student.className === 'A2 Level') ? 'Before Scholarship' : 'Before Discount' }</Text>
+                        <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>{ (student.class_id === 21 || student.class_id === 22 || student.className === 'AS Level' || student.className === 'A2 Level') ? 'After Scholarship' : 'After Discount' }</Text>
                     </>
                 ) : (
                     <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>Amount</Text>
@@ -426,7 +435,7 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                     <View key={idx} style={styles.tableRow}>
                         <View style={styles.colDesc}>
                             <Text>{fee.description}</Text>
-                            {fee.discountLabel && (
+                            {fee.discountLabel && fee.discountLabel !== 'Profile Disc' && (
                                 <Text style={{ fontSize: 4.5, color: '#666666', marginTop: 1, fontStyle: 'italic' }}>{fee.discountLabel}</Text>
                             )}
                         </View>
