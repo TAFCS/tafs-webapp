@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import {
     BookOpen,
@@ -19,11 +18,8 @@ import {
     TrendingUp,
     Table,
 } from "lucide-react";
-import { BulkPromoteModal } from "@/src/features/students/components/bulk-promote-modal";
 
 export default function DashboardPage() {
-    const [isBulkPromoteOpen, setIsBulkPromoteOpen] = useState(false);
-
     return (
         <div className="space-y-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -168,10 +164,7 @@ export default function DashboardPage() {
             <div className="space-y-4 pt-4">
                 <h2 className="text-lg font-medium text-zinc-800 dark:text-zinc-200">Student Management</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-                    <button
-                        onClick={() => setIsBulkPromoteOpen(true)}
-                        className="group text-left"
-                    >
+                    <Link href="/bulk-promote" className="group text-left">
                         <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex flex-col items-center justify-center text-center h-full gap-4">
                             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                                 <TrendingUp className="h-8 w-8 text-primary" />
@@ -181,7 +174,7 @@ export default function DashboardPage() {
                                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Bulk promote children to next classes</p>
                             </div>
                         </div>
-                    </button>
+                    </Link>
 
                     <Link href="/identity/register" className="group">
                         <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex flex-col items-center justify-center text-center h-full gap-4">
@@ -232,11 +225,6 @@ export default function DashboardPage() {
                     </Link>
                 </div>
             </div>
-
-            <BulkPromoteModal
-                isOpen={isBulkPromoteOpen}
-                onClose={() => setIsBulkPromoteOpen(false)}
-            />
         </div>
     );
 }
