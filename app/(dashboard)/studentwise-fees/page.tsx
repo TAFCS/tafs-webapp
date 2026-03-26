@@ -31,6 +31,7 @@ interface ClassFeeRow {
 
 interface SpreadsheetRow {
     __id: string; // Internal tracking for stable IDs
+    dbId?: number; // Database ID (student_fees.id)
     feeId: number;
     feeDescription: string;
     freq: "MONTHLY" | "ONE_TIME" | null;
@@ -43,6 +44,9 @@ interface SpreadsheetRow {
     isGroupStart?: boolean;
     groupSize?: number;
     isNew?: boolean;      // True for manually-added rows (not loaded from class schedule/DB)
+    // Bundling (Parent-Child)
+    bundle_id?: number | null;
+    bundle_name?: string | null;
 }
 
 const MONTH_ORDER = [
@@ -61,14 +65,15 @@ function calendarYear(academicYearStart: number, monthNum: number): number {
     return monthNum >= 8 ? academicYearStart : academicYearStart + 1;
 }
 
-const COLS = ["Actions", "#", "Fee Type", "Frequency", "Month", "Period", "Amount"] as const;
-const COL_ACTIONS = 0;
-const COL_NUM = 1;
-const COL_FEE_TYPE = 2;
-const COL_FREQ = 3;
-const COL_MONTH = 4;
-const COL_PERIOD = 5;
-const COL_AMOUNT = 6;
+const COLS = ["Select", "Actions", "#", "Fee Type", "Frequency", "Month", "Period", "Amount"] as const;
+const COL_SELECT = 0;
+const COL_ACTIONS = 1;
+const COL_NUM = 2;
+const COL_FEE_TYPE = 3;
+const COL_FREQ = 4;
+const COL_MONTH = 5;
+const COL_PERIOD = 6;
+const COL_AMOUNT = 7;
 
 function sortMonths(months: unknown): string[] {
     let arr = months;
@@ -149,6 +154,11 @@ function StudentwiseFeeEditor() {
     const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
     const tbodyRef = useRef<HTMLTableSectionElement>(null);
     const pendingFocusId = useRef<string | null>(null);
+
+    // Bundling States
+    const [selectedForBundling, setSelectedForBundling] = useState<number[]>([]);
+    const [bundleNameInput, setBundleNameInput] = useState("");
+    const [isCreatingBundle, setIsCreatingBundle] = useState(false);
 
     // Track rows to see if we need to fix focus after a sort
     useEffect(() => {
@@ -307,9 +317,12 @@ function StudentwiseFeeEditor() {
                             studentFeeMap.delete(key); // Mark as matched
                             return {
                                 ...row,
+                                dbId: override.id,
                                 amount: override.amount?.toString() || override.amount_before_discount?.toString() || row.amount,
                                 originalAmount: override.amount_before_discount?.toString() || row.originalAmount,
-                                month: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === override.month) || row.month
+                                month: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === override.month) || row.month,
+                                bundle_id: override.bundle_id,
+                                bundle_name: override.student_fee_bundles?.bundle_name
                             };
                         }
                         return row;
@@ -321,6 +334,7 @@ function StudentwiseFeeEditor() {
                     studentFeeMap.forEach((sf: any) => {
                         extraRows.push({
                             __id: Math.random().toString(36).substring(7),
+                            dbId: sf.id,
                             feeId: sf.fee_type_id,
                             feeDescription: sf.fee_types?.description || "Unknown Fee",
                             freq: sf.fee_types?.freq || "MONTHLY",
@@ -329,6 +343,8 @@ function StudentwiseFeeEditor() {
                             target_month: sf.target_month,
                             amount: sf.amount?.toString() || sf.amount_before_discount?.toString() || "0",
                             originalAmount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
+                            bundle_id: sf.bundle_id,
+                            bundle_name: sf.student_fee_bundles?.bundle_name
                         });
                     });
 
@@ -608,6 +624,68 @@ function StudentwiseFeeEditor() {
         });
     };
 
+    // ── Bundling Actions ────────────────────────────────────────────────
+    const handleToggleSelectForBundling = (dbId?: number) => {
+        if (!dbId) {
+            toast.error("Can only bundle fees that are already saved to database.");
+            return;
+        }
+        setSelectedForBundling(prev =>
+            prev.includes(dbId) ? prev.filter(id => id !== dbId) : [...prev, dbId]
+        );
+    };
+
+    const handleCreateBundle = async () => {
+        if (selectedForBundling.length < 2) {
+            toast.error("Select at least 2 fees to bundle.");
+            return;
+        }
+        if (!bundleNameInput.trim()) {
+            toast.error("Please enter a name for the bundle.");
+            return;
+        }
+
+        setIsCreatingBundle(true);
+        try {
+            const numericMatch = studentId.match(/\d+$/);
+            const ccValue = numericMatch ? parseInt(numericMatch[0]) : 0;
+
+            await api.post("/v1/student-fees/bundles", {
+                student_id: ccValue,
+                bundle_name: bundleNameInput.trim(),
+                academic_year: selectedYear,
+                fee_ids: selectedForBundling
+            });
+
+            toast.success(`Bundle "${bundleNameInput}" created successfully!`);
+            setBundleNameInput("");
+            setSelectedForBundling([]);
+            // Refresh to show bundled status
+            if (selectedClassId !== "") {
+                fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
+            }
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to create bundle.");
+        } finally {
+            setIsCreatingBundle(false);
+        }
+    };
+
+    const handleDissolveBundle = async (bundleId: number) => {
+        if (!confirm("Are you sure you want to dissolve this bundle? The fees will become individual items again.")) return;
+
+        try {
+            await api.delete(`/v1/student-fees/bundles/${bundleId}`);
+            toast.success("Bundle dissolved successfully.");
+            // Refresh
+            if (selectedClassId !== "") {
+                fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
+            }
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to dissolve bundle.");
+        }
+    };
+
     const grandTotal = rows.reduce((s, r) => s + parseFloat(r.amount || "0"), 0);
 
     const selectedClass = classes.find((c) => c.id === Number(selectedClassId));
@@ -885,6 +963,19 @@ function StudentwiseFeeEditor() {
                         <table className="w-full border-collapse table-fixed select-none">
                             <thead className="sticky top-0 z-40 bg-zinc-50 dark:bg-zinc-900/95 backdrop-blur-md">
                                 <tr>
+                                    <th className="w-10 border-b border-r border-zinc-200 dark:border-zinc-800 px-1 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                        <div className="flex items-center justify-center">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={rows.length > 0 && rows.every(r => !r.dbId || selectedForBundling.includes(r.dbId)) && rows.some(r => r.dbId)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) setSelectedForBundling(rows.map(r => r.dbId).filter(Boolean) as number[]);
+                                                    else setSelectedForBundling([]);
+                                                }}
+                                                className="h-3.5 w-3.5 rounded border-zinc-300 text-primary focus:ring-primary/20"
+                                            />
+                                        </div>
+                                    </th>
                                     <th className="w-12 border-b border-r border-zinc-200 dark:border-zinc-800 px-3 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Act</th>
                                     <th className="w-10 border-b border-r border-zinc-200 dark:border-zinc-800 px-1 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">#</th>
                                     <th className="min-w-[180px] border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee Description</th>
@@ -902,6 +993,16 @@ function StudentwiseFeeEditor() {
 
                                     return (
                                         <tr key={rIdx} className={`${groupSeparator} ${isCurrentRowActive ? "bg-primary/[0.02]" : "bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/40"} transition-colors relative`}>
+                                            <td data-row={rIdx} data-col={COL_SELECT} className={`border-r border-b border-zinc-100 text-center ${aCell(COL_SELECT) ? "ring-2 ring-inset ring-primary/30 z-10" : ""}`}>
+                                                {row.dbId && (
+                                                    <input 
+                                                        type="checkbox"
+                                                        checked={selectedForBundling.includes(row.dbId)}
+                                                        onChange={() => handleToggleSelectForBundling(row.dbId)}
+                                                        className="h-3.5 w-3.5 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
+                                                    />
+                                                )}
+                                            </td>
                                             <td data-row={rIdx} data-col={COL_ACTIONS} tabIndex={0} onFocus={() => setActiveCell({ row: rIdx, col: COL_ACTIONS })}
                                                 className={`border-r border-b border-zinc-100 text-center ${aCell(COL_ACTIONS) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950" : ""}`}
                                             >
@@ -914,16 +1015,37 @@ function StudentwiseFeeEditor() {
 
                                             {/* Fee Type Select */}
                                             <td data-row={rIdx} data-col={COL_FEE_TYPE} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FEE_TYPE) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
-                                                <select
-                                                    data-row={rIdx} data-col={COL_FEE_TYPE}
-                                                    value={row.feeId}
-                                                    onChange={(e) => updateRow(rIdx, "feeId", Number(e.target.value))}
-                                                    onFocus={() => setActiveCell({ row: rIdx, col: COL_FEE_TYPE })}
-                                                    className="w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-800 dark:text-zinc-200 text-[13px] cursor-pointer"
-                                                >
-                                                    {feeTypes.map(ft => <option key={ft.id} value={ft.id}>{ft.description}</option>)}
-                                                </select>
-                                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />
+                                                <div className="flex flex-col">
+                                                    <div className="relative">
+                                                        <select
+                                                            data-row={rIdx} data-col={COL_FEE_TYPE}
+                                                            value={row.feeId}
+                                                            onChange={(e) => updateRow(rIdx, "feeId", Number(e.target.value))}
+                                                            onFocus={() => setActiveCell({ row: rIdx, col: COL_FEE_TYPE })}
+                                                            className="w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-800 dark:text-zinc-200 text-[13px] cursor-pointer"
+                                                        >
+                                                            {feeTypes.map(ft => <option key={ft.id} value={ft.id}>{ft.description}</option>)}
+                                                        </select>
+                                                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />
+                                                    </div>
+                                                    {row.bundle_id && (
+                                                        <div className="px-5 pb-2 flex items-center gap-2 group/bundle">
+                                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 border border-primary/20 rounded-md">
+                                                                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                                                                <span className="text-[9px] font-black text-primary uppercase tracking-tighter truncate max-w-[100px]">
+                                                                    {row.bundle_name || "Bundled"}
+                                                                </span>
+                                                            </div>
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); handleDissolveBundle(row.bundle_id!); }}
+                                                                className="opacity-0 group-hover/bundle:opacity-100 p-0.5 text-zinc-300 hover:text-rose-500 transition-all"
+                                                                title="Dissolve Bundle"
+                                                            >
+                                                                <Trash2 className="h-2.5 w-2.5" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </td>
 
                                             {/* Frequency (Read-only) */}
@@ -1015,7 +1137,8 @@ function StudentwiseFeeEditor() {
                 </div>
             )}
 
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-5 py-2.5 bg-zinc-900 text-white rounded-full shadow-2xl z-50">
+            {/* Floating Editor Indicator */}
+            <div className="fixed bottom-6 left-6 flex items-center gap-4 px-5 py-2.5 bg-zinc-900 text-white rounded-full shadow-2xl z-50">
                 <div className="flex items-center gap-2 pr-4 border-r border-white/20">
                     <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     <span className="text-[9px] font-bold uppercase tracking-widest">Editor Active</span>
@@ -1026,6 +1149,40 @@ function StudentwiseFeeEditor() {
                     <span>Enter: Commit Change</span>
                 </div>
             </div>
+
+            {/* Floating Bundling Toolbar */}
+            {selectedForBundling.length >= 2 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] z-[60] animate-in slide-in-from-bottom-8 duration-500">
+                    <div className="h-10 w-10 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                        <Plus className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">Bundle {selectedForBundling.length} Heads</p>
+                        <input 
+                            type="text"
+                            placeholder="Bundle Name (e.g. Semi-Annual Pkg)"
+                            value={bundleNameInput}
+                            onChange={(e) => setBundleNameInput(e.target.value)}
+                            className="w-64 h-10 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold focus:outline-none focus:border-primary transition-all"
+                        />
+                    </div>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => { setSelectedForBundling([]); setBundleNameInput(""); }}
+                            className="h-10 px-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-xl text-xs font-bold hover:bg-zinc-200 transition-all"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={handleCreateBundle}
+                            disabled={isCreatingBundle}
+                            className="h-10 px-6 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+                        >
+                            {isCreatingBundle ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Create Bundle"}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
