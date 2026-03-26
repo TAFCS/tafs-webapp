@@ -103,6 +103,7 @@ export default function FeeChallanGenerator() {
 
     const classes = useSelector((state: RootState) => state.classes.items);
     const sections = useSelector((state: RootState) => state.sections.items);
+    const user = useSelector((state: RootState) => state.auth.user);
 
     const [student, setStudent] = useState<StudentProfile | null>(null);
 
@@ -462,6 +463,11 @@ export default function FeeChallanGenerator() {
                         validityDate: validityDate || "N/A",
                         applyLateFee: applyLateFee,
                         lateFeeAmount: lateFeeAmount,
+                        voucherNumber: voucherNumberStr,
+                        generatedBy: {
+                            fullName: user?.fullName || "System Admin",
+                            timestampStr: timestampStr
+                        },
                         bank: {
                             name: selectedBank.bank_name,
                             title: selectedBank.account_title,
@@ -633,6 +639,10 @@ export default function FeeChallanGenerator() {
             [feeId]: prev[feeId].filter(d => d.id !== discId)
         }));
     };
+
+    const now = new Date();
+    const timestampStr = `Day: ${now.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()} DATE: ${now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase()} TIME: ${now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }).toUpperCase()}`;
+    const voucherNumberStr = student ? `TAFS-${student.cc}-${now.getTime().toString().slice(-6)}` : "TAFS-XXXX-XXXXXX";
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 pb-20 mt-4">
@@ -1270,6 +1280,11 @@ export default function FeeChallanGenerator() {
                                                     validityDate,
                                                     applyLateFee,
                                                     lateFeeAmount,
+                                                    voucherNumber: voucherNumberStr,
+                                                    generatedBy: {
+                                                        fullName: user?.fullName || "System Admin",
+                                                        timestampStr: timestampStr
+                                                    },
                                                     bank: {
                                                         name: selectedBank.bank_name,
                                                         title: accTitle,

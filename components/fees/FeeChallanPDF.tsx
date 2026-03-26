@@ -151,6 +151,73 @@ const styles = StyleSheet.create({
         color: '#1a1a1a',
         fontWeight: 'bold',
     },
+    footerContainer: {
+        marginTop: 'auto',
+        paddingTop: 5,
+    },
+    stampSignatureRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 10,
+        marginBottom: 8,
+    },
+    stampBox: {
+        width: 60,
+        height: 35,
+        borderWidth: 1,
+        borderColor: '#999999',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    stampText: {
+        fontSize: 6,
+        color: '#666666',
+        fontWeight: 'bold',
+    },
+    signatureLineContainer: {
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+    },
+    signatureLine: {
+        width: 80,
+        borderTopWidth: 0.5,
+        borderTopColor: '#333333',
+        paddingTop: 2,
+        alignItems: 'center',
+    },
+    signatureText: {
+        fontSize: 6,
+        color: '#333333',
+        fontWeight: 'bold',
+    },
+    generatedBy: {
+        fontSize: 5,
+        color: '#666666',
+        textAlign: 'center',
+        marginTop: 5,
+        borderTopWidth: 0.5,
+        borderTopColor: '#efefef',
+        paddingTop: 2,
+    },
+    bankNoteContainer: {
+        backgroundColor: '#f8fafc',
+        padding: 4,
+        marginBottom: 4,
+        borderWidth: 0.5,
+        borderColor: '#cbd5e1',
+        borderRadius: 2,
+    },
+    bankNoteLabel: {
+        fontSize: 5.5,
+        fontWeight: 'bold',
+        color: '#1a1a1a',
+        marginBottom: 1,
+    },
+    bankNoteText: {
+        fontSize: 5.5,
+        color: '#444444',
+        fontWeight: 'bold',
+    },
     footer: {
         marginTop: 8,
         flexDirection: 'column',
@@ -231,6 +298,11 @@ interface FeeChallanPDFProps {
         validityDate: string;
         applyLateFee: boolean;
         lateFeeAmount?: number;
+        voucherNumber: string;
+        generatedBy: {
+            fullName: string;
+            timestampStr: string;
+        };
         bank: {
             name: string;
             title: string;
@@ -323,6 +395,10 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                     <Text style={[styles.dateValue, { color: '#e11d48', textAlign: 'right' }]}>{details.validityDate}</Text>
                 </View>
             </View>
+            <View style={{ marginTop: 2, borderTopWidth: 0.5, borderTopColor: '#efefef', paddingTop: 2, flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 5, color: '#666666', fontWeight: 'bold' }}>VOUCHER NO:</Text>
+                <Text style={{ fontSize: 6, color: '#1a1a1a', fontWeight: 'bold' }}>{details.voucherNumber}</Text>
+            </View>
         </View>
 
         <View style={[styles.studentSection, { backgroundColor: '#f8fafc', borderColor: '#cbd5e1', paddingVertical: 2 }]}>
@@ -394,43 +470,68 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
             </View>
         </View>
 
-        <View style={styles.footer}>
-            <Text style={{ fontSize: 5, fontWeight: 'bold', marginBottom: 2 }}>NOTE:</Text>
-            <Text style={styles.instructions}>1. Only Cash & MBL Cheque/Pay order will be accepted.</Text>
-            <Text style={styles.instructions}>2. After Due Date student will pay PKR{(details.lateFeeAmount || 1000)}/- as charity on late deposit.</Text>
-            <Text style={styles.instructions}>3. The additional amount collected after due date will be donated for Charitable purpose.</Text>
-            <Text style={styles.instructions}>4. Admission and Tuition Fee once paid are non-refundable.</Text>
+        <View style={styles.footerContainer}>
+            <View style={styles.bankNoteContainer}>
+                <Text style={styles.bankNoteLabel}>NOTE FOR BANK:</Text>
+                <Text style={styles.bankNoteText}>THESE FUNDS ARE INTENDED FOR THE AMERICAN FOUNDATION SCHOOL'S ACCOUNT {details.bank.account} HELD WITH GULISTAN-E-JAUHAR</Text>
+            </View>
 
-            <View style={styles.paymentOptionsTable}>
-                <View style={styles.paymentOptionsHeader}>
-                    <Text>Payment Options</Text>
+            <View style={styles.footer}>
+                <Text style={{ fontSize: 5, fontWeight: 'bold', marginBottom: 2 }}>NOTE:</Text>
+                <Text style={styles.instructions}>1. Only Cash & MBL Cheque/Pay order will be accepted.</Text>
+                <Text style={styles.instructions}>2. After Due Date student will pay PKR {(details.lateFeeAmount || 1000)}/- as charity on late deposit.</Text>
+                <Text style={styles.instructions}>3. The additional amount collected after due date will be donated for Charitable purpose.</Text>
+                <Text style={styles.instructions}>4. Admission and Tuition Fee once paid are non-refundable.</Text>
+                <Text style={styles.instructions}>A. Fee vouchers are provided to students by the Accounts Department. However, if it is not received or not delivered by the child, it will be the responsibility of parents to collect the fee voucher from the respective campus.</Text>
+                <Text style={styles.instructions}>B. IF FEES REMAIN UNPAID FOR A MONTH AFTER THE DEADLINE, THE STUDENT WILL NOT BE ALLOWED TO ATTEND SCHOOL UNTIL FEES ARE CLEARED.</Text>
+                <Text style={styles.instructions}>C. ABOVE MENTIONED FEES IS NOT TRANSFERABLE AND NON REFUNDABLE.</Text>
+
+                <View style={styles.paymentOptionsTable}>
+                    <View style={styles.paymentOptionsHeader}>
+                        <Text>Payment Options</Text>
+                    </View>
+                    <View style={styles.paymentOptionsRow}>
+                        <View style={styles.paymentOptionsCol1}>
+                            <Text style={{ fontWeight: 'bold' }}>For MBL Counters</Text>
+                        </View>
+                        <View style={styles.paymentOptionsCol2}>
+                            <Text>Pay via CMS Online Deposit Module.</Text>
+                            <Text>Customer Code: TAFCS</Text>
+                        </View>
+                    </View>
+                    <View style={styles.paymentOptionsRow}>
+                        <View style={styles.paymentOptionsCol1}>
+                            <Text style={{ fontWeight: 'bold' }}>For Payment via MBL Mobile/internet Banking</Text>
+                        </View>
+                        <View style={styles.paymentOptionsCol2}>
+                            <Text>Select School as beneficiary from Biller Option and Pay</Text>
+                        </View>
+                    </View>
+                    <View style={[styles.paymentOptionsRow, { borderBottomWidth: 0 }]}>
+                        <View style={styles.paymentOptionsCol1}>
+                            <Text style={{ fontWeight: 'bold' }}>for Payment via Any Other Bank Counter/Digital Channel</Text>
+                        </View>
+                        <View style={styles.paymentOptionsCol2}>
+                            <Text>Payment via 1 Bill Invoices option using 24 Digit 1 Bill Invoice no.</Text>
+                            <Text style={{ fontWeight: 'bold', marginTop: 1 }}>1BILL ID: 1006259110046</Text>
+                        </View>
+                    </View>
                 </View>
-                <View style={styles.paymentOptionsRow}>
-                    <View style={styles.paymentOptionsCol1}>
-                        <Text style={{ fontWeight: 'bold' }}>For MBL Counters</Text>
+
+                <View style={styles.stampSignatureRow}>
+                    <View style={styles.stampBox}>
+                        <Text style={styles.stampText}>BANK'S STAMP</Text>
                     </View>
-                    <View style={styles.paymentOptionsCol2}>
-                        <Text>Pay via CMS Online Deposit Module.</Text>
-                        <Text>Customer Code: TAFCS</Text>
-                    </View>
-                </View>
-                <View style={styles.paymentOptionsRow}>
-                    <View style={styles.paymentOptionsCol1}>
-                        <Text style={{ fontWeight: 'bold' }}>For Payment via MBL Mobile/internet Banking</Text>
-                    </View>
-                    <View style={styles.paymentOptionsCol2}>
-                        <Text>Select School as beneficiary from Biller Option and Pay</Text>
+                    <View style={styles.signatureLineContainer}>
+                        <View style={styles.signatureLine}>
+                            <Text style={styles.signatureText}>HEAD OF INSTITUTION</Text>
+                        </View>
                     </View>
                 </View>
-                <View style={[styles.paymentOptionsRow, { borderBottomWidth: 0 }]}>
-                    <View style={styles.paymentOptionsCol1}>
-                        <Text style={{ fontWeight: 'bold' }}>for Payment via Any Other Bank Counter/Digital Channel</Text>
-                    </View>
-                    <View style={styles.paymentOptionsCol2}>
-                        <Text>Payment via 1 Bill Invoices option using 24 Digit 1 Bill Invoice no.</Text>
-                        <Text style={{ fontWeight: 'bold', marginTop: 1 }}>1BILL ID: 1006259110046</Text>
-                    </View>
-                </View>
+
+                <Text style={styles.generatedBy}>
+                    GENERATED BY {details.generatedBy.fullName} | {details.generatedBy.timestampStr}
+                </Text>
             </View>
         </View>
     </View>
