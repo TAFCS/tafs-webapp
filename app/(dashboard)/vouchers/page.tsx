@@ -161,6 +161,21 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
     const [isDownloading, setIsDownloading] = useState(false);
 
     const handleDownload = async () => {
+        // If we already have a stored PDF URL, open it immediately.
+        // Keeping this code before any async/await helps browsers treat it as a user gesture.
+        const pdfUrl = typeof voucher.pdf_url === "string" ? voucher.pdf_url.trim() : "";
+        if (pdfUrl) {
+            const link = document.createElement("a");
+            link.href = pdfUrl;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toast.success("Voucher opened in a new tab.");
+            return;
+        }
+
         setIsDownloading(true);
         let loadingToast: string | undefined;
         try {
@@ -169,23 +184,6 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
             const MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             const monthName = MONTHS[monthNum];
             const filename = `Challan_${voucher.students.cc}_${monthName}.pdf`;
-
-            // ── Fast path: use stored PDF URL ────────────────────────────────
-            if (voucher.pdf_url) {
-                const res = await fetch(voucher.pdf_url);
-                if (!res.ok) throw new Error("Failed to fetch stored PDF");
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = filename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-                toast.success("Voucher downloaded successfully.");
-                return;
-            }
 
             // ── Fallback: generate PDF on the fly ────────────────────────────
             loadingToast = toast.loading("Generating PDF, please wait…");
@@ -249,17 +247,18 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = filename;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
             toast.dismiss(loadingToast);
-            toast.success("Voucher downloaded successfully.");
+            toast.success("Voucher opened in a new tab.");
         } catch (error) {
             console.error(error);
             toast.dismiss(loadingToast);
-            toast.error("Failed to download voucher PDF.");
+            toast.error("Failed to open voucher PDF.");
         } finally {
             setIsDownloading(false);
         }
@@ -344,7 +343,7 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
                     className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
                 >
                     {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                    {isDownloading ? "..." : "PDF"}
+                        {isDownloading ? "..." : "PDF"}
                 </button>
             </td>
         </tr>
