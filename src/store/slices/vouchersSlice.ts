@@ -66,6 +66,7 @@ export interface VoucherItem {
     due_date: string;
     validity_date: string | null;
     status: string | null;
+    pdf_url?: string | null;
     late_fee_charge: boolean;
     academic_year: string | null;
     month: number | null;

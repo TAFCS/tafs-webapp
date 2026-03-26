@@ -75,7 +75,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const actualLateFee = isOverdue ? remainingSurcharge : 0;
     const finalTotal = totalBalance + actualLateFee;
 
-    const distributedTotal = fillingMode === "auto" 
+    const distributedTotal = fillingMode === "auto"
         ? Number(amount) || 0
         : Object.values(manualDistributions).reduce((sum, val) => sum + (Number(val) || 0), 0) + (Number(manualLateFee) || 0);
 
@@ -162,7 +162,17 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                 <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
                     {/* Amount Input */}
                     <div className="space-y-3">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Deposit Amount (PKR)</label>
+                        <div className="flex items-center justify-between ml-1">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Deposit Amount (PKR)</label>
+                            <button
+                                type="button"
+                                onClick={() => setAmount(finalTotal.toString())}
+                                className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
+                            >
+                                <Wallet className="h-3 w-3" />
+                                Pay Full (Rs. {finalTotal.toLocaleString()})
+                            </button>
+                        </div>
                         <div className="relative">
                             <input
                                 autoFocus
@@ -197,7 +207,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                     {/* Filling Mode Toggle - Only if partial/manual distribution is needed */}
                     {Number(amount) > 0 && Number(amount) !== finalTotal && (
                         <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2">
-                             <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400">Distribution Mode</span>
                                 <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl">
                                     <button
@@ -213,9 +223,9 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                         Manual Distribution
                                     </button>
                                 </div>
-                             </div>
+                            </div>
 
-                             {fillingMode === "manual" && (
+                            {fillingMode === "manual" && (
                                 <div className="p-4 bg-primary/5 border border-primary/10 rounded-[20px] flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div className="h-8 w-8 bg-primary/20 rounded-lg flex items-center justify-center">
@@ -233,7 +243,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                         </p>
                                     </div>
                                 </div>
-                             )}
+                            )}
                         </div>
                     )}
 
@@ -352,23 +362,41 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
 
     const handleDownload = async () => {
         setIsDownloading(true);
+        let loadingToast: string | undefined;
         try {
-            const { data: studentRes } = await api.get(`/v1/students/${voucher.student_id}`);
-            const studentData = studentRes?.data;
-            const { data } = await api.get(`/v1/student-fees/by-student/${voucher.student_id}`);
-            const allFees = data?.data?.fees || [];
-            const familyStudents = data?.data?.family?.students || [];
-
             const issueDateObj = new Date(voucher.issue_date);
             const monthNum = issueDateObj.getMonth() + 1;
             const MONTHS_NAMES = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             const monthName = MONTHS_NAMES[monthNum];
+            const filename = `Challan_${voucher.students.cc}_${monthName}.pdf`;
 
-            const pdfFees = groupFees(voucher.voucher_heads || [], {}, { groupTuitionFees: false, isVoucherHeads: true });
+            // ── Fast path: use stored PDF URL ────────────────────────────────
+            if (voucher.pdf_url) {
+                const res = await fetch(voucher.pdf_url);
+                if (!res.ok) throw new Error("Failed to fetch stored PDF");
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                toast.success("Voucher downloaded successfully.");
+                return;
+            }
 
-            const totalFeesAmount = Number(voucher.total_payable_before_due || 0);
+            // ── Fallback: generate PDF on the fly ────────────────────────────
+            loadingToast = toast.loading("Generating PDF, please wait…");
+            const { data: studentRes } = await api.get(`/v1/students/${voucher.student_id}`);
+            const studentData = studentRes?.data;
+            const { data } = await api.get(`/v1/student-fees/by-student/${voucher.student_id}`);
+            const familyStudents = data?.data?.family?.students || [];
             const siblings = familyStudents.filter((s: any) => s.cc !== voucher.student_id);
 
+            const pdfFees = groupFees(voucher.voucher_heads || [], {}, { groupTuitionFees: false, isVoucherHeads: true });
+            const totalFeesAmount = Number(voucher.total_payable_before_due || 0);
 
             const { pdf } = await import('@react-pdf/renderer');
             const doc = (
@@ -419,15 +447,17 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `Challan_${voucher.students.cc}_${monthName}.pdf`;
+            link.download = filename;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
+            toast.dismiss(loadingToast);
             toast.success("Voucher downloaded successfully.");
         } catch (error) {
             console.error(error);
-            toast.error("Failed to generate voucher PDF.");
+            toast.dismiss(loadingToast);
+            toast.error("Failed to download voucher PDF.");
         } finally {
             setIsDownloading(false);
         }
@@ -497,13 +527,15 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
             </td>
             <td className="px-5 py-3.5">
                 <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => onDeposit(voucher)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
-                    >
-                        <Wallet className="h-3.5 w-3.5" />
-                        Deposit
-                    </button>
+                    {voucher.status !== "PAID" && (
+                        <button
+                            onClick={() => onDeposit(voucher)}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
+                        >
+                            <Wallet className="h-3.5 w-3.5" />
+                            Deposit
+                        </button>
+                    )}
                     <button
                         onClick={handleDownload}
                         disabled={isDownloading}
@@ -552,7 +584,7 @@ export default function VoucherDepositPage() {
     // Initial load
     useEffect(() => {
         if (sections.length === 0) dispatch(fetchSections());
-        
+
         const h = (e: MouseEvent) => {
             if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
                 setShowSearchDropdown(false);
@@ -598,7 +630,7 @@ export default function VoucherDepositPage() {
     const handleVoucherSearch = (e: React.FormEvent) => {
         e.preventDefault();
         if (!voucherIdInput.trim()) return;
-        
+
         const vid = parseInt(voucherIdInput);
         if (isNaN(vid)) {
             toast.error("Invalid Voucher ID");
@@ -629,7 +661,7 @@ export default function VoucherDepositPage() {
     };
 
     // Filter logic locally for status
-    const filteredVouchers = statusFilter 
+    const filteredVouchers = statusFilter
         ? vouchers.filter(v => v.status === statusFilter)
         : vouchers;
 
@@ -685,8 +717,8 @@ export default function VoucherDepositPage() {
                 <div className="lg:col-span-12">
                     <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] p-8 shadow-sm">
                         <div className="max-w-3xl mx-auto space-y-6">
-                             {/* Search Mode Toggle */}
-                             <div className="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-[14px] w-fit mx-auto border border-zinc-200 dark:border-zinc-800">
+                            {/* Search Mode Toggle */}
+                            <div className="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-[14px] w-fit mx-auto border border-zinc-200 dark:border-zinc-800">
                                 <button
                                     onClick={() => { setSearchMode("student"); handleClearSearch(); }}
                                     className={`px-6 py-2 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${searchMode === "student" ? "bg-white dark:bg-zinc-950 text-primary shadow-sm" : "text-zinc-400"}`}
@@ -880,11 +912,11 @@ export default function VoucherDepositPage() {
                             </thead>
                             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
                                 {paginatedVouchers.map((v, i) => (
-                                    <VoucherRow 
-                                        key={v.id} 
-                                        voucher={v} 
-                                        index={(page - 1) * pageSize + i} 
-                                        sections={sections} 
+                                    <VoucherRow
+                                        key={v.id}
+                                        voucher={v}
+                                        index={(page - 1) * pageSize + i}
+                                        sections={sections}
                                         onDeposit={(v) => setSelectedVoucher(v)}
                                     />
                                 ))}
@@ -938,9 +970,9 @@ export default function VoucherDepositPage() {
 
             {/* Deposit Modal */}
             {selectedVoucher && (
-                <DepositModal 
-                    voucher={selectedVoucher} 
-                    onClose={() => setSelectedVoucher(null)} 
+                <DepositModal
+                    voucher={selectedVoucher}
+                    onClose={() => setSelectedVoucher(null)}
                     onSuccess={() => {
                         setSelectedVoucher(null);
                         handleRefresh();
