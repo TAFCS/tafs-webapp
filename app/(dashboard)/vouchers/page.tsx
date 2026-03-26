@@ -162,33 +162,43 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
 
     const handleDownload = async () => {
         setIsDownloading(true);
+        let loadingToast: string | undefined;
         try {
-            // Fetch detailed student data (for gender, father_name, etc.)
-            const { data: studentRes } = await api.get(`/v1/students/${voucher.student_id}`);
-            const studentData = studentRes?.data;
-
-            // Fetch fees and family info
-            const { data } = await api.get(`/v1/student-fees/by-student/${voucher.student_id}`);
-            const allFees = data?.data?.fees || [];
-            const familyStudents = data?.data?.family?.students || [];
-
-            // Determine Month from Issue Date
             const issueDateObj = new Date(voucher.issue_date);
             const monthNum = issueDateObj.getMonth() + 1;
             const MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             const monthName = MONTHS[monthNum];
+            const filename = `Challan_${voucher.students.cc}_${monthName}.pdf`;
 
-            const pdfFees = groupFees(voucher.voucher_heads || [], {}, { groupTuitionFees: false, isVoucherHeads: true });
+            // ── Fast path: use stored PDF URL ────────────────────────────────
+            if (voucher.pdf_url) {
+                const res = await fetch(voucher.pdf_url);
+                if (!res.ok) throw new Error("Failed to fetch stored PDF");
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                toast.success("Voucher downloaded successfully.");
+                return;
+            }
 
-            const totalFeesAmount = Number(voucher.total_payable_before_due || 0);
-
-
-
+            // ── Fallback: generate PDF on the fly ────────────────────────────
+            loadingToast = toast.loading("Generating PDF, please wait…");
+            const { data: studentRes } = await api.get(`/v1/students/${voucher.student_id}`);
+            const studentData = studentRes?.data;
+            const { data } = await api.get(`/v1/student-fees/by-student/${voucher.student_id}`);
+            const familyStudents = data?.data?.family?.students || [];
             const siblings = familyStudents.filter((s: any) => s.cc !== voucher.student_id);
 
-            // Generate document
-            const { pdf } = await import('@react-pdf/renderer');
+            const pdfFees = groupFees(voucher.voucher_heads || [], {}, { groupTuitionFees: false, isVoucherHeads: true });
+            const totalFeesAmount = Number(voucher.total_payable_before_due || 0);
 
+            const { pdf } = await import('@react-pdf/renderer');
             const doc = (
                 <FeeChallanPDF
                     student={{
@@ -213,7 +223,7 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
                     }))}
                     details={{
                         month: monthName,
-                        academicYear: `${issueDateObj.getFullYear()}-${issueDateObj.getFullYear() + 1}`, // ← add this
+                        academicYear: `${issueDateObj.getFullYear()}-${issueDateObj.getFullYear() + 1}`,
                         issueDate: voucher.issue_date.split('T')[0],
                         dueDate: voucher.due_date.split('T')[0],
                         validityDate: voucher.validity_date
@@ -239,15 +249,17 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `Challan_${voucher.students.cc}_${monthName}.pdf`;
+            link.download = filename;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
+            toast.dismiss(loadingToast);
             toast.success("Voucher downloaded successfully.");
         } catch (error) {
             console.error(error);
-            toast.error("Failed to generate voucher PDF.");
+            toast.dismiss(loadingToast);
+            toast.error("Failed to download voucher PDF.");
         } finally {
             setIsDownloading(false);
         }
