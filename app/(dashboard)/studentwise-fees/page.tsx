@@ -156,10 +156,17 @@ function StudentwiseFeeEditor() {
     const pendingFocusId = useRef<string | null>(null);
 
     // Bundling States
-    const [selectedForBundling, setSelectedForBundling] = useState<number[]>([]);
+    const [selectedForBundling, setSelectedForBundling] = useState<string[]>([]);
     const [bundleNameInput, setBundleNameInput] = useState("");
     const [selectedBundlePeriod, setSelectedBundlePeriod] = useState<number | null>(null);
     const [isCreatingBundle, setIsCreatingBundle] = useState(false);
+    const [pendingBundles, setPendingBundles] = useState<{
+        bundle_name: string;
+        target_month: number | null;
+        academic_year: string;
+        fee_keys: string[]; // `${feeId}|${target_month}`
+        member_ids: string[]; // __id
+    }[]>([]);
 
     // Track rows to see if we need to fix focus after a sort
     useEffect(() => {
@@ -364,6 +371,8 @@ function StudentwiseFeeEditor() {
     useEffect(() => {
         if (selectedClassId !== "") {
             fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
+            setPendingBundles([]);
+            setSelectedForBundling([]);
         } else {
             setRows([]);
         }
@@ -498,7 +507,16 @@ function StudentwiseFeeEditor() {
 
             // Prepare parallel API calls
             const requests: Promise<any>[] = [
-                api.post("/v1/student-fees/bulk", { student_id: ccValue, items })
+                api.post("/v1/student-fees/bulk", { 
+                    student_id: ccValue, 
+                    items,
+                    bundles: pendingBundles.map(pb => ({
+                        bundle_name: pb.bundle_name,
+                        target_month: pb.target_month,
+                        academic_year: pb.academic_year,
+                        fee_keys: pb.fee_keys
+                    }))
+                })
             ];
 
             // If Campus/Class/Section are fully selected, also sync the Campus Config
@@ -516,6 +534,7 @@ function StudentwiseFeeEditor() {
             const msg = `${items.length} records saved for student ${displayId}.`;
             setSaveStatus({ type: "success", message: msg });
             toast.success("Fee schedule saved successfully!");
+            setPendingBundles([]);
 
             // Re-fetch from DB so isNew flags are cleared and rows reflect true
             // persisted state. Without this, a second edit+save on a newly-added
@@ -626,13 +645,9 @@ function StudentwiseFeeEditor() {
     };
 
     // ── Bundling Actions ────────────────────────────────────────────────
-    const handleToggleSelectForBundling = (dbId?: number) => {
-        if (!dbId) {
-            toast.error("Can only bundle fees that are already saved to database.");
-            return;
-        }
+    const handleToggleSelectForBundling = (rowId: string) => {
         setSelectedForBundling(prev =>
-            prev.includes(dbId) ? prev.filter(id => id !== dbId) : [...prev, dbId]
+            prev.includes(rowId) ? prev.filter(id => id !== rowId) : [...prev, rowId]
         );
     };
 
@@ -646,31 +661,52 @@ function StudentwiseFeeEditor() {
             return;
         }
 
-        setIsCreatingBundle(true);
-        try {
-            const numericMatch = studentId.match(/\d+$/);
-            const ccValue = numericMatch ? parseInt(numericMatch[0]) : 0;
+        const selectedRows = rows.filter(r => selectedForBundling.includes(r.__id));
+        const allHaveDbId = selectedRows.every(r => !!r.dbId);
 
-            await api.post("/v1/student-fees/bundles", {
-                student_id: ccValue,
+        if (allHaveDbId) {
+            // Traditional immediate bundle
+            setIsCreatingBundle(true);
+            try {
+                const numericMatch = studentId.match(/\d+$/);
+                const ccValue = numericMatch ? parseInt(numericMatch[0]) : 0;
+
+                await api.post("/v1/student-fees/bundles", {
+                    student_id: ccValue,
+                    bundle_name: bundleNameInput.trim(),
+                    academic_year: selectedYear,
+                    fee_ids: selectedRows.map(r => r.dbId),
+                    target_month: selectedBundlePeriod
+                });
+
+                toast.success(`Bundle "${bundleNameInput}" created successfully!`);
+                setBundleNameInput("");
+                setSelectedForBundling([]);
+                setSelectedBundlePeriod(null);
+                // Refresh to show bundled status
+                if (selectedClassId !== "") {
+                    fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
+                }
+            } catch (err: any) {
+                toast.error(err.response?.data?.message || "Failed to create bundle.");
+            } finally {
+                setIsCreatingBundle(false);
+            }
+        } else {
+            // Queue as pending bundle
+            const newPending = {
                 bundle_name: bundleNameInput.trim(),
+                target_month: selectedBundlePeriod,
                 academic_year: selectedYear,
-                fee_ids: selectedForBundling,
-                target_month: selectedBundlePeriod
-            });
+                fee_keys: selectedRows.map(r => `${r.feeId}|${r.target_month}`),
+                member_ids: selectedRows.map(r => r.__id)
+            };
 
-            toast.success(`Bundle "${bundleNameInput}" created successfully!`);
+            setPendingBundles(prev => [...prev, newPending]);
             setBundleNameInput("");
             setSelectedForBundling([]);
             setSelectedBundlePeriod(null);
-            // Refresh to show bundled status
-            if (selectedClassId !== "") {
-                fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
-            }
-        } catch (err: any) {
-            toast.error(err.response?.data?.message || "Failed to create bundle.");
-        } finally {
-            setIsCreatingBundle(false);
+            toast.success(`Bundle "${bundleNameInput}" queued. Click "Save Schedule" to persist.`);
         }
     };
 
@@ -692,7 +728,7 @@ function StudentwiseFeeEditor() {
     const grandTotal = rows.reduce((s, r) => s + parseFloat(r.amount || "0"), 0);
 
     // Auto-detect bundle period
-    const selectedRowsForBundling = rows.filter(r => r.dbId && selectedForBundling.includes(r.dbId));
+    const selectedRowsForBundling = rows.filter(r => selectedForBundling.includes(r.__id));
     const distinctMonths = Array.from(new Set(selectedRowsForBundling.map(r => r.target_month))).filter(Boolean) as number[];
 
     useEffect(() => {
@@ -982,9 +1018,9 @@ function StudentwiseFeeEditor() {
                                         <div className="flex items-center justify-center">
                                             <input 
                                                 type="checkbox" 
-                                                checked={rows.length > 0 && rows.every(r => !r.dbId || selectedForBundling.includes(r.dbId)) && rows.some(r => r.dbId)}
+                                                checked={rows.length > 0 && rows.every(r => selectedForBundling.includes(r.__id))}
                                                 onChange={(e) => {
-                                                    if (e.target.checked) setSelectedForBundling(rows.map(r => r.dbId).filter(Boolean) as number[]);
+                                                    if (e.target.checked) setSelectedForBundling(rows.map(r => r.__id));
                                                     else setSelectedForBundling([]);
                                                 }}
                                                 className="h-3.5 w-3.5 rounded border-zinc-300 text-primary focus:ring-primary/20"
@@ -1009,14 +1045,12 @@ function StudentwiseFeeEditor() {
                                     return (
                                         <tr key={rIdx} className={`${groupSeparator} ${isCurrentRowActive ? "bg-primary/[0.02]" : "bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/40"} transition-colors relative`}>
                                             <td data-row={rIdx} data-col={COL_SELECT} className={`border-r border-b border-zinc-100 text-center ${aCell(COL_SELECT) ? "ring-2 ring-inset ring-primary/30 z-10" : ""}`}>
-                                                {row.dbId && (
-                                                    <input 
-                                                        type="checkbox"
-                                                        checked={selectedForBundling.includes(row.dbId)}
-                                                        onChange={() => handleToggleSelectForBundling(row.dbId)}
-                                                        className="h-3.5 w-3.5 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
-                                                    />
-                                                )}
+                                                <input 
+                                                    type="checkbox"
+                                                    checked={selectedForBundling.includes(row.__id)}
+                                                    onChange={() => handleToggleSelectForBundling(row.__id)}
+                                                    className="h-3.5 w-3.5 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
+                                                />
                                             </td>
                                             <td data-row={rIdx} data-col={COL_ACTIONS} tabIndex={0} onFocus={() => setActiveCell({ row: rIdx, col: COL_ACTIONS })}
                                                 className={`border-r border-b border-zinc-100 text-center ${aCell(COL_ACTIONS) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950" : ""}`}
@@ -1060,6 +1094,29 @@ function StudentwiseFeeEditor() {
                                                             </button>
                                                         </div>
                                                     )}
+
+                                                    {/* Pending Bundles Visual */}
+                                                    {pendingBundles.filter(pb => pb.member_ids.includes(row.__id)).map((pb, idx) => (
+                                                        <div key={idx} className="px-5 pb-2 flex items-center gap-2 group/bundle">
+                                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-md">
+                                                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                                                <span className="text-[9px] font-black text-amber-600 uppercase tracking-tighter truncate max-w-[100px]">
+                                                                    {pb.bundle_name} (Pending)
+                                                                </span>
+                                                            </div>
+                                                            <button 
+                                                                onClick={(e) => { 
+                                                                    e.stopPropagation(); 
+                                                                    setPendingBundles(prev => prev.filter(p => p !== pb));
+                                                                }}
+                                                                className="opacity-0 group-hover/bundle:opacity-100 p-0.5 text-zinc-300 hover:text-rose-500 transition-all"
+                                                                title="Remove Pending Bundle"
+                                                            >
+                                                                <Trash2 className="h-2.5 w-2.5" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+
                                                 </div>
                                             </td>
 
