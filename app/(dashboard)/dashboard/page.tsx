@@ -121,7 +121,7 @@ export default function DashboardPage() {
                             </div>
                             <div>
                                 <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">Studentwise Fee</h2>
-                                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Individual student fee overrides</p>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Set student fee overrides</p>
                             </div>
                         </div>
                     </Link>
@@ -132,8 +132,8 @@ export default function DashboardPage() {
                                 <CreditCard className="h-8 w-8 text-primary" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">Fee Challan</h2>
-                                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Generate student fee vouchers</p>
+                                <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">Generate Vouchers</h2>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Generate student vouchers</p>
                             </div>
                         </div>
                     </Link>
@@ -168,7 +168,7 @@ export default function DashboardPage() {
             <div className="space-y-4 pt-4">
                 <h2 className="text-lg font-medium text-zinc-800 dark:text-zinc-200">Student Management</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-                    <button 
+                    <button
                         onClick={() => setIsBulkPromoteOpen(true)}
                         className="group text-left"
                     >
@@ -233,9 +233,9 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            <BulkPromoteModal 
-                isOpen={isBulkPromoteOpen} 
-                onClose={() => setIsBulkPromoteOpen(false)} 
+            <BulkPromoteModal
+                isOpen={isBulkPromoteOpen}
+                onClose={() => setIsBulkPromoteOpen(false)}
             />
         </div>
     );
