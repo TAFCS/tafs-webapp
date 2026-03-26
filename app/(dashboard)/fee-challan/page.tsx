@@ -237,7 +237,7 @@ export default function FeeChallanGenerator() {
 
             const monthNum = MONTH_TO_NUM[selectedMonth];
             const applicableFees = allFees.filter(f =>
-                f.month === monthNum &&
+                (f.month === monthNum || f.target_month === monthNum || f.student_fee_bundles?.target_month === monthNum) &&
                 (f.academic_year === selectedYear)
             );
 

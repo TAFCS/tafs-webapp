@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo, Suspense } from "react";
-import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Users2, Settings2, UserSearch } from "lucide-react";
+import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Users2, Settings2, UserSearch, Calendar } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -158,6 +158,7 @@ function StudentwiseFeeEditor() {
     // Bundling States
     const [selectedForBundling, setSelectedForBundling] = useState<number[]>([]);
     const [bundleNameInput, setBundleNameInput] = useState("");
+    const [selectedBundlePeriod, setSelectedBundlePeriod] = useState<number | null>(null);
     const [isCreatingBundle, setIsCreatingBundle] = useState(false);
 
     // Track rows to see if we need to fix focus after a sort
@@ -654,12 +655,14 @@ function StudentwiseFeeEditor() {
                 student_id: ccValue,
                 bundle_name: bundleNameInput.trim(),
                 academic_year: selectedYear,
-                fee_ids: selectedForBundling
+                fee_ids: selectedForBundling,
+                target_month: selectedBundlePeriod
             });
 
             toast.success(`Bundle "${bundleNameInput}" created successfully!`);
             setBundleNameInput("");
             setSelectedForBundling([]);
+            setSelectedBundlePeriod(null);
             // Refresh to show bundled status
             if (selectedClassId !== "") {
                 fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
@@ -687,6 +690,18 @@ function StudentwiseFeeEditor() {
     };
 
     const grandTotal = rows.reduce((s, r) => s + parseFloat(r.amount || "0"), 0);
+
+    // Auto-detect bundle period
+    const selectedRowsForBundling = rows.filter(r => r.dbId && selectedForBundling.includes(r.dbId));
+    const distinctMonths = Array.from(new Set(selectedRowsForBundling.map(r => r.target_month))).filter(Boolean) as number[];
+
+    useEffect(() => {
+        if (distinctMonths.length === 1) {
+            setSelectedBundlePeriod(distinctMonths[0]);
+        } else if (distinctMonths.length === 0) {
+            setSelectedBundlePeriod(null);
+        }
+    }, [selectedForBundling.length, distinctMonths.length]);
 
     const selectedClass = classes.find((c) => c.id === Number(selectedClassId));
     const filteredClasses = classes.filter((c) =>
@@ -1156,15 +1171,43 @@ function StudentwiseFeeEditor() {
                     <div className="h-10 w-10 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
                         <Plus className="h-5 w-5" />
                     </div>
-                    <div>
+                    <div className="flex-1">
                         <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">Bundle {selectedForBundling.length} Heads</p>
-                        <input 
-                            type="text"
-                            placeholder="Bundle Name (e.g. Semi-Annual Pkg)"
-                            value={bundleNameInput}
-                            onChange={(e) => setBundleNameInput(e.target.value)}
-                            className="w-64 h-10 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold focus:outline-none focus:border-primary transition-all"
-                        />
+                        <div className="flex gap-2">
+                            <input 
+                                type="text"
+                                placeholder="Bundle Name (e.g. Semi-Annual Pkg)"
+                                value={bundleNameInput}
+                                onChange={(e) => setBundleNameInput(e.target.value)}
+                                className="w-64 h-10 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold focus:outline-none focus:border-primary transition-all"
+                            />
+                            {distinctMonths.length > 1 ? (
+                                <div className="relative group/period">
+                                    <select
+                                        value={selectedBundlePeriod || ""}
+                                        onChange={(e) => setSelectedBundlePeriod(Number(e.target.value))}
+                                        className="h-10 pl-10 pr-10 bg-rose-50 border border-rose-200 rounded-xl text-[11px] font-black uppercase tracking-widest text-rose-600 appearance-none focus:outline-none cursor-pointer hover:bg-rose-100 transition-all"
+                                    >
+                                        <option value="" disabled>Select Period</option>
+                                        {distinctMonths.sort((a,b) => {
+                                            const getSeq = (m: number) => m >= 8 ? m - 8 : m + 4;
+                                            return getSeq(a) - getSeq(b);
+                                        }).map(m => (
+                                            <option key={m} value={m}>{MONTH_ORDER.find(name => MONTH_TO_NUM[name] === m)}</option>
+                                        ))}
+                                    </select>
+                                    <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-rose-400 pointer-events-none" />
+                                    <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-rose-600 text-white text-[9px] font-black px-2 py-0.5 rounded opacity-0 group-hover/period:opacity-100 transition-all whitespace-nowrap">Picking a month anchors bundle to that voucher</span>
+                                </div>
+                            ) : (
+                                <div className="h-10 px-4 flex items-center gap-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl">
+                                    <Calendar className="h-3.5 w-3.5 text-zinc-400" />
+                                    <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">
+                                        {distinctMonths[0] ? MONTH_ORDER.find(name => MONTH_TO_NUM[name] === distinctMonths[0]) : "N/A"}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <div className="flex gap-2">
                         <button 
