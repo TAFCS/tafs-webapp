@@ -259,7 +259,7 @@ export default function FeeChallanGenerator() {
         if (student && month && academicYear) {
             fetchStudentFees(student.cc, month, academicYear);
         }
-    }, [student, month, academicYear, dateFrom, dateTo]);
+    }, [student, month, academicYear]);
 
     useEffect(() => {
         setBulkPreview(null);
@@ -309,6 +309,18 @@ export default function FeeChallanGenerator() {
         } finally {
             setIsFetchingFees(false);
         }
+    };
+
+    const handleApplyDateFilter = () => {
+        if (!student || !month || !academicYear) {
+            toast.error("Select a student, month, and academic year first.");
+            return;
+        }
+        if (dateFrom && dateTo && dateFrom > dateTo) {
+            toast.error("Start date cannot be after end date.");
+            return;
+        }
+        fetchStudentFees(student.cc, month, academicYear);
     };
 
 
@@ -1312,6 +1324,17 @@ export default function FeeChallanGenerator() {
                                             <Calendar className={`absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 ${dateTo ? "text-primary/40" : "text-zinc-400"}`} />
                                         </div>
                                     </div>
+                                </div>
+                                <div className="flex justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={handleApplyDateFilter}
+                                        disabled={!student || !month || !academicYear || isFetchingFees}
+                                        className="h-11 px-5 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:opacity-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        {isFetchingFees ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                                        Apply Date Filter
+                                    </button>
                                 </div>
                             </div>
 
