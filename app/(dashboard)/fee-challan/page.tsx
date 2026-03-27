@@ -530,6 +530,7 @@ export default function FeeChallanGenerator() {
                 setStudent(foundStudent);
                 setSearchQuery("");
                 setShowSearchDropdown(false);
+                setCurrentStep(2); // Automatically advance to Step 2
                 toast.success(`Student ${foundStudent.student_full_name || foundStudent.full_name} found!`);
             } else {
                 toast.error("Student not found.");
