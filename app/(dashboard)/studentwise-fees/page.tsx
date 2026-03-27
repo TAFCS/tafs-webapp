@@ -375,8 +375,8 @@ function StudentwiseFeeEditor() {
         } catch (err: any) {
             if (err.name === "AbortError") return;
             setLoadError(err.response?.data?.message || "Failed to load fee schedule.");
-        } finally { 
-            if (!signal?.aborted) setIsLoading(false); 
+        } finally {
+            if (!signal?.aborted) setIsLoading(false);
         }
     }, [sortSpreadsheetRows]);
 
@@ -525,8 +525,8 @@ function StudentwiseFeeEditor() {
 
             // Prepare parallel API calls
             const requests: Promise<any>[] = [
-                api.post("/v1/student-fees/bulk", { 
-                    student_id: ccValue, 
+                api.post("/v1/student-fees/bulk", {
+                    student_id: ccValue,
                     items,
                     bundles: pendingBundles.map(pb => ({
                         bundle_name: pb.bundle_name,
@@ -1043,8 +1043,8 @@ function StudentwiseFeeEditor() {
                                 <tr>
                                     <th className="w-10 border-b border-r border-zinc-200 dark:border-zinc-800 px-1 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
                                         <div className="flex items-center justify-center">
-                                            <input 
-                                                type="checkbox" 
+                                            <input
+                                                type="checkbox"
                                                 checked={rows.length > 0 && rows.every(r => selectedForBundling.includes(r.__id))}
                                                 onChange={(e) => {
                                                     if (e.target.checked) setSelectedForBundling(rows.map(r => r.__id));
@@ -1059,10 +1059,10 @@ function StudentwiseFeeEditor() {
                                     <th className="min-w-[180px] border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee Description</th>
                                     <th className="w-24 md:w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Frequency</th>
                                     <th className="w-24 md:w-32 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month</th>
-                                    <th className="w-28 md:w-40 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Period</th>
+                                    <th className="w-28 md:w-40 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Billed</th>
                                     <th className="w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-primary/70 uppercase tracking-widest">
                                         Fee Date
-                                        <span className="ml-1 text-[8px] font-bold bg-primary/10 text-primary px-1 py-0.5 rounded normal-case tracking-normal">multi-voucher</span>
+                                        {/* <span className="ml-1 text-[8px] font-bold bg-primary/10 text-primary px-1 py-0.5 rounded normal-case tracking-normal">multi-voucher</span> */}
                                     </th>
                                     <th className="min-w-[120px] border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount (Rs.)</th>
                                 </tr>
@@ -1076,7 +1076,7 @@ function StudentwiseFeeEditor() {
                                     return (
                                         <tr key={rIdx} className={`${groupSeparator} ${isCurrentRowActive ? "bg-primary/[0.02]" : "bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/40"} transition-colors relative`}>
                                             <td data-row={rIdx} data-col={COL_SELECT} className={`border-r border-b border-zinc-100 text-center ${aCell(COL_SELECT) ? "ring-2 ring-inset ring-primary/30 z-10" : ""}`}>
-                                                <input 
+                                                <input
                                                     type="checkbox"
                                                     checked={selectedForBundling.includes(row.__id)}
                                                     onChange={() => handleToggleSelectForBundling(row.__id)}
@@ -1116,7 +1116,7 @@ function StudentwiseFeeEditor() {
                                                                     {row.bundle_name || "Bundled"}
                                                                 </span>
                                                             </div>
-                                                            <button 
+                                                            <button
                                                                 onClick={(e) => { e.stopPropagation(); handleDissolveBundle(row.bundle_id!); }}
                                                                 className="opacity-0 group-hover/bundle:opacity-100 p-0.5 text-zinc-300 hover:text-rose-500 transition-all"
                                                                 title="Dissolve Bundle"
@@ -1135,9 +1135,9 @@ function StudentwiseFeeEditor() {
                                                                     {pb.bundle_name} (Pending)
                                                                 </span>
                                                             </div>
-                                                            <button 
-                                                                onClick={(e) => { 
-                                                                    e.stopPropagation(); 
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
                                                                     setPendingBundles(prev => prev.filter(p => p !== pb));
                                                                 }}
                                                                 className="opacity-0 group-hover/bundle:opacity-100 p-0.5 text-zinc-300 hover:text-rose-500 transition-all"
@@ -1275,7 +1275,7 @@ function StudentwiseFeeEditor() {
                     <div className="flex-1">
                         <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">Bundle {selectedForBundling.length} Heads</p>
                         <div className="flex gap-2">
-                            <input 
+                            <input
                                 type="text"
                                 placeholder="Bundle Name (e.g. Semi-Annual Pkg)"
                                 value={bundleNameInput}
@@ -1290,7 +1290,7 @@ function StudentwiseFeeEditor() {
                                         className="h-10 pl-10 pr-10 bg-rose-50 border border-rose-200 rounded-xl text-[11px] font-black uppercase tracking-widest text-rose-600 appearance-none focus:outline-none cursor-pointer hover:bg-rose-100 transition-all"
                                     >
                                         <option value="" disabled>Select Period</option>
-                                        {distinctMonths.sort((a,b) => {
+                                        {distinctMonths.sort((a, b) => {
                                             const getSeq = (m: number) => m >= 8 ? m - 8 : m + 4;
                                             return getSeq(a) - getSeq(b);
                                         }).map(m => (
@@ -1311,13 +1311,13 @@ function StudentwiseFeeEditor() {
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <button 
+                        <button
                             onClick={() => { setSelectedForBundling([]); setBundleNameInput(""); }}
                             className="h-10 px-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-xl text-xs font-bold hover:bg-zinc-200 transition-all"
                         >
                             Cancel
                         </button>
-                        <button 
+                        <button
                             onClick={handleCreateBundle}
                             disabled={isCreatingBundle}
                             className="h-10 px-6 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"

@@ -119,8 +119,6 @@ export default function FeeChallanGenerator() {
     const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
     const [dueDate, setDueDate] = useState("");
     const [validityDate, setValidityDate] = useState("");
-    // fee_date: exact date for this voucher (enables multiple vouchers per student per month)
-    const [feeDate, setFeeDate] = useState(new Date().toISOString().split('T')[0]);
 
     // --- Bank States ---
     const [banks, setBanks] = useState<BankAccount[]>([]);
@@ -138,6 +136,10 @@ export default function FeeChallanGenerator() {
     const [applyLateFee, setApplyLateFee] = useState(true);
     const [lateFeeAmount, setLateFeeAmount] = useState(1000);
 
+    // --- Date Range Selection (Voucher-style) ---
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
+
     // --- Fees States ---
     const [studentFees, setStudentFees] = useState<StudentFee[]>([]);
     const [isFetchingFees, setIsFetchingFees] = useState(false);
@@ -146,7 +148,7 @@ export default function FeeChallanGenerator() {
     const [isClient, setIsClient] = useState(false);
     const [siblings, setSiblings] = useState<any[]>([]);
     const [appliedDiscounts, setAppliedDiscounts] = useState<Record<number, { amount: number; title: string; id: string }[]>>({});
-    
+
     // Inline Discount States
     const [selectedFeeId, setSelectedFeeId] = useState<number | "all">("all");
     const [discountAmount, setDiscountAmount] = useState("");
@@ -179,7 +181,8 @@ export default function FeeChallanGenerator() {
         issueDate,
         dueDate,
         validityDate,
-        feeDate,
+        dateFrom,
+        dateTo,
         applyLateFee,
         lateFeeAmount,
         selectedBank,
@@ -191,7 +194,9 @@ export default function FeeChallanGenerator() {
         academicYear,
         month,
         studentFees,
-        showDiscounts
+        showDiscounts,
+        dateFrom,
+        dateTo
     ]);
 
     useEffect(() => {
@@ -245,7 +250,7 @@ export default function FeeChallanGenerator() {
     useEffect(() => {
         setBulkPreview(null);
         setBulkResult(null);
-    }, [bulkCampusId, bulkClassId, bulkSectionId, month, academicYear, feeDate, issueDate, dueDate, validityDate, selectedBank, applyLateFee, lateFeeAmount]);
+    }, [bulkCampusId, bulkClassId, bulkSectionId, month, academicYear, issueDate, dueDate, validityDate, selectedBank, applyLateFee, lateFeeAmount, dateFrom, dateTo]);
 
     const fetchStudentFees = async (cc: number, selectedMonth: string, selectedYear: string) => {
         setIsFetchingFees(true);
@@ -255,10 +260,19 @@ export default function FeeChallanGenerator() {
             const familyStudents = data?.data?.family?.students || [];
 
             const monthNum = MONTH_TO_NUM[selectedMonth];
-            const applicableFees = allFees.filter(f =>
-                (f.month === monthNum || f.target_month === monthNum || f.student_fee_bundles?.target_month === monthNum) &&
-                (f.academic_year === selectedYear)
-            );
+            const applicableFees = allFees.filter(f => {
+                const dueDateObj = f.due_date ? new Date(f.due_date) : null;
+                const isWithinDateRange = (!dateFrom || (dueDateObj && dueDateObj >= new Date(dateFrom))) &&
+                    (!dateTo || (dueDateObj && dueDateObj <= new Date(dateTo)));
+
+                if (dateFrom || dateTo) {
+                    return isWithinDateRange && (f.academic_year === selectedYear);
+                }
+
+                // Fallback to month-based filtering
+                return (f.month === monthNum || f.target_month === monthNum || f.student_fee_bundles?.target_month === monthNum) &&
+                    (f.academic_year === selectedYear);
+            });
 
             setStudentFees(applicableFees);
             setSiblings(familyStudents.filter((s: any) => s.cc !== cc));
@@ -315,7 +329,7 @@ export default function FeeChallanGenerator() {
             section_id: bulkSectionId ? Number(bulkSectionId) : undefined,
             academic_year: academicYear,
             month: MONTH_TO_NUM[month] || 1,
-            fee_date: feeDate || undefined,
+            fee_date: dateFrom || undefined,
             issue_date: issueDate,
             due_date: dueDate,
             validity_date: validityDate || undefined,
@@ -563,7 +577,7 @@ export default function FeeChallanGenerator() {
             toast.error("Please enter a name for the group.");
             return;
         }
-        
+
         // Ensure none of the selected fees are already in another group
         const allGroupedIds = new Set(feeGroups.flatMap(g => g.feeIds));
         const hasDoubleGroup = selectedForGrouping.some(id => allGroupedIds.has(id));
@@ -617,10 +631,10 @@ export default function FeeChallanGenerator() {
     const getNetAmount = (fee: StudentFee): number => {
         const adHocDiscount = getAppliedDiscountTotal(fee.id);
         const voucherHead = fee.voucher_heads?.[0];
-        
+
         // Use student-specific amount if set, otherwise fallback to template amount
         const currentAmount = Number(fee.amount || fee.amount_before_discount);
-        
+
         return currentAmount - adHocDiscount;
     };
 
@@ -732,7 +746,7 @@ export default function FeeChallanGenerator() {
             if (applyLateFee) formData.append('late_fee_amount', lateFeeAmount.toString());
             formData.append('academic_year', academicYear);
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
-            if (feeDate) formData.append('fee_date', feeDate);
+            if (dateFrom) formData.append('fee_date', dateFrom);
             formData.append('precedence', '1');
 
             // Send fee lines as a JSON string
@@ -1099,11 +1113,59 @@ export default function FeeChallanGenerator() {
                                     <select
                                         value={month}
                                         onChange={(e) => setMonth(e.target.value)}
-                                        className="w-full h-12 pl-5 pr-12 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all appearance-none cursor-pointer"
+                                        disabled={!!dateFrom || !!dateTo}
+                                        className="w-full h-12 pl-5 pr-12 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all appearance-none cursor-pointer disabled:opacity-50"
                                     >
                                         {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
                                     <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                                </div>
+                                {(dateFrom || dateTo) && (
+                                    <p className="text-[9px] text-primary/60 ml-1 font-bold italic animate-in fade-in">Filtered by Date Range</p>
+                                )}
+                            </div>
+
+                            {/* Date From */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Fee Date From</label>
+                                <div className="relative">
+                                    <input
+                                        type="date"
+                                        value={dateFrom}
+                                        onChange={(e) => setDateFrom(e.target.value)}
+                                        className={`w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all ${dateFrom ? "border-primary/40 text-primary" : "border-zinc-200 dark:border-zinc-800"}`}
+                                    />
+                                    {dateFrom && (
+                                        <button
+                                            onClick={() => setDateFrom("")}
+                                            className="absolute right-10 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                    <Calendar className={`absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 ${dateFrom ? "text-primary/40" : "text-zinc-400"}`} />
+                                </div>
+                            </div>
+
+                            {/* Date To */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Fee Date To</label>
+                                <div className="relative">
+                                    <input
+                                        type="date"
+                                        value={dateTo}
+                                        onChange={(e) => setDateTo(e.target.value)}
+                                        className={`w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all ${dateTo ? "border-primary/40 text-primary" : "border-zinc-200 dark:border-zinc-800"}`}
+                                    />
+                                    {dateTo && (
+                                        <button
+                                            onClick={() => setDateTo("")}
+                                            className="absolute right-10 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                    <Calendar className={`absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 ${dateTo ? "text-primary/40" : "text-zinc-400"}`} />
                                 </div>
                             </div>
 
@@ -1145,23 +1207,6 @@ export default function FeeChallanGenerator() {
                                         className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
                                     />
                                 </div>
-                            </div>
-
-                            {/* Fee Date */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-                                    Fee Date
-                                    <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-md">Used for multi-voucher per month</span>
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        value={feeDate}
-                                        onChange={(e) => setFeeDate(e.target.value)}
-                                        className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-primary/20 dark:border-primary/30 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all text-primary"
-                                    />
-                                </div>
-                                <p className="text-[10px] text-zinc-400 ml-1">Fees with this exact date will be loaded. Same date = 1 voucher; different dates = separate vouchers.</p>
                             </div>
 
                             {/* Due Date */}
@@ -1309,14 +1354,14 @@ export default function FeeChallanGenerator() {
                                                     <span className="text-[10px] font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">{group.name}</span>
                                                     <span className="text-[9px] font-bold text-zinc-400">({group.feeIds.length} heads)</span>
                                                     <div className="flex items-center gap-1.5 ml-1 border-l border-zinc-200 dark:border-zinc-700 pl-1.5">
-                                                        <button 
+                                                        <button
                                                             onClick={() => handleRemoveGroup(group.id)}
                                                             className="p-0.5 text-zinc-300 hover:text-rose-500 transition-colors"
                                                             title="Remove group"
                                                         >
                                                             <Plus className="h-3 w-3 rotate-45" />
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             onClick={() => handlePersistBundle(group.name, group.feeIds)}
                                                             disabled={isSavingBundle}
                                                             className="p-0.5 text-zinc-300 hover:text-emerald-500 transition-colors disabled:opacity-50"
@@ -1331,129 +1376,129 @@ export default function FeeChallanGenerator() {
                                     )}
 
                                     <div className="rounded-2xl border border-zinc-200 overflow-hidden">
-                                    <table className="w-full text-left text-sm">
-                                        <thead className="bg-zinc-50 border-b border-zinc-200">
-                                            <tr>
-                                                <th className="px-5 py-3 font-bold text-zinc-600">Fee Description</th>
-                                                <th className="px-5 py-3 font-bold text-zinc-600 text-right">Original (PKR)</th>
-                                                {hasAnyDiscount && (
-                                                    <th className="px-5 py-3 font-bold text-emerald-700 text-right">After Discount</th>
-                                                )}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {processedPdfFees.map((fee, idx) => {
-                                                const originalAmt = fee.amount;
-                                                const netAmt = fee.netAmount;
-                                                const discount = fee.discount;
-                                                
-                                                return (
-                                                    <tr
-                                                        key={idx}
-                                                        draggable={!fee.isGrouped}
-                                                        onDragStart={(e) => !fee.isGrouped && onDragStart(e, studentFees.findIndex(f => f.id === fee.feeIds?.[0]))}
-                                                        onDragOver={(e) => !fee.isGrouped && onDragOver(e, studentFees.findIndex(f => f.id === fee.feeIds?.[0]))}
-                                                        onDragEnd={onDragEnd}
-                                                        className={`group transition-all ${fee.isGrouped ? "bg-zinc-50/50" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"}`}
-                                                    >
-                                                        <td className="py-4 px-6">
-                                                            <div className="flex items-center gap-3">
-                                                                {!fee.isGrouped && (
-                                                                    <>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={selectedForGrouping.includes(fee.feeIds?.[0] || -1)}
-                                                                        onChange={() => handleToggleFeeSelection(fee.feeIds?.[0] || -1)}
-                                                                        className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
-                                                                    />
-                                                                    <div className="p-1 cursor-grab active:cursor-grabbing text-zinc-300 group-hover:text-zinc-400 dark:text-zinc-600 transition-colors">
-                                                                        <GripVertical className="h-4 w-4" />
-                                                                    </div>
-                                                                    </>
-                                                                )}
-                                                                {fee.isGrouped && (
-                                                                    <div className="w-11 flex justify-center">
-                                                                        <div className="h-5 w-5 bg-primary/10 rounded flex items-center justify-center">
-                                                                            <CheckCircle2 className="h-3 w-3 text-primary" />
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
-                                                                        {fee.description}
-                                                                    </span>
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-zinc-50 border-b border-zinc-200">
+                                                <tr>
+                                                    <th className="px-5 py-3 font-bold text-zinc-600">Fee Description</th>
+                                                    <th className="px-5 py-3 font-bold text-zinc-600 text-right">Original (PKR)</th>
+                                                    {hasAnyDiscount && (
+                                                        <th className="px-5 py-3 font-bold text-emerald-700 text-right">After Discount</th>
+                                                    )}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {processedPdfFees.map((fee, idx) => {
+                                                    const originalAmt = fee.amount;
+                                                    const netAmt = fee.netAmount;
+                                                    const discount = fee.discount;
+
+                                                    return (
+                                                        <tr
+                                                            key={idx}
+                                                            draggable={!fee.isGrouped}
+                                                            onDragStart={(e) => !fee.isGrouped && onDragStart(e, studentFees.findIndex(f => f.id === fee.feeIds?.[0]))}
+                                                            onDragOver={(e) => !fee.isGrouped && onDragOver(e, studentFees.findIndex(f => f.id === fee.feeIds?.[0]))}
+                                                            onDragEnd={onDragEnd}
+                                                            className={`group transition-all ${fee.isGrouped ? "bg-zinc-50/50" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"}`}
+                                                        >
+                                                            <td className="py-4 px-6">
+                                                                <div className="flex items-center gap-3">
+                                                                    {!fee.isGrouped && (
+                                                                        <>
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={selectedForGrouping.includes(fee.feeIds?.[0] || -1)}
+                                                                                onChange={() => handleToggleFeeSelection(fee.feeIds?.[0] || -1)}
+                                                                                className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
+                                                                            />
+                                                                            <div className="p-1 cursor-grab active:cursor-grabbing text-zinc-300 group-hover:text-zinc-400 dark:text-zinc-600 transition-colors">
+                                                                                <GripVertical className="h-4 w-4" />
+                                                                            </div>
+                                                                        </>
+                                                                    )}
                                                                     {fee.isGrouped && (
-                                                                        <span className="text-[9px] font-black text-primary uppercase tracking-tighter opacity-70">
-                                                                            Compiled Group
-                                                                        </span>
+                                                                        <div className="w-11 flex justify-center">
+                                                                            <div className="h-5 w-5 bg-primary/10 rounded flex items-center justify-center">
+                                                                                <CheckCircle2 className="h-3 w-3 text-primary" />
+                                                                            </div>
+                                                                        </div>
                                                                     )}
-                                                                </div>
-                                                            </div>
-                                                            {fee.discount > 0 && (
-                                                                <div className="mt-1 ml-10 flex flex-wrap gap-1.5">
-                                                                    <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-tighter">
-                                                                        Total Discount: -{fee.discount.toLocaleString()}
-                                                                    </span>
-                                                                    {fee.discountLabel && (
-                                                                        <span className="text-[9px] font-black text-zinc-400 uppercase tracking-tighter italic whitespace-nowrap">
-                                                                            ({fee.discountLabel})
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
+                                                                            {fee.description}
                                                                         </span>
-                                                                    )}
+                                                                        {fee.isGrouped && (
+                                                                            <span className="text-[9px] font-black text-primary uppercase tracking-tighter opacity-70">
+                                                                                Compiled Group
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
+                                                                {fee.discount > 0 && (
+                                                                    <div className="mt-1 ml-10 flex flex-wrap gap-1.5">
+                                                                        <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                                                            Total Discount: -{fee.discount.toLocaleString()}
+                                                                        </span>
+                                                                        {fee.discountLabel && (
+                                                                            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-tighter italic whitespace-nowrap">
+                                                                                ({fee.discountLabel})
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            <td className="py-4 px-6 text-right">
+                                                                <span className="text-[14px] font-medium font-mono text-zinc-500">
+                                                                    {originalAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                                                                </span>
+                                                            </td>
+                                                            {hasAnyDiscount && (
+                                                                <td className="py-4 px-6 text-right">
+                                                                    <div className="flex flex-col items-end gap-0.5">
+                                                                        <span className="text-[14px] font-black text-zinc-900 dark:text-zinc-100 font-mono">
+                                                                            {netAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
                                                             )}
-                                                        </td>
-                                                        <td className="py-4 px-6 text-right">
-                                                            <span className="text-[14px] font-medium font-mono text-zinc-500">
-                                                                {originalAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                                                        </tr>
+                                                    );
+                                                })}
+                                                {applyLateFee && (
+                                                    <tr>
+                                                        <td className="px-5 py-3 font-medium text-zinc-900 font-bold uppercase text-[12px]">Late Payment Surcharge</td>
+                                                        <td className="px-5 py-3 font-bold text-rose-600 text-right font-mono text-[14px]">{lateFeeAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                                        {hasAnyDiscount && <td />}
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                            <tfoot className="bg-zinc-50 border-t border-zinc-200">
+                                                {hasAnyDiscount && (
+                                                    <tr className="border-b border-zinc-100">
+                                                        <td className="px-5 py-2 font-black tracking-wider text-zinc-500 text-[10px] uppercase opacity-70" colSpan={3}>
+                                                            Total before discount: <span className="line-through">{totalBeforeDiscount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                            &nbsp;&rarr;&nbsp;
+                                                            <span className="text-emerald-700 no-underline">
+                                                                You save: {(totalBeforeDiscount - totalFeesAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                             </span>
                                                         </td>
-                                                        {hasAnyDiscount && (
-                                                            <td className="py-4 px-6 text-right">
-                                                                <div className="flex flex-col items-end gap-0.5">
-                                                                    <span className="text-[14px] font-black text-zinc-900 dark:text-zinc-100 font-mono">
-                                                                        {netAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                                                                    </span>
-                                                                </div>
-                                                            </td>
-                                                        )}
                                                     </tr>
-                                                );
-                                            })}
-                                            {applyLateFee && (
-                                                <tr>
-                                                    <td className="px-5 py-3 font-medium text-zinc-900 font-bold uppercase text-[12px]">Late Payment Surcharge</td>
-                                                    <td className="px-5 py-3 font-bold text-rose-600 text-right font-mono text-[14px]">{lateFeeAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                                                    {hasAnyDiscount && <td />}
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                        <tfoot className="bg-zinc-50 border-t border-zinc-200">
-                                            {hasAnyDiscount && (
+                                                )}
                                                 <tr className="border-b border-zinc-100">
-                                                    <td className="px-5 py-2 font-black tracking-wider text-zinc-500 text-[10px] uppercase opacity-70" colSpan={3}>
-                                                        Total before discount: <span className="line-through">{totalBeforeDiscount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                                        &nbsp;&rarr;&nbsp;
-                                                        <span className="text-emerald-700 no-underline">
-                                                            You save: {(totalBeforeDiscount - totalFeesAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                        </span>
+                                                    <td className="px-5 py-3 font-black tracking-wider text-zinc-900 text-[10px] uppercase opacity-70" colSpan={hasAnyDiscount ? 2 : 1}>NET BEFORE DUE DATE</td>
+                                                    <td className="px-5 py-3 font-black text-emerald-600 text-right text-sm">
+                                                        {totalFeesAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                     </td>
                                                 </tr>
-                                            )}
-                                            <tr className="border-b border-zinc-100">
-                                                <td className="px-5 py-3 font-black tracking-wider text-zinc-900 text-[10px] uppercase opacity-70" colSpan={hasAnyDiscount ? 2 : 1}>NET BEFORE DUE DATE</td>
-                                                <td className="px-5 py-3 font-black text-emerald-600 text-right text-sm">
-                                                    {totalFeesAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="px-5 py-4 font-black tracking-wider text-zinc-900 text-[11px] uppercase" colSpan={hasAnyDiscount ? 2 : 1}>NET AFTER DUE DATE</td>
-                                                <td className="px-5 py-4 font-black text-primary text-right text-base underline decoration-primary/30 underline-offset-4">
-                                                    {(totalFeesAmount + (applyLateFee ? lateFeeAmount : 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                </td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
+                                                <tr>
+                                                    <td className="px-5 py-4 font-black tracking-wider text-zinc-900 text-[11px] uppercase" colSpan={hasAnyDiscount ? 2 : 1}>NET AFTER DUE DATE</td>
+                                                    <td className="px-5 py-4 font-black text-primary text-right text-base underline decoration-primary/30 underline-offset-4">
+                                                        {(totalFeesAmount + (applyLateFee ? lateFeeAmount : 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
                                 </div>
                             ) : student ? (
                                 <div className="py-10 flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50">
@@ -1527,8 +1572,8 @@ export default function FeeChallanGenerator() {
                                                         iban: iban
                                                     }
                                                 }}
-                                                fees={pdfFees.map(f => ({ 
-                                                    description: f.description, 
+                                                fees={pdfFees.map(f => ({
+                                                    description: f.description,
                                                     amount: showDiscounts ? f.amount : f.netAmount,
                                                     netAmount: f.netAmount,
                                                     discount: showDiscounts ? f.discount : 0,
