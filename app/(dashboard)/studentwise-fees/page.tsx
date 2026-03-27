@@ -40,6 +40,7 @@ interface SpreadsheetRow {
     target_month: number; // The backing target month (numerical)
     amount: string;
     originalAmount: string; // The original template amount from class-wise schedule
+    fee_date?: string;    // Optional exact date (YYYY-MM-DD) for multi-voucher-per-month
     // UI state
     isGroupStart?: boolean;
     groupSize?: number;
@@ -65,7 +66,7 @@ function calendarYear(academicYearStart: number, monthNum: number): number {
     return monthNum >= 8 ? academicYearStart : academicYearStart + 1;
 }
 
-const COLS = ["Select", "Actions", "#", "Fee Type", "Frequency", "Month", "Period", "Amount"] as const;
+const COLS = ["Select", "Actions", "#", "Fee Type", "Frequency", "Month", "Period", "Fee Date", "Amount"] as const;
 const COL_SELECT = 0;
 const COL_ACTIONS = 1;
 const COL_NUM = 2;
@@ -73,7 +74,8 @@ const COL_FEE_TYPE = 3;
 const COL_FREQ = 4;
 const COL_MONTH = 5;
 const COL_PERIOD = 6;
-const COL_AMOUNT = 7;
+const COL_FEE_DATE = 7;
+const COL_AMOUNT = 8;
 
 function sortMonths(months: unknown): string[] {
     let arr = months;
@@ -329,6 +331,7 @@ function StudentwiseFeeEditor() {
                                 amount: override.amount?.toString() || override.amount_before_discount?.toString() || row.amount,
                                 originalAmount: override.amount_before_discount?.toString() || row.originalAmount,
                                 month: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === override.month) || row.month,
+                                fee_date: override.fee_date ? new Date(override.fee_date).toISOString().split('T')[0] : undefined,
                                 bundle_id: override.bundle_id,
                                 bundle_name: override.student_fee_bundles?.bundle_name
                             };
@@ -351,6 +354,7 @@ function StudentwiseFeeEditor() {
                             target_month: sf.target_month,
                             amount: sf.amount?.toString() || sf.amount_before_discount?.toString() || "0",
                             originalAmount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
+                            fee_date: sf.fee_date ? new Date(sf.fee_date).toISOString().split('T')[0] : undefined,
                             bundle_id: sf.bundle_id,
                             bundle_name: sf.student_fee_bundles?.bundle_name
                         });
@@ -499,6 +503,7 @@ function StudentwiseFeeEditor() {
                     amount: parseFloat(row.amount || "0"),
                     amount_before_discount: parseFloat(row.originalAmount || row.amount || "0"),
                     academic_year: selectedYear,
+                    ...(row.fee_date ? { fee_date: row.fee_date } : {}),
                 };
             });
 
@@ -1033,6 +1038,10 @@ function StudentwiseFeeEditor() {
                                     <th className="w-24 md:w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Frequency</th>
                                     <th className="w-24 md:w-32 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month</th>
                                     <th className="w-28 md:w-40 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Period</th>
+                                    <th className="w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-primary/70 uppercase tracking-widest">
+                                        Fee Date
+                                        <span className="ml-1 text-[8px] font-bold bg-primary/10 text-primary px-1 py-0.5 rounded normal-case tracking-normal">multi-voucher</span>
+                                    </th>
                                     <th className="min-w-[120px] border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount (Rs.)</th>
                                 </tr>
                             </thead>
@@ -1159,6 +1168,19 @@ function StudentwiseFeeEditor() {
                                                     <option value="—">—</option>
                                                 </select>
                                                 <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-300 pointer-events-none" />
+                                            </td>
+
+                                            {/* Fee Date (optional, for multi-voucher-per-month) */}
+                                            <td data-row={rIdx} data-col={COL_FEE_DATE} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FEE_DATE) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
+                                                <input
+                                                    data-row={rIdx} data-col={COL_FEE_DATE}
+                                                    type="date"
+                                                    value={row.fee_date || ""}
+                                                    onChange={(e) => updateRow(rIdx, "fee_date", e.target.value || undefined)}
+                                                    onFocus={() => setActiveCell({ row: rIdx, col: COL_FEE_DATE })}
+                                                    className={`w-full h-10 px-3 outline-none bg-transparent text-[12px] font-mono transition-colors
+                                                        ${row.fee_date ? "text-primary font-semibold" : "text-zinc-300"}`}
+                                                />
                                             </td>
 
                                             {/* Amount Input */}

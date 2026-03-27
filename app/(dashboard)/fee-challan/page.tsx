@@ -41,6 +41,7 @@ import { pdf } from "@react-pdf/renderer";
 import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
 import { bankAccountsService, BankAccount } from "@/lib/bank-accounts.service";
 import { groupFees, MONTHS, MONTH_TO_NUM, getMonthYearLabel } from "@/lib/fee-utils";
+import JSZip from "jszip";
 
 
 // --- Types ---
@@ -118,6 +119,8 @@ export default function FeeChallanGenerator() {
     const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
     const [dueDate, setDueDate] = useState("");
     const [validityDate, setValidityDate] = useState("");
+    // fee_date: exact date for this voucher (enables multiple vouchers per student per month)
+    const [feeDate, setFeeDate] = useState(new Date().toISOString().split('T')[0]);
 
     // --- Bank States ---
     const [banks, setBanks] = useState<BankAccount[]>([]);
@@ -157,6 +160,15 @@ export default function FeeChallanGenerator() {
     const [showDiscounts, setShowDiscounts] = useState(true);
     const [isSavingBundle, setIsSavingBundle] = useState(false);
 
+    // --- Bulk Voucher States ---
+    const [bulkCampusId, setBulkCampusId] = useState<string>("");
+    const [bulkClassId, setBulkClassId] = useState<string>("");
+    const [bulkSectionId, setBulkSectionId] = useState<string>("");
+    const [bulkPreview, setBulkPreview] = useState<any>(null);
+    const [bulkResult, setBulkResult] = useState<any>(null);
+    const [isBulkPreviewing, setIsBulkPreviewing] = useState(false);
+    const [isBulkGenerating, setIsBulkGenerating] = useState(false);
+
     // Reset saved state when any voucher information changes
     useEffect(() => {
         if (student) {
@@ -167,6 +179,7 @@ export default function FeeChallanGenerator() {
         issueDate,
         dueDate,
         validityDate,
+        feeDate,
         applyLateFee,
         lateFeeAmount,
         selectedBank,
@@ -229,6 +242,11 @@ export default function FeeChallanGenerator() {
         }
     }, [student, month, academicYear]);
 
+    useEffect(() => {
+        setBulkPreview(null);
+        setBulkResult(null);
+    }, [bulkCampusId, bulkClassId, bulkSectionId, month, academicYear, feeDate, issueDate, dueDate, validityDate, selectedBank, applyLateFee, lateFeeAmount]);
+
     const fetchStudentFees = async (cc: number, selectedMonth: string, selectedYear: string) => {
         setIsFetchingFees(true);
         try {
@@ -274,6 +292,203 @@ export default function FeeChallanGenerator() {
         setBranchCode(bank.branch_code || "");
         setBankAddress(bank.bank_address || "");
         setIban(bank.iban || "");
+    };
+
+    const filteredSections = useMemo(() => {
+        if (!bulkClassId) return sections;
+        const classScoped = sections.filter((s: any) => {
+            const sectionClassId = s.class_id ?? s.classId ?? s.classes?.id ?? null;
+            return Number(sectionClassId) === Number(bulkClassId);
+        });
+        // Current sections endpoint may return global sections without class mapping.
+        // In that case, keep showing all sections instead of an empty list.
+        return classScoped.length > 0 ? classScoped : sections;
+    }, [sections, bulkClassId]);
+
+    const buildBulkPreviewPayload = () => {
+        if (!selectedBank) return null;
+        if (!bulkCampusId) return null;
+
+        return {
+            campus_id: Number(bulkCampusId),
+            class_id: bulkClassId ? Number(bulkClassId) : undefined,
+            section_id: bulkSectionId ? Number(bulkSectionId) : undefined,
+            academic_year: academicYear,
+            month: MONTH_TO_NUM[month] || 1,
+            fee_date: feeDate || undefined,
+            issue_date: issueDate,
+            due_date: dueDate,
+            validity_date: validityDate || undefined,
+            bank_account_id: selectedBank.id,
+        };
+    };
+
+    const buildBulkCreatePayload = () => {
+        const base = buildBulkPreviewPayload();
+        if (!base) return null;
+
+        return {
+            ...base,
+            late_fee_charge: applyLateFee,
+            late_fee_amount: applyLateFee ? lateFeeAmount : 0,
+        };
+    };
+
+    const handlePreviewBulk = async () => {
+        const payload = buildBulkPreviewPayload();
+        if (!payload) {
+            toast.error("Please select campus and bank account first.");
+            return;
+        }
+
+        setIsBulkPreviewing(true);
+        setBulkResult(null);
+        try {
+            const { data } = await api.post("/v1/vouchers/bulk/preview", payload);
+            setBulkPreview(data?.data || null);
+            const eligible = Number(data?.data?.eligible_students || 0);
+            toast.success(`Preview ready. ${eligible} student(s) eligible.`);
+        } catch (err: any) {
+            console.error(err);
+            toast.error(err?.response?.data?.message || "Failed to preview bulk vouchers.");
+        } finally {
+            setIsBulkPreviewing(false);
+        }
+    };
+
+    const handleGenerateBulk = async () => {
+        const payload = buildBulkCreatePayload();
+        if (!payload) {
+            toast.error("Please select campus and bank account first.");
+            return;
+        }
+        if (!bulkPreview) {
+            toast.error("Please run preview before generating.");
+            return;
+        }
+
+        setIsBulkGenerating(true);
+        try {
+            const { data } = await api.post("/v1/vouchers/bulk/create", payload);
+            const summary = data?.data || null;
+            setBulkResult(summary);
+            toast.success(`Bulk generation completed. ${summary?.generated_count || 0} voucher(s) generated.`);
+            await downloadBulkVoucherZip(summary?.generated_voucher_ids || []);
+        } catch (err: any) {
+            console.error(err);
+            toast.error(err?.response?.data?.message || "Failed to generate bulk vouchers.");
+        } finally {
+            setIsBulkGenerating(false);
+        }
+    };
+
+    const downloadBulkVoucherZip = async (voucherIds: number[]) => {
+        if (!voucherIds || voucherIds.length === 0) {
+            toast.error("No vouchers available for ZIP download.");
+            return;
+        }
+
+        const zip = new JSZip();
+        let addedCount = 0;
+        const generatedByName = (user as any)?.full_name || (user as any)?.username || "SYSTEM USER";
+        const generatedAt = new Date().toLocaleString();
+
+        for (const voucherId of voucherIds) {
+            try {
+                const { data } = await api.get(`/v1/vouchers/${voucherId}`);
+                const voucher = data?.data;
+                if (!voucher) continue;
+
+                const groupedVoucherFees = groupFees(
+                    voucher.voucher_heads || [],
+                    {},
+                    { groupTuitionFees: true, isVoucherHeads: true }
+                );
+
+                const feesForPdf = groupedVoucherFees.map((f: any) => ({
+                    description: f.description,
+                    amount: Number(f.amount || 0),
+                    netAmount: Number(f.netAmount || f.amount || 0),
+                    discount: Number(f.discount || 0),
+                    discountLabel: f.discountLabel,
+                }));
+
+                const totalAmount = Number(voucher.total_payable_before_due || 0);
+                const voucherLateFee = Math.max(
+                    0,
+                    Number(voucher.total_payable_after_due || 0) - Number(voucher.total_payable_before_due || 0)
+                );
+                const issue = voucher.issue_date ? String(voucher.issue_date).split("T")[0] : issueDate;
+                const due = voucher.due_date ? String(voucher.due_date).split("T")[0] : dueDate;
+                const valid = voucher.validity_date ? String(voucher.validity_date).split("T")[0] : (validityDate || "N/A");
+                const monthLabel = getMonthYearLabel(Number(voucher.month || 0), voucher.academic_year || academicYear) || month;
+
+                const blob = await pdf(
+                    <FeeChallanPDF
+                        student={{
+                            cc: voucher.students?.cc || voucher.student_id,
+                            student_full_name: voucher.students?.full_name || "N/A",
+                            gr_number: voucher.students?.gr_number || "N/A",
+                            campus: voucher.campuses?.campus_name || "Main Campus",
+                            class_id: voucher.class_id,
+                            section_id: voucher.section_id,
+                            className: voucher.classes?.description || "N/A",
+                            sectionName: voucher.sections?.description || "N/A",
+                            grade_and_section: "",
+                            gender: undefined,
+                            father_name: undefined,
+                        }}
+                        details={{
+                            month: monthLabel,
+                            academicYear: voucher.academic_year || academicYear,
+                            issueDate: issue,
+                            dueDate: due,
+                            validityDate: valid,
+                            applyLateFee: Boolean(voucher.late_fee_charge),
+                            lateFeeAmount: voucherLateFee,
+                            voucherNumber: `VCH-${voucher.id}`,
+                            generatedBy: {
+                                fullName: generatedByName,
+                                timestampStr: generatedAt,
+                            },
+                            bank: {
+                                name: voucher.bank_accounts?.bank_name || selectedBank?.bank_name || "N/A",
+                                title: voucher.bank_accounts?.account_title || accTitle || "N/A",
+                                account: voucher.bank_accounts?.account_number || accNo || "N/A",
+                                branch: voucher.bank_accounts?.branch_code || branchCode || "N/A",
+                                address: voucher.bank_accounts?.bank_address || bankAddress || "N/A",
+                                iban: voucher.bank_accounts?.iban || iban || "",
+                            }
+                        }}
+                        fees={feesForPdf}
+                        totalAmount={totalAmount}
+                        siblings={[]}
+                    />
+                ).toBlob();
+
+                const cc = voucher.students?.cc || voucher.student_id || voucher.id;
+                zip.file(`Challan_${cc}_${voucher.id}.pdf`, blob);
+                addedCount++;
+            } catch (error) {
+                console.error(`Failed to build PDF for voucher ${voucherId}`, error);
+            }
+        }
+
+        if (addedCount === 0) {
+            toast.error("Could not create PDFs for ZIP download.");
+            return;
+        }
+
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const zipUrl = URL.createObjectURL(zipBlob);
+        const link = document.createElement("a");
+        link.href = zipUrl;
+        link.download = `bulk-challans-${Date.now()}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(zipUrl);
+        toast.success(`ZIP downloaded with ${addedCount} challan PDF(s).`);
     };
 
     // Default dates logic
@@ -517,6 +732,7 @@ export default function FeeChallanGenerator() {
             if (applyLateFee) formData.append('late_fee_amount', lateFeeAmount.toString());
             formData.append('academic_year', academicYear);
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
+            if (feeDate) formData.append('fee_date', feeDate);
             formData.append('precedence', '1');
 
             // Send fee lines as a JSON string
@@ -929,6 +1145,23 @@ export default function FeeChallanGenerator() {
                                         className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
                                     />
                                 </div>
+                            </div>
+
+                            {/* Fee Date */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                                    Fee Date
+                                    <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-md">Used for multi-voucher per month</span>
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="date"
+                                        value={feeDate}
+                                        onChange={(e) => setFeeDate(e.target.value)}
+                                        className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-primary/20 dark:border-primary/30 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all text-primary"
+                                    />
+                                </div>
+                                <p className="text-[10px] text-zinc-400 ml-1">Fees with this exact date will be loaded. Same date = 1 voucher; different dates = separate vouchers.</p>
                             </div>
 
                             {/* Due Date */}

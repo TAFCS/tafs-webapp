@@ -70,6 +70,7 @@ export interface VoucherItem {
     late_fee_charge: boolean;
     academic_year: string | null;
     month: number | null;
+    fee_date: string | null;
     total_payable_before_due?: string;
     total_payable_after_due?: string;
     late_fee_deposited?: string;
@@ -89,6 +90,8 @@ export interface VoucherFilters {
     gr?: string;
     id?: number;
     status?: string;
+    date_from?: string;
+    date_to?: string;
 }
 
 export interface VouchersState {
@@ -119,6 +122,8 @@ export const fetchVouchers = createAsyncThunk(
             if (filters.gr) params.gr = filters.gr;
             if (filters.status) params.status = filters.status;
             if (filters.id) params.id = filters.id;
+            if (filters.date_from) params.date_from = filters.date_from;
+            if (filters.date_to) params.date_to = filters.date_to;
 
             const response = await api.get('/v1/vouchers', { params });
             const data = response.data?.data;

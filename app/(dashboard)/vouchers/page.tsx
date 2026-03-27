@@ -5,7 +5,7 @@ import {
     Search, Loader2, AlertCircle, FileText, ChevronDown, X,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Building2, GraduationCap, Users, Hash, CreditCard, SlidersHorizontal,
-    ChevronLeft, ChevronRight, Download
+    ChevronLeft, ChevronRight, Download, Calendar
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -373,6 +373,8 @@ export default function VouchersPage() {
     const [ccInput, setCcInput] = useState("");
     const [grInput, setGrInput] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
     const [activeFiltersApplied, setActiveFiltersApplied] = useState<VoucherFilters>({});
 
     // Table state
@@ -394,12 +396,14 @@ export default function VouchersPage() {
         if (classId !== "") f.class_id = classId as number;
         if (sectionId !== "") f.section_id = sectionId as number;
         if (statusFilter) f.status = statusFilter;
+        if (dateFrom) f.date_from = dateFrom;
+        if (dateTo) f.date_to = dateTo;
 
         const ccNum = parseInt(ccInput.replace(/\D/g, ""));
         if (!isNaN(ccNum) && ccNum > 0) f.cc = ccNum;
         if (grInput.trim()) f.gr = grInput.trim();
         return f;
-    }, [campusId, classId, sectionId, statusFilter, ccInput, grInput]);
+    }, [campusId, classId, sectionId, statusFilter, ccInput, grInput, dateFrom, dateTo]);
 
     const handleApplyFilters = useCallback(() => {
         const filters = buildFilters();
@@ -415,6 +419,8 @@ export default function VouchersPage() {
         setCcInput("");
         setGrInput("");
         setStatusFilter("");
+        setDateFrom("");
+        setDateTo("");
         setActiveFiltersApplied({});
         setPage(1);
         dispatch(fetchVouchers({}));
@@ -612,6 +618,54 @@ export default function VouchersPage() {
                                 {grInput && (
                                     <button
                                         onClick={() => setGrInput("")}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Date From */}
+                        <div className="flex flex-col gap-1.5">
+                            <label htmlFor="filter-date-from" className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                                <Calendar className="h-3 w-3" /> Fee Date From
+                            </label>
+                            <div className="relative">
+                                <input
+                                    id="filter-date-from"
+                                    type="date"
+                                    value={dateFrom}
+                                    onChange={e => setDateFrom(e.target.value)}
+                                    className="w-full h-11 px-4 pr-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all text-zinc-700 dark:text-zinc-300"
+                                />
+                                {dateFrom && (
+                                    <button
+                                        onClick={() => setDateFrom("")}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Date To */}
+                        <div className="flex flex-col gap-1.5">
+                            <label htmlFor="filter-date-to" className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                                <Calendar className="h-3 w-3" /> Fee Date To
+                            </label>
+                            <div className="relative">
+                                <input
+                                    id="filter-date-to"
+                                    type="date"
+                                    value={dateTo}
+                                    onChange={e => setDateTo(e.target.value)}
+                                    className="w-full h-11 px-4 pr-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all text-zinc-700 dark:text-zinc-300"
+                                />
+                                {dateTo && (
+                                    <button
+                                        onClick={() => setDateTo("")}
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
                                     >
                                         <X className="h-4 w-4" />
