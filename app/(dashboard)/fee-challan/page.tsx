@@ -23,8 +23,13 @@ import {
     GripVertical,
     Plus,
     Trash2,
-    PercentCircle
+    PercentCircle,
+    FileSearch,
+    Info,
+    Lock as LockIcon,
+    Link as LinkIcon
 } from "lucide-react";
+
 import { useRef } from "react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
@@ -170,6 +175,7 @@ export default function FeeChallanGenerator() {
     const [bulkResult, setBulkResult] = useState<any>(null);
     const [isBulkPreviewing, setIsBulkPreviewing] = useState(false);
     const [isBulkGenerating, setIsBulkGenerating] = useState(false);
+    const [currentStep, setCurrentStep] = useState(1);
 
     // Reset saved state when any voucher information changes
     useEffect(() => {
@@ -892,10 +898,10 @@ export default function FeeChallanGenerator() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Left Column: Student Search & Selection */}
                 <div className="lg:col-span-5 space-y-6">
-                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm overflow-hidden p-8">
-                        <div className="flex items-center gap-3 mb-8">
-                            <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                                <UserSearch className="h-5 w-5 text-primary" />
+                    <div className={`bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] p-8 space-y-8 shadow-sm transition-all duration-500 ${currentStep === 1 ? "opacity-100 scale-100" : "opacity-40 grayscale pointer-events-none scale-[0.98]"}`}>
+                        <div className="flex items-center gap-4 mb-2">
+                            <div className="h-12 w-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                                <UserSearch className="h-6 w-6" />
                             </div>
                             <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">1. Select Student</h2>
                         </div>
@@ -1091,87 +1097,74 @@ export default function FeeChallanGenerator() {
                 </div>
 
                 {/* Right Column: Challan Details Form */}
-                <div className="lg:col-span-7">
-                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm overflow-hidden">
-                        <div className="p-8 border-b border-zinc-100">
+                <div className="lg:col-span-7 space-y-8">
+                    {/* STEP 2: DEFINE PARAMETERS */}
+                    <div className={`bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm overflow-hidden transition-all duration-500 ${currentStep === 2 ? "opacity-100 translate-y-0" : "opacity-40 pointer-events-none translate-y-4 grayscale-[0.5]"}`}>
+                        <div className="p-8 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                                    <SettingsIcon className="h-5 w-5 text-primary" />
+                                <div className={`h-10 w-10 ${currentStep === 2 ? "bg-primary/10" : "bg-zinc-100"} rounded-xl flex items-center justify-center transition-colors`}>
+                                    <SettingsIcon className={`h-5 w-5 ${currentStep === 2 ? "text-primary" : "text-zinc-400"}`} />
                                 </div>
-                                <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">2. Define Parameters</h2>
+                                <div>
+                                    <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">2. Define Parameters</h2>
+                                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mt-0.5">Configure voucher constraints and banking</p>
+                                </div>
                             </div>
+                            {currentStep > 2 && (
+                                <button
+                                    onClick={() => setCurrentStep(2)}
+                                    className="px-4 py-2 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-200 transition-all"
+                                >
+                                    Edit Settings
+                                </button>
+                            )}
                         </div>
 
-                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                            {/* Academic Year Selection */}
-                            <YearPicker />
-
-                            {/* Month Select */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Fee Month</label>
-                                <div className="relative">
-                                    <select
-                                        value={month}
-                                        onChange={(e) => setMonth(e.target.value)}
-                                        disabled={!!dateFrom || !!dateTo}
-                                        className="w-full h-12 pl-5 pr-12 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all appearance-none cursor-pointer disabled:opacity-50"
-                                    >
-                                        {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-                                    </select>
-                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                        <div className="p-8 space-y-10">
+                            {/* Date Range & Filtering */}
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="h-5 w-5 bg-primary/10 rounded-lg flex items-center justify-center">
+                                        <Calendar className="h-3 w-3 text-primary" />
+                                    </div>
+                                    <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Fee Date Range</h3>
                                 </div>
-                                {(dateFrom || dateTo) && (
-                                    <p className="text-[9px] text-primary/60 ml-1 font-bold italic animate-in fade-in">Filtered by Date Range</p>
-                                )}
-                            </div>
-
-                            {/* Date From */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Fee Date From</label>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        value={dateFrom}
-                                        onChange={(e) => setDateFrom(e.target.value)}
-                                        className={`w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all ${dateFrom ? "border-primary/40 text-primary" : "border-zinc-200 dark:border-zinc-800"}`}
-                                    />
-                                    {dateFrom && (
-                                        <button
-                                            onClick={() => setDateFrom("")}
-                                            className="absolute right-10 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </button>
-                                    )}
-                                    <Calendar className={`absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 ${dateFrom ? "text-primary/40" : "text-zinc-400"}`} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Start Date</label>
+                                        <div className="relative">
+                                            <input
+                                                type="date"
+                                                value={dateFrom}
+                                                onChange={(e) => setDateFrom(e.target.value)}
+                                                className={`w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all ${dateFrom ? "border-primary/40 text-primary" : "border-zinc-200 dark:border-zinc-800"}`}
+                                            />
+                                            <Calendar className={`absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 ${dateFrom ? "text-primary/40" : "text-zinc-400"}`} />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">End Date</label>
+                                        <div className="relative">
+                                            <input
+                                                type="date"
+                                                value={dateTo}
+                                                onChange={(e) => setDateTo(e.target.value)}
+                                                className={`w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all ${dateTo ? "border-primary/40 text-primary" : "border-zinc-200 dark:border-zinc-800"}`}
+                                            />
+                                            <Calendar className={`absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 ${dateTo ? "text-primary/40" : "text-zinc-400"}`} />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Date To */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Fee Date To</label>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        value={dateTo}
-                                        onChange={(e) => setDateTo(e.target.value)}
-                                        className={`w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all ${dateTo ? "border-primary/40 text-primary" : "border-zinc-200 dark:border-zinc-800"}`}
-                                    />
-                                    {dateTo && (
-                                        <button
-                                            onClick={() => setDateTo("")}
-                                            className="absolute right-10 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </button>
-                                    )}
-                                    <Calendar className={`absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 ${dateTo ? "text-primary/40" : "text-zinc-400"}`} />
+                            {/* Collection Bank */}
+                            <div className="space-y-6 pt-8 border-t border-zinc-100 dark:border-zinc-900">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="h-5 w-5 bg-primary/10 rounded-lg flex items-center justify-center">
+                                        <Building2 className="h-3 w-3 text-primary" />
+                                    </div>
+                                    <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Collection Bank</h3>
                                 </div>
-                            </div>
-
-                            {/* Bank Select */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Collection Bank</label>
                                 <div className="relative">
                                     <select
                                         value={selectedBank?.id ?? ""}
@@ -1187,7 +1180,7 @@ export default function FeeChallanGenerator() {
                                         ) : banks.length === 0 ? (
                                             <option>No banks configured</option>
                                         ) : (
-                                            banks.map(b => <option key={b.id} value={b.id}>{b.bank_name}</option>)
+                                            banks.map(b => <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number}</option>)
                                         )}
                                     </select>
                                     <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
@@ -1195,215 +1188,229 @@ export default function FeeChallanGenerator() {
                                 </div>
                             </div>
 
-
-                            {/* Issue Date */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Date of Issue</label>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        value={issueDate}
-                                        onChange={(e) => setIssueDate(e.target.value)}
-                                        className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
-                                    />
+                            {/* Voucher Timeline */}
+                            <div className="space-y-6 pt-8 border-t border-zinc-100 dark:border-zinc-900">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="h-5 w-5 bg-primary/10 rounded-lg flex items-center justify-center">
+                                        <FileText className="h-3 w-3 text-primary" />
+                                    </div>
+                                    <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Voucher Timeline</h3>
                                 </div>
-                            </div>
-
-                            {/* Due Date */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Due Date</label>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        value={dueDate}
-                                        onChange={(e) => setDueDate(e.target.value)}
-                                        className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Validity Date */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Valid Till</label>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        value={validityDate}
-                                        onChange={(e) => setValidityDate(e.target.value)}
-                                        className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all text-rose-600 focus:text-zinc-900 dark:text-zinc-100"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Late Fee Toggle */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Surcharge (Late Fee)</label>
-                                <div className="flex h-12 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-2xl">
-                                    <button
-                                        onClick={() => setApplyLateFee(true)}
-                                        className={`flex-1 flex items-center justify-center gap-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${applyLateFee ? "bg-white dark:bg-zinc-950 text-rose-600 shadow-sm" : "text-zinc-400"}`}
-                                    >
-                                        YES
-                                    </button>
-                                    <button
-                                        onClick={() => setApplyLateFee(false)}
-                                        className={`flex-1 flex items-center justify-center gap-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${!applyLateFee ? "bg-white dark:bg-zinc-950 text-emerald-600 shadow-sm" : "text-zinc-400"}`}
-                                    >
-                                        NO
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Late Fee Amount Input */}
-                            {applyLateFee && (
-                                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Surcharge Amount</label>
-                                    <div className="relative">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Date of Issue</label>
                                         <input
-                                            type="number"
-                                            value={lateFeeAmount}
-                                            onChange={(e) => setLateFeeAmount(Number(e.target.value))}
-                                            placeholder="Enter amount (e.g. 1000)"
-                                            className="w-full h-12 pl-12 pr-5 bg-zinc-50 dark:bg-zinc-900 border border-rose-100 dark:border-rose-900/30 rounded-2xl text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-rose-500/5 focus:border-rose-500 transition-all text-rose-600"
+                                            type="date"
+                                            value={issueDate}
+                                            onChange={(e) => setIssueDate(e.target.value)}
+                                            className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:border-primary transition-all"
                                         />
-                                        <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-rose-400 pointer-events-none" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Due Date</label>
+                                        <input
+                                            type="date"
+                                            value={dueDate}
+                                            onChange={(e) => setDueDate(e.target.value)}
+                                            className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:border-primary transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Valid Till</label>
+                                        <input
+                                            type="date"
+                                            value={validityDate}
+                                            onChange={(e) => setValidityDate(e.target.value)}
+                                            className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:outline-none focus:border-primary transition-all text-rose-600 focus:text-zinc-900"
+                                        />
                                     </div>
                                 </div>
-                            )}
+                            </div>
 
-                            {/* Show Discounts Toggle */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Show Discounts on PDF</label>
-                                <div className="flex h-12 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-2xl">
-                                    <button
-                                        onClick={() => setShowDiscounts(true)}
-                                        className={`flex-1 flex items-center justify-center gap-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${showDiscounts ? "bg-white dark:bg-zinc-950 text-primary shadow-sm" : "text-zinc-400"}`}
-                                    >
-                                        YES
-                                    </button>
-                                    <button
-                                        onClick={() => setShowDiscounts(false)}
-                                        className={`flex-1 flex items-center justify-center gap-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${!showDiscounts ? "bg-white dark:bg-zinc-950 text-zinc-600 shadow-sm" : "text-zinc-400"}`}
-                                    >
-                                        NO
-                                    </button>
+                            {/* Surcharge & Options */}
+                            <div className="pt-8 border-t border-zinc-100 dark:border-zinc-900 grid grid-cols-1 md:grid-cols-2 gap-10">
+                                {/* Surcharge */}
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <div className="h-5 w-5 bg-rose-50 rounded-lg flex items-center justify-center">
+                                            <AlertCircle className="h-3 w-3 text-rose-500" />
+                                        </div>
+                                        <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Late Surcharge</h3>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div className="flex h-11 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl">
+                                            <button
+                                                onClick={() => setApplyLateFee(true)}
+                                                className={`flex-1 flex items-center justify-center gap-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${applyLateFee ? "bg-white dark:bg-zinc-950 text-rose-600 shadow-sm" : "text-zinc-400"}`}
+                                            >
+                                                Apply
+                                            </button>
+                                            <button
+                                                onClick={() => setApplyLateFee(false)}
+                                                className={`flex-1 flex items-center justify-center gap-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${!applyLateFee ? "bg-white dark:bg-zinc-950 text-zinc-600 shadow-sm" : "text-zinc-400"}`}
+                                            >
+                                                None
+                                            </button>
+                                        </div>
+                                        {applyLateFee && (
+                                            <div className="relative animate-in fade-in slide-in-from-top-1 duration-200">
+                                                <input
+                                                    type="number"
+                                                    value={lateFeeAmount}
+                                                    onChange={(e) => setLateFeeAmount(Number(e.target.value))}
+                                                    placeholder="Amount"
+                                                    className="w-full h-11 pl-10 pr-4 bg-zinc-50 dark:bg-zinc-900 border border-rose-100 dark:border-rose-900/30 rounded-xl text-[12px] font-bold focus:outline-none focus:border-rose-500 transition-all text-rose-600"
+                                                />
+                                                <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-rose-400" />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Configuration */}
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <div className="h-5 w-5 bg-primary/10 rounded-lg flex items-center justify-center">
+                                            <SettingsIcon className="h-3 w-3 text-primary" />
+                                        </div>
+                                        <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Configuration</h3>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-900 rounded-[20px] border border-zinc-100 dark:border-zinc-800">
+                                            <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400">Show Discounts</span>
+                                            <button
+                                                onClick={() => setShowDiscounts(!showDiscounts)}
+                                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all ${showDiscounts ? 'bg-primary' : 'bg-zinc-300'}`}
+                                            >
+                                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${showDiscounts ? 'translate-x-[1.25rem]' : 'translate-x-0.5'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* 3. Applicable Fees Display */}
-                        <div className="p-8 border-t border-zinc-100">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                                    <FileText className="h-5 w-5 text-primary" />
+                        {/* Navigation for Step 2 */}
+                        <div className="p-8 bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-900 flex justify-between">
+                            <button
+                                onClick={() => setCurrentStep(1)}
+                                className="h-12 px-8 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-zinc-50 transition-all flex items-center gap-3"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                                Back
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (!selectedBank) {
+                                        toast.error("Please select a bank account.");
+                                        return;
+                                    }
+                                    setCurrentStep(3);
+                                }}
+                                className="h-12 px-8 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-zinc-800 transition-all flex items-center gap-3 shadow-lg shadow-zinc-200"
+                            >
+                                Preview Fees
+                                <ArrowRight className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* STEP 3: REVIEW & GENERATE */}
+                    <div className={`transition-all duration-500 ${currentStep === 3 ? "opacity-100 translate-y-0" : "opacity-0 pointer-events-none translate-y-8 absolute inset-x-0"}`}>
+                        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-xl overflow-hidden min-h-[600px] flex flex-col">
+                            {/* Step Header */}
+                            <div className="p-8 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/30 dark:bg-zinc-900/10">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center">
+                                        <FileText className="h-5 w-5 text-emerald-600" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">3. Review & Generate</h2>
+                                        <p className="text-[10px] text-zinc-400 font-black uppercase tracking-[0.15em] mt-0.5 opacity-70">Final verification & voucher generation</p>
+                                    </div>
                                 </div>
-                                <div className="flex flex-col">
-                                    <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">3. Applicable Fees</h2>
-                                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-[0.15em] mt-0.5 opacity-70">
-                                        Drag rows to reorder • Top fees are settled first
-                                    </p>
-                                </div>
-                                <div className="ml-auto flex items-center gap-3 bg-zinc-50 dark:bg-zinc-900 px-4 py-2 rounded-[20px] border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                                    <div className="flex flex-col items-end">
-                                        <span className="text-[10px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Consolidated View</span>
-                                        <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-tighter">Auto-group tuition months</span>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex flex-col items-end mr-2">
+                                        <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-1">Fee Consolidation</span>
+                                        <button 
+                                            onClick={() => setGroupTuitionFees(!groupTuitionFees)}
+                                            className={`h-6 w-10 rounded-full transition-all relative ${groupTuitionFees ? 'bg-primary shadow-sm' : 'bg-zinc-200'}`}
+                                        >
+                                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${groupTuitionFees ? 'left-5' : 'left-1'}`} />
+                                        </button>
                                     </div>
                                     <button
-                                        onClick={() => setGroupTuitionFees(!groupTuitionFees)}
-                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 ${groupTuitionFees ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-zinc-300'}`}
+                                        onClick={() => setCurrentStep(2)}
+                                        className="p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-400 hover:text-primary transition-all group"
+                                        title="Back to Parameters"
                                     >
-                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${groupTuitionFees ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        <ChevronLeft className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
                                     </button>
                                 </div>
                             </div>
 
-                            {isFetchingFees ? (
-                                <div className="py-10 flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200">
-                                    <Loader2 className="h-8 w-8 text-primary animate-spin mb-3" />
-                                    <p className="text-sm font-bold text-zinc-500">Loading fees...</p>
-                                </div>
-                            ) : studentFees.length > 0 ? (
-                                <div className="space-y-4">
-                                    {/* Grouping Toolbar */}
-                                    {selectedForGrouping.length >= 2 && (
-                                        <div className="flex flex-col md:flex-row items-center gap-4 p-4 bg-primary/5 border border-primary/20 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
-                                            <div className="flex-1">
-                                                <p className="text-[10px] font-black text-primary uppercase tracking-widest ml-1 mb-1.5">Group {selectedForGrouping.length} Fees</p>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Enter Group Name (e.g. Tuition Aug & Sep)"
-                                                    value={groupNameInput}
-                                                    onChange={(e) => setGroupNameInput(e.target.value)}
-                                                    className="w-full h-10 px-4 bg-white dark:bg-zinc-950 border border-primary/20 rounded-xl text-[12px] font-bold focus:outline-none focus:border-primary transition-all"
-                                                />
-                                            </div>
-                                            <button
-                                                onClick={handleAddGroup}
-                                                className="h-10 px-6 bg-primary text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-primary/90 transition-all active:scale-95 shadow-lg shadow-primary/10"
-                                            >
-                                                Create Group
-                                            </button>
+                            {/* Content Area */}
+                            <div className="flex-1 p-8 space-y-6 overflow-y-auto">
+                                {isFetchingFees ? (
+                                    <div className="h-64 flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200">
+                                        <Loader2 className="h-8 w-8 text-primary animate-spin mb-3" />
+                                        <p className="text-sm font-bold text-zinc-500">Retrieving student ledger...</p>
+                                    </div>
+                                ) : studentFees.length > 0 ? (
+                                    <div className="space-y-6">
+                                        {/* Row Reordering Info */}
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                                            <Info className="h-3.5 w-3.5 text-zinc-400" />
+                                            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Drag rows to reorder • Top fees settled first in receipts</span>
                                         </div>
-                                    )}
 
-                                    {/* Active Groups Management */}
-                                    {feeGroups.length > 0 && (
-                                        <div className="flex flex-wrap gap-2">
-                                            {feeGroups.map(group => (
-                                                <div key={group.id} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl group/tag">
-                                                    <span className="text-[10px] font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">{group.name}</span>
-                                                    <span className="text-[9px] font-bold text-zinc-400">({group.feeIds.length} heads)</span>
-                                                    <div className="flex items-center gap-1.5 ml-1 border-l border-zinc-200 dark:border-zinc-700 pl-1.5">
-                                                        <button
-                                                            onClick={() => handleRemoveGroup(group.id)}
-                                                            className="p-0.5 text-zinc-300 hover:text-rose-500 transition-colors"
-                                                            title="Remove group"
-                                                        >
-                                                            <Plus className="h-3 w-3 rotate-45" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handlePersistBundle(group.name, group.feeIds)}
-                                                            disabled={isSavingBundle}
-                                                            className="p-0.5 text-zinc-300 hover:text-emerald-500 transition-colors disabled:opacity-50"
-                                                            title="Save as Permanent Bundle"
-                                                        >
-                                                            {isSavingBundle ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
-                                                        </button>
-                                                    </div>
+                                        {/* Grouping Toolbar */}
+                                        {selectedForGrouping.length >= 2 && (
+                                            <div className="flex flex-col md:flex-row items-center gap-4 p-4 bg-primary/5 border border-primary/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                                                <div className="flex-1">
+                                                    <p className="text-[10px] font-black text-primary uppercase tracking-widest ml-1 mb-1.5">Combine {selectedForGrouping.length} Heads</p>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Voucher label (e.g. Tuition Q1)"
+                                                        value={groupNameInput}
+                                                        onChange={(e) => setGroupNameInput(e.target.value)}
+                                                        className="w-full h-10 px-4 bg-white dark:bg-zinc-950 border border-primary/20 rounded-xl text-[12px] font-bold focus:outline-none focus:border-primary transition-all shadow-sm"
+                                                    />
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                                <button
+                                                    onClick={handleAddGroup}
+                                                    className="h-10 px-6 bg-primary text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-primary/90 transition-all active:scale-95 shadow-lg shadow-primary/10"
+                                                >
+                                                    Merge Selected
+                                                </button>
+                                            </div>
+                                        )}
 
-                                    <div className="rounded-2xl border border-zinc-200 overflow-hidden">
-                                        <table className="w-full text-left text-sm">
-                                            <thead className="bg-zinc-50 border-b border-zinc-200">
-                                                <tr>
-                                                    <th className="px-5 py-3 font-bold text-zinc-600">Fee Description</th>
-                                                    <th className="px-5 py-3 font-bold text-zinc-600 text-right">Original (PKR)</th>
-                                                    {hasAnyDiscount && (
-                                                        <th className="px-5 py-3 font-bold text-emerald-700 text-right">After Discount</th>
-                                                    )}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {processedPdfFees.map((fee, idx) => {
-                                                    const originalAmt = fee.amount;
-                                                    const netAmt = fee.netAmount;
-                                                    const discount = fee.discount;
-
-                                                    return (
+                                        {/* Fee Table */}
+                                        <div className="rounded-2xl border border-zinc-100 dark:border-zinc-900 overflow-hidden shadow-sm bg-white dark:bg-zinc-950">
+                                            <table className="w-full text-left text-[13px]">
+                                                <thead className="bg-zinc-50/80 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-900">
+                                                    <tr>
+                                                        <th className="px-6 py-4 font-black text-zinc-400 uppercase tracking-widest text-[10px]">Description</th>
+                                                        <th className="px-6 py-4 font-black text-zinc-400 uppercase tracking-widest text-[10px] text-right">Original (PKR)</th>
+                                                        {hasAnyDiscount && (
+                                                            <th className="px-6 py-4 font-black text-emerald-600 uppercase tracking-widest text-[10px] text-right">Net Amount</th>
+                                                        )}
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-zinc-50 dark:divide-zinc-900">
+                                                    {processedPdfFees.map((fee, idx) => (
                                                         <tr
                                                             key={idx}
                                                             draggable={!fee.isGrouped}
                                                             onDragStart={(e) => !fee.isGrouped && onDragStart(e, studentFees.findIndex(f => f.id === fee.feeIds?.[0]))}
                                                             onDragOver={(e) => !fee.isGrouped && onDragOver(e, studentFees.findIndex(f => f.id === fee.feeIds?.[0]))}
                                                             onDragEnd={onDragEnd}
-                                                            className={`group transition-all ${fee.isGrouped ? "bg-zinc-50/50" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"}`}
+                                                            className={`group hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors ${fee.isGrouped ? "bg-zinc-50/30 dark:bg-zinc-900/10" : ""}`}
                                                         >
                                                             <td className="py-4 px-6">
                                                                 <div className="flex items-center gap-3">
-                                                                    {!fee.isGrouped && (
+                                                                    {!fee.isGrouped ? (
                                                                         <>
                                                                             <input
                                                                                 type="checkbox"
@@ -1411,208 +1418,182 @@ export default function FeeChallanGenerator() {
                                                                                 onChange={() => handleToggleFeeSelection(fee.feeIds?.[0] || -1)}
                                                                                 className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
                                                                             />
-                                                                            <div className="p-1 cursor-grab active:cursor-grabbing text-zinc-300 group-hover:text-zinc-400 dark:text-zinc-600 transition-colors">
+                                                                            <div className="p-1 cursor-grab active:cursor-grabbing text-zinc-300 group-hover:text-zinc-400 transition-colors">
                                                                                 <GripVertical className="h-4 w-4" />
                                                                             </div>
                                                                         </>
-                                                                    )}
-                                                                    {fee.isGrouped && (
+                                                                    ) : (
                                                                         <div className="w-11 flex justify-center">
-                                                                            <div className="h-5 w-5 bg-primary/10 rounded flex items-center justify-center">
-                                                                                <CheckCircle2 className="h-3 w-3 text-primary" />
+                                                                            <div className="h-5 w-5 bg-emerald-500 rounded-md flex items-center justify-center shadow-md shadow-emerald-500/20">
+                                                                                <LinkIcon className="h-3 w-3 text-white" />
                                                                             </div>
                                                                         </div>
                                                                     )}
                                                                     <div className="flex flex-col">
-                                                                        <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
+                                                                        <span className="font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
                                                                             {fee.description}
                                                                         </span>
                                                                         {fee.isGrouped && (
-                                                                            <span className="text-[9px] font-black text-primary uppercase tracking-tighter opacity-70">
-                                                                                Compiled Group
-                                                                            </span>
+                                                                            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter opacity-70">Custom Merged Group</span>
                                                                         )}
                                                                     </div>
                                                                 </div>
-                                                                {fee.discount > 0 && (
-                                                                    <div className="mt-1 ml-10 flex flex-wrap gap-1.5">
-                                                                        <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-tighter">
-                                                                            Total Discount: -{fee.discount.toLocaleString()}
-                                                                        </span>
-                                                                        {fee.discountLabel && (
-                                                                            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-tighter italic whitespace-nowrap">
-                                                                                ({fee.discountLabel})
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                )}
                                                             </td>
-                                                            <td className="py-4 px-6 text-right">
-                                                                <span className="text-[14px] font-medium font-mono text-zinc-500">
-                                                                    {originalAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                                                                </span>
+                                                            <td className="py-4 px-6 text-right font-mono text-zinc-400">
+                                                                {fee.amount.toLocaleString()}
                                                             </td>
                                                             {hasAnyDiscount && (
-                                                                <td className="py-4 px-6 text-right">
-                                                                    <div className="flex flex-col items-end gap-0.5">
-                                                                        <span className="text-[14px] font-black text-zinc-900 dark:text-zinc-100 font-mono">
-                                                                            {netAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                                                                        </span>
-                                                                    </div>
+                                                                <td className="py-4 px-6 text-right font-mono font-black text-zinc-900 dark:text-zinc-100">
+                                                                    {fee.netAmount.toLocaleString()}
                                                                 </td>
                                                             )}
                                                         </tr>
-                                                    );
-                                                })}
-                                                {applyLateFee && (
+                                                    ))}
+
+                                                    {applyLateFee && (
+                                                        <tr className="bg-rose-50/50 dark:bg-rose-950/10 border-t border-zinc-100 dark:border-zinc-900">
+                                                            <td className="px-6 py-4">
+                                                                <div className="flex items-center gap-3 ml-11">
+                                                                    <AlertCircle className="h-4 w-4 text-rose-500" />
+                                                                    <span className="font-bold text-rose-600 uppercase text-[11px] tracking-widest">Late Payment Surcharge</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-right font-mono text-rose-300">
+                                                                {lateFeeAmount.toLocaleString()}
+                                                            </td>
+                                                            {hasAnyDiscount && (
+                                                                <td className="px-6 py-4 text-right font-mono font-black text-rose-600">
+                                                                    {lateFeeAmount.toLocaleString()}
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                                <tfoot className="bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-t-2 border-primary/20">
                                                     <tr>
-                                                        <td className="px-5 py-3 font-medium text-zinc-900 font-bold uppercase text-[12px]">Late Payment Surcharge</td>
-                                                        <td className="px-5 py-3 font-bold text-rose-600 text-right font-mono text-[14px]">{lateFeeAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                                                        {hasAnyDiscount && <td />}
-                                                    </tr>
-                                                )}
-                                            </tbody>
-                                            <tfoot className="bg-zinc-50 border-t border-zinc-200">
-                                                {hasAnyDiscount && (
-                                                    <tr className="border-b border-zinc-100">
-                                                        <td className="px-5 py-2 font-black tracking-wider text-zinc-500 text-[10px] uppercase opacity-70" colSpan={3}>
-                                                            Total before discount: <span className="line-through">{totalBeforeDiscount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                                            &nbsp;&rarr;&nbsp;
-                                                            <span className="text-emerald-700 no-underline">
-                                                                You save: {(totalBeforeDiscount - totalFeesAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                            </span>
+                                                        <td className="px-6 py-5 font-black uppercase tracking-[0.2em] text-[10px] opacity-70">Consolidated Voucher Net</td>
+                                                        <td className="hidden md:table-cell" />
+                                                        <td className="px-6 py-5 text-right">
+                                                            <div className="flex flex-col items-end">
+                                                                <span className="text-xl font-black font-mono tracking-tighter">
+                                                                    {(totalFeesAmount + (applyLateFee ? lateFeeAmount : 0)).toLocaleString()}
+                                                                </span>
+                                                            </div>
                                                         </td>
                                                     </tr>
-                                                )}
-                                                <tr className="border-b border-zinc-100">
-                                                    <td className="px-5 py-3 font-black tracking-wider text-zinc-900 text-[10px] uppercase opacity-70" colSpan={hasAnyDiscount ? 2 : 1}>NET BEFORE DUE DATE</td>
-                                                    <td className="px-5 py-3 font-black text-emerald-600 text-right text-sm">
-                                                        {totalFeesAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td className="px-5 py-4 font-black tracking-wider text-zinc-900 text-[11px] uppercase" colSpan={hasAnyDiscount ? 2 : 1}>NET AFTER DUE DATE</td>
-                                                    <td className="px-5 py-4 font-black text-primary text-right text-base underline decoration-primary/30 underline-offset-4">
-                                                        {(totalFeesAmount + (applyLateFee ? lateFeeAmount : 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                    </td>
-                                                </tr>
-                                            </tfoot>
-                                        </table>
+                                                </tfoot>
+                                            </table>
+                                        </div>
                                     </div>
-                                </div>
-                            ) : student ? (
-                                <div className="py-10 flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50">
-                                    <FileText className="h-8 w-8 text-zinc-300 mb-3" />
-                                    <p className="text-sm font-bold text-zinc-500">No applicable fees found for {month}.</p>
-                                </div>
-                            ) : (
-                                <div className="py-10 flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50">
-                                    <UserSearch className="h-8 w-8 text-zinc-300 mb-3" />
-                                    <p className="text-sm font-bold text-zinc-500">Select a student first.</p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Summary & Action */}
-                        <div className="p-8 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-100 flex flex-col md:flex-row items-center justify-between gap-6">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm">
-                                    <AlertCircle className="h-5 w-5 text-amber-500" />
-                                </div>
-                                <div className="max-w-[280px]">
-                                    <p className="text-zinc-900 dark:text-zinc-100 font-bold text-xs uppercase tracking-tight">System Notice</p>
-                                    <p className="text-zinc-500 dark:text-zinc-400 text-[11px] leading-relaxed">Generated challans are stored in the database for financial tracking. Ensure validity periods align with campus policy.</p>
-                                </div>
+                                ) : (
+                                    <div className="h-64 flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50">
+                                        <FileSearch className="h-8 w-8 text-zinc-300 mb-3" />
+                                        <p className="text-sm font-bold text-zinc-500">No billable fees found for this period.</p>
+                                    </div>
+                                )}
                             </div>
 
-                            {isClient && student && selectedBank && studentFees.length > 0 ? (
-                                voucherSaved ? (
-                                    <PDFDownloadLink
-                                        document={
-                                            <FeeChallanPDF
-                                                student={{
-                                                    cc: student.cc,
-                                                    student_full_name: student.student_full_name,
-                                                    gr_number: student.gr_number,
-                                                    campus: student.campus,
-                                                    class_id: student.class_id,
-                                                    section_id: student.section_id,
-                                                    className: classes.find(c => c.id === student.class_id)?.description || "Unknown",
-                                                    sectionName: sections.find(s => s.id === student.section_id)?.description || "N/A",
-                                                    grade_and_section: student.grade_and_section,
-                                                    gender: student.gender,
-                                                    father_name: student.father_name
-                                                }}
-                                                siblings={siblings.map(s => ({
-                                                    full_name: s.full_name,
-                                                    cc: s.cc,
-                                                    gr_number: s.gr_number,
-                                                    className: s.classes?.description || "Unknown",
-                                                    sectionName: sections.find(sec => sec.id === s.section_id)?.description || "N/A"
-                                                }))}
-                                                details={{
-                                                    month,
-                                                    academicYear,
-                                                    issueDate,
-                                                    dueDate,
-                                                    validityDate,
-                                                    applyLateFee,
-                                                    lateFeeAmount,
-                                                    voucherNumber: voucherNumberStr,
-                                                    generatedBy: {
-                                                        fullName: user?.fullName || "System Admin",
-                                                        timestampStr: timestampStr
-                                                    },
-                                                    bank: {
-                                                        name: selectedBank.bank_name,
-                                                        title: accTitle,
-                                                        account: accNo,
-                                                        branch: branchCode,
-                                                        address: bankAddress,
-                                                        iban: iban
-                                                    }
-                                                }}
-                                                fees={pdfFees.map(f => ({
-                                                    description: f.description,
-                                                    amount: showDiscounts ? f.amount : f.netAmount,
-                                                    netAmount: f.netAmount,
-                                                    discount: showDiscounts ? f.discount : 0,
-                                                    discountLabel: showDiscounts ? f.discountLabel : undefined
-                                                }))}
-                                                totalAmount={totalFeesAmount}
-                                            />
-                                        }
-                                        fileName={`Challan_${student.cc}_${month}.pdf`}
-                                        className="w-full md:w-auto h-14 px-12 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:bg-emerald-700 transition-all flex items-center justify-center gap-3 active:scale-[0.98] shadow-xl shadow-emerald-600/20 group"
-                                    >
-                                        {({ loading }) => (
-                                            <>
-                                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 group-hover:translate-y-1 transition-transform" />}
-                                                {loading ? "Preparing..." : "Download PDF"}
-                                            </>
-                                        )}
-                                    </PDFDownloadLink>
+                            {/* Summary & Generation Action */}
+                            <div className="p-8 bg-zinc-50/80 dark:bg-zinc-900/80 border-t border-zinc-100 dark:border-zinc-900 flex flex-col md:flex-row items-center justify-between gap-8">
+                                <div className="flex items-center gap-4 flex-1">
+                                    <div className="h-14 w-1 flex bg-primary/20 rounded-full" />
+                                    <div>
+                                        <h4 className="text-[11px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Final Summary</h4>
+                                        <p className="text-xs text-zinc-500 max-w-[400px] leading-relaxed mt-1">
+                                            Generating voucher <b>{voucherNumberStr}</b>. Ensure dates and banking details are per current policy before proceeding.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {isClient && student && selectedBank && studentFees.length > 0 ? (
+                                    voucherSaved ? (
+                                        <PDFDownloadLink
+                                            document={
+                                                <FeeChallanPDF
+                                                    student={{
+                                                        cc: student.cc,
+                                                        student_full_name: student.student_full_name,
+                                                        gr_number: student.gr_number,
+                                                        campus: student.campus,
+                                                        class_id: student.class_id,
+                                                        section_id: student.section_id,
+                                                        className: classes.find(c => c.id === student.class_id)?.description || "Unknown",
+                                                        sectionName: sections.find(s => s.id === student.section_id)?.description || "N/A",
+                                                        grade_and_section: student.grade_and_section,
+                                                        gender: student.gender,
+                                                        father_name: student.father_name
+                                                    }}
+                                                    siblings={siblings.map(s => ({
+                                                        full_name: s.full_name,
+                                                        cc: s.cc,
+                                                        gr_number: s.gr_number,
+                                                        className: s.classes?.description || "Unknown",
+                                                        sectionName: sections.find(sec => sec.id === s.section_id)?.description || "N/A"
+                                                    }))}
+                                                    details={{
+                                                        month,
+                                                        academicYear,
+                                                        issueDate,
+                                                        dueDate,
+                                                        validityDate,
+                                                        applyLateFee,
+                                                        lateFeeAmount,
+                                                        voucherNumber: voucherNumberStr,
+                                                        generatedBy: {
+                                                            fullName: user?.fullName || "System Admin",
+                                                            timestampStr: timestampStr
+                                                        },
+                                                        bank: {
+                                                            name: selectedBank.bank_name,
+                                                            title: accTitle,
+                                                            account: accNo,
+                                                            branch: branchCode,
+                                                            address: bankAddress,
+                                                            iban: iban
+                                                        }
+                                                    }}
+                                                    fees={pdfFees.map(f => ({
+                                                        description: f.description,
+                                                        amount: showDiscounts ? f.amount : f.netAmount,
+                                                        netAmount: f.netAmount,
+                                                        discount: showDiscounts ? f.discount : 0,
+                                                        discountLabel: showDiscounts ? f.discountLabel : undefined
+                                                    }))}
+                                                    totalAmount={totalFeesAmount}
+                                                />
+                                            }
+                                            fileName={`Challan_${student.cc}_${month}.pdf`}
+                                            className="h-16 px-12 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] hover:bg-emerald-700 transition-all flex items-center justify-center gap-4 active:scale-[0.98] shadow-2xl shadow-emerald-600/20 group"
+                                        >
+                                            {({ loading }) => (
+                                                <>
+                                                    {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5 group-hover:translate-y-1 transition-transform" />}
+                                                    {loading ? "Preparing PDF..." : "Download Voucher"}
+                                                </>
+                                            )}
+                                        </PDFDownloadLink>
+                                    ) : (
+                                        <button
+                                            onClick={handleSaveVoucher}
+                                            disabled={isSavingVoucher}
+                                            className="h-16 px-12 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] hover:bg-zinc-800 transition-all flex items-center justify-center gap-4 active:scale-[0.98] shadow-2xl shadow-black/10 disabled:opacity-50"
+                                        >
+                                            {isSavingVoucher ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />}
+                                            {isSavingVoucher ? "Processing..." : "Generate Voucher"}
+                                            <ArrowRight className="h-5 w-5 opacity-30 group-hover:translate-x-1 transition-transform" />
+                                        </button>
+                                    )
                                 ) : (
                                     <button
-                                        onClick={handleSaveVoucher}
-                                        disabled={isSavingVoucher}
-                                        className="w-full md:w-auto h-14 px-12 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:bg-zinc-800 transition-all flex items-center justify-center gap-3 active:scale-[0.98] shadow-xl shadow-zinc-200 disabled:opacity-50"
+                                        disabled
+                                        className="h-16 px-12 bg-zinc-200 text-zinc-400 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] flex items-center justify-center gap-4 cursor-not-allowed"
                                     >
-                                        {isSavingVoucher ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-                                        {isSavingVoucher ? "Saving..." : "Save Voucher"}
-                                        <ArrowRight className="h-4 w-4 opacity-30" />
+                                        <LockIcon className="h-5 w-5 opacity-30" />
+                                        Voucher Locked
+                                        <ArrowRight className="h-5 w-5 opacity-10" />
                                     </button>
-                                )
-                            ) : (
-                                <button
-                                    disabled
-                                    className="w-full md:w-auto h-14 px-12 bg-zinc-300 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3 cursor-not-allowed grayscale"
-                                >
-                                    <Printer className="h-4 w-4" />
-                                    Save Voucher
-                                    <ArrowRight className="h-4 w-4 opacity-30" />
-                                </button>
-                            )}
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
