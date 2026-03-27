@@ -154,6 +154,14 @@ export default function FeeChallanGenerator() {
     const [siblings, setSiblings] = useState<any[]>([]);
     const [appliedDiscounts, setAppliedDiscounts] = useState<Record<number, { amount: number; title: string; id: string }[]>>({});
 
+    // Grouped fees by fee_date (from backend)
+    const [feeGroupsByDate, setFeeGroupsByDate] = useState<{ fee_date: string; fees: StudentFee[] }[]>([]);
+    const [ungroupedFees, setUngroupedFees] = useState<StudentFee[]>([]);
+    const [generatingGroupDate, setGeneratingGroupDate] = useState<string | null>(null);
+    const [generatedGroupDates, setGeneratedGroupDates] = useState<Set<string>>(new Set());
+    const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+
+
     // Inline Discount States
     const [selectedFeeId, setSelectedFeeId] = useState<number | "all">("all");
     const [discountAmount, setDiscountAmount] = useState("");
@@ -261,26 +269,39 @@ export default function FeeChallanGenerator() {
     const fetchStudentFees = async (cc: number, selectedMonth: string, selectedYear: string) => {
         setIsFetchingFees(true);
         try {
-            const { data } = await api.get(`/v1/student-fees/by-student/${cc}`);
-            const allFees: any[] = data?.data?.fees || [];
-            const familyStudents = data?.data?.family?.students || [];
+            // Build query params — pass dateFrom/dateTo to let backend filter and group
+            const params = new URLSearchParams();
+            if (dateFrom) params.set('dateFrom', dateFrom);
+            if (dateTo) params.set('dateTo', dateTo);
+            const queryStr = params.toString() ? `?${params.toString()}` : '';
 
-            const monthNum = MONTH_TO_NUM[selectedMonth];
-            const applicableFees = allFees.filter(f => {
-                const dueDateObj = f.due_date ? new Date(f.due_date) : null;
-                const isWithinDateRange = (!dateFrom || (dueDateObj && dueDateObj >= new Date(dateFrom))) &&
-                    (!dateTo || (dueDateObj && dueDateObj <= new Date(dateTo)));
+            const { data } = await api.get(`/v1/student-fees/by-student/${cc}${queryStr}`);
+            const responseData = data?.data;
+            const familyStudents = responseData?.family?.students || [];
 
-                if (dateFrom || dateTo) {
-                    return isWithinDateRange && (f.academic_year === selectedYear);
-                }
+            // Store grouped fees (where fee_date is set)
+            const groups: { fee_date: string; fees: StudentFee[] }[] = responseData?.groups || [];
+            const ungrouped: StudentFee[] = responseData?.ungrouped || [];
 
-                // Fallback to month-based filtering
-                return (f.month === monthNum || f.target_month === monthNum || f.student_fee_bundles?.target_month === monthNum) &&
-                    (f.academic_year === selectedYear);
-            });
+            setFeeGroupsByDate(groups);
+            setUngroupedFees(ungrouped);
 
-            setStudentFees(applicableFees);
+            // Flat list for legacy single-voucher path: all fees in range
+            const allFees: StudentFee[] = responseData?.fees || [];
+
+            // If no date range is set, fall back to month-based filtering on flat list
+            if (!dateFrom && !dateTo) {
+                const monthNum = MONTH_TO_NUM[selectedMonth];
+                const applicableFees = allFees.filter(f =>
+                    (f.month === monthNum || f.target_month === monthNum || (f as any).student_fee_bundles?.target_month === monthNum) &&
+                    (f.academic_year === selectedYear)
+                );
+                setStudentFees(applicableFees);
+            } else {
+                // All returned fees are already filtered by fee_date range from backend
+                setStudentFees(allFees);
+            }
+
             setSiblings(familyStudents.filter((s: any) => s.cc !== cc));
         } catch (err) {
             console.error(err);
@@ -289,6 +310,7 @@ export default function FeeChallanGenerator() {
             setIsFetchingFees(false);
         }
     };
+
 
     const fetchBanks = async () => {
         setIsBanksLoading(true);
@@ -779,8 +801,142 @@ export default function FeeChallanGenerator() {
         }
     };
 
+    // --- Per-group voucher generation (fee_date grouped) ---
+    const handleSaveVoucherForGroup = async (group: { fee_date: string; fees: StudentFee[] }) => {
+        if (!student || !selectedBank) {
+            toast.error("Please select a student and a bank.");
+            return;
+        }
+        if (group.fees.length === 0) {
+            toast.error("No fees in this group.");
+            return;
+        }
+
+        setGeneratingGroupDate(group.fee_date);
+        try {
+            const selectedClass = classes.find(c => c.id === student.class_id);
+            const selectedSection = sections.find(s => s.id === student.section_id);
+
+            const groupPdfFees = groupFees(group.fees, appliedDiscounts, { groupTuitionFees, feeGroups: [] });
+            const groupTotal = groupPdfFees.reduce((sum: number, f: any) => sum + f.netAmount, 0);
+
+            const feeDs = group.fee_date;
+            const [fy, fm, fd] = feeDs.split('-');
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const monthLabel = `${monthNames[parseInt(fm) - 1]} ${fd}, ${fy}`;
+
+            const voucherNumberStr = `TAFS-${student.cc}-${Date.now()}`;
+            const timestampStr = new Date().toLocaleString('en-US', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+
+            const blob = await pdf(
+                <FeeChallanPDF
+                    student={{
+                        cc: student.cc,
+                        student_full_name: student.student_full_name,
+                        gr_number: student.gr_number,
+                        campus: student.campus,
+                        class_id: student.class_id,
+                        section_id: student.section_id,
+                        className: (selectedClass as any)?.class_name || "N/A",
+                        sectionName: (selectedSection as any)?.section_name || "N/A",
+                        grade_and_section: student.grade_and_section,
+                        gender: student.gender,
+                        father_name: student.father_name
+                    }}
+                    details={{
+                        month: monthLabel,
+                        academicYear: academicYear,
+                        issueDate: issueDate,
+                        dueDate: dueDate,
+                        validityDate: validityDate || "N/A",
+                        applyLateFee: applyLateFee,
+                        lateFeeAmount: lateFeeAmount,
+                        voucherNumber: voucherNumberStr,
+                        generatedBy: {
+                            fullName: user?.fullName || "System Admin",
+                            timestampStr,
+                        },
+                        bank: {
+                            name: selectedBank.bank_name,
+                            title: selectedBank.account_title,
+                            account: selectedBank.account_number,
+                            branch: selectedBank.bank_address || "N/A",
+                            address: selectedBank.bank_address || "N/A",
+                            iban: selectedBank.iban || ""
+                        }
+                    }}
+                    fees={groupPdfFees.map((f: any) => ({
+                        description: f.description,
+                        amount: showDiscounts ? f.amount : f.netAmount,
+                        netAmount: f.netAmount,
+                        discount: showDiscounts ? f.discount : 0,
+                        discountLabel: showDiscounts ? f.discountLabel : undefined
+                    }))}
+                    totalAmount={groupTotal}
+                    siblings={siblings.map(s => ({
+                        full_name: s.student_full_name,
+                        cc: s.cc,
+                        gr_number: s.gr_number,
+                        className: s.grade_and_section?.split('-')[0] || "N/A",
+                        sectionName: s.grade_and_section?.split('-')[1] || "N/A"
+                    }))}
+                />
+            ).toBlob();
+
+            const feeLines = group.fees.map(f => ({
+                student_fee_id: f.id,
+                discount_amount: getDiscount(f),
+                discount_label: (appliedDiscounts[f.id] || []).map((d: any) => d.title).join(", "),
+            }));
+
+            const formData = new FormData();
+            formData.append('pdf', blob, `voucher-${student.cc}-${group.fee_date}.pdf`);
+            formData.append('student_id', student.cc.toString());
+            formData.append('campus_id', (student.campus_id || 1).toString());
+            formData.append('class_id', (student.class_id || 1).toString());
+            if (student.section_id) formData.append('section_id', student.section_id.toString());
+            formData.append('bank_account_id', selectedBank.id.toString());
+            formData.append('issue_date', issueDate);
+            formData.append('due_date', dueDate);
+            if (validityDate) formData.append('validity_date', validityDate);
+            formData.append('late_fee_charge', applyLateFee.toString());
+            if (applyLateFee) formData.append('late_fee_amount', lateFeeAmount.toString());
+            formData.append('academic_year', academicYear);
+            formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
+            formData.append('fee_date', group.fee_date);
+            formData.append('fee_lines', JSON.stringify(feeLines));
+            group.fees.forEach(f => formData.append('orderedFeeIds', f.id.toString()));
+
+            await api.post('/v1/vouchers', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            setGeneratedGroupDates(prev => new Set([...prev, group.fee_date]));
+            toast.success(`Voucher for ${group.fee_date} generated!`);
+        } catch (e: any) {
+            console.error(e);
+            toast.error(e.response?.data?.message || `Failed to generate voucher for ${group.fee_date}.`);
+        } finally {
+            setGeneratingGroupDate(null);
+        }
+    };
+
+    const handleGenerateAllGroups = async () => {
+        if (feeGroupsByDate.length === 0) {
+            toast.error("No fee groups to generate.");
+            return;
+        }
+        setIsGeneratingAll(true);
+        for (const group of feeGroupsByDate) {
+            if (!generatedGroupDates.has(group.fee_date)) {
+                await handleSaveVoucherForGroup(group);
+            }
+        }
+        setIsGeneratingAll(false);
+    };
 
     const YearPicker = () => {
+
         const years = Array.from({ length: 12 }, (_, i) => {
             const start = baseYear + i;
             return `${start}-${start + 1}`;
@@ -882,7 +1038,8 @@ export default function FeeChallanGenerator() {
     const voucherNumberStr = student ? `TAFS-${student.cc}-${now.getTime().toString().slice(-6)}` : "TAFS-XXXX-XXXXXX";
 
     return (
-        <div className="max-w-6xl mx-auto space-y-8 pb-20 mt-4">
+        <>
+            <div className="max-w-6xl mx-auto space-y-8 pb-20 mt-4">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -1333,7 +1490,7 @@ export default function FeeChallanGenerator() {
                                 <div className="flex items-center gap-2">
                                     <div className="flex flex-col items-end mr-2">
                                         <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-1">Fee Consolidation</span>
-                                        <button 
+                                        <button
                                             onClick={() => setGroupTuitionFees(!groupTuitionFees)}
                                             className={`h-6 w-10 rounded-full transition-all relative ${groupTuitionFees ? 'bg-primary shadow-sm' : 'bg-zinc-200'}`}
                                         >
@@ -1348,16 +1505,107 @@ export default function FeeChallanGenerator() {
                                         <ChevronLeft className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
                                     </button>
                                 </div>
-                            </div>
-
-                            {/* Content Area */}
+                            </div>                             {/* Content Area */}
                             <div className="flex-1 p-8 space-y-6 overflow-y-auto">
                                 {isFetchingFees ? (
                                     <div className="h-64 flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200">
                                         <Loader2 className="h-8 w-8 text-primary animate-spin mb-3" />
                                         <p className="text-sm font-bold text-zinc-500">Retrieving student ledger...</p>
                                     </div>
+                                ) : feeGroupsByDate.length > 0 ? (
+                                    /* ── DATE-GROUPED VOUCHER CARDS ── */
+                                    <div className="space-y-5">
+                                        {/* Generate All banner */}
+                                        <div className="flex items-center justify-between px-5 py-3 bg-primary/5 border border-primary/15 rounded-2xl">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-8 w-8 bg-primary/10 rounded-xl flex items-center justify-center">
+                                                    <CreditCard className="h-4 w-4 text-primary" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">{feeGroupsByDate.length} Voucher Group{feeGroupsByDate.length > 1 ? 's' : ''} Found</p>
+                                                    <p className="text-[10px] text-zinc-400 leading-none mt-0.5">Each fee_date becomes a separate voucher</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={handleGenerateAllGroups}
+                                                disabled={isGeneratingAll || !selectedBank}
+                                                className="h-10 px-6 bg-primary text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-primary/90 transition-all active:scale-95 shadow-lg shadow-primary/10 disabled:opacity-50 flex items-center gap-2"
+                                            >
+                                                {isGeneratingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                                                Generate All
+                                            </button>
+                                        </div>
+
+                                        {/* One card per fee_date group */}
+                                        {feeGroupsByDate.map((group) => {
+                                            const isGenerated = generatedGroupDates.has(group.fee_date);
+                                            const isGeneratingThis = generatingGroupDate === group.fee_date;
+                                            const groupFeeTotal = group.fees.reduce((sum, f) => sum + Number(f.amount || f.amount_before_discount || 0), 0);
+
+                                            return (
+                                                <div key={group.fee_date} className={`rounded-2xl border overflow-hidden shadow-sm transition-all ${isGenerated ? 'border-emerald-200 bg-emerald-50/30' : 'border-zinc-100 bg-white dark:bg-zinc-950'}`}>
+                                                    {/* Group Header */}
+                                                    <div className={`px-6 py-4 flex items-center justify-between border-b ${isGenerated ? 'border-emerald-100 bg-emerald-50/50' : 'border-zinc-50 bg-zinc-50/50'}`}>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`h-8 w-8 rounded-xl flex items-center justify-center ${isGenerated ? 'bg-emerald-100' : 'bg-zinc-100'}`}>
+                                                                <Calendar className={`h-4 w-4 ${isGenerated ? 'text-emerald-600' : 'text-zinc-500'}`} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[11px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Fee Date: {group.fee_date}</p>
+                                                                <p className="text-[10px] text-zinc-400 mt-0.5">{group.fees.length} fee head{group.fees.length > 1 ? 's' : ''} • PKR {groupFeeTotal.toLocaleString()}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            {isGenerated && (
+                                                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 rounded-xl">
+                                                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                                                    <span className="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Generated</span>
+                                                                </div>
+                                                            )}
+                                                            <button
+                                                                onClick={() => handleSaveVoucherForGroup(group)}
+                                                                disabled={isGeneratingThis || isGeneratingAll || !selectedBank}
+                                                                className={`h-9 px-5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 flex items-center gap-2 ${isGenerated ? 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-lg shadow-black/10'} disabled:opacity-50`}
+                                                            >
+                                                                {isGeneratingThis ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+                                                                {isGenerated ? 'Re-generate' : 'Generate'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Fee rows */}
+                                                    <table className="w-full text-left text-[12px]">
+                                                        <tbody className="divide-y divide-zinc-50 dark:divide-zinc-900">
+                                                            {group.fees.map((fee) => (
+                                                                <tr key={fee.id} className="hover:bg-zinc-50/50 transition-colors">
+                                                                    <td className="px-6 py-3 font-bold text-zinc-800 dark:text-zinc-200">
+                                                                        {(fee.fee_types as any)?.description || `Fee #${fee.id}`}
+                                                                    </td>
+                                                                    <td className="px-6 py-3 text-right font-mono text-zinc-400">
+                                                                        {Number(fee.amount_before_discount || 0).toLocaleString()}
+                                                                    </td>
+                                                                    <td className="px-6 py-3 text-right font-mono font-black text-zinc-900 dark:text-zinc-100">
+                                                                        {Number(fee.amount || fee.amount_before_discount || 0).toLocaleString()}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                        <tfoot className="bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-900">
+                                                            <tr>
+                                                                <td className="px-6 py-3 font-black text-[10px] uppercase tracking-widest text-zinc-400">Group Total</td>
+                                                                <td />
+                                                                <td className="px-6 py-3 text-right font-black font-mono text-zinc-900 dark:text-zinc-100">
+                                                                    PKR {groupFeeTotal.toLocaleString()}
+                                                                </td>
+                                                            </tr>
+                                                        </tfoot>
+                                                    </table>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 ) : studentFees.length > 0 ? (
+                                    /* ── LEGACY FLAT FEE TABLE (no date-range grouping) ── */
                                     <div className="space-y-6">
                                         {/* Row Reordering Info */}
                                         <div className="flex items-center gap-2 px-4 py-2 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800">
@@ -1494,120 +1742,124 @@ export default function FeeChallanGenerator() {
                                 )}
                             </div>
 
-                            {/* Summary & Generation Action */}
-                            <div className="p-8 bg-zinc-50/80 dark:bg-zinc-900/80 border-t border-zinc-100 dark:border-zinc-900 flex flex-col md:flex-row items-center justify-between gap-8">
-                                <div className="flex items-center gap-4 flex-1">
-                                    <div className="h-14 w-1 flex bg-primary/20 rounded-full" />
-                                    <div>
-                                        <h4 className="text-[11px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Final Summary</h4>
-                                        <p className="text-xs text-zinc-500 max-w-[400px] leading-relaxed mt-1">
-                                            Generating voucher <b>{voucherNumberStr}</b>. Ensure dates and banking details are per current policy before proceeding.
-                                        </p>
+                            {/* Summary & Generation Action — only shown in legacy (flat) mode */}
+                            {feeGroupsByDate.length === 0 && (
+                                <div className="p-8 bg-zinc-50/80 dark:bg-zinc-900/80 border-t border-zinc-100 dark:border-zinc-900 flex flex-col md:flex-row items-center justify-between gap-8">
+                                    <div className="flex items-center gap-4 flex-1">
+                                        <div className="h-14 w-1 flex bg-primary/20 rounded-full" />
+                                        <div>
+                                            <h4 className="text-[11px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Final Summary</h4>
+                                            <p className="text-xs text-zinc-500 max-w-[400px] leading-relaxed mt-1">
+                                                Generating voucher <b>{voucherNumberStr}</b>. Ensure dates and banking details are per current policy before proceeding.
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
 
-                                {isClient && student && selectedBank && studentFees.length > 0 ? (
-                                    voucherSaved ? (
-                                        <PDFDownloadLink
-                                            document={
-                                                <FeeChallanPDF
-                                                    student={{
-                                                        cc: student.cc,
-                                                        student_full_name: student.student_full_name,
-                                                        gr_number: student.gr_number,
-                                                        campus: student.campus,
-                                                        class_id: student.class_id,
-                                                        section_id: student.section_id,
-                                                        className: classes.find(c => c.id === student.class_id)?.description || "Unknown",
-                                                        sectionName: sections.find(s => s.id === student.section_id)?.description || "N/A",
-                                                        grade_and_section: student.grade_and_section,
-                                                        gender: student.gender,
-                                                        father_name: student.father_name
-                                                    }}
-                                                    siblings={siblings.map(s => ({
-                                                        full_name: s.full_name,
-                                                        cc: s.cc,
-                                                        gr_number: s.gr_number,
-                                                        className: s.classes?.description || "Unknown",
-                                                        sectionName: sections.find(sec => sec.id === s.section_id)?.description || "N/A"
-                                                    }))}
-                                                    details={{
-                                                        month,
-                                                        academicYear,
-                                                        issueDate,
-                                                        dueDate,
-                                                        validityDate,
-                                                        applyLateFee,
-                                                        lateFeeAmount,
-                                                        voucherNumber: voucherNumberStr,
-                                                        generatedBy: {
-                                                            fullName: user?.fullName || "System Admin",
-                                                            timestampStr: timestampStr
-                                                        },
-                                                        bank: {
-                                                            name: selectedBank.bank_name,
-                                                            title: accTitle,
-                                                            account: accNo,
-                                                            branch: branchCode,
-                                                            address: bankAddress,
-                                                            iban: iban
-                                                        }
-                                                    }}
-                                                    fees={pdfFees.map(f => ({
-                                                        description: f.description,
-                                                        amount: showDiscounts ? f.amount : f.netAmount,
-                                                        netAmount: f.netAmount,
-                                                        discount: showDiscounts ? f.discount : 0,
-                                                        discountLabel: showDiscounts ? f.discountLabel : undefined
-                                                    }))}
-                                                    totalAmount={totalFeesAmount}
-                                                />
-                                            }
-                                            fileName={`Challan_${student.cc}_${month}.pdf`}
-                                            className="h-16 px-12 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] hover:bg-emerald-700 transition-all flex items-center justify-center gap-4 active:scale-[0.98] shadow-2xl shadow-emerald-600/20 group"
-                                        >
-                                            {({ loading }) => (
-                                                <>
-                                                    {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5 group-hover:translate-y-1 transition-transform" />}
-                                                    {loading ? "Preparing PDF..." : "Download Voucher"}
-                                                </>
-                                            )}
-                                        </PDFDownloadLink>
+                                    {isClient && student && selectedBank && studentFees.length > 0 ? (
+                                        voucherSaved ? (
+                                            <PDFDownloadLink
+                                                document={
+                                                    <FeeChallanPDF
+                                                        student={{
+                                                            cc: student.cc,
+                                                            student_full_name: student.student_full_name,
+                                                            gr_number: student.gr_number,
+                                                            campus: student.campus,
+                                                            class_id: student.class_id,
+                                                            section_id: student.section_id,
+                                                            className: classes.find(c => c.id === student.class_id)?.description || "Unknown",
+                                                            sectionName: sections.find(s => s.id === student.section_id)?.description || "N/A",
+                                                            grade_and_section: student.grade_and_section,
+                                                            gender: student.gender,
+                                                            father_name: student.father_name
+                                                        }}
+                                                        siblings={siblings.map(s => ({
+                                                            full_name: s.full_name,
+                                                            cc: s.cc,
+                                                            gr_number: s.gr_number,
+                                                            className: s.classes?.description || "Unknown",
+                                                            sectionName: sections.find(sec => sec.id === s.section_id)?.description || "N/A"
+                                                        }))}
+                                                        details={{
+                                                            month,
+                                                            academicYear,
+                                                            issueDate,
+                                                            dueDate,
+                                                            validityDate,
+                                                            applyLateFee,
+                                                            lateFeeAmount,
+                                                            voucherNumber: voucherNumberStr,
+                                                            generatedBy: {
+                                                                fullName: user?.fullName || "System Admin",
+                                                                timestampStr: timestampStr
+                                                            },
+                                                            bank: {
+                                                                name: selectedBank.bank_name,
+                                                                title: accTitle,
+                                                                account: accNo,
+                                                                branch: branchCode,
+                                                                address: bankAddress,
+                                                                iban: iban
+                                                            }
+                                                        }}
+                                                        fees={pdfFees.map(f => ({
+                                                            description: f.description,
+                                                            amount: showDiscounts ? f.amount : f.netAmount,
+                                                            netAmount: f.netAmount,
+                                                            discount: showDiscounts ? f.discount : 0,
+                                                            discountLabel: showDiscounts ? f.discountLabel : undefined
+                                                        }))}
+                                                        totalAmount={totalFeesAmount}
+                                                    />
+                                                }
+                                                fileName={`Challan_${student.cc}_${month}.pdf`}
+                                                className="h-16 px-12 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] hover:bg-emerald-700 transition-all flex items-center justify-center gap-4 active:scale-[0.98] shadow-2xl shadow-emerald-600/20 group"
+                                            >
+                                                {({ loading }) => (
+                                                    <>
+                                                        {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5 group-hover:translate-y-1 transition-transform" />}
+                                                        {loading ? "Preparing PDF..." : "Download Voucher"}
+                                                    </>
+                                                )}
+                                            </PDFDownloadLink>
+                                        ) : (
+                                            <button
+                                                onClick={handleSaveVoucher}
+                                                disabled={isSavingVoucher}
+                                                className="h-16 px-12 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] hover:bg-zinc-800 transition-all flex items-center justify-center gap-4 active:scale-[0.98] shadow-2xl shadow-black/10 disabled:opacity-50"
+                                            >
+                                                {isSavingVoucher ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />}
+                                                {isSavingVoucher ? "Processing..." : "Generate Voucher"}
+                                                <ArrowRight className="h-5 w-5 opacity-30 group-hover:translate-x-1 transition-transform" />
+                                            </button>
+                                        )
                                     ) : (
                                         <button
-                                            onClick={handleSaveVoucher}
-                                            disabled={isSavingVoucher}
-                                            className="h-16 px-12 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] hover:bg-zinc-800 transition-all flex items-center justify-center gap-4 active:scale-[0.98] shadow-2xl shadow-black/10 disabled:opacity-50"
+                                            disabled
+                                            className="h-16 px-12 bg-zinc-200 text-zinc-400 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] flex items-center justify-center gap-4 cursor-not-allowed"
                                         >
-                                            {isSavingVoucher ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />}
-                                            {isSavingVoucher ? "Processing..." : "Generate Voucher"}
-                                            <ArrowRight className="h-5 w-5 opacity-30 group-hover:translate-x-1 transition-transform" />
+                                            <LockIcon className="h-5 w-5 opacity-30" />
+                                            Voucher Locked
+                                            <ArrowRight className="h-5 w-5 opacity-10" />
                                         </button>
-                                    )
-                                ) : (
-                                    <button
-                                        disabled
-                                        className="h-16 px-12 bg-zinc-200 text-zinc-400 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] flex items-center justify-center gap-4 cursor-not-allowed"
-                                    >
-                                        <LockIcon className="h-5 w-5 opacity-30" />
-                                        Voucher Locked
-                                        <ArrowRight className="h-5 w-5 opacity-10" />
-                                    </button>
-                                )}
-                            </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
+
                     </div>
                 </div>
             </div>
-
-            {/* Design Tokens - Floating Indicator */}
-            <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3">
-                <div className="bg-zinc-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-4">
-                    <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-[10px] font-black uppercase tracking-widest opacity-80">Ready to Voucherize</span>
-                </div>
-            </div>
         </div>
+
+    {/* Design Tokens - Floating Indicator */ }
+    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3">
+        <div className="bg-zinc-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-4">
+            <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-80">Ready to Voucherize</span>
+        </div>
+    </div>
+        </>
     );
 }
 

@@ -159,6 +159,7 @@ function FilterDropdown({
 function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index: number; sections: any[] }) {
     const status = getStatusConfig(voucher.status);
     const [isDownloading, setIsDownloading] = useState(false);
+    const user = useAppSelector(s => s.auth.user);
 
     const handleDownload = async () => {
         // If we already have a stored PDF URL, open it immediately.
@@ -228,6 +229,11 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
                             ? voucher.validity_date.split('T')[0]
                             : voucher.due_date.split('T')[0],
                         applyLateFee: voucher.late_fee_charge,
+                        voucherNumber: `VCH-${voucher.id}`,
+                        generatedBy: {
+                            fullName: user?.fullName || "System Admin",
+                            timestampStr: new Date().toLocaleString()
+                        },
                         bank: {
                             name: voucher.bank_accounts?.bank_name || "",
                             title: voucher.bank_accounts?.account_title || "",
