@@ -259,7 +259,7 @@ export default function FeeChallanGenerator() {
         if (student && month && academicYear) {
             fetchStudentFees(student.cc, month, academicYear);
         }
-    }, [student, month, academicYear]);
+    }, [student, month, academicYear, dateFrom, dateTo]);
 
     useEffect(() => {
         setBulkPreview(null);
