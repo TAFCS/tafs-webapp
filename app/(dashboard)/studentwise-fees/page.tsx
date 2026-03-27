@@ -258,15 +258,17 @@ function StudentwiseFeeEditor() {
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    const fetchFeeSchedule = useCallback(async (classId: number, campusId: number | "", ccNumber: string, academicYear: string) => {
+    const fetchFeeSchedule = useCallback(async (classId: number, campusId: number | "", ccNumber: string, academicYear: string, signal?: AbortSignal) => {
         setIsLoading(true); setLoadError(null); setRows([]); setActiveCell(null);
         try {
             // 1. Fetch Class Schedule
             const params: any = { class_id: classId };
             if (campusId) params.campus_id = campusId;
 
-            const { data } = await api.get("/v1/class-fee-schedule/by-class", { params });
+            console.log(`[FeeSchedule] Fetching template: class=${classId}, campus=${campusId}`);
+            const { data } = await api.get("/v1/class-fee-schedule/by-class", { params, signal });
             const feeRows: ClassFeeRow[] = Array.isArray(data?.data) ? data.data : [];
+            console.log(`[FeeSchedule] Template items found:`, feeRows.length);
 
             // Build designated amount lookup
             const lookup: Record<number, string> = {};
@@ -296,6 +298,7 @@ function StudentwiseFeeEditor() {
                     originalAmount: fee.amount,
                 }));
             });
+            console.log(`[FeeSchedule] Expanded template rows:`, expanded.length);
 
             // 3. Apply global sort by month
             let finalRows = sortSpreadsheetRows(expanded);
@@ -305,26 +308,25 @@ function StudentwiseFeeEditor() {
                 try {
                     const numericMatch = ccNumber.match(/\d+$/);
                     const ccKey = numericMatch ? numericMatch[0] : ccNumber;
-                    const studentRes = await api.get(`/v1/student-fees/by-student/${ccKey}`);
+                    console.log(`[FeeSchedule] Fetching student overrides: CC=${ccKey}, year=${academicYear}`);
+                    const studentRes = await api.get(`/v1/student-fees/by-student/${ccKey}`, { signal });
                     const studentData = studentRes.data?.data;
                     const studentFees = Array.isArray(studentData) ? studentData : (studentData?.fees || []);
+                    console.log(`[FeeSchedule] Total student records:`, studentFees.length);
 
-                    // 4. Match student overrides to the expanded template rows.
-                    // A student fee for a specific slot (target_month) should override
-                    // the template row for that slot.
                     const studentFeeMap = new Map<string, any>(
                         studentFees
                             .filter((sf: any) => sf.academic_year === academicYear)
                             .map((sf: any) => [`${sf.fee_type_id}|${sf.target_month}`, sf])
                     );
+                    console.log(`[FeeSchedule] Overrides for ${academicYear}:`, studentFeeMap.size);
 
                     const finalRowsProcessed = finalRows.map(row => {
                         const key = `${row.feeId}|${row.target_month}`;
                         const override = studentFeeMap.get(key);
 
                         if (override) {
-                            // Slot already exists in template -> Apply override
-                            studentFeeMap.delete(key); // Mark as matched
+                            studentFeeMap.delete(key);
                             return {
                                 ...row,
                                 dbId: override.id,
@@ -339,8 +341,6 @@ function StudentwiseFeeEditor() {
                         return row;
                     });
 
-                    // 4b. Any student fees REMAINING in the map had no template slot.
-                    // These are manually added rows (extra slots).
                     const extraRows: SpreadsheetRow[] = [];
                     studentFeeMap.forEach((sf: any) => {
                         extraRows.push({
@@ -359,27 +359,37 @@ function StudentwiseFeeEditor() {
                             bundle_name: sf.student_fee_bundles?.bundle_name
                         });
                     });
+                    console.log(`[FeeSchedule] Extra manual rows:`, extraRows.length);
 
                     finalRows = [...finalRowsProcessed, ...extraRows];
                 } catch (e) {
+                    if (e instanceof Error && e.name === "AbortError") throw e;
                     console.error("No student overrides found or error fetching them.", e);
                 }
             }
 
-            setRows(sortSpreadsheetRows(finalRows));
+            if (signal?.aborted) return;
+            const finalSorted = sortSpreadsheetRows(finalRows);
+            console.log(`[FeeSchedule] Final rows to display:`, finalSorted.length);
+            setRows(finalSorted);
         } catch (err: any) {
+            if (err.name === "AbortError") return;
             setLoadError(err.response?.data?.message || "Failed to load fee schedule.");
-        } finally { setIsLoading(false); }
-    }, []);
+        } finally { 
+            if (!signal?.aborted) setIsLoading(false); 
+        }
+    }, [sortSpreadsheetRows]);
 
     useEffect(() => {
+        const controller = new AbortController();
         if (selectedClassId !== "") {
-            fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
+            fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear, controller.signal);
             setPendingBundles([]);
             setSelectedForBundling([]);
         } else {
             setRows([]);
         }
+        return () => controller.abort();
     }, [selectedClassId, selectedCampusId, studentId, selectedYear, fetchFeeSchedule]);
 
     const handleSelectStudent = async (student: { cc: number; full_name: string; gr_number: string }) => {
@@ -389,18 +399,21 @@ function StudentwiseFeeEditor() {
             const fullStudent = data?.data;
 
             if (fullStudent) {
-                if (fullStudent.campus_id) setSelectedCampusId(fullStudent.campus_id);
-                if (fullStudent.class_id) setSelectedClassId(fullStudent.class_id);
-                if (fullStudent.section_id) setSelectedSectionId(fullStudent.section_id);
-                setStudentId(`${fullStudent.cc_number || fullStudent.cc}`);
+                console.log(`[handleSelectStudent] Loaded profile:`, fullStudent);
+                setSelectedCampusId(fullStudent.campus_id || "");
+                setSelectedClassId(fullStudent.class_id || "");
+                setSelectedSectionId(fullStudent.section_id || "");
+                const ccStr = `${fullStudent.cc_number || fullStudent.cc}`;
+                setStudentId(ccStr);
 
                 setSkipSearch(true);
-                setSearchQuery(`${fullStudent.student_full_name || fullStudent.full_name} (${fullStudent.cc_number || fullStudent.cc})`);
+                setSearchQuery(`${fullStudent.student_full_name || fullStudent.full_name} (${ccStr})`);
 
                 setShowSearchDropdown(false);
                 toast.success(`Loaded profile for ${fullStudent.student_full_name || fullStudent.full_name}`);
             } else {
                 toast.error("Student not found.");
+                handleClearSearch();
             }
         } catch (e) {
             toast.error("Failed to load student details.");
@@ -607,6 +620,15 @@ function StudentwiseFeeEditor() {
             const next = prev.map((r, i) => {
                 if (i !== idx) return r;
                 const updated = { ...r, [field]: val };
+
+                if (field === "amount") {
+                    const original = parseFloat(r.originalAmount || "0");
+                    const nouveau = parseFloat(val || "0");
+                    if (nouveau > original) {
+                        toast.error(`Amount cannot exceed template value: ${original}`);
+                        return r;
+                    }
+                }
 
                 if (field === "feeId") {
                     const ft = feeTypes.find(f => f.id === val);
