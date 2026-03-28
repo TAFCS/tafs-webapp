@@ -59,16 +59,15 @@ function calendarYear(academicYearStart: number, monthNum: number): number {
     return monthNum >= 8 ? academicYearStart : academicYearStart + 1;
 }
 
-const COLS = ["Select", "Actions", "#", "Fee Type", "Frequency", "Month", "Period", "Fee Date", "Amount"] as const;
+const COLS = ["Select", "Actions", "#", "Fee Type", "Frequency", "Month", "Fee Date", "Amount"] as const;
 const COL_SELECT = 0;
 const COL_ACTIONS = 1;
 const COL_NUM = 2;
 const COL_FEE_TYPE = 3;
 const COL_FREQ = 4;
 const COL_MONTH = 5;
-const COL_PERIOD = 6;
-const COL_FEE_DATE = 7;
-const COL_AMOUNT = 8;
+const COL_FEE_DATE = 6;
+const COL_AMOUNT = 7;
 
 function sortMonths(months: unknown): string[] {
     let arr = months;
@@ -649,6 +648,7 @@ function StudentwiseFeeEditor() {
 
                 if (field === "initialMonth") {
                     updated.initialMonth = val;
+                    updated.month = val; // Sync billing month with the selected period
                     updated.target_month = MONTH_TO_NUM[val] ?? updated.target_month;
                 }
 
@@ -1052,7 +1052,6 @@ function StudentwiseFeeEditor() {
                                     <th className="min-w-[180px] border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee Description</th>
                                     <th className="w-24 md:w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Frequency</th>
                                     <th className="w-24 md:w-32 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month</th>
-                                    <th className="w-28 md:w-40 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Billed</th>
                                     <th className="w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-primary/70 uppercase tracking-widest">
                                         Fee Date
                                         {/* <span className="ml-1 text-[8px] font-bold bg-primary/10 text-primary px-1 py-0.5 rounded normal-case tracking-normal">multi-voucher</span> */}
@@ -1170,20 +1169,6 @@ function StudentwiseFeeEditor() {
                                                 <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-300 pointer-events-none" />
                                             </td>
 
-                                            {/* Period Select */}
-                                            <td data-row={rIdx} data-col={COL_PERIOD} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_PERIOD) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
-                                                <select
-                                                    data-row={rIdx} data-col={COL_PERIOD}
-                                                    value={row.month}
-                                                    onChange={(e) => updateRow(rIdx, "month", e.target.value)}
-                                                    onFocus={() => setActiveCell({ row: rIdx, col: COL_PERIOD })}
-                                                    className="w-full h-10 px-5 appearance-none outline-none bg-transparent font-medium text-zinc-600 dark:text-zinc-400 text-[13px] cursor-pointer"
-                                                >
-                                                    {MONTH_ORDER.map(m => <option key={m} value={m}>{m}</option>)}
-                                                    <option value="—">—</option>
-                                                </select>
-                                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-300 pointer-events-none" />
-                                            </td>
 
                                             {/* Fee Date (optional, for multi-voucher-per-month) */}
                                             <td data-row={rIdx} data-col={COL_FEE_DATE} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FEE_DATE) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
