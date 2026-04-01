@@ -18,7 +18,7 @@ interface FeeTypeInfo {
     id: number;
     description: string;
     freq: "MONTHLY" | "ONE_TIME" | null;
-    breakup: any; 
+    breakup: any;
     priority_order?: number;
 }
 
@@ -121,27 +121,27 @@ function StudentwiseFeeEditor() {
     const calculateInitialFeeDate = useCallback((month: string, acadYear: string, feeTypeId: number, providedFt?: any) => {
         const ft = providedFt || feeTypes.find(f => f.id === feeTypeId);
         if (!ft) return undefined;
-        
+
         let b = ft.breakup;
         if (typeof b === "string") {
             try { b = JSON.parse(b); } catch { return undefined; }
         }
-        
+
         if (!b || typeof b !== "object") return undefined;
-        
+
         let day = 0;
         if (b.collection_day_by_month) {
             day = b.collection_day_by_month[month] || 0;
         }
-        
+
         if (day <= 0) return undefined;
-        
+
         const startYearNum = parseInt(acadYear.split("-")[0]);
         if (isNaN(startYearNum)) return undefined;
-        
+
         const monthNum = MONTH_TO_NUM[month] || 8;
         const year = monthNum >= 8 ? startYearNum : startYearNum + 1;
-        
+
         const formatted = `${year}-${monthNum.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
         return formatted;
     }, [feeTypes]);
@@ -184,8 +184,9 @@ function StudentwiseFeeEditor() {
     const [isCreatingBundle, setIsCreatingBundle] = useState(false);
     const [pendingBundles, setPendingBundles] = useState<{
         bundle_name: string;
+        target_month: number;
         academic_year: string;
-        fee_keys: string[]; // `${feeId}|${target_month}`
+        fee_keys: string[]; // `${feeId}|${target_month}|${dateStr}`
         member_ids: string[]; // __id
     }[]>([]);
 
@@ -346,22 +347,32 @@ function StudentwiseFeeEditor() {
                     console.log(`[FeeSchedule] Overrides for ${academicYear}:`, studentFeeMap.size);
 
                     const finalRowsProcessed = finalRows.map(row => {
-                        // We check both with calculated date and "no-date" 
-                        // to handle records that might not have date yet in DB
-                        const calculatedDateStr = row.fee_date || "no-date";
-                        const key = `${row.feeId}|${row.target_month}|${calculatedDateStr}`;
-                        const noDateKey = `${row.feeId}|${row.target_month}|no-date`;
+                        // Find any override that matches this fee ID and target month
+                        // regardless of the fee_date. This handles the case where the user
+                        // changed the date (e.g. from template Oct to manual Aug).
+                        let overrideEntry: [string, any] | undefined;
                         
-                        const override = studentFeeMap.get(key) || studentFeeMap.get(noDateKey);
+                        for (const [key, val] of studentFeeMap.entries()) {
+                            const [fId, tMonth] = key.split('|');
+                            if (Number(fId) === row.feeId && Number(tMonth) === row.target_month) {
+                                overrideEntry = [key, val];
+                                break;
+                            }
+                        }
 
-                        if (override) {
+                        if (overrideEntry) {
+                            const [key, override] = overrideEntry;
                             studentFeeMap.delete(key);
+                            const targetMonthName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === override.target_month) || row.initialMonth;
+                            const billedMonthName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === override.month) || targetMonthName;
+
                             return {
                                 ...row,
                                 dbId: override.id,
                                 amount: override.amount?.toString() || override.amount_before_discount?.toString() || row.amount,
                                 originalAmount: override.amount_before_discount?.toString() || row.originalAmount,
-                                month: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === override.month) || row.month,
+                                month: billedMonthName,
+                                initialMonth: targetMonthName,
                                 fee_date: override.fee_date ? new Date(override.fee_date).toISOString().split('T')[0] : undefined,
                                 bundle_id: override.bundle_id,
                                 bundle_name: override.student_fee_bundles?.bundle_name
@@ -559,6 +570,7 @@ function StudentwiseFeeEditor() {
                     items,
                     bundles: pendingBundles.map(pb => ({
                         bundle_name: pb.bundle_name,
+                        target_month: pb.target_month,
                         academic_year: pb.academic_year,
                         fee_keys: pb.fee_keys
                     }))
@@ -691,8 +703,7 @@ function StudentwiseFeeEditor() {
                     updated.initialMonth = val;
                     updated.month = val; // Sync billing month with the selected period
                     updated.target_month = MONTH_TO_NUM[val] ?? updated.target_month;
-                    // Recalculate date if month changes and it was a default date
-                    updated.fee_date = calculateInitialFeeDate(val, selectedYear, r.feeId);
+                    // Fee date is independent - do NOT recalculate it automatically
                 }
 
                 // For manually-added rows, target_month should follow the period
@@ -725,6 +736,8 @@ function StudentwiseFeeEditor() {
         }
 
         const selectedRows = rows.filter(r => selectedForBundling.includes(r.__id));
+        const firstRow = selectedRows[0];
+        const targetMonth = firstRow.target_month;
         const allHaveDbId = selectedRows.every(r => !!r.dbId);
 
         if (allHaveDbId) {
@@ -737,6 +750,7 @@ function StudentwiseFeeEditor() {
                 await api.post("/v1/student-fees/bundles", {
                     student_id: ccValue,
                     bundle_name: bundleNameInput.trim(),
+                    target_month: targetMonth,
                     academic_year: selectedYear,
                     fee_ids: selectedRows.map(r => r.dbId),
                 });
@@ -757,8 +771,9 @@ function StudentwiseFeeEditor() {
             // Queue as pending bundle
             const newPending = {
                 bundle_name: bundleNameInput.trim(),
+                target_month: targetMonth,
                 academic_year: selectedYear,
-                fee_keys: selectedRows.map(r => `${r.feeId}|${r.target_month}`),
+                fee_keys: selectedRows.map(r => `${r.feeId}|${r.target_month}|${r.fee_date || "no-date"}`),
                 member_ids: selectedRows.map(r => r.__id)
             };
 
@@ -788,7 +803,6 @@ function StudentwiseFeeEditor() {
 
     // Auto-detect bundle constraints
     const selectedRowsForBundling = rows.filter(r => selectedForBundling.includes(r.__id));
-    const distinctMonths = Array.from(new Set(selectedRowsForBundling.map(r => r.target_month))).filter(Boolean) as number[];
     const distinctDates = Array.from(new Set(selectedRowsForBundling.map(r => r.fee_date || "none")));
 
     const selectedClass = classes.find((c) => c.id === Number(selectedClassId));
@@ -1302,7 +1316,7 @@ function StudentwiseFeeEditor() {
                                         {distinctDates[0] !== "none" ? (
                                             <span className="text-primary">{distinctDates[0]}</span>
                                         ) : (
-                                            MONTH_ORDER.find(name => MONTH_TO_NUM[name] === distinctMonths[0]) || "N/A"
+                                            "No Date Set"
                                         )}
                                     </span>
                                 </div>
