@@ -451,8 +451,8 @@ export default function FeeChallanGenerator() {
                         campus: student.campus,
                         class_id: student.class_id,
                         section_id: student.section_id,
-                        className: (classes.find(c => c.id === student.class_id) as any)?.class_name || "N/A",
-                        sectionName: (sections.find(s => s.id === student.section_id) as any)?.section_name || "N/A",
+                        className: (classes.find(c => c.id === student.class_id) as any)?.description || "N/A",
+                        sectionName: (sections.find(s => s.id === student.section_id) as any)?.description || "N/A",
                         grade_and_section: student.grade_and_section,
                         father_name: student.father_name,
                         gender: student.gender
@@ -521,6 +521,15 @@ export default function FeeChallanGenerator() {
     const handleSaveVoucherForGroup = async (group: { fee_date: string; fees: StudentFee[] }) => {
         if (!student || !selectedBank) return;
         setGeneratingGroupDate(group.fee_date);
+        
+        const feeDateMonth = (function() {
+            try {
+                const m = parseInt(group.fee_date.split('-')[1], 10);
+                const sm = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                return sm[m - 1] || month;
+            } catch { return month; }
+        })();
+
         try {
             const groupPdfFees = processFeesForPdf(group.fees);
             const groupTotal = groupPdfFees.reduce((s, f) => s + f.netAmount, 0);
@@ -534,14 +543,14 @@ export default function FeeChallanGenerator() {
                         campus: student.campus,
                         class_id: student.class_id,
                         section_id: student.section_id,
-                        className: (classes.find(c => c.id === student.class_id) as any)?.class_name || "N/A",
-                        sectionName: (sections.find(s => s.id === student.section_id) as any)?.section_name || "N/A",
+                        className: (classes.find(c => c.id === student.class_id) as any)?.description || "N/A",
+                        sectionName: (sections.find(s => s.id === student.section_id) as any)?.description || "N/A",
                         grade_and_section: student.grade_and_section,
                         father_name: student.father_name,
                         gender: student.gender
                     }}
                     details={{
-                        month: group.fee_date, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount,
+                        month: feeDateMonth, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount,
                         voucherNumber: `G-${student.cc}-${Date.now()}`,
                         generatedBy: { fullName: user?.fullName || "Admin", timestampStr },
                         bank: { name: selectedBank.bank_name, title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban }
@@ -634,6 +643,63 @@ export default function FeeChallanGenerator() {
                                 </button>
                             ))}
                         </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderFeesTable = (feesList: any[], totalValue: number) => {
+        const stdFees = feesList.filter(f => !f.discount || f.discount <= 0);
+        const discFees = feesList.filter(f => f.discount && f.discount > 0);
+        const grossTotal = feesList.reduce((s,f) => s + f.amount, 0);
+
+        return (
+            <div className="px-8 py-6 space-y-8">
+                {stdFees.length > 0 && (
+                    <div className="space-y-4">
+                        <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800 pb-2">Standard Fees</h4>
+                        <div className="space-y-4">
+                            {stdFees.map((fee: any, idx: number) => (
+                                <div key={`s-${idx}`} className="flex items-center justify-between text-[14px]">
+                                    <div className="flex items-center gap-3">
+                                        {fee.bundleId && <LinkIcon className="h-3 w-3 text-emerald-500" />}
+                                        <p className="font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">{fee.description || "Fee item"}</p>
+                                    </div>
+                                    <div className="flex items-center gap-12">
+                                        <span className="text-zinc-400 font-bold font-mono">{(fee.amount).toLocaleString()}</span>
+                                        <span className="text-zinc-900 dark:text-zinc-100 font-black font-mono w-24 text-right">{(fee.amount).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                
+                {discFees.length > 0 && (
+                    <div className="space-y-4">
+                        <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800 pb-2">Discounted Fees</h4>
+                        <div className="space-y-4">
+                            {discFees.map((fee: any, idx: number) => (
+                                <div key={`d-${idx}`} className="flex items-center justify-between text-[14px]">
+                                    <div className="flex items-center gap-3">
+                                        {fee.bundleId && <LinkIcon className="h-3 w-3 text-emerald-500" />}
+                                        <p className="font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-tight">{fee.description || "Fee item"}</p>
+                                    </div>
+                                    <div className="flex items-center gap-12">
+                                        <span className="text-zinc-400 font-bold font-mono line-through">{(fee.amount).toLocaleString()}</span>
+                                        <span className="text-emerald-600 font-black font-mono w-24 text-right">{(fee.netAmount).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {discFees.length > 0 && (
+                    <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center text-[12px]">
+                        <span className="font-black text-zinc-500 uppercase tracking-widest">Gross Details Total</span>
+                        <span className="text-zinc-400 font-bold font-mono line-through">PKR {grossTotal.toLocaleString()}</span>
                     </div>
                 )}
             </div>
@@ -1004,8 +1070,8 @@ export default function FeeChallanGenerator() {
                                                             <FeeChallanPDF
                                                                 student={{
                                                                     ...student!,
-                                                                    className: (classes.find(c => c.id === student?.class_id) as any)?.class_name || "N/A",
-                                                                    sectionName: (sections.find(s => s.id === student?.section_id) as any)?.section_name || "N/A"
+                                                                    className: (classes.find(c => c.id === student?.class_id) as any)?.description || "N/A",
+                                                                    sectionName: (sections.find(s => s.id === student?.section_id) as any)?.description || "N/A"
                                                                 }}
                                                                 details={{
                                                                     month, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount, voucherNumber: voucherNumberStr,
@@ -1019,8 +1085,8 @@ export default function FeeChallanGenerator() {
                                                                     full_name: s.student_full_name || s.full_name,
                                                                     cc: s.cc,
                                                                     gr_number: s.gr_number,
-                                                                    className: (classes.find(c => c.id === s.class_id) as any)?.class_name || "N/A",
-                                                                    sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.section_name || "N/A"
+                                                                    className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
+                                                                    sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
                                                                 }))}
                                                             />
                                                         }
@@ -1063,9 +1129,16 @@ export default function FeeChallanGenerator() {
                                                                         <PDFDownloadLink
                                                                             document={
                                                                                 <FeeChallanPDF
-                                                                                    student={{ ...student!, className: (classes.find(c => c.id === student?.class_id) as any)?.class_name || "N/A", sectionName: (sections.find(s => s.id === student?.section_id) as any)?.section_name || "N/A" }}
+                                                                                    student={{ ...student!, className: (classes.find(c => c.id === student?.class_id) as any)?.description || "N/A", sectionName: (sections.find(s => s.id === student?.section_id) as any)?.description || "N/A" }}
                                                                                     details={{
-                                                                                        month, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount, voucherNumber: voucherNumberStr,
+                                                                                        month: (() => {
+                                                                                            try {
+                                                                                                const m = parseInt(g.fee_date.split('-')[1], 10);
+                                                                                                const sm = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                                                                                                return sm[m - 1] || month;
+                                                                                            } catch { return month; }
+                                                                                        })(),
+                                                                                        academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount, voucherNumber: voucherNumberStr,
                                                                                         generatedBy: { fullName: user?.fullName || "Admin", timestampStr },
                                                                                         bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
                                                                                     }}
@@ -1076,8 +1149,8 @@ export default function FeeChallanGenerator() {
                                                                                         full_name: s.student_full_name || s.full_name,
                                                                                         cc: s.cc,
                                                                                         gr_number: s.gr_number,
-                                                                                        className: (classes.find(c => c.id === s.class_id) as any)?.class_name || "N/A",
-                                                                                        sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.section_name || "N/A"
+                                                                                        className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
+                                                                                        sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
                                                                                     }))}
                                                                                 />
                                                                             }
@@ -1098,21 +1171,8 @@ export default function FeeChallanGenerator() {
                                                                 </div>
                                                             </div>
 
-                                                            {/* Detailed Line Items */}
-                                                            <div className="px-8 py-6 space-y-4">
-                                                                {processFeesForPdf(g.fees).map((fee: any, fIdx: number) => (
-                                                                    <div key={fIdx} className="flex items-center justify-between text-[14px]">
-                                                                        <div className="flex items-center gap-3">
-                                                                            {fee.bundleId && <LinkIcon className="h-3 w-3 text-emerald-500" />}
-                                                                            <p className="font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">{fee.description || "Fee item"}</p>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-12">
-                                                                            <span className="text-zinc-400 font-bold font-mono">{(fee.amount).toLocaleString()}</span>
-                                                                            <span className="text-zinc-900 dark:text-zinc-100 font-black font-mono w-24 text-right">{(fee.netAmount).toLocaleString()}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
+                                                            {/* Detailed Line Items Grouped */}
+                                                            {renderFeesTable(processFeesForPdf(g.fees), groupTotal)}
 
                                                             {/* Card Footer */}
                                                             <div className="px-8 py-5 bg-zinc-50/50 dark:bg-zinc-900/30 border-t border-zinc-50 dark:border-zinc-900 flex items-center justify-between">
@@ -1134,17 +1194,7 @@ export default function FeeChallanGenerator() {
                                                     <h3 className="text-lg font-black text-zinc-900 uppercase tracking-tight">Fee Review Listing</h3>
                                                     <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">Manual generation for current selection</p>
                                                 </div>
-                                                <div className="px-8 py-6 space-y-4">
-                                                    {processedPdfFees.map((f, i) => (
-                                                        <div key={i} className="flex items-center justify-between text-[14px]">
-                                                            <p className="font-black text-zinc-600 uppercase tracking-tight">{f.description}</p>
-                                                            <div className="flex items-center gap-12">
-                                                                <span className="text-zinc-400 font-bold font-mono">{f.amount.toLocaleString()}</span>
-                                                                <span className="text-zinc-900 font-black font-mono w-24 text-right text-lg">{f.netAmount.toLocaleString()}</span>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                                {renderFeesTable(processedPdfFees, totalFeesAmount)}
                                                 <div className="px-8 py-8 bg-zinc-900 text-white flex items-center justify-between">
                                                     <span className="text-[12px] font-black uppercase tracking-[0.2em]">Total Payable</span>
                                                     <div className="flex items-center gap-4">
@@ -1166,8 +1216,8 @@ export default function FeeChallanGenerator() {
                                                                     campus: student!.campus,
                                                                     class_id: student!.class_id,
                                                                     section_id: student!.section_id,
-                                                                    className: (classes.find(c => c.id === student?.class_id) as any)?.class_name || "N/A",
-                                                                    sectionName: (sections.find(s => s.id === student?.section_id) as any)?.section_name || "N/A",
+                                                                    className: (classes.find(c => c.id === student?.class_id) as any)?.description || "N/A",
+                                                                    sectionName: (sections.find(s => s.id === student?.section_id) as any)?.description || "N/A",
                                                                     grade_and_section: student!.grade_and_section,
                                                                     father_name: student!.father_name,
                                                                     gender: student!.gender
@@ -1191,8 +1241,8 @@ export default function FeeChallanGenerator() {
                                                                     full_name: s.student_full_name || s.full_name,
                                                                     cc: s.cc,
                                                                     gr_number: s.gr_number,
-                                                                    className: (classes.find(c => c.id === s.class_id) as any)?.class_name || "N/A",
-                                                                    sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.section_name || "N/A"
+                                                                    className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
+                                                                    sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
                                                                 }))}
                                                             />
                                                         }

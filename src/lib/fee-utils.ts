@@ -17,6 +17,19 @@ export const getCurrentAcademicYear = () => {
     return `${startYear}-${startYear + 1}`;
 };
 
+export const getAcademicYearForDate = (dateStr: string) => {
+    try {
+        const parts = dateStr.split('-');
+        if (parts.length >= 2) {
+            const yr = parseInt(parts[0], 10);
+            const mon = parseInt(parts[1], 10) - 1; // 0-indexed month
+            const startYear = mon >= 7 ? yr : yr - 1;
+            return `${startYear}-${startYear + 1}`;
+        }
+    } catch {}
+    return getCurrentAcademicYear();
+};
+
 export const getAcademicYears = (back = 1, forward = 2) => {
     const now = new Date();
     const currentYear = now.getFullYear();
