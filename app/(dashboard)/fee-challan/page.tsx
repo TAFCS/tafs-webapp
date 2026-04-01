@@ -47,7 +47,6 @@ import JSZip from "jszip";
 
 // --- Types ---
 interface StudentProfile {
-    id: number;
     cc: number;
     student_full_name: string;
     gr_number: string;
@@ -477,9 +476,12 @@ export default function FeeChallanGenerator() {
                 />
             ).toBlob();
 
+            const feeIds = studentFees.map(f => f.id);
+            console.log("Generating Single Voucher - Ordered Fee IDs:", feeIds);
+
             const formData = new FormData();
             formData.append('pdf', blob, `v-${student.cc}.pdf`);
-            formData.append('student_id', student.id.toString());
+            formData.append('student_id', student.cc.toString());
             formData.append('campus_id', (student.campus_id || 1).toString());
             formData.append('class_id', student.class_id.toString());
             if (student.section_id) formData.append('section_id', student.section_id.toString());
@@ -557,9 +559,12 @@ export default function FeeChallanGenerator() {
                 />
             ).toBlob();
 
+            const feeIds = group.fees.map(f => f.id);
+            console.log("Generating Group Voucher - Ordered Fee IDs:", feeIds);
+
             const formData = new FormData();
             formData.append('pdf', blob, `vg-${group.fee_date}.pdf`);
-            formData.append('student_id', student.id.toString());
+            formData.append('student_id', student.cc.toString());
             formData.append('campus_id', (student.campus_id || 1).toString());
             formData.append('class_id', student.class_id.toString());
             if (student.section_id) formData.append('section_id', student.section_id.toString());
