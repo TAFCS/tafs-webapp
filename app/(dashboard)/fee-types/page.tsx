@@ -661,36 +661,28 @@ export default function FeeTypesPage() {
                                                 value={item.freq || "MONTHLY"}
                                                 onChange={(e) => handleFieldChange(item.id, "freq", e.target.value)}
                                                 title="Frequency"
-                                                ) : newFeeType.freq === "MONTHLY" ? (
-                                                    <div className="space-y-2">
-                                                        <input
-                                                            type="number"
-                                                            min={1}
-                                                            max={31}
-                                                            value={getSharedCollectionDay(getMonths(newFeeType.breakup), newFeeType.collection_day_by_month || {})}
-                                                            onChange={(e) => setSharedCollectionDayForNewFeeType(e.target.value)}
-                                                            title="New Fee Type Shared Collection Day"
-                                                            placeholder="DD"
-                                                            className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl text-sm outline-none transition-all"
-                                                        />
-                                                        <p className="text-xs text-zinc-500 dark:text-zinc-400">Applied to all selected months</p>
-                                                    </div>
-                                                ) : (
-                                                    getMonths(newFeeType.breakup).map((month) => (
-                                                        <div key={`new-${month}`} className="flex items-center gap-3">
-                                                            <span className="w-20 text-xs font-medium text-zinc-600 dark:text-zinc-300">{month}</span>
-                                                            <input
-                                                                type="number"
-                                                                min={1}
-                                                                max={31}
-                                                                value={newFeeType.collection_day_by_month?.[month] || ""}
-                                                                onChange={(e) => setCollectionDayForNewFeeType(month, e.target.value)}
-                                                                title={`New Fee Type Collection Day ${month}`}
-                                                                placeholder="DD"
-                                                                className="flex-1 px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl text-sm outline-none transition-all"
-                                                            />
-                                                        </div>
-                                                    ))
+                                                className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-lg text-sm outline-none transition-colors"
+                                            >
+                                                <option value="MONTHLY">Monthly</option>
+                                                <option value="ONE_TIME">One Time</option>
+                                            </select>
+                                        </td>
+                                        <td className="px-6 py-3 text-right">
+                                            <button
+                                                onClick={() => setDeleteId(item.id)}
+                                                className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all active:scale-90"
+                                                title="Delete Fee Type"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
 
             {/* Add Fee Type Modal */}
             {isAddModalOpen && (
@@ -873,6 +865,20 @@ export default function FeeTypesPage() {
                                     <div className="space-y-2 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 bg-zinc-50 dark:bg-zinc-900/50">
                                         {getMonths(newFeeType.breakup).length === 0 ? (
                                             <p className="text-xs text-zinc-500 dark:text-zinc-400">Select month(s) first.</p>
+                                        ) : newFeeType.freq === "MONTHLY" ? (
+                                            <div className="space-y-2">
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={31}
+                                                    value={getSharedCollectionDay(getMonths(newFeeType.breakup), newFeeType.collection_day_by_month || {})}
+                                                    onChange={(e) => setSharedCollectionDayForNewFeeType(e.target.value)}
+                                                    title="New Fee Type Shared Collection Day"
+                                                    placeholder="DD"
+                                                    className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl text-sm outline-none transition-all"
+                                                />
+                                                <p className="text-xs text-zinc-500 dark:text-zinc-400">Applied to all selected months</p>
+                                            </div>
                                         ) : (
                                             getMonths(newFeeType.breakup).map((month) => (
                                                 <div key={`new-${month}`} className="flex items-center gap-3">
