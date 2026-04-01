@@ -69,8 +69,9 @@ export function groupFees(
     options: { 
         groupTuitionFees: boolean; 
         isVoucherHeads?: boolean;
+        ignoreBundles?: boolean;
         feeGroups?: { id: string; name: string; feeIds: number[] }[];
-    } = { groupTuitionFees: true, isVoucherHeads: false }
+    } = { groupTuitionFees: true, isVoucherHeads: false, ignoreBundles: false }
 ) {
     const results: any[] = [];
     const alreadyHandledIds = new Set<number>();
@@ -158,47 +159,49 @@ export function groupFees(
     }
 
     // 0.1 Handle Database Bundles
-    const bundleGroups = new Map<number, any[]>();
-    items.forEach(item => {
-        if (item.bundle_id && !alreadyHandledIds.has(item.id)) {
-            const list = bundleGroups.get(item.bundle_id) || [];
-            list.push(item);
-            bundleGroups.set(item.bundle_id, list);
-        }
-    });
-
-    bundleGroups.forEach((group, bundleId) => {
-        let groupGross = 0;
-        let groupNet = 0;
-        let groupDiscount = 0;
-        let groupLabels: string[] = [];
-        const bundleName = group[0].student_fee_bundles?.bundle_name || `Bundle ${bundleId}`;
-
-        group.forEach(item => {
-            const data = getFeeData(item);
-            groupGross += getGrossAmount(item);
-            groupNet += getNetAmount(item);
-            groupDiscount += getDiscount(item);
-
-            if (data.discount_label) groupLabels.push(data.discount_label);
-            if (!options.isVoucherHeads && Number(item.amount_before_discount) > Number(item.amount || item.amount_before_discount)) {
-                groupLabels.push("Profile Disc");
+    if (!options.ignoreBundles) {
+        const bundleGroups = new Map<number, any[]>();
+        items.forEach(item => {
+            if (item.bundle_id && !alreadyHandledIds.has(item.id)) {
+                const list = bundleGroups.get(item.bundle_id) || [];
+                list.push(item);
+                bundleGroups.set(item.bundle_id, list);
             }
-            alreadyHandledIds.add(item.id);
         });
 
-        results.push({
-            description: bundleName,
-            amount: groupGross,
-            netAmount: groupNet,
-            discount: groupDiscount,
-            discountLabel: [...new Set(groupLabels.filter(Boolean))].join(", "),
-            priority: Math.min(...group.map(f => getFeeData(f).fee_types?.priority_order ?? 999)),
-            feeIds: group.map(f => f.id),
-            isGrouped: true,
-            bundleId: bundleId
+        bundleGroups.forEach((group, bundleId) => {
+            let groupGross = 0;
+            let groupNet = 0;
+            let groupDiscount = 0;
+            let groupLabels: string[] = [];
+            const bundleName = group[0].student_fee_bundles?.bundle_name || `Bundle ${bundleId}`;
+
+            group.forEach(item => {
+                const data = getFeeData(item);
+                groupGross += getGrossAmount(item);
+                groupNet += getNetAmount(item);
+                groupDiscount += getDiscount(item);
+
+                if (data.discount_label) groupLabels.push(data.discount_label);
+                if (!options.isVoucherHeads && Number(item.amount_before_discount) > Number(item.amount || item.amount_before_discount)) {
+                    groupLabels.push("Profile Disc");
+                }
+                alreadyHandledIds.add(item.id);
+            });
+
+            results.push({
+                description: bundleName,
+                amount: groupGross,
+                netAmount: groupNet,
+                discount: groupDiscount,
+                discountLabel: [...new Set(groupLabels.filter(Boolean))].join(", "),
+                priority: Math.min(...group.map(f => getFeeData(f).fee_types?.priority_order ?? 999)),
+                feeIds: group.map(f => f.id),
+                isGrouped: true,
+                bundleId: bundleId
+            });
         });
-    });
+    }
 
     // 1. Group Tuition Fees if enabled
     const showTuitionGroup = options.groupTuitionFees && !options.isVoucherHeads;

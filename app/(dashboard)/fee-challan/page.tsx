@@ -47,6 +47,7 @@ import JSZip from "jszip";
 
 // --- Types ---
 interface StudentProfile {
+    id: number;
     cc: number;
     student_full_name: string;
     gr_number: string;
@@ -132,6 +133,7 @@ export default function FeeChallanGenerator() {
 
     const [applyLateFee, setApplyLateFee] = useState(true);
     const [lateFeeAmount, setLateFeeAmount] = useState(1000);
+    const [showBundles, setShowBundles] = useState(true);
 
     // --- Date Range Selection ---
     const [dateFrom, setDateFrom] = useState("");
@@ -164,6 +166,7 @@ export default function FeeChallanGenerator() {
     // --- Voucher Display Options ---
     const [showDiscount, setShowDiscount] = useState(true);
     const [voucherLayout, setVoucherLayout] = useState<'detailed' | 'consolidated'>('detailed');
+    const [showBundleHeads, setShowBundleHeads] = useState(false);
 
     useEffect(() => {
         setVoucherSaved(false);
@@ -344,13 +347,17 @@ export default function FeeChallanGenerator() {
     }, [dueDate, validityDate]);
 
     const processFeesForPdf = (rawFees: any[]) => {
+        let baseFees = [];
+
         if (voucherLayout === 'detailed') {
-            return rawFees.map(f => ({
+            baseFees = rawFees.map(f => ({
                 description: f.description || f.fee_types?.description || f.student_fee_bundles?.bundle_name || "Fee",
                 amount: Number(f.amount_before_discount || f.amount || 0),
                 netAmount: Number(f.amount || f.amount_before_discount || 0),
                 discount: Math.max(0, Number(f.amount_before_discount || 0) - Number(f.amount || 0)),
-                discountLabel: undefined
+                discountLabel: undefined,
+                bundleId: f.bundle_id || f.student_fee_bundles?.id,
+                priority: f.fee_types?.priority_order ?? 999
             }));
         } else {
             const grouped = rawFees.reduce((acc: Record<number, any>, f) => {
@@ -361,6 +368,8 @@ export default function FeeChallanGenerator() {
                         amount: 0,
                         netAmount: 0,
                         months: [] as number[],
+                        bundleId: f.bundle_id || f.student_fee_bundles?.id,
+                        priority: f.fee_types?.priority_order ?? 999
                     };
                 }
                 acc[headId].amount += Number(f.amount_before_discount || f.amount || 0);
@@ -369,7 +378,7 @@ export default function FeeChallanGenerator() {
                 return acc;
             }, {});
 
-            return Object.values(grouped).map((g: any) => {
+            baseFees = Object.values(grouped).map((g: any) => {
                 let monthStr = "";
                 if (g.months.length > 0) {
                     const sorted = [...new Set(g.months)].sort((a, b) => Number(a) - Number(b)) as number[];
@@ -383,12 +392,48 @@ export default function FeeChallanGenerator() {
                     amount: g.amount,
                     netAmount: g.netAmount,
                     discount: Math.max(0, g.amount - g.netAmount),
+                    bundleId: g.bundleId,
+                    priority: g.priority
                 };
             });
         }
+
+        // Apply Bundle Grouping if showBundleHeads is false
+        if (!showBundleHeads) {
+            const bundledMap: Record<string, any> = {};
+            const finalFees: any[] = [];
+
+            baseFees.forEach(f => {
+                if (f.bundleId) {
+                    // Find original fee row to get bundle name if not already in description
+                    const rawFee = rawFees.find(rf => (rf.bundle_id || rf.student_fee_bundles?.id) === f.bundleId);
+                    const bName = rawFee?.student_fee_bundles?.bundle_name || f.description;
+                    
+                    if (!bundledMap[f.bundleId]) {
+                        bundledMap[f.bundleId] = {
+                            description: bName,
+                            amount: 0,
+                            netAmount: 0,
+                            discount: 0,
+                            priority: f.priority ?? 999
+                        };
+                        finalFees.push(bundledMap[f.bundleId]);
+                    }
+                    bundledMap[f.bundleId].amount += f.amount;
+                    bundledMap[f.bundleId].netAmount += f.netAmount;
+                    bundledMap[f.bundleId].discount += f.discount;
+                    bundledMap[f.bundleId].priority = Math.min(bundledMap[f.bundleId].priority, f.priority ?? 999);
+                } else {
+                    finalFees.push(f);
+                }
+            });
+            return finalFees.sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+        }
+
+        return baseFees.sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
     };
 
-    const processedPdfFees = useMemo(() => processFeesForPdf(studentFees), [studentFees, voucherLayout, academicYear]);
+    const processedPdfFees = useMemo(() => processFeesForPdf(studentFees), [studentFees, voucherLayout, academicYear, showBundleHeads]);
 
     const totalFeesAmount = processedPdfFees.reduce((sum, f) => sum + f.netAmount, 0);
     const voucherNumberStr = student ? `TAFS-${student.cc}-${Date.now().toString().slice(-6)}` : "TAFS-XXXX-XXXXXX";
@@ -434,19 +479,19 @@ export default function FeeChallanGenerator() {
 
             const formData = new FormData();
             formData.append('pdf', blob, `v-${student.cc}.pdf`);
-            formData.append('student_id', Number(student.cc).toString());
-            formData.append('campus_id', Number(student.campus_id || 1).toString());
-            formData.append('class_id', Number(student.class_id).toString());
-            if (student.section_id) formData.append('section_id', Number(student.section_id).toString());
-            formData.append('bank_account_id', Number(selectedBank.id).toString());
+            formData.append('student_id', student.id.toString());
+            formData.append('campus_id', (student.campus_id || 1).toString());
+            formData.append('class_id', student.class_id.toString());
+            if (student.section_id) formData.append('section_id', student.section_id.toString());
+            formData.append('bank_account_id', selectedBank.id.toString());
             formData.append('issue_date', issueDate);
             formData.append('due_date', dueDate);
             formData.append('academic_year', academicYear);
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
             formData.append('late_fee_charge', applyLateFee.toString());
-            formData.append('late_fee_amount', Number(lateFeeAmount || 0).toString());
+            formData.append('late_fee_amount', (lateFeeAmount || 0).toString());
             formData.append('precedence', '1');
-            studentFees.forEach(f => formData.append('orderedFeeIds', Number(f.id).toString()));
+            studentFees.forEach(f => formData.append('orderedFeeIds', f.id.toString()));
 
             const feeLines = studentFees.map(f => ({
                 student_fee_id: Number(f.id),
@@ -461,11 +506,11 @@ export default function FeeChallanGenerator() {
         } catch (e: any) {
             const errorData = e.response?.data;
             console.error("Voucher Error Status:", e.response?.status);
-            console.error("Voucher Error Body:", errorData);
+            console.error("Voucher Error Body Full:", JSON.stringify(errorData, null, 2));
             
             const msg = errorData?.message || e.message;
             const finalMsg = Array.isArray(msg) ? msg.join(", ") : msg;
-            toast.error(`Error: ${finalMsg}`);
+            toast.error(`Error: ${finalMsg}`, { duration: 6000 });
         } finally {
             setIsSavingVoucher(false);
         }
@@ -475,13 +520,8 @@ export default function FeeChallanGenerator() {
         if (!student || !selectedBank) return;
         setGeneratingGroupDate(group.fee_date);
         try {
-            const groupFees = group.fees.map(f => ({
-                description: f.fee_types?.description || "Fee",
-                amount: Number(f.amount_before_discount),
-                netAmount: Number(f.amount || f.amount_before_discount),
-                discount: Math.max(0, Number(f.amount_before_discount) - Number(f.amount || f.amount_before_discount)),
-            }));
-            const groupTotal = groupFees.reduce((s, f) => s + f.netAmount, 0);
+            const groupPdfFees = processFeesForPdf(group.fees);
+            const groupTotal = groupPdfFees.reduce((s, f) => s + f.netAmount, 0);
 
             const blob = await pdf(
                 <FeeChallanPDF
@@ -504,7 +544,7 @@ export default function FeeChallanGenerator() {
                         generatedBy: { fullName: user?.fullName || "Admin", timestampStr },
                         bank: { name: selectedBank.bank_name, title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban }
                     }}
-                    fees={groupFees}
+                    fees={groupPdfFees}
                     totalAmount={groupTotal}
                     showDiscount={showDiscount}
                     siblings={siblings.map(s => ({
@@ -519,20 +559,20 @@ export default function FeeChallanGenerator() {
 
             const formData = new FormData();
             formData.append('pdf', blob, `vg-${group.fee_date}.pdf`);
-            formData.append('student_id', Number(student.cc).toString());
-            formData.append('campus_id', Number(student.campus_id || 1).toString());
-            formData.append('class_id', Number(student.class_id).toString());
-            if (student.section_id) formData.append('section_id', Number(student.section_id).toString());
-            formData.append('bank_account_id', Number(selectedBank.id).toString());
+            formData.append('student_id', student.id.toString());
+            formData.append('campus_id', (student.campus_id || 1).toString());
+            formData.append('class_id', student.class_id.toString());
+            if (student.section_id) formData.append('section_id', student.section_id.toString());
+            formData.append('bank_account_id', selectedBank.id.toString());
             formData.append('issue_date', issueDate);
             formData.append('due_date', dueDate);
             formData.append('fee_date', group.fee_date);
             formData.append('academic_year', academicYear);
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
             formData.append('late_fee_charge', applyLateFee.toString());
-            formData.append('late_fee_amount', Number(lateFeeAmount || 0).toString());
+            formData.append('late_fee_amount', (lateFeeAmount || 0).toString());
             formData.append('precedence', '1');
-            group.fees.forEach(f => formData.append('orderedFeeIds', Number(f.id).toString()));
+            group.fees.forEach(f => formData.append('orderedFeeIds', f.id.toString()));
 
             const feeLines = group.fees.map(f => ({
                 student_fee_id: Number(f.id),
@@ -547,11 +587,11 @@ export default function FeeChallanGenerator() {
         } catch (e: any) {
             const errorData = e.response?.data;
             console.error("Voucher Error Status:", e.response?.status);
-            console.error("Voucher Error Body:", errorData);
+            console.error("Voucher Error Body Full:", JSON.stringify(errorData, null, 2));
             
             const msg = errorData?.message || e.message;
             const finalMsg = Array.isArray(msg) ? msg.join(", ") : msg;
-            toast.error(`Error: ${finalMsg}`);
+            toast.error(`Error: ${finalMsg}`, { duration: 6000 });
         } finally {
             setGeneratingGroupDate(null);
         }
@@ -568,9 +608,9 @@ export default function FeeChallanGenerator() {
         return (
             <div className="relative" ref={yearDropdownRef}>
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Academic Year</label>
-                <button 
-                  onClick={() => setShowYearDropdown(!showYearDropdown)} 
-                  className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold flex items-center justify-between focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
+                <button
+                    onClick={() => setShowYearDropdown(!showYearDropdown)}
+                    className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold flex items-center justify-between focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
                 >
                     <span className="text-zinc-900 dark:text-zinc-100">{academicYear}</span>
                     <Calendar className="h-4 w-4 text-zinc-400" />
@@ -635,12 +675,12 @@ export default function FeeChallanGenerator() {
                             <div className="relative" ref={searchDropdownRef}>
                                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Student Database</label>
                                 <div className="relative group">
-                                    <input 
-                                        type="text" 
-                                        placeholder="Enter Name, CC ID, or GR Number..." 
-                                        value={searchQuery} 
+                                    <input
+                                        type="text"
+                                        placeholder="Enter Name, CC ID, or GR Number..."
+                                        value={searchQuery}
                                         onChange={e => setSearchQuery(e.target.value)}
-                                        className="w-full h-14 pl-14 pr-14 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-zinc-100 dark:border-zinc-800 rounded-2xl text-[14px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                        className="w-full h-14 pl-14 pr-14 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-zinc-100 dark:border-zinc-800 rounded-2xl text-[14px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700"
                                     />
                                     <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
                                     {isSearching && <Loader2 className="absolute right-5 top-1/2 -translate-y-1/2 h-5 w-5 text-primary animate-spin" />}
@@ -752,9 +792,9 @@ export default function FeeChallanGenerator() {
                                     <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Collection Bank</h3>
                                 </div>
                                 <div className="relative" ref={bankDropdownRef}>
-                                    <button 
-                                      onClick={() => setShowBankDropdown(!showBankDropdown)}
-                                      className="w-full min-h-[64px] p-5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-3xl flex items-center justify-between hover:border-primary/50 transition-all group"
+                                    <button
+                                        onClick={() => setShowBankDropdown(!showBankDropdown)}
+                                        className="w-full min-h-[64px] p-5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-3xl flex items-center justify-between hover:border-primary/50 transition-all group"
                                     >
                                         <div className="flex items-center gap-5">
                                             <div className="h-10 w-10 bg-white dark:bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-400 group-hover:text-primary transition-colors">
@@ -793,17 +833,17 @@ export default function FeeChallanGenerator() {
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     {[
-                                      { label: 'Date of Issue', val: issueDate, setter: setIssueDate, color: 'primary' },
-                                      { label: 'Due Date', val: dueDate, setter: setDueDate, color: 'primary' },
-                                      { label: 'Valid Till', val: validityDate, setter: setValidityDate, color: 'rose' }
+                                        { label: 'Date of Issue', val: issueDate, setter: setIssueDate, color: 'primary' },
+                                        { label: 'Due Date', val: dueDate, setter: setDueDate, color: 'primary' },
+                                        { label: 'Valid Till', val: validityDate, setter: setValidityDate, color: 'rose' }
                                     ].map((item, i) => (
                                         <div key={item.label} className="space-y-2">
                                             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">{item.label}</label>
-                                            <input 
-                                                type="date" 
-                                                value={item.val} 
-                                                onChange={e => item.setter(e.target.value)} 
-                                                className={`w-full h-12 px-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-black focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all ${item.color === 'rose' ? "text-rose-600 dark:text-rose-400" : ""}`} 
+                                            <input
+                                                type="date"
+                                                value={item.val}
+                                                onChange={e => item.setter(e.target.value)}
+                                                className={`w-full h-12 px-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-black focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all ${item.color === 'rose' ? "text-rose-600 dark:text-rose-400" : ""}`}
                                             />
                                         </div>
                                     ))}
@@ -818,30 +858,54 @@ export default function FeeChallanGenerator() {
                                         <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Late Surcharge</h3>
                                     </div>
                                     <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50 dark:border-zinc-800">
-                                        <button 
-                                          onClick={() => setApplyLateFee(true)} 
-                                          className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${applyLateFee ? "bg-white dark:bg-zinc-800 text-rose-600 shadow-xl shadow-rose-500/10 border border-rose-100/50 dark:border-rose-900/20" : "text-zinc-400 hover:text-zinc-600"}`}
+                                        <button
+                                            onClick={() => setApplyLateFee(true)}
+                                            className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${applyLateFee ? "bg-white dark:bg-zinc-800 text-rose-600 shadow-xl shadow-rose-500/10 border border-rose-100/50 dark:border-rose-900/20" : "text-zinc-400 hover:text-zinc-600"}`}
                                         >
                                             Apply
                                         </button>
-                                        <button 
-                                          onClick={() => setApplyLateFee(false)} 
-                                          className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!applyLateFee ? "bg-white dark:bg-zinc-800 text-zinc-400 shadow-xl shadow-zinc-500/5" : "text-zinc-400 hover:text-zinc-600"}`}
+                                        <button
+                                            onClick={() => setApplyLateFee(false)}
+                                            className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!applyLateFee ? "bg-white dark:bg-zinc-800 text-zinc-400 shadow-xl shadow-zinc-500/5" : "text-zinc-400 hover:text-zinc-600"}`}
                                         >
                                             None
                                         </button>
                                     </div>
                                     {applyLateFee && (
                                         <div className="relative animate-in zoom-in-95 fade-in duration-300">
-                                            <input 
-                                                type="number" 
-                                                value={lateFeeAmount} 
+                                            <input
+                                                type="number"
+                                                value={lateFeeAmount}
                                                 onChange={e => setLateFeeAmount(Number(e.target.value))}
-                                                className="w-full h-12 px-12 bg-rose-50/50 dark:bg-rose-900/10 border-2 border-rose-100 dark:border-rose-900/30 rounded-2xl text-[14px] font-black text-rose-600 dark:text-rose-400 focus:ring-4 focus:ring-rose-500/5 focus:border-rose-500/30 transition-all" 
+                                                className="w-full h-12 px-12 bg-rose-50/50 dark:bg-rose-900/10 border-2 border-rose-100 dark:border-rose-900/30 rounded-2xl text-[14px] font-black text-rose-600 dark:text-rose-400 focus:ring-4 focus:ring-rose-500/5 focus:border-rose-500/30 transition-all"
                                             />
                                             <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-rose-400" />
                                         </div>
                                     )}
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-3">
+                                        <LinkIcon className="h-4 w-4 text-emerald-500" />
+                                        <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Fee Bundling</h3>
+                                    </div>
+                                    <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50 dark:border-zinc-800">
+                                        <button
+                                            onClick={() => setShowBundleHeads(false)}
+                                            className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!showBundleHeads ? "bg-white dark:bg-zinc-800 text-emerald-600 shadow-xl shadow-emerald-500/10 border border-emerald-100/50" : "text-zinc-400 hover:text-zinc-600"}`}
+                                        >
+                                            Bundle
+                                        </button>
+                                        <button
+                                            onClick={() => setShowBundleHeads(true)}
+                                            className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${showBundleHeads ? "bg-white dark:bg-zinc-800 text-emerald-600 shadow-xl shadow-emerald-500/5" : "text-zinc-400 hover:text-zinc-600"}`}
+                                        >
+                                            Heads
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] font-bold text-zinc-400 italic px-2">
+                                        {showBundleHeads ? "Listing individual heads." : "Showing bundle as single item."}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -852,9 +916,9 @@ export default function FeeChallanGenerator() {
                                 <ChevronLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
                                 Back
                             </button>
-                            <button 
-                              onClick={() => { if (selectedBank) setCurrentStep(3); else toast.error("Select bank"); }}
-                              className="px-10 h-14 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-[22px] text-[12px] font-black uppercase tracking-widest shadow-2xl shadow-zinc-900/20 dark:shadow-zinc-100/10 transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-3 group"
+                            <button
+                                onClick={() => { if (selectedBank) setCurrentStep(3); else toast.error("Select bank"); }}
+                                className="px-10 h-14 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-[22px] text-[12px] font-black uppercase tracking-widest shadow-2xl shadow-zinc-900/20 dark:shadow-zinc-100/10 transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-3 group"
                             >
                                 Preview Fees
                                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
@@ -877,31 +941,31 @@ export default function FeeChallanGenerator() {
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <div className="flex items-center gap-1.5 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[22px] border border-zinc-200/50 dark:border-zinc-800/50">
-                                        <button 
-                                          onClick={() => setShowDiscount(!showDiscount)}
-                                          className={`px-4 h-9 rounded-[18px] text-[9px] font-black uppercase tracking-[0.15em] whitespace-nowrap transition-all flex items-center gap-2 ${showDiscount ? "bg-white dark:bg-zinc-800 text-emerald-600 shadow-xl shadow-emerald-500/5 border border-emerald-100/50" : "text-zinc-400 hover:text-zinc-500"}`}
+                                        <button
+                                            onClick={() => setShowDiscount(!showDiscount)}
+                                            className={`px-4 h-9 rounded-[18px] text-[9px] font-black uppercase tracking-[0.15em] whitespace-nowrap transition-all flex items-center gap-2 ${showDiscount ? "bg-white dark:bg-zinc-800 text-emerald-600 shadow-xl shadow-emerald-500/5 border border-emerald-100/50" : "text-zinc-400 hover:text-zinc-500"}`}
                                         >
                                             <div className={`h-1.5 w-1.5 rounded-full ${showDiscount ? "bg-emerald-500 animate-pulse" : "bg-zinc-300"}`} />
                                             Show Discount
                                         </button>
                                         <div className="w-[1px] h-3.5 bg-zinc-200 dark:bg-zinc-800 mx-1" />
                                         <div className="flex items-center gap-1">
-                                            <button 
-                                              onClick={() => setVoucherLayout('detailed')}
-                                              className={`px-4 h-9 rounded-[18px] text-[9px] font-black uppercase tracking-[0.15em] whitespace-nowrap transition-all ${voucherLayout === 'detailed' ? "bg-white dark:bg-zinc-800 text-zinc-900 shadow-xl shadow-zinc-500/5 border border-zinc-100 dark:border-zinc-700" : "text-zinc-400 hover:text-zinc-500"}`}
+                                            <button
+                                                onClick={() => setVoucherLayout('detailed')}
+                                                className={`px-4 h-9 rounded-[18px] text-[9px] font-black uppercase tracking-[0.15em] whitespace-nowrap transition-all ${voucherLayout === 'detailed' ? "bg-white dark:bg-zinc-800 text-zinc-900 shadow-xl shadow-zinc-500/5 border border-zinc-100 dark:border-zinc-700" : "text-zinc-400 hover:text-zinc-500"}`}
                                             >
                                                 Row by Row
                                             </button>
-                                            <button 
-                                              onClick={() => setVoucherLayout('consolidated')}
-                                              className={`px-4 h-9 rounded-[18px] text-[9px] font-black uppercase tracking-[0.15em] whitespace-nowrap transition-all ${voucherLayout === 'consolidated' ? "bg-white dark:bg-zinc-800 text-zinc-900 shadow-xl shadow-zinc-500/5 border border-zinc-100 dark:border-zinc-700" : "text-zinc-400 hover:text-zinc-500"}`}
+                                            <button
+                                                onClick={() => setVoucherLayout('consolidated')}
+                                                className={`px-4 h-9 rounded-[18px] text-[9px] font-black uppercase tracking-[0.15em] whitespace-nowrap transition-all ${voucherLayout === 'consolidated' ? "bg-white dark:bg-zinc-800 text-zinc-900 shadow-xl shadow-zinc-500/5 border border-zinc-100 dark:border-zinc-700" : "text-zinc-400 hover:text-zinc-500"}`}
                                             >
                                                 Line
                                             </button>
                                         </div>
                                     </div>
-                                    <button 
-                                        onClick={() => setCurrentStep(2)} 
+                                    <button
+                                        onClick={() => setCurrentStep(2)}
                                         className="h-12 w-12 flex items-center justify-center rounded-[20px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 shadow-sm transition-all active:scale-95 hover:shadow-lg hover:shadow-zinc-200/50"
                                     >
                                         <ChevronLeft className="h-6 w-6" />
@@ -920,56 +984,56 @@ export default function FeeChallanGenerator() {
                                         <div className="space-y-10 max-w-4xl mx-auto pb-10">
                                             {/* Groups Summary Banner */}
                                             <div className="bg-primary/5 border-2 border-primary/10 p-8 rounded-[32px] flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-4 duration-500">
-                                              <div className="flex items-center gap-6">
-                                                  <div className="h-14 w-14 rounded-2xl bg-white dark:bg-zinc-800 flex items-center justify-center text-primary shadow-sm ring-1 ring-primary/10">
-                                                      <CreditCard className="h-7 w-7" />
-                                                  </div>
-                                                  <div>
-                                                      <h3 className="text-lg font-black text-primary uppercase tracking-tight">{feeGroupsByDate.length} Voucher Groups Found</h3>
-                                                      <p className="text-[11px] font-bold text-primary/60 uppercase tracking-widest mt-0.5">Each fee_date becomes a separate voucher</p>
-                                                  </div>
-                                              </div>
-                                              {voucherSaved ? (
-                                                <PDFDownloadLink
-                                                    document={
-                                                        <FeeChallanPDF 
-                                                            student={{ 
-                                                                ...student!, 
-                                                                className: (classes.find(c => c.id === student?.class_id) as any)?.class_name || "N/A", 
-                                                                sectionName: (sections.find(s => s.id === student?.section_id) as any)?.section_name || "N/A" 
-                                                            }}
-                                                            details={{ 
-                                                                month, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount, voucherNumber: voucherNumberStr, 
-                                                                generatedBy: { fullName: user?.fullName || "Admin", timestampStr }, 
-                                                                bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban } 
-                                                            }} 
-                                                            fees={processedPdfFees} 
-                                                            totalAmount={totalFeesAmount} 
-                                                            showDiscount={showDiscount}
-                                                            siblings={siblings.map(s => ({
-                                                                full_name: s.student_full_name || s.full_name,
-                                                                cc: s.cc,
-                                                                gr_number: s.gr_number,
-                                                                className: (classes.find(c => c.id === s.class_id) as any)?.class_name || "N/A",
-                                                                sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.section_name || "N/A"
-                                                            }))} 
-                                                        />
-                                                    }
-                                                    fileName={`Vouchers_${student?.cc}.pdf`}
-                                                    className="h-14 px-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase text-[12px] tracking-widest shadow-xl shadow-emerald-500/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-4"
-                                                >
-                                                    <Download className="h-5 w-5" /> Download All
-                                                </PDFDownloadLink>
-                                              ) : (
-                                                <button 
-                                                  onClick={handleGenerateAllGroups} 
-                                                  disabled={isGeneratingAll} 
-                                                  className="h-14 px-10 bg-primary hover:bg-primary-hover text-white rounded-2xl font-black uppercase text-[12px] tracking-widest shadow-xl shadow-primary/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-4 disabled:opacity-50"
-                                                >
-                                                    {isGeneratingAll ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
-                                                    Generate All
-                                                </button>
-                                              )}
+                                                <div className="flex items-center gap-6">
+                                                    <div className="h-14 w-14 rounded-2xl bg-white dark:bg-zinc-800 flex items-center justify-center text-primary shadow-sm ring-1 ring-primary/10">
+                                                        <CreditCard className="h-7 w-7" />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-lg font-black text-primary uppercase tracking-tight">{feeGroupsByDate.length} Voucher Groups Found</h3>
+                                                        <p className="text-[11px] font-bold text-primary/60 uppercase tracking-widest mt-0.5">Each fee_date becomes a separate voucher</p>
+                                                    </div>
+                                                </div>
+                                                {voucherSaved ? (
+                                                    <PDFDownloadLink
+                                                        document={
+                                                            <FeeChallanPDF
+                                                                student={{
+                                                                    ...student!,
+                                                                    className: (classes.find(c => c.id === student?.class_id) as any)?.class_name || "N/A",
+                                                                    sectionName: (sections.find(s => s.id === student?.section_id) as any)?.section_name || "N/A"
+                                                                }}
+                                                                details={{
+                                                                    month, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount, voucherNumber: voucherNumberStr,
+                                                                    generatedBy: { fullName: user?.fullName || "Admin", timestampStr },
+                                                                    bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
+                                                                }}
+                                                                fees={processedPdfFees}
+                                                                totalAmount={totalFeesAmount}
+                                                                showDiscount={showDiscount}
+                                                                siblings={siblings.map(s => ({
+                                                                    full_name: s.student_full_name || s.full_name,
+                                                                    cc: s.cc,
+                                                                    gr_number: s.gr_number,
+                                                                    className: (classes.find(c => c.id === s.class_id) as any)?.class_name || "N/A",
+                                                                    sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.section_name || "N/A"
+                                                                }))}
+                                                            />
+                                                        }
+                                                        fileName={`Vouchers_${student?.cc}.pdf`}
+                                                        className="h-14 px-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase text-[12px] tracking-widest shadow-xl shadow-emerald-500/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-4"
+                                                    >
+                                                        <Download className="h-5 w-5" /> Download All
+                                                    </PDFDownloadLink>
+                                                ) : (
+                                                    <button
+                                                        onClick={handleGenerateAllGroups}
+                                                        disabled={isGeneratingAll}
+                                                        className="h-14 px-10 bg-primary hover:bg-primary-hover text-white rounded-2xl font-black uppercase text-[12px] tracking-widest shadow-xl shadow-primary/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-4 disabled:opacity-50"
+                                                    >
+                                                        {isGeneratingAll ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
+                                                        Generate All
+                                                    </button>
+                                                )}
                                             </div>
 
                                             {/* Detailed Group Cards */}
@@ -993,15 +1057,15 @@ export default function FeeChallanGenerator() {
                                                                     {generatedGroupDates.has(g.fee_date) && (
                                                                         <PDFDownloadLink
                                                                             document={
-                                                                                <FeeChallanPDF 
+                                                                                <FeeChallanPDF
                                                                                     student={{ ...student!, className: (classes.find(c => c.id === student?.class_id) as any)?.class_name || "N/A", sectionName: (sections.find(s => s.id === student?.section_id) as any)?.section_name || "N/A" }}
-                                                                                    details={{ 
-                                                                                        month, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount, voucherNumber: voucherNumberStr, 
+                                                                                    details={{
+                                                                                        month, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount, voucherNumber: voucherNumberStr,
                                                                                         generatedBy: { fullName: user?.fullName || "Admin", timestampStr },
-                                                                                        bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban } 
-                                                                                    }} 
-                                                                                    fees={processFeesForPdf(g.fees)} 
-                                                                                    totalAmount={groupTotal} 
+                                                                                        bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
+                                                                                    }}
+                                                                                    fees={processFeesForPdf(g.fees)}
+                                                                                    totalAmount={groupTotal}
                                                                                     showDiscount={showDiscount}
                                                                                     siblings={siblings.map(s => ({
                                                                                         full_name: s.student_full_name || s.full_name,
@@ -1009,7 +1073,7 @@ export default function FeeChallanGenerator() {
                                                                                         gr_number: s.gr_number,
                                                                                         className: (classes.find(c => c.id === s.class_id) as any)?.class_name || "N/A",
                                                                                         sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.section_name || "N/A"
-                                                                                    }))} 
+                                                                                    }))}
                                                                                 />
                                                                             }
                                                                             fileName={`Challan_${student?.cc}_${g.fee_date}.pdf`}
@@ -1018,10 +1082,10 @@ export default function FeeChallanGenerator() {
                                                                             <Download className="h-5 w-5" />
                                                                         </PDFDownloadLink>
                                                                     )}
-                                                                    <button 
-                                                                      onClick={() => handleSaveVoucherForGroup(g)} 
-                                                                      disabled={generatingGroupDate === g.fee_date} 
-                                                                      className={`h-12 px-10 rounded-2xl text-[11px] uppercase font-black tracking-widest transition-all flex items-center gap-3 ${generatedGroupDates.has(g.fee_date) ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:-translate-y-0.5 active:scale-95"}`}
+                                                                    <button
+                                                                        onClick={() => handleSaveVoucherForGroup(g)}
+                                                                        disabled={generatingGroupDate === g.fee_date}
+                                                                        className={`h-12 px-10 rounded-2xl text-[11px] uppercase font-black tracking-widest transition-all flex items-center gap-3 ${generatedGroupDates.has(g.fee_date) ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:-translate-y-0.5 active:scale-95"}`}
                                                                     >
                                                                         {generatingGroupDate === g.fee_date ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
                                                                         {generatedGroupDates.has(g.fee_date) ? "Regenerate" : "Generate"}
@@ -1031,15 +1095,15 @@ export default function FeeChallanGenerator() {
 
                                                             {/* Detailed Line Items */}
                                                             <div className="px-8 py-6 space-y-4">
-                                                                {groupFees(g.fees, {}, { 
-                                                                    groupTuitionFees: voucherLayout === 'consolidated', 
-                                                                    isVoucherHeads: false 
-                                                                }).map((f, i) => (
-                                                                    <div key={i} className="flex items-center justify-between text-[14px]">
-                                                                        <p className="font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">{f.description}</p>
+                                                                {processFeesForPdf(g.fees).map((fee: any, fIdx: number) => (
+                                                                    <div key={fIdx} className="flex items-center justify-between text-[14px]">
+                                                                        <div className="flex items-center gap-3">
+                                                                            {fee.bundleId && <LinkIcon className="h-3 w-3 text-emerald-500" />}
+                                                                            <p className="font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">{fee.description || "Fee item"}</p>
+                                                                        </div>
                                                                         <div className="flex items-center gap-12">
-                                                                            <span className="text-zinc-400 font-bold font-mono">{f.amount.toLocaleString()}</span>
-                                                                            <span className="text-zinc-900 dark:text-zinc-100 font-black font-mono w-24 text-right">{f.netAmount.toLocaleString()}</span>
+                                                                            <span className="text-zinc-400 font-bold font-mono">{(fee.amount).toLocaleString()}</span>
+                                                                            <span className="text-zinc-900 dark:text-zinc-100 font-black font-mono w-24 text-right">{(fee.netAmount).toLocaleString()}</span>
                                                                         </div>
                                                                     </div>
                                                                 ))}
@@ -1087,9 +1151,9 @@ export default function FeeChallanGenerator() {
 
                                             <div className="flex justify-end gap-6 pb-10">
                                                 {voucherSaved ? (
-                                                    <PDFDownloadLink 
+                                                    <PDFDownloadLink
                                                         document={
-                                                            <FeeChallanPDF 
+                                                            <FeeChallanPDF
                                                                 student={{
                                                                     cc: student!.cc,
                                                                     student_full_name: student!.student_full_name,
@@ -1102,21 +1166,21 @@ export default function FeeChallanGenerator() {
                                                                     grade_and_section: student!.grade_and_section,
                                                                     father_name: student!.father_name,
                                                                     gender: student!.gender
-                                                                }} 
-                                                                details={{ 
-                                                                    month, 
-                                                                    academicYear, 
-                                                                    issueDate, 
-                                                                    dueDate, 
-                                                                    validityDate, 
-                                                                    applyLateFee, 
-                                                                    lateFeeAmount, 
-                                                                    voucherNumber: voucherNumberStr, 
-                                                                    generatedBy: { fullName: user?.fullName || "Admin", timestampStr }, 
-                                                                    bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban } 
-                                                                }} 
-                                                                fees={processedPdfFees} 
-                                                                totalAmount={totalFeesAmount} 
+                                                                }}
+                                                                details={{
+                                                                    month,
+                                                                    academicYear,
+                                                                    issueDate,
+                                                                    dueDate,
+                                                                    validityDate,
+                                                                    applyLateFee,
+                                                                    lateFeeAmount,
+                                                                    voucherNumber: voucherNumberStr,
+                                                                    generatedBy: { fullName: user?.fullName || "Admin", timestampStr },
+                                                                    bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
+                                                                }}
+                                                                fees={processedPdfFees}
+                                                                totalAmount={totalFeesAmount}
                                                                 showDiscount={showDiscount}
                                                                 siblings={siblings.map(s => ({
                                                                     full_name: s.student_full_name || s.full_name,
@@ -1124,10 +1188,10 @@ export default function FeeChallanGenerator() {
                                                                     gr_number: s.gr_number,
                                                                     className: (classes.find(c => c.id === s.class_id) as any)?.class_name || "N/A",
                                                                     sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.section_name || "N/A"
-                                                                }))} 
+                                                                }))}
                                                             />
-                                                        } 
-                                                        fileName={`Challan_${student?.cc}.pdf`} 
+                                                        }
+                                                        fileName={`Challan_${student?.cc}.pdf`}
                                                         className="h-16 px-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl shadow-emerald-600/20 transition-all hover:-translate-y-1 active:scale-95"
                                                     >
                                                         <Download className="h-5 w-5" /> Download PDF
