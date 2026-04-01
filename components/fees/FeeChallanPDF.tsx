@@ -323,6 +323,7 @@ interface FeeChallanPDFProps {
     };
     fees: FeeItem[];
     totalAmount: number;
+    showDiscount?: boolean;
     siblings?: {
         full_name: string;
         cc: number | string;
@@ -332,7 +333,7 @@ interface FeeChallanPDFProps {
     }[];
 }
 
-const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, isLast }: { copyType: string, isLast?: boolean } & FeeChallanPDFProps) => (
+const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, showDiscount, isLast }: { copyType: string, isLast?: boolean } & FeeChallanPDFProps) => (
     <View style={[styles.section, isLast ? styles.lastSection : {}]}>
         <Text style={styles.copyLabel}>{copyType}</Text>
 
@@ -419,7 +420,7 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
         <View style={[styles.feeTable, { marginTop: 4 }]}>
             <View style={styles.tableHeader}>
                 <Text style={[styles.colDesc, { fontWeight: 'bold' }]}>Description</Text>
-                {fees.some(f => (f.discount ?? 0) > 0) ? (
+                {showDiscount !== false && fees.some(f => (f.discount ?? 0) > 0) ? (
                     <>
                         <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>{ (student.class_id === 21 || student.class_id === 22 || student.className === 'AS Level' || student.className === 'A2 Level') ? 'Before Scholarship' : 'Before Discount' }</Text>
                         <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>{ (student.class_id === 21 || student.class_id === 22 || student.className === 'AS Level' || student.className === 'A2 Level') ? 'After Scholarship' : 'After Discount' }</Text>
@@ -429,13 +430,13 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                 )}
             </View>
             {fees.map((fee, idx) => {
-                const hasAnyDisc = fees.some(f => (f.discount ?? 0) > 0);
+                const hasAnyDisc = showDiscount !== false && fees.some(f => (f.discount ?? 0) > 0);
                 const effectiveNet = fee.netAmount ?? fee.amount;
                 return (
                     <View key={idx} style={styles.tableRow}>
                         <View style={styles.colDesc}>
                             <Text>{fee.description}</Text>
-                            {fee.discountLabel && fee.discountLabel !== 'Profile Disc' && (
+                            {showDiscount !== false && fee.discountLabel && fee.discountLabel !== 'Profile Disc' && (
                                 <Text style={{ fontSize: 4.5, color: '#666666', marginTop: 1, fontStyle: 'italic' }}>{fee.discountLabel}</Text>
                             )}
                         </View>
@@ -450,7 +451,7 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                             </>
                         ) : (
                             <Text style={styles.colAmount}>
-                                {fee.amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                {effectiveNet.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             </Text>
                         )}
                     </View>
@@ -546,14 +547,14 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
     </View>
 );
 
-export const FeeChallanPDF = ({ student, details, fees, totalAmount, siblings }: FeeChallanPDFProps) => (
+export const FeeChallanPDF = ({ student, details, fees, totalAmount, siblings, showDiscount }: FeeChallanPDFProps) => (
     <Document>
         <Page size={[841.89, 595.28]} wrap={false} style={styles.page}>
             {/* Left 85% for the 3 Challan Copies */}
             <View style={{ width: '85%', flexDirection: 'row' }}>
-                <ChallanCopy copyType="Bank Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} siblings={siblings} />
-                <ChallanCopy copyType="School Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} siblings={siblings} />
-                <ChallanCopy copyType="Student Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} siblings={siblings} isLast={true} />
+                <ChallanCopy copyType="Bank Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} showDiscount={showDiscount} siblings={siblings} />
+                <ChallanCopy copyType="School Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} showDiscount={showDiscount} siblings={siblings} />
+                <ChallanCopy copyType="Student Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} showDiscount={showDiscount} siblings={siblings} isLast={true} />
             </View>
 
             {/* Right 15% for the 4th Column */}
