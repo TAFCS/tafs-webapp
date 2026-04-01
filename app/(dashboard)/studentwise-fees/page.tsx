@@ -18,7 +18,7 @@ interface FeeTypeInfo {
     id: number;
     description: string;
     freq: "MONTHLY" | "ONE_TIME" | null;
-    breakup: string[] | null;
+    breakup: any; 
     priority_order?: number;
 }
 
@@ -117,6 +117,35 @@ function StudentwiseFeeEditor() {
     const [selectedSectionId, setSelectedSectionId] = useState<number | "">("");
     const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
 
+    // ─── Helpers ────────────────────────────────────────────────────────────
+    const calculateInitialFeeDate = useCallback((month: string, acadYear: string, feeTypeId: number, providedFt?: any) => {
+        const ft = providedFt || feeTypes.find(f => f.id === feeTypeId);
+        if (!ft) return undefined;
+        
+        let b = ft.breakup;
+        if (typeof b === "string") {
+            try { b = JSON.parse(b); } catch { return undefined; }
+        }
+        
+        if (!b || typeof b !== "object") return undefined;
+        
+        let day = 0;
+        if (b.collection_day_by_month) {
+            day = b.collection_day_by_month[month] || 0;
+        }
+        
+        if (day <= 0) return undefined;
+        
+        const startYearNum = parseInt(acadYear.split("-")[0]);
+        if (isNaN(startYearNum)) return undefined;
+        
+        const monthNum = MONTH_TO_NUM[month] || 8;
+        const year = monthNum >= 8 ? startYearNum : startYearNum + 1;
+        
+        const formatted = `${year}-${monthNum.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+        return formatted;
+    }, [feeTypes]);
+
     const [isSearching, setIsSearching] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [skipSearch, setSkipSearch] = useState(false);
@@ -152,11 +181,9 @@ function StudentwiseFeeEditor() {
     // Bundling States
     const [selectedForBundling, setSelectedForBundling] = useState<string[]>([]);
     const [bundleNameInput, setBundleNameInput] = useState("");
-    const [selectedBundlePeriod, setSelectedBundlePeriod] = useState<number | null>(null);
     const [isCreatingBundle, setIsCreatingBundle] = useState(false);
     const [pendingBundles, setPendingBundles] = useState<{
         bundle_name: string;
-        target_month: number | null;
         academic_year: string;
         fee_keys: string[]; // `${feeId}|${target_month}`
         member_ids: string[]; // __id
@@ -288,6 +315,7 @@ function StudentwiseFeeEditor() {
                     target_month: MONTH_TO_NUM[month] || 8,
                     amount: fee.amount,
                     originalAmount: fee.amount,
+                    fee_date: calculateInitialFeeDate(month, academicYear, fee.fee_id, fee.fee_types),
                 }));
             });
             console.log(`[FeeSchedule] Expanded template rows:`, expanded.length);
@@ -309,13 +337,22 @@ function StudentwiseFeeEditor() {
                     const studentFeeMap = new Map<string, any>(
                         studentFees
                             .filter((sf: any) => sf.academic_year === academicYear)
-                            .map((sf: any) => [`${sf.fee_type_id}|${sf.target_month}`, sf])
+                            .map((sf: any) => {
+                                const dateStr = sf.fee_date ? new Date(sf.fee_date).toISOString().split('T')[0] : "no-date";
+                                const key = `${sf.fee_type_id}|${sf.target_month}|${dateStr}`;
+                                return [key, sf];
+                            })
                     );
                     console.log(`[FeeSchedule] Overrides for ${academicYear}:`, studentFeeMap.size);
 
                     const finalRowsProcessed = finalRows.map(row => {
-                        const key = `${row.feeId}|${row.target_month}`;
-                        const override = studentFeeMap.get(key);
+                        // We check both with calculated date and "no-date" 
+                        // to handle records that might not have date yet in DB
+                        const calculatedDateStr = row.fee_date || "no-date";
+                        const key = `${row.feeId}|${row.target_month}|${calculatedDateStr}`;
+                        const noDateKey = `${row.feeId}|${row.target_month}|no-date`;
+                        
+                        const override = studentFeeMap.get(key) || studentFeeMap.get(noDateKey);
 
                         if (override) {
                             studentFeeMap.delete(key);
@@ -522,7 +559,6 @@ function StudentwiseFeeEditor() {
                     items,
                     bundles: pendingBundles.map(pb => ({
                         bundle_name: pb.bundle_name,
-                        target_month: pb.target_month,
                         academic_year: pb.academic_year,
                         fee_keys: pb.fee_keys
                     }))
@@ -600,6 +636,7 @@ function StudentwiseFeeEditor() {
             target_month: unusedMonthNum,
             amount: defaultAmount,
             originalAmount: defaultAmount,
+            fee_date: calculateInitialFeeDate(unusedMonthName, selectedYear, feeId),
             isNew: true,
         };
         pendingFocusId.current = newRow.__id;
@@ -630,6 +667,10 @@ function StudentwiseFeeEditor() {
                         if (feeToAmountMap[val]) {
                             updated.amount = feeToAmountMap[val];
                         }
+                        // Default fee date if none set
+                        if (!updated.fee_date) {
+                            updated.fee_date = calculateInitialFeeDate(updated.month, selectedYear, val);
+                        }
                     }
                     // For manually-added rows, pick a fresh unused target_month
                     // for the new fee type so we don't collide with existing rows.
@@ -650,6 +691,8 @@ function StudentwiseFeeEditor() {
                     updated.initialMonth = val;
                     updated.month = val; // Sync billing month with the selected period
                     updated.target_month = MONTH_TO_NUM[val] ?? updated.target_month;
+                    // Recalculate date if month changes and it was a default date
+                    updated.fee_date = calculateInitialFeeDate(val, selectedYear, r.feeId);
                 }
 
                 // For manually-added rows, target_month should follow the period
@@ -676,8 +719,8 @@ function StudentwiseFeeEditor() {
             toast.error("Select at least 2 fees to bundle.");
             return;
         }
-        if (!bundleNameInput.trim()) {
-            toast.error("Please enter a name for the bundle.");
+        if (distinctDates.length > 1) {
+            toast.error("All selected fees must have the same Fee Date to be bundled.");
             return;
         }
 
@@ -696,13 +739,11 @@ function StudentwiseFeeEditor() {
                     bundle_name: bundleNameInput.trim(),
                     academic_year: selectedYear,
                     fee_ids: selectedRows.map(r => r.dbId),
-                    target_month: selectedBundlePeriod
                 });
 
                 toast.success(`Bundle "${bundleNameInput}" created successfully!`);
                 setBundleNameInput("");
                 setSelectedForBundling([]);
-                setSelectedBundlePeriod(null);
                 // Refresh to show bundled status
                 if (selectedClassId !== "") {
                     fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
@@ -716,7 +757,6 @@ function StudentwiseFeeEditor() {
             // Queue as pending bundle
             const newPending = {
                 bundle_name: bundleNameInput.trim(),
-                target_month: selectedBundlePeriod,
                 academic_year: selectedYear,
                 fee_keys: selectedRows.map(r => `${r.feeId}|${r.target_month}`),
                 member_ids: selectedRows.map(r => r.__id)
@@ -725,7 +765,6 @@ function StudentwiseFeeEditor() {
             setPendingBundles(prev => [...prev, newPending]);
             setBundleNameInput("");
             setSelectedForBundling([]);
-            setSelectedBundlePeriod(null);
             toast.success(`Bundle "${bundleNameInput}" queued. Click "Save Schedule" to persist.`);
         }
     };
@@ -747,17 +786,10 @@ function StudentwiseFeeEditor() {
 
     const grandTotal = rows.reduce((s, r) => s + parseFloat(r.amount || "0"), 0);
 
-    // Auto-detect bundle period
+    // Auto-detect bundle constraints
     const selectedRowsForBundling = rows.filter(r => selectedForBundling.includes(r.__id));
     const distinctMonths = Array.from(new Set(selectedRowsForBundling.map(r => r.target_month))).filter(Boolean) as number[];
-
-    useEffect(() => {
-        if (distinctMonths.length === 1) {
-            setSelectedBundlePeriod(distinctMonths[0]);
-        } else if (distinctMonths.length === 0) {
-            setSelectedBundlePeriod(null);
-        }
-    }, [selectedForBundling.length, distinctMonths.length]);
+    const distinctDates = Array.from(new Set(selectedRowsForBundling.map(r => r.fee_date || "none")));
 
     const selectedClass = classes.find((c) => c.id === Number(selectedClassId));
     const filteredClasses = classes.filter((c) =>
@@ -1168,8 +1200,6 @@ function StudentwiseFeeEditor() {
                                                 </select>
                                                 <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-300 pointer-events-none" />
                                             </td>
-
-
                                             {/* Fee Date (optional, for multi-voucher-per-month) */}
                                             <td data-row={rIdx} data-col={COL_FEE_DATE} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FEE_DATE) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
                                                 <input
@@ -1260,29 +1290,20 @@ function StudentwiseFeeEditor() {
                                 onChange={(e) => setBundleNameInput(e.target.value)}
                                 className="w-64 h-10 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold focus:outline-none focus:border-primary transition-all"
                             />
-                            {distinctMonths.length > 1 ? (
-                                <div className="relative group/period">
-                                    <select
-                                        value={selectedBundlePeriod || ""}
-                                        onChange={(e) => setSelectedBundlePeriod(Number(e.target.value))}
-                                        className="h-10 pl-10 pr-10 bg-rose-50 border border-rose-200 rounded-xl text-[11px] font-black uppercase tracking-widest text-rose-600 appearance-none focus:outline-none cursor-pointer hover:bg-rose-100 transition-all"
-                                    >
-                                        <option value="" disabled>Select Period</option>
-                                        {distinctMonths.sort((a, b) => {
-                                            const getSeq = (m: number) => m >= 8 ? m - 8 : m + 4;
-                                            return getSeq(a) - getSeq(b);
-                                        }).map(m => (
-                                            <option key={m} value={m}>{MONTH_ORDER.find(name => MONTH_TO_NUM[name] === m)}</option>
-                                        ))}
-                                    </select>
-                                    <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-rose-400 pointer-events-none" />
-                                    <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-rose-600 text-white text-[9px] font-black px-2 py-0.5 rounded opacity-0 group-hover/period:opacity-100 transition-all whitespace-nowrap">Picking a month anchors bundle to that voucher</span>
+                            {distinctDates.length > 1 ? (
+                                <div className="h-10 px-4 flex items-center gap-2 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 animate-pulse">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Date Mismatch</span>
                                 </div>
                             ) : (
                                 <div className="h-10 px-4 flex items-center gap-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl">
                                     <Calendar className="h-3.5 w-3.5 text-zinc-400" />
                                     <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">
-                                        {distinctMonths[0] ? MONTH_ORDER.find(name => MONTH_TO_NUM[name] === distinctMonths[0]) : "N/A"}
+                                        {distinctDates[0] !== "none" ? (
+                                            <span className="text-primary">{distinctDates[0]}</span>
+                                        ) : (
+                                            MONTH_ORDER.find(name => MONTH_TO_NUM[name] === distinctMonths[0]) || "N/A"
+                                        )}
                                     </span>
                                 </div>
                             )}
@@ -1297,8 +1318,9 @@ function StudentwiseFeeEditor() {
                         </button>
                         <button
                             onClick={handleCreateBundle}
-                            disabled={isCreatingBundle}
-                            className="h-10 px-6 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+                            disabled={isCreatingBundle || distinctDates.length > 1}
+                            className={`h-10 px-6 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2
+                                ${distinctDates.length > 1 ? "bg-zinc-200 text-zinc-400 cursor-not-allowed shadow-none" : "bg-primary text-white hover:bg-primary/90 shadow-primary/20"}`}
                         >
                             {isCreatingBundle ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Create Bundle"}
                         </button>
