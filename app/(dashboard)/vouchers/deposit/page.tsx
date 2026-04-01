@@ -15,7 +15,7 @@ import { fetchSections } from "@/store/slices/sectionsSlice";
 import { fetchVouchers, fetchVouchersByStudent, VoucherFilters, VoucherItem, clearVouchers } from "@/store/slices/vouchersSlice";
 import toast from "react-hot-toast";
 import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
-import { groupFees } from "@/lib/fee-utils";
+import { groupFees, getCurrentAcademicYear } from "@/lib/fee-utils";
 
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -422,7 +422,7 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
                     }))}
                     details={{
                         month: monthName,
-                        academicYear: `${issueDateObj.getFullYear()}-${issueDateObj.getFullYear() + 1}`,
+                        academicYear: getCurrentAcademicYear(),
                         issueDate: voucher.issue_date.split('T')[0],
                         dueDate: voucher.due_date.split('T')[0],
                         validityDate: voucher.validity_date ? voucher.validity_date.split('T')[0] : voucher.due_date.split('T')[0],
