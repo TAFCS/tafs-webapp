@@ -445,6 +445,8 @@ export default function FeeChallanGenerator() {
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
             formData.append('late_fee_charge', applyLateFee.toString());
             formData.append('late_fee_amount', lateFeeAmount.toString());
+            formData.append('precedence', '1');
+            studentFees.forEach(f => formData.append('orderedFeeIds', f.id.toString()));
 
             const feeLines = studentFees.map(f => ({
                 student_fee_id: f.id,
@@ -456,8 +458,10 @@ export default function FeeChallanGenerator() {
             await api.post('/v1/vouchers', formData);
             toast.success("Voucher generated!");
             setVoucherSaved(true);
-        } catch (e) {
-            toast.error("Failed to save voucher.");
+        } catch (e: any) {
+            const msg = e.response?.data?.message || e.message;
+            console.error("Voucher Generation Detail:", e.response?.data || e);
+            toast.error(Array.isArray(msg) ? msg.join(", ") : `Failed: ${msg}`);
         } finally {
             setIsSavingVoucher(false);
         }
@@ -523,6 +527,8 @@ export default function FeeChallanGenerator() {
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
             formData.append('late_fee_charge', applyLateFee.toString());
             formData.append('late_fee_amount', lateFeeAmount.toString());
+            formData.append('precedence', '1');
+            group.fees.forEach(f => formData.append('orderedFeeIds', f.id.toString()));
 
             const feeLines = group.fees.map(f => ({
                 student_fee_id: f.id,
@@ -534,8 +540,14 @@ export default function FeeChallanGenerator() {
             await api.post('/v1/vouchers', formData);
             setGeneratedGroupDates(p => new Set([...p, group.fee_date]));
             toast.success(`Generated for ${group.fee_date}`);
-        } catch (e) {
-            toast.error("Failed.");
+        } catch (e: any) {
+            const errorData = e.response?.data;
+            console.error("Voucher Error Status:", e.response?.status);
+            console.error("Voucher Error Body:", errorData);
+            
+            const msg = errorData?.message || e.message;
+            const finalMsg = Array.isArray(msg) ? msg.join(", ") : msg;
+            toast.error(`Error: ${finalMsg}`);
         } finally {
             setGeneratingGroupDate(null);
         }
