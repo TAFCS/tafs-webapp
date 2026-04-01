@@ -150,6 +150,7 @@ export function groupFees(
                 netAmount: groupNet,
                 discount: groupDiscount,
                 discountLabel: [...new Set(groupLabels.filter(Boolean))].join(", "),
+                priority: Math.min(...group.feeIds.map(id => items.find(f => f.id === id)?.fee_types?.priority_order ?? 999)),
                 feeIds: group.feeIds,
                 isGrouped: true,
             });
@@ -192,6 +193,7 @@ export function groupFees(
             netAmount: groupNet,
             discount: groupDiscount,
             discountLabel: [...new Set(groupLabels.filter(Boolean))].join(", "),
+            priority: Math.min(...group.map(f => getFeeData(f).fee_types?.priority_order ?? 999)),
             feeIds: group.map(f => f.id),
             isGrouped: true,
             bundleId: bundleId
@@ -199,7 +201,8 @@ export function groupFees(
     });
 
     // 1. Group Tuition Fees if enabled
-    if (options.groupTuitionFees) {
+    const showTuitionGroup = options.groupTuitionFees && !options.isVoucherHeads;
+    if (showTuitionGroup) {
 
         const tuitionFees = items.filter(f => {
             const data = getFeeData(f);
@@ -286,6 +289,7 @@ export function groupFees(
                         netAmount: groupNet,
                         discount: groupDiscount,
                         discountLabel: [...new Set(labels.filter(Boolean))].join(", "),
+                        priority: Math.min(...group.map(f => getFeeData(f).fee_types?.priority_order ?? 999)),
                         feeIds: group.map(f => f.id),
                         isGrouped: true,
                     });
@@ -314,16 +318,19 @@ export function groupFees(
 
             results.push({
                 description: desc,
-
                 amount: getGrossAmount(item),
                 netAmount: getNetAmount(item),
                 discount: getDiscount(item),
                 discountLabel: [...new Set(headLabels.filter(Boolean))].join(", "),
+                priority: data.fee_types?.priority_order ?? 999,
                 feeIds: [item.id],
                 isGrouped: false,
             });
         }
     });
+
+    // 3. Final Sort by Priority
+    results.sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
 
     return results;
 }

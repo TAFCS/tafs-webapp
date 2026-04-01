@@ -434,22 +434,22 @@ export default function FeeChallanGenerator() {
 
             const formData = new FormData();
             formData.append('pdf', blob, `v-${student.cc}.pdf`);
-            formData.append('student_id', student.cc.toString());
-            formData.append('campus_id', (student.campus_id || 1).toString());
-            formData.append('class_id', student.class_id.toString());
-            if (student.section_id) formData.append('section_id', student.section_id.toString());
-            formData.append('bank_account_id', selectedBank.id.toString());
+            formData.append('student_id', Number(student.cc).toString());
+            formData.append('campus_id', Number(student.campus_id || 1).toString());
+            formData.append('class_id', Number(student.class_id).toString());
+            if (student.section_id) formData.append('section_id', Number(student.section_id).toString());
+            formData.append('bank_account_id', Number(selectedBank.id).toString());
             formData.append('issue_date', issueDate);
             formData.append('due_date', dueDate);
             formData.append('academic_year', academicYear);
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
             formData.append('late_fee_charge', applyLateFee.toString());
-            formData.append('late_fee_amount', lateFeeAmount.toString());
+            formData.append('late_fee_amount', Number(lateFeeAmount || 0).toString());
             formData.append('precedence', '1');
-            studentFees.forEach(f => formData.append('orderedFeeIds', f.id.toString()));
+            studentFees.forEach(f => formData.append('orderedFeeIds', Number(f.id).toString()));
 
             const feeLines = studentFees.map(f => ({
-                student_fee_id: f.id,
+                student_fee_id: Number(f.id),
                 discount_amount: Math.max(0, Number(f.amount_before_discount || 0) - Number(f.amount || 0)),
                 discount_label: f.voucher_heads?.[0]?.discount_amount ? "Applied Discount" : undefined
             }));
@@ -459,9 +459,13 @@ export default function FeeChallanGenerator() {
             toast.success("Voucher generated!");
             setVoucherSaved(true);
         } catch (e: any) {
-            const msg = e.response?.data?.message || e.message;
-            console.error("Voucher Generation Detail:", e.response?.data || e);
-            toast.error(Array.isArray(msg) ? msg.join(", ") : `Failed: ${msg}`);
+            const errorData = e.response?.data;
+            console.error("Voucher Error Status:", e.response?.status);
+            console.error("Voucher Error Body:", errorData);
+            
+            const msg = errorData?.message || e.message;
+            const finalMsg = Array.isArray(msg) ? msg.join(", ") : msg;
+            toast.error(`Error: ${finalMsg}`);
         } finally {
             setIsSavingVoucher(false);
         }
@@ -515,23 +519,23 @@ export default function FeeChallanGenerator() {
 
             const formData = new FormData();
             formData.append('pdf', blob, `vg-${group.fee_date}.pdf`);
-            formData.append('student_id', student.cc.toString());
-            formData.append('campus_id', (student.campus_id || 1).toString());
-            formData.append('class_id', student.class_id.toString());
-            if (student.section_id) formData.append('section_id', student.section_id.toString());
-            formData.append('bank_account_id', selectedBank.id.toString());
+            formData.append('student_id', Number(student.cc).toString());
+            formData.append('campus_id', Number(student.campus_id || 1).toString());
+            formData.append('class_id', Number(student.class_id).toString());
+            if (student.section_id) formData.append('section_id', Number(student.section_id).toString());
+            formData.append('bank_account_id', Number(selectedBank.id).toString());
             formData.append('issue_date', issueDate);
             formData.append('due_date', dueDate);
             formData.append('fee_date', group.fee_date);
             formData.append('academic_year', academicYear);
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
             formData.append('late_fee_charge', applyLateFee.toString());
-            formData.append('late_fee_amount', lateFeeAmount.toString());
+            formData.append('late_fee_amount', Number(lateFeeAmount || 0).toString());
             formData.append('precedence', '1');
-            group.fees.forEach(f => formData.append('orderedFeeIds', f.id.toString()));
+            group.fees.forEach(f => formData.append('orderedFeeIds', Number(f.id).toString()));
 
             const feeLines = group.fees.map(f => ({
-                student_fee_id: f.id,
+                student_fee_id: Number(f.id),
                 discount_amount: Math.max(0, Number(f.amount_before_discount || 0) - Number(f.amount || 0)),
                 discount_label: f.voucher_heads?.[0]?.discount_amount ? "Applied Discount" : undefined
             }));
@@ -1027,20 +1031,15 @@ export default function FeeChallanGenerator() {
 
                                                             {/* Detailed Line Items */}
                                                             <div className="px-8 py-6 space-y-4">
-                                                                {(voucherLayout === 'consolidated' ? 
-                                                                    Object.values(g.fees.reduce((acc: any, f) => {
-                                                                        const headId = f.fee_type_id || 0;
-                                                                        if (!acc[headId]) acc[headId] = { description: f.fee_types?.description || "Fee", amount: 0, netAmount: 0 };
-                                                                        acc[headId].amount += Number(f.amount_before_discount || f.amount || 0);
-                                                                        acc[headId].netAmount += Number(f.amount || f.amount_before_discount || 0);
-                                                                        return acc;
-                                                                    }, {}))
-                                                                    : g.fees).map((fee: any, fIdx) => (
-                                                                    <div key={fIdx} className="flex items-center justify-between text-[14px]">
-                                                                        <p className="font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">{fee.description || fee.fee_types?.description || "Tuition Fee"}</p>
+                                                                {groupFees(g.fees, {}, { 
+                                                                    groupTuitionFees: voucherLayout === 'consolidated', 
+                                                                    isVoucherHeads: false 
+                                                                }).map((f, i) => (
+                                                                    <div key={i} className="flex items-center justify-between text-[14px]">
+                                                                        <p className="font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">{f.description}</p>
                                                                         <div className="flex items-center gap-12">
-                                                                            <span className="text-zinc-400 font-bold font-mono">{(fee.amount_before_discount || fee.amount).toLocaleString()}</span>
-                                                                            <span className="text-zinc-900 dark:text-zinc-100 font-black font-mono w-24 text-right">{(fee.amount || fee.netAmount || fee.amount_before_discount).toLocaleString()}</span>
+                                                                            <span className="text-zinc-400 font-bold font-mono">{f.amount.toLocaleString()}</span>
+                                                                            <span className="text-zinc-900 dark:text-zinc-100 font-black font-mono w-24 text-right">{f.netAmount.toLocaleString()}</span>
                                                                         </div>
                                                                     </div>
                                                                 ))}
