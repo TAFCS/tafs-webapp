@@ -9,6 +9,28 @@ export const MONTHS = [
     "January", "February", "March", "April", "May", "June", "July"
 ];
 
+export const getCurrentAcademicYear = () => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0 is January, 7 is August
+    const startYear = currentMonth >= 7 ? currentYear : currentYear - 1;
+    return `${startYear}-${startYear + 1}`;
+};
+
+export const getAcademicYears = (back = 1, forward = 2) => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const centerYear = currentMonth >= 7 ? currentYear : currentYear - 1;
+    
+    const years = [];
+    for (let i = -back; i <= forward; i++) {
+        const start = centerYear + i;
+        years.push(`${start}-${start + 1}`);
+    }
+    return years;
+};
+
 export const getMonthYearLabel = (m: number, academicYear: string) => {
     const monthName = MONTHS.find((_, i) => MONTH_TO_NUM[MONTHS[i]] === m) || "";
     if (!academicYear) return monthName.slice(0, 3);

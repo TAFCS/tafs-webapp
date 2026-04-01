@@ -10,6 +10,7 @@ import { fetchFeeTypes } from "@/store/slices/feeTypesSlice";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchSections } from "@/store/slices/sectionsSlice";
 import toast from "react-hot-toast";
+import { getCurrentAcademicYear, getAcademicYears, MONTHS, MONTH_TO_NUM } from "@/lib/fee-utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -50,17 +51,9 @@ interface SpreadsheetRow {
     bundle_name?: string | null;
 }
 
-const MONTH_ORDER = [
-    "August", "September", "October", "November", "December",
-    "January", "February", "March", "April", "May", "June", "July",
-];
+const MONTH_ORDER = MONTHS;
 
-const MONTH_TO_NUM: Record<string, number> = {
-    August: 8, September: 9, October: 10, November: 11, December: 12,
-    January: 1, February: 2, March: 3, April: 4, May: 5, June: 6, July: 7,
-};
-
-const ACADEMIC_YEARS = ["2024-2025", "2025-2026", "2026-2027", "2027-2028"];
+const ACADEMIC_YEARS = getAcademicYears(1, 2);
 
 function calendarYear(academicYearStart: number, monthNum: number): number {
     return monthNum >= 8 ? academicYearStart : academicYearStart + 1;
@@ -123,7 +116,7 @@ function StudentwiseFeeEditor() {
     const [selectedCampusId, setSelectedCampusId] = useState<number | "">("");
     const [selectedClassId, setSelectedClassId] = useState<number | "">("");
     const [selectedSectionId, setSelectedSectionId] = useState<number | "">("");
-    const [selectedYear, setSelectedYear] = useState("2024-2025");
+    const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
 
     const [isSearching, setIsSearching] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
