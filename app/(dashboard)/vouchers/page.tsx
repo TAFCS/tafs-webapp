@@ -254,6 +254,12 @@ function PartiallyPaidModal({
     const paidHeads = heads.filter(h => Number(h.amount_deposited) > 0);
     const unpaidHeads = heads.filter(h => Number(h.balance) > 0);
 
+    // Remap heads so net_amount reflects what actually goes on each PDF:
+    // – paid PDF  → net_amount = amount_deposited  (what was settled)
+    // – unpaid PDF → net_amount = balance           (what is still owed)
+    const paidHeadsForPdf = paidHeads.map(h => ({ ...h, net_amount: h.amount_deposited }));
+    const unpaidHeadsForPdf = unpaidHeads.map(h => ({ ...h, net_amount: h.balance }));
+
     const [issueDate, setIssueDate] = useState(() => new Date().toISOString().split("T")[0]);
     const [dueDate, setDueDate] = useState("");
     const [validityDate, setValidityDate] = useState("");
@@ -268,8 +274,8 @@ function PartiallyPaidModal({
         setSubmitting(true);
         const loadingToast = toast.loading("Generating paid PDF and creating new unpaid voucher…");
         try {
-            // 1. Generate paid PDF (paid heads only, with PAID stamp)
-            const paidBlob = await buildVoucherPdfBlob(voucher, sections, user, paidHeads as any, true);
+            // 1. Generate paid PDF (deposited amounts only, with PAID stamp)
+            const paidBlob = await buildVoucherPdfBlob(voucher, sections, user, paidHeadsForPdf as any, true);
 
             // 2. Upload paid PDF to the original voucher
             const paidFormData = new FormData();
@@ -278,12 +284,12 @@ function PartiallyPaidModal({
                 headers: { "Content-Type": "multipart/form-data" },
             });
 
-            // 3. Generate NEW unpaid PDF (unpaid heads only, no stamp)
+            // 3. Generate NEW unpaid PDF (outstanding balances only, no stamp)
             const unpaidBlob = await buildVoucherPdfBlob(
                 { ...voucher, issue_date: issueDate, due_date: dueDate, validity_date: validityDate || dueDate, late_fee_charge: voucher.late_fee_charge },
                 sections,
                 user,
-                unpaidHeads as any,
+                unpaidHeadsForPdf as any,
                 false,
             );
 
