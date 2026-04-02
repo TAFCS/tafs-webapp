@@ -157,17 +157,28 @@ function FilterDropdown({
 
 // ─── Shared PDF builder ──────────────────────────────────────────────────────
 
+// Fetch the student data needed for any voucher PDF — called once and shared.
+async function fetchVoucherPdfData(studentId: number) {
+    const [studentRes, feesRes] = await Promise.all([
+        api.get(`/v1/students/${studentId}`),
+        api.get(`/v1/student-fees/by-student/${studentId}`),
+    ]);
+    return {
+        studentData: studentRes.data?.data,
+        familyStudents: feesRes.data?.data?.family?.students || [],
+    };
+}
+
 async function buildVoucherPdfBlob(
     voucher: VoucherItem,
     sections: any[],
     user: any,
     overrideHeads?: VoucherHead[],   // use a custom set of heads (for partial-paid PDF)
     paidStamp?: boolean,
+    // Pre-fetched data to avoid redundant API calls when building multiple PDFs
+    prefetched?: { studentData: any; familyStudents: any[] },
 ): Promise<Blob> {
-    const { data: studentRes } = await api.get(`/v1/students/${voucher.student_id}`);
-    const studentData = studentRes?.data;
-    const { data } = await api.get(`/v1/student-fees/by-student/${voucher.student_id}`);
-    const familyStudents = data?.data?.family?.students || [];
+    const { studentData, familyStudents } = prefetched ?? await fetchVoucherPdfData(voucher.student_id);
     const siblings = familyStudents.filter((s: any) => s.cc !== voucher.student_id);
 
     const issueDateObj = new Date(voucher.issue_date);
@@ -274,24 +285,28 @@ function PartiallyPaidModal({
         setSubmitting(true);
         const loadingToast = toast.loading("Generating paid PDF and creating new unpaid voucher…");
         try {
-            // 1. Generate paid PDF (deposited amounts only, with PAID stamp)
-            const paidBlob = await buildVoucherPdfBlob(voucher, sections, user, paidHeadsForPdf as any, true);
+            // 1. Fetch student data ONCE — shared by both PDF builds
+            const prefetched = await fetchVoucherPdfData(voucher.student_id);
 
-            // 2. Upload paid PDF to the original voucher
+            // 2. Build BOTH PDFs in parallel (saves ~50% of render time)
+            const [paidBlob, unpaidBlob] = await Promise.all([
+                buildVoucherPdfBlob(voucher, sections, user, paidHeadsForPdf as any, true, prefetched),
+                buildVoucherPdfBlob(
+                    { ...voucher, issue_date: issueDate, due_date: dueDate, validity_date: validityDate || dueDate },
+                    sections,
+                    user,
+                    unpaidHeadsForPdf as any,
+                    false,
+                    prefetched,
+                ),
+            ]);
+
+            // 3. Upload paid PDF to the original voucher
             const paidFormData = new FormData();
             paidFormData.append("pdf", new File([paidBlob], `paid-voucher-${voucher.id}.pdf`, { type: "application/pdf" }));
             await api.patch(`/v1/vouchers/${voucher.id}/paid-pdf`, paidFormData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
-
-            // 3. Generate NEW unpaid PDF (outstanding balances only, no stamp)
-            const unpaidBlob = await buildVoucherPdfBlob(
-                { ...voucher, issue_date: issueDate, due_date: dueDate, validity_date: validityDate || dueDate, late_fee_charge: voucher.late_fee_charge },
-                sections,
-                user,
-                unpaidHeadsForPdf as any,
-                false,
-            );
 
             // 4. POST split endpoint with the new unpaid PDF
             const splitFormData = new FormData();
@@ -491,14 +506,11 @@ function VoucherRow({ voucher, index, sections, onRefresh }: { voucher: VoucherI
 
     // ── PAID: regenerate with PAID stamp, save back, open ─────────────────
     const handlePaidDownload = async () => {
-        // If already has a saved paid PDF, just open it
-        const pdfUrl = typeof voucher.pdf_url === "string" ? voucher.pdf_url.trim() : "";
-
-        // We always regenerate on-demand (the saved URL might be the original unpaid one)
         setIsDownloading(true);
         const loadingToast = toast.loading("Generating PAID PDF…");
         try {
-            const blob = await buildVoucherPdfBlob(voucher, sections, user, undefined, true);
+            const prefetched = await fetchVoucherPdfData(voucher.student_id);
+            const blob = await buildVoucherPdfBlob(voucher, sections, user, undefined, true, prefetched);
 
             // Save the paid PDF back to the voucher record (fire-and-forget; don't block the admin)
             try {
