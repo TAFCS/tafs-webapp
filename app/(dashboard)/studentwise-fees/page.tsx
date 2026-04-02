@@ -351,7 +351,7 @@ function StudentwiseFeeEditor() {
                         // regardless of the fee_date. This handles the case where the user
                         // changed the date (e.g. from template Oct to manual Aug).
                         let overrideEntry: [string, any] | undefined;
-                        
+
                         for (const [key, val] of studentFeeMap.entries()) {
                             const [fId, tMonth] = key.split('|');
                             if (Number(fId) === row.feeId && Number(tMonth) === row.target_month) {
@@ -741,11 +741,17 @@ function StudentwiseFeeEditor() {
         const allHaveDbId = selectedRows.every(r => !!r.dbId);
 
         if (allHaveDbId) {
-            // Traditional immediate bundle
+            // All fees already exist in the DB — create bundle immediately.
             setIsCreatingBundle(true);
             try {
                 const numericMatch = studentId.match(/\d+$/);
                 const ccValue = numericMatch ? parseInt(numericMatch[0]) : 0;
+
+                // Build per-fee date overrides so the backend can atomically
+                // update fee_date + create bundle in a single transaction.
+                const feeDateOverrides = selectedRows
+                    .filter(r => !!r.fee_date && !!r.dbId)
+                    .map(r => ({ id: r.dbId!, fee_date: r.fee_date! }));
 
                 await api.post("/v1/student-fees/bundles", {
                     student_id: ccValue,
@@ -753,12 +759,12 @@ function StudentwiseFeeEditor() {
                     target_month: targetMonth,
                     academic_year: selectedYear,
                     fee_ids: selectedRows.map(r => r.dbId),
+                    fee_date_overrides: feeDateOverrides,
                 });
 
-                toast.success(`Bundle "${bundleNameInput}" created successfully!`);
+                toast.success(`Bundle "${bundleNameInput}" created!`);
                 setBundleNameInput("");
                 setSelectedForBundling([]);
-                // Refresh to show bundled status
                 if (selectedClassId !== "") {
                     fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
                 }
