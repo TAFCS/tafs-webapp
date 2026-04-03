@@ -129,7 +129,7 @@ export default function DashboardPage() {
                             </div>
                             <div>
                                 <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">Generate Vouchers</h2>
-                                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Generate student vouchers</p>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Issue individual or bulk vouchers</p>
                             </div>
                         </div>
                     </Link>

@@ -24,8 +24,10 @@ import {
     FileSearch,
     Info,
     Lock as LockIcon,
-    Link as LinkIcon
+    Link as LinkIcon,
+    Layers,
 } from "lucide-react";
+import Link from "next/link";
 
 import { useRef } from "react";
 import api from "@/lib/api";
@@ -721,6 +723,16 @@ export default function FeeChallanGenerator() {
                         <Info className="h-4 w-4 text-primary" />
                         Issue and manage student fee vouchers with custom validity.
                     </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <Link
+                        href="/bulk-voucher"
+                        className="h-12 px-6 bg-primary text-white rounded-2xl flex items-center gap-3 font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                        <Layers className="h-5 w-5" />
+                        Bulk Voucher Generation
+                    </Link>
                 </div>
             </div>
 

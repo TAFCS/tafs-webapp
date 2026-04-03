@@ -7,6 +7,7 @@ import sectionsReducer from './slices/sectionsSlice';
 import campusesReducer from './slices/campusesSlice';
 import banksReducer from './slices/banksSlice';
 import vouchersReducer from './slices/vouchersSlice';
+import bulkVoucherReducer from './slices/bulkVoucherSlice';
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     campuses: campusesReducer,
     banks: banksReducer,
     vouchers: vouchersReducer,
+    bulkVoucher: bulkVoucherReducer,
   },
 });
 

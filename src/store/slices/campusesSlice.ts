@@ -3,10 +3,29 @@ import api from '../../lib/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+export interface CampusSection {
+    id: number;
+    description: string;
+    campus_section_id: number;
+    is_active: boolean;
+}
+
+export interface CampusClass {
+    id: number;
+    description: string;
+    class_code: string;
+    academic_system: string;
+    campus_class_id: number;
+    is_active: boolean;
+    sections: CampusSection[];
+}
+
 export interface CampusItem {
     id: number;
     campus_code: string;
     campus_name: string;
+    address?: string;
+    offered_classes?: CampusClass[];
 }
 
 export interface CampusesState {
