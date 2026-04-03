@@ -66,9 +66,43 @@ export function RegistrationForm() {
         testDay: "", testDate: "", testTime: "", testLevel: ""
     });
 
+    const getGRPrefix = (campusId: string) => {
+        if (!campusId) return "";
+        const selectedCampus = campuses.find(c => c.id.toString() === campusId);
+        if (!selectedCampus) return "";
+
+        const name = selectedCampus.campus_name.toUpperCase();
+        if (name.includes("KANEEZ FATIMA")) return "KF-A";
+        if (name.includes("NORTH NAZIMABAD")) return "A-N";
+        if (name.includes("GULISTAN-E-JOHAR") || name.includes("JOHAR")) return "";
+        return "";
+    };
+
+    // Auto-prefix GR Number based on selected campus
+    useEffect(() => {
+        const prefix = getGRPrefix(formData.campusId);
+        if (!prefix) return;
+
+        setFormData(prev => {
+            const currentVal = prev.registrationNo;
+            if (!currentVal || ["KF-A", "A-N"].some(p => currentVal === p)) {
+                return { ...prev, registrationNo: prefix };
+            }
+            return prev;
+        });
+    }, [formData.campusId, campuses]);
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
+
+        if (name === "registrationNo") {
+            const prefix = getGRPrefix(formData.campusId);
+            if (prefix && !value.startsWith(prefix)) {
+                // Prevent deletion of prefix
+                return;
+            }
+        }
 
         setFormData(prev => ({
             ...prev,
@@ -141,6 +175,7 @@ export function RegistrationForm() {
             province: formData.birthProvince || undefined,
             city: formData.birthCity || undefined,
             identification_marks: formData.identificationMarks || undefined,
+            gr_number: formData.registrationNo || undefined,
             primary_phone: formData.candidatePhone || undefined,
             email: formData.candidateEmail || undefined,
             father: {
@@ -270,8 +305,8 @@ export function RegistrationForm() {
                         <input type="text" name="serialNo" value={formData.serialNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Computer Code</label>
-                        <input type="text" name="registrationNo" value={formData.registrationNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">GR</label>
+                        <input type="text" name="registrationNo" value={formData.registrationNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none uppercase" />
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Campus</label>
@@ -738,7 +773,7 @@ export function RegistrationForm() {
                         <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
                             <p className="font-semibold">Registration submitted successfully!</p>
-                            <p className="text-emerald-700 mt-0.5">Computer Code assigned: <span className="font-mono font-bold">{submitSuccess.cc_number}</span>. The student record is now <span className="font-medium">PENDING</span> review.</p>
+                            <p className="text-emerald-700 mt-0.5">GR assigned: <span className="font-mono font-bold text-base">{submitSuccess.gr_number || submitSuccess.cc_number}</span>. The student record is now <span className="font-medium">PENDING</span> review.</p>
                         </div>
                         <button
                             onClick={() => {
