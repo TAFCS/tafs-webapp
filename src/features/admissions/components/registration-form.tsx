@@ -48,21 +48,23 @@ export function RegistrationForm() {
     }, [dispatch, classes.length, campuses.length, isClassesLoading, isCampusesLoading]);
 
     const [formData, setFormData] = useState({
-        serialNo: "", registrationNo: "", campusId: "",
+        registrationNo: "", campusId: "",
         candidateName: "", fatherName: "", motherName: "",
         fatherCnic: "", motherCnic: "",
         dobDay: "", dobMonth: "", dobYear: "",
         nationalityPakistani: true, nationalityOther: "",
         gender: "", religion: "", identificationMarks: "",
         birthCountry: "", birthProvince: "", birthCity: "",
-        ageYears: "", ageMonths: "", ageDays: "",
+        ageYears: "",
         previousSchools: [{ id: 1, name: "", location: "", levelStudied: "", reasonForLeaving: "" }],
         admissionSystem: "", admissionLevel: "",
         houseNo: "", areaBlock: "", city: "", postalCode: "", province: "", country: "", homePhone: "",
         fatherPrimaryPhoneCountryCode: "+92", motherPrimaryPhoneCountryCode: "+92", emergencyPrimaryPhoneCountryCode: "+92",
         candidatePhone: "", candidateEmail: "", fatherPhone: "", fatherEmail: "", fatherFax: "",
         motherPhone: "", motherEmail: "", motherFax: "",
-        emergencyContactName: "", emergencyRelationship: "",
+        isFatherWhatsapp: true, fatherWhatsapp: "",
+        isMotherWhatsapp: true, motherWhatsapp: "",
+        emergencyContactName: "", emergencyContactPhone: "", emergencyRelationship: "",
         testDay: "", testDate: "", testTime: "", testLevel: ""
     });
 
@@ -92,14 +94,38 @@ export function RegistrationForm() {
         });
     }, [formData.campusId, campuses]);
 
+    const formatCNIC = (value: string) => {
+        const digits = value.replace(/\D/g, "").slice(0, 13);
+        let formatted = digits;
+        if (digits.length > 5) formatted = digits.slice(0, 5) + "-" + digits.slice(5);
+        if (digits.length > 12) formatted = formatted.slice(0, 13) + "-" + formatted.slice(13);
+        return formatted;
+    };
+
+    const formatPhone = (value: string) => {
+        let digits = value.replace(/\D/g, "");
+        if (digits.startsWith("92")) digits = digits.slice(2);
+        if (digits.startsWith("0")) digits = digits.slice(1);
+        return digits.slice(0, 10);
+    };
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
 
         if (name === "registrationNo") {
             const prefix = getGRPrefix(formData.campusId);
-            if (prefix && !value.startsWith(prefix)) {
-                // Prevent deletion of prefix
+            if (prefix && !value.startsWith(prefix)) return;
+        }
+
+        if (name === "fatherCnic" || name === "motherCnic") {
+            setFormData(prev => ({ ...prev, [name]: formatCNIC(value) }));
+            return;
+        }
+
+        if (name.toLowerCase().includes("phone") || name.toLowerCase().includes("whatsapp")) {
+            if (type !== "checkbox") {
+                setFormData(prev => ({ ...prev, [name]: formatPhone(value) }));
                 return;
             }
         }
@@ -139,12 +165,62 @@ export function RegistrationForm() {
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitSuccess, setSubmitSuccess] = useState<StudentListItem | null>(null);
 
-    const handleNext = () => setCurrentStep(prev => Math.min(prev + 1, 3));
-    const handlePrev = () => setCurrentStep(prev => Math.max(prev - 1, 1));
+    const isStep1Valid = () => {
+        const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
+        const isFatherCnicValid = !formData.fatherCnic || cnicRegex.test(formData.fatherCnic);
+        const isMotherCnicValid = !formData.motherCnic || cnicRegex.test(formData.motherCnic);
+
+        return (
+            formData.campusId &&
+            formData.registrationNo.length > (getGRPrefix(formData.campusId)?.length || 0) &&
+            formData.candidateName.trim() &&
+            formData.fatherName.trim() &&
+            isFatherCnicValid &&
+            isMotherCnicValid &&
+            formData.dobDay && formData.dobMonth && formData.dobYear
+        );
+    };
+
+    const handleNext = () => {
+        if (currentStep === 1) {
+            const prefix = getGRPrefix(formData.campusId);
+            if (!formData.campusId) {
+                setSubmitError("Please select a Campus from the sidebar before proceeding.");
+                return;
+            }
+            if (!formData.registrationNo || formData.registrationNo.trim() === prefix) {
+                setSubmitError(`Please enter a GR Number ${prefix ? `(after ${prefix})` : ""} in the sidebar before proceeding.`);
+                return;
+            }
+            if (!isStep1Valid()) {
+                setSubmitError("Please fill in all required fields (Names, CNICs, DOB) correctly before proceeding.");
+                return;
+            }
+        }
+        setSubmitError(null);
+        setCurrentStep(prev => Math.min(prev + 1, 3));
+    };
+
+    const handlePrev = () => {
+        setSubmitError(null);
+        setCurrentStep(prev => Math.max(prev - 1, 1));
+    };
     const isFirstStep = currentStep === 1;
     const isLastStep = currentStep === 3;
 
     const handleSubmit = async () => {
+        // Validation: Required fields check
+        if (!formData.campusId) {
+            setSubmitError("Please select a Campus before submitting.");
+            return;
+        }
+        const prefix = getGRPrefix(formData.campusId);
+        const gr = formData.registrationNo.trim();
+        if (!gr || gr === prefix) {
+            setSubmitError(`Please enter a full GR Number ${prefix ? `(after ${prefix})` : ""} before submitting.`);
+            return;
+        }
+
         setIsSubmitting(true);
         setSubmitError(null);
         setSubmitSuccess(null);
@@ -189,6 +265,9 @@ export function RegistrationForm() {
                 city: formData.city || undefined,
                 province: formData.province || undefined,
                 country: formData.country || undefined,
+                postal_code: formData.postalCode || undefined,
+                fax_number: formData.fatherFax || undefined,
+                whatsapp_number: formData.isFatherWhatsapp ? formData.fatherPhone : formData.fatherWhatsapp || undefined,
             },
             mother: {
                 full_name: motherFullName,
@@ -196,12 +275,15 @@ export function RegistrationForm() {
                 primary_phone_country_code: formData.motherPrimaryPhoneCountryCode || "+92",
                 primary_phone: formData.motherPhone || undefined,
                 email_address: formData.motherEmail || undefined,
+                fax_number: formData.motherFax || undefined,
+                whatsapp_number: formData.isMotherWhatsapp ? formData.motherPhone : formData.motherWhatsapp || undefined,
             },
+            home_phone: formData.homePhone || undefined,
             emergency_contact: formData.emergencyContactName
                 ? {
                     full_name: formData.emergencyContactName,
                     primary_phone_country_code: formData.emergencyPrimaryPhoneCountryCode || "+92",
-                    primary_phone: formData.homePhone || '0000-0000000',
+                    primary_phone: formData.emergencyContactPhone || '0000-0000000',
                     relationship: formData.emergencyRelationship || 'Guardian',
                 }
                 : undefined,
@@ -301,10 +383,6 @@ export function RegistrationForm() {
                 <div className="space-y-4">
                     <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Office Records</h3>
                     <div>
-                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Serial #</label>
-                        <input type="text" name="serialNo" value={formData.serialNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
-                    </div>
-                    <div>
                         <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">GR</label>
                         <input type="text" name="registrationNo" value={formData.registrationNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none uppercase" />
                     </div>
@@ -393,9 +471,7 @@ export function RegistrationForm() {
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Age at time of registration</label>
                                         <div className="flex gap-2">
-                                            <div className="relative w-1/3"><input type="text" name="ageYears" value={formData.ageYears} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg pr-8" /><span className="absolute right-3 top-2.5 text-xs text-zinc-400">Yrs</span></div>
-                                            <div className="relative w-1/3"><input type="text" name="ageMonths" value={formData.ageMonths} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg pr-8" /><span className="absolute right-3 top-2.5 text-xs text-zinc-400">Mos</span></div>
-                                            <div className="relative w-1/3"><input type="text" name="ageDays" value={formData.ageDays} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg pr-8" /><span className="absolute right-3 top-2.5 text-xs text-zinc-400">Dys</span></div>
+                                            <div className="relative w-full"><input type="text" name="ageYears" value={formData.ageYears} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg pr-8" /><span className="absolute right-3 top-2.5 text-xs text-zinc-400">Yrs</span></div>
                                         </div>
                                     </div>
 
@@ -630,16 +706,33 @@ export function RegistrationForm() {
                                         <tbody>
                                             <tr className="border-b border-zinc-100">
                                                 <td className="px-4 py-3 font-medium text-zinc-700 dark:text-zinc-300">Candidate</td>
-                                                <td className="px-2 py-2"><input type="text" name="candidatePhone" value={formData.candidatePhone} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none" /></td>
+                                                <td className="px-2 py-2">
+                                                    <div className="flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
+                                                        <span className="flex items-center px-2 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 whitespace-nowrap">+92</span>
+                                                        <input type="text" name="candidatePhone" value={formData.candidatePhone} onChange={handleInputChange} placeholder="3XXXXXXXXX" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none" />
+                                                    </div>
+                                                </td>
                                                 <td className="px-2 py-2"><input type="email" name="candidateEmail" value={formData.candidateEmail} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none" /></td>
-                                                <td className="px-2 py-2"><input type="text" disabled className="w-full px-2 py-1.5 bg-zinc-50 dark:bg-zinc-900 text-zinc-400 rounded text-sm cursor-not-allowed" placeholder="N/A" /></td>
+                                                <td className="px-2 py-2"><input type="text" disabled className="w-full px-2 py-1.5 bg-zinc-50 dark:bg-zinc-900 text-zinc-400 rounded text-sm cursor-not-allowed text-center" placeholder="N/A" /></td>
                                             </tr>
                                             <tr className="border-b border-zinc-100">
                                                 <td className="px-4 py-3 font-medium text-zinc-700 dark:text-zinc-300">Father</td>
                                                 <td className="px-2 py-2">
-                                                    <div className="flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
-                                                        <input type="text" name="fatherPrimaryPhoneCountryCode" value={formData.fatherPrimaryPhoneCountryCode} onChange={handleInputChange} placeholder="+92" className="w-14 px-1.5 py-1.5 border-0 rounded-l text-sm outline-none bg-zinc-50 dark:bg-zinc-900" />
-                                                        <input type="text" name="fatherPhone" value={formData.fatherPhone} onChange={handleInputChange} className="flex-1 min-w-0 px-2 py-1.5 border-0 rounded-r text-sm outline-none" />
+                                                    <div className="flex flex-col gap-2">
+                                                        <div className="flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
+                                                            <span className="flex items-center px-2 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 whitespace-nowrap">+92</span>
+                                                            <input type="text" name="fatherPhone" value={formData.fatherPhone} onChange={handleInputChange} placeholder="3XXXXXXXXX" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none" />
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <input type="checkbox" name="isFatherWhatsapp" id="wa-father" checked={formData.isFatherWhatsapp} onChange={handleInputChange} className="h-3.5 w-3.5 text-emerald-600 rounded" />
+                                                            <label htmlFor="wa-father" className="text-[10px] uppercase font-bold text-emerald-700 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> WhatsApp Number</label>
+                                                        </div>
+                                                        {!formData.isFatherWhatsapp && (
+                                                            <div className="flex border border-emerald-200 rounded animate-in slide-in-from-top-1 duration-200">
+                                                                <span className="flex items-center px-2 bg-emerald-50 border-r border-emerald-200 text-xs font-semibold text-emerald-700">+92</span>
+                                                                <input type="text" name="fatherWhatsapp" value={formData.fatherWhatsapp} onChange={handleInputChange} placeholder="WA Number" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none bg-emerald-50/30" />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2"><input type="email" name="fatherEmail" value={formData.fatherEmail} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none" /></td>
@@ -648,9 +741,21 @@ export function RegistrationForm() {
                                             <tr>
                                                 <td className="px-4 py-3 font-medium text-zinc-700 dark:text-zinc-300">Mother</td>
                                                 <td className="px-2 py-2">
-                                                    <div className="flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
-                                                        <input type="text" name="motherPrimaryPhoneCountryCode" value={formData.motherPrimaryPhoneCountryCode} onChange={handleInputChange} placeholder="+92" className="w-14 px-1.5 py-1.5 border-0 rounded-l text-sm outline-none bg-zinc-50 dark:bg-zinc-900" />
-                                                        <input type="text" name="motherPhone" value={formData.motherPhone} onChange={handleInputChange} className="flex-1 min-w-0 px-2 py-1.5 border-0 rounded-r text-sm outline-none" />
+                                                    <div className="flex flex-col gap-2">
+                                                        <div className="flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
+                                                            <span className="flex items-center px-2 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 whitespace-nowrap">+92</span>
+                                                            <input type="text" name="motherPhone" value={formData.motherPhone} onChange={handleInputChange} placeholder="3XXXXXXXXX" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none" />
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <input type="checkbox" name="isMotherWhatsapp" id="wa-mother" checked={formData.isMotherWhatsapp} onChange={handleInputChange} className="h-3.5 w-3.5 text-emerald-600 rounded" />
+                                                            <label htmlFor="wa-mother" className="text-[10px] uppercase font-bold text-emerald-700 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> WhatsApp Number</label>
+                                                        </div>
+                                                        {!formData.isMotherWhatsapp && (
+                                                            <div className="flex border border-emerald-200 rounded animate-in slide-in-from-top-1 duration-200">
+                                                                <span className="flex items-center px-2 bg-emerald-50 border-r border-emerald-200 text-xs font-semibold text-emerald-700">+92</span>
+                                                                <input type="text" name="motherWhatsapp" value={formData.motherWhatsapp} onChange={handleInputChange} placeholder="WA Number" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none bg-emerald-50/30" />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2"><input type="email" name="motherEmail" value={formData.motherEmail} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none" /></td>
@@ -665,14 +770,21 @@ export function RegistrationForm() {
                                 <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
                                     <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">Emergency Contact</h3>
                                 </div>
-                                <div className="bg-red-50/50 p-5 rounded-xl border border-red-100 flex gap-6">
+                                <div className="bg-red-50/50 p-5 rounded-xl border border-red-100 flex flex-col md:flex-row gap-6">
                                     <div className="flex-1">
-                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Contact Name & Number</label>
-                                        <input type="text" name="emergencyContactName" value={formData.emergencyContactName} onChange={handleInputChange} placeholder="Name - Phone" className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none" />
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Contact Name</label>
+                                        <input type="text" name="emergencyContactName" value={formData.emergencyContactName} onChange={handleInputChange} placeholder="Full Name" className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Contact Number</label>
+                                        <div className="flex border border-zinc-200 dark:border-zinc-800 rounded-lg focus-within:ring-2 focus-within:ring-red-500">
+                                            <input type="text" name="emergencyPrimaryPhoneCountryCode" value={formData.emergencyPrimaryPhoneCountryCode} onChange={handleInputChange} placeholder="+92" className="w-14 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-xs" />
+                                            <input type="text" name="emergencyContactPhone" value={formData.emergencyContactPhone} onChange={handleInputChange} placeholder="Phone Number" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none text-sm bg-white dark:bg-zinc-950" />
+                                        </div>
                                     </div>
                                     <div className="flex-1">
                                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Relationship with Candidate</label>
-                                        <input type="text" name="emergencyRelationship" value={formData.emergencyRelationship} onChange={handleInputChange} className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none" />
+                                        <input type="text" name="emergencyRelationship" value={formData.emergencyRelationship} onChange={handleInputChange} placeholder="Relative / Guardian" className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm focus:ring-2 focus:ring-red-500 outline-none" />
                                     </div>
                                 </div>
                             </section>
