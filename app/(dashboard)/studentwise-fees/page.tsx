@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo, Suspense } from "react";
-import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Users2, Settings2, UserSearch, Calendar } from "lucide-react";
+import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Users2, Settings2, UserSearch, Calendar, LayoutGrid } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -11,6 +11,7 @@ import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchSections } from "@/store/slices/sectionsSlice";
 import toast from "react-hot-toast";
 import { getCurrentAcademicYear, getAcademicYears, MONTHS, MONTH_TO_NUM } from "@/lib/fee-utils";
+import { BulkOperationsDrawer } from "./components/BulkOperationsDrawer";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -148,6 +149,7 @@ function StudentwiseFeeEditor() {
 
     const [isSearching, setIsSearching] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [showBulkDrawer, setShowBulkDrawer] = useState(false);
     const [skipSearch, setSkipSearch] = useState(false);
     const [searchResults, setSearchResults] = useState<{ cc: number; full_name: string; gr_number: string }[]>([]);
     const [showSearchDropdown, setShowSearchDropdown] = useState(false);
@@ -846,12 +848,22 @@ function StudentwiseFeeEditor() {
                     </div>
                 </div>
 
-                {rows.length > 0 && (
-                    <button onClick={addRow} className="group flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 transition-all active:scale-95">
-                        <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-                        New Row
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setShowBulkDrawer(true)}
+                        className="group flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm font-bold rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all active:scale-95 shadow-sm"
+                    >
+                        <LayoutGrid className="h-4 w-4 text-primary" />
+                        Bulk Operations
                     </button>
-                )}
+
+                    {rows.length > 0 && (
+                        <button onClick={addRow} className="group flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 transition-all active:scale-95">
+                            <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+                            New Row
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Config Bar */}
@@ -1347,6 +1359,11 @@ function StudentwiseFeeEditor() {
                     </div>
                 </div>
             )}
+            {/* Bulk Operations Drawer */}
+            <BulkOperationsDrawer 
+                isOpen={showBulkDrawer} 
+                onClose={() => setShowBulkDrawer(false)} 
+            />
         </div>
     );
 }
