@@ -17,6 +17,7 @@ import { fetchBanks } from "@/store/slices/banksSlice";
 import { 
     ChevronRight, 
     ChevronLeft, 
+    ChevronDown,
     Layers, 
     Building2, 
     Calendar, 
@@ -188,40 +189,56 @@ export default function BulkVoucherPage() {
                         <div className="grid grid-cols-1 gap-6">
                             <div>
                                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Campus (Required)</label>
-                                <select 
-                                    className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none"
-                                    value={filters.campusId}
-                                    onChange={(e) => handleFilterChange({ campusId: e.target.value, classId: '', sectionId: '' })}
-                                >
-                                    <option value="">Select Campus</option>
-                                    {campuses.map(c => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
-                                </select>
+                                <div className="relative">
+                                    <select 
+                                        className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none"
+                                        value={filters.campusId}
+                                        onChange={(e) => handleFilterChange({ campusId: e.target.value, classId: '', sectionId: '' })}
+                                        disabled={isCampusesLoading}
+                                    >
+                                        <option value="">Select Campus</option>
+                                        {campuses.map(c => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
+                                    </select>
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                                        {isCampusesLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <ChevronDown className="h-4 w-4" />}
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Class (Optional)</label>
-                                    <select 
-                                        className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none disabled:opacity-50"
-                                        value={filters.classId}
-                                        disabled={!filters.campusId}
-                                        onChange={(e) => handleFilterChange({ classId: e.target.value, sectionId: '' })}
-                                    >
-                                        <option value="">All Classes</option>
-                                        {filteredClasses.map(c => <option key={c.id} value={c.id}>{c.description}</option>)}
-                                    </select>
+                                    <div className="relative">
+                                        <select 
+                                            className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none disabled:opacity-50"
+                                            value={filters.classId}
+                                            disabled={!filters.campusId || isCampusesLoading}
+                                            onChange={(e) => handleFilterChange({ classId: e.target.value, sectionId: '' })}
+                                        >
+                                            <option value="">All Classes</option>
+                                            {filteredClasses.map(c => <option key={c.id} value={c.id}>{c.description}</option>)}
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                                            <ChevronDown className="h-4 w-4" />
+                                        </div>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Section (Optional)</label>
-                                    <select 
-                                        className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none disabled:opacity-50"
-                                        value={filters.sectionId}
-                                        disabled={!filters.classId}
-                                        onChange={(e) => handleFilterChange({ sectionId: e.target.value })}
-                                    >
-                                        <option value="">All Sections</option>
-                                        {filteredSections.map(s => <option key={s.id} value={s.id}>{s.description}</option>)}
-                                    </select>
+                                    <div className="relative">
+                                        <select 
+                                            className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none disabled:opacity-50"
+                                            value={filters.sectionId}
+                                            disabled={!filters.classId || isCampusesLoading}
+                                            onChange={(e) => handleFilterChange({ sectionId: e.target.value })}
+                                        >
+                                            <option value="">All Sections</option>
+                                            {filteredSections.map(s => <option key={s.id} value={s.id}>{s.description}</option>)}
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                                            <ChevronDown className="h-4 w-4" />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -268,14 +285,20 @@ export default function BulkVoucherPage() {
 
                         <div>
                             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Bank Account</label>
-                            <select 
-                                className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none"
-                                value={filters.bankAccountId}
-                                onChange={(e) => handleFilterChange({ bankAccountId: e.target.value })}
-                            >
-                                <option value="">Select Bank</option>
-                                {banks.map(b => <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number}</option>)}
-                            </select>
+                            <div className="relative">
+                                <select 
+                                    className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none"
+                                    value={filters.bankAccountId}
+                                    onChange={(e) => handleFilterChange({ bankAccountId: e.target.value })}
+                                    disabled={isBanksLoading}
+                                >
+                                    <option value="">Select Bank</option>
+                                    {banks.map(b => <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number}</option>)}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                                    {isBanksLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <ChevronDown className="h-4 w-4" />}
+                                </div>
+                            </div>
                         </div>
 
                         <div>
@@ -326,18 +349,6 @@ export default function BulkVoucherPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-                        <div>
-                            <p className="text-[13px] font-black text-zinc-900 dark:text-zinc-100">Skip Already Issued</p>
-                            <p className="text-[11px] font-medium text-zinc-500">Don't duplicate vouchers</p>
-                        </div>
-                        <button 
-                            onClick={() => handleFilterChange({ skipAlreadyIssued: !filters.skipAlreadyIssued })}
-                            className={`h-6 w-11 rounded-full transition-all relative ${filters.skipAlreadyIssued ? "bg-primary" : "bg-zinc-300 dark:bg-zinc-700"}`}
-                        >
-                            <div className={`h-4 w-4 bg-white rounded-full absolute top-1 transition-all ${filters.skipAlreadyIssued ? "left-6" : "left-1"}`} />
-                        </button>
-                    </div>
 
                     <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800">
                         <div>
@@ -359,8 +370,8 @@ export default function BulkVoucherPage() {
                                 <input 
                                     type="number"
                                     className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none"
-                                    value={filters.lateFeeAmount}
-                                    onChange={(e) => handleFilterChange({ lateFeeAmount: parseInt(e.target.value) })}
+                                    value={isNaN(filters.lateFeeAmount) ? "" : filters.lateFeeAmount}
+                                    onChange={(e) => handleFilterChange({ lateFeeAmount: e.target.value === "" ? 0 : parseInt(e.target.value) })}
                                 />
                             </div>
                         </div>
@@ -407,7 +418,10 @@ export default function BulkVoucherPage() {
                         </thead>
                         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
                             {previewStudents.map(student => (
-                                <tr key={student.cc} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/30 transition-colors">
+                                <tr 
+                                    key={student.cc} 
+                                    className={`transition-colors ${student.is_already_issued ? "bg-zinc-50/50 dark:bg-zinc-900/10 opacity-60" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/30"}`}
+                                >
                                     <td className="px-8 py-4">
                                         <button 
                                             onClick={() => toggleStudent(student.cc)}
@@ -427,16 +441,16 @@ export default function BulkVoucherPage() {
                                             {student.class_name} - {student.section_name}
                                         </span>
                                     </td>
-                                    <td className="px-8 py-4">
+                                    <td className="px-8 py-4 text-right">
                                         {student.is_already_issued ? (
-                                            <div className="flex items-center gap-2 text-amber-500">
-                                                <AlertCircle className="h-4 w-4" />
-                                                <span className="text-[10px] font-black uppercase">Already Issued</span>
+                                            <div className="flex items-center justify-end gap-2 text-rose-500 bg-rose-50 dark:bg-rose-950/30 px-3 py-1.5 rounded-xl border border-rose-100 dark:border-rose-900 w-fit ml-auto">
+                                                <AlertCircle className="h-3.5 w-3.5" />
+                                                <span className="text-[10px] font-black uppercase tracking-wider">ISSUED</span>
                                             </div>
                                         ) : (
-                                            <div className="flex items-center gap-2 text-emerald-500">
-                                                <CheckCircle2 className="h-4 w-4" />
-                                                <span className="text-[10px] font-black uppercase">Ready</span>
+                                            <div className="flex items-center justify-end gap-2 text-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1.5 rounded-xl border border-emerald-100 dark:border-emerald-900 w-fit ml-auto">
+                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                                <span className="text-[10px] font-black uppercase tracking-wider">READY</span>
                                             </div>
                                         )}
                                     </td>
@@ -450,9 +464,17 @@ export default function BulkVoucherPage() {
                     <p className="text-[12px] font-medium text-zinc-500 max-w-md">
                         Staff should verify the list above. Students already issued a voucher for this range are flagged and can be excluded to prevent double-billing.
                     </p>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-6">
                         <div className="text-right">
-                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Total to Generate</p>
+                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Total Population</p>
+                            <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">{previewStudents.length}</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Already Issued</p>
+                            <p className="text-xl font-black text-rose-600 dark:text-rose-400">{previewStudents.filter(s => s.is_already_issued).length}</p>
+                        </div>
+                        <div className="text-right pl-6 border-l border-zinc-200 dark:border-zinc-800">
+                            <p className="text-[10px] font-black text-primary uppercase tracking-widest">Selected to Generate</p>
                             <p className="text-2xl font-black text-zinc-900 dark:text-zinc-100">{selectedStudentCCs.length}</p>
                         </div>
                     </div>
