@@ -1,21 +1,22 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
     Search, Loader2, AlertCircle, FileText, ChevronDown, X,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Building2, GraduationCap, Users, Hash, CreditCard, SlidersHorizontal,
-    ChevronLeft, ChevronRight, Download, Calendar
+    ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { fetchClasses } from "@/store/slices/classesSlice";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchSections } from "@/store/slices/sectionsSlice";
-import { fetchVouchers, VoucherFilters, VoucherItem } from "@/store/slices/vouchersSlice";
+import { fetchVouchers, VoucherFilters, VoucherItem, VoucherHead } from "@/store/slices/vouchersSlice";
 import toast from "react-hot-toast";
 import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
-import { groupFees } from "@/lib/fee-utils";
+import { groupFees, getAcademicYearForDate } from "@/lib/fee-utils";
 
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -154,16 +155,340 @@ function FilterDropdown({
     );
 }
 
+// ─── Shared PDF builder ──────────────────────────────────────────────────────
+
+// Fetch the student data needed for any voucher PDF — called once and shared.
+async function fetchVoucherPdfData(studentId: number) {
+    const [studentRes, feesRes] = await Promise.all([
+        api.get(`/v1/students/${studentId}`),
+        api.get(`/v1/student-fees/by-student/${studentId}`),
+    ]);
+    return {
+        studentData: studentRes.data?.data,
+        familyStudents: feesRes.data?.data?.family?.students || [],
+    };
+}
+
+async function buildVoucherPdfBlob(
+    voucher: VoucherItem,
+    sections: any[],
+    user: any,
+    overrideHeads?: VoucherHead[],   // use a custom set of heads (for partial-paid PDF)
+    paidStamp?: boolean,
+    // Pre-fetched data to avoid redundant API calls when building multiple PDFs
+    prefetched?: { studentData: any; familyStudents: any[] },
+): Promise<Blob> {
+    const { studentData, familyStudents } = prefetched ?? await fetchVoucherPdfData(voucher.student_id);
+    const siblings = familyStudents.filter((s: any) => s.cc !== voucher.student_id);
+
+    const issueDateObj = new Date(voucher.issue_date);
+    const monthNum = issueDateObj.getMonth() + 1;
+    const MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthName = MONTHS[monthNum];
+
+    const headsForPdf = overrideHeads ?? (voucher.voucher_heads || []);
+    const pdfFees = groupFees(headsForPdf, {}, { groupTuitionFees: false, isVoucherHeads: true });
+    const totalFeesAmount = headsForPdf.reduce((sum, h) => sum + Number(h.net_amount), 0);
+
+    const { pdf } = await import('@react-pdf/renderer');
+    const doc = (
+        <FeeChallanPDF
+            paidStamp={paidStamp}
+            student={{
+                cc: voucher.students.cc,
+                student_full_name: voucher.students.full_name,
+                gr_number: voucher.students.gr_number || "",
+                campus: voucher.campuses?.campus_name,
+                class_id: voucher.class_id,
+                section_id: voucher.section_id || undefined,
+                className: voucher.classes?.description || "Unknown",
+                sectionName: voucher.sections?.description || "N/A",
+                grade_and_section: studentData?.grade_and_section || `${voucher.classes?.description} ${voucher.sections?.description || ""}`,
+                gender: studentData?.gender,
+                father_name: studentData?.father_name
+            }}
+            siblings={siblings.map((s: any) => ({
+                full_name: s.full_name,
+                cc: s.cc,
+                gr_number: s.gr_number,
+                className: s.classes?.description || "Unknown",
+                sectionName: sections.find((sec: any) => sec.id === s.section_id)?.description || "N/A"
+            }))}
+            details={{
+                month: monthName,
+                academicYear: voucher.academic_year || getAcademicYearForDate(voucher.issue_date),
+                issueDate: voucher.issue_date.split('T')[0],
+                dueDate: voucher.due_date.split('T')[0],
+                validityDate: voucher.validity_date
+                    ? voucher.validity_date.split('T')[0]
+                    : voucher.due_date.split('T')[0],
+                applyLateFee: voucher.late_fee_charge,
+                voucherNumber: `VCH-${voucher.id}`,
+                generatedBy: {
+                    fullName: user?.fullName || "System Admin",
+                    timestampStr: new Date().toLocaleString()
+                },
+                bank: {
+                    name: voucher.bank_accounts?.bank_name || "",
+                    title: voucher.bank_accounts?.account_title || "",
+                    account: voucher.bank_accounts?.account_number || "",
+                    branch: voucher.bank_accounts?.branch_code || "",
+                    address: voucher.bank_accounts?.bank_address || "",
+                    iban: voucher.bank_accounts?.iban || ""
+                }
+            }}
+            fees={pdfFees}
+            totalAmount={totalFeesAmount}
+        />
+    );
+
+    const asPdf = pdf(doc);
+    return asPdf.toBlob();
+}
+
+// ─── Partially Paid Modal ────────────────────────────────────────────────────
+
+function PartiallyPaidModal({
+    voucher,
+    sections,
+    user,
+    onClose,
+    onSuccess,
+}: {
+    voucher: VoucherItem;
+    sections: any[];
+    user: any;
+    onClose: () => void;
+    onSuccess: (newVoucherId: number) => void;
+}) {
+    const heads = voucher.voucher_heads || [];
+    const paidHeads = heads.filter(h => Number(h.amount_deposited) > 0);
+    const unpaidHeads = heads.filter(h => Number(h.balance) > 0);
+
+    // Remap heads so net_amount reflects what actually goes on each PDF:
+    // – paid PDF  → net_amount = amount_deposited  (what was settled)
+    // – unpaid PDF → net_amount = balance           (what is still owed)
+    const paidHeadsForPdf = paidHeads.map(h => ({ ...h, net_amount: h.amount_deposited }));
+    const unpaidHeadsForPdf = unpaidHeads.map(h => ({ ...h, net_amount: h.balance }));
+
+    const [issueDate, setIssueDate] = useState(() => new Date().toISOString().split("T")[0]);
+    const [dueDate, setDueDate] = useState("");
+    const [validityDate, setValidityDate] = useState("");
+    const [submitting, setSubmitting] = useState(false);
+
+    const paidTotal = paidHeads.reduce((s, h) => s + Number(h.amount_deposited), 0);
+    const unpaidTotal = unpaidHeads.reduce((s, h) => s + Number(h.balance), 0);
+
+    const handleConfirm = async () => {
+        if (!dueDate) { toast.error("Please enter the due date for the new voucher."); return; }
+
+        setSubmitting(true);
+        const loadingToast = toast.loading("Generating paid PDF and creating new unpaid voucher…");
+        try {
+            // 1. Fetch student data ONCE — shared by both PDF builds
+            const prefetched = await fetchVoucherPdfData(voucher.student_id);
+
+            // 2. Build BOTH PDFs in parallel (saves ~50% of render time)
+            const [paidBlob, unpaidBlob] = await Promise.all([
+                buildVoucherPdfBlob(voucher, sections, user, paidHeadsForPdf as any, true, prefetched),
+                buildVoucherPdfBlob(
+                    { ...voucher, issue_date: issueDate, due_date: dueDate, validity_date: validityDate || dueDate },
+                    sections,
+                    user,
+                    unpaidHeadsForPdf as any,
+                    false,
+                    prefetched,
+                ),
+            ]);
+
+            // 3. Upload paid PDF to the original voucher
+            const paidFormData = new FormData();
+            paidFormData.append("pdf", new File([paidBlob], `paid-voucher-${voucher.id}.pdf`, { type: "application/pdf" }));
+            await api.patch(`/v1/vouchers/${voucher.id}/paid-pdf`, paidFormData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+
+            // 4. POST split endpoint with the new unpaid PDF
+            const splitFormData = new FormData();
+            splitFormData.append("issue_date", issueDate);
+            splitFormData.append("due_date", dueDate);
+            if (validityDate) splitFormData.append("validity_date", validityDate);
+            splitFormData.append("pdf", new File([unpaidBlob], `voucher-remainder.pdf`, { type: "application/pdf" }));
+
+            const { data: splitRes } = await api.post(`/v1/vouchers/${voucher.id}/split-partially-paid`, splitFormData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+
+            toast.dismiss(loadingToast);
+            toast.success(`New unpaid voucher #${splitRes.data?.id} created successfully.`);
+
+            // 5. Open paid PDF
+            const paidUrl = URL.createObjectURL(paidBlob);
+            const link = document.createElement("a");
+            link.href = paidUrl;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(paidUrl), 5000);
+
+            onSuccess(splitRes.data?.id);
+        } catch (err: any) {
+            toast.dismiss(loadingToast);
+            toast.error(err?.response?.data?.message || "Failed to process partial payment split.");
+            console.error(err);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-800">
+                    <div className="flex items-center gap-3">
+                        <span className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                            <Split className="h-5 w-5 text-blue-500" />
+                        </span>
+                        <div>
+                            <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                                Partially Paid Voucher — VCH-{voucher.id}
+                            </h2>
+                            <p className="text-xs text-zinc-400">
+                                {voucher.students?.full_name} · CC-{voucher.students?.cc}
+                            </p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} disabled={submitting} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
+                        <X className="h-4 w-4 text-zinc-400" />
+                    </button>
+                </div>
+
+                <div className="px-6 py-5 space-y-5">
+                    {/* Summary */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4">
+                            <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1">Already Deposited</p>
+                            <p className="text-xl font-black text-emerald-700 dark:text-emerald-300 font-mono">
+                                {paidTotal.toLocaleString()}
+                            </p>
+                            <p className="text-[10px] text-emerald-600/70 mt-1">{paidHeads.length} head{paidHeads.length !== 1 ? "s" : ""}</p>
+                        </div>
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                            <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-1">Outstanding Balance</p>
+                            <p className="text-xl font-black text-amber-700 dark:text-amber-300 font-mono">
+                                {unpaidTotal.toLocaleString()}
+                            </p>
+                            <p className="text-[10px] text-amber-600/70 mt-1">{unpaidHeads.length} head{unpaidHeads.length !== 1 ? "s" : ""} → new unpaid voucher</p>
+                        </div>
+                    </div>
+
+                    {/* Breakdown table */}
+                    <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+                        <table className="w-full text-xs">
+                            <thead className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+                                <tr>
+                                    {["Fee Head", "Net Amount", "Deposited", "Balance", "Goes to"].map(h => (
+                                        <th key={h} className="px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {heads.map(h => {
+                                    const dep = Number(h.amount_deposited);
+                                    const bal = Number(h.balance);
+                                    const net = Number(h.net_amount);
+                                    const inPaid = dep > 0;
+                                    const inUnpaid = bal > 0;
+                                    const goesTo = inPaid && inUnpaid ? "Both" : inPaid ? "Paid PDF" : "New Unpaid";
+                                    const goesToColor = goesTo === "Both" ? "text-purple-600 dark:text-purple-400" : goesTo === "Paid PDF" ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400";
+                                    return (
+                                        <tr key={h.id} className="border-b border-zinc-100 dark:border-zinc-800/60">
+                                            <td className="px-4 py-2.5 font-medium text-zinc-700 dark:text-zinc-300">
+                                                {h.student_fees?.fee_types?.description || `Head #${h.id}`}
+                                            </td>
+                                            <td className="px-4 py-2.5 font-mono text-zinc-600 dark:text-zinc-400">{net.toLocaleString()}</td>
+                                            <td className="px-4 py-2.5 font-mono font-bold text-emerald-600 dark:text-emerald-400">{dep.toLocaleString()}</td>
+                                            <td className="px-4 py-2.5 font-mono font-bold text-amber-600 dark:text-amber-400">{bal.toLocaleString()}</td>
+                                            <td className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-wider ${goesToColor}`}>{goesTo}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* New voucher date form */}
+                    {unpaidHeads.length > 0 && (
+                        <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 space-y-4">
+                            <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                <Calendar className="h-3.5 w-3.5 text-primary" />
+                                New Unpaid Voucher Dates
+                            </p>
+                            <div className="grid grid-cols-3 gap-3">
+                                {[
+                                    { id: "pp-issue", label: "Issue Date", value: issueDate, onChange: setIssueDate, required: true },
+                                    { id: "pp-due", label: "Due Date", value: dueDate, onChange: setDueDate, required: true },
+                                    { id: "pp-validity", label: "Validity Date", value: validityDate, onChange: setValidityDate, required: false },
+                                ].map(f => (
+                                    <div key={f.id} className="flex flex-col gap-1">
+                                        <label htmlFor={f.id} className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                                            {f.label}{f.required && <span className="text-rose-500 ml-0.5">*</span>}
+                                        </label>
+                                        <input
+                                            id={f.id}
+                                            type="date"
+                                            value={f.value}
+                                            onChange={e => f.onChange(e.target.value)}
+                                            className="h-10 px-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all text-zinc-700 dark:text-zinc-300"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-between pt-1">
+                        <p className="text-[11px] text-zinc-400 max-w-xs">
+                            The original voucher stays in the system unchanged. A PAID-stamped PDF will be downloaded for the deposited amount.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={onClose}
+                                disabled={submitting}
+                                className="px-4 py-2 text-sm font-semibold border border-zinc-200 dark:border-zinc-800 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirm}
+                                disabled={submitting || unpaidHeads.length === 0}
+                                className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Split className="h-4 w-4" />}
+                                {submitting ? "Processing…" : "Confirm & Create"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── Voucher Row ─────────────────────────────────────────────────────────────
 
-function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index: number; sections: any[] }) {
+function VoucherRow({ voucher, index, sections, onRefresh }: { voucher: VoucherItem; index: number; sections: any[]; onRefresh: () => void }) {
     const status = getStatusConfig(voucher.status);
     const [isDownloading, setIsDownloading] = useState(false);
+    const [showPartialModal, setShowPartialModal] = useState(false);
     const user = useAppSelector(s => s.auth.user);
 
-    const handleDownload = async () => {
-        // If we already have a stored PDF URL, open it immediately.
-        // Keeping this code before any async/await helps browsers treat it as a user gesture.
+    // ── UNPAID / OVERDUE: serve existing pdf_url directly ─────────────────
+    const handleUnpaidDownload = () => {
         const pdfUrl = typeof voucher.pdf_url === "string" ? voucher.pdf_url.trim() : "";
         if (pdfUrl) {
             const link = document.createElement("a");
@@ -176,101 +501,55 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
             toast.success("Voucher opened in a new tab.");
             return;
         }
+        toast.error("No PDF available for this voucher.");
+    };
 
+    // ── PAID: regenerate with PAID stamp, save back, open ─────────────────
+    const handlePaidDownload = async () => {
         setIsDownloading(true);
-        let loadingToast: string | undefined;
+        const loadingToast = toast.loading("Generating PAID PDF…");
         try {
-            const issueDateObj = new Date(voucher.issue_date);
-            const monthNum = issueDateObj.getMonth() + 1;
-            const MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-            const monthName = MONTHS[monthNum];
-            const filename = `Challan_${voucher.students.cc}_${monthName}.pdf`;
+            const prefetched = await fetchVoucherPdfData(voucher.student_id);
+            const blob = await buildVoucherPdfBlob(voucher, sections, user, undefined, true, prefetched);
 
-            // ── Fallback: generate PDF on the fly ────────────────────────────
-            loadingToast = toast.loading("Generating PDF, please wait…");
-            const { data: studentRes } = await api.get(`/v1/students/${voucher.student_id}`);
-            const studentData = studentRes?.data;
-            const { data } = await api.get(`/v1/student-fees/by-student/${voucher.student_id}`);
-            const familyStudents = data?.data?.family?.students || [];
-            const siblings = familyStudents.filter((s: any) => s.cc !== voucher.student_id);
+            // Save the paid PDF back to the voucher record (fire-and-forget; don't block the admin)
+            try {
+                const form = new FormData();
+                form.append("pdf", new File([blob], `paid-voucher-${voucher.id}.pdf`, { type: "application/pdf" }));
+                await api.patch(`/v1/vouchers/${voucher.id}/paid-pdf`, form, {
+                    headers: { "Content-Type": "multipart/form-data" },
+                });
+            } catch (saveErr) {
+                // Non-critical: the admin can still see the PDF
+                console.warn("Could not save paid PDF URL:", saveErr);
+            }
 
-            const pdfFees = groupFees(voucher.voucher_heads || [], {}, { groupTuitionFees: false, isVoucherHeads: true });
-            const totalFeesAmount = Number(voucher.total_payable_before_due || 0);
-
-            const { pdf } = await import('@react-pdf/renderer');
-            const doc = (
-                <FeeChallanPDF
-                    student={{
-                        cc: voucher.students.cc,
-                        student_full_name: voucher.students.full_name,
-                        gr_number: voucher.students.gr_number || "",
-                        campus: voucher.campuses?.campus_name,
-                        class_id: voucher.class_id,
-                        section_id: voucher.section_id || undefined,
-                        className: voucher.classes?.description || "Unknown",
-                        sectionName: voucher.sections?.description || "N/A",
-                        grade_and_section: studentData?.grade_and_section || `${voucher.classes?.description} ${voucher.sections?.description || ""}`,
-                        gender: studentData?.gender,
-                        father_name: studentData?.father_name
-                    }}
-                    siblings={siblings.map((s: any) => ({
-                        full_name: s.full_name,
-                        cc: s.cc,
-                        gr_number: s.gr_number,
-                        className: s.classes?.description || "Unknown",
-                        sectionName: sections.find((sec: any) => sec.id === s.section_id)?.description || "N/A"
-                    }))}
-                    details={{
-                        month: monthName,
-                        academicYear: `${issueDateObj.getFullYear()}-${issueDateObj.getFullYear() + 1}`,
-                        issueDate: voucher.issue_date.split('T')[0],
-                        dueDate: voucher.due_date.split('T')[0],
-                        validityDate: voucher.validity_date
-                            ? voucher.validity_date.split('T')[0]
-                            : voucher.due_date.split('T')[0],
-                        applyLateFee: voucher.late_fee_charge,
-                        voucherNumber: `VCH-${voucher.id}`,
-                        generatedBy: {
-                            fullName: user?.fullName || "System Admin",
-                            timestampStr: new Date().toLocaleString()
-                        },
-                        bank: {
-                            name: voucher.bank_accounts?.bank_name || "",
-                            title: voucher.bank_accounts?.account_title || "",
-                            account: voucher.bank_accounts?.account_number || "",
-                            branch: voucher.bank_accounts?.branch_code || "",
-                            address: voucher.bank_accounts?.bank_address || "",
-                            iban: voucher.bank_accounts?.iban || ""
-                        }
-                    }}
-                    fees={pdfFees}
-                    totalAmount={totalFeesAmount}
-                />
-            );
-
-            const asPdf = pdf(doc);
-            const blob = await asPdf.toBlob();
             const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
+            const link = document.createElement("a");
             link.href = url;
             link.target = "_blank";
             link.rel = "noopener noreferrer";
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+
             toast.dismiss(loadingToast);
-            toast.success("Voucher opened in a new tab.");
-        } catch (error) {
-            console.error(error);
+            toast.success("PAID voucher opened in a new tab.");
+        } catch (err) {
+            console.error(err);
             toast.dismiss(loadingToast);
-            toast.error("Failed to open voucher PDF.");
+            toast.error("Failed to generate paid PDF.");
         } finally {
             setIsDownloading(false);
         }
     };
 
+    const isPaid = voucher.status === "PAID";
+    const isPartiallyPaid = voucher.status === "PARTIALLY_PAID";
+
     return (
+        <>
         <tr className="group border-b border-zinc-100 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
             <td className="px-5 py-3.5 text-center">
                 <span className="text-[11px] font-mono text-zinc-400">{voucher.id}</span>
@@ -343,16 +622,55 @@ function VoucherRow({ voucher, index, sections }: { voucher: VoucherItem; index:
                 </span>
             </td>
             <td className="px-5 py-3.5">
-                <button
-                    onClick={handleDownload}
-                    disabled={isDownloading}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
-                >
-                    {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                        {isDownloading ? "..." : "PDF"}
-                </button>
+                <div className="flex items-center gap-2">
+                    {/* Download / PDF button */}
+                    {isPaid ? (
+                        <button
+                            onClick={handlePaidDownload}
+                            disabled={isDownloading}
+                            title="Download PAID-stamped PDF"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
+                        >
+                            {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Stamp className="h-3.5 w-3.5" />}
+                            {isDownloading ? "…" : "PAID PDF"}
+                        </button>
+                    ) : isPartiallyPaid ? (
+                        <button
+                            onClick={() => setShowPartialModal(true)}
+                            title="View breakdown and create new unpaid voucher"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-blue-200 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                        >
+                            <Split className="h-3.5 w-3.5" />
+                            Split
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleUnpaidDownload}
+                            disabled={isDownloading}
+                            title="Download original PDF"
+                            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
+                        >
+                            {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            {isDownloading ? "..." : "PDF"}
+                        </button>
+                    )}
+                </div>
             </td>
         </tr>
+        {showPartialModal && createPortal(
+            <PartiallyPaidModal
+                voucher={voucher}
+                sections={sections}
+                user={user}
+                onClose={() => setShowPartialModal(false)}
+                onSuccess={(_newId) => {
+                    setShowPartialModal(false);
+                    onRefresh();
+                }}
+            />,
+            document.body
+        )}
+        </>
     );
 }
 
@@ -798,7 +1116,7 @@ export default function VouchersPage() {
                             </thead>
                             <tbody>
                                 {paginatedVouchers.map((v, i) => (
-                                    <VoucherRow key={v.id} voucher={v} index={(page - 1) * pageSize + i} sections={sections} />
+                                    <VoucherRow key={v.id} voucher={v} index={(page - 1) * pageSize + i} sections={sections} onRefresh={handleRefresh} />
                                 ))}
                             </tbody>
                         </table>

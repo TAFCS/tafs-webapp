@@ -32,6 +32,20 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         textTransform: 'uppercase',
     },
+    paidStamp: {
+        position: 'absolute',
+        top: '35%',
+        left: '5%',
+        width: '90%',
+        textAlign: 'center',
+        color: '#16a34a',
+        fontSize: 38,
+        fontWeight: 'bold',
+        opacity: 0.18,
+        transform: 'rotate(-35deg)',
+        letterSpacing: 4,
+        fontFamily: 'Helvetica-Bold',
+    },
     header: {
         flexDirection: 'column',
         marginBottom: 3,
@@ -324,6 +338,8 @@ interface FeeChallanPDFProps {
     fees: FeeItem[];
     totalAmount: number;
     showDiscount?: boolean;
+    /** When true, a PAID watermark is stamped across each challan copy */
+    paidStamp?: boolean;
     siblings?: {
         full_name: string;
         cc: number | string;
@@ -333,9 +349,12 @@ interface FeeChallanPDFProps {
     }[];
 }
 
-const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, showDiscount, isLast }: { copyType: string, isLast?: boolean } & FeeChallanPDFProps) => (
+const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, showDiscount, paidStamp, isLast }: { copyType: string, isLast?: boolean } & FeeChallanPDFProps) => (
     <View style={[styles.section, isLast ? styles.lastSection : {}]}>
         <Text style={styles.copyLabel}>{copyType}</Text>
+        {paidStamp && (
+            <Text style={styles.paidStamp}>✔ PAID</Text>
+        )}
 
         <View style={styles.header}>
             <Image src="/logo.png" style={styles.logo} />
@@ -594,14 +613,14 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
     </View>
 );
 
-export const FeeChallanPDF = ({ student, details, fees, totalAmount, siblings, showDiscount }: FeeChallanPDFProps) => (
+export const FeeChallanPDF = ({ student, details, fees, totalAmount, siblings, showDiscount, paidStamp }: FeeChallanPDFProps) => (
     <Document>
         <Page size={[841.89, 595.28]} wrap={false} style={styles.page}>
             {/* Left 85% for the 3 Challan Copies */}
             <View style={{ width: '85%', flexDirection: 'row' }}>
-                <ChallanCopy copyType="Bank Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} showDiscount={showDiscount} siblings={siblings} />
-                <ChallanCopy copyType="School Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} showDiscount={showDiscount} siblings={siblings} />
-                <ChallanCopy copyType="Student Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} showDiscount={showDiscount} siblings={siblings} isLast={true} />
+                <ChallanCopy copyType="Bank Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} showDiscount={showDiscount} paidStamp={paidStamp} siblings={siblings} />
+                <ChallanCopy copyType="School Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} showDiscount={showDiscount} paidStamp={paidStamp} siblings={siblings} />
+                <ChallanCopy copyType="Student Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} showDiscount={showDiscount} paidStamp={paidStamp} siblings={siblings} isLast={true} />
             </View>
 
             {/* Right 15% for the 4th Column */}

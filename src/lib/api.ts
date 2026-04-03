@@ -6,9 +6,6 @@ const baseURL = typeof window !== 'undefined'
 
 const api = axios.create({
     baseURL,
-    headers: {
-        "Content-Type": "application/json",
-    },
     // Send httpOnly auth cookies (tafs_access, tafs_refresh) on every request.
     // The browser attaches them automatically — no manual Authorization header needed.
     withCredentials: true,
