@@ -3,13 +3,13 @@ import { useState } from "react";
 import { useAppSelector } from "@/store/hooks";
 import { ChevronDown, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import { ScopeBlock, ScopeValue } from "./ScopeBlock";
-import { getAcademicYears, getCurrentAcademicYear, MONTHS } from "@/lib/fee-utils";
+import { getAcademicYears, getCurrentAcademicYear, MONTHS, MONTH_TO_NUM } from "@/lib/fee-utils";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 
 const ACADEMIC_YEARS = getAcademicYears(1, 2);
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTH_NAMES = MONTHS;
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const sel = "w-full h-10 px-3 appearance-none bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-100 focus:outline-none focus:border-primary transition-all cursor-pointer";
 const inp = "w-full h-10 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-100 focus:outline-none focus:border-primary transition-all";
@@ -44,12 +44,26 @@ export function TabDeleteRange() {
     const startNum = Number(startMonth);
     const endNum = Number(endMonth);
     const dayNum = Number(day);
-    const rangeError = startNum && endNum && endNum < startNum ? "End month must be ≥ Start month" : null;
+
+    // Academic index (Aug=0...July=11)
+    const getAcademicIndex = (m: number) => (m >= 8 ? m - 8 : m + 4);
+
+    let rangeError = null;
+    if (startNum && endNum) {
+        if (getAcademicIndex(endNum) < getAcademicIndex(startNum)) {
+            rangeError = "End month must be after Start month (academic order)";
+        }
+    }
 
     const localMonths = (() => {
-        if (!startNum || !endNum || !dayNum || !academicYear) return [];
+        if (!startNum || !endNum || !dayNum || !academicYear || rangeError) return [];
         const rows = [];
-        for (let m = startNum; m <= endNum; m++) {
+        const ACADEMIC_ORDER = [8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7];
+        const startIndex = ACADEMIC_ORDER.indexOf(startNum);
+        const endIndex = ACADEMIC_ORDER.indexOf(endNum);
+
+        for (let i = startIndex; i <= endIndex; i++) {
+            const m = ACADEMIC_ORDER[i];
             const calYear = getCalYear(academicYear, m);
             const valid = isValidDay(calYear, m, dayNum);
             rows.push({ month: m, label: MONTH_LABELS[m - 1], calYear, valid, dateStr: valid ? `${calYear}-${String(m).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}` : null });
@@ -126,7 +140,9 @@ export function TabDeleteRange() {
                     <div className="relative">
                         <select value={startMonth} onChange={e => { setStartMonth(e.target.value); setRangePreview(null); }} className={sel}>
                             <option value="">Select...</option>
-                            {MONTH_NAMES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                            {MONTH_NAMES.map((m) => (
+                                <option key={m} value={MONTH_TO_NUM[m]}>{m}</option>
+                            ))}
                         </select>
                         <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
                     </div>
@@ -137,7 +153,9 @@ export function TabDeleteRange() {
                     <div className="relative">
                         <select value={endMonth} onChange={e => { setEndMonth(e.target.value); setRangePreview(null); }} className={`${sel} ${rangeError ? "border-rose-400" : ""}`}>
                             <option value="">Select...</option>
-                            {MONTH_NAMES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                            {MONTH_NAMES.map((m) => (
+                                <option key={m} value={MONTH_TO_NUM[m]}>{m}</option>
+                            ))}
                         </select>
                         <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
                     </div>

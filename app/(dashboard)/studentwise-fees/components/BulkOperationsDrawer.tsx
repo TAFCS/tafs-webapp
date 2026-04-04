@@ -31,7 +31,7 @@ export function BulkOperationsDrawer({ isOpen, onClose }: Props) {
             {/* Header / Navbar */}
             <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-zinc-950 sticky top-0 z-20">
                 <div className="flex items-center gap-6">
-                    <button 
+                    <button
                         onClick={onClose}
                         className="p-3 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-2xl transition-all active:scale-95 group"
                     >
@@ -58,16 +58,16 @@ export function BulkOperationsDrawer({ isOpen, onClose }: Props) {
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`
                                     flex items-center gap-3 px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all
-                                    ${isActive 
-                                        ? "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-white shadow-xl scale-105 z-10" 
+                                    ${isActive
+                                        ? "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-white shadow-xl scale-105 z-10"
                                         : "text-zinc-400 hover:text-zinc-600"
                                     }
                                 `}
                             >
                                 <div className={`
                                     p-1.5 rounded-lg transition-colors
-                                    ${isActive 
-                                        ? (isAdd ? "bg-emerald-500 text-white" : "bg-rose-500 text-white") 
+                                    ${isActive
+                                        ? (isAdd ? "bg-emerald-500 text-white" : "bg-rose-500 text-white")
                                         : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400"
                                     }
                                 `}>
@@ -99,7 +99,7 @@ export function BulkOperationsDrawer({ isOpen, onClose }: Props) {
                     {tabs.map((tab) => {
                         const isActive = activeTab === tab.id;
                         return (
-                             <button
+                            <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${isActive ? "bg-zinc-900 text-white" : "text-zinc-400 bg-zinc-100"}`}
@@ -127,8 +127,8 @@ export function BulkOperationsDrawer({ isOpen, onClose }: Props) {
                         <Info className="h-4 w-4 text-zinc-400" />
                     </div>
                     <p className="text-[10px] font-medium text-zinc-400 leading-tight max-w-md">
-                        This operation affects the core <span className="text-zinc-600 dark:text-zinc-200 font-bold uppercase">student_fees</span> table. 
-                        By confirming, you agree that each insert/delete is verified independently. 
+                        This operation affects the core <span className="text-zinc-600 dark:text-zinc-200 font-bold uppercase">student_fees</span> table.
+                        By confirming, you agree that each insert/delete is verified independently.
                         <b> Vouchers protect existing heads from deletion.</b>
                     </p>
                 </div>
