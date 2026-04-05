@@ -50,6 +50,7 @@ interface SpreadsheetRow {
     // Bundling (Parent-Child)
     bundle_id?: number | null;
     bundle_name?: string | null;
+    status?: "NOT_ISSUED" | "ISSUED" | "PARTIALLY_PAID" | "PAID";
 }
 
 const MONTH_ORDER = MONTHS;
@@ -363,7 +364,8 @@ function StudentwiseFeeEditor() {
                     originalAmount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
                     fee_date: sf.fee_date ? new Date(sf.fee_date).toISOString().split('T')[0] : undefined,
                     bundle_id: sf.bundle_id,
-                    bundle_name: sf.student_fee_bundles?.bundle_name
+                    bundle_name: sf.student_fee_bundles?.bundle_name,
+                    status: sf.status
                 }));
             }
 
@@ -565,7 +567,13 @@ function StudentwiseFeeEditor() {
     };
 
     // ── Row Mutators ────────────────────────────────────────────────────
+    const isRowLocked = (row?: SpreadsheetRow) => row?.status === "PAID" || row?.status === "PARTIALLY_PAID";
+
     const deleteRow = (idx: number) => {
+        if (isRowLocked(rows[idx])) {
+            toast.error("Cannot delete a paid or partially paid fee head.");
+            return;
+        }
         setRows((prev) => prev.filter((_, i) => i !== idx));
     };
 
@@ -614,6 +622,12 @@ function StudentwiseFeeEditor() {
     };
 
     const updateRow = (idx: number, field: keyof SpreadsheetRow, val: any) => {
+        if (isRowLocked(rows[idx])) {
+            // Some updates might be internal or allowed (like UI state), 
+            // but here we block all field updates for settled rows.
+            toast.error("Cannot modify a paid or partially paid fee head.");
+            return;
+        }
         pendingFocusId.current = rows[idx].__id;
         setRows((prev) => {
             const next = prev.map((r, i) => {
@@ -1085,11 +1099,14 @@ function StudentwiseFeeEditor() {
                             <tbody ref={tbodyRef}>
                                 {rows.map((row, rIdx) => {
                                     const aCell = (c: number) => isCellActive(rIdx, c);
+                                    const isLocked = isRowLocked(row);
                                     const isCurrentRowActive = activeCell?.row === rIdx;
                                     const groupSeparator = row.isGroupStart && rIdx > 0 ? "border-t-2 border-zinc-100" : "";
+                                    const lockedBg = row.status === "PAID" ? "bg-emerald-50/10 dark:bg-emerald-950/20" : "bg-amber-50/20 dark:bg-amber-950/20";
+                                    const rowBg = isLocked ? lockedBg : (isCurrentRowActive ? "bg-primary/[0.04]" : "bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900");
 
                                     return (
-                                        <tr key={rIdx} className={`${groupSeparator} ${isCurrentRowActive ? "bg-primary/[0.02]" : "bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/40"} transition-colors relative`}>
+                                        <tr key={rIdx} className={`${groupSeparator} ${rowBg} transition-colors relative`}>
                                             <td data-row={rIdx} data-col={COL_SELECT} className={`border-r border-b border-zinc-100 text-center ${aCell(COL_SELECT) ? "ring-2 ring-inset ring-primary/30 z-10" : ""}`}>
                                                 <input
                                                     type="checkbox"
@@ -1101,7 +1118,11 @@ function StudentwiseFeeEditor() {
                                             <td data-row={rIdx} data-col={COL_ACTIONS} tabIndex={0} onFocus={() => setActiveCell({ row: rIdx, col: COL_ACTIONS })}
                                                 className={`border-r border-b border-zinc-100 text-center ${aCell(COL_ACTIONS) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950" : ""}`}
                                             >
-                                                <button onClick={() => deleteRow(rIdx)} className="p-2 rounded-lg hover:bg-rose-50 text-zinc-300 hover:text-rose-600 transition-all active:scale-90">
+                                                <button 
+                                                    onClick={() => deleteRow(rIdx)} 
+                                                    disabled={isLocked}
+                                                    className={`p-2 rounded-lg transition-all active:scale-90 ${isLocked ? "opacity-20 cursor-not-allowed" : "hover:bg-rose-50 text-zinc-300 hover:text-rose-600"}`}
+                                                >
                                                     <Trash2 className="h-3.5 w-3.5" />
                                                 </button>
                                             </td>
@@ -1115,13 +1136,15 @@ function StudentwiseFeeEditor() {
                                                         <select
                                                             data-row={rIdx} data-col={COL_FEE_TYPE}
                                                             value={row.feeId}
+                                                            disabled={isLocked}
                                                             onChange={(e) => updateRow(rIdx, "feeId", Number(e.target.value))}
                                                             onFocus={() => setActiveCell({ row: rIdx, col: COL_FEE_TYPE })}
-                                                            className="w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-800 dark:text-zinc-200 text-[13px] cursor-pointer"
+                                                            className={`w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-800 dark:text-zinc-200 text-[13px] ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
                                                         >
                                                             {feeTypes.map(ft => <option key={ft.id} value={ft.id}>{ft.description}</option>)}
                                                         </select>
-                                                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />
+                                                        {!isLocked && <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />}
+                                                        {isLocked && <div className="absolute right-4 top-1/2 -translate-y-1/2"><span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${row.status === "PAID" ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"}`}>{row.status?.replace("_", " ")}</span></div>}
                                                     </div>
                                                     {row.bundle_id && (
                                                         <div className="px-5 pb-2 flex items-center gap-2 group/bundle">
@@ -1183,13 +1206,14 @@ function StudentwiseFeeEditor() {
                                                 <select
                                                     data-row={rIdx} data-col={COL_MONTH}
                                                     value={row.initialMonth}
+                                                    disabled={isLocked}
                                                     onChange={(e) => updateRow(rIdx, "initialMonth", e.target.value)}
                                                     onFocus={() => setActiveCell({ row: rIdx, col: COL_MONTH })}
-                                                    className="w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-500 text-[13px] cursor-pointer"
+                                                    className={`w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-500 text-[13px] ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
                                                 >
                                                     {MONTH_ORDER.map(m => <option key={m} value={m}>{m}</option>)}
                                                 </select>
-                                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-300 pointer-events-none" />
+                                                {!isLocked && <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-300 pointer-events-none" />}
                                             </td>
                                             {/* Fee Date (optional, for multi-voucher-per-month) */}
                                             <td data-row={rIdx} data-col={COL_FEE_DATE} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FEE_DATE) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
@@ -1197,10 +1221,12 @@ function StudentwiseFeeEditor() {
                                                     data-row={rIdx} data-col={COL_FEE_DATE}
                                                     type="date"
                                                     value={row.fee_date || ""}
+                                                    disabled={isLocked}
                                                     onChange={(e) => updateRow(rIdx, "fee_date", e.target.value || undefined)}
                                                     onFocus={() => setActiveCell({ row: rIdx, col: COL_FEE_DATE })}
                                                     className={`w-full h-10 px-3 outline-none bg-transparent text-[12px] font-mono transition-colors
-                                                        ${row.fee_date ? "text-primary font-semibold" : "text-zinc-300"}`}
+                                                        ${row.fee_date ? "text-primary font-semibold" : "text-zinc-300"}
+                                                        ${isLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
                                                 />
                                             </td>
 
@@ -1212,9 +1238,10 @@ function StudentwiseFeeEditor() {
                                                         data-row={rIdx} data-col={COL_AMOUNT}
                                                         type="number"
                                                         value={row.amount}
+                                                        disabled={isLocked}
                                                         onChange={(e) => updateRow(rIdx, "amount", e.target.value)}
                                                         onFocus={() => setActiveCell({ row: rIdx, col: COL_AMOUNT })}
-                                                        className="w-full h-full px-5 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-200"
+                                                        className={`w-full h-full px-5 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-200 ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
                                                     />
                                                 </div>
                                             </td>
