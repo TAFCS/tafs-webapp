@@ -459,6 +459,18 @@ export default function FeeChallanGenerator() {
     const voucherNumberStr = savedVoucherId ? `${savedVoucherId}` : "PENDING";
     const timestampStr = new Date().toLocaleString();
 
+    /** Derive "FOR MONTH(S) OF" label from the actual months present in the fee rows. */
+    const getMonthLabelFromFees = (fees: any[]): string => {
+        const monthNums = [...new Set(
+            fees.map(f => f.target_month || f.month).filter(Boolean) as number[]
+        )].sort((a, b) => a - b);
+        if (monthNums.length === 0) return month; // fallback to UI picker
+        return monthNums.map(m => {
+            const label = getMonthYearLabel(m, academicYear);
+            return label;
+        }).join(" / ");
+    };
+
     const handleSaveVoucher = async () => {
         if (!student || !selectedBank) return toast.error("Select student and bank.");
         setIsSavingVoucher(true);
@@ -510,7 +522,7 @@ export default function FeeChallanGenerator() {
                         gender: student.gender
                     }}
                     details={{
-                        month, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount,
+                        month: getMonthLabelFromFees(studentFees), academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount,
                         voucherNumber: voucherId,
                         generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
                         bank: { name: selectedBank.bank_name, title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban }
@@ -614,7 +626,7 @@ export default function FeeChallanGenerator() {
                         gender: student.gender
                     }}
                     details={{
-                        month: feeDateMonth, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount,
+                        month: getMonthLabelFromFees(group.fees), academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount,
                         voucherNumber: voucherId,
                         generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
                         bank: { name: selectedBank.bank_name, title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban }
@@ -1127,7 +1139,7 @@ export default function FeeChallanGenerator() {
                                                                     sectionName: (sections.find(s => s.id === student?.section_id) as any)?.description || "N/A"
                                                                 }}
                                                                 details={{
-                                                                    month, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount, voucherNumber: voucherNumberStr,
+                                                                    month: getMonthLabelFromFees(studentFees), academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount, voucherNumber: voucherNumberStr,
                                                                     generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
                                                                     bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
                                                                 }}
@@ -1184,13 +1196,7 @@ export default function FeeChallanGenerator() {
                                                                                 <FeeChallanPDF
                                                                                     student={{ ...student!, className: (classes.find(c => c.id === student?.class_id) as any)?.description || "N/A", sectionName: (sections.find(s => s.id === student?.section_id) as any)?.description || "N/A" }}
                                                                                     details={{
-                                                                                        month: (() => {
-                                                                                            try {
-                                                                                                const m = parseInt(g.fee_date.split('-')[1], 10);
-                                                                                                const sm = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                                                                                                return sm[m - 1] || month;
-                                                                                            } catch { return month; }
-                                                                                        })(),
+                                                                                        month: getMonthLabelFromFees(g.fees),
                                                                                         academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount,
                                                                                         voucherNumber: savedGroupVoucherIds[g.fee_date] ? `${savedGroupVoucherIds[g.fee_date]}` : voucherNumberStr,
                                                                                         generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
@@ -1277,7 +1283,7 @@ export default function FeeChallanGenerator() {
                                                                     gender: student!.gender
                                                                 }}
                                                                 details={{
-                                                                    month,
+                                                                    month: getMonthLabelFromFees(studentFees),
                                                                     academicYear,
                                                                     issueDate,
                                                                     dueDate,
