@@ -283,144 +283,99 @@ function StudentwiseFeeEditor() {
     const fetchFeeSchedule = useCallback(async (classId: number, campusId: number | "", ccNumber: string, academicYear: string, signal?: AbortSignal) => {
         setIsLoading(true); setLoadError(null); setRows([]); setActiveCell(null);
         try {
-            // 1. Fetch Class Schedule
-            const params: any = { class_id: classId };
-            if (campusId) params.campus_id = campusId;
+            if (!ccNumber) {
+                // If no student selected, just fetch the class template as before
+                const params: any = { class_id: classId };
+                if (campusId) params.campus_id = campusId;
+                const { data } = await api.get("/v1/class-fee-schedule/by-class", { params, signal });
+                const feeRows: ClassFeeRow[] = Array.isArray(data?.data) ? data.data : [];
+                
+                const lookup: Record<number, string> = {};
+                feeRows.forEach(f => { lookup[f.fee_id] = f.amount; });
+                setFeeToAmountMap(lookup);
 
-            console.log(`[FeeSchedule] Fetching template: class=${classId}, campus=${campusId}`);
-            const { data } = await api.get("/v1/class-fee-schedule/by-class", { params, signal });
-            const feeRows: ClassFeeRow[] = Array.isArray(data?.data) ? data.data : [];
-            console.log(`[FeeSchedule] Template items found:`, feeRows.length);
+                const expanded = feeRows.flatMap((fee) => {
+                    const months = sortMonths(fee.fee_types.breakup ?? []);
+                    return months.map((month) => ({
+                        __id: Math.random().toString(36).substring(7),
+                        feeId: fee.fee_id,
+                        feeDescription: fee.fee_types.description,
+                        freq: fee.fee_types.freq,
+                        initialMonth: month,
+                        month,
+                        target_month: MONTH_TO_NUM[month] || 8,
+                        amount: fee.amount,
+                        originalAmount: fee.amount,
+                        fee_date: calculateInitialFeeDate(month, academicYear, fee.fee_id, fee.fee_types),
+                    }));
+                });
+                setRows(sortSpreadsheetRows(expanded));
+                return;
+            }
 
-            // Build designated amount lookup
-            const lookup: Record<number, string> = {};
-            feeRows.forEach(f => { lookup[f.fee_id] = f.amount; });
-            setFeeToAmountMap(lookup);
-
-            const sorted = [...feeRows].sort((a, b) => {
-                if ((a.fee_types.priority_order ?? 0) !== (b.fee_types.priority_order ?? 0)) {
-                    return (a.fee_types.priority_order ?? 0) - (b.fee_types.priority_order ?? 0);
-                }
-                const order = (f: ClassFeeRow) => f.fee_types.freq === "ONE_TIME" ? 0 : 1;
-                return order(a) - order(b);
+            // NEW: Use the strict schedule endpoint for selected students
+            const numericMatch = ccNumber.match(/\d+$/);
+            const studentId = numericMatch ? parseInt(numericMatch[0]) : 0;
+            
+            const { data: scheduleRes } = await api.get("/v1/student-fees/schedule", {
+                params: {
+                    studentId,
+                    academicYear,
+                    classId,
+                    campusId: campusId || undefined,
+                },
+                signal
             });
 
-            // 2. Expand rows
-            const expanded = sorted.flatMap((fee) => {
-                const months = sortMonths(fee.fee_types.breakup ?? []);
-                return months.map((month) => ({
+            const { fees, is_template } = scheduleRes.data;
+            let finalRows: SpreadsheetRow[] = [];
+
+            if (is_template) {
+                // Map from class_fee_schedule template
+                finalRows = (fees as any[]).flatMap((fee) => {
+                    const months = sortMonths(fee.fee_types.breakup ?? []);
+                    return months.map((month) => ({
+                        __id: Math.random().toString(36).substring(7),
+                        dbId: undefined,
+                        feeId: fee.fee_id,
+                        feeDescription: fee.fee_types.description,
+                        freq: fee.fee_types.freq,
+                        initialMonth: month,
+                        month,
+                        target_month: MONTH_TO_NUM[month] || 8,
+                        amount: fee.amount,
+                        originalAmount: fee.amount,
+                        fee_date: calculateInitialFeeDate(month, academicYear, fee.fee_id, fee.fee_types),
+                    }));
+                });
+            } else {
+                // Map from student_fees (Strict Rule: do not pull template)
+                finalRows = (fees as any[]).map((sf) => ({
                     __id: Math.random().toString(36).substring(7),
-                    feeId: fee.fee_id,
-                    feeDescription: fee.fee_types.description,
-                    freq: fee.fee_types.freq,
-                    initialMonth: month,
-                    month,
-                    target_month: MONTH_TO_NUM[month] || 8,
-                    amount: fee.amount,
-                    originalAmount: fee.amount,
-                    fee_date: calculateInitialFeeDate(month, academicYear, fee.fee_id, fee.fee_types),
+                    dbId: sf.id,
+                    feeId: sf.fee_type_id,
+                    feeDescription: sf.fee_types?.description || "Unknown Fee",
+                    freq: sf.fee_types?.freq || "MONTHLY",
+                    initialMonth: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === sf.target_month) || "August",
+                    month: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === sf.month) || "August",
+                    target_month: sf.target_month,
+                    amount: sf.amount?.toString() || sf.amount_before_discount?.toString() || "0",
+                    originalAmount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
+                    fee_date: sf.fee_date ? new Date(sf.fee_date).toISOString().split('T')[0] : undefined,
+                    bundle_id: sf.bundle_id,
+                    bundle_name: sf.student_fee_bundles?.bundle_name
                 }));
-            });
-            console.log(`[FeeSchedule] Expanded template rows:`, expanded.length);
-
-            // 3. Apply global sort by month
-            let finalRows = sortSpreadsheetRows(expanded);
-
-            // 4. Fetch Student-specific overrides if Computer Code provided
-            if (ccNumber) {
-                try {
-                    const numericMatch = ccNumber.match(/\d+$/);
-                    const ccKey = numericMatch ? numericMatch[0] : ccNumber;
-                    console.log(`[FeeSchedule] Fetching student overrides: CC=${ccKey}, year=${academicYear}`);
-                    const studentRes = await api.get(`/v1/student-fees/by-student/${ccKey}`, { signal });
-                    const studentData = studentRes.data?.data;
-                    const studentFees = Array.isArray(studentData) ? studentData : (studentData?.fees || []);
-                    console.log(`[FeeSchedule] Total student records:`, studentFees.length);
-
-                    const studentFeeMap = new Map<string, any>(
-                        studentFees
-                            .filter((sf: any) => sf.academic_year === academicYear)
-                            .map((sf: any) => {
-                                const dateStr = sf.fee_date ? new Date(sf.fee_date).toISOString().split('T')[0] : "no-date";
-                                const key = `${sf.fee_type_id}|${sf.target_month}|${dateStr}`;
-                                return [key, sf];
-                            })
-                    );
-                    console.log(`[FeeSchedule] Overrides for ${academicYear}:`, studentFeeMap.size);
-
-                    const finalRowsProcessed = finalRows.map(row => {
-                        // Find any override that matches this fee ID and target month
-                        // regardless of the fee_date. This handles the case where the user
-                        // changed the date (e.g. from template Oct to manual Aug).
-                        let overrideEntry: [string, any] | undefined;
-
-                        for (const [key, val] of studentFeeMap.entries()) {
-                            const [fId, tMonth] = key.split('|');
-                            if (Number(fId) === row.feeId && Number(tMonth) === row.target_month) {
-                                overrideEntry = [key, val];
-                                break;
-                            }
-                        }
-
-                        if (overrideEntry) {
-                            const [key, override] = overrideEntry;
-                            studentFeeMap.delete(key);
-                            const targetMonthName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === override.target_month) || row.initialMonth;
-                            const billedMonthName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === override.month) || targetMonthName;
-
-                            return {
-                                ...row,
-                                dbId: override.id,
-                                amount: override.amount?.toString() || override.amount_before_discount?.toString() || row.amount,
-                                originalAmount: override.amount_before_discount?.toString() || row.originalAmount,
-                                month: billedMonthName,
-                                initialMonth: targetMonthName,
-                                fee_date: override.fee_date ? new Date(override.fee_date).toISOString().split('T')[0] : undefined,
-                                bundle_id: override.bundle_id,
-                                bundle_name: override.student_fee_bundles?.bundle_name
-                            };
-                        }
-                        return row;
-                    });
-
-                    const extraRows: SpreadsheetRow[] = [];
-                    studentFeeMap.forEach((sf: any) => {
-                        extraRows.push({
-                            __id: Math.random().toString(36).substring(7),
-                            dbId: sf.id,
-                            feeId: sf.fee_type_id,
-                            feeDescription: sf.fee_types?.description || "Unknown Fee",
-                            freq: sf.fee_types?.freq || "MONTHLY",
-                            initialMonth: Object.keys(MONTH_TO_NUM).find(key => MONTH_TO_NUM[key] === sf.target_month) || "August",
-                            month: Object.keys(MONTH_TO_NUM).find(key => MONTH_TO_NUM[key] === sf.month) || "August",
-                            target_month: sf.target_month,
-                            amount: sf.amount?.toString() || sf.amount_before_discount?.toString() || "0",
-                            originalAmount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
-                            fee_date: sf.fee_date ? new Date(sf.fee_date).toISOString().split('T')[0] : undefined,
-                            bundle_id: sf.bundle_id,
-                            bundle_name: sf.student_fee_bundles?.bundle_name
-                        });
-                    });
-                    console.log(`[FeeSchedule] Extra manual rows:`, extraRows.length);
-
-                    finalRows = [...finalRowsProcessed, ...extraRows];
-                } catch (e) {
-                    if (e instanceof Error && e.name === "AbortError") throw e;
-                    console.error("No student overrides found or error fetching them.", e);
-                }
             }
 
             if (signal?.aborted) return;
-            const finalSorted = sortSpreadsheetRows(finalRows);
-            console.log(`[FeeSchedule] Final rows to display:`, finalSorted.length);
-            setRows(finalSorted);
+            setRows(sortSpreadsheetRows(finalRows));
         } catch (err: any) {
             if (err.name === "AbortError") return;
             setLoadError(err.response?.data?.message || "Failed to load fee schedule.");
         } finally {
             if (!signal?.aborted) setIsLoading(false);
         }
-    }, [sortSpreadsheetRows]);
+    }, [sortSpreadsheetRows, calculateInitialFeeDate]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -650,6 +605,7 @@ function StudentwiseFeeEditor() {
             target_month: unusedMonthNum,
             amount: defaultAmount,
             originalAmount: defaultAmount,
+            // Smart Defaulting: calculate initial fee date but it remains independent
             fee_date: calculateInitialFeeDate(unusedMonthName, selectedYear, feeId),
             isNew: true,
         };
@@ -681,13 +637,12 @@ function StudentwiseFeeEditor() {
                         if (feeToAmountMap[val]) {
                             updated.amount = feeToAmountMap[val];
                         }
-                        // Default fee date if none set
+                        // Default fee date only if none set
                         if (!updated.fee_date) {
                             updated.fee_date = calculateInitialFeeDate(updated.month, selectedYear, val);
                         }
                     }
                     // For manually-added rows, pick a fresh unused target_month
-                    // for the new fee type so we don't collide with existing rows.
                     if (r.isNew) {
                         const usedForNewType = new Set(
                             prev.filter((x, xi) => xi !== idx && x.feeId === val).map(x => x.target_month)
@@ -703,15 +658,19 @@ function StudentwiseFeeEditor() {
 
                 if (field === "initialMonth") {
                     updated.initialMonth = val;
-                    updated.month = val; // Sync billing month with the selected period
+                    // For identity purposes, initialMonth defines the target_month
                     updated.target_month = MONTH_TO_NUM[val] ?? updated.target_month;
-                    // Fee date is independent - do NOT recalculate it automatically
+                    // Seamless Independence: Changing the period label (initialMonth) 
+                    // DOES NOT force the fee_date to change.
                 }
 
-                // For manually-added rows, target_month should follow the period
-                // the user selects — there is no fixed original slot to preserve.
-                if (field === "month" && r.isNew) {
-                    updated.target_month = MONTH_TO_NUM[val] ?? updated.target_month;
+                if (field === "month") {
+                    // Changing the billing month DOES NOT move the fee_date.
+                    // This allows "May tuition" in "February".
+                    if (r.isNew) {
+                        updated.target_month = MONTH_TO_NUM[val] ?? updated.target_month;
+                        updated.initialMonth = val;
+                    }
                 }
 
                 return updated;
