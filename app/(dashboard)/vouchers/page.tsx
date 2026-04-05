@@ -16,7 +16,7 @@ import { fetchSections } from "@/store/slices/sectionsSlice";
 import { fetchVouchers, VoucherFilters, VoucherItem, VoucherHead } from "@/store/slices/vouchersSlice";
 import toast from "react-hot-toast";
 import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
-import { groupFees, getAcademicYearForDate } from "@/lib/fee-utils";
+import { groupFees } from "@/lib/fee-utils";
 
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -181,10 +181,8 @@ async function buildVoucherPdfBlob(
     const { studentData, familyStudents } = prefetched ?? await fetchVoucherPdfData(voucher.student_id);
     const siblings = familyStudents.filter((s: any) => s.cc !== voucher.student_id);
 
-    const issueDateObj = new Date(voucher.issue_date);
-    const monthNum = issueDateObj.getMonth() + 1;
     const MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const monthName = MONTHS[monthNum];
+    const monthName = voucher.month ? MONTHS[voucher.month] : "";
 
     const headsForPdf = overrideHeads ?? (voucher.voucher_heads || []);
     const pdfFees = groupFees(headsForPdf, {}, { groupTuitionFees: false, isVoucherHeads: true });
@@ -216,14 +214,14 @@ async function buildVoucherPdfBlob(
             }))}
             details={{
                 month: monthName,
-                academicYear: voucher.academic_year || getAcademicYearForDate(voucher.issue_date),
+                academicYear: voucher.academic_year || "",
                 issueDate: voucher.issue_date.split('T')[0],
                 dueDate: voucher.due_date.split('T')[0],
                 validityDate: voucher.validity_date
                     ? voucher.validity_date.split('T')[0]
                     : voucher.due_date.split('T')[0],
                 applyLateFee: voucher.late_fee_charge,
-                voucherNumber: `VCH-${voucher.id}`,
+                voucherNumber: `${voucher.id}`,
                 generatedBy: {
                     fullName: user?.fullName || "System Admin",
                     timestampStr: new Date().toLocaleString()

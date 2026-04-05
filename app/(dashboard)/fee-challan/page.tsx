@@ -44,9 +44,7 @@ const PDFDownloadLink = dynamic(
 import { pdf } from "@react-pdf/renderer";
 import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
 import { bankAccountsService, BankAccount } from "@/lib/bank-accounts.service";
-import { groupFees, MONTHS, MONTH_TO_NUM, getMonthYearLabel } from "@/lib/fee-utils";
-import JSZip from "jszip";
-
+import { groupFees, MONTHS, MONTH_TO_NUM, getMonthYearLabel, getCurrentAcademicYear } from "@/lib/fee-utils";
 // --- Types ---
 interface StudentProfile {
     cc: number;
@@ -108,7 +106,7 @@ export default function FeeChallanGenerator() {
 
     const [student, setStudent] = useState<StudentProfile | null>(null);
 
-    const [academicYear, setAcademicYear] = useState("2024-2025");
+    const [academicYear, setAcademicYear] = useState(getCurrentAcademicYear);
     const [showYearDropdown, setShowYearDropdown] = useState(false);
     const [baseYear, setBaseYear] = useState(new Date().getFullYear() - 2);
     const yearDropdownRef = useRef<HTMLDivElement>(null);
@@ -153,6 +151,10 @@ export default function FeeChallanGenerator() {
     const [generatingGroupDate, setGeneratingGroupDate] = useState<string | null>(null);
     const [generatedGroupDates, setGeneratedGroupDates] = useState<Set<string>>(new Set());
     const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+
+    // --- Saved Voucher IDs (set after successful creation, used for correct PDF numbering) ---
+    const [savedVoucherId, setSavedVoucherId] = useState<number | null>(null);
+    const [savedGroupVoucherIds, setSavedGroupVoucherIds] = useState<Record<string, number>>({});
 
     // --- Bulk Voucher States ---
     const [bulkCampusId, setBulkCampusId] = useState<string>("");
@@ -270,8 +272,14 @@ export default function FeeChallanGenerator() {
                     (f.academic_year === selectedYear)
                 );
                 setStudentFees(applicableFees);
+                // Sync academicYear from actual fee data so the PDF always reflects the DB value
+                const feeAcademicYear = applicableFees.find(f => f.academic_year)?.academic_year;
+                if (feeAcademicYear) setAcademicYear(feeAcademicYear);
             } else {
                 setStudentFees(allFees);
+                // Sync academicYear from actual fee data so the PDF always reflects the DB value
+                const feeAcademicYear = allFees.find(f => f.academic_year)?.academic_year;
+                if (feeAcademicYear) setAcademicYear(feeAcademicYear);
             }
 
             setSiblings(familyStudents.filter((s: any) => s.cc !== cc));
@@ -351,15 +359,24 @@ export default function FeeChallanGenerator() {
         let baseFees = [];
 
         if (voucherLayout === 'detailed') {
-            baseFees = rawFees.map(f => ({
-                description: f.description || f.fee_types?.description || f.student_fee_bundles?.bundle_name || "Fee",
-                amount: Number(f.amount_before_discount || f.amount || 0),
-                netAmount: Number(f.amount || f.amount_before_discount || 0),
-                discount: Math.max(0, Number(f.amount_before_discount || 0) - Number(f.amount || 0)),
-                discountLabel: undefined,
-                bundleId: f.bundle_id || f.student_fee_bundles?.id,
-                priority: f.fee_types?.priority_order ?? 999
-            }));
+            baseFees = rawFees.map(f => {
+                let desc = f.description || f.fee_types?.description || f.student_fee_bundles?.bundle_name || "Fee";
+                const isTuition = desc.toLowerCase().includes('tuition');
+                const m = f.target_month || f.month;
+                if (isTuition && m) {
+                    const monthLabel = getMonthYearLabel(m, academicYear);
+                    desc = `${desc} (${monthLabel.toUpperCase()})`;
+                }
+                return {
+                    description: desc,
+                    amount: Number(f.amount_before_discount || f.amount || 0),
+                    netAmount: Number(f.amount || f.amount_before_discount || 0),
+                    discount: Math.max(0, Number(f.amount_before_discount || 0) - Number(f.amount || 0)),
+                    discountLabel: undefined,
+                    bundleId: f.bundle_id || f.student_fee_bundles?.id,
+                    priority: f.fee_types?.priority_order ?? 999
+                };
+            });
         } else {
             const grouped = rawFees.reduce((acc: Record<number, any>, f) => {
                 const headId = f.fee_type_id || 0;
@@ -375,13 +392,15 @@ export default function FeeChallanGenerator() {
                 }
                 acc[headId].amount += Number(f.amount_before_discount || f.amount || 0);
                 acc[headId].netAmount += Number(f.amount || f.amount_before_discount || 0);
-                if (f.month) acc[headId].months.push(f.month);
+                const m = f.target_month || f.month;
+                if (m) acc[headId].months.push(m);
                 return acc;
             }, {});
 
             baseFees = Object.values(grouped).map((g: any) => {
+                const isTuition = (g.description as string).toLowerCase().includes('tuition');
                 let monthStr = "";
-                if (g.months.length > 0) {
+                if (isTuition && g.months.length > 0) {
                     const sorted = [...new Set(g.months)].sort((a, b) => Number(a) - Number(b)) as number[];
                     const startMonth = MONTHS[sorted[0] - 1] || "N/A";
                     const endMonth = MONTHS[sorted[sorted.length - 1] - 1] || "N/A";
@@ -437,52 +456,18 @@ export default function FeeChallanGenerator() {
     const processedPdfFees = useMemo(() => processFeesForPdf(studentFees), [studentFees, voucherLayout, academicYear, showBundleHeads]);
 
     const totalFeesAmount = processedPdfFees.reduce((sum, f) => sum + f.netAmount, 0);
-    const voucherNumberStr = student ? `TAFS-${student.cc}-${Date.now().toString().slice(-6)}` : "TAFS-XXXX-XXXXXX";
+    const voucherNumberStr = savedVoucherId ? `${savedVoucherId}` : "PENDING";
     const timestampStr = new Date().toLocaleString();
 
     const handleSaveVoucher = async () => {
         if (!student || !selectedBank) return toast.error("Select student and bank.");
         setIsSavingVoucher(true);
         try {
-            const blob = await pdf(
-                <FeeChallanPDF
-                    student={{
-                        cc: student.cc,
-                        student_full_name: student.student_full_name,
-                        gr_number: student.gr_number,
-                        campus: student.campus,
-                        class_id: student.class_id,
-                        section_id: student.section_id,
-                        className: (classes.find(c => c.id === student.class_id) as any)?.description || "N/A",
-                        sectionName: (sections.find(s => s.id === student.section_id) as any)?.description || "N/A",
-                        grade_and_section: student.grade_and_section,
-                        father_name: student.father_name,
-                        gender: student.gender
-                    }}
-                    details={{
-                        month, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount,
-                        voucherNumber: voucherNumberStr,
-                        generatedBy: { fullName: user?.fullName || "Admin", timestampStr },
-                        bank: { name: selectedBank.bank_name, title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban }
-                    }}
-                    fees={processedPdfFees}
-                    totalAmount={totalFeesAmount}
-                    showDiscount={showDiscount}
-                    siblings={siblings.map(s => ({
-                        full_name: s.student_full_name || s.full_name,
-                        cc: s.cc,
-                        gr_number: s.gr_number,
-                        className: s.classes?.description || s.grade_and_section?.split('-')[0] || "N/A",
-                        sectionName: s.sections?.description || s.grade_and_section?.split('-')[1] || "N/A"
-                    }))}
-                />
-            ).toBlob();
-
             const feeIds = studentFees.map(f => f.id);
             console.log("Generating Single Voucher - Ordered Fee IDs:", feeIds);
 
+            // 1. Create the voucher in DB first (without PDF) to get the real ID
             const formData = new FormData();
-            formData.append('pdf', blob, `v-${student.cc}.pdf`);
             formData.append('student_id', student.cc.toString());
             formData.append('campus_id', (student.campus_id || 1).toString());
             formData.append('class_id', student.class_id.toString());
@@ -504,7 +489,52 @@ export default function FeeChallanGenerator() {
             }));
             formData.append('fee_lines', JSON.stringify(feeLines));
 
-            await api.post('/v1/vouchers', formData);
+            const { data: createRes } = await api.post('/v1/vouchers', formData);
+            const voucherId: number = createRes.data.id;
+            setSavedVoucherId(voucherId);
+
+            // 2. Generate PDF with the real voucher ID
+            const blob = await pdf(
+                <FeeChallanPDF
+                    student={{
+                        cc: student.cc,
+                        student_full_name: student.student_full_name,
+                        gr_number: student.gr_number,
+                        campus: student.campus,
+                        class_id: student.class_id,
+                        section_id: student.section_id,
+                        className: (classes.find(c => c.id === student.class_id) as any)?.description || "N/A",
+                        sectionName: (sections.find(s => s.id === student.section_id) as any)?.description || "N/A",
+                        grade_and_section: student.grade_and_section,
+                        father_name: student.father_name,
+                        gender: student.gender
+                    }}
+                    details={{
+                        month, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount,
+                        voucherNumber: voucherId,
+                        generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
+                        bank: { name: selectedBank.bank_name, title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban }
+                    }}
+                    fees={processedPdfFees}
+                    totalAmount={totalFeesAmount}
+                    showDiscount={showDiscount}
+                    siblings={siblings.map(s => ({
+                        full_name: s.student_full_name || s.full_name,
+                        cc: s.cc,
+                        gr_number: s.gr_number,
+                        className: s.classes?.description || s.grade_and_section?.split('-')[0] || "N/A",
+                        sectionName: s.sections?.description || s.grade_and_section?.split('-')[1] || "N/A"
+                    }))}
+                />
+            ).toBlob();
+
+            // 3. Upload the PDF with the correct voucher number
+            const pdfFormData = new FormData();
+            pdfFormData.append('pdf', new File([blob], `v-${student.cc}.pdf`, { type: 'application/pdf' }));
+            await api.patch(`/v1/vouchers/${voucherId}/paid-pdf`, pdfFormData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
             toast.success("Voucher generated!");
             setVoucherSaved(true);
         } catch (e: any) {
@@ -536,45 +566,11 @@ export default function FeeChallanGenerator() {
             const groupPdfFees = processFeesForPdf(group.fees);
             const groupTotal = groupPdfFees.reduce((s, f) => s + f.netAmount, 0);
 
-            const blob = await pdf(
-                <FeeChallanPDF
-                    student={{
-                        cc: student.cc,
-                        student_full_name: student.student_full_name,
-                        gr_number: student.gr_number,
-                        campus: student.campus,
-                        class_id: student.class_id,
-                        section_id: student.section_id,
-                        className: (classes.find(c => c.id === student.class_id) as any)?.description || "N/A",
-                        sectionName: (sections.find(s => s.id === student.section_id) as any)?.description || "N/A",
-                        grade_and_section: student.grade_and_section,
-                        father_name: student.father_name,
-                        gender: student.gender
-                    }}
-                    details={{
-                        month: feeDateMonth, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount,
-                        voucherNumber: `G-${student.cc}-${Date.now()}`,
-                        generatedBy: { fullName: user?.fullName || "Admin", timestampStr },
-                        bank: { name: selectedBank.bank_name, title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban }
-                    }}
-                    fees={groupPdfFees}
-                    totalAmount={groupTotal}
-                    showDiscount={showDiscount}
-                    siblings={siblings.map(s => ({
-                        full_name: s.student_full_name || s.full_name,
-                        cc: s.cc,
-                        gr_number: s.gr_number,
-                        className: s.classes?.description || s.grade_and_section?.split('-')[0] || "N/A",
-                        sectionName: s.sections?.description || s.grade_and_section?.split('-')[1] || "N/A"
-                    }))}
-                />
-            ).toBlob();
-
             const feeIds = group.fees.map(f => f.id);
             console.log("Generating Group Voucher - Ordered Fee IDs:", feeIds);
 
+            // 1. Create the voucher in DB first to get the real ID
             const formData = new FormData();
-            formData.append('pdf', blob, `vg-${group.fee_date}.pdf`);
             formData.append('student_id', student.cc.toString());
             formData.append('campus_id', (student.campus_id || 1).toString());
             formData.append('class_id', student.class_id.toString());
@@ -597,7 +593,52 @@ export default function FeeChallanGenerator() {
             }));
             formData.append('fee_lines', JSON.stringify(feeLines));
 
-            await api.post('/v1/vouchers', formData);
+            const { data: createRes } = await api.post('/v1/vouchers', formData);
+            const voucherId: number = createRes.data.id;
+            setSavedGroupVoucherIds(prev => ({ ...prev, [group.fee_date]: voucherId }));
+
+            // 2. Generate PDF with the real voucher ID
+            const blob = await pdf(
+                <FeeChallanPDF
+                    student={{
+                        cc: student.cc,
+                        student_full_name: student.student_full_name,
+                        gr_number: student.gr_number,
+                        campus: student.campus,
+                        class_id: student.class_id,
+                        section_id: student.section_id,
+                        className: (classes.find(c => c.id === student.class_id) as any)?.description || "N/A",
+                        sectionName: (sections.find(s => s.id === student.section_id) as any)?.description || "N/A",
+                        grade_and_section: student.grade_and_section,
+                        father_name: student.father_name,
+                        gender: student.gender
+                    }}
+                    details={{
+                        month: feeDateMonth, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount,
+                        voucherNumber: voucherId,
+                        generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
+                        bank: { name: selectedBank.bank_name, title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban }
+                    }}
+                    fees={groupPdfFees}
+                    totalAmount={groupTotal}
+                    showDiscount={showDiscount}
+                    siblings={siblings.map(s => ({
+                        full_name: s.student_full_name || s.full_name,
+                        cc: s.cc,
+                        gr_number: s.gr_number,
+                        className: s.classes?.description || s.grade_and_section?.split('-')[0] || "N/A",
+                        sectionName: s.sections?.description || s.grade_and_section?.split('-')[1] || "N/A"
+                    }))}
+                />
+            ).toBlob();
+
+            // 3. Upload the PDF with the correct voucher number
+            const pdfFormData = new FormData();
+            pdfFormData.append('pdf', new File([blob], `vg-${group.fee_date}.pdf`, { type: 'application/pdf' }));
+            await api.patch(`/v1/vouchers/${voucherId}/paid-pdf`, pdfFormData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
             setGeneratedGroupDates(p => new Set([...p, group.fee_date]));
             toast.success(`Generated for ${group.fee_date}`);
         } catch (e: any) {
@@ -1087,7 +1128,7 @@ export default function FeeChallanGenerator() {
                                                                 }}
                                                                 details={{
                                                                     month, academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount, voucherNumber: voucherNumberStr,
-                                                                    generatedBy: { fullName: user?.fullName || "Admin", timestampStr },
+                                                                    generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
                                                                     bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
                                                                 }}
                                                                 fees={processedPdfFees}
@@ -1150,8 +1191,9 @@ export default function FeeChallanGenerator() {
                                                                                                 return sm[m - 1] || month;
                                                                                             } catch { return month; }
                                                                                         })(),
-                                                                                        academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount, voucherNumber: voucherNumberStr,
-                                                                                        generatedBy: { fullName: user?.fullName || "Admin", timestampStr },
+                                                                                        academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount,
+                                                                                        voucherNumber: savedGroupVoucherIds[g.fee_date] ? `${savedGroupVoucherIds[g.fee_date]}` : voucherNumberStr,
+                                                                                        generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
                                                                                         bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
                                                                                     }}
                                                                                     fees={processFeesForPdf(g.fees)}
@@ -1243,7 +1285,7 @@ export default function FeeChallanGenerator() {
                                                                     applyLateFee,
                                                                     lateFeeAmount,
                                                                     voucherNumber: voucherNumberStr,
-                                                                    generatedBy: { fullName: user?.fullName || "Admin", timestampStr },
+                                                                    generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
                                                                     bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
                                                                 }}
                                                                 fees={processedPdfFees}
