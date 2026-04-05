@@ -359,24 +359,60 @@ export default function FeeChallanGenerator() {
         let baseFees = [];
 
         if (voucherLayout === 'detailed') {
-            baseFees = rawFees.map(f => {
-                let desc = f.description || f.fee_types?.description || f.student_fee_bundles?.bundle_name || "Fee";
-                const isTuition = desc.toLowerCase().includes('tuition');
+            // Build per-row entries, keeping tuition metadata for later merge
+            const detailedRows = rawFees.map(f => {
+                const baseDesc = f.description || f.fee_types?.description || f.student_fee_bundles?.bundle_name || "Fee";
+                const isTuition = baseDesc.toLowerCase().includes('tuition');
                 const m = f.target_month || f.month;
-                if (isTuition && m) {
-                    const monthLabel = getMonthYearLabel(m, academicYear);
-                    desc = `${desc} (${monthLabel.toUpperCase()})`;
-                }
                 return {
-                    description: desc,
+                    _baseDesc: baseDesc,
+                    _isTuition: isTuition,
+                    _monthNum: (isTuition && m) ? m as number : null,
+                    _mergeKey: isTuition ? `${f.fee_type_id ?? 0}|${baseDesc}|${f.bundle_id ?? f.student_fee_bundles?.id ?? 'none'}` : null,
+                    description: baseDesc,
                     amount: Number(f.amount_before_discount || f.amount || 0),
                     netAmount: Number(f.amount || f.amount_before_discount || 0),
                     discount: Math.max(0, Number(f.amount_before_discount || 0) - Number(f.amount || 0)),
-                    discountLabel: undefined,
+                    discountLabel: undefined as undefined,
                     bundleId: f.bundle_id || f.student_fee_bundles?.id,
                     priority: f.fee_types?.priority_order ?? 999
                 };
             });
+
+            // Merge tuition rows that share the same fee type / base description
+            const tuitionMergeMap: Record<string, { row: typeof detailedRows[0]; months: number[] }> = {};
+            const nonTuitionRows: typeof detailedRows = [];
+
+            detailedRows.forEach(row => {
+                if (row._isTuition && row._mergeKey && row._monthNum !== null) {
+                    if (!tuitionMergeMap[row._mergeKey]) {
+                        tuitionMergeMap[row._mergeKey] = { row: { ...row }, months: [row._monthNum] };
+                    } else {
+                        tuitionMergeMap[row._mergeKey].row.amount += row.amount;
+                        tuitionMergeMap[row._mergeKey].row.netAmount += row.netAmount;
+                        tuitionMergeMap[row._mergeKey].row.discount += row.discount;
+                        tuitionMergeMap[row._mergeKey].months.push(row._monthNum);
+                    }
+                } else {
+                    nonTuitionRows.push(row);
+                }
+            });
+
+            const mergedTuitionRows = Object.values(tuitionMergeMap).map(({ row, months }) => {
+                const sortedMonths = [...new Set(months)].sort((a, b) => a - b);
+                let desc: string;
+                if (sortedMonths.length === 1) {
+                    desc = `${row._baseDesc} (${getMonthYearLabel(sortedMonths[0], academicYear).toUpperCase()})`;
+                } else {
+                    const startLabel = getMonthYearLabel(sortedMonths[0], academicYear).toUpperCase();
+                    const endLabel = getMonthYearLabel(sortedMonths[sortedMonths.length - 1], academicYear).toUpperCase();
+                    desc = `${row._baseDesc} (${startLabel} - ${endLabel})`;
+                }
+                const { _baseDesc, _isTuition, _monthNum, _mergeKey, ...rest } = row;
+                return { ...rest, description: desc };
+            });
+
+            baseFees = [...nonTuitionRows, ...mergedTuitionRows].map(({ _baseDesc, _isTuition, _monthNum, _mergeKey, ...rest }: any) => rest);
         } else {
             const grouped = rawFees.reduce((acc: Record<number, any>, f) => {
                 const headId = f.fee_type_id || 0;
