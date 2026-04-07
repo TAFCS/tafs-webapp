@@ -38,6 +38,14 @@ interface Suggestions {
     available_sections: Array<{ id: number, description: string }>;
 }
 
+const getGRPrefix = (campusName: string | undefined) => {
+    if (!campusName) return "";
+    const name = campusName.toUpperCase();
+    if (name.includes("KANEEZ FATIMA")) return "KF-A";
+    if (name.includes("NORTH NAZIMABAD")) return "A-N";
+    return "";
+};
+
 export default function EnrollmentsPage() {
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -59,6 +67,16 @@ export default function EnrollmentsPage() {
     useEffect(() => {
         fetchCandidates();
     }, []);
+
+    // Prefix enforcement logic for GR Number
+    useEffect(() => {
+        if (!selectedStudent) return;
+        const prefix = getGRPrefix(selectedStudent.campuses?.campus_name);
+        if (prefix && finalGr && !finalGr.startsWith(prefix)) {
+            // If user cleared the prefix or changed it, put it back
+            setFinalGr(prefix + finalGr.replace(prefix, ""));
+        }
+    }, [selectedStudent, finalGr]);
 
     const fetchCandidates = async () => {
         setIsLoading(true);
@@ -278,8 +296,13 @@ export default function EnrollmentsPage() {
                                                 <input
                                                     type="text"
                                                     value={finalGr}
-                                                    onChange={(e) => setFinalGr(e.target.value)}
-                                                    className="w-full pl-12 pr-4 py-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-black text-lg text-primary"
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.toUpperCase();
+                                                        const prefix = getGRPrefix(selectedStudent?.campuses?.campus_name);
+                                                        if (prefix && val !== "" && !val.startsWith(prefix)) return;
+                                                        setFinalGr(val);
+                                                    }}
+                                                    className="w-full pl-12 pr-4 py-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-black text-lg text-primary uppercase"
                                                 />
                                             </div>
                                         </div>
