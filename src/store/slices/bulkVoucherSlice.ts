@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import api from '../../lib/api';
+import { getCurrentAcademicYear } from '../../lib/fee-utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -158,7 +159,7 @@ const initialState: BulkVoucherState = {
         campusId: '',
         classId: '',
         sectionId: '',
-        academicYear: '2024-2025',
+        academicYear: getCurrentAcademicYear(),
         dateFrom: new Date().toISOString().split('T')[0],
         dateTo: new Date().toISOString().split('T')[0],
         issueDate: new Date().toISOString().split('T')[0],
