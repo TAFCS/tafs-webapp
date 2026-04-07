@@ -48,7 +48,7 @@ export function RegistrationForm() {
     }, [dispatch, classes.length, campuses.length, isClassesLoading, isCampusesLoading]);
 
     const [formData, setFormData] = useState({
-        registrationNo: "", campusId: "",
+        campusId: "",
         candidateName: "", fatherName: "", motherName: "",
         fatherCnic: "", motherCnic: "",
         dobDay: "", dobMonth: "", dobYear: "",
@@ -68,31 +68,7 @@ export function RegistrationForm() {
         testDay: "", testDate: "", testTime: "", testLevel: ""
     });
 
-    const getGRPrefix = (campusId: string) => {
-        if (!campusId) return "";
-        const selectedCampus = campuses.find(c => c.id.toString() === campusId);
-        if (!selectedCampus) return "";
 
-        const name = selectedCampus.campus_name.toUpperCase();
-        if (name.includes("KANEEZ FATIMA")) return "KF-A";
-        if (name.includes("NORTH NAZIMABAD")) return "A-N";
-        if (name.includes("GULISTAN-E-JOHAR") || name.includes("JOHAR")) return "";
-        return "";
-    };
-
-    // Auto-prefix GR Number based on selected campus
-    useEffect(() => {
-        const prefix = getGRPrefix(formData.campusId);
-        if (!prefix) return;
-
-        setFormData(prev => {
-            const currentVal = prev.registrationNo;
-            if (!currentVal || ["KF-A", "A-N"].some(p => currentVal === p)) {
-                return { ...prev, registrationNo: prefix };
-            }
-            return prev;
-        });
-    }, [formData.campusId, campuses]);
 
     const formatCNIC = (value: string) => {
         const digits = value.replace(/\D/g, "").slice(0, 13);
@@ -112,11 +88,6 @@ export function RegistrationForm() {
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
-
-        if (name === "registrationNo") {
-            const prefix = getGRPrefix(formData.campusId);
-            if (prefix && !value.startsWith(prefix)) return;
-        }
 
         if (name === "fatherCnic" || name === "motherCnic") {
             setFormData(prev => ({ ...prev, [name]: formatCNIC(value) }));
@@ -172,7 +143,6 @@ export function RegistrationForm() {
 
         return (
             formData.campusId &&
-            formData.registrationNo.length > (getGRPrefix(formData.campusId)?.length || 0) &&
             formData.candidateName.trim() &&
             formData.fatherName.trim() &&
             isFatherCnicValid &&
@@ -183,13 +153,8 @@ export function RegistrationForm() {
 
     const handleNext = () => {
         if (currentStep === 1) {
-            const prefix = getGRPrefix(formData.campusId);
             if (!formData.campusId) {
                 setSubmitError("Please select a Campus from the sidebar before proceeding.");
-                return;
-            }
-            if (!formData.registrationNo || formData.registrationNo.trim() === prefix) {
-                setSubmitError(`Please enter a GR Number ${prefix ? `(after ${prefix})` : ""} in the sidebar before proceeding.`);
                 return;
             }
             if (!isStep1Valid()) {
@@ -212,12 +177,6 @@ export function RegistrationForm() {
         // Validation: Required fields check
         if (!formData.campusId) {
             setSubmitError("Please select a Campus before submitting.");
-            return;
-        }
-        const prefix = getGRPrefix(formData.campusId);
-        const gr = formData.registrationNo.trim();
-        if (!gr || gr === prefix) {
-            setSubmitError(`Please enter a full GR Number ${prefix ? `(after ${prefix})` : ""} before submitting.`);
             return;
         }
 
@@ -251,7 +210,6 @@ export function RegistrationForm() {
             province: formData.birthProvince || undefined,
             city: formData.birthCity || undefined,
             identification_marks: formData.identificationMarks || undefined,
-            gr_number: formData.registrationNo || undefined,
             primary_phone: formData.candidatePhone || undefined,
             email: formData.candidateEmail || undefined,
             father: {
@@ -382,10 +340,6 @@ export function RegistrationForm() {
 
                 <div className="space-y-4">
                     <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Office Records</h3>
-                    <div>
-                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">GR</label>
-                        <input type="text" name="registrationNo" value={formData.registrationNo} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none uppercase" />
-                    </div>
                     <div>
                         <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Campus</label>
                         <select name="campusId" value={formData.campusId} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none bg-white dark:bg-zinc-950">
