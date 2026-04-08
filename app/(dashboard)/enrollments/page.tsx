@@ -30,7 +30,7 @@ interface Candidate {
     class_id: number;
     campuses: { campus_name: string };
     classes: { description: string };
-    student_admissions: Array<{ 
+    student_admissions: Array<{
         requested_grade: string;
         academic_system: string;
         academic_year: string;
@@ -338,8 +338,8 @@ export default function EnrollmentsPage() {
                                                         key={house.id}
                                                         onClick={() => setFinalHouseId(house.id)}
                                                         className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left relative ${finalHouseId === house.id
-                                                                ? 'border-primary bg-primary/5 text-primary'
-                                                                : 'border-zinc-100 dark:border-zinc-800 hover:border-zinc-200 dark:hover:border-zinc-700'
+                                                            ? 'border-primary bg-primary/5 text-primary'
+                                                            : 'border-zinc-100 dark:border-zinc-800 hover:border-zinc-200 dark:hover:border-zinc-700'
                                                             }`}
                                                     >
                                                         <div
