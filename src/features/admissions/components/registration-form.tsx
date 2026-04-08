@@ -13,6 +13,28 @@ import LogoImage from "@/public/logo.png";
 import { StudentProfileModal } from "@/src/features/students/components/student-profile-modal";
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
 
+const GRADE_NAME_TO_CODE: Record<string, string> = {
+    'Pre-Nursery': 'PN',
+    'Nursery': 'NUR',
+    'K.G.': 'KG',
+    'JR-I': 'JRI',
+    'JR-II': 'JRII',
+    'JR-III': 'JRIII',
+    'JR-IV': 'JRIV',
+    'JR-V': 'JRV',
+    'SR-I': 'SRI',
+    'SR-II': 'SRII',
+    'SR-III': 'SRIII',
+    'O-I': 'OI',
+    'O-II': 'OII',
+    'O-III': 'OIII',
+    'VI': 'VI',
+    'VII': 'VII',
+    'VIII': 'VIII',
+    'IX': 'IX',
+    'X': 'X'
+};
+
 export function RegistrationForm() {
     const router = useRouter();
     const dispatch = useDispatch<AppDispatch>();
@@ -247,7 +269,7 @@ export function RegistrationForm() {
                 : undefined,
             admission: {
                 academic_system: academicSystem,
-                requested_grade: formData.admissionLevel || 'N/A',
+                requested_grade: GRADE_NAME_TO_CODE[formData.admissionLevel] || formData.admissionLevel || 'N/A',
                 academic_year: academicYear,
                 campus_id: formData.campusId ? parseInt(formData.campusId) : undefined,
             },

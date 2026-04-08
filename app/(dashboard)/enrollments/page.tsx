@@ -14,7 +14,10 @@ import {
     UserPlus,
     UserCheck,
     X,
-    Sparkles
+    Sparkles,
+    Calendar,
+    BookOpen,
+    Layers
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
@@ -27,7 +30,12 @@ interface Candidate {
     class_id: number;
     campuses: { campus_name: string };
     classes: { description: string };
-    student_admissions: Array<{ requested_grade: string }>;
+    student_admissions: Array<{ 
+        requested_grade: string;
+        academic_system: string;
+        academic_year: string;
+        application_date: string;
+    }>;
 }
 
 interface Suggestions {
@@ -221,14 +229,28 @@ export default function EnrollmentsPage() {
                                         Candidate CC #{candidate.cc}
                                     </p>
 
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 text-xs py-1.5 px-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50">
+                                    <div className="grid grid-cols-1 gap-2">
+                                        <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 text-[11px] py-1.5 px-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50">
                                             <Home className="h-3.5 w-3.5 text-zinc-400" />
                                             <span className="font-bold">{candidate.campuses?.campus_name}</span>
                                         </div>
-                                        <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 text-xs py-1.5 px-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50">
-                                            <CheckCircle className="h-3.5 w-3.5 text-zinc-400" />
-                                            <span className="font-bold">{candidate.classes?.description}</span>
+                                        <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 text-[11px] py-1.5 px-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-primary/10">
+                                            <CheckCircle className="h-3.5 w-3.5 text-primary" />
+                                            <span className="font-bold text-primary">Requested: {candidate.student_admissions?.[0]?.requested_grade || candidate.classes?.description}</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 text-[10px] py-1.5 px-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50">
+                                                <Layers className="h-3 w-3 text-zinc-400" />
+                                                <span className="font-bold line-clamp-1">{candidate.student_admissions?.[0]?.academic_system}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 text-[10px] py-1.5 px-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50">
+                                                <Calendar className="h-3 w-3 text-zinc-400" />
+                                                <span className="font-bold">{candidate.student_admissions?.[0]?.academic_year}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-500 text-[10px] mt-1 px-3 italic">
+                                            <Sparkles className="h-3 w-3" />
+                                            <span>Registered on {candidate.student_admissions?.[0]?.application_date ? new Date(candidate.student_admissions[0].application_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</span>
                                         </div>
                                     </div>
                                 </div>
