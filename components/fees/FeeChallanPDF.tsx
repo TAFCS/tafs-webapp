@@ -279,7 +279,52 @@ const styles = StyleSheet.create({
         flex: 1.5,
         padding: 2,
         fontSize: 4.5,
-    }
+    },
+    // History Table Styles
+    historySection: {
+        marginBottom: 8,
+    },
+    historyTitle: {
+        fontSize: 6,
+        fontWeight: 'bold',
+        color: '#1e293b',
+        backgroundColor: '#f1f5f9',
+        padding: '2px 4px',
+        marginBottom: 3,
+        textTransform: 'uppercase',
+        borderLeftWidth: 2,
+        borderLeftColor: '#334155',
+        borderLeftStyle: 'solid',
+    },
+    historyTable: {
+        width: '100%',
+    },
+    historyTableHeader: {
+        flexDirection: 'row',
+        borderBottomWidth: 0.5,
+        borderBottomColor: '#cbd5e1',
+        paddingBottom: 1,
+        marginBottom: 1,
+        gap: 2,
+    },
+    historyTableRow: {
+        flexDirection: 'row',
+        borderBottomWidth: 0.2,
+        borderBottomColor: '#e2e8f0',
+        paddingVertical: 1,
+        gap: 2,
+    },
+    historyTableCell: {
+        fontSize: 4,
+        color: '#475569',
+        flex: 1,
+    },
+    historyTableHeaderCell: {
+        fontSize: 4,
+        fontWeight: 'bold',
+        color: '#1e293b',
+        flex: 1,
+    },
 });
 
 export interface FeeItem {
@@ -346,7 +391,12 @@ interface FeeChallanPDFProps {
         gr_number: string;
         className: string;
         sectionName: string;
+        status?: string;
     }[];
+    paymentsHistory?: any[];
+    arrearsHistory?: any[];
+    adjustmentsHistory?: any[];
+    installmentsHistory?: any[];
 }
 
 const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, showDiscount, paidStamp, isLast }: { copyType: string, isLast?: boolean } & FeeChallanPDFProps) => (
@@ -579,7 +629,19 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
     </View>
 );
 
-export const FeeChallanPDF = ({ student, details, fees, totalAmount, siblings, showDiscount, paidStamp }: FeeChallanPDFProps) => (
+export const FeeChallanPDF = ({ 
+    student, 
+    details, 
+    fees, 
+    totalAmount, 
+    siblings, 
+    showDiscount, 
+    paidStamp,
+    paymentsHistory,
+    arrearsHistory,
+    adjustmentsHistory,
+    installmentsHistory
+}: FeeChallanPDFProps) => (
     <Document>
         <Page size={[841.89, 595.28]} wrap={false} style={styles.page}>
             {/* Left 85% for the 3 Challan Copies */}
@@ -589,26 +651,159 @@ export const FeeChallanPDF = ({ student, details, fees, totalAmount, siblings, s
                 <ChallanCopy copyType="Student Copy" student={student} details={details} fees={fees} totalAmount={totalAmount} showDiscount={showDiscount} paidStamp={paidStamp} siblings={siblings} isLast={true} />
             </View>
 
-            {/* Right 15% for the 4th Column */}
-            <View style={{ width: '15%', paddingLeft: 10, borderLeftWidth: 1, borderLeftColor: '#e4e4e4', borderLeftStyle: 'solid', flexDirection: 'column', height: '100%' }}>
-                <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 5, textTransform: 'uppercase' }}>Siblings Info</Text>
-                <View style={{ backgroundColor: '#f1f5f9', padding: 8, borderRadius: 4, flex: 1 }}>
-                    {siblings && siblings.length > 0 ? (
-                        siblings.map((s, idx) => (
-                            <View key={idx} style={{ marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: '#cbd5e1', paddingBottom: 4 }}>
-                                <Text style={[styles.value, { fontSize: 7, color: '#0f172a' }]}>{s.full_name}</Text>
-                                <View style={{ marginTop: 2, gap: 1 }}>
-                                    <Text style={{ fontSize: 5.5, color: '#475569', fontWeight: 'bold' }}>CC ID: {s.cc}</Text>
-                                    <Text style={{ fontSize: 5.5, color: '#475569', fontWeight: 'bold' }}>GR NO: {s.gr_number}</Text>
-                                    <Text style={{ fontSize: 5.5, color: '#475569', fontWeight: 'bold' }}>{s.className} - {s.sectionName}</Text>
+            {/* Right 15% for the 4th Column - History & Metadata */}
+            <View style={{ width: '15%', paddingLeft: 8, borderLeftWidth: 1, borderLeftColor: '#e4e4e4', borderLeftStyle: 'solid', flexDirection: 'column', height: '100%' }}>
+                
+                {/* PAYMENTS HISTORY */}
+                <View style={styles.historySection}>
+                    <Text style={styles.historyTitle}>PAYMENTS HISTORY</Text>
+                    <View style={styles.historyTable}>
+                        <View style={styles.historyTableHeader}>
+                            <Text style={styles.historyTableHeaderCell}>DATE</Text>
+                            <Text style={styles.historyTableHeaderCell}>HEAD</Text>
+                            <Text style={styles.historyTableHeaderCell}>AMOUNT</Text>
+                            <Text style={styles.historyTableHeaderCell}>TOTAL</Text>
+                        </View>
+                        {paymentsHistory && paymentsHistory.length > 0 ? (
+                            paymentsHistory.map((p: any, idx: number) => (
+                                <View key={idx} style={styles.historyTableRow}>
+                                    <Text style={styles.historyTableCell}>{p.date}</Text>
+                                    <Text style={styles.historyTableCell}>{p.head}</Text>
+                                    <Text style={styles.historyTableCell}>{p.amount}</Text>
+                                    <Text style={styles.historyTableCell}>{p.totalAmount}</Text>
                                 </View>
+                            ))
+                        ) : (
+                            <View style={styles.historyTableRow}>
+                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={styles.historyTableCell}>-</Text>
                             </View>
-                        ))
-                    ) : (
-                        <Text style={{ fontSize: 6, color: '#64748b', textAlign: 'center', marginTop: 10, fontStyle: 'italic' }}>
-                            No siblings found
-                        </Text>
-                    )}
+                        )}
+                    </View>
+                </View>
+
+                {/* ARREAR'S HISTORY */}
+                <View style={styles.historySection}>
+                    <Text style={styles.historyTitle}>ARREAR'S HISTORY</Text>
+                    <View style={styles.historyTable}>
+                        <View style={styles.historyTableHeader}>
+                            <Text style={styles.historyTableHeaderCell}>DATE</Text>
+                            <Text style={styles.historyTableHeaderCell}>HEAD</Text>
+                            <Text style={styles.historyTableHeaderCell}>AMOUNT</Text>
+                            <Text style={styles.historyTableHeaderCell}>TOTAL</Text>
+                        </View>
+                        {arrearsHistory && arrearsHistory.length > 0 ? (
+                            arrearsHistory.map((a: any, idx: number) => (
+                                <View key={idx} style={styles.historyTableRow}>
+                                    <Text style={styles.historyTableCell}>{a.date}</Text>
+                                    <Text style={styles.historyTableCell}>{a.head}</Text>
+                                    <Text style={styles.historyTableCell}>{a.amount}</Text>
+                                    <Text style={styles.historyTableCell}>{a.totalAmount}</Text>
+                                </View>
+                            ))
+                        ) : (
+                            <View style={styles.historyTableRow}>
+                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={styles.historyTableCell}>-</Text>
+                            </View>
+                        )}
+                    </View>
+                </View>
+
+                {/* ADJUSTMENTS HISTORY */}
+                <View style={styles.historySection}>
+                    <Text style={styles.historyTitle}>ADJUSTMENTS HISTORY</Text>
+                    <View style={styles.historyTable}>
+                        <View style={styles.historyTableHeader}>
+                            <Text style={styles.historyTableHeaderCell}>DATE</Text>
+                            <Text style={styles.historyTableHeaderCell}>HEAD</Text>
+                            <Text style={styles.historyTableHeaderCell}>AMOUNT</Text>
+                            <Text style={styles.historyTableHeaderCell}>TOTAL</Text>
+                        </View>
+                        {adjustmentsHistory && adjustmentsHistory.length > 0 ? (
+                            adjustmentsHistory.map((adj: any, idx: number) => (
+                                <View key={idx} style={styles.historyTableRow}>
+                                    <Text style={styles.historyTableCell}>{adj.date}</Text>
+                                    <Text style={styles.historyTableCell}>{adj.head}</Text>
+                                    <Text style={styles.historyTableCell}>{adj.amount}</Text>
+                                    <Text style={styles.historyTableCell}>{adj.totalAmount}</Text>
+                                </View>
+                            ))
+                        ) : (
+                            <View style={styles.historyTableRow}>
+                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={styles.historyTableCell}>-</Text>
+                            </View>
+                        )}
+                    </View>
+                </View>
+
+                {/* INSTALLMENTS HISTORY */}
+                <View style={styles.historySection}>
+                    <Text style={styles.historyTitle}>INSTALLMENTS HISTORY</Text>
+                    <View style={styles.historyTable}>
+                        <View style={styles.historyTableHeader}>
+                            <Text style={[styles.historyTableHeaderCell, { flex: 1.2 }]}>PAY ID</Text>
+                            <Text style={styles.historyTableHeaderCell}>DATE</Text>
+                            <Text style={styles.historyTableHeaderCell}>AMT</Text>
+                            <Text style={styles.historyTableHeaderCell}>FINE</Text>
+                            <Text style={styles.historyTableHeaderCell}>TOTAL</Text>
+                        </View>
+                        {installmentsHistory && installmentsHistory.length > 0 ? (
+                            installmentsHistory.map((inst: any, idx: number) => (
+                                <View key={idx} style={styles.historyTableRow}>
+                                    <Text style={[styles.historyTableCell, { flex: 1.2 }]}>{inst.paymentId}</Text>
+                                    <Text style={styles.historyTableCell}>{inst.date}</Text>
+                                    <Text style={styles.historyTableCell}>{inst.amount}</Text>
+                                    <Text style={styles.historyTableCell}>{inst.fine}</Text>
+                                    <Text style={styles.historyTableCell}>{inst.total}</Text>
+                                </View>
+                            ))
+                        ) : (
+                            <View style={styles.historyTableRow}>
+                                <Text style={[styles.historyTableCell, { flex: 1.2 }]}>-</Text>
+                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={styles.historyTableCell}>-</Text>
+                            </View>
+                        )}
+                    </View>
+                </View>
+
+                {/* SIBLINGS Section */}
+                <View style={styles.historySection}>
+                    <Text style={styles.historyTitle}>SIBLINGS</Text>
+                    <View style={styles.historyTable}>
+                        <View style={styles.historyTableHeader}>
+                            <Text style={styles.historyTableHeaderCell}>CC</Text>
+                            <Text style={styles.historyTableHeaderCell}>GR</Text>
+                            <Text style={styles.historyTableHeaderCell}>LVL</Text>
+                            <Text style={[styles.historyTableHeaderCell, { flex: 1.5 }]}>NAME</Text>
+                            <Text style={styles.historyTableHeaderCell}>STAT</Text>
+                        </View>
+                        {siblings && siblings.length > 0 ? (
+                            siblings.map((s, idx) => (
+                                <View key={idx} style={styles.historyTableRow}>
+                                    <Text style={styles.historyTableCell}>{s.cc}</Text>
+                                    <Text style={styles.historyTableCell}>{s.gr_number}</Text>
+                                    <Text style={styles.historyTableCell}>{s.className}</Text>
+                                    <Text style={[styles.historyTableCell, { flex: 1.5 }]}>{s.full_name}</Text>
+                                    <Text style={styles.historyTableCell}>{s.status || 'Active'}</Text>
+                                </View>
+                            ))
+                        ) : (
+                            <View style={styles.historyTableRow}>
+                                <Text style={[styles.historyTableCell, { textAlign: 'center', flex: 1, fontStyle: 'italic', fontSize: 3.5 }]}>No siblings</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
             </View>
         </Page>
