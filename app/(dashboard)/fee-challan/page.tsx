@@ -156,6 +156,16 @@ export default function FeeChallanGenerator() {
     const [savedVoucherId, setSavedVoucherId] = useState<number | null>(null);
     const [savedGroupVoucherIds, setSavedGroupVoucherIds] = useState<Record<string, number>>({});
 
+    // --- Arrears State ---
+    const [arrearsData, setArrearsData] = useState<{
+        total_arrears: number;
+        arrear_fee_ids: number[];
+        rows: { student_fee_id: number; fee_type: string; fee_date: string; amount: string; amount_paid: string; outstanding: string }[];
+    } | null>(null);
+    const [isFetchingArrears, setIsFetchingArrears] = useState(false);
+    // Track which fee_date we last fetched arrears for (group view)
+    const [arrearsFetchedForDate, setArrearsFetchedForDate] = useState<string | null>(null);
+
     // --- Bulk Voucher States ---
     const [bulkCampusId, setBulkCampusId] = useState<string>("");
     const [bulkClassId, setBulkClassId] = useState<string>("");
@@ -173,6 +183,8 @@ export default function FeeChallanGenerator() {
 
     useEffect(() => {
         setVoucherSaved(false);
+        setArrearsData(null);
+        setArrearsFetchedForDate(null);
     }, [
         issueDate,
         dueDate,
@@ -300,6 +312,8 @@ export default function FeeChallanGenerator() {
             toast.error("Start date cannot be after end date.");
             return;
         }
+        setArrearsData(null);
+        setArrearsFetchedForDate(null);
         fetchStudentFees(student.cc, month, academicYear);
     };
 
@@ -354,6 +368,16 @@ export default function FeeChallanGenerator() {
         if (!dueDate) setDueDate(next10.toISOString().split('T')[0]);
         if (!validityDate) setValidityDate(next15.toISOString().split('T')[0]);
     }, [dueDate, validityDate]);
+
+    // Auto-fetch arrears when entering Review Step
+    useEffect(() => {
+        if (currentStep === 3 && student && (studentFees.length > 0 || feeGroupsByDate.length > 0) && !arrearsFetchedForDate && !isFetchingArrears) {
+            const earliestFeeDate = feeGroupsByDate.length > 0 
+                ? feeGroupsByDate[0].fee_date 
+                : (dateFrom || issueDate);
+            if (earliestFeeDate) fetchArrears(student.cc, earliestFeeDate);
+        }
+    }, [currentStep, student, studentFees, feeGroupsByDate, dateFrom, issueDate, arrearsFetchedForDate, isFetchingArrears]);
 
     const processFeesForPdf = (rawFees: any[]) => {
         let baseFees = [];
@@ -489,11 +513,52 @@ export default function FeeChallanGenerator() {
         return baseFees.sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
     };
 
-    const processedPdfFees = useMemo(() => processFeesForPdf(studentFees), [studentFees, voucherLayout, academicYear, showBundleHeads]);
+    const processedArrearPdfFees = useMemo(() => {
+        return (arrearsData?.rows ?? []).map((r: any) => ({
+            description: `${r.fee_type} (ARREAR – ${r.fee_date})`,
+            amount: Number(r.amount),
+            netAmount: Number(r.outstanding),
+            discount: Number(r.amount_paid),
+            discountLabel: r.amount_paid !== "0.00" ? `Paid: ${r.amount_paid}` : undefined,
+            isArrear: true,
+            feeDate: r.fee_date,
+        }));
+    }, [arrearsData]);
 
-    const totalFeesAmount = processedPdfFees.reduce((sum, f) => sum + f.netAmount, 0);
+    const processedPdfFees = useMemo(() => {
+        return processFeesForPdf(studentFees).map(f => ({ ...f, isArrear: false }));
+    }, [studentFees, voucherLayout, academicYear, showBundleHeads]);
+
+    // Combined fees for PDF = arrears first, then current
+    const allPdfFeesForDisplay = useMemo(() => [
+        ...processedArrearPdfFees,
+        ...processedPdfFees,
+    ], [processedArrearPdfFees, processedPdfFees]);
+
+    const totalFeesAmount = useMemo(() => allPdfFeesForDisplay.reduce((sum, f) => sum + (f.netAmount || 0), 0), [allPdfFeesForDisplay]);
+    const totalArrearsAmount = arrearsData?.total_arrears ?? 0;
+
     const voucherNumberStr = savedVoucherId ? `${savedVoucherId}` : "PENDING";
     const timestampStr = new Date().toLocaleString();
+
+    // Fetch arrears for a given fee_date (called when a group card loads or before single-voucher generation)
+    const fetchArrears = async (studentCc: number, feeDate: string) => {
+        setIsFetchingArrears(true);
+        try {
+            const { data } = await api.get('/v1/vouchers/arrears', {
+                params: { student_id: studentCc, fee_date: feeDate, _t: Date.now() },
+            });
+            const result = data.data ?? null;
+            setArrearsData(result);
+            setArrearsFetchedForDate(feeDate);
+            return result;
+        } catch (err) {
+            console.error('Failed to fetch arrears:', err);
+            return null;
+        } finally {
+            setIsFetchingArrears(false);
+        }
+    };
 
     /** Derive "FOR MONTH(S) OF" label from the actual months present in the fee rows. */
     const getMonthLabelFromFees = (fees: any[]): string => {
@@ -510,9 +575,22 @@ export default function FeeChallanGenerator() {
     const handleSaveVoucher = async () => {
         if (!student || !selectedBank) return toast.error("Select student and bank.");
         setIsSavingVoucher(true);
+        
+        // FORCE fresh arrears catch to ensure PDF has latest data
+        const fd = dateFrom || issueDate;
+        const freshArrears = await fetchArrears(student.cc, fd);
+        console.log(`[VOUCHER_DEBUG] Manual Fresh Arrears for ${fd}:`, freshArrears);
+
         try {
-            const feeIds = studentFees.map(f => f.id);
-            console.log("Generating Single Voucher - Ordered Fee IDs:", feeIds);
+            // Determine fee_date for this voucher (use dateFrom if set, else today)
+            const voucherFeeDate = fd;
+
+            // Merge arrear IDs first so they appear first in the orderedFeeIds list
+            const arrearIds = freshArrears?.arrear_fee_ids ?? [];
+            const currentFeeIds = studentFees.map(f => f.id);
+            const allFeeIds = [...arrearIds, ...currentFeeIds];
+
+            console.log("Generating Single Voucher - Ordered Fee IDs (arrears+current):", allFeeIds);
 
             // 1. Create the voucher in DB first (without PDF) to get the real ID
             const formData = new FormData();
@@ -523,23 +601,45 @@ export default function FeeChallanGenerator() {
             formData.append('bank_account_id', selectedBank.id.toString());
             formData.append('issue_date', issueDate);
             formData.append('due_date', dueDate);
+            if (voucherFeeDate) formData.append('fee_date', voucherFeeDate);
             formData.append('academic_year', academicYear);
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
             formData.append('late_fee_charge', applyLateFee.toString());
             formData.append('late_fee_amount', (lateFeeAmount || 0).toString());
             formData.append('precedence', '1');
-            studentFees.forEach(f => formData.append('orderedFeeIds', f.id.toString()));
+            allFeeIds.forEach(id => formData.append('orderedFeeIds', id.toString()));
 
-            const feeLines = studentFees.map(f => ({
+            // Build fee_lines: arrear lines use their outstanding balance, current use their discount calc
+            const arrearLines = (freshArrears?.rows ?? []).map(r => ({
+                student_fee_id: r.student_fee_id,
+                discount_amount: 0,
+                discount_label: undefined,
+            }));
+            const currentLines = studentFees.map(f => ({
                 student_fee_id: Number(f.id),
                 discount_amount: Math.max(0, Number(f.amount_before_discount || 0) - Number(f.amount || 0)),
                 discount_label: f.voucher_heads?.[0]?.discount_amount ? "Applied Discount" : undefined
             }));
-            formData.append('fee_lines', JSON.stringify(feeLines));
+            formData.append('fee_lines', JSON.stringify([...arrearLines, ...currentLines]));
 
             const { data: createRes } = await api.post('/v1/vouchers', formData);
             const voucherId: number = createRes.data.id;
             setSavedVoucherId(voucherId);
+            setVoucherSaved(true);
+
+            // Build arrear PDF items (isArrear: true)
+            const arrearPdfFees = (freshArrears?.rows ?? []).map(r => ({
+                description: `${r.fee_type} (ARREAR – ${r.fee_date})`,
+                amount: Number(r.outstanding),
+                netAmount: Number(r.outstanding),
+                discount: 0,
+                isArrear: true,
+                feeDate: r.fee_date,
+            }));
+            const currentPdfFees = processedPdfFees.map(f => ({ ...f, isArrear: false }));
+            const allPdfFees = [...arrearPdfFees, ...currentPdfFees];
+            const allPdfTotal = allPdfFees.reduce((s, f) => s + (f.netAmount || 0), 0);
+            console.log(`[VOUCHER_DEBUG] Manual PDF: arrears=${arrearPdfFees.length}, current=${currentPdfFees.length}, total=${allPdfTotal}`);
 
             // 2. Generate PDF with the real voucher ID
             const blob = await pdf(
@@ -563,9 +663,15 @@ export default function FeeChallanGenerator() {
                         generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
                         bank: { name: selectedBank.bank_name, title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban }
                     }}
-                    fees={processedPdfFees}
-                    totalAmount={totalFeesAmount}
+                    fees={allPdfFees}
+                    totalAmount={allPdfTotal}
                     showDiscount={showDiscount}
+                    arrearsHistory={(freshArrears?.rows ?? []).map(r => ({
+                        date: r.fee_date,
+                        head: r.fee_type,
+                        amount: Number(r.outstanding).toLocaleString(),
+                        totalAmount: (freshArrears?.total_arrears ?? 0).toLocaleString(),
+                    }))}
                     siblings={siblings.map(s => ({
                         full_name: s.student_full_name || s.full_name,
                         cc: s.cc,
@@ -602,6 +708,10 @@ export default function FeeChallanGenerator() {
         if (!student || !selectedBank) return;
         setGeneratingGroupDate(group.fee_date);
         
+        // FORCE fresh arrears fetch before generation for this group
+        const freshArrears = await fetchArrears(student.cc, group.fee_date);
+        console.log(`[VoucherGroup] Fresh Arrears for ${group.fee_date}:`, freshArrears);
+
         const feeDateMonth = (function() {
             try {
                 const m = parseInt(group.fee_date.split('-')[1], 10);
@@ -614,8 +724,12 @@ export default function FeeChallanGenerator() {
             const groupPdfFees = processFeesForPdf(group.fees);
             const groupTotal = groupPdfFees.reduce((s, f) => s + f.netAmount, 0);
 
-            const feeIds = group.fees.map(f => f.id);
-            console.log("Generating Group Voucher - Ordered Fee IDs:", feeIds);
+            // Merge arrear IDs (prepend) to current group IDs
+            const arrearIds = freshArrears?.arrear_fee_ids ?? [];
+            const currentGroupIds = group.fees.map(f => f.id);
+            const allFeeIds = [...arrearIds, ...currentGroupIds];
+
+            console.log("Generating Group Voucher - Ordered Fee IDs (arrears+current):", allFeeIds);
 
             // 1. Create the voucher in DB first to get the real ID
             const formData = new FormData();
@@ -632,18 +746,37 @@ export default function FeeChallanGenerator() {
             formData.append('late_fee_charge', applyLateFee.toString());
             formData.append('late_fee_amount', (lateFeeAmount || 0).toString());
             formData.append('precedence', '1');
-            group.fees.forEach(f => formData.append('orderedFeeIds', f.id.toString()));
+            allFeeIds.forEach(id => formData.append('orderedFeeIds', id.toString()));
 
-            const feeLines = group.fees.map(f => ({
+            const arrearLines = (freshArrears?.rows ?? []).map(r => ({
+                student_fee_id: r.student_fee_id,
+                discount_amount: 0,
+                discount_label: undefined,
+            }));
+            const currentLines = group.fees.map(f => ({
                 student_fee_id: Number(f.id),
                 discount_amount: Math.max(0, Number(f.amount_before_discount || 0) - Number(f.amount || 0)),
                 discount_label: f.voucher_heads?.[0]?.discount_amount ? "Applied Discount" : undefined
             }));
-            formData.append('fee_lines', JSON.stringify(feeLines));
+            formData.append('fee_lines', JSON.stringify([...arrearLines, ...currentLines]));
 
             const { data: createRes } = await api.post('/v1/vouchers', formData);
             const voucherId: number = createRes.data.id;
             setSavedGroupVoucherIds(prev => ({ ...prev, [group.fee_date]: voucherId }));
+
+            // Build arrear PDF items
+            const arrearPdfFees = (freshArrears?.rows ?? []).map(r => ({
+                description: `${r.fee_type} (ARREAR – ${r.fee_date})`,
+                amount: Number(r.outstanding),
+                netAmount: Number(r.outstanding),
+                discount: 0,
+                isArrear: true,
+                feeDate: r.fee_date,
+            }));
+            const currentPdfFees = groupPdfFees.map(f => ({ ...f, isArrear: false }));
+            const allPdfFees = [...arrearPdfFees, ...currentPdfFees];
+            const allPdfTotal = allPdfFees.reduce((s, f) => s + (f.netAmount || 0), 0);
+            console.log(`[VOUCHER_DEBUG] Bulk PDF: arrears=${arrearPdfFees.length}, current=${currentPdfFees.length}, total=${allPdfTotal}`);
 
             // 2. Generate PDF with the real voucher ID
             const blob = await pdf(
@@ -667,9 +800,15 @@ export default function FeeChallanGenerator() {
                         generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
                         bank: { name: selectedBank.bank_name, title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban }
                     }}
-                    fees={groupPdfFees}
-                    totalAmount={groupTotal}
+                    fees={allPdfFees}
+                    totalAmount={allPdfTotal}
                     showDiscount={showDiscount}
+                    arrearsHistory={(freshArrears?.rows ?? []).map(r => ({
+                        date: r.fee_date,
+                        head: r.fee_type,
+                        amount: Number(r.outstanding).toLocaleString(),
+                        totalAmount: (freshArrears?.total_arrears ?? 0).toLocaleString(),
+                    }))}
                     siblings={siblings.map(s => ({
                         full_name: s.student_full_name || s.full_name,
                         cc: s.cc,
@@ -1146,6 +1285,63 @@ export default function FeeChallanGenerator() {
                             </div>
 
                             <div className="flex-1 p-10 overflow-y-auto bg-zinc-50/20 dark:bg-zinc-900/5">
+                                {/* Arrears Card — shared location for both view types */}
+                                {!voucherSaved && (
+                                    <div className="max-w-4xl mx-auto w-full">
+                                        {isFetchingArrears ? (
+                                            <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-2xl mb-8 animate-pulse">
+                                                <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
+                                                <span className="text-[11px] font-bold text-amber-600 uppercase tracking-[0.2em]">Detecting academic arrears...</span>
+                                            </div>
+                                        ) : arrearsData && arrearsData.total_arrears > 0 ? (
+                                            <div className="p-8 bg-amber-50 dark:bg-amber-900/10 border-2 border-amber-100 dark:border-amber-900/20 rounded-[32px] mb-8 space-y-6 shadow-sm animate-in zoom-in-95 duration-500">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="h-10 w-10 bg-amber-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
+                                                            <AlertCircle className="h-5 w-5" />
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-[11px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-[0.2em] block">Arrears Detected</span>
+                                                            <p className="text-[10px] font-bold text-amber-600/60 uppercase tracking-widest mt-0.5">Fees outstanding from previous months</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="text-[10px] font-black text-amber-600/40 uppercase tracking-widest block mb-1">Total Outstanding</span>
+                                                        <span className="text-2xl font-black text-amber-800 dark:text-amber-300 tracking-tight">PKR {arrearsData.total_arrears.toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    {arrearsData.rows.map((r, i) => (
+                                                        <div key={i} className="flex items-center justify-between p-4 bg-white/60 dark:bg-zinc-900/40 border border-amber-100/50 dark:border-amber-900/20 rounded-2xl shadow-sm">
+                                                            <div>
+                                                                <span className="text-[11px] font-black text-zinc-900 dark:text-zinc-100 block">{r.fee_type}</span>
+                                                                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">{r.fee_date}</span>
+                                                            </div>
+                                                            <span className="text-[12px] font-black text-amber-700 dark:text-amber-400">PKR {Number(r.outstanding).toLocaleString()}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="flex items-center gap-3 pt-2">
+                                                    <Info className="h-4 w-4 text-amber-400" />
+                                                    <p className="text-[10px] font-bold text-amber-700/60 uppercase tracking-widest leading-relaxed">
+                                                        These arrears will be automatically included in the voucher generated below.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ) : arrearsData && arrearsData.total_arrears === 0 ? (
+                                            <div className="flex items-center justify-between p-6 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/20 rounded-2xl mb-8">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="h-8 w-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white">
+                                                        <CheckCircle2 className="h-4 w-4" />
+                                                    </div>
+                                                    <span className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">No Arrears — Account Clear</span>
+                                                </div>
+                                                <span className="text-[9px] font-bold text-emerald-600/40 uppercase tracking-widest">Verified {new Date().toLocaleTimeString()}</span>
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                )}
+
                                 {isFetchingFees ? (
                                     <div className="py-20 flex flex-col items-center gap-4">
                                         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -1179,9 +1375,15 @@ export default function FeeChallanGenerator() {
                                                                     generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
                                                                     bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
                                                                 }}
-                                                                fees={processedPdfFees}
+                                                                fees={allPdfFeesForDisplay}
                                                                 totalAmount={totalFeesAmount}
                                                                 showDiscount={showDiscount}
+                                                                arrearsHistory={processedArrearPdfFees.map(r => ({
+                                                                    date: r.feeDate,
+                                                                    head: r.description.split(" (")[0],
+                                                                    amount: r.amount.toLocaleString(),
+                                                                    totalAmount: r.netAmount.toLocaleString()
+                                                                }))}
                                                                 siblings={siblings.map(s => ({
                                                                     full_name: s.student_full_name || s.full_name,
                                                                     cc: s.cc,
@@ -1211,7 +1413,14 @@ export default function FeeChallanGenerator() {
                                             {/* Detailed Group Cards */}
                                             <div className="space-y-8">
                                                 {feeGroupsByDate.map((g, idx) => {
-                                                    const groupTotal = g.fees.reduce((acc, f) => acc + Number(f.amount || f.amount_before_discount || 0), 0);
+                                                    const isEarliestGroup = idx === 0;
+                                                    const groupArrears = isEarliestGroup ? processedArrearPdfFees : [];
+                                                    const groupArrearsTotal = isEarliestGroup ? totalArrearsAmount : 0;
+                                                    
+                                                    const currentGroupPdfFees = processFeesForPdf(g.fees).map(f => ({ ...f, isArrear: false }));
+                                                    const combinedGroupFees = [...groupArrears, ...currentGroupPdfFees];
+                                                    const combinedGroupTotal = combinedGroupFees.reduce((acc, f) => acc + (f.netAmount || 0), 0);
+
                                                     return (
                                                         <div key={g.fee_date} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] overflow-hidden shadow-xl shadow-zinc-100/50 dark:shadow-none animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 100}ms` }}>
                                                             {/* Card Header */}
@@ -1222,7 +1431,7 @@ export default function FeeChallanGenerator() {
                                                                     </div>
                                                                     <div>
                                                                         <h4 className="font-black text-lg text-zinc-900 dark:text-zinc-100">FEE DATE: {g.fee_date}</h4>
-                                                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">{g.fees.length} fee heads • PKR {groupTotal.toLocaleString()}</p>
+                                                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">{combinedGroupFees.length} fee heads • PKR {combinedGroupTotal.toLocaleString()}</p>
                                                                     </div>
                                                                 </div>
                                                                 <div className="flex items-center gap-3">
@@ -1238,9 +1447,15 @@ export default function FeeChallanGenerator() {
                                                                                         generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
                                                                                         bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
                                                                                     }}
-                                                                                    fees={processFeesForPdf(g.fees)}
-                                                                                    totalAmount={groupTotal}
+                                                                                    fees={combinedGroupFees}
+                                                                                    totalAmount={combinedGroupTotal}
                                                                                     showDiscount={showDiscount}
+                                                                                    arrearsHistory={processedArrearPdfFees.map(r => ({
+                                                                                        date: r.feeDate,
+                                                                                        head: r.description.split(' (')[0],
+                                                                                        amount: r.amount.toLocaleString(),
+                                                                                        totalAmount: r.netAmount.toLocaleString()
+                                                                                    }))}
                                                                                     siblings={siblings.map(s => ({
                                                                                         full_name: s.student_full_name || s.full_name,
                                                                                         cc: s.cc,
@@ -1268,14 +1483,14 @@ export default function FeeChallanGenerator() {
                                                             </div>
 
                                                             {/* Detailed Line Items Grouped */}
-                                                            {renderFeesTable(processFeesForPdf(g.fees), groupTotal)}
+                                                            {renderFeesTable(combinedGroupFees, combinedGroupTotal)}
 
                                                             {/* Card Footer */}
                                                             <div className="px-8 py-5 bg-zinc-50/50 dark:bg-zinc-900/30 border-t border-zinc-50 dark:border-zinc-900 flex items-center justify-between">
                                                                 <span className="text-[11px] font-black text-zinc-400 uppercase tracking-[0.2em]">Group Total</span>
                                                                 <div className="flex items-center gap-3">
                                                                     <span className="text-[13px] font-black text-zinc-500 uppercase tracking-widest">PKR</span>
-                                                                    <span className="text-xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">{groupTotal.toLocaleString()}</span>
+                                                                    <span className="text-xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">{combinedGroupTotal.toLocaleString()}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1290,7 +1505,7 @@ export default function FeeChallanGenerator() {
                                                     <h3 className="text-lg font-black text-zinc-900 uppercase tracking-tight">Fee Review Listing</h3>
                                                     <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">Manual generation for current selection</p>
                                                 </div>
-                                                {renderFeesTable(processedPdfFees, totalFeesAmount)}
+                                                {renderFeesTable(allPdfFeesForDisplay, totalFeesAmount)}
                                                 <div className="px-8 py-8 bg-zinc-900 text-white flex items-center justify-between">
                                                     <span className="text-[12px] font-black uppercase tracking-[0.2em]">Total Payable</span>
                                                     <div className="flex items-center gap-4">
@@ -1330,9 +1545,15 @@ export default function FeeChallanGenerator() {
                                                                     generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
                                                                     bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
                                                                 }}
-                                                                fees={processedPdfFees}
+                                                                fees={allPdfFeesForDisplay}
                                                                 totalAmount={totalFeesAmount}
                                                                 showDiscount={showDiscount}
+                                                                arrearsHistory={processedArrearPdfFees.map(r => ({
+                                                                    date: r.feeDate,
+                                                                    head: r.description.split(" (")[0],
+                                                                    amount: r.amount.toLocaleString(),
+                                                                    totalAmount: r.netAmount.toLocaleString()
+                                                                }))}
                                                                 siblings={siblings.map(s => ({
                                                                     full_name: s.student_full_name || s.full_name,
                                                                     cc: s.cc,
