@@ -67,6 +67,7 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
         Cleared: "bg-emerald-100 text-emerald-800 border-emerald-200",
         Overdue: "bg-rose-100 text-rose-800 border-rose-200",
         Partial: "bg-amber-100 text-amber-800 border-amber-200",
+        NO_SCHEDULE: "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800",
     };
 
     const estatusStyles: Record<string, string> = {
@@ -113,7 +114,7 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                                     {(student.enrollment_status || 'N/A').replace('_', ' ')} Student
                                 </span>
                                 <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${statusStyles[student.financial_status_badge || 'Cleared'] || statusStyles.Cleared}`}>
-                                    Fee: {student.financial_status_badge || 'Cleared'}
+                                    Fee: {student.financial_status_badge === 'NO_SCHEDULE' ? 'No Schedule Set' : (student.financial_status_badge || 'Cleared')}
                                 </span>
                             </div>
 
