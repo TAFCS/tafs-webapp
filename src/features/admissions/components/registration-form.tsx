@@ -111,18 +111,49 @@ export function RegistrationForm() {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
 
+        // 1. Handle CNIC formatting
         if (name === "fatherCnic" || name === "motherCnic") {
             setFormData(prev => ({ ...prev, [name]: formatCNIC(value) }));
             return;
         }
 
-        if (name.toLowerCase().includes("phone") || name.toLowerCase().includes("whatsapp")) {
+        // 2. Handle Phones, WhatsApp, and Fax (Numeric only)
+        if (name.toLowerCase().includes("phone") || name.toLowerCase().includes("whatsapp") || name.toLowerCase().includes("fax")) {
             if (type !== "checkbox") {
                 setFormData(prev => ({ ...prev, [name]: formatPhone(value) }));
                 return;
             }
         }
 
+        // 3. Handle Alpha-only fields (Names, Countries, Cities, Relationships)
+        const alphaFields = [
+            "candidateName", "fatherName", "motherName",
+            "emergencyContactName", "emergencyRelationship",
+            "birthCountry", "birthProvince", "birthCity",
+            "province", "country", "city"
+        ];
+        if (alphaFields.includes(name)) {
+            // Allow letters, spaces, dots, and hyphens for names/locations
+            const filteredValue = value.replace(/[^a-zA-Z\s.-]/g, "");
+            setFormData(prev => ({ ...prev, [name]: filteredValue }));
+            return;
+        }
+
+        // 4. Handle Numeric-only fields (DOB, Age, Postal Code)
+        const numericFields = ["dobDay", "dobMonth", "dobYear", "ageYears", "postalCode"];
+        if (numericFields.includes(name)) {
+            const filteredValue = value.replace(/\D/g, "");
+
+            // Additional constraints for DOB
+            if (name === "dobDay" && filteredValue.length > 2) return;
+            if (name === "dobMonth" && filteredValue.length > 2) return;
+            if (name === "dobYear" && filteredValue.length > 4) return;
+
+            setFormData(prev => ({ ...prev, [name]: filteredValue }));
+            return;
+        }
+
+        // 5. Default handler for checkboxes, selects, and generic text
         setFormData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
