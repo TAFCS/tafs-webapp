@@ -119,7 +119,7 @@ export function StudentDataTable() {
     const [page, setPage] = useState(1);
     const [limit] = useState(15);
     const [viewingStudentId, setViewingStudentId] = useState<number | null>(null);
-    const [openActionRowId, setOpenActionRowId] = useState<number | null>(null);
+    const [openActionRowKey, setOpenActionRowKey] = useState<string | null>(null);
 
     const [visibleColumns, setVisibleColumns] = useState<Set<keyof StudentListItem>>(
         new Set(COLUMNS.filter(c => c.isDefault).map(c => c.id))
@@ -172,7 +172,7 @@ export function StudentDataTable() {
         const handler = (e: MouseEvent) => {
             const t = e.target as Element;
             if (t?.closest) {
-                if (!t.closest(".action-menu-container")) setOpenActionRowId(null);
+                if (!t.closest(".action-menu-container")) setOpenActionRowKey(null);
                 if (!t.closest(".columns-menu-container")) setShowColumnToggles(false);
             }
         };
@@ -204,6 +204,9 @@ export function StudentDataTable() {
         financial_status: financialFilters.length > 0 ? financialFilters : undefined,
         has_siblings: hasSiblingsOnly || undefined,
     });
+
+    const getStudentRowKey = (student: StudentListItem, index: number) =>
+        `${student.id}-${student.cc_number ?? student.gr_number ?? "row"}-${index}`;
 
     // ─── Render ────────────────────────────────────────────────────────────
 
@@ -433,12 +436,13 @@ export function StudentDataTable() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-100">
-                                {items.map(student => {
+                                {items.map((student, index) => {
                                     const financialInfo = FINANCIAL_STYLES[student.financial_status_badge ?? "Cleared"] ?? FINANCIAL_STYLES.Cleared;
                                     const enrollmentInfo = ENROLLMENT_STYLES[student.enrollment_status ?? ""] ?? ENROLLMENT_STYLES.SOFT_ADMISSION;
+                                    const rowKey = getStudentRowKey(student, index);
 
                                     return (
-                                        <tr key={student.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/60 transition-colors group">
+                                        <tr key={rowKey} className="hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/60 transition-colors group">
 
                                             {/* Student core cell */}
                                             <td className="px-5 py-4 min-w-[200px]">
@@ -542,19 +546,19 @@ export function StudentDataTable() {
                                             })}
 
                                             {/* Actions */}
-                                            <td className={`px-5 py-4 text-right sticky right-0 bg-white dark:bg-zinc-950 group-hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 border-l border-zinc-100 transition-colors ${openActionRowId === student.id ? "z-30" : "z-10"}`}>
+                                            <td className={`px-5 py-4 text-right sticky right-0 bg-white dark:bg-zinc-950 group-hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 border-l border-zinc-100 transition-colors ${openActionRowKey === rowKey ? "z-30" : "z-10"}`}>
                                                 <div className="relative inline-block action-menu-container">
                                                     <button
-                                                        onClick={() => setOpenActionRowId(openActionRowId === student.id ? null : student.id)}
+                                                        onClick={() => setOpenActionRowKey(openActionRowKey === rowKey ? null : rowKey)}
                                                         className="h-8 w-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors"
                                                     >
                                                         <MoreHorizontal className="h-4 w-4" />
                                                     </button>
 
-                                                    {openActionRowId === student.id && (
+                                                    {openActionRowKey === rowKey && (
                                                         <div className="absolute right-0 top-9 w-52 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-zinc-100 py-1">
                                                             <div className="py-1">
-                                                                <ActionItem icon={<Eye />} label="View Profile" onClick={() => { setViewingStudentId(student.id); setOpenActionRowId(null); }} />
+                                                                <ActionItem icon={<Eye />} label="View Profile" onClick={() => { setViewingStudentId(student.id); setOpenActionRowKey(null); }} />
                                                             </div>
                                                             <div className="py-1">
                                                                 <ActionItem icon={<FileText />} label="Instant Challan" />
