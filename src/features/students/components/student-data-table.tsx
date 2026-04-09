@@ -2,6 +2,7 @@
 
 import { StudentProfileModal } from "./student-profile-modal";
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
     Search,
     Filter,
@@ -111,6 +112,7 @@ const campuses = [
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function StudentDataTable() {
+    const router = useRouter();
     const dispatch = useDispatch<AppDispatch>();
     const { items, meta, isLoading, error } = useSelector((state: RootState) => state.students);
 
@@ -559,7 +561,11 @@ export function StudentDataTable() {
                                                                 <ActionItem icon={<DollarSign />} label="Receive Payment" color="text-emerald-600" />
                                                             </div>
                                                             <div className="py-1">
-                                                                <ActionItem icon={<Edit />} label="Edit Details" />
+                                                                <ActionItem
+                                                                    icon={<Edit />}
+                                                                    label="Edit Details"
+                                                                    onClick={() => router.push(`/staff-editing/students?search=${student.cc_number}`)}
+                                                                />
                                                                 <ActionItem icon={<Calendar />} label="Edit Fee Schedule" />
                                                                 <ActionItem icon={<LinkIcon />} label="Edit Sibling Link" />
                                                             </div>

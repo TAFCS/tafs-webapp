@@ -268,7 +268,13 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                     >
                         Close
                     </button>
-                    <button className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-all shadow-sm">
+                    <button
+                        onClick={() => {
+                            router.push(`/staff-editing/students?search=${student.cc_number}`);
+                            onClose();
+                        }}
+                        className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-all shadow-sm"
+                    >
                         Edit Profile
                     </button>
                 </div>

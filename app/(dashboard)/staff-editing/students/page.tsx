@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
     Users,
     Loader2,
@@ -101,8 +102,9 @@ const RELIGION_OPTIONS = ["NULL", "MUSLIM", "CHRISTIAN", "HINDU", "OTHER"];
 const COUNTRY_OPTIONS = ["NULL", "PAKISTAN", "OTHER"];
 const PAKISTAN_PROVINCES = ["NULL", "SINDH", "BALOCHISTAN", "PUNJAB", "KPK", "GILGIT BALTISTAN", "OTHER"];
 
-export default function StudentsSpreadsheetPage() {
+function StudentsSpreadsheetContent() {
     const dispatch = useDispatch<AppDispatch>();
+    const searchParams = useSearchParams();
 
     // Redux selectors
     const { items: campuses } = useSelector((state: RootState) => state.campuses);
@@ -110,10 +112,10 @@ export default function StudentsSpreadsheetPage() {
     const { items: sections } = useSelector((state: RootState) => state.sections);
 
     // Filter states
-    const [selectedCampus, setSelectedCampus] = useState<string>("");
-    const [selectedClass, setSelectedClass] = useState<string>("");
+    const [selectedCampus, setSelectedCampus] = useState<string>(searchParams.get("campus_id") || "");
+    const [selectedClass, setSelectedClass] = useState<string>(searchParams.get("class_id") || "");
     const [selectedSection, setSelectedSection] = useState<string>("");
-    const [searchTerm, setSearchTerm] = useState("");
+    const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
     const [filterEmptyFields, setFilterEmptyFields] = useState(false);
 
     // Modal state
@@ -810,110 +812,6 @@ export default function StudentsSpreadsheetPage() {
                                                 </select>
                                             )}
                                         </td>
-                                        <td className="p-1 border-r border-zinc-100">
-                                            {student.country === "PAKISTAN" ? (
-                                                (!PAKISTAN_PROVINCES.includes(student.province || "NULL") && student.province !== null) ? (
-                                                    <input
-                                                        type="text"
-                                                        value={student.province || ""}
-                                                        onChange={(e) => handleCellEdit(student.cc, "province", e.target.value)}
-                                                        onBlur={(e) => {
-                                                            if (e.target.value === "") handleCellEdit(student.cc, "province", null);
-                                                        }}
-                                                        autoFocus
-                                                        className="w-full px-2 py-1.5 bg-white dark:bg-zinc-950 outline-none ring-1 ring-inset ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                    />
-                                                ) : (
-                                                    <select
-                                                        value={student.province === null ? "NULL" : (PAKISTAN_PROVINCES.includes(student.province) ? student.province : "OTHER")}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value;
-                                                            if (val === "OTHER") {
-                                                                handleCellEdit(student.cc, "province", " ");
-                                                            } else {
-                                                                handleCellEdit(student.cc, "province", val);
-                                                            }
-                                                        }}
-                                                        className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all appearance-none cursor-pointer truncate"
-                                                    >
-                                                        {PAKISTAN_PROVINCES.map(opt => (
-                                                            <option key={opt} value={opt}>{opt}</option>
-                                                        ))}
-                                                    </select>
-                                                )
-                                            ) : (
-                                                <input
-                                                    type="text"
-                                                    value={student.province || ""}
-                                                    onChange={(e) => handleCellEdit(student.cc, "province", e.target.value)}
-                                                    className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                    placeholder="Province of Birth"
-                                                />
-                                            )}
-                                        </td>
-                                        <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="text"
-                                                value={student.city || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "city", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                placeholder="City of Birth"
-                                            />
-                                        </td>
-                                        <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="text"
-                                                value={student.identification_marks || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "identification_marks", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                placeholder="ID Marks"
-                                            />
-                                        </td>
-                                        <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="text"
-                                                value={student.medical_info || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "medical_info", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                placeholder="Medical Info"
-                                            />
-                                        </td>
-                                        <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="text"
-                                                value={student.interests || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "interests", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                placeholder="Interests"
-                                            />
-                                        </td>
-                                        <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="number"
-                                                value={student.admission_age_years || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "admission_age_years", e.target.value ? parseInt(e.target.value) : null)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                placeholder="Age"
-                                            />
-                                        </td>
-                                        <td className="p-1 border-r border-zinc-100">
-                                            <input
-                                                type="text"
-                                                value={student.physical_impairment || ""}
-                                                onChange={(e) => handleCellEdit(student.cc, "physical_impairment", e.target.value)}
-                                                className="w-full px-2 py-1.5 bg-transparent focus:bg-white dark:bg-zinc-950 outline-none focus:ring-1 focus:ring-inset focus:ring-zinc-900 border-none rounded-md transition-all truncate"
-                                                placeholder="Impairments"
-                                            />
-                                        </td>
-                                        <td className="p-1 border-r border-zinc-100 text-center">
-                                            <button
-                                                onClick={() => openGuardianModal(student.cc, student.full_name)}
-                                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 rounded-lg text-[10px] font-bold transition-all border border-zinc-200 dark:border-zinc-800 shadow-sm whitespace-nowrap active:scale-95"
-                                            >
-                                                <Heart className="h-3 w-3 text-emerald-500 fill-emerald-500/10" />
-                                                Manage
-                                            </button>
-                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -939,7 +837,7 @@ export default function StudentsSpreadsheetPage() {
                             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
                             Live Sync Active
                         </span>
-                        <span className="h-4 w-px bg-zinc-200"></span>
+                        <span className="h-4 w-px bg-zinc-200" />
                         <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
                             {students.length} Records Loaded{hasMore ? " · scroll for more" : ""}
                         </span>
@@ -950,7 +848,6 @@ export default function StudentsSpreadsheetPage() {
                 </div>
             </div>
 
-            {/* Modal */}
             <GuardianModal
                 isOpen={isGuardianModalOpen}
                 onClose={() => setIsGuardianModalOpen(false)}
@@ -958,5 +855,18 @@ export default function StudentsSpreadsheetPage() {
                 studentName={selectedStudentForGuardians?.name || ""}
             />
         </div>
+    );
+}
+
+export default function StudentsSpreadsheetPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex-1 flex flex-col items-center justify-center space-y-4 h-full">
+                <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                <p className="text-zinc-500 font-bold">Initializing Spreadsheet...</p>
+            </div>
+        }>
+            <StudentsSpreadsheetContent />
+        </Suspense>
     );
 }

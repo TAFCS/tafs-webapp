@@ -35,6 +35,27 @@ const GRADE_NAME_TO_CODE: Record<string, string> = {
     'X': 'X'
 };
 
+const INITIAL_FORM_DATA = {
+    campusId: "",
+    candidateName: "", fatherName: "", motherName: "",
+    fatherCnic: "", motherCnic: "",
+    dobDay: "", dobMonth: "", dobYear: "",
+    nationalityPakistani: true, nationalityOther: "",
+    gender: "", religion: "", identificationMarks: "",
+    birthCountry: "", birthProvince: "", birthCity: "",
+    ageYears: "",
+    previousSchools: [{ id: 1, name: "", location: "", levelStudied: "", reasonForLeaving: "" }],
+    admissionSystem: "", admissionLevel: "",
+    houseNo: "", areaBlock: "", city: "", postalCode: "", province: "", country: "", homePhone: "",
+    fatherPrimaryPhoneCountryCode: "+92", motherPrimaryPhoneCountryCode: "+92", emergencyPrimaryPhoneCountryCode: "+92",
+    candidatePhone: "", candidateEmail: "", fatherPhone: "", fatherEmail: "", fatherFax: "",
+    motherPhone: "", motherEmail: "", motherFax: "",
+    isFatherWhatsapp: true, fatherWhatsapp: "",
+    isMotherWhatsapp: true, motherWhatsapp: "",
+    emergencyContactName: "", emergencyContactPhone: "", emergencyRelationship: "",
+    testDay: "", testDate: "", testTime: "", testLevel: ""
+};
+
 export function RegistrationForm() {
     const router = useRouter();
     const dispatch = useDispatch<AppDispatch>();
@@ -69,26 +90,7 @@ export function RegistrationForm() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [dispatch, classes.length, campuses.length, isClassesLoading, isCampusesLoading]);
 
-    const [formData, setFormData] = useState({
-        campusId: "",
-        candidateName: "", fatherName: "", motherName: "",
-        fatherCnic: "", motherCnic: "",
-        dobDay: "", dobMonth: "", dobYear: "",
-        nationalityPakistani: true, nationalityOther: "",
-        gender: "", religion: "", identificationMarks: "",
-        birthCountry: "", birthProvince: "", birthCity: "",
-        ageYears: "",
-        previousSchools: [{ id: 1, name: "", location: "", levelStudied: "", reasonForLeaving: "" }],
-        admissionSystem: "", admissionLevel: "",
-        houseNo: "", areaBlock: "", city: "", postalCode: "", province: "", country: "", homePhone: "",
-        fatherPrimaryPhoneCountryCode: "+92", motherPrimaryPhoneCountryCode: "+92", emergencyPrimaryPhoneCountryCode: "+92",
-        candidatePhone: "", candidateEmail: "", fatherPhone: "", fatherEmail: "", fatherFax: "",
-        motherPhone: "", motherEmail: "", motherFax: "",
-        isFatherWhatsapp: true, fatherWhatsapp: "",
-        isMotherWhatsapp: true, motherWhatsapp: "",
-        emergencyContactName: "", emergencyContactPhone: "", emergencyRelationship: "",
-        testDay: "", testDate: "", testTime: "", testLevel: ""
-    });
+    const [formData, setFormData] = useState(INITIAL_FORM_DATA);
 
 
 
@@ -188,6 +190,15 @@ export function RegistrationForm() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitSuccess, setSubmitSuccess] = useState<StudentListItem | null>(null);
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+    const handleReset = () => {
+        setFormData(INITIAL_FORM_DATA);
+        setCurrentStep(1);
+        setSubmitSuccess(null);
+        setSubmitError(null);
+        setIsProfileModalOpen(false);
+    };
 
     const isStep1Valid = () => {
         const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
@@ -360,6 +371,7 @@ export function RegistrationForm() {
             };
 
             setSubmitSuccess(mappedStudent);
+            setIsProfileModalOpen(true);
         } catch (err: unknown) {
             const axiosErr = err as { response?: { data?: { message?: string | string[]; statusCode?: number } } };
             const raw = axiosErr?.response?.data?.message;
@@ -894,20 +906,28 @@ export function RegistrationForm() {
                             <p className="font-semibold">Registration submitted successfully!</p>
                             <p className="text-emerald-700 mt-0.5">GR assigned: <span className="font-mono font-bold text-base">{submitSuccess.gr_number || submitSuccess.cc_number}</span>. The student record is now <span className="font-medium">PENDING</span> review.</p>
                         </div>
-                        <button
-                            onClick={() => {
-                                const matchedClass = classes.find(c =>
-                                    c.class_code === formData.admissionLevel ||
-                                    c.description === formData.admissionLevel
-                                );
-                                const classId = matchedClass?.id || "";
-                                router.push(`/studentwise-fees?ccNumber=${submitSuccess.cc_number}&classId=${classId}`);
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-all shadow-md active:scale-95 whitespace-nowrap self-center"
-                        >
-                            <CreditCard className="h-4 w-4" />
-                            Setup Fee Schedule
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleReset}
+                                className="flex items-center gap-2 px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-lg text-sm font-bold hover:bg-emerald-50 transition-all shadow-sm active:scale-95 whitespace-nowrap self-center"
+                            >
+                                Register Another
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const matchedClass = classes.find(c =>
+                                        c.class_code === formData.admissionLevel ||
+                                        c.description === formData.admissionLevel
+                                    );
+                                    const classId = matchedClass?.id || "";
+                                    router.push(`/studentwise-fees?ccNumber=${submitSuccess.cc_number}&classId=${classId}`);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-all shadow-md active:scale-95 whitespace-nowrap self-center"
+                            >
+                                <CreditCard className="h-4 w-4" />
+                                Setup Fee Schedule
+                            </button>
+                        </div>
                     </div>
                 )}
                 {submitError && (
@@ -957,10 +977,10 @@ export function RegistrationForm() {
 
             {/* View Profile Modal - triggered directly on complete */}
             {
-                submitSuccess && (
+                submitSuccess && isProfileModalOpen && (
                     <StudentProfileModal
                         studentId={submitSuccess.id}
-                        onClose={() => setSubmitSuccess(null)}
+                        onClose={() => setIsProfileModalOpen(false)}
                     />
                 )
             }
