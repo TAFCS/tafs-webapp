@@ -610,7 +610,7 @@ export default function FeeChallanGenerator() {
             allFeeIds.forEach(id => formData.append('orderedFeeIds', id.toString()));
 
             // Build fee_lines: arrear lines use their outstanding balance, current use their discount calc
-            const arrearLines = (freshArrears?.rows ?? []).map(r => ({
+            const arrearLines = (freshArrears?.rows ?? []).map((r: any) => ({
                 student_fee_id: r.student_fee_id,
                 discount_amount: 0,
                 discount_label: undefined,
@@ -628,7 +628,7 @@ export default function FeeChallanGenerator() {
             setVoucherSaved(true);
 
             // Build arrear PDF items (isArrear: true)
-            const arrearPdfFees = (freshArrears?.rows ?? []).map(r => ({
+            const arrearPdfFees = (freshArrears?.rows ?? []).map((r: any) => ({
                 description: `${r.fee_type} (ARREAR – ${r.fee_date})`,
                 amount: Number(r.outstanding),
                 netAmount: Number(r.outstanding),
@@ -666,7 +666,7 @@ export default function FeeChallanGenerator() {
                     fees={allPdfFees}
                     totalAmount={allPdfTotal}
                     showDiscount={showDiscount}
-                    arrearsHistory={(freshArrears?.rows ?? []).map(r => ({
+                    arrearsHistory={(freshArrears?.rows ?? []).map((r: any) => ({
                         date: r.fee_date,
                         head: r.fee_type,
                         amount: Number(r.outstanding).toLocaleString(),
@@ -679,6 +679,7 @@ export default function FeeChallanGenerator() {
                         className: s.classes?.description || s.grade_and_section?.split('-')[0] || "N/A",
                         sectionName: s.sections?.description || s.grade_and_section?.split('-')[1] || "N/A"
                     }))}
+                    qrUrl={typeof window !== 'undefined' ? `${window.location.origin}/vouchers/${voucherId}` : undefined}
                 />
             ).toBlob();
 
@@ -748,7 +749,7 @@ export default function FeeChallanGenerator() {
             formData.append('precedence', '1');
             allFeeIds.forEach(id => formData.append('orderedFeeIds', id.toString()));
 
-            const arrearLines = (freshArrears?.rows ?? []).map(r => ({
+            const arrearLines = (freshArrears?.rows ?? []).map((r: any) => ({
                 student_fee_id: r.student_fee_id,
                 discount_amount: 0,
                 discount_label: undefined,
@@ -765,7 +766,7 @@ export default function FeeChallanGenerator() {
             setSavedGroupVoucherIds(prev => ({ ...prev, [group.fee_date]: voucherId }));
 
             // Build arrear PDF items
-            const arrearPdfFees = (freshArrears?.rows ?? []).map(r => ({
+            const arrearPdfFees = (freshArrears?.rows ?? []).map((r: any) => ({
                 description: `${r.fee_type} (ARREAR – ${r.fee_date})`,
                 amount: Number(r.outstanding),
                 netAmount: Number(r.outstanding),
@@ -803,7 +804,7 @@ export default function FeeChallanGenerator() {
                     fees={allPdfFees}
                     totalAmount={allPdfTotal}
                     showDiscount={showDiscount}
-                    arrearsHistory={(freshArrears?.rows ?? []).map(r => ({
+                    arrearsHistory={(freshArrears?.rows ?? []).map((r: any) => ({
                         date: r.fee_date,
                         head: r.fee_type,
                         amount: Number(r.outstanding).toLocaleString(),
@@ -816,6 +817,7 @@ export default function FeeChallanGenerator() {
                         className: s.classes?.description || s.grade_and_section?.split('-')[0] || "N/A",
                         sectionName: s.sections?.description || s.grade_and_section?.split('-')[1] || "N/A"
                     }))}
+                    qrUrl={typeof window !== 'undefined' ? `${window.location.origin}/vouchers/${voucherId}` : undefined}
                 />
             ).toBlob();
 
@@ -1391,6 +1393,7 @@ export default function FeeChallanGenerator() {
                                                                     className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
                                                                     sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
                                                                 }))}
+                                                                qrUrl={savedVoucherId ? `${window.location.origin}/vouchers/${savedVoucherId}` : undefined}
                                                             />
                                                         }
                                                         fileName={`Vouchers_${student?.cc}.pdf`}
@@ -1463,6 +1466,7 @@ export default function FeeChallanGenerator() {
                                                                                         className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
                                                                                         sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
                                                                                     }))}
+                                                                                    qrUrl={savedGroupVoucherIds[g.fee_date] ? `${window.location.origin}/vouchers/${savedGroupVoucherIds[g.fee_date]}` : undefined}
                                                                                 />
                                                                             }
                                                                             fileName={`Challan_${student?.cc}_${g.fee_date}.pdf`}
@@ -1561,6 +1565,7 @@ export default function FeeChallanGenerator() {
                                                                     className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
                                                                     sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
                                                                 }))}
+                                                                qrUrl={savedVoucherId ? `${window.location.origin}/vouchers/${savedVoucherId}` : undefined}
                                                             />
                                                         }
                                                         fileName={`Challan_${student?.cc}.pdf`}

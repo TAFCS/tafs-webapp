@@ -237,6 +237,7 @@ async function buildVoucherPdfBlob(
             }}
             fees={pdfFees}
             totalAmount={totalFeesAmount}
+            qrUrl={typeof window !== 'undefined' ? `${window.location.origin}/vouchers/${voucher.id}` : undefined}
         />
     );
 
