@@ -236,80 +236,79 @@ export function groupFees(
             });
 
             tuitionGroups.forEach((group, feeTypeId) => {
-                if (group.length > 1) {
-                    let groupGross = 0;
-                    let groupNet = 0;
-                    let groupDiscount = 0;
-                    let labels: string[] = [];
-                    
-                    // Helper to get raw month and year for sequencing
-                    const getSequenceValue = (item: any) => {
-                        const data = getFeeData(item);
-                        const m = data.target_month || data.month || 0;
-                        const academicYear = data.academic_year || "";
-                        const startYear = parseInt(academicYear.split('-')[0]) || 0;
-                        const relativeMonth = m >= 8 ? m - 8 : m + 4; // Aug=0, Sep=1... Jul=11
-                        return startYear * 12 + relativeMonth;
-                    };
+                // Helper to get raw month and year for sequencing
+                const getSequenceValue = (item: any) => {
+                    const data = getFeeData(item);
+                    const m = data.target_month || data.month || 0;
+                    const academicYear = data.academic_year || "";
+                    const startYear = parseInt(academicYear.split('-')[0]) || 0;
+                    const relativeMonth = m >= 8 ? m - 8 : m + 4; // Aug=0, Sep=1... Jul=11
+                    return startYear * 12 + relativeMonth;
+                };
 
-                    group.sort((a, b) => getSequenceValue(a) - getSequenceValue(b));
+                group.sort((a, b) => getSequenceValue(a) - getSequenceValue(b));
 
-                    // Identify consecutive ranges
-                    const ranges: any[][] = [];
-                    let currentRange: any[] = [];
-                    
-                    group.forEach((item, index) => {
-                        if (index === 0) {
+                // Identify consecutive ranges
+                const ranges: any[][] = [];
+                let currentRange: any[] = [];
+                
+                group.forEach((item, index) => {
+                    if (index === 0) {
+                        currentRange.push(item);
+                    } else {
+                        const prevVal = getSequenceValue(group[index - 1]);
+                        const currVal = getSequenceValue(item);
+                        
+                        if (currVal === prevVal + 1) {
                             currentRange.push(item);
                         } else {
-                            const prevVal = getSequenceValue(group[index - 1]);
-                            const currVal = getSequenceValue(item);
-                            
-                            if (currVal === prevVal + 1) {
-                                currentRange.push(item);
-                            } else {
-                                ranges.push(currentRange);
-                                currentRange = [item];
-                            }
+                            ranges.push(currentRange);
+                            currentRange = [item];
                         }
-                    });
-                    ranges.push(currentRange);
+                    }
+                });
+                ranges.push(currentRange);
 
-                    // Build range labels
-                    const rangeLabels = ranges.map(r => {
-                        const first = getFeeData(r[0]);
-                        const last = getFeeData(r[r.length - 1]);
-                        const firstLabel = getMonthYearLabel(first.target_month || first.month || 0, first.academic_year || "");
-                        
-                        if (r.length === 1) return firstLabel;
-                        
-                        const lastLabel = getMonthYearLabel(last.target_month || last.month || 0, last.academic_year || "");
-                        return `${firstLabel} - ${lastLabel}`;
-                    });
+                // Process each range as a separate result row
+                ranges.forEach(range => {
+                    let rangeGross = 0;
+                    let rangeNet = 0;
+                    let rangeDiscount = 0;
+                    let rangeLabels: string[] = [];
 
-                    group.forEach(f => {
+                    range.forEach(f => {
                         const data = getFeeData(f);
-                        groupGross += getGrossAmount(f);
-                        groupNet += getNetAmount(f);
-                        groupDiscount += getDiscount(f);
-                        if (data.discount_label) labels.push(data.discount_label);
+                        rangeGross += getGrossAmount(f);
+                        rangeNet += getNetAmount(f);
+                        rangeDiscount += getDiscount(f);
+                        if (data.discount_label) rangeLabels.push(data.discount_label);
                         if (!options.isVoucherHeads && Number(f.amount_before_discount) > Number(f.amount || f.amount_before_discount)) {
-                            labels.push("Profile Disc");
+                            rangeLabels.push("Profile Disc");
                         }
                         alreadyHandledIds.add(f.id);
                     });
 
+                    const first = getFeeData(range[0]);
+                    const last = getFeeData(range[range.length - 1]);
+                    const firstLabel = getMonthYearLabel(first.target_month || first.month || 0, first.academic_year || "").toUpperCase();
+                    
+                    let rangeMonthStr = firstLabel;
+                    if (range.length > 1) {
+                        const lastLabel = getMonthYearLabel(last.target_month || last.month || 0, last.academic_year || "").toUpperCase();
+                        rangeMonthStr = `${firstLabel} - ${lastLabel}`;
+                    }
+
                     results.push({
-                        description: `${(getFeeData(group[0]).fee_types?.description || "").toUpperCase()} (${rangeLabels.join(", ").toUpperCase()})`,
-                        amount: groupGross,
-                        netAmount: groupNet,
-                        discount: groupDiscount,
-                        discountLabel: [...new Set(labels.filter(Boolean))].join(", "),
-                        priority: Math.min(...group.map(f => getFeeData(f).fee_types?.priority_order ?? 999)),
-                        feeIds: group.map(f => f.id),
+                        description: `${(getFeeData(range[0]).fee_types?.description || "").toUpperCase()} (${rangeMonthStr})`,
+                        amount: rangeGross,
+                        netAmount: rangeNet,
+                        discount: rangeDiscount,
+                        discountLabel: [...new Set(rangeLabels.filter(Boolean))].join(", "),
+                        priority: Math.min(...range.map(f => getFeeData(f).fee_types?.priority_order ?? 999)),
+                        feeIds: range.map(f => f.id),
                         isGrouped: true,
                     });
-                }
+                });
             });
 
         }

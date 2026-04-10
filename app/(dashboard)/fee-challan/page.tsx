@@ -405,40 +405,73 @@ export default function FeeChallanGenerator() {
                 };
             });
 
-            // Merge tuition rows that share the same fee type / base description
-            const tuitionMergeMap: Record<string, { row: typeof detailedRows[0]; months: number[] }> = {};
+            // Merge tuition rows that share the same fee type / base description ONLY if they are consecutive
+            const tuitionGroups: Record<string, typeof detailedRows> = {};
             const nonTuitionRows: typeof detailedRows = [];
 
             detailedRows.forEach(row => {
                 if (row._isTuition && row._mergeKey && row._monthNum !== null) {
-                    if (!tuitionMergeMap[row._mergeKey]) {
-                        tuitionMergeMap[row._mergeKey] = { row: { ...row }, months: [row._monthNum] };
-                    } else {
-                        tuitionMergeMap[row._mergeKey].row.amount += row.amount;
-                        tuitionMergeMap[row._mergeKey].row.netAmount += row.netAmount;
-                        tuitionMergeMap[row._mergeKey].row.discount += row.discount;
-                        tuitionMergeMap[row._mergeKey].months.push(row._monthNum);
-                    }
+                    if (!tuitionGroups[row._mergeKey]) tuitionGroups[row._mergeKey] = [];
+                    tuitionGroups[row._mergeKey].push(row);
                 } else {
                     nonTuitionRows.push(row);
                 }
             });
 
-            const mergedTuitionRows = Object.values(tuitionMergeMap).map(({ row, months }) => {
-                const sortedMonths = [...new Set(months)].sort((a, b) => a - b);
-                let desc: string;
-                if (sortedMonths.length === 1) {
-                    desc = `${row._baseDesc} (${getMonthYearLabel(sortedMonths[0], academicYear).toUpperCase()})`;
-                } else {
-                    const startLabel = getMonthYearLabel(sortedMonths[0], academicYear).toUpperCase();
-                    const endLabel = getMonthYearLabel(sortedMonths[sortedMonths.length - 1], academicYear).toUpperCase();
-                    desc = `${row._baseDesc} (${startLabel} - ${endLabel})`;
-                }
-                const { _baseDesc, _isTuition, _monthNum, _mergeKey, ...rest } = row;
-                return { ...rest, description: desc };
+            const mergedTuitionRows: any[] = [];
+            Object.values(tuitionGroups).forEach(group => {
+                // Helper to get raw month and year for sequencing (Aug=0... Jul=11)
+                const getSeq = (m: number) => {
+                    const startYear = parseInt(academicYear.split('-')[0]) || 0;
+                    return startYear * 12 + (m >= 8 ? m - 8 : m + 4);
+                };
+
+                group.sort((a, b) => getSeq(a._monthNum!) - getSeq(b._monthNum!));
+
+                // Identify consecutive ranges
+                const ranges: any[][] = [];
+                let currentRange: any[] = [];
+                group.forEach((row, idx) => {
+                    if (idx === 0) {
+                        currentRange.push(row);
+                    } else {
+                        const prevSeq = getSeq(group[idx - 1]._monthNum!);
+                        const currSeq = getSeq(row._monthNum!);
+                        if (currSeq === prevSeq + 1) {
+                            currentRange.push(row);
+                        } else {
+                            ranges.push(currentRange);
+                            currentRange = [row];
+                        }
+                    }
+                });
+                ranges.push(currentRange);
+
+                // Build result rows for each range
+                ranges.forEach(range => {
+                    const firstMonth = range[0]._monthNum!;
+                    const lastMonth = range[range.length - 1]._monthNum!;
+                    
+                    let descSuffix = `(${getMonthYearLabel(firstMonth, academicYear).toUpperCase()})`;
+                    if (range.length > 1) {
+                        const startLabel = getMonthYearLabel(firstMonth, academicYear).toUpperCase();
+                        const endLabel = getMonthYearLabel(lastMonth, academicYear).toUpperCase();
+                        descSuffix = `(${startLabel} - ${endLabel})`;
+                    }
+
+                    const mergedRow = {
+                        ...range[0],
+                        amount: range.reduce((s, r) => s + r.amount, 0),
+                        netAmount: range.reduce((s, r) => s + r.netAmount, 0),
+                        discount: range.reduce((s, r) => s + r.discount, 0),
+                        description: `${range[0]._baseDesc} ${descSuffix}`,
+                    };
+                    const { _baseDesc, _isTuition, _monthNum, _mergeKey, ...rest } = mergedRow;
+                    mergedTuitionRows.push(rest);
+                });
             });
 
-            baseFees = [...nonTuitionRows, ...mergedTuitionRows].map(({ _baseDesc, _isTuition, _monthNum, _mergeKey, ...rest }: any) => rest);
+            baseFees = [...nonTuitionRows.map(({ _baseDesc, _isTuition, _monthNum, _mergeKey, ...rest }: any) => rest), ...mergedTuitionRows];
         } else {
             const grouped = rawFees.reduce((acc: Record<number, any>, f) => {
                 const headId = f.fee_type_id || 0;
@@ -524,6 +557,8 @@ export default function FeeChallanGenerator() {
             discountLabel: r.amount_paid !== "0.00" ? `Paid: ${r.amount_paid}` : undefined,
             isArrear: true,
             feeDate: r.fee_date,
+            target_month: r.target_month,
+            academic_year: r.academic_year,
         }));
     }, [arrearsData]);
 
@@ -673,6 +708,8 @@ export default function FeeChallanGenerator() {
                         head: r.fee_type,
                         amount: Number(r.outstanding).toLocaleString(),
                         totalAmount: (freshArrears?.total_arrears ?? 0).toLocaleString(),
+                        target_month: r.target_month,
+                        academic_year: r.academic_year,
                     }))}
                     siblings={siblings.map(s => ({
                         full_name: s.student_full_name || s.full_name,
@@ -812,6 +849,8 @@ export default function FeeChallanGenerator() {
                         head: r.fee_type,
                         amount: Number(r.outstanding).toLocaleString(),
                         totalAmount: (freshArrears?.total_arrears ?? 0).toLocaleString(),
+                        target_month: r.target_month,
+                        academic_year: r.academic_year,
                     }))}
                     siblings={siblings.map(s => ({
                         full_name: s.student_full_name || s.full_name,
@@ -1292,62 +1331,7 @@ export default function FeeChallanGenerator() {
                             </div>
 
                             <div className="flex-1 p-10 overflow-y-auto bg-zinc-50/20 dark:bg-zinc-900/5">
-                                {/* Arrears Card — shared location for both view types */}
-                                {!voucherSaved && (
-                                    <div className="max-w-4xl mx-auto w-full">
-                                        {isFetchingArrears ? (
-                                            <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-2xl mb-8 animate-pulse">
-                                                <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
-                                                <span className="text-[11px] font-bold text-amber-600 uppercase tracking-[0.2em]">Detecting academic arrears...</span>
-                                            </div>
-                                        ) : arrearsData && arrearsData.total_arrears > 0 ? (
-                                            <div className="p-8 bg-amber-50 dark:bg-amber-900/10 border-2 border-amber-100 dark:border-amber-900/20 rounded-[32px] mb-8 space-y-6 shadow-sm animate-in zoom-in-95 duration-500">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="h-10 w-10 bg-amber-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
-                                                            <AlertCircle className="h-5 w-5" />
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-[11px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-[0.2em] block">Arrears Detected</span>
-                                                            <p className="text-[10px] font-bold text-amber-600/60 uppercase tracking-widest mt-0.5">Fees outstanding from previous months</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <span className="text-[10px] font-black text-amber-600/40 uppercase tracking-widest block mb-1">Total Outstanding</span>
-                                                        <span className="text-2xl font-black text-amber-800 dark:text-amber-300 tracking-tight">PKR {arrearsData.total_arrears.toLocaleString()}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                    {arrearsData.rows.map((r, i) => (
-                                                        <div key={i} className="flex items-center justify-between p-4 bg-white/60 dark:bg-zinc-900/40 border border-amber-100/50 dark:border-amber-900/20 rounded-2xl shadow-sm">
-                                                            <div>
-                                                                <span className="text-[11px] font-black text-zinc-900 dark:text-zinc-100 block">{r.fee_type}</span>
-                                                                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">{r.fee_date}</span>
-                                                            </div>
-                                                            <span className="text-[12px] font-black text-amber-700 dark:text-amber-400">PKR {Number(r.outstanding).toLocaleString()}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <div className="flex items-center gap-3 pt-2">
-                                                    <Info className="h-4 w-4 text-amber-400" />
-                                                    <p className="text-[10px] font-bold text-amber-700/60 uppercase tracking-widest leading-relaxed">
-                                                        These arrears will be automatically included in the voucher generated below.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ) : arrearsData && arrearsData.total_arrears === 0 ? (
-                                            <div className="flex items-center justify-between p-6 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/20 rounded-2xl mb-8">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-8 w-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white">
-                                                        <CheckCircle2 className="h-4 w-4" />
-                                                    </div>
-                                                    <span className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">No Arrears — Account Clear</span>
-                                                </div>
-                                                <span className="text-[9px] font-bold text-emerald-600/40 uppercase tracking-widest">Verified {new Date().toLocaleTimeString()}</span>
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                )}
+
 
                                 {isFetchingFees ? (
                                     <div className="py-20 flex flex-col items-center gap-4">
@@ -1389,7 +1373,9 @@ export default function FeeChallanGenerator() {
                                                                     date: r.feeDate,
                                                                     head: r.description.split(" (")[0],
                                                                     amount: r.amount.toLocaleString(),
-                                                                    totalAmount: r.netAmount.toLocaleString()
+                                                                    totalAmount: r.netAmount.toLocaleString(),
+                                                                    target_month: (r as any).target_month,
+                                                                    academic_year: (r as any).academic_year,
                                                                 }))}
                                                                 siblings={siblings.map(s => ({
                                                                     full_name: s.student_full_name || s.full_name,
@@ -1462,7 +1448,9 @@ export default function FeeChallanGenerator() {
                                                                                         date: r.feeDate,
                                                                                         head: r.description.split(' (')[0],
                                                                                         amount: r.amount.toLocaleString(),
-                                                                                        totalAmount: r.netAmount.toLocaleString()
+                                                                                        totalAmount: r.netAmount.toLocaleString(),
+                                                                                        target_month: (r as any).target_month,
+                                                                                        academic_year: (r as any).academic_year,
                                                                                     }))}
                                                                                     siblings={siblings.map(s => ({
                                                                                         full_name: s.student_full_name || s.full_name,
@@ -1561,7 +1549,9 @@ export default function FeeChallanGenerator() {
                                                                     date: r.feeDate,
                                                                     head: r.description.split(" (")[0],
                                                                     amount: r.amount.toLocaleString(),
-                                                                    totalAmount: r.netAmount.toLocaleString()
+                                                                    totalAmount: r.netAmount.toLocaleString(),
+                                                                    target_month: (r as any).target_month,
+                                                                    academic_year: (r as any).academic_year,
                                                                 }))}
                                                                 siblings={siblings.map(s => ({
                                                                     full_name: s.student_full_name || s.full_name,
