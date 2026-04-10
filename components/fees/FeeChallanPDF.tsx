@@ -802,7 +802,7 @@ export const FeeChallanPDF = ({
                             });
                             let runningTotal = 0;
                             return groups.map((g, gi) => {
-                                const subtotal = g.items.reduce((s: number, a: any) => s + (parseFloat(a.amount) || 0), 0);
+                                const subtotal = g.items.reduce((s: number, a: any) => s + (parseFloat(String(a.amount).replace(/,/g, '')) || 0), 0);
                                 runningTotal += subtotal;
                                 return (
                                     <React.Fragment key={gi}>
