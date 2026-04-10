@@ -44,8 +44,8 @@ const INITIAL_FORM_DATA = {
     gender: "", religion: "", identificationMarks: "",
     birthCountry: "", birthProvince: "", birthCity: "",
     ageYears: "",
-    previousSchools: [{ id: 1, name: "", location: "", levelStudied: "", reasonForLeaving: "" }],
-    admissionSystem: "", admissionLevel: "",
+    previousSchools: [{ id: 1, name: "", location: "", classStudiedFrom: "", classStudiedTo: "", reasonForLeaving: "" }],
+    admissionSystem: "", admissionLevel: "", discipline: "",
     houseNo: "", areaBlock: "", city: "", postalCode: "", province: "", country: "", 
     homePhoneCountryCode: "+92", homePhone: "", isHomePhoneNA: false,
     fatherPrimaryPhoneCountryCode: "+92", motherPrimaryPhoneCountryCode: "+92", emergencyPrimaryPhoneCountryCode: "+92",
@@ -53,12 +53,14 @@ const INITIAL_FORM_DATA = {
     candidateEmail: "", isCandidateEmailNA: false, 
     fatherPhone: "", isFatherPhoneNA: false, 
     fatherEmail: "", isFatherEmailNA: false, 
-    fatherFax: "", motherPhone: "", isMotherPhoneNA: false,
+    fatherFax: "", isFatherFaxNA: false,
+    motherPhone: "", isMotherPhoneNA: false,
     motherEmail: "", isMotherEmailNA: false,
-    motherFax: "",
+    motherFax: "", isMotherFaxNA: false,
     isFatherWhatsapp: true, fatherWhatsapp: "",
     isMotherWhatsapp: true, motherWhatsapp: "",
-    emergencyContactName: "", emergencyContactPhone: "", emergencyRelationship: "",
+    emergencyContactName: "", isEmergencyContactNameNA: false,
+    emergencyContactPhone: "", emergencyRelationship: "",
     testDay: "", testDate: "", testTime: "", testLevel: ""
 };
 
@@ -68,11 +70,7 @@ export function RegistrationForm() {
     const { items: classes, isLoading: isClassesLoading } = useSelector((state: RootState) => state.classes);
     const { items: campuses, isLoading: isCampusesLoading } = useSelector((state: RootState) => state.campuses);
     const [currentStep, setCurrentStep] = useState(1);
-    const [academicYear, setAcademicYear] = useState(() => {
-        const d = new Date();
-        const year = d.getFullYear();
-        return `${year}-${year + 1}`;
-    });
+    const [academicYear, setAcademicYear] = useState("2025-2026");
     const [showYearDropdown, setShowYearDropdown] = useState(false);
     const [baseYear, setBaseYear] = useState(new Date().getFullYear());
     const yearDropdownRef = useRef<HTMLDivElement>(null);
@@ -216,7 +214,7 @@ export function RegistrationForm() {
     const addPreviousSchool = () => {
         setFormData(prev => ({
             ...prev,
-            previousSchools: [...prev.previousSchools, { id: Date.now(), name: "", location: "", levelStudied: "", reasonForLeaving: "" }]
+            previousSchools: [...prev.previousSchools, { id: Date.now(), name: "", location: "", classStudiedFrom: "", classStudiedTo: "", reasonForLeaving: "" }]
         }));
     };
 
@@ -262,7 +260,9 @@ export function RegistrationForm() {
             formData.fatherName.trim() &&
             isFatherCnicValid &&
             isMotherCnicValid &&
-            formData.dobDay && formData.dobMonth && formData.dobYear
+            formData.dobDay && formData.dobMonth && formData.dobYear &&
+            formData.admissionSystem &&
+            formData.admissionLevel
         );
     };
 
@@ -364,6 +364,7 @@ export function RegistrationForm() {
                 academic_system: academicSystem,
                 requested_grade: GRADE_NAME_TO_CODE[formData.admissionLevel] || formData.admissionLevel || 'N/A',
                 academic_year: academicYear,
+                discipline: formData.discipline || undefined,
                 campus_id: formData.campusId ? parseInt(formData.campusId) : undefined,
             },
             previous_schools: formData.previousSchools
@@ -371,7 +372,8 @@ export function RegistrationForm() {
                 .map(s => ({
                     school_name: s.name,
                     location: s.location || undefined,
-                    class_studied_from: s.levelStudied || undefined,
+                    class_studied_from: s.classStudiedFrom || undefined,
+                    class_studied_to: s.classStudiedTo || undefined,
                     reason_for_leaving: s.reasonForLeaving || undefined,
                 })),
         };
@@ -555,7 +557,7 @@ export function RegistrationForm() {
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Gender</label>
-                                            <select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-950">
+                                            <select name="gender" value={formData.gender || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-950">
                                                 <option value="">Select...</option>
                                                 <option value="Male">Male</option>
                                                 <option value="Female">Female</option>
@@ -563,7 +565,7 @@ export function RegistrationForm() {
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Religion</label>
-                                            <select name="religion" value={formData.religion} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-950">
+                                            <select name="religion" value={formData.religion || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-950">
                                                 <option value="">Select...</option>
                                                 <option value="Muslim">Muslim</option><option value="Christian">Christian</option><option value="Hindu">Hindu</option><option value="Others">Others</option>
                                             </select>
@@ -573,21 +575,21 @@ export function RegistrationForm() {
                                     <div className="md:col-span-2 grid grid-cols-3 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Place of Birth: Country</label>
-                                            <input type="text" name="birthCountry" value={formData.birthCountry} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
+                                            <input type="text" name="birthCountry" value={formData.birthCountry || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Province</label>
-                                            <input type="text" name="birthProvince" value={formData.birthProvince} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
+                                            <input type="text" name="birthProvince" value={formData.birthProvince || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">City</label>
-                                            <input type="text" name="birthCity" value={formData.birthCity} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
+                                            <input type="text" name="birthCity" value={formData.birthCity || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
                                         </div>
                                     </div>
 
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Identification Mark(s)</label>
-                                        <input type="text" name="identificationMarks" value={formData.identificationMarks} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
+                                        <input type="text" name="identificationMarks" value={formData.identificationMarks || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg" />
                                     </div>
                                 </div>
                             </section>
@@ -605,20 +607,26 @@ export function RegistrationForm() {
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div>
                                                     <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Name of School</label>
-                                                    <input type="text" value={school.name} onChange={(e) => handleSchoolChange(school.id, 'name', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md" />
+                                                    <input type="text" value={school.name || ""} onChange={(e) => handleSchoolChange(school.id, 'name', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md" />
                                                 </div>
                                                 <div>
                                                     <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Location</label>
-                                                    <input type="text" value={school.location} onChange={(e) => handleSchoolChange(school.id, 'location', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md" />
+                                                    <input type="text" value={school.location || ""} onChange={(e) => handleSchoolChange(school.id, 'location', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md" />
                                                 </div>
-                                                <div>
-                                                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Class/Level Studied</label>
-                                                    <input type="text" placeholder="From - Upto" value={school.levelStudied} onChange={(e) => handleSchoolChange(school.id, 'levelStudied', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md" />
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">From Class</label>
+                                                        <input type="text" placeholder="e.g. Nursery" value={school.classStudiedFrom || ""} onChange={(e) => handleSchoolChange(school.id, 'classStudiedFrom', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">To Class</label>
+                                                        <input type="text" placeholder="e.g. Prep" value={school.classStudiedTo || ""} onChange={(e) => handleSchoolChange(school.id, 'classStudiedTo', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md" />
+                                                    </div>
                                                 </div>
                                                 <div className="flex gap-2 items-end">
                                                     <div className="flex-1">
                                                         <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Reason for Leaving</label>
-                                                        <input type="text" value={school.reasonForLeaving} onChange={(e) => handleSchoolChange(school.id, 'reasonForLeaving', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md" />
+                                                        <input type="text" value={school.reasonForLeaving || ""} onChange={(e) => handleSchoolChange(school.id, 'reasonForLeaving', e.target.value)} className="w-full px-3 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-md" />
                                                     </div>
                                                     <button type="button" onClick={() => removePreviousSchool(school.id)} disabled={formData.previousSchools.length === 1} className="py-1.5 px-3 text-sm border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 transition-colors">Del</button>
                                                 </div>
@@ -686,18 +694,18 @@ export function RegistrationForm() {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
                                     {/* O-Level Block */}
                                     <div className={`border-2 rounded-xl p-5 ${formData.admissionSystem === "cambridge" ? 'border-primary/50 bg-primary/5' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950'}`}>
-                                        <div className="flex items-center mb-4 cursor-pointer">
-                                            <input type="radio" name="admissionSystem" value="cambridge" id="sys-cambridge-reg" checked={formData.admissionSystem === "cambridge"} onChange={handleInputChange} className="h-4 w-4 text-primary focus:ring-primary border-zinc-300 dark:border-zinc-700" />
+                                        <div className="flex items-center mb-4">
+                                            <input type="radio" name="admissionSystem" value="cambridge" id="sys-cambridge-reg" checked={formData.admissionSystem === "cambridge"} onChange={handleInputChange} className="h-4 w-4 text-primary focus:ring-primary border-zinc-300 dark:border-zinc-700 cursor-pointer" />
                                             <label htmlFor="sys-cambridge-reg" className="ml-2 block font-semibold text-primary cursor-pointer">Cambridge GCE O&apos; Level System</label>
                                         </div>
                                         <div className={`grid grid-cols-2 gap-y-2 gap-x-4 pl-6 ${formData.admissionSystem !== 'cambridge' ? 'opacity-50 pointer-events-none' : ''}`}>
                                             {['Pre-Nursery', 'Nursery', 'K.G.', 'JR-I', 'JR-II', 'JR-III', 'JR-IV', 'JR-V', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III'].map(cls => (
-                                                <div key={cls} className="flex items-center">
-                                                    <input type="radio" name="admissionLevel" value={cls} checked={formData.admissionLevel === cls && formData.admissionSystem === "cambridge"} onChange={handleInputChange} className="h-3.5 w-3.5 text-primary focus:ring-primary border-zinc-300 dark:border-zinc-700" />
-                                                    <label className="ml-2 text-sm text-zinc-700 dark:text-zinc-300">{cls}</label>
+                                                <div key={cls} className="flex items-center gap-2">
+                                                    <input type="radio" name="admissionLevel" value={cls} id={`cls-cam-${cls}`} checked={formData.admissionLevel === cls && formData.admissionSystem === "cambridge"} onChange={handleInputChange} className="h-3.5 w-3.5 text-primary focus:ring-primary border-zinc-300 dark:border-zinc-700 cursor-pointer" />
+                                                    <label htmlFor={`cls-cam-${cls}`} className="text-sm text-zinc-700 dark:text-zinc-300 cursor-pointer">{cls}</label>
                                                 </div>
                                             ))}
                                         </div>
@@ -705,19 +713,46 @@ export function RegistrationForm() {
 
                                     {/* Secondary Block */}
                                     <div className={`border-2 rounded-xl p-5 ${formData.admissionSystem === "secondary" ? 'border-secondary/50 bg-secondary/5' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950'}`}>
-                                        <div className="flex items-center mb-4 cursor-pointer">
-                                            <input type="radio" name="admissionSystem" value="secondary" id="sys-secondary-reg" checked={formData.admissionSystem === "secondary"} onChange={handleInputChange} className="h-4 w-4 text-secondary focus:ring-secondary border-zinc-300 dark:border-zinc-700" />
+                                        <div className="flex items-center mb-4">
+                                            <input type="radio" name="admissionSystem" value="secondary" id="sys-secondary-reg" checked={formData.admissionSystem === "secondary"} onChange={handleInputChange} className="h-4 w-4 text-secondary focus:ring-secondary border-zinc-300 dark:border-zinc-700 cursor-pointer" />
                                             <label htmlFor="sys-secondary-reg" className="ml-2 block font-semibold text-secondary cursor-pointer">Secondary System of Studies</label>
                                         </div>
                                         <div className={`grid grid-cols-2 gap-y-2 gap-x-4 pl-6 ${formData.admissionSystem !== 'secondary' ? 'opacity-50 pointer-events-none' : ''}`}>
                                             {['VI', 'VII', 'VIII', 'IX', 'X'].map(cls => (
-                                                <div key={cls} className="flex items-center">
-                                                    <input type="radio" name="admissionLevel" value={cls} checked={formData.admissionLevel === cls && formData.admissionSystem === "secondary"} onChange={handleInputChange} className="h-3.5 w-3.5 text-secondary focus:ring-secondary border-zinc-300 dark:border-zinc-700" />
-                                                    <label className="ml-2 text-sm text-zinc-700 dark:text-zinc-300">{cls}</label>
+                                                <div key={cls} className="flex items-center gap-2">
+                                                    <input type="radio" name="admissionLevel" value={cls} id={`cls-sec-${cls}`} checked={formData.admissionLevel === cls && formData.admissionSystem === "secondary"} onChange={handleInputChange} className="h-3.5 w-3.5 text-secondary focus:ring-secondary border-zinc-300 dark:border-zinc-700 cursor-pointer" />
+                                                    <label htmlFor={`cls-sec-${cls}`} className="text-sm text-zinc-700 dark:text-zinc-300 cursor-pointer">{cls}</label>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
+
+                                    {/* Discipline Dropdown (Conditional) */}
+                                    {formData.admissionLevel && (['VI', 'VII', 'VIII', 'IX', 'X', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III'].includes(formData.admissionLevel)) && (
+                                        <div className="md:col-span-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 animate-in slide-in-from-top-2 duration-300">
+                                            <div className="flex flex-col md:flex-row md:items-center gap-4">
+                                                <div className="flex-shrink-0 flex items-center gap-2">
+                                                    <div className="w-1.5 h-8 bg-primary rounded-full" />
+                                                    <label className="text-sm font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">Academic Discipline</label>
+                                                </div>
+                                                <div className="flex-1">
+                                                    <select 
+                                                        name="discipline" 
+                                                        value={formData.discipline} 
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                                    >
+                                                        <option value="">Select Discipline (Optional)...</option>
+                                                        <option value="Pre-Medical">Pre-Medical</option>
+                                                        <option value="Pre-Engineering">Pre-Engineering</option>
+                                                        <option value="Pre-Commerce">Pre-Commerce</option>
+                                                        <option value="Computer Science">Computer Science</option>
+                                                        <option value="Humanities">Humanities</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </section>
 
@@ -796,14 +831,14 @@ export function RegistrationForm() {
                                                     </div>
                                                     <div className="flex items-center gap-1.5 mt-1 ml-1">
                                                         <input type="checkbox" name="isCandidatePhoneNA" id="na-cand-phone" checked={formData.isCandidatePhoneNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
-                                                        <label htmlFor="na-cand-phone" className="text-[9px] font-black uppercase text-zinc-400">Mark N/A</label>
+                                                        <label htmlFor="na-cand-phone" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Mark N/A</label>
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2">
                                                     <input type="email" name="candidateEmail" value={formData.candidateEmail} onChange={handleInputChange} disabled={formData.isCandidateEmailNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isCandidateEmailNA ? 'opacity-50 bg-zinc-50' : ''}`} />
                                                     <div className="flex items-center gap-1.5 mt-1 ml-1">
                                                         <input type="checkbox" name="isCandidateEmailNA" id="na-cand-email" checked={formData.isCandidateEmailNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
-                                                        <label htmlFor="na-cand-email" className="text-[9px] font-black uppercase text-zinc-400">Mark N/A</label>
+                                                        <label htmlFor="na-cand-email" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Mark N/A</label>
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2"><input type="text" disabled className="w-full px-2 py-1.5 bg-zinc-50 dark:bg-zinc-900 text-zinc-400 rounded text-sm cursor-not-allowed text-center" placeholder="N/A" /></td>
@@ -823,7 +858,7 @@ export function RegistrationForm() {
                                                             </div>
                                                             <div className="flex items-center gap-1.5 mr-2">
                                                                 <input type="checkbox" name="isFatherPhoneNA" id="na-father-phone" checked={formData.isFatherPhoneNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
-                                                                <label htmlFor="na-father-phone" className="text-[9px] font-black uppercase text-zinc-400">N/A</label>
+                                                                <label htmlFor="na-father-phone" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">N/A</label>
                                                             </div>
                                                         </div>
                                                         {!formData.isFatherWhatsapp && !formData.isFatherPhoneNA && (
@@ -838,10 +873,16 @@ export function RegistrationForm() {
                                                     <input type="email" name="fatherEmail" value={formData.fatherEmail} onChange={handleInputChange} disabled={formData.isFatherEmailNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isFatherEmailNA ? 'opacity-50 bg-zinc-50' : ''}`} />
                                                     <div className="flex items-center gap-1.5 mt-1 ml-1">
                                                         <input type="checkbox" name="isFatherEmailNA" id="na-father-email" checked={formData.isFatherEmailNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
-                                                        <label htmlFor="na-father-email" className="text-[9px] font-black uppercase text-zinc-400">Mark N/A</label>
+                                                        <label htmlFor="na-father-email" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Mark N/A</label>
                                                     </div>
                                                 </td>
-                                                <td className="px-2 py-2"><input type="text" name="fatherFax" value={formData.fatherFax} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none" /></td>
+                                                <td className="px-2 py-2">
+                                                    <input type="text" name="fatherFax" value={formData.fatherFax} onChange={handleInputChange} disabled={formData.isFatherFaxNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isFatherFaxNA ? 'opacity-50 bg-zinc-50' : ''}`} />
+                                                    <div className="flex items-center gap-1.5 mt-1 ml-1">
+                                                        <input type="checkbox" name="isFatherFaxNA" id="na-father-fax" checked={formData.isFatherFaxNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
+                                                        <label htmlFor="na-father-fax" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Mark N/A</label>
+                                                    </div>
+                                                </td>
                                             </tr>
                                             <tr>
                                                 <td className="px-4 py-3 font-medium text-zinc-700 dark:text-zinc-300">Mother</td>
@@ -858,7 +899,7 @@ export function RegistrationForm() {
                                                             </div>
                                                             <div className="flex items-center gap-1.5 mr-2">
                                                                 <input type="checkbox" name="isMotherPhoneNA" id="na-mother-phone" checked={formData.isMotherPhoneNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
-                                                                <label htmlFor="na-mother-phone" className="text-[9px] font-black uppercase text-zinc-400">N/A</label>
+                                                                <label htmlFor="na-mother-phone" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">N/A</label>
                                                             </div>
                                                         </div>
                                                         {!formData.isMotherWhatsapp && !formData.isMotherPhoneNA && (
@@ -873,10 +914,16 @@ export function RegistrationForm() {
                                                     <input type="email" name="motherEmail" value={formData.motherEmail} onChange={handleInputChange} disabled={formData.isMotherEmailNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isMotherEmailNA ? 'opacity-50 bg-zinc-50' : ''}`} />
                                                     <div className="flex items-center gap-1.5 mt-1 ml-1">
                                                         <input type="checkbox" name="isMotherEmailNA" id="na-mother-email" checked={formData.isMotherEmailNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
-                                                        <label htmlFor="na-mother-email" className="text-[9px] font-black uppercase text-zinc-400">Mark N/A</label>
+                                                        <label htmlFor="na-mother-email" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Mark N/A</label>
                                                     </div>
                                                 </td>
-                                                <td className="px-2 py-2"><input type="text" name="motherFax" value={formData.motherFax} onChange={handleInputChange} className="w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none" /></td>
+                                                <td className="px-2 py-2">
+                                                    <input type="text" name="motherFax" value={formData.motherFax} onChange={handleInputChange} disabled={formData.isMotherFaxNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isMotherFaxNA ? 'opacity-50 bg-zinc-50' : ''}`} />
+                                                    <div className="flex items-center gap-1.5 mt-1 ml-1">
+                                                        <input type="checkbox" name="isMotherFaxNA" id="na-mother-fax" checked={formData.isMotherFaxNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
+                                                        <label htmlFor="na-mother-fax" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Mark N/A</label>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -889,8 +936,21 @@ export function RegistrationForm() {
                                 </div>
                                 <div className="bg-red-50/50 p-6 rounded-2xl border border-red-100 flex flex-col md:flex-row items-center gap-6">
                                     <div className="flex-[1.5] w-full">
-                                        <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 mb-1.5 ml-1">Contact Name</label>
-                                        <input type="text" name="emergencyContactName" value={formData.emergencyContactName} onChange={handleInputChange} placeholder="Full Name" className="w-full px-4 py-3 bg-white dark:bg-zinc-950 border border-red-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none shadow-sm" />
+                                        <div className="flex items-center justify-between mb-1.5 ml-1">
+                                            <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40">Contact Name</label>
+                                            <div className="flex items-center gap-1.5">
+                                                <input 
+                                                    type="checkbox" 
+                                                    name="isEmergencyContactNameNA" 
+                                                    id="na-emergency-name" 
+                                                    checked={formData.isEmergencyContactNameNA} 
+                                                    onChange={handleInputChange} 
+                                                    className="h-3 w-3 text-red-600 rounded" 
+                                                />
+                                                <label htmlFor="na-emergency-name" className="text-[10px] font-bold uppercase text-red-900/40 cursor-pointer">N/A</label>
+                                            </div>
+                                        </div>
+                                        <input type="text" name="emergencyContactName" value={formData.emergencyContactName || ""} onChange={handleInputChange} disabled={formData.isEmergencyContactNameNA} placeholder="Full Name" className={`w-full px-4 py-3 bg-white dark:bg-zinc-950 border border-red-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none shadow-sm disabled:cursor-not-allowed ${formData.isEmergencyContactNameNA ? 'opacity-50 bg-zinc-50' : ''}`} />
                                     </div>
                                     <div className="flex-[1.5] w-full">
                                         <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 mb-1.5 ml-1">Contact Number</label>
