@@ -830,7 +830,7 @@ function StudentwiseFeeEditor() {
                         Bulk Operations
                     </button>
 
-                    {rows.length > 0 && (
+                    {selectedClassId !== "" && (
                         <button onClick={addRow} className="group flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 transition-all active:scale-95">
                             <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
                             New Row
