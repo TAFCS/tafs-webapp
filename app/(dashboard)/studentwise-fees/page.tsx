@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo, Suspense } from "react";
-import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Users2, Settings2, UserSearch, Calendar, LayoutGrid } from "lucide-react";
+import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -639,15 +639,6 @@ function StudentwiseFeeEditor() {
                     const cleaned = val.replace(/[^0-9.]/g, "");
                     if (val !== "" && cleaned === "") return r; // ignore if user typed only letters
                     
-                    const original = parseFloat(r.originalAmount || "0");
-                    const nouveau = parseFloat(cleaned || "0");
-
-                    // Restriction: For existing template-based rows, do not allow exceeding template amount.
-                    // For manually added rows (isNew), we allow any positive amount.
-                    if (!r.isNew && nouveau > original) {
-                        toast.error(`Amount cannot exceed template value: ${original}`);
-                        return r;
-                    }
                     updated.amount = cleaned;
                 }
 
@@ -1040,16 +1031,32 @@ function StudentwiseFeeEditor() {
                 </div>
             </div>
 
-            {/* Banner Notifications */}
-            {saveStatus && (
-                <div className={`p-4 rounded-2xl border flex items-center gap-4 animate-in slide-in-from-top-4 duration-300 ${saveStatus.type === "success" ? "bg-emerald-50 border-emerald-100 text-emerald-800" : "bg-rose-50 border-rose-100 text-rose-800"}`}>
-                    <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-xs ${saveStatus.type === "success" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"}`}>
-                        {saveStatus.type === "success" ? "✓" : "!"}
+            {/* Banner Notifications & Disclaimers */}
+            <div className="space-y-4">
+                {saveStatus && (
+                    <div className={`p-4 rounded-2xl border flex items-center gap-4 animate-in slide-in-from-top-4 duration-300 ${saveStatus.type === "success" ? "bg-emerald-50 border-emerald-100 text-emerald-800" : "bg-rose-50 border-rose-100 text-rose-800"}`}>
+                        <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-xs ${saveStatus.type === "success" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"}`}>
+                            {saveStatus.type === "success" ? "✓" : "!"}
+                        </div>
+                        <span className="text-sm font-semibold">{saveStatus.message}</span>
+                        <button onClick={() => setSaveStatus(null)} className="ml-auto p-1.5 hover:bg-black/5 rounded-lg transition-colors"><X className="h-4 w-4 opacity-40" /></button>
                     </div>
-                    <span className="text-sm font-semibold">{saveStatus.message}</span>
-                    <button onClick={() => setSaveStatus(null)} className="ml-auto p-1.5 hover:bg-black/5 rounded-lg transition-colors"><X className="h-4 w-4 opacity-40" /></button>
-                </div>
-            )}
+                )}
+
+                {studentId && !saveStatus && rows.length > 0 && (
+                    <div className="p-4 rounded-[20px] border border-amber-100 bg-amber-50/30 flex items-center gap-4 animate-in slide-in-from-top-2 duration-500 shadow-sm border-dashed">
+                        <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
+                            <Info className="h-4 w-4" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest leading-none mb-1">Editing Mode Active</span>
+                            <span className="text-[13px] font-bold text-amber-900/70 tracking-tight">
+                                Reminder: Any changes to amounts, additions, or deletions must be <span className="text-primary underline underline-offset-4 decoration-primary/30">persisted by clicking "Save Schedule"</span>.
+                            </span>
+                        </div>
+                    </div>
+                )}
+            </div>
 
             {/* Error States */}
             {loadError && (
@@ -1322,7 +1329,9 @@ function StudentwiseFeeEditor() {
                 <div className="flex items-center gap-4 text-[9px] font-medium text-white/50 uppercase tracking-widest">
                     <span>Arrows/Tab: Move</span>
                     <span>•</span>
-                    <span>Enter: Commit Change</span>
+                    <span>Enter: Commit</span>
+                    <span>•</span>
+                    <span className="text-emerald-400 font-black">Save: Persist Changes</span>
                 </div>
             </div>
 
