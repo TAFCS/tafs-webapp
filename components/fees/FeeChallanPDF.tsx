@@ -1,5 +1,29 @@
 import React from 'react';
-import { Page, Text, View, Document, StyleSheet, Image, Font } from '@react-pdf/renderer';
+import { Page, Text, View, Document, StyleSheet, Image, Font, Svg, Rect } from '@react-pdf/renderer';
+import QRCode from 'qrcode';
+
+// Renders a QR code via react-pdf native SVG — fully synchronous, no data URL needed
+const QrCodeView = ({ url, size = 36 }: { url: string; size?: number }) => {
+    try {
+        const qr = QRCode.create(url, { errorCorrectionLevel: 'L' });
+        const moduleCount = qr.modules.size;
+        const cellSize = size / moduleCount;
+        const data: Uint8Array = qr.modules.data;
+        return (
+            <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+                <Rect x={0} y={0} width={size} height={size} fill="white" />
+                {Array.from(data).map((val, idx) => {
+                    if (!val) return null;
+                    const x = (idx % moduleCount) * cellSize;
+                    const y = Math.floor(idx / moduleCount) * cellSize;
+                    return <Rect key={idx} x={x} y={y} width={cellSize} height={cellSize} fill="black" />;
+                })}
+            </Svg>
+        );
+    } catch {
+        return null as any;
+    }
+};
 
 // Define styles
 const styles = StyleSheet.create({
@@ -433,6 +457,8 @@ interface FeeChallanPDFProps {
     arrearsHistory?: any[];
     adjustmentsHistory?: any[];
     installmentsHistory?: any[];
+    /** PDF URL (DigitalOcean Spaces) to encode in the QR code in the history column */
+    qrUrl?: string;
 }
 
 const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, showDiscount, paidStamp, isLast }: { copyType: string, isLast?: boolean } & FeeChallanPDFProps) => (
@@ -524,34 +550,48 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
 
         <View style={[styles.feeTable, { marginTop: 4 }]}>
             {(() => {
-                const hasAnyDisc = showDiscount !== false && fees.some(f => f.discount && f.discount > 0);
+                const hasMTFDisc = showDiscount !== false && fees.some(f => f.discount && f.discount > 0 && f.description.toLowerCase().includes('tuition'));
                 const discWord = (student.class_id === 21 || student.class_id === 22 || student.className === 'AS Level' || student.className === 'A2 Level') ? 'Scholarship' : 'Discount';
 
                 const renderFeeRow = (fee: any, i: string | number) => {
                     const effectiveNet = fee.netAmount ?? fee.amount;
+                    const isMTF = fee.description.toLowerCase().includes('tuition');
                     const hasDiscount = showDiscount !== false && fee.discount && fee.discount > 0;
-                    return (
-                        <View key={i} style={styles.tableRow}>
-                            <View style={styles.colDesc}>
-                                <Text>{fee.description}</Text>
-                                {hasDiscount && fee.discountLabel && fee.discountLabel !== 'Profile Disc' && (
-                                    <Text style={{ fontSize: 4.5, color: '#059669', marginTop: 1, fontStyle: 'italic' }}>{fee.discountLabel}</Text>
-                                )}
-                            </View>
-                            {hasDiscount ? (
-                                <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                                    <Text style={{ fontSize: 5.5, color: '#9ca3af', textDecoration: 'line-through' }}>
+
+                    if (isMTF && hasDiscount) {
+                        return (
+                            <React.Fragment key={i}>
+                                {/* Row 1: Before Discount — muted/grey with strikethrough */}
+                                <View style={[styles.tableRow, { borderBottomWidth: 0, paddingBottom: 0.5 }]}>
+                                    <Text style={[styles.colDesc, { color: '#9ca3af' }]}>
+                                        {fee.description} — Before Discount
+                                    </Text>
+                                    <Text style={{ flex: 1, textAlign: 'right', fontSize: 6, color: '#9ca3af', textDecoration: 'line-through' }}>
                                         {fee.amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                     </Text>
-                                    <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#059669' }}>
+                                </View>
+                                {/* Row 2: After Discount — indented with DISC badge */}
+                                <View style={[styles.tableRow, { paddingLeft: 8, borderLeftWidth: 1.5, borderLeftColor: '#cbd5e1' }]}>
+                                    <View style={{ flex: 3, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                                        <View style={{ backgroundColor: '#f0fdf4', paddingHorizontal: 2, paddingVertical: 1, borderRadius: 2 }}>
+                                            <Text style={{ fontSize: 4, color: '#16a34a', fontWeight: 'bold' }}>DISC</Text>
+                                        </View>
+                                        <Text style={{ fontSize: 6.5, color: '#1a1a1a' }}>{fee.description} — After Discount</Text>
+                                    </View>
+                                    <Text style={{ flex: 1, textAlign: 'right', fontSize: 7, fontWeight: 'bold', color: '#1a1a1a' }}>
                                         {effectiveNet.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                     </Text>
                                 </View>
-                            ) : (
-                                <Text style={styles.colAmount}>
-                                    {effectiveNet.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                                </Text>
-                            )}
+                            </React.Fragment>
+                        );
+                    }
+
+                    return (
+                        <View key={i} style={styles.tableRow}>
+                            <Text style={styles.colDesc}>{fee.description}</Text>
+                            <Text style={styles.colAmount}>
+                                {effectiveNet.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </Text>
                         </View>
                     );
                 };
@@ -560,38 +600,29 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                     <>
                         <View style={styles.tableHeader}>
                             <Text style={[styles.colDesc, { fontWeight: 'bold' }]}>Description</Text>
-                            <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>{hasAnyDisc ? `Amount` : 'Amount'}</Text>
+                            <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>Amount</Text>
                         </View>
 
-                        {/* ARREARS section */}
                         {(() => {
                             const arrearFees = fees.filter(f => f.isArrear);
                             const currentFees = fees.filter(f => !f.isArrear);
+                            const arrearTotal = arrearFees.reduce((s, f) => s + f.amount, 0);
                             return (
                                 <>
+                                    {currentFees.map((fee, idx) => renderFeeRow(fee, `c-${idx}`))}
                                     {arrearFees.length > 0 && (
-                                        <>
-                                            <View style={styles.sectionLabelRowArrear}>
-                                                <Text style={styles.sectionLabelArrear}>▲ ARREARS</Text>
-                                            </View>
-                                            {arrearFees.map((fee, idx) => renderFeeRow(fee, `a-${idx}`))}
-                                        </>
-                                    )}
-                                    {currentFees.length > 0 && (
-                                        <>
-                                            {arrearFees.length > 0 && (
-                                                <View style={styles.sectionLabelRow}>
-                                                    <Text style={styles.sectionLabel}>CURRENT FEES</Text>
-                                                </View>
-                                            )}
-                                            {currentFees.map((fee, idx) => renderFeeRow(fee, `c-${idx}`))}
-                                        </>
+                                        <View style={styles.tableRow}>
+                                            <Text style={styles.colDesc}>Arrears</Text>
+                                            <Text style={styles.colAmount}>
+                                                {Math.round(arrearTotal).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                            </Text>
+                                        </View>
                                     )}
                                 </>
                             );
                         })()}
 
-                        {hasAnyDisc && (
+                        {hasMTFDisc && (
                             <View style={[styles.totalRow, { borderTopWidth: 0.3, borderTopColor: '#d1d5db', paddingVertical: 1, marginTop: 2, borderBottomWidth: 0 }]}>
                                 <Text style={[styles.colDesc, { fontSize: 5, color: '#666666' }]}>TOTAL BEFORE {discWord.toUpperCase()}</Text>
                                 <Text style={[styles.colAmount, { fontSize: 6, color: '#666666' }]}>
@@ -634,40 +665,40 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
 
             <View style={styles.footer}>
                 <Text style={{ fontSize: 5, fontWeight: 'bold', marginBottom: 2 }}>NOTE:</Text>
-                <Text style={styles.instructions}>1. Only Cash & MBL Cheque/Pay order will be accepted.</Text>
-                <Text style={styles.instructions}>2. After Due Date student will pay PKR {(details.lateFeeAmount || 1000)}/- as charity on late deposit.</Text>
-                <Text style={styles.instructions}>3. The additional amount collected after due date will be donated for Charitable purpose.</Text>
-                <Text style={styles.instructions}>4. Admission and Tuition Fee once paid are non-refundable/non-adjustable</Text>
-                <Text style={styles.instructions}>A. Fee vouchers are provided to students by the Accounts Department. However, if it is not received or not delivered by the child, it will be the responsibility of parents to collect the fee voucher from the respective campus.</Text>
+                <Text style={styles.instructions}>1. Only cash & MBL cheque/pay order will be accepted.</Text>
+                <Text style={styles.instructions}>2. After the due date, the student will pay PKR {(details.lateFeeAmount || 1000)}/- as charity on late deposit.</Text>
+                <Text style={styles.instructions}>3. The additional amount collected after the due date will be donated for charitable purposes.</Text>
+                <Text style={styles.instructions}>4. Admission and tuition fees, once paid, are non-refundable/non-adjustable.</Text>
+                <Text style={styles.instructions}>A. Fee vouchers are provided to students by the Accounts Department. However, if not received or not delivered by the child, it will be the responsibility of the parents to collect the fee voucher from the respective campus.</Text>
                 <Text style={styles.instructions}>B. IF FEES REMAIN UNPAID FOR A MONTH AFTER THE DEADLINE, THE STUDENT WILL NOT BE ALLOWED TO ATTEND SCHOOL UNTIL FEES ARE CLEARED.</Text>
 
                 <View style={styles.paymentOptionsTable}>
                     <View style={styles.paymentOptionsHeader}>
-                        <Text>Payment Options</Text>
+                        <Text>PAYMENT OPTIONS</Text>
                     </View>
                     <View style={styles.paymentOptionsRow}>
                         <View style={styles.paymentOptionsCol1}>
-                            <Text style={{ fontWeight: 'bold' }}>For MBL Counters</Text>
+                            <Text style={{ fontWeight: 'bold' }}>FOR MBL COUNTERS</Text>
                         </View>
                         <View style={styles.paymentOptionsCol2}>
-                            <Text>Pay via CMS Online Deposit Module.</Text>
-                            <Text>Customer Code: TAFCS</Text>
+                            <Text>PAY VIA CMS ONLINE DEPOSIT MODULE.</Text>
+                            <Text>CUSTOMER CODE: TAFCS</Text>
                         </View>
                     </View>
                     <View style={styles.paymentOptionsRow}>
                         <View style={styles.paymentOptionsCol1}>
-                            <Text style={{ fontWeight: 'bold' }}>For Payment via MBL Mobile/internet Banking</Text>
+                            <Text style={{ fontWeight: 'bold' }}>FOR PAYMENT VIA MBL MOBILE/INTERNET BANKING</Text>
                         </View>
                         <View style={styles.paymentOptionsCol2}>
-                            <Text>Select School as beneficiary from Biller Option and Pay</Text>
+                            <Text>SELECT SCHOOL AS BENEFICIARY FROM BILLER OPTION AND PAY</Text>
                         </View>
                     </View>
                     <View style={[styles.paymentOptionsRow, { borderBottomWidth: 0 }]}>
                         <View style={styles.paymentOptionsCol1}>
-                            <Text style={{ fontWeight: 'bold' }}>for Payment via Any Other Bank Counter/Digital Channel</Text>
+                            <Text style={{ fontWeight: 'bold' }}>FOR PAYMENT VIA ANY OTHER BANK COUNTER/DIGITAL CHANNEL</Text>
                         </View>
                         <View style={styles.paymentOptionsCol2}>
-                            <Text>Payment via 1 Bill Invoices option using 24 Digit 1 Bill Invoice no.</Text>
+                            <Text>PAYMENT VIA 1 BILL INVOICES OPTION USING 24 DIGIT 1 BILL INVOICE NO.</Text>
                             <Text style={{ fontWeight: 'bold', marginTop: 1 }}>1BILL ID: 1006259110046</Text>
                         </View>
                     </View>
@@ -684,9 +715,11 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                     </View>
                 </View>
 
-                <Text style={styles.generatedBy}>
-                    GENERATED BY {details.generatedBy.fullName} | {details.generatedBy.timestampStr}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 5, borderTopWidth: 0.5, borderTopColor: '#efefef', paddingTop: 2 }}>
+                    <Text style={[styles.generatedBy, { flex: 1, marginTop: 0, borderTopWidth: 0, paddingTop: 0, textAlign: 'left' }]}>
+                        GENERATED BY {details.generatedBy.fullName}{`\n`}{details.generatedBy.timestampStr}
+                    </Text>
+                </View>
             </View>
         </View>
     </View>
@@ -703,7 +736,8 @@ export const FeeChallanPDF = ({
     paymentsHistory,
     arrearsHistory,
     adjustmentsHistory,
-    installmentsHistory
+    installmentsHistory,
+    qrUrl
 }: FeeChallanPDFProps) => (
     <Document>
         <Page size={[841.89, 595.28]} wrap={false} style={styles.page}>
@@ -752,25 +786,61 @@ export const FeeChallanPDF = ({
                     <Text style={styles.historyTitle}>ARREAR'S HISTORY</Text>
                     <View style={styles.historyTable}>
                         <View style={styles.historyTableHeader}>
-                            <Text style={styles.historyTableHeaderCell}>DATE</Text>
-                            <Text style={styles.historyTableHeaderCell}>HEAD</Text>
+                            <Text style={styles.historyTableHeaderCell}>MONTH</Text>
+                            <Text style={[styles.historyTableHeaderCell, { flex: 2 }]}>HEAD</Text>
                             <Text style={styles.historyTableHeaderCell}>AMOUNT</Text>
-                            <Text style={styles.historyTableHeaderCell}>TOTAL</Text>
                         </View>
-                        {arrearsHistory && arrearsHistory.length > 0 ? (
-                            arrearsHistory.map((a: any, idx: number) => (
-                                <View key={idx} style={styles.historyTableRow}>
-                                    <Text style={styles.historyTableCell}>{a.date}</Text>
-                                    <Text style={styles.historyTableCell}>{a.head}</Text>
-                                    <Text style={styles.historyTableCell}>{a.amount}</Text>
-                                    <Text style={styles.historyTableCell}>{a.totalAmount}</Text>
-                                </View>
-                            ))
-                        ) : (
+                        {arrearsHistory && arrearsHistory.length > 0 ? (() => {
+                            const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                            const fmtMonth = (d: string) => { const [y, m] = d.split('-'); return `${MONTHS[parseInt(m)-1].toUpperCase()} ${y}`; };
+                            const monthKey = (d: string) => d.slice(0, 7);
+                            const groups: { month: string; items: any[] }[] = [];
+                            arrearsHistory.forEach((a: any) => {
+                                const key = monthKey(a.date);
+                                const last = groups[groups.length - 1];
+                                if (last && last.month === key) { last.items.push(a); }
+                                else { groups.push({ month: key, items: [a] }); }
+                            });
+                            let runningTotal = 0;
+                            const result = groups.map((g, gi) => {
+                                const subtotal = g.items.reduce((s: number, a: any) => s + (parseFloat(String(a.amount).replace(/,/g, '')) || 0), 0);
+                                runningTotal += subtotal;
+                                const monthLabel = fmtMonth(g.month + '-01');
+                                return (
+                                    <React.Fragment key={gi}>
+                                        {g.items.map((a: any, idx: number) => (
+                                            <View key={idx} style={styles.historyTableRow}>
+                                                <Text style={styles.historyTableCell}>{monthLabel}</Text>
+                                                <Text style={[styles.historyTableCell, { flex: 2 }]}>{a.head}</Text>
+                                                <Text style={styles.historyTableCell}>{a.amount}</Text>
+                                            </View>
+                                        ))}
+                                        <View style={{ flexDirection: 'row', borderTopWidth: 0.5, borderTopColor: '#94a3b8', paddingTop: 1, marginTop: 0.5 }}>
+                                            <Text style={[styles.historyTableCell, { fontWeight: 'bold', color: '#1e293b' }]}>Subtotal</Text>
+                                            <Text style={[styles.historyTableCell, { flex: 2, color: '#1e293b' }]}></Text>
+                                            <Text style={[styles.historyTableCell, { fontWeight: 'bold', color: '#1e293b' }]}>
+                                                {subtotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                            </Text>
+                                        </View>
+                                    </React.Fragment>
+                                );
+                            });
+                            return (
+                                <>
+                                    {result}
+                                    <View style={{ flexDirection: 'row', backgroundColor: '#1e293b', paddingHorizontal: 2, paddingVertical: 1.5, marginTop: 1 }}>
+                                        <Text style={[styles.historyTableCell, { fontWeight: 'bold', color: '#ffffff' }]}>Total</Text>
+                                        <Text style={[styles.historyTableCell, { flex: 2, color: '#ffffff' }]}></Text>
+                                        <Text style={[styles.historyTableCell, { fontWeight: 'bold', color: '#ffffff' }]}>
+                                            {runningTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                        </Text>
+                                    </View>
+                                </>
+                            );
+                        })() : (
                             <View style={styles.historyTableRow}>
                                 <Text style={styles.historyTableCell}>-</Text>
-                                <Text style={styles.historyTableCell}>-</Text>
-                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={[styles.historyTableCell, { flex: 2 }]}>-</Text>
                                 <Text style={styles.historyTableCell}>-</Text>
                             </View>
                         )}
@@ -868,6 +938,14 @@ export const FeeChallanPDF = ({
                         )}
                     </View>
                 </View>
+
+                {/* QR CODE — scans directly to the challan PDF */}
+                {qrUrl && (
+                    <View style={{ marginTop: 'auto', alignItems: 'center', paddingTop: 6, borderTopWidth: 0.5, borderTopColor: '#e2e8f0' }}>
+                        <QrCodeView url={qrUrl} size={52} />
+                        <Text style={{ fontSize: 4, color: '#64748b', marginTop: 2, textAlign: 'center', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.3 }}>Scan to open PDF</Text>
+                    </View>
+                )}
             </View>
         </Page>
     </Document>

@@ -443,6 +443,7 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
                     }}
                     fees={pdfFees}
                     totalAmount={totalFeesAmount}
+                    qrUrl={voucher.pdf_url || undefined}
                 />
             );
 

@@ -155,6 +155,8 @@ export default function FeeChallanGenerator() {
     // --- Saved Voucher IDs (set after successful creation, used for correct PDF numbering) ---
     const [savedVoucherId, setSavedVoucherId] = useState<number | null>(null);
     const [savedGroupVoucherIds, setSavedGroupVoucherIds] = useState<Record<string, number>>({});
+    const [savedVoucherPdfUrl, setSavedVoucherPdfUrl] = useState<string | null>(null);
+    const [savedGroupVoucherPdfUrls, setSavedGroupVoucherPdfUrls] = useState<Record<string, string>>({});
 
     // --- Arrears State ---
     const [arrearsData, setArrearsData] = useState<{
@@ -610,7 +612,7 @@ export default function FeeChallanGenerator() {
             allFeeIds.forEach(id => formData.append('orderedFeeIds', id.toString()));
 
             // Build fee_lines: arrear lines use their outstanding balance, current use their discount calc
-            const arrearLines = (freshArrears?.rows ?? []).map(r => ({
+            const arrearLines = (freshArrears?.rows ?? []).map((r: any) => ({
                 student_fee_id: r.student_fee_id,
                 discount_amount: 0,
                 discount_label: undefined,
@@ -628,7 +630,7 @@ export default function FeeChallanGenerator() {
             setVoucherSaved(true);
 
             // Build arrear PDF items (isArrear: true)
-            const arrearPdfFees = (freshArrears?.rows ?? []).map(r => ({
+            const arrearPdfFees = (freshArrears?.rows ?? []).map((r: any) => ({
                 description: `${r.fee_type} (ARREAR – ${r.fee_date})`,
                 amount: Number(r.outstanding),
                 netAmount: Number(r.outstanding),
@@ -666,7 +668,7 @@ export default function FeeChallanGenerator() {
                     fees={allPdfFees}
                     totalAmount={allPdfTotal}
                     showDiscount={showDiscount}
-                    arrearsHistory={(freshArrears?.rows ?? []).map(r => ({
+                    arrearsHistory={(freshArrears?.rows ?? []).map((r: any) => ({
                         date: r.fee_date,
                         head: r.fee_type,
                         amount: Number(r.outstanding).toLocaleString(),
@@ -679,15 +681,17 @@ export default function FeeChallanGenerator() {
                         className: s.classes?.description || s.grade_and_section?.split('-')[0] || "N/A",
                         sectionName: s.sections?.description || s.grade_and_section?.split('-')[1] || "N/A"
                     }))}
+                    qrUrl={undefined}
                 />
             ).toBlob();
 
             // 3. Upload the PDF with the correct voucher number
             const pdfFormData = new FormData();
             pdfFormData.append('pdf', new File([blob], `v-${student.cc}.pdf`, { type: 'application/pdf' }));
-            await api.patch(`/v1/vouchers/${voucherId}/paid-pdf`, pdfFormData, {
+            const uploadRes = await api.patch(`/v1/vouchers/${voucherId}/paid-pdf`, pdfFormData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
+            setSavedVoucherPdfUrl(uploadRes.data?.data?.pdf_url || null);
 
             toast.success("Voucher generated!");
             setVoucherSaved(true);
@@ -748,7 +752,7 @@ export default function FeeChallanGenerator() {
             formData.append('precedence', '1');
             allFeeIds.forEach(id => formData.append('orderedFeeIds', id.toString()));
 
-            const arrearLines = (freshArrears?.rows ?? []).map(r => ({
+            const arrearLines = (freshArrears?.rows ?? []).map((r: any) => ({
                 student_fee_id: r.student_fee_id,
                 discount_amount: 0,
                 discount_label: undefined,
@@ -765,7 +769,7 @@ export default function FeeChallanGenerator() {
             setSavedGroupVoucherIds(prev => ({ ...prev, [group.fee_date]: voucherId }));
 
             // Build arrear PDF items
-            const arrearPdfFees = (freshArrears?.rows ?? []).map(r => ({
+            const arrearPdfFees = (freshArrears?.rows ?? []).map((r: any) => ({
                 description: `${r.fee_type} (ARREAR – ${r.fee_date})`,
                 amount: Number(r.outstanding),
                 netAmount: Number(r.outstanding),
@@ -803,7 +807,7 @@ export default function FeeChallanGenerator() {
                     fees={allPdfFees}
                     totalAmount={allPdfTotal}
                     showDiscount={showDiscount}
-                    arrearsHistory={(freshArrears?.rows ?? []).map(r => ({
+                    arrearsHistory={(freshArrears?.rows ?? []).map((r: any) => ({
                         date: r.fee_date,
                         head: r.fee_type,
                         amount: Number(r.outstanding).toLocaleString(),
@@ -816,15 +820,18 @@ export default function FeeChallanGenerator() {
                         className: s.classes?.description || s.grade_and_section?.split('-')[0] || "N/A",
                         sectionName: s.sections?.description || s.grade_and_section?.split('-')[1] || "N/A"
                     }))}
+                    qrUrl={undefined}
                 />
             ).toBlob();
 
             // 3. Upload the PDF with the correct voucher number
             const pdfFormData = new FormData();
             pdfFormData.append('pdf', new File([blob], `vg-${group.fee_date}.pdf`, { type: 'application/pdf' }));
-            await api.patch(`/v1/vouchers/${voucherId}/paid-pdf`, pdfFormData, {
+            const uploadRes = await api.patch(`/v1/vouchers/${voucherId}/paid-pdf`, pdfFormData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
+            const uploadedPdfUrl = uploadRes.data?.data?.pdf_url || null;
+            if (uploadedPdfUrl) setSavedGroupVoucherPdfUrls(prev => ({ ...prev, [group.fee_date]: uploadedPdfUrl }));
 
             setGeneratedGroupDates(p => new Set([...p, group.fee_date]));
             toast.success(`Generated for ${group.fee_date}`);
@@ -1391,6 +1398,7 @@ export default function FeeChallanGenerator() {
                                                                     className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
                                                                     sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
                                                                 }))}
+                                                                qrUrl={savedVoucherPdfUrl || undefined}
                                                             />
                                                         }
                                                         fileName={`Vouchers_${student?.cc}.pdf`}
@@ -1463,6 +1471,7 @@ export default function FeeChallanGenerator() {
                                                                                         className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
                                                                                         sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
                                                                                     }))}
+                                                                                    qrUrl={savedGroupVoucherPdfUrls[g.fee_date] || undefined}
                                                                                 />
                                                                             }
                                                                             fileName={`Challan_${student?.cc}_${g.fee_date}.pdf`}
@@ -1561,6 +1570,7 @@ export default function FeeChallanGenerator() {
                                                                     className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
                                                                     sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
                                                                 }))}
+                                                                qrUrl={savedVoucherPdfUrl || undefined}
                                                             />
                                                         }
                                                         fileName={`Challan_${student?.cc}.pdf`}
