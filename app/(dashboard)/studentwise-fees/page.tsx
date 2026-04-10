@@ -284,17 +284,17 @@ function StudentwiseFeeEditor() {
     const fetchFeeSchedule = useCallback(async (classId: number, campusId: number | "", ccNumber: string, academicYear: string, signal?: AbortSignal) => {
         setIsLoading(true); setLoadError(null); setRows([]); setActiveCell(null);
         try {
-            if (!ccNumber) {
-                // If no student selected, just fetch the class template as before
-                const params: any = { class_id: classId };
-                if (campusId) params.campus_id = campusId;
-                const { data } = await api.get("/v1/class-fee-schedule/by-class", { params, signal });
-                const feeRows: ClassFeeRow[] = Array.isArray(data?.data) ? data.data : [];
-                
-                const lookup: Record<number, string> = {};
-                feeRows.forEach(f => { lookup[f.fee_id] = f.amount; });
-                setFeeToAmountMap(lookup);
+            // 1. ALWAYS Fetch the class-wide fee template for amount lookups
+            const params: any = { class_id: classId };
+            if (campusId) params.campus_id = campusId;
+            const { data: templateData } = await api.get("/v1/class-fee-schedule/by-class", { params, signal });
+            const feeRows: ClassFeeRow[] = Array.isArray(templateData?.data) ? templateData.data : [];
+            
+            const lookup: Record<number, string> = {};
+            feeRows.forEach(f => { lookup[f.fee_id] = f.amount; });
+            setFeeToAmountMap(lookup);
 
+            if (!ccNumber) {
                 const expanded = feeRows.flatMap((fee) => {
                     const months = sortMonths(fee.fee_types.breakup ?? []);
                     return months.map((month) => ({
@@ -492,7 +492,6 @@ function StudentwiseFeeEditor() {
             setSaveStatus({ type: "error", message: "Please enter a Computer Code before saving." });
             return;
         }
-        if (rows.length === 0) return;
 
         // Validate: every row must have a positive amount
         const zeroRows = rows.filter(r => !(parseFloat(r.amount || "0") > 0));
@@ -526,6 +525,7 @@ function StudentwiseFeeEditor() {
             const requests: Promise<any>[] = [
                 api.post("/v1/student-fees/bulk", {
                     student_id: ccValue,
+                    academic_year: selectedYear,
                     items,
                     bundles: pendingBundles.map(pb => ({
                         bundle_name: pb.bundle_name,
@@ -601,7 +601,7 @@ function StudentwiseFeeEditor() {
 
         const unusedMonthName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === unusedMonthNum) ?? "August";
         // Default amount to the class schedule amount for this fee type (if known)
-        const defaultAmount = feeToAmountMap[feeId] ?? "0";
+        const presetAmount = feeToAmountMap[feeId] || "0";
 
         const newRow: SpreadsheetRow = {
             __id: Math.random().toString(36).substring(7),
@@ -611,8 +611,8 @@ function StudentwiseFeeEditor() {
             initialMonth: unusedMonthName,
             month: unusedMonthName,
             target_month: unusedMonthNum,
-            amount: defaultAmount,
-            originalAmount: defaultAmount,
+            amount: presetAmount,
+            originalAmount: presetAmount,
             // Smart Defaulting: calculate initial fee date but it remains independent
             fee_date: calculateInitialFeeDate(unusedMonthName, selectedYear, feeId),
             isNew: true,
@@ -635,12 +635,20 @@ function StudentwiseFeeEditor() {
                 const updated = { ...r, [field]: val };
 
                 if (field === "amount") {
+                    // Prevent non-numeric junk
+                    const cleaned = val.replace(/[^0-9.]/g, "");
+                    if (val !== "" && cleaned === "") return r; // ignore if user typed only letters
+                    
                     const original = parseFloat(r.originalAmount || "0");
-                    const nouveau = parseFloat(val || "0");
-                    if (nouveau > original) {
+                    const nouveau = parseFloat(cleaned || "0");
+
+                    // Restriction: For existing template-based rows, do not allow exceeding template amount.
+                    // For manually added rows (isNew), we allow any positive amount.
+                    if (!r.isNew && nouveau > original) {
                         toast.error(`Amount cannot exceed template value: ${original}`);
                         return r;
                     }
+                    updated.amount = cleaned;
                 }
 
                 if (field === "feeId") {
@@ -648,9 +656,9 @@ function StudentwiseFeeEditor() {
                     if (ft) {
                         updated.feeDescription = ft.description;
                         updated.freq = ft.freq;
-                        if (feeToAmountMap[val]) {
-                            updated.amount = feeToAmountMap[val];
-                        }
+                        const preset = feeToAmountMap[val] || "0";
+                        updated.amount = preset;
+                        updated.originalAmount = preset;
                         // Default fee date only if none set
                         if (!updated.fee_date) {
                             updated.fee_date = calculateInitialFeeDate(updated.month, selectedYear, val);
@@ -1021,7 +1029,7 @@ function StudentwiseFeeEditor() {
                                 <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} /> Refresh
                             </button>
                         )}
-                        {rows.length > 0 && (
+                        {studentId.trim() !== "" && (
                             <button onClick={handleSave} disabled={isSaving || !studentId.trim()}
                                 className="inline-flex items-center gap-2 h-11 px-8 bg-primary text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50 active:scale-95"
                             >
@@ -1058,12 +1066,38 @@ function StudentwiseFeeEditor() {
                     <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Crunching Data...</p>
                 </div>
             ) : rows.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-40 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[28px] gap-6 opacity-60">
-                    <div className="p-7 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-800 shadow-sm"><GraduationCap className="h-10 w-10 text-zinc-400" /></div>
-                    <div className="text-center space-y-1">
-                        <p className="font-bold text-zinc-900 dark:text-zinc-100">Workspace Empty</p>
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400">Pick a template or add a row to begin.</p>
+                <div className="flex flex-col items-center justify-center py-32 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[28px] gap-4 animate-in fade-in zoom-in-95 duration-500">
+                    <div className="p-6 bg-white dark:bg-zinc-800 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/20">
+                        {studentId ? <Trash2 className="h-8 w-8 text-rose-500/50" /> : <GraduationCap className="h-8 w-8 text-zinc-300" />}
                     </div>
+                    <div className="text-center space-y-2 max-w-md px-6">
+                        <p className="font-black text-zinc-900 dark:text-zinc-100 tracking-tight text-lg">
+                            {studentId ? "Individual Schedule Cleared" : "Workspace Empty"}
+                        </p>
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
+                            {studentId 
+                                ? `You have removed all individual fee heads. Saving now will effectively reset this student to follow the standard ${selectedClass?.description || "class"} fee template.`
+                                : "Select a campus and class to load a template, or search for a student using their computer code to begin customizing."}
+                        </p>
+                    </div>
+                    {studentId && (
+                        <div className="flex gap-3 mt-4">
+                            <button 
+                                onClick={() => fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear)}
+                                className="px-6 py-2.5 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg active:scale-95"
+                            >
+                                <RefreshCw className="h-3.5 w-3.5 mr-2 inline-block" />
+                                Restore Template
+                            </button>
+                            <button 
+                                onClick={addRow}
+                                className="px-6 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 transition-all active:scale-95"
+                            >
+                                <Plus className="h-3.5 w-3.5 mr-2 inline-block text-primary" />
+                                Add Manual Row
+                            </button>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm overflow-hidden flex flex-col">
