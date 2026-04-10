@@ -802,7 +802,7 @@ export const FeeChallanPDF = ({
                                 else { groups.push({ month: key, items: [a] }); }
                             });
                             let runningTotal = 0;
-                            return groups.map((g, gi) => {
+                            const result = groups.map((g, gi) => {
                                 const subtotal = g.items.reduce((s: number, a: any) => s + (parseFloat(String(a.amount).replace(/,/g, '')) || 0), 0);
                                 runningTotal += subtotal;
                                 const monthLabel = fmtMonth(g.month + '-01');
@@ -822,16 +822,21 @@ export const FeeChallanPDF = ({
                                                 {subtotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                             </Text>
                                         </View>
-                                        <View style={{ flexDirection: 'row', backgroundColor: '#1e293b', paddingHorizontal: 2, paddingVertical: 1.5, marginBottom: gi < groups.length - 1 ? 3 : 0 }}>
-                                            <Text style={[styles.historyTableCell, { fontWeight: 'bold', color: '#ffffff' }]}>Total</Text>
-                                            <Text style={[styles.historyTableCell, { flex: 2, color: '#ffffff' }]}></Text>
-                                            <Text style={[styles.historyTableCell, { fontWeight: 'bold', color: '#ffffff' }]}>
-                                                {runningTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                                            </Text>
-                                        </View>
                                     </React.Fragment>
                                 );
                             });
+                            return (
+                                <>
+                                    {result}
+                                    <View style={{ flexDirection: 'row', backgroundColor: '#1e293b', paddingHorizontal: 2, paddingVertical: 1.5, marginTop: 1 }}>
+                                        <Text style={[styles.historyTableCell, { fontWeight: 'bold', color: '#ffffff' }]}>Total</Text>
+                                        <Text style={[styles.historyTableCell, { flex: 2, color: '#ffffff' }]}></Text>
+                                        <Text style={[styles.historyTableCell, { fontWeight: 'bold', color: '#ffffff' }]}>
+                                            {runningTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                        </Text>
+                                    </View>
+                                </>
+                            );
                         })() : (
                             <View style={styles.historyTableRow}>
                                 <Text style={styles.historyTableCell}>-</Text>
