@@ -155,6 +155,8 @@ export default function FeeChallanGenerator() {
     // --- Saved Voucher IDs (set after successful creation, used for correct PDF numbering) ---
     const [savedVoucherId, setSavedVoucherId] = useState<number | null>(null);
     const [savedGroupVoucherIds, setSavedGroupVoucherIds] = useState<Record<string, number>>({});
+    const [savedVoucherPdfUrl, setSavedVoucherPdfUrl] = useState<string | null>(null);
+    const [savedGroupVoucherPdfUrls, setSavedGroupVoucherPdfUrls] = useState<Record<string, string>>({});
 
     // --- Arrears State ---
     const [arrearsData, setArrearsData] = useState<{
@@ -679,16 +681,17 @@ export default function FeeChallanGenerator() {
                         className: s.classes?.description || s.grade_and_section?.split('-')[0] || "N/A",
                         sectionName: s.sections?.description || s.grade_and_section?.split('-')[1] || "N/A"
                     }))}
-                    qrUrl={typeof window !== 'undefined' ? `${window.location.origin}/vouchers/${voucherId}` : undefined}
+                    qrUrl={undefined}
                 />
             ).toBlob();
 
             // 3. Upload the PDF with the correct voucher number
             const pdfFormData = new FormData();
             pdfFormData.append('pdf', new File([blob], `v-${student.cc}.pdf`, { type: 'application/pdf' }));
-            await api.patch(`/v1/vouchers/${voucherId}/paid-pdf`, pdfFormData, {
+            const uploadRes = await api.patch(`/v1/vouchers/${voucherId}/paid-pdf`, pdfFormData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
+            setSavedVoucherPdfUrl(uploadRes.data?.data?.pdf_url || null);
 
             toast.success("Voucher generated!");
             setVoucherSaved(true);
@@ -817,16 +820,18 @@ export default function FeeChallanGenerator() {
                         className: s.classes?.description || s.grade_and_section?.split('-')[0] || "N/A",
                         sectionName: s.sections?.description || s.grade_and_section?.split('-')[1] || "N/A"
                     }))}
-                    qrUrl={typeof window !== 'undefined' ? `${window.location.origin}/vouchers/${voucherId}` : undefined}
+                    qrUrl={undefined}
                 />
             ).toBlob();
 
             // 3. Upload the PDF with the correct voucher number
             const pdfFormData = new FormData();
             pdfFormData.append('pdf', new File([blob], `vg-${group.fee_date}.pdf`, { type: 'application/pdf' }));
-            await api.patch(`/v1/vouchers/${voucherId}/paid-pdf`, pdfFormData, {
+            const uploadRes = await api.patch(`/v1/vouchers/${voucherId}/paid-pdf`, pdfFormData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
+            const uploadedPdfUrl = uploadRes.data?.data?.pdf_url || null;
+            if (uploadedPdfUrl) setSavedGroupVoucherPdfUrls(prev => ({ ...prev, [group.fee_date]: uploadedPdfUrl }));
 
             setGeneratedGroupDates(p => new Set([...p, group.fee_date]));
             toast.success(`Generated for ${group.fee_date}`);
@@ -1393,7 +1398,7 @@ export default function FeeChallanGenerator() {
                                                                     className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
                                                                     sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
                                                                 }))}
-                                                                qrUrl={savedVoucherId ? `${window.location.origin}/vouchers/${savedVoucherId}` : undefined}
+                                                                qrUrl={savedVoucherPdfUrl || undefined}
                                                             />
                                                         }
                                                         fileName={`Vouchers_${student?.cc}.pdf`}
@@ -1466,7 +1471,7 @@ export default function FeeChallanGenerator() {
                                                                                         className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
                                                                                         sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
                                                                                     }))}
-                                                                                    qrUrl={savedGroupVoucherIds[g.fee_date] ? `${window.location.origin}/vouchers/${savedGroupVoucherIds[g.fee_date]}` : undefined}
+                                                                                    qrUrl={savedGroupVoucherPdfUrls[g.fee_date] || undefined}
                                                                                 />
                                                                             }
                                                                             fileName={`Challan_${student?.cc}_${g.fee_date}.pdf`}
@@ -1565,7 +1570,7 @@ export default function FeeChallanGenerator() {
                                                                     className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
                                                                     sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
                                                                 }))}
-                                                                qrUrl={savedVoucherId ? `${window.location.origin}/vouchers/${savedVoucherId}` : undefined}
+                                                                qrUrl={savedVoucherPdfUrl || undefined}
                                                             />
                                                         }
                                                         fileName={`Challan_${student?.cc}.pdf`}
