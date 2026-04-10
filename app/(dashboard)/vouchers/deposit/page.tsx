@@ -394,19 +394,7 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
             const familyStudents = data?.data?.family?.students || [];
             const siblings = familyStudents.filter((s: any) => s.cc !== voucher.student_id);
 
-            const voucherMonth = voucher.month;
-            const allHeads = voucher.voucher_heads || [];
-            const currentHeads = allHeads.filter((h: any) => {
-                const m = h.student_fees?.target_month ?? h.student_fees?.month;
-                return m == null || m === voucherMonth;
-            });
-            const arrearHeads = allHeads.filter((h: any) => {
-                const m = h.student_fees?.target_month ?? h.student_fees?.month;
-                return m != null && m !== voucherMonth;
-            });
-            const currentPdfFees = groupFees(currentHeads, {}, { groupTuitionFees: false, isVoucherHeads: true }).map((f: any) => ({ ...f, isArrear: false }));
-            const arrearPdfFees = groupFees(arrearHeads, {}, { groupTuitionFees: false, isVoucherHeads: true }).map((f: any) => ({ ...f, isArrear: true }));
-            const pdfFees = [...currentPdfFees, ...arrearPdfFees];
+            const pdfFees = groupFees(voucher.voucher_heads || [], {}, { groupTuitionFees: false, isVoucherHeads: true });
             const totalFeesAmount = Number(voucher.total_payable_before_due || 0);
 
             const { pdf } = await import('@react-pdf/renderer');

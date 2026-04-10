@@ -185,18 +185,7 @@ async function buildVoucherPdfBlob(
     const monthName = voucher.month ? MONTHS[voucher.month] : "";
 
     const headsForPdf = overrideHeads ?? (voucher.voucher_heads || []);
-    const voucherMonth = voucher.month;
-    const currentHeads = headsForPdf.filter(h => {
-        const m = h.student_fees?.target_month ?? h.student_fees?.month;
-        return m == null || m === voucherMonth;
-    });
-    const arrearHeads = headsForPdf.filter(h => {
-        const m = h.student_fees?.target_month ?? h.student_fees?.month;
-        return m != null && m !== voucherMonth;
-    });
-    const currentPdfFees = groupFees(currentHeads, {}, { groupTuitionFees: false, isVoucherHeads: true }).map(f => ({ ...f, isArrear: false }));
-    const arrearPdfFees = groupFees(arrearHeads, {}, { groupTuitionFees: false, isVoucherHeads: true }).map(f => ({ ...f, isArrear: true }));
-    const pdfFees = [...currentPdfFees, ...arrearPdfFees];
+    const pdfFees = groupFees(headsForPdf, {}, { groupTuitionFees: false, isVoucherHeads: true });
     const totalFeesAmount = headsForPdf.reduce((sum, h) => sum + Number(h.net_amount), 0);
 
     const { pdf } = await import('@react-pdf/renderer');
