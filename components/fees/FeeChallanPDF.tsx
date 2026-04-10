@@ -786,6 +786,7 @@ export const FeeChallanPDF = ({
                     <Text style={styles.historyTitle}>ARREAR'S HISTORY</Text>
                     <View style={styles.historyTable}>
                         <View style={styles.historyTableHeader}>
+                            <Text style={styles.historyTableHeaderCell}>MONTH</Text>
                             <Text style={[styles.historyTableHeaderCell, { flex: 2 }]}>HEAD</Text>
                             <Text style={styles.historyTableHeaderCell}>AMOUNT</Text>
                         </View>
@@ -804,25 +805,26 @@ export const FeeChallanPDF = ({
                             return groups.map((g, gi) => {
                                 const subtotal = g.items.reduce((s: number, a: any) => s + (parseFloat(String(a.amount).replace(/,/g, '')) || 0), 0);
                                 runningTotal += subtotal;
+                                const monthLabel = fmtMonth(g.month + '-01');
                                 return (
                                     <React.Fragment key={gi}>
-                                        <View style={{ backgroundColor: '#e2e8f0', paddingHorizontal: 2, paddingVertical: 1.5, marginTop: gi > 0 ? 3 : 0 }}>
-                                            <Text style={{ fontSize: 4, fontWeight: 'bold', color: '#1e293b' }}>{fmtMonth(g.month + '-01')}</Text>
-                                        </View>
                                         {g.items.map((a: any, idx: number) => (
                                             <View key={idx} style={styles.historyTableRow}>
+                                                <Text style={styles.historyTableCell}>{monthLabel}</Text>
                                                 <Text style={[styles.historyTableCell, { flex: 2 }]}>{a.head}</Text>
                                                 <Text style={styles.historyTableCell}>{a.amount}</Text>
                                             </View>
                                         ))}
                                         <View style={{ flexDirection: 'row', borderTopWidth: 0.5, borderTopColor: '#94a3b8', paddingTop: 1, marginTop: 0.5 }}>
-                                            <Text style={[styles.historyTableCell, { flex: 2, fontWeight: 'bold', color: '#1e293b' }]}>Subtotal</Text>
+                                            <Text style={[styles.historyTableCell, { fontWeight: 'bold', color: '#1e293b' }]}>Subtotal</Text>
+                                            <Text style={[styles.historyTableCell, { flex: 2, color: '#1e293b' }]}></Text>
                                             <Text style={[styles.historyTableCell, { fontWeight: 'bold', color: '#1e293b' }]}>
                                                 {subtotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                             </Text>
                                         </View>
-                                        <View style={{ flexDirection: 'row', backgroundColor: '#1e293b', paddingHorizontal: 2, paddingVertical: 1.5 }}>
-                                            <Text style={[styles.historyTableCell, { flex: 2, fontWeight: 'bold', color: '#ffffff' }]}>Total Arrears</Text>
+                                        <View style={{ flexDirection: 'row', backgroundColor: '#1e293b', paddingHorizontal: 2, paddingVertical: 1.5, marginBottom: gi < groups.length - 1 ? 3 : 0 }}>
+                                            <Text style={[styles.historyTableCell, { fontWeight: 'bold', color: '#ffffff' }]}>Total</Text>
+                                            <Text style={[styles.historyTableCell, { flex: 2, color: '#ffffff' }]}></Text>
                                             <Text style={[styles.historyTableCell, { fontWeight: 'bold', color: '#ffffff' }]}>
                                                 {runningTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                             </Text>
@@ -832,6 +834,7 @@ export const FeeChallanPDF = ({
                             });
                         })() : (
                             <View style={styles.historyTableRow}>
+                                <Text style={styles.historyTableCell}>-</Text>
                                 <Text style={[styles.historyTableCell, { flex: 2 }]}>-</Text>
                                 <Text style={styles.historyTableCell}>-</Text>
                             </View>
