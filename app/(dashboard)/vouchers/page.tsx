@@ -177,6 +177,7 @@ async function buildVoucherPdfBlob(
     paidStamp?: boolean,
     // Pre-fetched data to avoid redundant API calls when building multiple PDFs
     prefetched?: { studentData: any; familyStudents: any[] },
+    descriptionPrefix?: string,      // e.g. "Partial Payment of — " or "Balance Payment of — "
 ): Promise<Blob> {
     const { studentData, familyStudents } = prefetched ?? await fetchVoucherPdfData(voucher.student_id);
     const siblings = familyStudents.filter((s: any) => s.cc !== voucher.student_id);
@@ -185,7 +186,21 @@ async function buildVoucherPdfBlob(
     const monthName = voucher.month ? MONTHS[voucher.month] : "";
 
     const headsForPdf = overrideHeads ?? (voucher.voucher_heads || []);
-    const pdfFees = groupFees(headsForPdf, {}, { groupTuitionFees: false, isVoucherHeads: true });
+    const voucherMonth = voucher.month;
+    const currentHeads = headsForPdf.filter(h => {
+        const m = (h as any).student_fees?.target_month ?? (h as any).student_fees?.month;
+        return m == null || m === voucherMonth;
+    });
+    const arrearHeads = headsForPdf.filter(h => {
+        const m = (h as any).student_fees?.target_month ?? (h as any).student_fees?.month;
+        return m != null && m !== voucherMonth;
+    });
+    const currentPdfFees = groupFees(currentHeads, {}, { groupTuitionFees: false, isVoucherHeads: true }).map(f => ({ ...f, isArrear: false }));
+    const arrearPdfFees = groupFees(arrearHeads, {}, { groupTuitionFees: false, isVoucherHeads: true }).map(f => ({ ...f, isArrear: true }));
+    let pdfFees = [...currentPdfFees, ...arrearPdfFees];
+    if (descriptionPrefix) {
+        pdfFees = pdfFees.map(f => ({ ...f, description: `${descriptionPrefix}${f.description}` }));
+    }
     const totalFeesAmount = headsForPdf.reduce((sum, h) => sum + Number(h.net_amount), 0);
 
     const { pdf } = await import('@react-pdf/renderer');
@@ -279,63 +294,62 @@ function PartiallyPaidModal({
     const unpaidTotal = unpaidHeads.reduce((s, h) => s + Number(h.balance), 0);
 
     const handleConfirm = async () => {
-        if (!dueDate) { toast.error("Please enter the due date for the new voucher."); return; }
+        if (!dueDate) { toast.error("Please enter the due date for the new balance voucher."); return; }
 
         setSubmitting(true);
-        const loadingToast = toast.loading("Generating paid PDF and creating new unpaid voucher…");
+        const loadingToast = toast.loading("Generating PDFs and splitting voucher…");
         try {
             // 1. Fetch student data ONCE — shared by both PDF builds
             const prefetched = await fetchVoucherPdfData(voucher.student_id);
 
-            // 2. Build BOTH PDFs in parallel (saves ~50% of render time)
+            // 2. Build BOTH PDFs in parallel with prefixed descriptions
             const [paidBlob, unpaidBlob] = await Promise.all([
-                buildVoucherPdfBlob(voucher, sections, user, paidHeadsForPdf as any, true, prefetched),
+                buildVoucherPdfBlob(
+                    voucher, sections, user,
+                    paidHeadsForPdf as any,
+                    true,  // PAID watermark
+                    prefetched,
+                    'Partial Payment of — ',
+                ),
                 buildVoucherPdfBlob(
                     { ...voucher, issue_date: issueDate, due_date: dueDate, validity_date: validityDate || dueDate },
-                    sections,
-                    user,
+                    sections, user,
                     unpaidHeadsForPdf as any,
                     false,
                     prefetched,
+                    'Balance Payment of — ',
                 ),
             ]);
 
-            // 3. Upload paid PDF to the original voucher
-            const paidFormData = new FormData();
-            paidFormData.append("pdf", new File([paidBlob], `paid-voucher-${voucher.id}.pdf`, { type: "application/pdf" }));
-            await api.patch(`/v1/vouchers/${voucher.id}/paid-pdf`, paidFormData, {
-                headers: { "Content-Type": "multipart/form-data" },
-            });
+            // 3. POST both PDFs + dates in one request
+            const formData = new FormData();
+            formData.append('issue_date', issueDate);
+            formData.append('due_date', dueDate);
+            if (validityDate) formData.append('validity_date', validityDate);
+            formData.append('paid_pdf', new File([paidBlob], `paid-split-${voucher.id}.pdf`, { type: 'application/pdf' }));
+            formData.append('unpaid_pdf', new File([unpaidBlob], `balance-split-${voucher.id}.pdf`, { type: 'application/pdf' }));
 
-            // 4. POST split endpoint with the new unpaid PDF
-            const splitFormData = new FormData();
-            splitFormData.append("issue_date", issueDate);
-            splitFormData.append("due_date", dueDate);
-            if (validityDate) splitFormData.append("validity_date", validityDate);
-            splitFormData.append("pdf", new File([unpaidBlob], `voucher-remainder.pdf`, { type: "application/pdf" }));
-
-            const { data: splitRes } = await api.post(`/v1/vouchers/${voucher.id}/split-partially-paid`, splitFormData, {
-                headers: { "Content-Type": "multipart/form-data" },
+            const { data: splitRes } = await api.post(`/v1/vouchers/${voucher.id}/split-partially-paid`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
             });
 
             toast.dismiss(loadingToast);
-            toast.success(`New unpaid voucher #${splitRes.data?.id} created successfully.`);
+            toast.success(`Voucher split — Paid #${splitRes.data?.paid_voucher_id}, Balance #${splitRes.data?.unpaid_voucher_id}`);
 
-            // 5. Open paid PDF
+            // 4. Auto-download the paid PDF
             const paidUrl = URL.createObjectURL(paidBlob);
-            const link = document.createElement("a");
+            const link = document.createElement('a');
             link.href = paidUrl;
-            link.target = "_blank";
-            link.rel = "noopener noreferrer";
+            link.download = `paid-voucher-${splitRes.data?.paid_voucher_id}.pdf`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             setTimeout(() => URL.revokeObjectURL(paidUrl), 5000);
 
-            onSuccess(splitRes.data?.id);
+            onSuccess(splitRes.data?.unpaid_voucher_id);
         } catch (err: any) {
             toast.dismiss(loadingToast);
-            toast.error(err?.response?.data?.message || "Failed to process partial payment split.");
+            toast.error(err?.response?.data?.message || 'Failed to process partial payment split.');
             console.error(err);
         } finally {
             setSubmitting(false);
