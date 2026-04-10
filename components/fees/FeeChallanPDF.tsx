@@ -603,29 +603,20 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                             <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>Amount</Text>
                         </View>
 
-                        {/* ARREARS section */}
                         {(() => {
                             const arrearFees = fees.filter(f => f.isArrear);
                             const currentFees = fees.filter(f => !f.isArrear);
+                            const arrearTotal = arrearFees.reduce((s, f) => s + f.amount, 0);
                             return (
                                 <>
+                                    {currentFees.map((fee, idx) => renderFeeRow(fee, `c-${idx}`))}
                                     {arrearFees.length > 0 && (
-                                        <>
-                                            <View style={styles.sectionLabelRowArrear}>
-                                                <Text style={styles.sectionLabelArrear}>▲ ARREARS</Text>
-                                            </View>
-                                            {arrearFees.map((fee, idx) => renderFeeRow(fee, `a-${idx}`))}
-                                        </>
-                                    )}
-                                    {currentFees.length > 0 && (
-                                        <>
-                                            {arrearFees.length > 0 && (
-                                                <View style={styles.sectionLabelRow}>
-                                                    <Text style={styles.sectionLabel}>CURRENT FEES</Text>
-                                                </View>
-                                            )}
-                                            {currentFees.map((fee, idx) => renderFeeRow(fee, `c-${idx}`))}
-                                        </>
+                                        <View style={styles.tableRow}>
+                                            <Text style={styles.colDesc}>Arrears</Text>
+                                            <Text style={styles.colAmount}>
+                                                {Math.round(arrearTotal).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                            </Text>
+                                        </View>
                                     )}
                                 </>
                             );
@@ -674,40 +665,40 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
 
             <View style={styles.footer}>
                 <Text style={{ fontSize: 5, fontWeight: 'bold', marginBottom: 2 }}>NOTE:</Text>
-                <Text style={styles.instructions}>1. Only Cash & MBL Cheque/Pay order will be accepted.</Text>
-                <Text style={styles.instructions}>2. After Due Date student will pay PKR {(details.lateFeeAmount || 1000)}/- as charity on late deposit.</Text>
-                <Text style={styles.instructions}>3. The additional amount collected after due date will be donated for Charitable purpose.</Text>
-                <Text style={styles.instructions}>4. Admission and Tuition Fee once paid are non-refundable/non-adjustable</Text>
-                <Text style={styles.instructions}>A. Fee vouchers are provided to students by the Accounts Department. However, if it is not received or not delivered by the child, it will be the responsibility of parents to collect the fee voucher from the respective campus.</Text>
+                <Text style={styles.instructions}>1. Only cash & MBL cheque/pay order will be accepted.</Text>
+                <Text style={styles.instructions}>2. After the due date, the student will pay PKR {(details.lateFeeAmount || 1000)}/- as charity on late deposit.</Text>
+                <Text style={styles.instructions}>3. The additional amount collected after the due date will be donated for charitable purposes.</Text>
+                <Text style={styles.instructions}>4. Admission and tuition fees, once paid, are non-refundable/non-adjustable.</Text>
+                <Text style={styles.instructions}>A. Fee vouchers are provided to students by the Accounts Department. However, if not received or not delivered by the child, it will be the responsibility of the parents to collect the fee voucher from the respective campus.</Text>
                 <Text style={styles.instructions}>B. IF FEES REMAIN UNPAID FOR A MONTH AFTER THE DEADLINE, THE STUDENT WILL NOT BE ALLOWED TO ATTEND SCHOOL UNTIL FEES ARE CLEARED.</Text>
 
                 <View style={styles.paymentOptionsTable}>
                     <View style={styles.paymentOptionsHeader}>
-                        <Text>Payment Options</Text>
+                        <Text>PAYMENT OPTIONS</Text>
                     </View>
                     <View style={styles.paymentOptionsRow}>
                         <View style={styles.paymentOptionsCol1}>
-                            <Text style={{ fontWeight: 'bold' }}>For MBL Counters</Text>
+                            <Text style={{ fontWeight: 'bold' }}>FOR MBL COUNTERS</Text>
                         </View>
                         <View style={styles.paymentOptionsCol2}>
-                            <Text>Pay via CMS Online Deposit Module.</Text>
-                            <Text>Customer Code: TAFCS</Text>
+                            <Text>PAY VIA CMS ONLINE DEPOSIT MODULE.</Text>
+                            <Text>CUSTOMER CODE: TAFCS</Text>
                         </View>
                     </View>
                     <View style={styles.paymentOptionsRow}>
                         <View style={styles.paymentOptionsCol1}>
-                            <Text style={{ fontWeight: 'bold' }}>For Payment via MBL Mobile/internet Banking</Text>
+                            <Text style={{ fontWeight: 'bold' }}>FOR PAYMENT VIA MBL MOBILE/INTERNET BANKING</Text>
                         </View>
                         <View style={styles.paymentOptionsCol2}>
-                            <Text>Select School as beneficiary from Biller Option and Pay</Text>
+                            <Text>SELECT SCHOOL AS BENEFICIARY FROM BILLER OPTION AND PAY</Text>
                         </View>
                     </View>
                     <View style={[styles.paymentOptionsRow, { borderBottomWidth: 0 }]}>
                         <View style={styles.paymentOptionsCol1}>
-                            <Text style={{ fontWeight: 'bold' }}>for Payment via Any Other Bank Counter/Digital Channel</Text>
+                            <Text style={{ fontWeight: 'bold' }}>FOR PAYMENT VIA ANY OTHER BANK COUNTER/DIGITAL CHANNEL</Text>
                         </View>
                         <View style={styles.paymentOptionsCol2}>
-                            <Text>Payment via 1 Bill Invoices option using 24 Digit 1 Bill Invoice no.</Text>
+                            <Text>PAYMENT VIA 1 BILL INVOICES OPTION USING 24 DIGIT 1 BILL INVOICE NO.</Text>
                             <Text style={{ fontWeight: 'bold', marginTop: 1 }}>1BILL ID: 1006259110046</Text>
                         </View>
                     </View>
@@ -795,25 +786,42 @@ export const FeeChallanPDF = ({
                     <Text style={styles.historyTitle}>ARREAR'S HISTORY</Text>
                     <View style={styles.historyTable}>
                         <View style={styles.historyTableHeader}>
-                            <Text style={styles.historyTableHeaderCell}>DATE</Text>
-                            <Text style={styles.historyTableHeaderCell}>HEAD</Text>
+                            <Text style={[styles.historyTableHeaderCell, { flex: 2 }]}>HEAD</Text>
                             <Text style={styles.historyTableHeaderCell}>AMOUNT</Text>
-                            <Text style={styles.historyTableHeaderCell}>TOTAL</Text>
                         </View>
-                        {arrearsHistory && arrearsHistory.length > 0 ? (
-                            arrearsHistory.map((a: any, idx: number) => (
-                                <View key={idx} style={styles.historyTableRow}>
-                                    <Text style={styles.historyTableCell}>{a.date}</Text>
-                                    <Text style={styles.historyTableCell}>{a.head}</Text>
-                                    <Text style={styles.historyTableCell}>{a.amount}</Text>
-                                    <Text style={styles.historyTableCell}>{a.totalAmount}</Text>
-                                </View>
-                            ))
-                        ) : (
+                        {arrearsHistory && arrearsHistory.length > 0 ? (() => {
+                            const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                            const fmtMonth = (d: string) => { const [y, m] = d.split('-'); return `${MONTHS[parseInt(m)-1].toUpperCase()} ${y}`; };
+                            const monthKey = (d: string) => d.slice(0, 7);
+                            const groups: { month: string; items: any[] }[] = [];
+                            arrearsHistory.forEach((a: any) => {
+                                const key = monthKey(a.date);
+                                const last = groups[groups.length - 1];
+                                if (last && last.month === key) { last.items.push(a); }
+                                else { groups.push({ month: key, items: [a] }); }
+                            });
+                            return groups.map((g, gi) => (
+                                <React.Fragment key={gi}>
+                                    <View style={{ backgroundColor: '#e2e8f0', paddingHorizontal: 2, paddingVertical: 1.5, marginTop: gi > 0 ? 3 : 0 }}>
+                                        <Text style={{ fontSize: 4, fontWeight: 'bold', color: '#1e293b' }}>{fmtMonth(g.month + '-01')}</Text>
+                                    </View>
+                                    {g.items.map((a: any, idx: number) => (
+                                        <View key={idx} style={styles.historyTableRow}>
+                                            <Text style={[styles.historyTableCell, { flex: 2 }]}>{a.head}</Text>
+                                            <Text style={styles.historyTableCell}>{a.amount}</Text>
+                                        </View>
+                                    ))}
+                                    <View style={{ flexDirection: 'row', borderTopWidth: 0.5, borderTopColor: '#94a3b8', paddingTop: 1, marginTop: 0.5 }}>
+                                        <Text style={[styles.historyTableCell, { flex: 2, fontWeight: 'bold', color: '#1e293b' }]}>Subtotal</Text>
+                                        <Text style={[styles.historyTableCell, { fontWeight: 'bold', color: '#1e293b' }]}>
+                                            {g.items.reduce((s: number, a: any) => s + (parseFloat(a.amount) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                        </Text>
+                                    </View>
+                                </React.Fragment>
+                            ));
+                        })() : (
                             <View style={styles.historyTableRow}>
-                                <Text style={styles.historyTableCell}>-</Text>
-                                <Text style={styles.historyTableCell}>-</Text>
-                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={[styles.historyTableCell, { flex: 2 }]}>-</Text>
                                 <Text style={styles.historyTableCell}>-</Text>
                             </View>
                         )}
