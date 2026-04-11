@@ -1,21 +1,18 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
-    Search, Loader2, AlertCircle, FileText, ChevronDown, X,
+    Search, Loader2, AlertCircle, FileText,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
-    Building2, GraduationCap, Users, Hash, CreditCard, SlidersHorizontal,
-    ChevronLeft, ChevronRight, Download, Wallet, UserCircle, UserSearch
+    Hash, SlidersHorizontal,
+    ChevronLeft, ChevronRight, Wallet, UserCircle, UserSearch, Ban, X
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
-import { fetchClasses } from "@/store/slices/classesSlice";
-import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchSections } from "@/store/slices/sectionsSlice";
-import { fetchVouchers, fetchVouchersByStudent, VoucherFilters, VoucherItem, clearVouchers } from "@/store/slices/vouchersSlice";
+import { fetchVouchers, fetchVouchersByStudent, VoucherItem, clearVouchers } from "@/store/slices/vouchersSlice";
 import toast from "react-hot-toast";
-import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
-import { groupFees, getCurrentAcademicYear } from "@/lib/fee-utils";
+
 
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -26,6 +23,7 @@ const STATUS_OPTIONS = [
     { value: "PARTIALLY_PAID", label: "Partially Paid", icon: FileText, color: "text-blue-500" },
     { value: "PAID", label: "Paid", icon: CheckCircle2, color: "text-emerald-500" },
     { value: "OVERDUE", label: "Overdue", icon: XCircle, color: "text-rose-500" },
+    { value: "VOID", label: "Void", icon: Ban, color: "text-zinc-400" },
 ];
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
@@ -47,6 +45,8 @@ function getStatusConfig(status: string | null) {
             return { label: "Partially Paid", classes: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800" };
         case "OVERDUE":
             return { label: "Overdue", classes: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800" };
+        case "VOID":
+            return { label: "Void", classes: "bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800/40 dark:text-zinc-500 dark:border-zinc-700" };
         default:
             return { label: "Unpaid", classes: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800" };
     }
@@ -61,6 +61,47 @@ interface DepositModalProps {
 }
 
 function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
+    // Guard: do not allow deposit on a VOID voucher
+    if (voucher.status === "VOID") {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
+                        <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 bg-zinc-200/60 dark:bg-zinc-800 rounded-2xl flex items-center justify-center">
+                                <Ban className="h-6 w-6 text-zinc-500" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100">Voucher Voided</h2>
+                                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Voucher #{voucher.id} • {voucher.students.full_name}</p>
+                            </div>
+                        </div>
+                        <button onClick={onClose} className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">
+                            <X className="h-5 w-5 text-zinc-400" />
+                        </button>
+                    </div>
+                    <div className="p-8 space-y-4">
+                        <div className="flex items-start gap-4 p-5 bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/40 rounded-2xl">
+                            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                                <p className="text-sm font-black text-amber-800 dark:text-amber-300">This voucher has been superseded</p>
+                                <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                                    The unpaid fee heads from this voucher have been rolled into a newer voucher.
+                                    Please locate that voucher and record the deposit against it to avoid double-payment.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="px-8 py-6 border-t border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-end">
+                        <button onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-zinc-500 hover:text-zinc-700 transition-colors">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     const [amount, setAmount] = useState<string>("");
     const [isSaving, setIsSaving] = useState(false);
     const [fillingMode, setFillingMode] = useState<"auto" | "manual">("auto");
@@ -68,6 +109,14 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const [manualLateFee, setManualLateFee] = useState<string>("0");
 
     const heads = voucher.voucher_heads || [];
+    // Determine if each head is an arrear (its student_fee.fee_date < voucher.fee_date)
+    const voucherFeeDate = voucher.fee_date ? new Date(voucher.fee_date) : null;
+    const isArrearHead = (h: typeof heads[0]) => {
+        if (!voucherFeeDate || !h.student_fees?.fee_date) return false;
+        return new Date(h.student_fees.fee_date) < voucherFeeDate;
+    };
+    const arrearCount = heads.filter(h => isArrearHead(h)).length;
+
     const totalBalance = heads.reduce((sum, h) => sum + Number(h.balance), 0);
     const totalSurcharge = (voucher.late_fee_charge) ? Math.max(Number(voucher.total_payable_after_due ?? 0) - Number(voucher.total_payable_before_due ?? 0), 0) : 0;
     const remainingSurcharge = Math.max(totalSurcharge - Number(voucher.late_fee_deposited ?? 0), 0);
@@ -85,45 +134,26 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         const depositAmt = Number(amount) || 0;
         let remaining = depositAmt;
         const dist: Record<number, string> = {};
-
-        // 1. Prioritize Late Fee (Precedence 0)
         const lateToFill = Math.min(remaining, actualLateFee);
         setManualLateFee(lateToFill.toString());
         remaining -= lateToFill;
-
-        // 2. Fill Voucher Heads
         heads.forEach(h => {
             const hBal = Number(h.balance);
             const toFill = Math.min(remaining, hBal);
             dist[h.id] = toFill.toString();
             remaining -= toFill;
         });
-
         setManualDistributions(dist);
     };
 
     useEffect(() => {
-        if (fillingMode === "auto") {
-            handleAutoFill();
-        }
+        if (fillingMode === "auto") handleAutoFill();
     }, [amount, fillingMode]);
 
     const handleSave = async () => {
-        if (!amount || Number(amount) <= 0) {
-            toast.error("Please enter a valid deposit amount.");
-            return;
-        }
-
-        if (distributedTotal > finalTotal) {
-            toast.error("Distribution exceeds voucher balance.");
-            return;
-        }
-
-        if (remainingPool !== 0) {
-            toast.error("Total distribution must match deposit amount.");
-            return;
-        }
-
+        if (!amount || Number(amount) <= 0) { toast.error("Please enter a valid deposit amount."); return; }
+        if (distributedTotal > finalTotal) { toast.error("Distribution exceeds voucher balance."); return; }
+        if (remainingPool !== 0) { toast.error("Total distribution must match deposit amount."); return; }
         setIsSaving(true);
         try {
             await api.post(`/v1/vouchers/${voucher.id}/deposit`, {
@@ -142,7 +172,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-2xl w-full max-w-3xl overflow-hidden animate-in zoom-in-95 duration-200">
                 {/* Modal Header */}
                 <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
                     <div className="flex items-center gap-4">
@@ -154,12 +184,20 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Voucher #{voucher.id} • {voucher.students.full_name}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">
-                        <X className="h-5 w-5 text-zinc-400" />
-                    </button>
+                    <div className="flex items-center gap-3">
+                        {arrearCount > 0 && (
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-amber-500/20">
+                                <AlertCircle className="h-3 w-3" />
+                                {arrearCount} arrear head{arrearCount !== 1 ? "s" : ""}
+                            </span>
+                        )}
+                        <button onClick={onClose} className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">
+                            <X className="h-5 w-5 text-zinc-400" />
+                        </button>
+                    </div>
                 </div>
 
-                <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
+                <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto">
                     {/* Amount Input */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between ml-1">
@@ -183,17 +221,12 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                 value={amount}
                                 onChange={e => {
                                     const val = e.target.value.replace(/[^0-9]/g, '');
-                                    if (val === "") {
-                                        setAmount("");
-                                        return;
-                                    }
+                                    if (val === "") { setAmount(""); return; }
                                     const num = Number(val);
                                     if (num > finalTotal) {
                                         setAmount(finalTotal.toString());
                                         toast.error(`Amount cannot exceed the total balance of Rs. ${finalTotal.toLocaleString()}`);
-                                    } else {
-                                        setAmount(val);
-                                    }
+                                    } else { setAmount(val); }
                                 }}
                                 className="w-full h-16 px-6 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] text-2xl font-black text-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/30 transition-all placeholder:text-zinc-300"
                             />
@@ -204,27 +237,16 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         </div>
                     </div>
 
-                    {/* Filling Mode Toggle - Only if partial/manual distribution is needed */}
+                    {/* Filling Mode Toggle */}
                     {Number(amount) > 0 && Number(amount) !== finalTotal && (
                         <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400">Distribution Mode</span>
                                 <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl">
-                                    <button
-                                        onClick={() => setFillingMode("auto")}
-                                        className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${fillingMode === "auto" ? "bg-white dark:bg-zinc-950 text-primary shadow-sm" : "text-zinc-400"}`}
-                                    >
-                                        Auto Fill
-                                    </button>
-                                    <button
-                                        onClick={() => setFillingMode("manual")}
-                                        className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${fillingMode === "manual" ? "bg-white dark:bg-zinc-950 text-primary shadow-sm" : "text-zinc-400"}`}
-                                    >
-                                        Manual Distribution
-                                    </button>
+                                    <button onClick={() => setFillingMode("auto")} className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${fillingMode === "auto" ? "bg-white dark:bg-zinc-950 text-primary shadow-sm" : "text-zinc-400"}`}>Auto Fill</button>
+                                    <button onClick={() => setFillingMode("manual")} className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${fillingMode === "manual" ? "bg-white dark:bg-zinc-950 text-primary shadow-sm" : "text-zinc-400"}`}>Manual</button>
                                 </div>
                             </div>
-
                             {fillingMode === "manual" && (
                                 <div className="p-4 bg-primary/5 border border-primary/10 rounded-[20px] flex items-center justify-between">
                                     <div className="flex items-center gap-3">
@@ -233,7 +255,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                         </div>
                                         <div>
                                             <p className="text-[10px] font-black text-primary uppercase tracking-widest">Manual Adjustment Pool</p>
-                                            <p className="text-xs font-bold text-zinc-600">Distribute the deposit amount across heads.</p>
+                                            <p className="text-xs font-bold text-zinc-600">Distribute across heads manually.</p>
                                         </div>
                                     </div>
                                     <div className="text-right">
@@ -247,99 +269,97 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         </div>
                     )}
 
-                    {/* Heads Table */}
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between px-1">
-                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Distribution Breakdown</span>
-                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Amount to Deposit</span>
+                    {/* Full Heads Breakdown Table */}
+                    <div className="space-y-2">
+                        {/* Column Headers */}
+                        <div className="grid grid-cols-[1fr_100px_100px_100px_110px] gap-x-3 px-4 pb-2 border-b border-zinc-100 dark:border-zinc-800">
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Fee Head</span>
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">Net Amt</span>
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">Deposited</span>
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">Balance</span>
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">To Deposit</span>
                         </div>
-                        <div className="space-y-3">
-                            {/* Priority 1 (Precedence 0): Late Fee if Overdue */}
-                            {actualLateFee > 0 && (
-                                <div className="flex items-center justify-between p-4 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-900/30 rounded-2xl group hover:border-rose-200 dark:hover:border-rose-700 transition-all">
-                                    <div>
-                                        <p className="text-[13px] font-black text-rose-600 truncate max-w-[240px]">
-                                            Late Payment Surcharge
-                                        </p>
-                                        <p className="text-[10px] font-bold text-rose-400 uppercase">
-                                            Priority: 0 (System High) • Balance: Rs. {actualLateFee.toLocaleString()}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        {fillingMode === "manual" ? (
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    pattern="[0-9]*"
-                                                    value={manualLateFee}
-                                                    onChange={e => {
-                                                        const val = e.target.value.replace(/[^0-9]/g, '');
-                                                        if (val === "" || Number(val) <= actualLateFee) {
-                                                            setManualLateFee(val);
-                                                        } else {
-                                                            setManualLateFee(actualLateFee.toString());
-                                                        }
-                                                    }}
-                                                    className="w-32 h-10 px-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-right focus:outline-none focus:border-rose-500 transition-all font-mono"
-                                                />
-                                            </div>
-                                        ) : (
-                                            <span className="text-sm font-black text-rose-600 tabular-nums">
-                                                Rs. {Number(manualLateFee || 0).toLocaleString()}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
 
-                            {heads.map(h => (
-                                <div key={h.id} className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl group hover:border-zinc-200 dark:hover:border-zinc-700 transition-all">
+                        {/* Late Fee row */}
+                        {actualLateFee > 0 && (
+                            <div className="grid grid-cols-[1fr_100px_100px_100px_110px] gap-x-3 items-center px-4 py-3 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-900/30 rounded-2xl">
+                                <div>
+                                    <p className="text-[12px] font-black text-rose-600">Late Payment Surcharge</p>
+                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5">System • Priority 0</span>
+                                </div>
+                                <span className="text-[11px] font-bold text-zinc-400 tabular-nums text-right">—</span>
+                                <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Number(voucher.late_fee_deposited ?? 0).toLocaleString()}</span>
+                                <span className="text-[11px] font-black text-rose-600 tabular-nums text-right">{actualLateFee.toLocaleString()}</span>
+                                <div className="flex justify-end">
+                                    {fillingMode === "manual" ? (
+                                        <input type="text" inputMode="numeric" pattern="[0-9]*" value={manualLateFee}
+                                            onChange={e => { const v = e.target.value.replace(/[^0-9]/g,''); setManualLateFee(v === "" || Number(v) <= actualLateFee ? v : actualLateFee.toString()); }}
+                                            className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-rose-500 transition-all font-mono" />
+                                    ) : (
+                                        <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {Number(manualLateFee || 0).toLocaleString()}</span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Fee head rows */}
+                        {heads.map(h => {
+                            const arrear = isArrearHead(h);
+                            return (
+                                <div
+                                    key={h.id}
+                                    className={`grid grid-cols-[1fr_100px_100px_100px_110px] gap-x-3 items-center px-4 py-3 border rounded-2xl transition-all ${
+                                        arrear
+                                            ? "bg-amber-50/30 dark:bg-amber-900/5 border-amber-100 dark:border-amber-900/20 hover:border-amber-200 dark:hover:border-amber-800/40"
+                                            : "bg-zinc-50 dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 hover:border-zinc-200 dark:hover:border-zinc-700"
+                                    }`}
+                                >
                                     <div>
-                                        <p className="text-[13px] font-black text-zinc-900 dark:text-zinc-100 truncate max-w-[240px]">
+                                        <p className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]">
                                             {h.student_fees?.fee_types?.description || "Fee Head"}
                                         </p>
-                                        <p className="text-[10px] font-bold text-zinc-400 flex items-center gap-1.5 uppercase">
-                                            Balance: Rs. {Number(h.balance).toLocaleString()}
-                                        </p>
+                                        <span className={`inline-flex items-center px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5 ${
+                                            arrear ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"
+                                        }`}>
+                                            {arrear ? "Arrear" : "Current"}
+                                        </span>
                                     </div>
-                                    <div className="flex items-center gap-4">
+                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{Number(h.net_amount).toLocaleString()}</span>
+                                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Number(h.amount_deposited).toLocaleString()}</span>
+                                    <span className={`text-[11px] font-black tabular-nums text-right ${Number(h.balance) === 0 ? "text-emerald-600" : "text-zinc-900 dark:text-zinc-100"}`}>
+                                        {Number(h.balance).toLocaleString()}
+                                    </span>
+                                    <div className="flex justify-end">
                                         {fillingMode === "manual" ? (
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    pattern="[0-9]*"
-                                                    value={manualDistributions[h.id] || ""}
-                                                    onChange={e => {
-                                                        const val = e.target.value.replace(/[^0-9]/g, '');
-                                                        const balance = Number(h.balance);
-                                                        if (val === "" || Number(val) <= balance) {
-                                                            setManualDistributions({ ...manualDistributions, [h.id]: val });
-                                                        } else {
-                                                            setManualDistributions({ ...manualDistributions, [h.id]: balance.toString() });
-                                                        }
-                                                    }}
-                                                    className="w-32 h-10 px-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-right focus:outline-none focus:border-primary transition-all font-mono"
-                                                />
-                                            </div>
+                                            <input type="text" inputMode="numeric" pattern="[0-9]*" value={manualDistributions[h.id] || ""}
+                                                onChange={e => {
+                                                    const v = e.target.value.replace(/[^0-9]/g,'');
+                                                    const bal = Number(h.balance);
+                                                    setManualDistributions({ ...manualDistributions, [h.id]: v === "" || Number(v) <= bal ? v : bal.toString() });
+                                                }}
+                                                className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-primary transition-all font-mono" />
                                         ) : (
-                                            <span className="text-sm font-black text-zinc-900 dark:text-zinc-100 tabular-nums">
-                                                Rs. {Number(manualDistributions[h.id] || 0).toLocaleString()}
-                                            </span>
+                                            <span className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 tabular-nums">Rs. {Number(manualDistributions[h.id] || 0).toLocaleString()}</span>
                                         )}
                                     </div>
                                 </div>
-                            ))}
+                            );
+                        })}
+
+                        {/* Summary totals row */}
+                        <div className="grid grid-cols-[1fr_100px_100px_100px_110px] gap-x-3 items-center px-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                            <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Total</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{heads.reduce((s,h) => s+Number(h.net_amount),0).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{heads.reduce((s,h) => s+Number(h.amount_deposited),0).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-emerald-600 tabular-nums text-right">{totalBalance.toLocaleString()}</span>
+                            <span />
                         </div>
                     </div>
                 </div>
 
                 {/* Modal Footer */}
                 <div className="px-8 py-6 border-t border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-end gap-3">
-                    <button onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-zinc-500 hover:text-zinc-700 transition-colors">
-                        Cancel
-                    </button>
+                    <button onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-zinc-500 hover:text-zinc-700 transition-colors">Cancel</button>
                     <button
                         onClick={handleSave}
                         disabled={isSaving || (fillingMode === "manual" && remainingPool !== 0)}
@@ -358,119 +378,15 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
 
 function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherItem; index: number; sections: any[]; onDeposit: (v: VoucherItem) => void }) {
     const status = getStatusConfig(voucher.status);
-    const [isDownloading, setIsDownloading] = useState(false);
-    const user = useAppSelector(s => s.auth.user);
+    const isVoid = voucher.status === "VOID";
 
-    const handleDownload = async () => {
-        // If we already have a stored PDF URL, open it immediately.
-        // Keeping this code before any async/await helps browsers treat it as a user gesture.
-        const pdfUrl = typeof voucher.pdf_url === "string" ? voucher.pdf_url.trim() : "";
-        if (pdfUrl) {
-            const link = document.createElement("a");
-            link.href = pdfUrl;
-            link.target = "_blank";
-            link.rel = "noopener noreferrer";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            toast.success("Voucher opened in a new tab.");
-            return;
-        }
 
-        setIsDownloading(true);
-        let loadingToast: string | undefined;
-        try {
-            const issueDateObj = new Date(voucher.issue_date);
-            const monthNum = issueDateObj.getMonth() + 1;
-            const MONTHS_NAMES = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-            const monthName = MONTHS_NAMES[monthNum];
-            const filename = `Challan_${voucher.students.cc}_${monthName}.pdf`;
 
-            // ── Fallback: generate PDF on the fly ────────────────────────────
-            loadingToast = toast.loading("Generating PDF, please wait…");
-            const { data: studentRes } = await api.get(`/v1/students/${voucher.student_id}`);
-            const studentData = studentRes?.data;
-            const { data } = await api.get(`/v1/student-fees/by-student/${voucher.student_id}`);
-            const familyStudents = data?.data?.family?.students || [];
-            const siblings = familyStudents.filter((s: any) => s.cc !== voucher.student_id);
-
-            const pdfFees = groupFees(voucher.voucher_heads || [], {}, { groupTuitionFees: false, isVoucherHeads: true });
-            const totalFeesAmount = Number(voucher.total_payable_before_due || 0);
-
-            const { pdf } = await import('@react-pdf/renderer');
-            const doc = (
-                <FeeChallanPDF
-                    student={{
-                        cc: voucher.students.cc,
-                        student_full_name: voucher.students.full_name,
-                        gr_number: voucher.students.gr_number || "",
-                        campus: voucher.campuses?.campus_name,
-                        class_id: voucher.class_id,
-                        section_id: voucher.section_id || undefined,
-                        className: voucher.classes?.description || "Unknown",
-                        sectionName: voucher.sections?.description || "N/A",
-                        grade_and_section: studentData?.grade_and_section || `${voucher.classes?.description} ${voucher.sections?.description || ""}`,
-                        gender: studentData?.gender,
-                        father_name: studentData?.father_name
-                    }}
-                    siblings={siblings.map((s: any) => ({
-                        full_name: s.full_name,
-                        cc: s.cc,
-                        gr_number: s.gr_number,
-                        className: s.classes?.description || "Unknown",
-                        sectionName: sections.find((sec: any) => sec.id === s.section_id)?.description || "N/A"
-                    }))}
-                    details={{
-                        month: monthName,
-                        academicYear: getCurrentAcademicYear(),
-                        issueDate: voucher.issue_date.split('T')[0],
-                        dueDate: voucher.due_date.split('T')[0],
-                        validityDate: voucher.validity_date ? voucher.validity_date.split('T')[0] : voucher.due_date.split('T')[0],
-                        applyLateFee: voucher.late_fee_charge,
-                        voucherNumber: `VCH-${voucher.id}`,
-                        generatedBy: {
-                            fullName: user?.fullName || "System Admin",
-                            timestampStr: new Date().toLocaleString()
-                        },
-                        bank: {
-                            name: voucher.bank_accounts?.bank_name || "",
-                            title: voucher.bank_accounts?.account_title || "",
-                            account: voucher.bank_accounts?.account_number || "",
-                            branch: voucher.bank_accounts?.branch_code || "",
-                            address: voucher.bank_accounts?.bank_address || "",
-                            iban: voucher.bank_accounts?.iban || ""
-                        }
-                    }}
-                    fees={pdfFees}
-                    totalAmount={totalFeesAmount}
-                    qrUrl={voucher.pdf_url || undefined}
-                />
-            );
-
-            const asPdf = pdf(doc);
-            const blob = await asPdf.toBlob();
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.target = "_blank";
-            link.rel = "noopener noreferrer";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            toast.dismiss(loadingToast);
-            toast.success("Voucher opened in a new tab.");
-        } catch (error) {
-            console.error(error);
-            toast.dismiss(loadingToast);
-            toast.error("Failed to open voucher PDF.");
-        } finally {
-            setIsDownloading(false);
-        }
-    };
 
     return (
-        <tr className="group border-b border-zinc-100 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
+        <tr className={`group border-b border-zinc-100 dark:border-zinc-800/60 transition-colors ${
+            isVoid ? "opacity-60 bg-zinc-50/50 dark:bg-zinc-900/20" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
+        }`}>
             <td className="px-5 py-3.5 text-center">
                 <span className="text-[11px] font-mono text-zinc-400">{voucher.id}</span>
             </td>
@@ -523,17 +439,30 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
             </td>
             <td className="px-5 py-3.5">
                 <div className="flex flex-col gap-0.5">
-                    <span className="text-[13px] font-black text-zinc-900 dark:text-zinc-100 tabular-nums">
+                    <span className={`text-[13px] font-black tabular-nums ${
+                        isVoid ? "text-zinc-400" : "text-zinc-900 dark:text-zinc-100"
+                    }`}>
                         Rs. {Number(voucher.total_payable_before_due || 0).toLocaleString()}
                     </span>
-                    <span className="text-[9px] font-bold text-rose-500 uppercase tracking-tight leading-none">
-                        After: Rs. {Number(voucher.total_payable_after_due || 0).toLocaleString()}
-                    </span>
+                    {!isVoid && (
+                        <span className="text-[9px] font-bold text-rose-500 uppercase tracking-tight leading-none">
+                            After: Rs. {Number(voucher.total_payable_after_due || 0).toLocaleString()}
+                        </span>
+                    )}
                 </div>
             </td>
             <td className="px-5 py-3.5">
                 <div className="flex items-center gap-2">
-                    {voucher.status !== "PAID" && (
+                    {isVoid ? (
+                        <button
+                            onClick={() => onDeposit(voucher)}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800/60 text-zinc-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-zinc-200 dark:border-zinc-700 cursor-not-allowed"
+                            title="This voucher has been superseded. Its unpaid heads are included in a newer voucher."
+                        >
+                            <Ban className="h-3.5 w-3.5" />
+                            Voided
+                        </button>
+                    ) : voucher.status !== "PAID" ? (
                         <button
                             onClick={() => onDeposit(voucher)}
                             className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
@@ -541,14 +470,7 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
                             <Wallet className="h-3.5 w-3.5" />
                             Deposit
                         </button>
-                    )}
-                    <button
-                        onClick={handleDownload}
-                        disabled={isDownloading}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900/40 text-zinc-500 text-[10px] font-black uppercase tracking-widest rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 transition-colors disabled:opacity-50"
-                    >
-                        {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                    </button>
+                    ) : null}
                 </div>
             </td>
         </tr>

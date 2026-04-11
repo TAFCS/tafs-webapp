@@ -48,6 +48,7 @@ export interface VoucherHead {
         month: number | null;
         target_month: number | null;
         academic_year: string | null;
+        fee_date: string | null;
         fee_types: {
             description: string;
         };
