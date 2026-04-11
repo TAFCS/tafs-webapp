@@ -571,12 +571,11 @@ function StudentwiseFeeEditor() {
     const isRowLocked = (row?: SpreadsheetRow) => 
         row?.status === "PAID" || 
         row?.status === "PARTIALLY_PAID" || 
-        row?.status === "ISSUED" || 
-        !!row?.bundle_id;
+        row?.status === "ISSUED";
 
     const deleteRow = (idx: number) => {
         if (isRowLocked(rows[idx])) {
-            toast.error("Cannot delete a row that is paid, issued (unpaid voucher), or bundled.");
+            toast.error("Cannot delete a row that is paid, partially paid, or has an issued voucher.");
             return;
         }
         setRows((prev) => prev.filter((_, i) => i !== idx));
@@ -1208,9 +1207,7 @@ function StudentwiseFeeEditor() {
                                                         <div className="px-5 pb-2 flex items-center gap-1.5">
                                                             <div className="h-1 w-1 rounded-full bg-amber-400" />
                                                             <span className="text-[9px] font-black text-amber-600/70 uppercase tracking-tighter">
-                                                                {row.status === "PAID" || row.status === "PARTIALLY_PAID" || row.status === "ISSUED" 
-                                                                    ? "Voucher Generated — Locked" 
-                                                                    : "Bundled — Locked"}
+                                                                Voucher Generated — Locked
                                                             </span>
                                                         </div>
                                                     )}
