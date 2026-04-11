@@ -107,6 +107,8 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const [fillingMode, setFillingMode] = useState<"auto" | "manual">("auto");
     const [manualDistributions, setManualDistributions] = useState<Record<number, string>>({});
     const [manualLateFee, setManualLateFee] = useState<string>("0");
+    const [paymentMethod, setPaymentMethod] = useState<string>("cash");
+    const [referenceNumber, setReferenceNumber] = useState<string>("");
 
     const heads = voucher.voucher_heads || [];
     // Determine if each head is an arrear (its student_fee.fee_date < voucher.fee_date)
@@ -159,7 +161,9 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
             await api.post(`/v1/vouchers/${voucher.id}/deposit`, {
                 amount: Number(amount),
                 distributions: manualDistributions,
-                late_fee: Number(manualLateFee)
+                late_fee: Number(manualLateFee),
+                payment_method: paymentMethod || undefined,
+                reference_number: referenceNumber.trim() || undefined,
             });
             toast.success("Deposit recorded successfully");
             onSuccess();
@@ -234,6 +238,33 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                 <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Total Balance</span>
                                 <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Rs. {finalTotal.toLocaleString()}</span>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Payment Details */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Payment Method</label>
+                            <select
+                                value={paymentMethod}
+                                onChange={e => setPaymentMethod(e.target.value)}
+                                className="w-full h-11 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[14px] text-sm font-bold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-emerald-500/30 transition-all"
+                            >
+                                <option value="cash">Cash</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="cheque">Cheque</option>
+                                <option value="online">Online Payment</option>
+                            </select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Reference No. <span className="normal-case font-medium">(optional)</span></label>
+                            <input
+                                type="text"
+                                placeholder="Slip / cheque / TXN no."
+                                value={referenceNumber}
+                                onChange={e => setReferenceNumber(e.target.value)}
+                                className="w-full h-11 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[14px] text-sm font-bold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-emerald-500/30 transition-all placeholder:text-zinc-300"
+                            />
                         </div>
                     </div>
 
