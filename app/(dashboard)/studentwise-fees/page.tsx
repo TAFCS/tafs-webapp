@@ -365,7 +365,8 @@ function StudentwiseFeeEditor() {
                     fee_date: sf.fee_date ? new Date(sf.fee_date).toISOString().split('T')[0] : undefined,
                     bundle_id: sf.bundle_id,
                     bundle_name: sf.student_fee_bundles?.bundle_name,
-                    status: sf.status
+                    // If backend status is NOT_ISSUED but it has voucher_heads, it's effectively ISSUED or in a draft state
+                    status: (sf.voucher_heads && sf.voucher_heads.length > 0) ? (sf.status === 'NOT_ISSUED' ? 'ISSUED' : sf.status) : sf.status
                 }));
             }
 
@@ -567,11 +568,15 @@ function StudentwiseFeeEditor() {
     };
 
     // ── Row Mutators ────────────────────────────────────────────────────
-    const isRowLocked = (row?: SpreadsheetRow) => row?.status === "PAID" || row?.status === "PARTIALLY_PAID";
+    const isRowLocked = (row?: SpreadsheetRow) => 
+        row?.status === "PAID" || 
+        row?.status === "PARTIALLY_PAID" || 
+        row?.status === "ISSUED" || 
+        !!row?.bundle_id;
 
     const deleteRow = (idx: number) => {
         if (isRowLocked(rows[idx])) {
-            toast.error("Cannot delete a paid or partially paid fee head.");
+            toast.error("Cannot delete a row that is paid, issued (unpaid voucher), or bundled.");
             return;
         }
         setRows((prev) => prev.filter((_, i) => i !== idx));
@@ -1053,6 +1058,12 @@ function StudentwiseFeeEditor() {
                             <span className="text-[13px] font-bold text-amber-900/70 tracking-tight">
                                 Reminder: Any changes to amounts, additions, or deletions must be <span className="text-primary underline underline-offset-4 decoration-primary/30">persisted by clicking "Save Schedule"</span>.
                             </span>
+                            {rows.some(r => isRowLocked(r)) && (
+                                <div className="mt-2.5 pt-2.5 border-t border-amber-200/50 flex items-center gap-2">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                    <span className="text-[11px] font-bold text-amber-800/60 uppercase tracking-wider">Some rows are locked due to existing vouchers or bundling</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -1185,8 +1196,24 @@ function StudentwiseFeeEditor() {
                                                             {feeTypes.map(ft => <option key={ft.id} value={ft.id}>{ft.description}</option>)}
                                                         </select>
                                                         {!isLocked && <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />}
-                                                        {isLocked && <div className="absolute right-4 top-1/2 -translate-y-1/2"><span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${row.status === "PAID" ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"}`}>{row.status?.replace("_", " ")}</span></div>}
+                                                        {isLocked && row.status && row.status !== "ISSUED" && (
+                                                            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shadow-sm ${row.status === "PAID" ? "bg-emerald-500 text-white" : "bg-blue-500 text-white"}`}>
+                                                                    {row.status?.replace("_", " ")}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </div>
+                                                    {isLocked && (
+                                                        <div className="px-5 pb-2 flex items-center gap-1.5">
+                                                            <div className="h-1 w-1 rounded-full bg-amber-400" />
+                                                            <span className="text-[9px] font-black text-amber-600/70 uppercase tracking-tighter">
+                                                                {row.status === "PAID" || row.status === "PARTIALLY_PAID" || row.status === "ISSUED" 
+                                                                    ? "Voucher Generated — Locked" 
+                                                                    : "Bundled — Locked"}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                     {row.bundle_id && (
                                                         <div className="px-5 pb-2 flex items-center gap-2 group/bundle">
                                                             <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 border border-primary/20 rounded-md">
