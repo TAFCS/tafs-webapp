@@ -2,6 +2,20 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@react-pdf/renderer"],
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'tafs-assets.sgp1.cdn.digitaloceanspaces.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'tafs-assets.sgp1.digitaloceanspaces.com',
+        pathname: '/**',
+      },
+    ],
+  },
   async rewrites() {
     return [
       {

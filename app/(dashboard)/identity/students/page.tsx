@@ -63,7 +63,8 @@ function StatusBadge({ status }: { status: string }) {
 function Avatar({ url, name, size = 40 }: { url: string | null; name: string; size?: number }) {
     const initials = name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
     if (url) {
-        return <Image src={url} alt={name} width={size} height={size} className="rounded-full object-cover ring-2 ring-white shadow-sm" style={{ width: size, height: size }} />;
+        const sanitizedUrl = url.replace(/([^:])\/\//g, '$1/');
+        return <Image src={sanitizedUrl} alt={name} width={size} height={size} className="rounded-full object-cover ring-2 ring-white shadow-sm" style={{ width: size, height: size }} />;
     }
     const colors = ["bg-violet-100 text-violet-700", "bg-blue-100 text-blue-700", "bg-emerald-100 text-emerald-700", "bg-amber-100 text-amber-700"];
     const color = colors[name.charCodeAt(0) % colors.length];
