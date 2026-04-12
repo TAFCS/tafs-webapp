@@ -161,6 +161,7 @@ export default function StudentsDirectoryPage() {
     const [sectionId, setSectionId]   = useState("");
     const [houseId, setHouseId]       = useState("");
     const [status, setStatus]         = useState("");
+    const [isAbnormal, setIsAbnormal] = useState(false);
     const [page, setPage]             = useState(1);
 
     const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -186,8 +187,8 @@ export default function StudentsDirectoryPage() {
     }, []);
 
     const triggerFetch = useCallback(() => {
-        fetchStudents({ page, search, campus_id: campusId, class_id: classId, section_id: sectionId, house_id: houseId, status });
-    }, [page, search, campusId, classId, sectionId, houseId, status, fetchStudents]);
+        fetchStudents({ page, search, campus_id: campusId, class_id: classId, section_id: sectionId, house_id: houseId, status, is_abnormal: isAbnormal ? 1 : 0 });
+    }, [page, search, campusId, classId, sectionId, houseId, status, isAbnormal, fetchStudents]);
 
     // Debounced search
     useEffect(() => {
@@ -200,8 +201,8 @@ export default function StudentsDirectoryPage() {
     // Instant on filter/page change
     useEffect(() => { triggerFetch(); }, [page, campusId, classId, sectionId, houseId, status, triggerFetch]);
 
-    const hasFilters = campusId || classId || sectionId || houseId || status;
-    const clearFilters = () => { setCampusId(""); setClassId(""); setSectionId(""); setHouseId(""); setStatus(""); setPage(1); };
+    const hasFilters = campusId || classId || sectionId || houseId || status || isAbnormal;
+    const clearFilters = () => { setCampusId(""); setClassId(""); setSectionId(""); setHouseId(""); setStatus(""); setIsAbnormal(false); setPage(1); };
 
     const campusOptions  = campuses.map((c: any) => ({ value: String(c.id), label: c.campus_name }));
     const classOptions   = classes.map((c: any) => ({ value: String(c.id), label: c.description }));
@@ -248,6 +249,19 @@ export default function StudentsDirectoryPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                     <SlidersHorizontal className="h-4 w-4 text-zinc-400 shrink-0" />
                     <FilterSelect label="All Campuses" value={campusId} onChange={v => { setCampusId(v); setPage(1); }} options={campusOptions} />
+
+                    {/* TEMP: Abnormal Filter Button */}
+                    <button
+                        onClick={() => { setIsAbnormal(!isAbnormal); setPage(1); }}
+                        className={`h-9 px-4 flex items-center gap-2 text-[12px] font-bold rounded-xl transition-all border ${
+                            isAbnormal 
+                            ? "bg-rose-50 border-rose-200 text-rose-600 shadow-sm" 
+                            : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                        }`}
+                    >
+                        <div className={`h-2 w-2 rounded-full ${isAbnormal ? "bg-rose-500 animate-pulse" : "bg-zinc-300"}`} />
+                        Audit
+                    </button>
                     <FilterSelect label="All Classes"  value={classId}  onChange={v => { setClassId(v);  setPage(1); }} options={classOptions} />
                     <FilterSelect label="All Sections" value={sectionId} onChange={v => { setSectionId(v); setPage(1); }} options={sectionOptions} />
                     <FilterSelect label="All Statuses" value={status}   onChange={v => { setStatus(v);   setPage(1); }} options={statusOptions} />
