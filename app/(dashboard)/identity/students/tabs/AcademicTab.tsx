@@ -14,8 +14,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Input({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
     return (
-        <input value={value ?? ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-            className="w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all" />
+        <input value={value ?? ""} 
+            onChange={e => onChange(e.target.value.toUpperCase())} 
+            placeholder={placeholder}
+            className="w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all uppercase" />
     );
 }
 
