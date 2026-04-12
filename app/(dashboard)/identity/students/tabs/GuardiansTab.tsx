@@ -13,9 +13,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function Input({ value, onChange, placeholder, type = "text", className = "" }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string; className?: string }) {
+    const isEmail = type === "email";
     return (
-        <input type={type} value={value ?? ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-            className={`w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all ${className}`} />
+        <input type={type} value={value ?? ""} 
+            onChange={e => onChange(isEmail ? e.target.value.toLowerCase() : e.target.value.toUpperCase())} 
+            placeholder={placeholder}
+            className={`w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all ${isEmail ? "" : "uppercase"} ${className}`} />
     );
 }
 
@@ -207,6 +210,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved }: { studentCc: 
                             <Field label="WhatsApp"><PhoneInput value={local.whatsapp_number ?? ""} onChange={v => set("whatsapp_number", v)} /></Field>
                             <div className="col-span-2"><Field label="Email"><Input type="email" value={local.email_address ?? ""} onChange={v => set("email_address", v)} /></Field></div>
                         </div>
+
                         <div className="flex gap-2 pt-1">
                             <button 
                                 onClick={saveGuardianInfo} 
@@ -227,7 +231,11 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved }: { studentCc: 
     );
 }
 
-const EMPTY_GUARDIAN = { full_name: "", cnic: "", relationship: "GUARDIAN", primary_phone: "", whatsapp_number: "", occupation: "", email_address: "", is_primary_contact: false, is_emergency_contact: false };
+const EMPTY_GUARDIAN = { 
+    full_name: "", cnic: "", relationship: "GUARDIAN", primary_phone: "", whatsapp_number: "", 
+    work_phone: "", occupation: "", email_address: "", is_primary_contact: false, is_emergency_contact: false,
+    house_appt_name: "", area_block: "", city: "", postal_code: "", province: "", country: ""
+};
 
 export function GuardiansTab({ student, onReload }: { student: any; onReload: () => void }) {
     const [guardians, setGuardians] = useState<any[]>(student.guardians || []);
@@ -236,6 +244,14 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
 
+    // Unified Family Address state
+    const [familyAddress, setFamilyAddress] = useState<any>({
+        house_appt_name: "", area_block: "", city: "", postal_code: "", province: "", country: "", work_phone: ""
+    });
+    const [savingAddr, setSavingAddr] = useState(false);
+    const [savedAddr, setSavedAddr] = useState(false);
+    const [isAddrDirty, setIsAddrDirty] = useState(false);
+
     const update = (g: any) => setGuardians(prev => prev.map(x => x.guardian_id === g.guardian_id ? { ...x, ...g } : x));
     const remove = (guardianId: number) => setGuardians(prev => prev.filter(x => x.guardian_id !== guardianId));
 
@@ -243,6 +259,20 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
     useEffect(() => {
         if (student.guardians) {
             setGuardians(student.guardians);
+            // Populate family address from first guardian if not set or when student changes
+            if (student.guardians.length > 0) {
+                const g = student.guardians[0];
+                setFamilyAddress({
+                    house_appt_name: g.house_appt_name || "",
+                    area_block: g.area_block || "",
+                    city: g.city || "",
+                    postal_code: g.postal_code || "",
+                    province: g.province || "",
+                    country: g.country || "",
+                    work_phone: g.work_phone || ""
+                });
+                setIsAddrDirty(false);
+            }
         }
     }, [student.guardians]);
 
@@ -264,6 +294,26 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
     };
 
     const set = (k: string, v: any) => setNewG((p: any) => ({ ...p, [k]: v }));
+    
+    const setAddr = (k: string, v: any) => {
+        setFamilyAddress((p: any) => ({ ...p, [k]: v }));
+        setIsAddrDirty(true);
+    };
+
+    const saveFamilyAddress = async () => {
+        setSavingAddr(true);
+        try {
+            await api.patch(`/v1/staff-editing/students/${student.cc}/family-address`, familyAddress);
+            setSavedAddr(true);
+            setTimeout(() => setSavedAddr(false), 3000);
+            setIsAddrDirty(false);
+            
+            // Update all local guardians to keep UI in sync
+            setGuardians(prev => prev.map(g => ({ ...g, ...familyAddress })));
+        } catch(e) {
+            alert("Failed to update family address");
+        } finally { setSavingAddr(false); }
+    };
 
     return (
         <div className="space-y-3">
@@ -289,6 +339,16 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
                         <Field label="WhatsApp"><PhoneInput value={newG.whatsapp_number} onChange={v => set("whatsapp_number", v)} /></Field>
                         <Field label="Occupation"><Input value={newG.occupation} onChange={v => set("occupation", v)} /></Field>
                         <Field label="Email"><Input type="email" value={newG.email_address} onChange={v => set("email_address", v)} /></Field>
+                        
+                        {/* New Fields in Addition Form */}
+                        <div className="col-span-2 border-t border-blue-100/50 pt-2"><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Mailing Address</p></div>
+                        <div className="col-span-2"><Field label="House / Apartment Name and No."><Input value={newG.house_appt_name} onChange={v => set("house_appt_name", v)} /></Field></div>
+                        <Field label="Area and Block #"><Input value={newG.area_block} onChange={v => set("area_block", v)} /></Field>
+                        <Field label="City"><Input value={newG.city} onChange={v => set("city", v)} /></Field>
+                        <Field label="Postal Code"><Input value={newG.postal_code} onChange={v => set("postal_code", v)} /></Field>
+                        <Field label="Province"><Input value={newG.province} onChange={v => set("province", v)} /></Field>
+                        <Field label="Country"><Input value={newG.country} onChange={v => set("country", v)} /></Field>
+                        <Field label="Home Phone #"><PhoneInput value={newG.work_phone} onChange={v => set("work_phone", v)} /></Field>
                         <Toggle label="Primary Contact" checked={newG.is_primary_contact} onChange={v => set("is_primary_contact", v)} />
                         <Toggle label="Emergency Contact" checked={newG.is_emergency_contact} onChange={v => set("is_emergency_contact", v)} />
                     </div>
@@ -314,6 +374,54 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
 
             {guardians.length === 0 && !adding && (
                 <div className="py-12 text-center text-zinc-400 text-sm">No guardians linked</div>
+            )}
+
+            {/* Unified Family Address Section */}
+            {guardians.length > 0 && (
+                <div className="mt-8 pt-6 border-t border-zinc-100 animate-in fade-in slide-in-from-bottom-2 duration-700">
+                    <div className="bg-zinc-50 border border-zinc-200 rounded-3xl p-6 space-y-5">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <h3 className="text-[11px] font-black text-zinc-900 uppercase tracking-widest">Family Mailing Address</h3>
+                                <p className="text-[10px] text-zinc-400 font-bold uppercase">This address applies to Father, Mother, and all guardians</p>
+                            </div>
+                            <button 
+                                onClick={saveFamilyAddress}
+                                disabled={savingAddr || (savedAddr && !isAddrDirty)}
+                                className={`flex items-center gap-2 px-5 h-9 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all shadow-sm ${savedAddr ? "bg-emerald-500 text-white shadow-emerald-200" : "bg-primary text-white shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"}`}
+                            >
+                                {savingAddr ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedAddr ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
+                                {savingAddr ? "Submitting..." : savedAddr ? "Address Saved" : "Save All Addresses"}
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="md:col-span-2 lg:col-span-2">
+                                <Field label="House / Apartment Name and No.">
+                                    <Input value={familyAddress.house_appt_name} onChange={v => setAddr("house_appt_name", v)} />
+                                </Field>
+                            </div>
+                            <Field label="Area and Block #">
+                                <Input value={familyAddress.area_block} onChange={v => setAddr("area_block", v)} />
+                            </Field>
+                            <Field label="City">
+                                <Input value={familyAddress.city} onChange={v => setAddr("city", v)} />
+                            </Field>
+                            <Field label="Postal Code">
+                                <Input value={familyAddress.postal_code} onChange={v => setAddr("postal_code", v)} />
+                            </Field>
+                            <Field label="Province">
+                                <Input value={familyAddress.province} onChange={v => setAddr("province", v)} />
+                            </Field>
+                            <Field label="Country">
+                                <Input value={familyAddress.country} onChange={v => setAddr("country", v)} />
+                            </Field>
+                            <Field label="Family Home Phone #">
+                                <PhoneInput value={familyAddress.work_phone} onChange={v => setAddr("work_phone", v)} />
+                            </Field>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
