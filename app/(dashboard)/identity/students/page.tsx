@@ -44,10 +44,10 @@ interface PaginationMeta {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
-    ENROLLED:       { label: "Enrolled",       bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500" },
-    SOFT_ADMISSION: { label: "Soft Admission",  bg: "bg-blue-50",     text: "text-blue-700",    dot: "bg-blue-500" },
-    EXPELLED:       { label: "Expelled",        bg: "bg-rose-50",     text: "text-rose-700",    dot: "bg-rose-500" },
-    GRADUATED:      { label: "Graduated",       bg: "bg-violet-50",   text: "text-violet-700",  dot: "bg-violet-500" },
+    ENROLLED:       { label: "ENROLLED",       bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500" },
+    SOFT_ADMISSION: { label: "SOFT ADMISSION",  bg: "bg-blue-50",     text: "text-blue-700",    dot: "bg-blue-500" },
+    EXPELLED:       { label: "EXPELLED",        bg: "bg-rose-50",     text: "text-rose-700",    dot: "bg-rose-500" },
+    GRADUATED:      { label: "GRADUATED",       bg: "bg-violet-50",   text: "text-violet-700",  dot: "bg-violet-500" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -86,7 +86,7 @@ function StudentCard({ student, onClick }: { student: Student; onClick: () => vo
                 <Avatar url={c.photograph_url} name={c.full_name} size={44} />
                 <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
-                        <p className="font-bold text-zinc-900 text-[14px] leading-tight truncate group-hover:text-primary transition-colors">{c.full_name}</p>
+                        <p className="font-bold text-zinc-900 text-[14px] leading-tight truncate group-hover:text-primary transition-colors uppercase">{c.full_name}</p>
                         <StatusBadge status={c.enrollment_status} />
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
@@ -95,17 +95,17 @@ function StudentCard({ student, onClick }: { student: Student; onClick: () => vo
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                         {c.campus_name && (
-                            <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-medium">
+                            <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
                                 <Building2 className="h-2.5 w-2.5 text-zinc-400" />{c.campus_name}
                             </span>
                         )}
                         {c.class_description && (
-                            <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-medium">
+                            <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
                                 <BookOpen className="h-2.5 w-2.5 text-zinc-400" />{c.class_description}
                             </span>
                         )}
                         {c.section_description && (
-                            <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-medium">
+                            <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
                                 <Layers className="h-2.5 w-2.5 text-zinc-400" />{c.section_description}
                             </span>
                         )}

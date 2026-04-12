@@ -91,7 +91,7 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
             >
                 <span className={`absolute top-0.5 left-0.5 h-4 w-4 bg-white rounded-full shadow transition-transform ${checked ? "translate-x-4" : "translate-x-0"}`} />
             </div>
-            <span className="text-[13px] font-medium text-zinc-700">{label}</span>
+            <span className="text-[13px] font-medium text-zinc-700 uppercase">{label}</span>
         </label>
     );
 }
@@ -232,11 +232,11 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                 </div>
                 <Field label="Date of Birth"><Input type="date" value={personal.dob} onChange={p("dob")} /></Field>
                 <Field label="Gender">
-                    <select value={(personal.gender || "").toUpperCase()} onChange={e => p("gender")(e.target.value.toUpperCase())} className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 appearance-none">
-                        <option value="">Select</option>
-                        <option value="MALE">Male</option>
-                        <option value="FEMALE">Female</option>
-                        <option value="OTHER">Other</option>
+                    <select value={(personal.gender || "").toUpperCase()} onChange={e => p("gender")(e.target.value.toUpperCase())} className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 appearance-none uppercase">
+                        <option value="">SELECT</option>
+                        <option value="MALE">MALE</option>
+                        <option value="FEMALE">FEMALE</option>
+                        <option value="OTHER">OTHER</option>
                     </select>
                 </Field>
                 <Field label="Nationality"><Input value={personal.nationality} onChange={p("nationality")} /></Field>

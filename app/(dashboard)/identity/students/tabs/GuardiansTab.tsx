@@ -79,7 +79,7 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
             <div onClick={() => onChange(!checked)} className={`relative h-4 w-8 rounded-full transition-colors ${checked ? "bg-primary" : "bg-zinc-200"}`}>
                 <span className={`absolute top-0.5 left-0.5 h-3 w-3 bg-white rounded-full shadow transition-transform ${checked ? "translate-x-4" : ""}`} />
             </div>
-            <span className="text-[11px] font-medium text-zinc-600">{label}</span>
+            <span className="text-[11px] font-medium text-zinc-600 uppercase">{label}</span>
         </label>
     );
 }
@@ -166,7 +166,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                        <p className="font-bold text-[13px] text-zinc-900 truncate">{local.full_name || "Unnamed"}</p>
+                        <p className="font-bold text-[13px] text-zinc-900 truncate uppercase">{local.full_name || "UNNAMED"}</p>
                         {(isInfoDirty || isRelDirty) && <span className="text-[8px] font-black px-1 py-0.5 bg-amber-100 text-amber-600 rounded uppercase">Dirty</span>}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap mt-0.5">

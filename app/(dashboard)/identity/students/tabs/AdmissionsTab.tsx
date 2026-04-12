@@ -64,7 +64,13 @@ function AdmissionRow({ admission, studentCc, classes, onSaved, onDeleted }: { a
                     (admission.application_date ? new Date(admission.application_date).toISOString().split("T")[0] : "");
 
     const systems = Array.from(new Set(classes.map(c => c.academic_system))).filter(Boolean).map(s => ({ label: s, value: s }));
-    const gradeOptions = classes.map(c => ({ label: c.description, value: c.description }));
+    const gradeOptions = classes.map(c => ({ label: c.description, value: c.class_code }));
+
+    const resolveGrade = (val: string) => {
+        if (!val) return "";
+        const match = classes.find(c => (c.class_code || "").toUpperCase() === val.toUpperCase() || (c.description || "").toUpperCase() === val.toUpperCase());
+        return match?.class_code || val;
+    };
 
     const set = (k: string, v: string) => setLocal((p: any) => ({ ...p, [k]: v }));
 
@@ -101,7 +107,7 @@ function AdmissionRow({ admission, studentCc, classes, onSaved, onDeleted }: { a
             </div>
             <div className="grid grid-cols-2 gap-3">
                 <Field label="Academic System"><Select value={local.academic_system ?? ""} onChange={v => set("academic_system", v)} options={systems} placeholder="Select System" /></Field>
-                <Field label="Grade"><Select value={local.requested_grade ?? ""} onChange={v => set("requested_grade", v)} options={gradeOptions} placeholder="Select Grade" /></Field>
+                <Field label="Grade"><Select value={resolveGrade(local.requested_grade ?? "")} onChange={v => set("requested_grade", v)} options={gradeOptions} placeholder="Select Grade" /></Field>
                 <Field label="Admission Taken In"><Input value={local.academic_year ?? ""} onChange={v => set("academic_year", v)} placeholder="e.g. 2024-25" /></Field>
                 <Field label="Application Date"><Input type="date" value={local.application_date ? new Date(local.application_date).toISOString().split("T")[0] : ""} onChange={v => set("application_date", v)} /></Field>
             </div>
@@ -140,7 +146,13 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
     };
 
     const systems = Array.from(new Set(classes.map(c => c.academic_system))).filter(Boolean).map(s => ({ label: s, value: s }));
-    const gradeOptions = classes.map(c => ({ label: c.description, value: c.description }));
+    const gradeOptions = classes.map(c => ({ label: c.description, value: c.class_code }));
+
+    const resolveGrade = (val: string) => {
+        if (!val) return "";
+        const match = classes.find(c => (c.class_code || "").toUpperCase() === val.toUpperCase() || (c.description || "").toUpperCase() === val.toUpperCase());
+        return match?.class_code || val;
+    };
     const [newRow, setNewRow] = useState<any | null>(null);
     const [savingNew, setSavingNew] = useState(false);
     const [savedNew, setSavedNew] = useState(false);
@@ -192,7 +204,7 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
                     <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">New Admission Record</p>
                     <div className="grid grid-cols-2 gap-3">
                         <Field label="Academic System"><Select value={newRow.academic_system} onChange={v => set("academic_system", v)} options={systems} placeholder="Select System" /></Field>
-                        <Field label="Grade"><Select value={newRow.requested_grade} onChange={v => set("requested_grade", v)} options={gradeOptions} placeholder="Select Grade" /></Field>
+                        <Field label="Grade"><Select value={resolveGrade(newRow.requested_grade)} onChange={v => set("requested_grade", v)} options={gradeOptions} placeholder="Select Grade" /></Field>
                         <Field label="Admission Taken In"><Input value={newRow.academic_year} onChange={v => set("academic_year", v)} placeholder="e.g. 2024-25" /></Field>
                         <Field label="Application Date"><Input type="date" value={newRow.application_date} onChange={v => set("application_date", v)} /></Field>
                     </div>

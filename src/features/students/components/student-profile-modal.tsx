@@ -105,7 +105,7 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                         {/* Profile Summary (Left side) */}
                         <div className="flex flex-col gap-6 lg:col-span-1">
                             <div>
-                                <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">{student.student_full_name}</h2>
+                                <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight uppercase">{student.student_full_name}</h2>
                                 <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mt-1">{student.gr_number || "N/A GR"} • {student.cc_number || "N/A CC"}</p>
                             </div>
 
@@ -122,7 +122,17 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
 
                             <div className="flex flex-col gap-4">
                                 <InfoItem icon={<LayoutGrid />} label="Campus" value={student.campus || "N/A"} />
-                                <InfoItem icon={<GraduationCap className="h-4 w-4" />} label="Grade & Section" value={student.grade_and_section || "N/A"} />
+                                <InfoItem 
+                                    icon={<GraduationCap className="h-4 w-4" />} 
+                                    label="Grade & Section" 
+                                    value={(() => {
+                                        if (student.enrollment_status === 'ENROLLED' && student.grade_and_section) return student.grade_and_section;
+                                        const val = student.grade_and_section;
+                                        if (!val) return "N/A";
+                                        const match = classes.find(c => c.class_code === val || c.description === val);
+                                        return match ? match.description : val;
+                                    })()} 
+                                />
                                 <InfoItem icon={<Tag />} label="House" value={student.house_and_color || "N/A"} />
                             </div>
 
@@ -161,9 +171,9 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                                                             <User className="h-4 w-4" />
                                                         </div>
                                                         <div>
-                                                            <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 leading-none">{sibling.full_name}</p>
+                                                            <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 leading-none uppercase">{sibling.full_name}</p>
                                                             {sibling.father_name && (
-                                                                <p className="text-[9px] text-indigo-600 font-bold mt-1 uppercase tracking-tight">S/O: {sibling.father_name}</p>
+                                                                <p className="text-[9px] text-indigo-600 font-bold mt-1 uppercase tracking-tight">S/O: {sibling.father_name.toUpperCase()}</p>
                                                             )}
                                                             <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium mt-1 uppercase tracking-tight">{sibling.cc_number} • {sibling.grade || 'N/A'}</p>
                                                         </div>
@@ -486,7 +496,7 @@ function InfoItem({ icon, label, value }: { icon: React.ReactNode, label: string
             </div>
             <div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">{label}</p>
-                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{value}</p>
+                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase">{value}</p>
             </div>
         </div>
     );
@@ -496,7 +506,7 @@ function DataPoint({ label, value }: { label: string, value: string }) {
     return (
         <div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-1">{label}</p>
-            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{value || "N/A"}</p>
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase">{value || "N/A"}</p>
         </div>
     );
 }
