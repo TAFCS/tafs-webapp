@@ -17,7 +17,15 @@ function RowSaveBtn({ onSave, isSaving, saved, isDirty }: { onSave: () => void; 
     );
 }
 
-const EMPTY_ADMISSION = { academic_system: "", requested_grade: "", academic_year: "", application_date: "" };
+const EMPTY_ADMISSION = { academic_system: "", requested_grade: "", academic_year: "", application_date: "", discipline: "" };
+
+const DISCIPLINES = [
+    { label: "Pre-Medical", value: "Pre-Medical" },
+    { label: "Pre-Engineering", value: "Pre-Engineering" },
+    { label: "Pre-Commerce", value: "Pre-Commerce" },
+    { label: "Computer Science", value: "Computer Science" },
+    { label: "Humanities", value: "Humanities" },
+];
 
 function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
     return (
@@ -60,11 +68,14 @@ function AdmissionRow({ admission, studentCc, classes, onSaved, onDeleted }: { a
     const isDirty = (local.academic_system || "") !== (admission.academic_system || "") ||
                     (local.requested_grade || "") !== (admission.requested_grade || "") ||
                     (local.academic_year || "") !== (admission.academic_year || "") ||
+                    (local.discipline || "") !== (admission.discipline || "") ||
                     (local.application_date ? new Date(local.application_date).toISOString().split("T")[0] : "") !== 
                     (admission.application_date ? new Date(admission.application_date).toISOString().split("T")[0] : "");
 
     const systems = Array.from(new Set(classes.map(c => c.academic_system))).filter(Boolean).map(s => ({ label: s, value: s }));
-    const gradeOptions = classes.map(c => ({ label: c.description, value: c.class_code }));
+    const gradeOptions = classes
+        .filter(c => !local.academic_system || c.academic_system === local.academic_system)
+        .map(c => ({ label: c.description, value: c.class_code }));
 
     const resolveGrade = (val: string) => {
         if (!val) return "";
@@ -108,6 +119,7 @@ function AdmissionRow({ admission, studentCc, classes, onSaved, onDeleted }: { a
             <div className="grid grid-cols-2 gap-3">
                 <Field label="Academic System"><Select value={local.academic_system ?? ""} onChange={v => set("academic_system", v)} options={systems} placeholder="Select System" /></Field>
                 <Field label="Grade"><Select value={resolveGrade(local.requested_grade ?? "")} onChange={v => set("requested_grade", v)} options={gradeOptions} placeholder="Select Grade" /></Field>
+                <Field label="Discipline"><Select value={local.discipline ?? ""} onChange={v => set("discipline", v)} options={DISCIPLINES} placeholder="Select Discipline (Optional)" /></Field>
                 <Field label="Admission Taken In"><Input value={local.academic_year ?? ""} onChange={v => set("academic_year", v)} placeholder="e.g. 2024-25" /></Field>
                 <Field label="Application Date"><Input type="date" value={local.application_date ? new Date(local.application_date).toISOString().split("T")[0] : ""} onChange={v => set("application_date", v)} /></Field>
             </div>
@@ -145,17 +157,23 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
         finally { setSavingYear(false); }
     };
 
-    const systems = Array.from(new Set(classes.map(c => c.academic_system))).filter(Boolean).map(s => ({ label: s, value: s }));
-    const gradeOptions = classes.map(c => ({ label: c.description, value: c.class_code }));
-
-    const resolveGrade = (val: string) => {
-        if (!val) return "";
-        const match = classes.find(c => (c.class_code || "").toUpperCase() === val.toUpperCase() || (c.description || "").toUpperCase() === val.toUpperCase());
-        return match?.class_code || val;
-    };
     const [newRow, setNewRow] = useState<any | null>(null);
     const [savingNew, setSavingNew] = useState(false);
     const [savedNew, setSavedNew] = useState(false);
+
+    const systems = Array.from(new Set(classes.map(c => c.academic_system))).filter(Boolean).map(s => ({ label: s, value: s }));
+    
+    // Filter grade options for the new admission record form based on selected system
+    const gradeOptions = classes
+        .filter(c => !newRow?.academic_system || c.academic_system === newRow?.academic_system)
+        .map(c => ({ label: c.description, value: c.class_code }));
+
+    const resolveGrade = (val: string) => {
+        if (!val) return "";
+        const uVal = val.toUpperCase();
+        const match = classes.find(c => (c.class_code || "").toUpperCase() === uVal || (c.description || "").toUpperCase() === uVal);
+        return match?.class_code || val;
+    };
 
     const saveNew = async () => {
         if (!newRow.requested_grade || !newRow.academic_year) return alert("Grade and Academic Year are required");
@@ -205,6 +223,7 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
                     <div className="grid grid-cols-2 gap-3">
                         <Field label="Academic System"><Select value={newRow.academic_system} onChange={v => set("academic_system", v)} options={systems} placeholder="Select System" /></Field>
                         <Field label="Grade"><Select value={resolveGrade(newRow.requested_grade)} onChange={v => set("requested_grade", v)} options={gradeOptions} placeholder="Select Grade" /></Field>
+                        <Field label="Discipline"><Select value={newRow.discipline} onChange={v => set("discipline", v)} options={DISCIPLINES} placeholder="Select Discipline (Optional)" /></Field>
                         <Field label="Admission Taken In"><Input value={newRow.academic_year} onChange={v => set("academic_year", v)} placeholder="e.g. 2024-25" /></Field>
                         <Field label="Application Date"><Input type="date" value={newRow.application_date} onChange={v => set("application_date", v)} /></Field>
                     </div>

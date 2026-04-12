@@ -32,7 +32,9 @@ const GRADE_NAME_TO_CODE: Record<string, string> = {
     'VII': 'VII',
     'VIII': 'VIII',
     'IX': 'IX',
-    'X': 'X'
+    'X': 'X',
+    'AS Level': 'AS',
+    'A2 Level': 'A2'
 };
 
 const INITIAL_FORM_DATA = {

@@ -172,7 +172,6 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
         gender: student.gender || "",
         nationality: student.nationality || "",
         religion: student.religion || "",
-        place_of_birth: student.place_of_birth || "",
         identification_marks: student.identification_marks || "",
         admission_age_years: String(student.admission_age_years ?? ""),
         interests: student.interests || "",
@@ -241,7 +240,6 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                 </Field>
                 <Field label="Nationality"><Input value={personal.nationality} onChange={p("nationality")} /></Field>
                 <Field label="Religion"><Input value={personal.religion} onChange={p("religion")} /></Field>
-                <Field label="Place of Birth"><Input value={personal.place_of_birth} onChange={p("place_of_birth")} /></Field>
                 <Field label="Admission Age">
                     <Input 
                         value={personal.admission_age_years} 
