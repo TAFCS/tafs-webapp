@@ -119,7 +119,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved }: { studentCc: 
         setSavingRel(true);
         try {
             const { data } = await api.patch(`/v1/staff-editing/students/${studentCc}/guardians/${guardian.guardian_id}`, {
-                relationship: local.relationship,
+                relationship: local.relationship.toUpperCase(),
                 is_primary_contact: local.is_primary_contact,
                 is_emergency_contact: local.is_emergency_contact,
             });
@@ -178,7 +178,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved }: { studentCc: 
                         <div className="grid grid-cols-2 gap-3">
                             <div className="col-span-2">
                                 <Field label="Relationship">
-                                    <select value={local.relationship} onChange={e => set("relationship", e.target.value)}
+                                    <select value={(local.relationship || "").toUpperCase()} onChange={e => set("relationship", e.target.value.toUpperCase())}
                                         className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 appearance-none">
                                         {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
                                     </select>

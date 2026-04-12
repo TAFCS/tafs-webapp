@@ -210,7 +210,7 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                 </div>
                 <Field label="Date of Birth"><Input type="date" value={personal.dob} onChange={p("dob")} /></Field>
                 <Field label="Gender">
-                    <select value={personal.gender} onChange={e => p("gender")(e.target.value)} className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 appearance-none">
+                    <select value={(personal.gender || "").toUpperCase()} onChange={e => p("gender")(e.target.value.toUpperCase())} className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 appearance-none">
                         <option value="">Select</option>
                         <option value="MALE">Male</option>
                         <option value="FEMALE">Female</option>
