@@ -13,16 +13,27 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     );
 }
 
-function Input({ value, onChange, type = "text", placeholder, className = "" }: { value: string; onChange: (v: string) => void; type?: string; placeholder?: string; className?: string }) {
+function Input({ value, onChange, type = "text", placeholder, className = "", showNA = false }: { value: string; onChange: (v: string) => void; type?: string; placeholder?: string; className?: string; showNA?: boolean }) {
     const isEmail = type === "email";
     return (
-        <input
-            type={type}
-            value={value ?? ""}
-            onChange={e => onChange(isEmail ? e.target.value.toLowerCase() : e.target.value.toUpperCase())}
-            placeholder={placeholder}
-            className={`w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all ${isEmail ? "" : "uppercase"} ${className}`}
-        />
+        <div className="relative flex items-center w-full">
+            <input
+                type={type}
+                value={value ?? ""}
+                onChange={e => onChange(isEmail ? e.target.value.toLowerCase() : e.target.value.toUpperCase())}
+                placeholder={placeholder}
+                className={`w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all ${isEmail ? "" : "uppercase"} ${showNA ? "pr-10" : ""} ${className}`}
+            />
+            {showNA && (
+                <button 
+                    type="button"
+                    onClick={() => onChange(value === "N/A" ? "" : "N/A")}
+                    className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${value === "N/A" ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
+                >
+                    N/A
+                </button>
+            )}
+        </div>
     );
 }
 

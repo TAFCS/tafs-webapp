@@ -12,13 +12,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     );
 }
 
-function Input({ value, onChange, placeholder, type = "text", className = "" }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string; className?: string }) {
+function Input({ value, onChange, placeholder, type = "text", className = "", showNA = false }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string; className?: string; showNA?: boolean }) {
     const isEmail = type === "email";
     return (
-        <input type={type} value={value ?? ""} 
-            onChange={e => onChange(isEmail ? e.target.value.toLowerCase() : e.target.value.toUpperCase())} 
-            placeholder={placeholder}
-            className={`w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all ${isEmail ? "" : "uppercase"} ${className}`} />
+        <div className="relative flex items-center">
+            <input type={type} value={value ?? ""} 
+                onChange={e => onChange(isEmail ? e.target.value.toLowerCase() : e.target.value.toUpperCase())} 
+                placeholder={placeholder}
+                className={`w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all ${isEmail ? "" : "uppercase"} ${showNA ? "pr-10" : ""} ${className}`} />
+            {showNA && (
+                <button 
+                    type="button"
+                    onClick={() => onChange(value === "N/A" ? "" : "N/A")}
+                    className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${value === "N/A" ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
+                >
+                    N/A
+                </button>
+            )}
+        </div>
     );
 }
 
@@ -178,11 +189,21 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved }: { studentCc: 
                         <div className="grid grid-cols-2 gap-3">
                             <div className="col-span-2">
                                 <Field label="Relationship">
-                                    <select value={(local.relationship || "").toUpperCase()} onChange={e => set("relationship", e.target.value.toUpperCase())}
-                                        className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 appearance-none">
+                                    <select 
+                                        value={RELATIONSHIPS.filter(r => r !== "OTHER").includes((local.relationship || "").toUpperCase()) ? (local.relationship || "").toUpperCase() : "OTHER"} 
+                                        onChange={e => set("relationship", e.target.value.toUpperCase())}
+                                        className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 appearance-none uppercase"
+                                    >
                                         {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
                                     </select>
                                 </Field>
+                                {(!RELATIONSHIPS.filter(r => r !== "OTHER").includes((local.relationship || "").toUpperCase())) && (
+                                    <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <Field label="Specify Relationship">
+                                            <Input value={local.relationship === "OTHER" ? "" : local.relationship} onChange={v => set("relationship", v)} placeholder="e.g. DRIVER, TUTOR" showNA />
+                                        </Field>
+                                    </div>
+                                )}
                             </div>
                             <Toggle label="Primary Contact" checked={!!local.is_primary_contact} onChange={v => set("is_primary_contact", v)} />
                             <Toggle label="Emergency Contact" checked={!!local.is_emergency_contact} onChange={v => set("is_emergency_contact", v)} />
@@ -203,7 +224,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved }: { studentCc: 
                             {isInfoDirty && !savedInfo && <span className="text-[9px] font-bold text-amber-600">Unsaved changes</span>}
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="col-span-2"><Field label="Full Name"><Input value={local.full_name ?? ""} onChange={v => set("full_name", v)} /></Field></div>
+                            <div className="col-span-2"><Field label="Full Name"><Input value={local.full_name ?? ""} onChange={v => set("full_name", v)} showNA /></Field></div>
                             <Field label="CNIC"><Input value={local.cnic ?? ""} onChange={v => set("cnic", formatCNIC(v))} placeholder="xxxxx-xxxxxxx-x" /></Field>
                             <Field label="Occupation"><Input value={local.occupation ?? ""} onChange={v => set("occupation", v)} /></Field>
                             <Field label="Phone"><PhoneInput value={local.primary_phone ?? ""} onChange={v => set("primary_phone", v)} /></Field>
@@ -233,8 +254,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved }: { studentCc: 
 
 const EMPTY_GUARDIAN = { 
     full_name: "", cnic: "", relationship: "GUARDIAN", primary_phone: "", whatsapp_number: "", 
-    work_phone: "", occupation: "", email_address: "", is_primary_contact: false, is_emergency_contact: false,
-    house_appt_name: "", area_block: "", city: "", postal_code: "", province: "", country: ""
+    occupation: "", email_address: "", is_primary_contact: false, is_emergency_contact: false,
 };
 
 export function GuardiansTab({ student, onReload }: { student: any; onReload: () => void }) {
@@ -327,30 +347,45 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
             {adding && (
                 <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 space-y-3 shadow-sm">
                     <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">New Guardian</p>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="col-span-2"><Field label="Full Name"><Input value={newG.full_name} onChange={v => set("full_name", v)} /></Field></div>
-                        <Field label="CNIC"><Input value={newG.cnic} onChange={v => set("cnic", formatCNIC(v))} placeholder="xxxxx-xxxxxxx-x" /></Field>
-                        <Field label="Relationship">
-                            <select value={newG.relationship} onChange={e => set("relationship", e.target.value)} className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary appearance-none">
-                                {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
-                            </select>
-                        </Field>
-                        <Field label="Phone"><PhoneInput value={newG.primary_phone} onChange={v => set("primary_phone", v)} /></Field>
-                        <Field label="WhatsApp"><PhoneInput value={newG.whatsapp_number} onChange={v => set("whatsapp_number", v)} /></Field>
-                        <Field label="Occupation"><Input value={newG.occupation} onChange={v => set("occupation", v)} /></Field>
-                        <Field label="Email"><Input type="email" value={newG.email_address} onChange={v => set("email_address", v)} /></Field>
-                        
-                        {/* New Fields in Addition Form */}
-                        <div className="col-span-2 border-t border-blue-100/50 pt-2"><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Mailing Address</p></div>
-                        <div className="col-span-2"><Field label="House / Apartment Name and No."><Input value={newG.house_appt_name} onChange={v => set("house_appt_name", v)} /></Field></div>
-                        <Field label="Area and Block #"><Input value={newG.area_block} onChange={v => set("area_block", v)} /></Field>
-                        <Field label="City"><Input value={newG.city} onChange={v => set("city", v)} /></Field>
-                        <Field label="Postal Code"><Input value={newG.postal_code} onChange={v => set("postal_code", v)} /></Field>
-                        <Field label="Province"><Input value={newG.province} onChange={v => set("province", v)} /></Field>
-                        <Field label="Country"><Input value={newG.country} onChange={v => set("country", v)} /></Field>
-                        <Field label="Home Phone #"><PhoneInput value={newG.work_phone} onChange={v => set("work_phone", v)} /></Field>
+                    <div className="flex gap-4 border-b border-blue-100/50 pb-3 mb-1">
                         <Toggle label="Primary Contact" checked={newG.is_primary_contact} onChange={v => set("is_primary_contact", v)} />
                         <Toggle label="Emergency Contact" checked={newG.is_emergency_contact} onChange={v => set("is_emergency_contact", v)} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="col-span-2"><Field label="Full Name"><Input value={newG.full_name} onChange={v => set("full_name", v)} showNA /></Field></div>
+                        
+                        <div className="col-span-1">
+                            <Field label="Relationship">
+                                <select 
+                                    value={RELATIONSHIPS.filter(r => r !== "OTHER").includes((newG.relationship || "").toUpperCase()) ? (newG.relationship || "").toUpperCase() : "OTHER"} 
+                                    onChange={e => set("relationship", e.target.value.toUpperCase())}
+                                    className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary appearance-none uppercase"
+                                >
+                                    {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+                                </select>
+                            </Field>
+                            {(!RELATIONSHIPS.filter(r => r !== "OTHER").includes((newG.relationship || "").toUpperCase())) && (
+                                <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <Field label="Specify Relationship">
+                                        <Input value={newG.relationship === "OTHER" ? "" : newG.relationship} onChange={v => set("relationship", v)} placeholder="e.g. DRIVER, TUTOR" showNA />
+                                    </Field>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className={`${newG.is_emergency_contact ? "col-span-1" : "col-span-1"}`}>
+                            <Field label="Phone"><PhoneInput value={newG.primary_phone} onChange={v => set("primary_phone", v)} /></Field>
+                        </div>
+
+                        {!newG.is_emergency_contact && (
+                            <>
+                                <Field label="CNIC"><Input value={newG.cnic} onChange={v => set("cnic", formatCNIC(v))} placeholder="xxxxx-xxxxxxx-x" /></Field>
+                                <Field label="WhatsApp"><PhoneInput value={newG.whatsapp_number} onChange={v => set("whatsapp_number", v)} /></Field>
+                                <Field label="Occupation"><Input value={newG.occupation} onChange={v => set("occupation", v)} /></Field>
+                                <Field label="Email"><Input type="email" value={newG.email_address} onChange={v => set("email_address", v)} /></Field>
+                            </>
+                        )}
                     </div>
                     <div className="flex gap-2">
                         <button onClick={addNew} disabled={saving || saved} className={`flex items-center gap-1.5 px-4 h-8 text-[11px] font-bold text-white rounded-xl transition-all ${saved ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}>
