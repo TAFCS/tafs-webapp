@@ -47,6 +47,7 @@ export default function BulkPromotePage() {
   const [toSectionId, setToSectionId] = useState("");
   const [studentIdsRaw, setStudentIdsRaw] = useState("");
   const [reason, setReason] = useState("");
+  const [academicYear, setAcademicYear] = useState("");
   const [dryRun, setDryRun] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [response, setResponse] = useState<PromotionResponse | null>(null);
@@ -108,6 +109,7 @@ export default function BulkPromotePage() {
     if (toSectionId) payload.to_section_id = Number(toSectionId);
     if (parsedStudentIds.length > 0) payload.student_ids = parsedStudentIds;
     if (reason.trim()) payload.reason = reason.trim();
+    if (academicYear.trim()) payload.academic_year = academicYear.trim();
 
     setIsSubmitting(true);
     setErrorLog(null);
@@ -190,7 +192,23 @@ export default function BulkPromotePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <label htmlFor="academic-year-filter" className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Term (optional)</label>
+              <select
+                id="academic-year-filter"
+                title="Term Filter"
+                value={academicYear}
+                onChange={(e) => setAcademicYear(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2.5 text-sm"
+              >
+                <option value="">All terms</option>
+                <option value="2024-2025">2024-2025</option>
+                <option value="2025-2026">2025-2026</option>
+                <option value="2026-2027">2026-2027</option>
+              </select>
+            </div>
+
             <div className="space-y-2">
               <label htmlFor="campus-filter" className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Campus Filter (optional)</label>
               <select
