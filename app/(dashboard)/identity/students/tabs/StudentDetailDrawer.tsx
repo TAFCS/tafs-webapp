@@ -19,9 +19,10 @@ type TabId = typeof TABS[number]["id"];
 interface Props {
     cc: number | null;
     onClose: () => void;
+    classes?: any[];
 }
 
-export function StudentDetailDrawer({ cc, onClose }: Props) {
+export function StudentDetailDrawer({ cc, onClose, classes = [] }: Props) {
     const [student, setStudent] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [tab, setTab] = useState<TabId>("identity");
@@ -103,7 +104,7 @@ export function StudentDetailDrawer({ cc, onClose }: Props) {
                     ) : (
                         <div className="p-6">
                             {tab === "identity"   && <IdentityTab   student={student} onReload={reload} />}
-                            {tab === "admissions" && <AdmissionsTab student={student} onReload={reload} />}
+                            {tab === "admissions" && <AdmissionsTab student={student} onReload={reload} classes={classes} />}
                             {tab === "academic"   && <AcademicTab   student={student} onReload={reload} />}
                             {tab === "guardians"  && <GuardiansTab  student={student} onReload={reload} />}
                         </div>

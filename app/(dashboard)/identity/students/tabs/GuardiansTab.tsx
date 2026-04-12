@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -12,12 +12,51 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     );
 }
 
-function Input({ value, onChange, placeholder, type = "text" }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
+function Input({ value, onChange, placeholder, type = "text", className = "" }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string; className?: string }) {
     return (
         <input type={type} value={value ?? ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-            className="w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all" />
+            className={`w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all ${className}`} />
     );
 }
+
+function PhoneInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+    const handlePhoneChange = (v: string) => {
+        if (v === "N/A") return;
+        if (!v.startsWith("+92")) {
+            onChange("+92");
+            return;
+        }
+        const rest = v.slice(3).replace(/\D/g, "").slice(0, 10);
+        onChange("+92" + rest);
+    };
+
+    return (
+        <div className="relative flex items-center">
+            <input
+                type="text"
+                value={value === "N/A" ? "N/A" : (value.startsWith("+92") ? value : "+92")}
+                onChange={e => handlePhoneChange(e.target.value)}
+                placeholder={placeholder}
+                className="w-full h-9 pl-3 pr-10 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-mono"
+            />
+            <button 
+                type="button"
+                onClick={() => onChange(value === "N/A" ? "+92" : "N/A")}
+                className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${value === "N/A" ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
+            >
+                N/A
+            </button>
+        </div>
+    );
+}
+
+const formatCNIC = (v: string) => {
+    const digits = v.replace(/\D/g, "").slice(0, 13);
+    let out = digits;
+    if (digits.length > 5) out = digits.slice(0, 5) + "-" + digits.slice(5);
+    if (digits.length > 12) out = out.slice(0, 13) + "-" + out.slice(13);
+    return out;
+};
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
     return (
@@ -48,7 +87,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved }: { studentCc: 
                        (local.primary_phone || "") !== (guardian.primary_phone || "") ||
                        (local.whatsapp_number || "") !== (guardian.whatsapp_number || "") ||
                        (local.occupation || "") !== (guardian.occupation || "") ||
-                       (local.email || "") !== (guardian.email || "");
+                       (local.email_address || "") !== (guardian.email_address || "");
 
     const isRelDirty = (local.relationship || "") !== (guardian.relationship || "") ||
                        !!local.is_primary_contact !== !!guardian.is_primary_contact ||
@@ -63,7 +102,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved }: { studentCc: 
                 primary_phone: local.primary_phone,
                 whatsapp_number: local.whatsapp_number,
                 occupation: local.occupation,
-                email: local.email,
+                email_address: local.email_address,
             });
             setSavedInfo(true);
             setTimeout(() => setSavedInfo(false), 3000);
@@ -162,11 +201,11 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved }: { studentCc: 
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div className="col-span-2"><Field label="Full Name"><Input value={local.full_name ?? ""} onChange={v => set("full_name", v)} /></Field></div>
-                            <Field label="CNIC"><Input value={local.cnic ?? ""} onChange={v => set("cnic", v)} placeholder="xxxxx-xxxxxxx-x" /></Field>
+                            <Field label="CNIC"><Input value={local.cnic ?? ""} onChange={v => set("cnic", formatCNIC(v))} placeholder="xxxxx-xxxxxxx-x" /></Field>
                             <Field label="Occupation"><Input value={local.occupation ?? ""} onChange={v => set("occupation", v)} /></Field>
-                            <Field label="Phone"><Input value={local.primary_phone ?? ""} onChange={v => set("primary_phone", v)} /></Field>
-                            <Field label="WhatsApp"><Input value={local.whatsapp_number ?? ""} onChange={v => set("whatsapp_number", v)} /></Field>
-                            <div className="col-span-2"><Field label="Email"><Input type="email" value={local.email ?? ""} onChange={v => set("email", v)} /></Field></div>
+                            <Field label="Phone"><PhoneInput value={local.primary_phone ?? ""} onChange={v => set("primary_phone", v)} /></Field>
+                            <Field label="WhatsApp"><PhoneInput value={local.whatsapp_number ?? ""} onChange={v => set("whatsapp_number", v)} /></Field>
+                            <div className="col-span-2"><Field label="Email"><Input type="email" value={local.email_address ?? ""} onChange={v => set("email_address", v)} /></Field></div>
                         </div>
                         <div className="flex gap-2 pt-1">
                             <button 
@@ -188,7 +227,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved }: { studentCc: 
     );
 }
 
-const EMPTY_GUARDIAN = { full_name: "", cnic: "", relationship: "GUARDIAN", primary_phone: "", whatsapp_number: "", occupation: "", email: "", is_primary_contact: false, is_emergency_contact: false };
+const EMPTY_GUARDIAN = { full_name: "", cnic: "", relationship: "GUARDIAN", primary_phone: "", whatsapp_number: "", occupation: "", email_address: "", is_primary_contact: false, is_emergency_contact: false };
 
 export function GuardiansTab({ student, onReload }: { student: any; onReload: () => void }) {
     const [guardians, setGuardians] = useState<any[]>(student.guardians || []);
@@ -199,6 +238,13 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
 
     const update = (g: any) => setGuardians(prev => prev.map(x => x.guardian_id === g.guardian_id ? { ...x, ...g } : x));
     const remove = (guardianId: number) => setGuardians(prev => prev.filter(x => x.guardian_id !== guardianId));
+
+    // Sync with prop updates (e.g. after detail fetch completes)
+    useEffect(() => {
+        if (student.guardians) {
+            setGuardians(student.guardians);
+        }
+    }, [student.guardians]);
 
     const addNew = async () => {
         if (!newG.full_name || !newG.relationship) return alert("Full name and relationship are required");
@@ -233,16 +279,16 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
                     <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">New Guardian</p>
                     <div className="grid grid-cols-2 gap-3">
                         <div className="col-span-2"><Field label="Full Name"><Input value={newG.full_name} onChange={v => set("full_name", v)} /></Field></div>
-                        <Field label="CNIC"><Input value={newG.cnic} onChange={v => set("cnic", v)} placeholder="xxxxx-xxxxxxx-x" /></Field>
+                        <Field label="CNIC"><Input value={newG.cnic} onChange={v => set("cnic", formatCNIC(v))} placeholder="xxxxx-xxxxxxx-x" /></Field>
                         <Field label="Relationship">
                             <select value={newG.relationship} onChange={e => set("relationship", e.target.value)} className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary appearance-none">
                                 {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
                             </select>
                         </Field>
-                        <Field label="Phone"><Input value={newG.primary_phone} onChange={v => set("primary_phone", v)} /></Field>
-                        <Field label="WhatsApp"><Input value={newG.whatsapp_number} onChange={v => set("whatsapp_number", v)} /></Field>
+                        <Field label="Phone"><PhoneInput value={newG.primary_phone} onChange={v => set("primary_phone", v)} /></Field>
+                        <Field label="WhatsApp"><PhoneInput value={newG.whatsapp_number} onChange={v => set("whatsapp_number", v)} /></Field>
                         <Field label="Occupation"><Input value={newG.occupation} onChange={v => set("occupation", v)} /></Field>
-                        <Field label="Email"><Input type="email" value={newG.email} onChange={v => set("email", v)} /></Field>
+                        <Field label="Email"><Input type="email" value={newG.email_address} onChange={v => set("email_address", v)} /></Field>
                         <Toggle label="Primary Contact" checked={newG.is_primary_contact} onChange={v => set("is_primary_contact", v)} />
                         <Toggle label="Emergency Contact" checked={newG.is_emergency_contact} onChange={v => set("is_emergency_contact", v)} />
                     </div>

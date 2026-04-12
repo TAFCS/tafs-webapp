@@ -13,15 +13,47 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     );
 }
 
-function Input({ value, onChange, type = "text", placeholder }: { value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) {
+function Input({ value, onChange, type = "text", placeholder, className = "" }: { value: string; onChange: (v: string) => void; type?: string; placeholder?: string; className?: string }) {
     return (
         <input
             type={type}
             value={value ?? ""}
             onChange={e => onChange(e.target.value)}
             placeholder={placeholder}
-            className="w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+            className={`w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all ${className}`}
         />
+    );
+}
+
+function PhoneInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+    const handlePhoneChange = (v: string) => {
+        if (v === "N/A") return;
+        // If user tries to delete prefix, reset it
+        if (!v.startsWith("+92")) {
+            onChange("+92");
+            return;
+        }
+        const rest = v.slice(3).replace(/\D/g, "").slice(0, 10);
+        onChange("+92" + rest);
+    };
+
+    return (
+        <div className="relative flex items-center">
+            <input
+                type="text"
+                value={value === "N/A" ? "N/A" : (value.startsWith("+92") ? value : "+92")}
+                onChange={e => handlePhoneChange(e.target.value)}
+                placeholder={placeholder}
+                className="w-full h-9 pl-3 pr-10 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-mono"
+            />
+            <button 
+                type="button"
+                onClick={() => onChange(value === "N/A" ? "+92" : "N/A")}
+                className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${value === "N/A" ? "bg-indigo-600 text-white shadow-sm" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
+            >
+                N/A
+            </button>
+        </div>
     );
 }
 
@@ -90,10 +122,16 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
             setTimeout(() => setSaved(false), 3000);
             onReload();
         } catch (e) {
-            alert("Failed to update student identity: " + (e as any)?.response?.data?.message || "Unknown error");
+            console.error(e);
+            alert("Failed to update student identity: " + ((e as any)?.response?.data?.message || "Unknown error"));
         } finally {
             setSaving(false);
         }
+    };
+
+    const validateEmail = (email: string) => {
+        if (!email) return true;
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     };
 
     // Helper to check if a field has changed
@@ -181,7 +219,13 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                 <Field label="Nationality"><Input value={personal.nationality} onChange={p("nationality")} /></Field>
                 <Field label="Religion"><Input value={personal.religion} onChange={p("religion")} /></Field>
                 <Field label="Place of Birth"><Input value={personal.place_of_birth} onChange={p("place_of_birth")} /></Field>
-                <Field label="Admission Age"><Input type="number" value={personal.admission_age_years} onChange={p("admission_age_years")} /></Field>
+                <Field label="Admission Age">
+                    <Input 
+                        value={personal.admission_age_years} 
+                        onChange={v => p("admission_age_years")(v.replace(/\D/g, ""))} 
+                        placeholder="Numeric only"
+                    />
+                </Field>
                 <div className="col-span-2">
                     <Field label="Identification Marks"><Input value={personal.identification_marks} onChange={p("identification_marks")} /></Field>
                 </div>
@@ -213,17 +257,35 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                 isDirty={contactIsDirty}
                 isSaving={savingContact} 
                 saved={savedContact}
-                onSave={() => patch(contact, setSavingContact, setSavedContact)} 
+                onSave={() => {
+                    if (!validateEmail(contact.email)) return alert("Please enter a valid email address");
+                    patch(contact, setSavingContact, setSavedContact);
+                }} 
             >
-                <Field label="WhatsApp"><Input value={contact.whatsapp_number} onChange={c("whatsapp_number")} placeholder="+92..." /></Field>
-                <Field label="Phone"><Input value={contact.primary_phone} onChange={c("primary_phone")} /></Field>
+                <Field label="WhatsApp"><PhoneInput value={contact.whatsapp_number} onChange={c("whatsapp_number")} /></Field>
+                <Field label="Phone"><PhoneInput value={contact.primary_phone} onChange={c("primary_phone")} /></Field>
                 <div className="col-span-2">
-                    <Field label="Email"><Input type="email" value={contact.email} onChange={c("email")} /></Field>
+                    <Field label="Email"><Input type="email" value={contact.email} onChange={c("email")} placeholder="example@domain.com" /></Field>
                 </div>
-                <Field label="Country"><Input value={contact.country} onChange={c("country")} /></Field>
-                <Field label="Province"><Input value={contact.province} onChange={c("province")} /></Field>
+                <Field label="Country">
+                    <div className="relative flex items-center">
+                        <Input value={contact.country} onChange={c("country")} />
+                        <button type="button" onClick={() => c("country")(contact.country === "N/A" ? "" : "N/A")} className={`absolute right-1 px-1.5 py-1 text-[9px] font-black rounded-lg ${contact.country === "N/A" ? "bg-primary text-white" : "text-zinc-400 hover:bg-zinc-100"}`}>N/A</button>
+                    </div>
+                </Field>
+                <Field label="Province">
+                    <div className="relative flex items-center">
+                        <Input value={contact.province} onChange={c("province")} />
+                        <button type="button" onClick={() => c("province")(contact.province === "N/A" ? "" : "N/A")} className={`absolute right-1 px-1.5 py-1 text-[9px] font-black rounded-lg ${contact.province === "N/A" ? "bg-primary text-white" : "text-zinc-400 hover:bg-zinc-100"}`}>N/A</button>
+                    </div>
+                </Field>
                 <div className="col-span-2">
-                    <Field label="City"><Input value={contact.city} onChange={c("city")} /></Field>
+                    <Field label="City">
+                        <div className="relative flex items-center">
+                            <Input value={contact.city} onChange={c("city")} />
+                            <button type="button" onClick={() => c("city")(contact.city === "N/A" ? "" : "N/A")} className={`absolute right-1 px-1.5 py-1 text-[9px] font-black rounded-lg ${contact.city === "N/A" ? "bg-primary text-white" : "text-zinc-400 hover:bg-zinc-100"}`}>N/A</button>
+                        </div>
+                    </Field>
                 </div>
             </SectionCard>
         </div>

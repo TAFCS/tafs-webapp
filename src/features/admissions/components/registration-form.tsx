@@ -70,6 +70,7 @@ export function RegistrationForm() {
     const { items: classes, isLoading: isClassesLoading } = useSelector((state: RootState) => state.classes);
     const { items: campuses, isLoading: isCampusesLoading } = useSelector((state: RootState) => state.campuses);
     const [currentStep, setCurrentStep] = useState(1);
+    const [fetchingCnic, setFetchingCnic] = useState<"father" | "mother" | null>(null);
     const [academicYear, setAcademicYear] = useState("2025-2026");
     const [showYearDropdown, setShowYearDropdown] = useState(false);
     const [baseYear, setBaseYear] = useState(new Date().getFullYear());
@@ -147,7 +148,14 @@ export function RegistrationForm() {
 
         // 1. Handle CNIC formatting
         if (name === "fatherCnic" || name === "motherCnic") {
-            setFormData(prev => ({ ...prev, [name]: formatCNIC(value) }));
+            const formatted = formatCNIC(value);
+            setFormData(prev => ({ ...prev, [name]: formatted }));
+            
+            // Auto-fetch if 13 digits are reached
+            const digits = value.replace(/\D/g, "");
+            if (digits.length === 13) {
+                fetchGuardianData(name === "fatherCnic" ? "father" : "mother", formatted);
+            }
             return;
         }
 
@@ -209,6 +217,44 @@ export function RegistrationForm() {
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
+    };
+
+    const fetchGuardianData = async (type: "father" | "mother", cnic: string) => {
+        if (!cnic || cnic.length < 15) return;
+
+        setFetchingCnic(type);
+        try {
+            const response = await api.get(`/v1/admissions/guardians/by-cnic/${cnic}`);
+            if (response.data?.success && response.data.data) {
+                const guardian = response.data.data;
+                setFormData(prev => ({
+                    ...prev,
+                    ...(type === "father" ? {
+                        fatherName: guardian.full_name || prev.fatherName,
+                        fatherPhone: guardian.primary_phone || prev.fatherPhone,
+                        fatherEmail: guardian.email_address || prev.fatherEmail,
+                        fatherFax: guardian.fax_number || prev.fatherFax,
+                        fatherWhatsapp: guardian.whatsapp_number || prev.fatherWhatsapp,
+                    } : {
+                        motherName: guardian.full_name || prev.motherName,
+                        motherPhone: guardian.primary_phone || prev.motherPhone,
+                        motherEmail: guardian.email_address || prev.motherEmail,
+                        motherFax: guardian.fax_number || prev.motherFax,
+                        motherWhatsapp: guardian.whatsapp_number || prev.motherWhatsapp,
+                    }),
+                    houseNo: guardian.house_appt_number || guardian.house_appt_name || prev.houseNo,
+                    areaBlock: guardian.area_block || prev.areaBlock,
+                    city: guardian.city || prev.city,
+                    province: guardian.province || prev.province,
+                    country: guardian.country || prev.country,
+                    postalCode: guardian.postal_code || prev.postalCode,
+                }));
+            }
+        } catch (error) {
+            console.log(`No existing guardian found for CNIC. Proceeding normally.`);
+        } finally {
+            setFetchingCnic(null);
+        }
     };
 
     const addPreviousSchool = () => {
@@ -519,16 +565,30 @@ export function RegistrationForm() {
                                         <input type="text" name="candidateName" value={formData.candidateName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Father&apos;s Name</label>
-                                        <input type="text" name="fatherName" value={formData.fatherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
                                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Father&apos;s CNIC</label>
-                                        <input type="text" name="fatherCnic" value={formData.fatherCnic} onChange={handleInputChange} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
+                                        <div className="relative">
+                                            <input type="text" name="fatherCnic" value={formData.fatherCnic} onChange={handleInputChange} onBlur={(e) => fetchGuardianData("father", e.target.value)} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
+                                            {fetchingCnic === "father" && (
+                                                <div className="absolute right-3 top-2.5">
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Father&apos;s Name</label>
+                                        <input type="text" name="fatherName" value={formData.fatherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Mother&apos;s Name</label>
-                                        <input type="text" name="motherName" value={formData.motherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
                                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Mother&apos;s CNIC</label>
-                                        <input type="text" name="motherCnic" value={formData.motherCnic} onChange={handleInputChange} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
+                                        <div className="relative">
+                                            <input type="text" name="motherCnic" value={formData.motherCnic} onChange={handleInputChange} onBlur={(e) => fetchGuardianData("mother", e.target.value)} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
+                                            {fetchingCnic === "mother" && (
+                                                <div className="absolute right-3 top-2.5">
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Mother&apos;s Name</label>
+                                        <input type="text" name="motherName" value={formData.motherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>
 
                                     <div>
