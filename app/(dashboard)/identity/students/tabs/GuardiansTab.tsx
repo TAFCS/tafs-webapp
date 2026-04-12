@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2 } from "lucide-react";
 import api from "@/lib/api";
+import { PhotoUpload } from "./PhotoUpload";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
@@ -85,7 +86,7 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 
 const RELATIONSHIPS = ["FATHER", "MOTHER", "GUARDIAN", "UNCLE", "AUNT", "GRANDFATHER", "GRANDMOTHER", "SIBLING", "OTHER"];
 
-function GuardianCard({ studentCc, guardian, onSaved, onRemoved }: { studentCc: number; guardian: any; onSaved: (g: any) => void; onRemoved: () => void }) {
+function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { studentCc: number; guardian: any; onSaved: (g: any) => void; onRemoved: () => void; onReload: () => void }) {
     const [local, setLocal] = useState(guardian);
     const [savingInfo, setSavingInfo] = useState(false);
     const [savingRel, setSavingRel] = useState(false);
@@ -223,6 +224,16 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved }: { studentCc: 
                             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Personal Information</p>
                             {isInfoDirty && !savedInfo && <span className="text-[9px] font-bold text-amber-600">Unsaved changes</span>}
                         </div>
+                        
+                        <div className="pb-2 border-b border-zinc-50 mb-1">
+                            <PhotoUpload 
+                                guardianId={local.id} 
+                                currentUrl={local.photo_url} 
+                                label="Profile Picture" 
+                                onSuccess={onReload} 
+                            />
+                        </div>
+
                         <div className="grid grid-cols-2 gap-3">
                             <div className="col-span-2"><Field label="Full Name"><Input value={local.full_name ?? ""} onChange={v => set("full_name", v)} showNA /></Field></div>
                             <Field label="CNIC"><Input value={local.cnic ?? ""} onChange={v => set("cnic", formatCNIC(v))} placeholder="xxxxx-xxxxxxx-x" /></Field>
@@ -404,6 +415,7 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
                     guardian={g}
                     onSaved={update}
                     onRemoved={() => remove(g.guardian_id)}
+                    onReload={onReload}
                 />
             ))}
 

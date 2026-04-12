@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Save, Loader2, CheckCircle2 } from "lucide-react";
 import api from "@/lib/api";
+import { PhotoUpload } from "./PhotoUpload";
 
 // ── Primitives ──────────────────────────────────────────────────────────────
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -216,6 +217,16 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                     admission_age_years: personal.admission_age_years ? Number(personal.admission_age_years) : undefined 
                 }, setSavingPersonal, setSavedPersonal)} 
             >
+                <div className="col-span-2 flex gap-6 pb-2 border-b border-zinc-100 mb-2">
+                    <PhotoUpload 
+                        cc={student.cc} 
+                        type="standard" 
+                        currentUrl={student.photograph_url} 
+                        label="Candidate Photograph" 
+                        onSuccess={onReload} 
+                    />
+                </div>
+
                 <div className="col-span-2">
                     <Field label="Full Name"><Input value={personal.full_name} onChange={p("full_name")} /></Field>
                 </div>

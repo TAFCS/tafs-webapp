@@ -90,11 +90,11 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                         <X className="h-5 w-5" />
                     </button>
 
-                    {/* Floating Avatar */}
-                    <div className="absolute -bottom-12 left-8 h-24 w-24 bg-white dark:bg-zinc-950 rounded-2xl p-1 shadow-lg border border-zinc-100">
-                        <div className="h-full w-full bg-blue-50 rounded-xl flex items-center justify-center text-blue-500">
-                            <User className="h-10 w-10" />
-                        </div>
+                    <div className="absolute -bottom-12 left-8 h-24 w-24 bg-white dark:bg-zinc-950 rounded-2xl p-1 shadow-lg border border-zinc-100 overflow-hidden">
+                        <StudentAvatar 
+                            url={student.photograph_url} 
+                            name={student.student_full_name} 
+                        />
                     </div>
                 </div>
 
@@ -300,6 +300,31 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
 }
 
 // ─── Sub-Components ───────────────────────────────────────────────────────────
+function StudentAvatar({ url, name }: { url?: string | null; name: string }) {
+    const [imgError, setImgError] = useState(false);
+    
+    // Reset error state when URL changes
+    useEffect(() => {
+        setImgError(false);
+    }, [url]);
+
+    const sanitizedUrl = url?.replace(/([^:])\/\//g, '$1/');
+
+    return (
+        <div className="h-full w-full bg-blue-50 rounded-xl flex items-center justify-center text-blue-500 overflow-hidden relative">
+            {sanitizedUrl && !imgError ? (
+                <img 
+                    src={sanitizedUrl} 
+                    alt={name} 
+                    className="w-full h-full object-cover" 
+                    onError={() => setImgError(true)}
+                />
+            ) : (
+                <User className="h-10 w-10" />
+            )}
+        </div>
+    );
+}
 
 interface ChangeFamilyModalProps {
     studentId: number;

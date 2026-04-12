@@ -26,6 +26,7 @@ export interface StudentListItem {
   date_of_admission: string | null;
   house_and_color: string | null;
   residential_address: string | null;
+  photograph_url?: string | null;
   father_name?: string | null;
   siblings?: {
     id: number;

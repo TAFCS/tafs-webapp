@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/src/store/store";
@@ -61,8 +61,84 @@ const INITIAL_FORM_DATA = {
     isMotherWhatsapp: true, motherWhatsapp: "",
     emergencyContactName: "", isEmergencyContactNameNA: false,
     emergencyContactPhone: "", emergencyRelationship: "",
-    testDay: "", testDate: "", testTime: "", testLevel: ""
+    testDay: "", testDate: "", testTime: "", testLevel: "",
+    // New: Staged files for upload
+    photographFile: null as File | null,
+    fatherPhotoFile: null as File | null,
+    motherPhotoFile: null as File | null,
 };
+
+import { memo } from "react";
+
+const RegistrationPhotoBox = memo(function RegistrationPhotoBox({ 
+    label, 
+    file, 
+    onChange, 
+    className = "" 
+}: { 
+    label: string; 
+    file: File | null; 
+    onChange: (file: File | null) => void;
+    className?: string;
+}) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!file) {
+            setPreviewUrl(null);
+            return;
+        }
+
+        const url = URL.createObjectURL(file);
+        setPreviewUrl(url);
+
+        return () => {
+            URL.revokeObjectURL(url);
+        };
+    }, [file]);
+
+    return (
+        <div 
+            onClick={() => inputRef.current?.click()}
+            className={`relative group border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700/50 hover:border-primary transition-all overflow-hidden ${className}`}
+        >
+            {previewUrl ? (
+                <>
+                    <img src={previewUrl} alt={label} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Camera className="h-5 w-5 text-white" />
+                    </div>
+                </>
+            ) : (
+                <div className="flex flex-col items-center gap-1 p-2">
+                    <Camera className="h-5 w-5 text-zinc-400" />
+                    <span className="text-[10px] leading-tight font-bold uppercase" dangerouslySetInnerHTML={{ __html: label }} />
+                </div>
+            )}
+            
+            {file && (
+                <button 
+                    onClick={(e) => { e.stopPropagation(); onChange(null); }}
+                    className="absolute top-1 right-1 p-1 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                >
+                    <X className="h-2 w-2" />
+                </button>
+            )}
+
+            <input 
+                type="file" 
+                ref={inputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) onChange(f);
+                }} 
+            />
+        </div>
+    );
+});
 
 export function RegistrationForm() {
     const router = useRouter();
@@ -429,8 +505,46 @@ export function RegistrationForm() {
                 '/v1/admissions/register',
                 payload
             );
-
+            
             const rawStudent = data.data;
+
+            // -- NEW: UPLOAD STAGED PHOTOS (SEQUENTIAL TO PREVENT DB OVERLOAD) --
+            try {
+                // 1. Candidate Photo
+                if (formData.photographFile) {
+                    const candForm = new FormData();
+                    candForm.append("file", formData.photographFile);
+                    await api.post(`/v1/media/student/${rawStudent.cc}/photo/standard`, candForm, {
+                        headers: { "Content-Type": "multipart/form-data" }
+                    });
+                }
+
+                // Identify Father & Mother from the response
+                const fatherId = rawStudent.student_guardians?.find((sg: any) => sg.relationship === 'Father')?.guardians?.id;
+                const motherId = rawStudent.student_guardians?.find((sg: any) => sg.relationship === 'Mother')?.guardians?.id;
+
+                // 2. Father Photo
+                if (formData.fatherPhotoFile && fatherId) {
+                    const fForm = new FormData();
+                    fForm.append("file", formData.fatherPhotoFile);
+                    await api.post(`/v1/media/guardian/${fatherId}/photo`, fForm, {
+                        headers: { "Content-Type": "multipart/form-data" }
+                    });
+                }
+
+                // 3. Mother Photo
+                if (formData.motherPhotoFile && motherId) {
+                    const mForm = new FormData();
+                    mForm.append("file", formData.motherPhotoFile);
+                    await api.post(`/v1/media/guardian/${motherId}/photo`, mForm, {
+                        headers: { "Content-Type": "multipart/form-data" }
+                    });
+                }
+            } catch (uploadErr) {
+                console.error("Failed to upload some photos:", uploadErr);
+                // We don't block the UI here, as the student is already created.
+            }
+
             const primaryGuardian = rawStudent.student_guardians?.find((sg: any) => sg.is_primary_contact)?.guardians;
             const latestAdmission = rawStudent.student_admissions?.[0];
 
@@ -518,12 +632,25 @@ export function RegistrationForm() {
                 <div className="mt-8 space-y-4">
                     <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Photographs</h3>
                     <div className="flex flex-col gap-3">
-                        <div className="h-24 w-full border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-500 dark:text-zinc-400 text-center px-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 hover:border-primary transition-colors">
-                            Candidate (1.5&quot; x 2&quot;)<br />Light Blue BG
-                        </div>
+                        <RegistrationPhotoBox 
+                            label='Candidate (1.5" x 2") <br /> Light Blue BG'
+                            file={formData.photographFile}
+                            onChange={(f) => setFormData(prev => ({ ...prev, photographFile: f }))}
+                            className="h-28 w-full"
+                        />
                         <div className="flex gap-2">
-                            <div className="h-20 w-1/2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-500 dark:text-zinc-400 text-center px-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 hover:border-primary transition-colors">Father</div>
-                            <div className="h-20 w-1/2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-500 dark:text-zinc-400 text-center px-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 hover:border-primary transition-colors">Mother</div>
+                            <RegistrationPhotoBox 
+                                label="Father"
+                                file={formData.fatherPhotoFile}
+                                onChange={(f) => setFormData(prev => ({ ...prev, fatherPhotoFile: f }))}
+                                className="h-20 w-1/2"
+                            />
+                            <RegistrationPhotoBox 
+                                label="Mother"
+                                file={formData.motherPhotoFile}
+                                onChange={(f) => setFormData(prev => ({ ...prev, motherPhotoFile: f }))}
+                                className="h-20 w-1/2"
+                            />
                         </div>
                     </div>
                 </div>
