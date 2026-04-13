@@ -152,6 +152,8 @@ export default function FeeChallanGenerator() {
     const [savedGroupVoucherIds, setSavedGroupVoucherIds] = useState<Record<string, number>>({});
     const [savedVoucherPdfUrl, setSavedVoucherPdfUrl] = useState<string | null>(null);
     const [savedGroupVoucherPdfUrls, setSavedGroupVoucherPdfUrls] = useState<Record<string, string>>({});
+    const [savedVoucherBlobUrl, setSavedVoucherBlobUrl] = useState<string | null>(null);
+    const [savedGroupBlobUrls, setSavedGroupBlobUrls] = useState<Record<string, string>>({});
 
     // --- Arrears State ---
     const [arrearsData, setArrearsData] = useState<{
@@ -673,8 +675,8 @@ export default function FeeChallanGenerator() {
             const allPdfTotal = allPdfFees.reduce((s, f) => s + (f.netAmount || 0), 0);
             console.log(`[VOUCHER_DEBUG] Manual PDF: arrears=${arrearPdfFees.length}, current=${currentPdfFees.length}, total=${allPdfTotal}`);
 
-            // 2. Generate PDF with the real voucher ID
-            const blob = await pdf(
+            // Helper to build PDF element (DRY for the two renders below)
+            const buildPdfEl = (qrUrl: string | undefined) => (
                 <FeeChallanPDF
                     student={{
                         cc: student.cc,
@@ -713,17 +715,26 @@ export default function FeeChallanGenerator() {
                         className: s.classes?.description || s.grade_and_section?.split('-')[0] || "N/A",
                         sectionName: s.sections?.description || s.grade_and_section?.split('-')[1] || "N/A"
                     }))}
-                    qrUrl={undefined}
+                    qrUrl={qrUrl}
                 />
-            ).toBlob();
+            );
 
-            // 3. Upload the PDF with the correct voucher number
+            // 2. Generate PDF WITHOUT QR → upload to server
+            const uploadBlob = await pdf(buildPdfEl(undefined)).toBlob();
+
+            // 3. Upload the PDF (no QR) to Digital Ocean
             const pdfFormData = new FormData();
-            pdfFormData.append('pdf', new File([blob], `v-${student.cc}.pdf`, { type: 'application/pdf' }));
+            pdfFormData.append('pdf', new File([uploadBlob], `v-${student.cc}.pdf`, { type: 'application/pdf' }));
             const uploadRes = await api.patch(`/v1/vouchers/${voucherId}/paid-pdf`, pdfFormData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
-            setSavedVoucherPdfUrl(uploadRes.data?.data?.pdf_url || null);
+            const uploadedPdfUrl = uploadRes.data?.data?.pdf_url || null;
+            setSavedVoucherPdfUrl(uploadedPdfUrl);
+
+            // 4. Generate PDF WITH QR (pointing to the uploaded URL) → for local download
+            const downloadBlob = await pdf(buildPdfEl(uploadedPdfUrl || undefined)).toBlob();
+            const blobUrl = URL.createObjectURL(downloadBlob);
+            setSavedVoucherBlobUrl(prev => { if (prev) URL.revokeObjectURL(prev); return blobUrl; });
 
             toast.success("Voucher generated!");
             setVoucherSaved(true);
@@ -814,8 +825,8 @@ export default function FeeChallanGenerator() {
             const allPdfTotal = allPdfFees.reduce((s, f) => s + (f.netAmount || 0), 0);
             console.log(`[VOUCHER_DEBUG] Bulk PDF: arrears=${arrearPdfFees.length}, current=${currentPdfFees.length}, total=${allPdfTotal}`);
 
-            // 2. Generate PDF with the real voucher ID
-            const blob = await pdf(
+            // Helper to build PDF element for this group
+            const buildGroupPdfEl = (qrUrl: string | undefined) => (
                 <FeeChallanPDF
                     student={{
                         cc: student.cc,
@@ -854,18 +865,29 @@ export default function FeeChallanGenerator() {
                         className: s.classes?.description || s.grade_and_section?.split('-')[0] || "N/A",
                         sectionName: s.sections?.description || s.grade_and_section?.split('-')[1] || "N/A"
                     }))}
-                    qrUrl={undefined}
+                    qrUrl={qrUrl}
                 />
-            ).toBlob();
+            );
 
-            // 3. Upload the PDF with the correct voucher number
+            // 2. Generate PDF WITHOUT QR → upload to server (Digital Ocean)
+            const uploadBlob = await pdf(buildGroupPdfEl(undefined)).toBlob();
+
+            // 3. Upload the PDF (no QR)
             const pdfFormData = new FormData();
-            pdfFormData.append('pdf', new File([blob], `vg-${group.fee_date}.pdf`, { type: 'application/pdf' }));
+            pdfFormData.append('pdf', new File([uploadBlob], `vg-${group.fee_date}.pdf`, { type: 'application/pdf' }));
             const uploadRes = await api.patch(`/v1/vouchers/${voucherId}/paid-pdf`, pdfFormData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
             const uploadedPdfUrl = uploadRes.data?.data?.pdf_url || null;
             if (uploadedPdfUrl) setSavedGroupVoucherPdfUrls(prev => ({ ...prev, [group.fee_date]: uploadedPdfUrl }));
+
+            // 4. Generate PDF WITH QR (pointing to uploaded URL) → for local download
+            const downloadBlob = await pdf(buildGroupPdfEl(uploadedPdfUrl || undefined)).toBlob();
+            const groupBlobUrl = URL.createObjectURL(downloadBlob);
+            setSavedGroupBlobUrls(prev => {
+                if (prev[group.fee_date]) URL.revokeObjectURL(prev[group.fee_date]);
+                return { ...prev, [group.fee_date]: groupBlobUrl };
+            });
 
             setGeneratedGroupDates(p => new Set([...p, group.fee_date]));
             toast.success(`Generated for ${group.fee_date}`);
@@ -1390,6 +1412,16 @@ export default function FeeChallanGenerator() {
                                                                         {generatingGroupDate === g.fee_date ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
                                                                         {generatedGroupDates.has(g.fee_date) ? "Regenerate" : "Generate"}
                                                                     </button>
+                                                                    {generatedGroupDates.has(g.fee_date) && savedGroupBlobUrls[g.fee_date] && (
+                                                                        <a
+                                                                            href={savedGroupBlobUrls[g.fee_date]}
+                                                                            download={`challan-${student?.gr_number || student?.cc}-${g.fee_date}.pdf`}
+                                                                            className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white transition-all flex items-center gap-2 hover:-translate-y-0.5 active:scale-95 shadow-lg shadow-emerald-600/20"
+                                                                        >
+                                                                            <Download className="h-4 w-4" />
+                                                                            Download
+                                                                        </a>
+                                                                    )}
                                                                 </div>
                                                             </div>
 
@@ -1430,6 +1462,15 @@ export default function FeeChallanGenerator() {
                                                 <button onClick={handleSaveVoucher} disabled={isSavingVoucher} className="h-16 px-12 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl shadow-zinc-900/20 dark:shadow-zinc-100/20 transition-all hover:-translate-y-1 active:scale-95">
                                                     {isSavingVoucher ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} Generate Voucher
                                                 </button>
+                                                {voucherSaved && savedVoucherBlobUrl && (
+                                                    <a
+                                                        href={savedVoucherBlobUrl}
+                                                        download={`challan-${student?.gr_number || student?.cc}-${savedVoucherId}.pdf`}
+                                                        className="h-16 px-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl shadow-emerald-600/20 transition-all hover:-translate-y-1 active:scale-95"
+                                                    >
+                                                        <Download className="h-5 w-5" /> Download PDF
+                                                    </a>
+                                                )}
                                             </div>
                                         </div>
                                     ) : (
