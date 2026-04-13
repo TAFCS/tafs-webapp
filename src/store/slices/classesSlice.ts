@@ -8,6 +8,7 @@ export interface ClassItem {
     description: string;
     class_code: string;
     academic_system: string;
+    class_order?: number; // Numeric grade rank returned by the backend
 }
 
 export interface ClassesState {
