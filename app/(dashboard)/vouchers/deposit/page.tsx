@@ -119,7 +119,15 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     };
     const arrearCount = heads.filter(h => isArrearHead(h)).length;
 
-    const totalBalance = heads.reduce((sum, h) => sum + Number(h.balance), 0);
+    // ── SOURCE OF TRUTH: student_fees.amount = canonical net per head ──────────────
+    // Balance authority: voucher_heads.balance (backend normalizeVoucher already
+    // cross-references student_fees and sets this correctly — including PAID = 0).
+    // Deposited is derived: sf.amount - head.balance (avoids stale amount_paid).
+    const sfNetAmt = (h: typeof heads[0]) => Number(h.student_fees?.amount ?? h.net_amount ?? 0);
+    const sfBalance = (h: typeof heads[0]) => Number(h.balance ?? 0); // authoritative
+    const sfDeposited = (h: typeof heads[0]) => Math.max(sfNetAmt(h) - sfBalance(h), 0);
+
+    const totalBalance = heads.reduce((sum, h) => sum + sfBalance(h), 0);
     const totalSurcharge = (voucher.late_fee_charge) ? Math.max(Number(voucher.total_payable_after_due ?? 0) - Number(voucher.total_payable_before_due ?? 0), 0) : 0;
     const remainingSurcharge = Math.max(totalSurcharge - Number(voucher.late_fee_deposited ?? 0), 0);
     const isOverdue = new Date() > new Date(voucher.due_date);
@@ -140,7 +148,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         setManualLateFee(lateToFill.toString());
         remaining -= lateToFill;
         heads.forEach(h => {
-            const hBal = Number(h.balance);
+            const hBal = sfBalance(h); // use student_fees balance
             const toFill = Math.min(remaining, hBal);
             dist[h.id] = toFill.toString();
             remaining -= toFill;
@@ -336,6 +344,9 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         {/* Fee head rows */}
                         {heads.map(h => {
                             const arrear = isArrearHead(h);
+                            const hSfBal = sfBalance(h);
+                            const hSfNet = sfNetAmt(h);
+                            const hSfDep = sfDeposited(h);
                             return (
                                 <div
                                     key={h.id}
@@ -355,18 +366,20 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                             {arrear ? "Arrear" : "Current"}
                                         </span>
                                     </div>
-                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{Number(h.net_amount).toLocaleString()}</span>
-                                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Number(h.amount_deposited).toLocaleString()}</span>
-                                    <span className={`text-[11px] font-black tabular-nums text-right ${Number(h.balance) === 0 ? "text-emerald-600" : "text-zinc-900 dark:text-zinc-100"}`}>
-                                        {Number(h.balance).toLocaleString()}
+                                    {/* Net Amount from student_fees */}
+                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{hSfNet.toLocaleString()}</span>
+                                    {/* Deposited from student_fees.amount_paid */}
+                                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{hSfDep.toLocaleString()}</span>
+                                    {/* Balance = student_fees.amount - student_fees.amount_paid */}
+                                    <span className={`text-[11px] font-black tabular-nums text-right ${hSfBal === 0 ? "text-emerald-600" : "text-zinc-900 dark:text-zinc-100"}`}>
+                                        {hSfBal.toLocaleString()}
                                     </span>
                                     <div className="flex justify-end">
                                         {fillingMode === "manual" ? (
                                             <input type="text" inputMode="numeric" pattern="[0-9]*" value={manualDistributions[h.id] || ""}
                                                 onChange={e => {
                                                     const v = e.target.value.replace(/[^0-9]/g,'');
-                                                    const bal = Number(h.balance);
-                                                    setManualDistributions({ ...manualDistributions, [h.id]: v === "" || Number(v) <= bal ? v : bal.toString() });
+                                                    setManualDistributions({ ...manualDistributions, [h.id]: v === "" || Number(v) <= hSfBal ? v : hSfBal.toString() });
                                                 }}
                                                 className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-primary transition-all font-mono" />
                                         ) : (
@@ -380,8 +393,8 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         {/* Summary totals row */}
                         <div className="grid grid-cols-[1fr_100px_100px_100px_110px] gap-x-3 items-center px-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                             <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Total</span>
-                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{heads.reduce((s,h) => s+Number(h.net_amount),0).toLocaleString()}</span>
-                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{heads.reduce((s,h) => s+Number(h.amount_deposited),0).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{heads.reduce((s,h) => s+sfNetAmt(h),0).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{heads.reduce((s,h) => s+sfDeposited(h),0).toLocaleString()}</span>
                             <span className="text-[11px] font-black text-emerald-600 tabular-nums text-right">{totalBalance.toLocaleString()}</span>
                             <span />
                         </div>
@@ -411,8 +424,16 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
     const status = getStatusConfig(voucher.status);
     const isVoid = voucher.status === "VOID";
 
+    // ── Fee Date: from first head's student_fee (they share the same date) ───────
+    const feeDate = voucher.voucher_heads?.find(h => h.student_fees?.fee_date)?.student_fees?.fee_date
+        ?? voucher.fee_date ?? null;
 
-
+    // ── Amount Payable: sum of voucher_heads.balance (authoritative, already ───
+    //    normalised by backend against student_fees)
+    const heads = voucher.voucher_heads || [];
+    const sfTotalNet = heads.reduce((s, h) => s + Number(h.student_fees?.amount ?? h.net_amount ?? 0), 0);
+    const sfTotalDeposited = heads.reduce((s, h) => s + Math.max(Number(h.student_fees?.amount ?? h.net_amount ?? 0) - Number(h.balance ?? 0), 0), 0);
+    const sfTotalBalance = heads.reduce((s, h) => s + Number(h.balance ?? 0), 0);
 
     return (
         <tr className={`group border-b border-zinc-100 dark:border-zinc-800/60 transition-colors ${
@@ -445,8 +466,8 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
             </td>
             <td className="px-5 py-3.5 text-center">
                 <div className="flex flex-col items-center">
-                    <span className="text-[13px] font-black text-zinc-900 dark:text-zinc-100">
-                        {voucher.month ? ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][voucher.month] : "—"}
+                    <span className="text-[12px] font-mono text-zinc-700 dark:text-zinc-300">
+                        {formatDate(feeDate)}
                     </span>
                     <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tighter leading-none">
                         {voucher.academic_year || "—"}
@@ -473,11 +494,16 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
                     <span className={`text-[13px] font-black tabular-nums ${
                         isVoid ? "text-zinc-400" : "text-zinc-900 dark:text-zinc-100"
                     }`}>
-                        Rs. {Number(voucher.total_payable_before_due || 0).toLocaleString()}
+                        Rs. {sfTotalBalance.toLocaleString()}
                     </span>
-                    {!isVoid && (
-                        <span className="text-[9px] font-bold text-rose-500 uppercase tracking-tight leading-none">
-                            After: Rs. {Number(voucher.total_payable_after_due || 0).toLocaleString()}
+                    {!isVoid && sfTotalDeposited > 0 && (
+                        <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-tight leading-none">
+                            Paid: Rs. {sfTotalDeposited.toLocaleString()}
+                        </span>
+                    )}
+                    {!isVoid && sfTotalBalance > 0 && sfTotalNet !== sfTotalBalance && (
+                        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tight leading-none">
+                            Total: Rs. {sfTotalNet.toLocaleString()}
                         </span>
                     )}
                 </div>
@@ -863,7 +889,7 @@ export default function VoucherDepositPage() {
                         <table className="w-full border-collapse">
                             <thead className="sticky top-0 z-10 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800">
                                 <tr>
-                                    {["ID", "Student", "Campus", "Month", "Issue Date", "Due Date", "Status", "Amount Payable", "Actions"].map(h => (
+                                    {["ID", "Student", "Campus", "Fee Date", "Issue Date", "Due Date", "Status", "Amount Payable", "Actions"].map(h => (
                                         <th key={h} className="px-6 py-5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] whitespace-nowrap">
                                             {h}
                                         </th>
