@@ -17,8 +17,11 @@ import {
     Sparkles,
     Calendar,
     BookOpen,
-    Layers
+    Layers,
+    FileText,
+    Printer
 } from "lucide-react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
@@ -255,13 +258,22 @@ export default function EnrollmentsPage() {
                                     </div>
                                 </div>
 
-                                <button
-                                    onClick={() => handleStartEnroll(candidate)}
-                                    className="w-full py-4 bg-primary hover:bg-primary-dark text-white font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] group-hover:gap-4"
-                                >
-                                    PROCEED TO ENROLL
-                                    <ChevronRight className="h-4 w-4" />
-                                </button>
+                                <div className="flex bg-primary hover:bg-primary-dark transition-all">
+                                    <button
+                                        onClick={() => handleStartEnroll(candidate)}
+                                        className="flex-1 py-4 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] group-hover:gap-4 border-r border-white/10"
+                                    >
+                                        PROCEED
+                                        <ChevronRight className="h-4 w-4" />
+                                    </button>
+                                    <Link 
+                                        href={`/enrollments/admission-order/${candidate.cc}`}
+                                        className="p-4 text-white/80 hover:text-white transition-colors flex items-center justify-center"
+                                        title="View Admission Order"
+                                    >
+                                        <FileText className="h-5 w-5" />
+                                    </Link>
+                                </div>
                             </motion.div>
                         ))}
                     </AnimatePresence>
@@ -446,12 +458,21 @@ export default function EnrollmentsPage() {
                                 )}
                             </div>
 
-                            <button
-                                onClick={() => setShowSuccess(false)}
-                                className="w-full py-4 bg-primary text-white rounded-2xl font-black text-sm tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform"
-                            >
-                                CONTINUE
-                            </button>
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={() => window.location.href = `/enrollments/admission-order/${enrolledReport?.cc}`}
+                                    className="w-full py-4 bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white rounded-2xl font-black text-sm tracking-widest shadow-lg hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+                                >
+                                    <Printer className="h-4 w-4" />
+                                    PRINT ADMISSION ORDER
+                                </button>
+                                <button
+                                    onClick={() => setShowSuccess(false)}
+                                    className="w-full py-4 bg-primary text-white rounded-2xl font-black text-sm tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform"
+                                >
+                                    CONTINUE
+                                </button>
+                            </div>
                         </motion.div>
                     </div>
                 )}
