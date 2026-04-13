@@ -36,11 +36,6 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/store/store";
 import { fetchClasses } from "@/store/slices/classesSlice";
 import { fetchSections } from "@/store/slices/sectionsSlice";
-import dynamic from "next/dynamic";
-const PDFDownloadLink = dynamic(
-    () => import("@react-pdf/renderer").then((m) => m.PDFDownloadLink),
-    { ssr: false }
-);
 import { pdf } from "@react-pdf/renderer";
 import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
 import { bankAccountsService, BankAccount } from "@/lib/bank-accounts.service";
@@ -1352,56 +1347,14 @@ export default function FeeChallanGenerator() {
                                                         <p className="text-[11px] font-bold text-primary/60 uppercase tracking-widest mt-0.5">Each fee_date becomes a separate voucher</p>
                                                     </div>
                                                 </div>
-                                                {voucherSaved ? (
-                                                    <PDFDownloadLink
-                                                        document={
-                                                            <FeeChallanPDF
-                                                                student={{
-                                                                    ...student!,
-                                                                    className: (classes.find(c => c.id === student?.class_id) as any)?.description || "N/A",
-                                                                    sectionName: (sections.find(s => s.id === student?.section_id) as any)?.description || "N/A"
-                                                                }}
-                                                                details={{
-                                                                    month: getMonthLabelFromFees(studentFees), academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount, voucherNumber: voucherNumberStr,
-                                                                    generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
-                                                                    bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
-                                                                }}
-                                                                fees={allPdfFeesForDisplay}
-                                                                totalAmount={totalFeesAmount}
-                                                                showDiscount={showDiscount}
-                                                                arrearsHistory={processedArrearPdfFees.map(r => ({
-                                                                    date: r.feeDate,
-                                                                    head: r.description.split(" (")[0],
-                                                                    amount: r.amount.toLocaleString(),
-                                                                    totalAmount: r.netAmount.toLocaleString(),
-                                                                    target_month: (r as any).target_month,
-                                                                    academic_year: (r as any).academic_year,
-                                                                }))}
-                                                                siblings={siblings.map(s => ({
-                                                                    full_name: s.student_full_name || s.full_name,
-                                                                    cc: s.cc,
-                                                                    gr_number: s.gr_number,
-                                                                    className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
-                                                                    sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
-                                                                }))}
-                                                                qrUrl={savedVoucherPdfUrl || undefined}
-                                                            />
-                                                        }
-                                                        fileName={`Vouchers_${student?.cc}.pdf`}
-                                                        className="h-14 px-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase text-[12px] tracking-widest shadow-xl shadow-emerald-500/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-4"
-                                                    >
-                                                        <Download className="h-5 w-5" /> Download All
-                                                    </PDFDownloadLink>
-                                                ) : (
-                                                    <button
-                                                        onClick={handleGenerateAllGroups}
-                                                        disabled={isGeneratingAll}
-                                                        className="h-14 px-10 bg-primary hover:bg-primary-hover text-white rounded-2xl font-black uppercase text-[12px] tracking-widest shadow-xl shadow-primary/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-4 disabled:opacity-50"
-                                                    >
-                                                        {isGeneratingAll ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
-                                                        Generate All
-                                                    </button>
-                                                )}
+                                                <button
+                                                    onClick={handleGenerateAllGroups}
+                                                    disabled={isGeneratingAll}
+                                                    className="h-14 px-10 bg-primary hover:bg-primary-hover text-white rounded-2xl font-black uppercase text-[12px] tracking-widest shadow-xl shadow-primary/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-4 disabled:opacity-50"
+                                                >
+                                                    {isGeneratingAll ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
+                                                    Generate All
+                                                </button>
                                             </div>
 
                                             {/* Detailed Group Cards */}
@@ -1429,45 +1382,6 @@ export default function FeeChallanGenerator() {
                                                                     </div>
                                                                 </div>
                                                                 <div className="flex items-center gap-3">
-                                                                    {generatedGroupDates.has(g.fee_date) && (
-                                                                        <PDFDownloadLink
-                                                                            document={
-                                                                                <FeeChallanPDF
-                                                                                    student={{ ...student!, className: (classes.find(c => c.id === student?.class_id) as any)?.description || "N/A", sectionName: (sections.find(s => s.id === student?.section_id) as any)?.description || "N/A" }}
-                                                                                    details={{
-                                                                                        month: getMonthLabelFromFees(g.fees),
-                                                                                        academicYear, issueDate, dueDate, validityDate, applyLateFee, lateFeeAmount,
-                                                                                        voucherNumber: savedGroupVoucherIds[g.fee_date] ? `${savedGroupVoucherIds[g.fee_date]}` : voucherNumberStr,
-                                                                                        generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
-                                                                                        bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
-                                                                                    }}
-                                                                                    fees={combinedGroupFees}
-                                                                                    totalAmount={combinedGroupTotal}
-                                                                                    showDiscount={showDiscount}
-                                                                                    arrearsHistory={processedArrearPdfFees.map(r => ({
-                                                                                        date: r.feeDate,
-                                                                                        head: r.description.split(' (')[0],
-                                                                                        amount: r.amount.toLocaleString(),
-                                                                                        totalAmount: r.netAmount.toLocaleString(),
-                                                                                        target_month: (r as any).target_month,
-                                                                                        academic_year: (r as any).academic_year,
-                                                                                    }))}
-                                                                                    siblings={siblings.map(s => ({
-                                                                                        full_name: s.student_full_name || s.full_name,
-                                                                                        cc: s.cc,
-                                                                                        gr_number: s.gr_number,
-                                                                                        className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
-                                                                                        sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
-                                                                                    }))}
-                                                                                    qrUrl={savedGroupVoucherPdfUrls[g.fee_date] || undefined}
-                                                                                />
-                                                                            }
-                                                                            fileName={`Challan_${student?.cc}_${g.fee_date}.pdf`}
-                                                                            className="h-12 w-12 flex items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 hover:-translate-y-0.5 active:scale-95 transition-all"
-                                                                        >
-                                                                            <Download className="h-5 w-5" />
-                                                                        </PDFDownloadLink>
-                                                                    )}
                                                                     <button
                                                                         onClick={() => handleSaveVoucherForGroup(g)}
                                                                         disabled={generatingGroupDate === g.fee_date}
@@ -1513,66 +1427,9 @@ export default function FeeChallanGenerator() {
                                             </div>
 
                                             <div className="flex justify-end gap-6 pb-10">
-                                                {voucherSaved ? (
-                                                    <PDFDownloadLink
-                                                        document={
-                                                            <FeeChallanPDF
-                                                                student={{
-                                                                    cc: student!.cc,
-                                                                    student_full_name: student!.student_full_name,
-                                                                    gr_number: student!.gr_number,
-                                                                    campus: student!.campus,
-                                                                    class_id: student!.class_id,
-                                                                    section_id: student!.section_id,
-                                                                    className: (classes.find(c => c.id === student?.class_id) as any)?.description || "N/A",
-                                                                    sectionName: (sections.find(s => s.id === student?.section_id) as any)?.description || "N/A",
-                                                                    grade_and_section: student!.grade_and_section,
-                                                                    father_name: student!.father_name,
-                                                                    gender: student!.gender
-                                                                }}
-                                                                details={{
-                                                                    month: getMonthLabelFromFees(studentFees),
-                                                                    academicYear,
-                                                                    issueDate,
-                                                                    dueDate,
-                                                                    validityDate,
-                                                                    applyLateFee,
-                                                                    lateFeeAmount,
-                                                                    voucherNumber: voucherNumberStr,
-                                                                    generatedBy: { fullName: user?.fullName || user?.username || "N/A", timestampStr },
-                                                                    bank: { name: selectedBank?.bank_name || "", title: accTitle, account: accNo, branch: branchCode, address: bankAddress, iban: iban }
-                                                                }}
-                                                                fees={allPdfFeesForDisplay}
-                                                                totalAmount={totalFeesAmount}
-                                                                showDiscount={showDiscount}
-                                                                arrearsHistory={processedArrearPdfFees.map(r => ({
-                                                                    date: r.feeDate,
-                                                                    head: r.description.split(" (")[0],
-                                                                    amount: r.amount.toLocaleString(),
-                                                                    totalAmount: r.netAmount.toLocaleString(),
-                                                                    target_month: (r as any).target_month,
-                                                                    academic_year: (r as any).academic_year,
-                                                                }))}
-                                                                siblings={siblings.map(s => ({
-                                                                    full_name: s.student_full_name || s.full_name,
-                                                                    cc: s.cc,
-                                                                    gr_number: s.gr_number,
-                                                                    className: (classes.find(c => c.id === s.class_id) as any)?.description || "N/A",
-                                                                    sectionName: (sections.find(sec => sec.id === s.section_id) as any)?.description || "N/A"
-                                                                }))}
-                                                                qrUrl={savedVoucherPdfUrl || undefined}
-                                                            />
-                                                        }
-                                                        fileName={`Challan_${student?.cc}.pdf`}
-                                                        className="h-16 px-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl shadow-emerald-600/20 transition-all hover:-translate-y-1 active:scale-95"
-                                                    >
-                                                        <Download className="h-5 w-5" /> Download PDF
-                                                    </PDFDownloadLink>
-                                                ) : (
-                                                    <button onClick={handleSaveVoucher} disabled={isSavingVoucher} className="h-16 px-12 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl shadow-zinc-900/20 dark:shadow-zinc-100/20 transition-all hover:-translate-y-1 active:scale-95">
-                                                        {isSavingVoucher ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} Generate Voucher
-                                                    </button>
-                                                )}
+                                                <button onClick={handleSaveVoucher} disabled={isSavingVoucher} className="h-16 px-12 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl shadow-zinc-900/20 dark:shadow-zinc-100/20 transition-all hover:-translate-y-1 active:scale-95">
+                                                    {isSavingVoucher ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} Generate Voucher
+                                                </button>
                                             </div>
                                         </div>
                                     ) : (
