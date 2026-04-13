@@ -635,6 +635,7 @@ export default function FeeChallanGenerator() {
             formData.append('bank_account_id', selectedBank.id.toString());
             formData.append('issue_date', issueDate);
             formData.append('due_date', dueDate);
+            if (validityDate) formData.append('validity_date', validityDate);
             if (voucherFeeDate) formData.append('fee_date', voucherFeeDate);
             formData.append('academic_year', academicYear);
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
@@ -787,6 +788,7 @@ export default function FeeChallanGenerator() {
             formData.append('bank_account_id', selectedBank.id.toString());
             formData.append('issue_date', issueDate);
             formData.append('due_date', dueDate);
+            if (validityDate) formData.append('validity_date', validityDate);
             formData.append('fee_date', group.fee_date);
             formData.append('academic_year', academicYear);
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
