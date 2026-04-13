@@ -127,7 +127,8 @@ export default function BulkPromotePage() {
   const [toSectionId, setToSectionId] = useState("");
   const [studentIdsRaw, setStudentIdsRaw] = useState("");
   const [reason, setReason] = useState("");
-  const [targetAcademicYear, setTargetAcademicYear] = useState("");
+  const [sourceAcademicYear, setSourceAcademicYear] = useState(""); // filter: students currently in this year
+  const [targetAcademicYear, setTargetAcademicYear] = useState(""); // override: destination year
   const [dryRun, setDryRun] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [response, setResponse] = useState<PromotionResponse | null>(null);
@@ -318,6 +319,7 @@ export default function BulkPromotePage() {
     setResolvedIds(new Map());
     setPreviewStudents(null);
     setPreviewError(null);
+    setSourceAcademicYear("");
   }, []);
 
   const validateForm = (): boolean => {
@@ -363,7 +365,8 @@ export default function BulkPromotePage() {
     if (!isGraduating && toSectionId) payload.to_section_id = Number(toSectionId);
     if (parsedStudentIds.length > 0) payload.student_ids = parsedStudentIds;
     if (reason.trim()) payload.reason = reason.trim();
-    if (targetAcademicYear) payload.target_academic_year = targetAcademicYear;
+    if (sourceAcademicYear) payload.academic_year = sourceAcademicYear;   // source filter
+    if (targetAcademicYear) payload.target_academic_year = targetAcademicYear; // destination override
 
     try {
       const { data } = await api.post("/v1/students/promotion/bulk", payload);
@@ -387,7 +390,7 @@ export default function BulkPromotePage() {
 
   const sortedResults = useMemo(() => {
     if (!response?.results) return [];
-    const rank: Record<PromotionStatus, number> = { failed: 0, skipped: 1, promoted: 2, graduated: 3 };
+    const rank: Record<PromotionStatus, number> = { failed: 0, skipped: 1, promoted: 2, graduated: 3, expelled: 3 };
     return [...response.results].sort((a, b) => rank[a.status] - rank[b.status]);
   }, [response]);
 
@@ -472,7 +475,18 @@ export default function BulkPromotePage() {
           </div>
 
           {/* Filters row */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="space-y-2">
+              <label htmlFor="source-academic-year" className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                Source Year
+              </label>
+              <select id="source-academic-year" value={sourceAcademicYear} onChange={(e) => setSourceAcademicYear(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                <option value="">All years</option>
+                {academicYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
+              </select>
+              <p className="text-[10px] text-zinc-400">Filter students by their current year.</p>
+            </div>
             <div className="space-y-2">
               <label htmlFor="target-academic-year" className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Target Year</label>
               <select id="target-academic-year" value={targetAcademicYear} onChange={(e) => setTargetAcademicYear(e.target.value)}
@@ -480,6 +494,7 @@ export default function BulkPromotePage() {
                 <option value="">Auto-increment</option>
                 {academicYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
               </select>
+              <p className="text-[10px] text-zinc-400">Override destination year.</p>
             </div>
             <div className="space-y-2">
               <label htmlFor="campus-filter" className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Campus Filter</label>
