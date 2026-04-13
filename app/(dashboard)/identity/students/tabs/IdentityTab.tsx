@@ -54,7 +54,7 @@ function PhoneInput({ value, onChange, placeholder }: { value: string; onChange:
         <div className="relative flex items-center">
             <input
                 type="text"
-                value={value === "N/A" ? "N/A" : (value.startsWith("+92") ? value : "+92")}
+                value={value === "N/A" ? "N/A" : (value?.startsWith("+92") ? value : ("+92" + (value || "")))}
                 onChange={e => handlePhoneChange(e.target.value)}
                 placeholder={placeholder}
                 className="w-full h-9 pl-3 pr-10 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-mono"
