@@ -44,7 +44,9 @@ export interface VoucherHead {
     balance: string;
     student_fees?: {
         id: number;
+        amount: string;
         amount_before_discount: string;
+        amount_paid: string;
         month: number | null;
         target_month: number | null;
         academic_year: string | null;
@@ -75,6 +77,9 @@ export interface VoucherItem {
     total_payable_before_due?: string;
     total_payable_after_due?: string;
     late_fee_deposited?: string;
+    sf_net_total?: string;
+    sf_gross_total?: string;
+    sf_discount_total?: string;
     students: VoucherStudent;
     campuses: VoucherCampus;
     classes: VoucherClass;

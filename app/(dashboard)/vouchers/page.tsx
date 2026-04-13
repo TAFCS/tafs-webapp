@@ -611,12 +611,12 @@ function VoucherRow({ voucher, index, sections, onRefresh }: { voucher: VoucherI
             </td>
             <td className="px-5 py-3.5">
                 <span className="text-sm text-zinc-400 dark:text-zinc-600 font-mono line-through decoration-rose-300">
-                    {Number(voucher.voucher_heads?.reduce((sum, h) => sum + Number(h.net_amount) + Number(h.discount_amount || 0), 0)).toLocaleString()}
+                    {Number(voucher.sf_gross_total ?? voucher.voucher_heads?.reduce((sum, h) => sum + Number(h.net_amount) + Number(h.discount_amount || 0), 0)).toLocaleString()}
                 </span>
             </td>
             <td className="px-5 py-3.5">
                 <span className="text-sm text-emerald-600 dark:text-emerald-400 font-black font-mono">
-                    {Number(voucher.total_payable_before_due || 0).toLocaleString()}
+                    {Number(voucher.sf_net_total ?? voucher.total_payable_before_due ?? 0).toLocaleString()}
                 </span>
             </td>
             <td className="px-5 py-3.5">
