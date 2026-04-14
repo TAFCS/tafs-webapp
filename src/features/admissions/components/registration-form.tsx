@@ -68,6 +68,9 @@ const INITIAL_FORM_DATA = {
     photographFile: null as File | null,
     fatherPhotoFile: null as File | null,
     motherPhotoFile: null as File | null,
+    isFastTrack: false,
+    fastTrackDate1: "",
+    fastTrackDate2: "",
 };
 
 import { memo } from "react";
@@ -514,6 +517,26 @@ export function RegistrationForm() {
             
             const rawStudent = data.data;
 
+            // -- NEW: Schedule Fast Track Promotions if enabled --
+            if (formData.isFastTrack) {
+                try {
+                    if (formData.fastTrackDate1) {
+                        await api.post(`/v1/student-flags/${rawStudent.cc}`, {
+                            flag: 'fast_track_promo_1',
+                            reminder_date: formData.fastTrackDate1
+                        });
+                    }
+                    if (formData.fastTrackDate2) {
+                        await api.post(`/v1/student-flags/${rawStudent.cc}`, {
+                            flag: 'fast_track_promo_2',
+                            reminder_date: formData.fastTrackDate2
+                        });
+                    }
+                } catch (err) {
+                    console.error("Failed to set Fast Track flags:", err);
+                }
+            }
+
             // -- NEW: UPLOAD STAGED PHOTOS (SEQUENTIAL TO PREVENT DB OVERLOAD) --
             try {
                 // 1. Candidate Photo
@@ -895,6 +918,51 @@ export function RegistrationForm() {
                                                 </div>
                                             )}
                                         </div>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative mt-6">
+                                    <div className="flex flex-col gap-4 p-4 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/50">
+                                        <div className="flex items-center gap-3">
+                                            <input 
+                                                type="checkbox" 
+                                                name="isFastTrack" 
+                                                id="fast-track" 
+                                                checked={formData.isFastTrack} 
+                                                onChange={handleInputChange} 
+                                                className="h-5 w-5 text-primary rounded-lg cursor-pointer" 
+                                            />
+                                            <div className="flex flex-col">
+                                                <label htmlFor="fast-track" className="text-sm font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tight cursor-pointer">Fast Track Candidate</label>
+                                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest italic leading-none mt-0.5">3 Classes in 2 Years Logic</span>
+                                            </div>
+                                        </div>
+
+                                        {formData.isFastTrack && (
+                                            <div className="grid grid-cols-2 gap-4 mt-2 animate-in zoom-in-95 fade-in duration-200">
+                                                <div>
+                                                    <label className="block text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-1.5 ml-1">Intermediate Promotion 1 Date</label>
+                                                    <input 
+                                                        type="date" 
+                                                        name="fastTrackDate1" 
+                                                        value={formData.fastTrackDate1} 
+                                                        onChange={handleInputChange} 
+                                                        required={formData.isFastTrack}
+                                                        className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary shadow-sm" 
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-1.5 ml-1">Intermediate Promotion 2 Date</label>
+                                                    <input 
+                                                        type="date" 
+                                                        name="fastTrackDate2" 
+                                                        value={formData.fastTrackDate2} 
+                                                        onChange={handleInputChange} 
+                                                        required={formData.isFastTrack}
+                                                        className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary shadow-sm" 
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
