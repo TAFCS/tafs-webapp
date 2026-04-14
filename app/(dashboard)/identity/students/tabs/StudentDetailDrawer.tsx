@@ -1,17 +1,19 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, User, BookOpen, GraduationCap, Shield } from "lucide-react";
+import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText } from "lucide-react";
 import api from "@/lib/api";
 import { IdentityTab } from "./IdentityTab";
 import { AdmissionsTab } from "./AdmissionsTab";
 import { AcademicTab } from "./AcademicTab";
 import { GuardiansTab } from "./GuardiansTab";
+import { AdmissionOrderTab } from "./AdmissionOrderTab";
 
 const TABS = [
     { id: "identity",   label: "Identity",   icon: User },
     { id: "admissions", label: "Admissions",  icon: BookOpen },
     { id: "academic",   label: "Academic",    icon: GraduationCap },
     { id: "guardians",  label: "Guardians",   icon: Shield },
+    { id: "admission_order", label: "Print Order", icon: FileText },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -107,6 +109,7 @@ export function StudentDetailDrawer({ cc, onClose, classes = [] }: Props) {
                             {tab === "admissions" && <AdmissionsTab student={student} onReload={reload} classes={classes} />}
                             {tab === "academic"   && <AcademicTab   student={student} onReload={reload} />}
                             {tab === "guardians"  && <GuardiansTab  student={student} onReload={reload} />}
+                            {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
                         </div>
                     )}
                 </div>

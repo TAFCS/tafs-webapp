@@ -26,8 +26,14 @@ export interface StudentListItem {
   date_of_admission: string | null;
   house_and_color: string | null;
   residential_address: string | null;
-  photograph_url?: string | null;
+   photograph_url?: string | null;
   father_name?: string | null;
+  student_flags?: Array<{
+    id: number;
+    flag: string;
+    reminder_date: string | null;
+    work_done: boolean;
+  }>;
   siblings?: {
     id: number;
     full_name: string;

@@ -1332,7 +1332,14 @@ export function RegistrationForm() {
                     <div className="mx-6 mb-0 mt-4 flex items-start gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-4 text-sm animate-in fade-in duration-300">
                         <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
-                            <p className="font-semibold">Registration submitted successfully!</p>
+                            <div className="flex items-center gap-2">
+                                <p className="font-semibold">Registration submitted successfully!</p>
+                                {formData.isFastTrack && (
+                                    <span className="flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-md border border-amber-200">
+                                        Fast Track
+                                    </span>
+                                )}
+                            </div>
                             <p className="text-emerald-700 mt-0.5">CC assigned: <span className="font-mono font-bold text-base">{submitSuccess.gr_number || submitSuccess.cc_number}</span>. The student record is now <span className="font-medium">PENDING</span> review.</p>
                         </div>
                          <div className="flex items-center gap-2">

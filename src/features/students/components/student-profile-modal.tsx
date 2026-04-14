@@ -116,6 +116,11 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                                 <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${statusStyles[student.financial_status_badge || 'Cleared'] || statusStyles.Cleared}`}>
                                     Fee: {student.financial_status_badge === 'NO_SCHEDULE' ? 'No Schedule Set' : (student.financial_status_badge || 'Cleared')}
                                 </span>
+                                {student.student_flags && student.student_flags.some(f => f.flag.includes('fast_track')) && (
+                                    <span className="px-2.5 py-1 text-[10px] font-black uppercase rounded-full bg-amber-100 text-amber-700 border border-amber-200 tracking-widest animate-pulse">
+                                        Fast Track Active
+                                    </span>
+                                )}
                             </div>
 
                             <div className="w-full h-px bg-zinc-100 dark:bg-zinc-800 my-2"></div>
