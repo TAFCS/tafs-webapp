@@ -388,7 +388,6 @@ export function RegistrationForm() {
         return (
             formData.campusId &&
             formData.candidateName.trim() &&
-            formData.fatherName.trim() &&
             isFatherCnicValid &&
             isMotherCnicValid &&
             formData.dobDay && formData.dobMonth && formData.dobYear &&
@@ -721,7 +720,7 @@ export function RegistrationForm() {
                                         <input type="text" name="candidateName" value={formData.candidateName || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Father&apos;s CNIC</label>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Father&apos;s CNIC (Optional)</label>
                                         <div className="relative">
                                             <input type="text" name="fatherCnic" value={formData.fatherCnic || ""} onChange={handleInputChange} onBlur={(e) => fetchGuardianData("father", e.target.value)} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
                                             {fetchingCnic === "father" && (
@@ -730,11 +729,11 @@ export function RegistrationForm() {
                                                 </div>
                                             )}
                                         </div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Father&apos;s Name</label>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Father&apos;s Name (Optional)</label>
                                         <input type="text" name="fatherName" value={formData.fatherName || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Mother&apos;s CNIC</label>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Mother&apos;s CNIC (Optional)</label>
                                         <div className="relative">
                                             <input type="text" name="motherCnic" value={formData.motherCnic || ""} onChange={handleInputChange} onBlur={(e) => fetchGuardianData("mother", e.target.value)} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
                                             {fetchingCnic === "mother" && (
@@ -743,7 +742,7 @@ export function RegistrationForm() {
                                                 </div>
                                             )}
                                         </div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Mother&apos;s Name</label>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Mother&apos;s Name (Optional)</label>
                                         <input type="text" name="motherName" value={formData.motherName || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>                                    <div>
                                         <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Date of Birth</label>
