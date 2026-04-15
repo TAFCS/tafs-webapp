@@ -68,9 +68,9 @@ const INITIAL_FORM_DATA = {
     photographFile: null as File | null,
     fatherPhotoFile: null as File | null,
     motherPhotoFile: null as File | null,
-    isFastTrack: false,
-    fastTrackDate1: "",
-    fastTrackDate2: "",
+    isFlagged: false,
+    flagReminderDate: "",
+    flagDescription: "",
     isFatherCnicForeign: false,
     isMotherCnicForeign: false,
     isFatherPhoneForeign: false,
@@ -520,6 +520,9 @@ export function RegistrationForm() {
                 discipline: formData.discipline || undefined,
                 campus_id: formData.campusId ? parseInt(formData.campusId) : undefined,
             },
+            is_flagged: formData.isFlagged,
+            flag_reminder_date: formData.flagReminderDate || undefined,
+            flag_description: formData.flagDescription || undefined,
             previous_schools: formData.previousSchools
                 .filter(s => s.name.trim())
                 .map(s => ({
@@ -538,26 +541,6 @@ export function RegistrationForm() {
             );
             
             const rawStudent = data.data;
-
-            // -- NEW: Schedule Fast Track Promotions if enabled --
-            if (formData.isFastTrack) {
-                try {
-                    if (formData.fastTrackDate1) {
-                        await api.post(`/v1/student-flags/${rawStudent.cc}`, {
-                            flag: 'fast_track_promo_1',
-                            reminder_date: formData.fastTrackDate1
-                        });
-                    }
-                    if (formData.fastTrackDate2) {
-                        await api.post(`/v1/student-flags/${rawStudent.cc}`, {
-                            flag: 'fast_track_promo_2',
-                            reminder_date: formData.fastTrackDate2
-                        });
-                    }
-                } catch (err) {
-                    console.error("Failed to set Fast Track flags:", err);
-                }
-            }
 
             // -- NEW: UPLOAD STAGED PHOTOS (SEQUENTIAL TO PREVENT DB OVERLOAD) --
             try {
@@ -731,6 +714,49 @@ export function RegistrationForm() {
                     {/* -- PAGE 1: PERSONAL DATA & TARGETS -- */}
                     {currentStep === 1 && (
                         <div className="space-y-8 animate-in fade-in duration-300">
+
+                            {/* -- GLOBAL FLAG (COMPACT) -- */}
+                            <section className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 mb-6 shadow-sm">
+                                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                                    <div className="flex items-center gap-2 px-2 py-1 bg-zinc-50 dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800 self-start md:self-auto">
+                                        <input 
+                                            type="checkbox" 
+                                            name="isFlagged" 
+                                            id="global-flag" 
+                                            checked={formData.isFlagged} 
+                                            onChange={handleInputChange} 
+                                            className="h-4 w-4 text-primary border-zinc-300 rounded focus:ring-primary cursor-pointer" 
+                                        />
+                                        <label htmlFor="global-flag" className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-widest cursor-pointer select-none">Record Flag</label>
+                                    </div>
+
+                                    {formData.isFlagged && (
+                                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                            <div className="flex items-center gap-2">
+                                                <label className="shrink-0 text-[10px] font-black uppercase tracking-widest text-zinc-400">Remind:</label>
+                                                <input 
+                                                    type="date" 
+                                                    name="flagReminderDate" 
+                                                    value={formData.flagReminderDate || ""} 
+                                                    onChange={handleInputChange} 
+                                                    className="flex-1 px-2 py-1 bg-transparent border-b border-zinc-200 dark:border-zinc-800 text-xs font-bold outline-none focus:border-primary transition-colors" 
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <label className="shrink-0 text-[10px] font-black uppercase tracking-widest text-zinc-400">Note:</label>
+                                                <input 
+                                                    type="text"
+                                                    name="flagDescription" 
+                                                    value={formData.flagDescription || ""} 
+                                                    onChange={handleInputChange} 
+                                                    placeholder="Reason for flagging..." 
+                                                    className="flex-1 px-2 py-1 bg-transparent border-b border-zinc-200 dark:border-zinc-800 text-xs font-bold outline-none focus:border-primary transition-colors uppercase whitespace-nowrap overflow-hidden text-ellipsis"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
 
                             <section>
                                 <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5">
@@ -954,51 +980,7 @@ export function RegistrationForm() {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative mt-6">
-                                    <div className="flex flex-col gap-4 p-4 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/50">
-                                        <div className="flex items-center gap-3">
-                                            <input 
-                                                type="checkbox" 
-                                                name="isFastTrack" 
-                                                id="fast-track" 
-                                                checked={formData.isFastTrack} 
-                                                onChange={handleInputChange} 
-                                                className="h-5 w-5 text-primary rounded-lg cursor-pointer" 
-                                            />
-                                            <div className="flex flex-col">
-                                                <label htmlFor="fast-track" className="text-sm font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tight cursor-pointer">Fast Track Candidate</label>
-                                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest italic leading-none mt-0.5">3 Classes in 2 Years Logic</span>
-                                            </div>
-                                        </div>
 
-                                        {formData.isFastTrack && (
-                                            <div className="grid grid-cols-2 gap-4 mt-2 animate-in zoom-in-95 fade-in duration-200">
-                                                <div>
-                                                    <label className="block text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-1.5 ml-1">Intermediate Promotion 1 Date</label>
-                                                    <input 
-                                                        type="date" 
-                                                        name="fastTrackDate1" 
-                                                        value={formData.fastTrackDate1} 
-                                                        onChange={handleInputChange} 
-                                                        required={formData.isFastTrack}
-                                                        className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary shadow-sm" 
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-1.5 ml-1">Intermediate Promotion 2 Date</label>
-                                                    <input 
-                                                        type="date" 
-                                                        name="fastTrackDate2" 
-                                                        value={formData.fastTrackDate2} 
-                                                        onChange={handleInputChange} 
-                                                        required={formData.isFastTrack}
-                                                        className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary shadow-sm" 
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
                                     {/* O-Level Block */}
                                     <div className={`border-2 rounded-xl p-5 ${formData.admissionSystem === "cambridge" ? 'border-primary/50 bg-primary/5' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950'}`}>
@@ -1388,9 +1370,9 @@ export function RegistrationForm() {
                         <div className="flex-1">
                             <div className="flex items-center gap-2">
                                 <p className="font-semibold">Registration submitted successfully!</p>
-                                {formData.isFastTrack && (
+                                {formData.isFlagged && (
                                     <span className="flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-md border border-amber-200">
-                                        Fast Track
+                                        Flagged
                                     </span>
                                 )}
                             </div>
