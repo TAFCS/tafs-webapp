@@ -390,7 +390,7 @@ export default function BulkPromotePage() {
 
   const sortedResults = useMemo(() => {
     if (!response?.results) return [];
-    const rank: Record<PromotionStatus, number> = { failed: 0, skipped: 1, promoted: 2, graduated: 3, expelled: 3 };
+    const rank: Record<PromotionStatus, number> = { failed: 0, skipped: 1, promoted: 2, graduated: 3, expelled: 4 };
     return [...response.results].sort((a, b) => rank[a.status] - rank[b.status]);
   }, [response]);
 
