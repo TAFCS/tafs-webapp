@@ -39,6 +39,7 @@ type PromotionResult = {
   from_academic_year?: string | null;
   to_academic_year?: string;
   graduated?: boolean;
+  expelled?: boolean;
   dry_run: boolean;
 };
 

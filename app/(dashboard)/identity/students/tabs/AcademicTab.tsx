@@ -12,9 +12,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     );
 }
 
-function Input({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+function Input({ value, onChange, placeholder, type = "text" }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
     return (
-        <input value={value ?? ""} 
+        <input type={type} value={value ?? ""} 
             onChange={e => onChange(e.target.value.toUpperCase())} 
             placeholder={placeholder}
             className="w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all uppercase" />
@@ -355,8 +355,50 @@ function SchoolsSection({ studentCc, initial }: { studentCc: number; initial: an
 
 // ── Main Export ───────────────────────────────────────────────────
 export function AcademicTab({ student, onReload }: { student: any; onReload: () => void }) {
+    const [studentYear, setStudentYear] = useState(student.academic_year || "");
+    const [studentDoa, setStudentDoa] = useState(
+        student.date_of_admission
+            ? new Date(student.date_of_admission).toISOString().split("T")[0]
+            : ""
+    );
+    const [savingGeneral, setSavingGeneral] = useState(false);
+    const [savedGeneral, setSavedGeneral] = useState(false);
+
+    const isGeneralDirty =
+        studentYear !== (student.academic_year || "") ||
+        studentDoa !== (student.date_of_admission
+            ? new Date(student.date_of_admission).toISOString().split("T")[0]
+            : "");
+
+    const saveGeneral = async () => {
+        setSavingGeneral(true);
+        try {
+            await api.patch(`/v1/staff-editing/students/${student.cc}`, { academic_year: studentYear, doa: studentDoa });
+            setSavedGeneral(true);
+            setTimeout(() => setSavedGeneral(false), 3000);
+            onReload();
+        } catch { alert("Failed to update General Information"); }
+        finally { setSavingGeneral(false); }
+    };
+
     return (
         <div className="space-y-6">
+            <div className={`bg-zinc-50 border rounded-2xl p-4 space-y-3 transition-all ${isGeneralDirty ? "border-amber-200 ring-1 ring-amber-100" : "border-zinc-100"}`}>
+                <div className="flex items-center justify-between">
+                    <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">General Information</h3>
+                    <RowSaveBtn onSave={saveGeneral} isSaving={savingGeneral} saved={savedGeneral} isDirty={isGeneralDirty} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <Field label="Current Academic Year">
+                        <Input value={studentYear} onChange={setStudentYear} placeholder="e.g. 2024-25" />
+                    </Field>
+                    <Field label="Date of Admission">
+                        <Input type="date" value={studentDoa} onChange={setStudentDoa} />
+                    </Field>
+                </div>
+            </div>
+
+            <div className="border-t border-zinc-100" />
             <ActivitiesSection studentCc={student.cc} initial={student.activities || []} />
             <div className="border-t border-zinc-100" />
             <LanguagesSection studentCc={student.cc} initial={student.languages || []} />

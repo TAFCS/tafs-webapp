@@ -159,7 +159,7 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
     const saveStudentYear = async () => {
         setSavingYear(true);
         try {
-            await api.patch(`/v1/staff-editing/students/${student.cc}`, { academic_year: studentYear });
+            await api.patch(`/v1/staff-editing/students/${student.cc}`, { academic_year: studentYear, doa: studentDoa });
             setSavedYear(true);
             setTimeout(() => setSavedYear(false), 3000);
             onReload();
