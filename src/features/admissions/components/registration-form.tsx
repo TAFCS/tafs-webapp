@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/src/store/store";
@@ -68,9 +68,7 @@ const INITIAL_FORM_DATA = {
     photographFile: null as File | null,
     fatherPhotoFile: null as File | null,
     motherPhotoFile: null as File | null,
-    isFlagged: false,
-    flagReminderDate: "",
-    flagDescription: "",
+    flags: [] as Array<{ id: string; reminderDate: string; description: string }>,
     isFatherCnicForeign: false,
     isMotherCnicForeign: false,
     isFatherPhoneForeign: false,
@@ -383,6 +381,27 @@ export function RegistrationForm() {
         }
     };
 
+    const addFlag = () => {
+        setFormData(prev => ({
+            ...prev,
+            flags: [...prev.flags, { id: Date.now().toString(), reminderDate: "", description: "" }]
+        }));
+    };
+
+    const removeFlag = (id: string) => {
+        setFormData(prev => ({
+            ...prev,
+            flags: prev.flags.filter(f => f.id !== id)
+        }));
+    };
+
+    const handleFlagChange = (id: string, field: string, value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            flags: prev.flags.map(f => f.id === id ? { ...f, [field]: value } : f)
+        }));
+    };
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitSuccess, setSubmitSuccess] = useState<StudentListItem | null>(null);
@@ -520,9 +539,12 @@ export function RegistrationForm() {
                 discipline: formData.discipline || undefined,
                 campus_id: formData.campusId ? parseInt(formData.campusId) : undefined,
             },
-            is_flagged: formData.isFlagged,
-            flag_reminder_date: formData.flagReminderDate || undefined,
-            flag_description: formData.flagDescription || undefined,
+            flags: formData.flags
+                .filter(f => f.description.trim())
+                .map(f => ({
+                    description: f.description,
+                    reminder_date: f.reminderDate || undefined
+                })),
             previous_schools: formData.previousSchools
                 .filter(s => s.name.trim())
                 .map(s => ({
@@ -715,45 +737,59 @@ export function RegistrationForm() {
                     {currentStep === 1 && (
                         <div className="space-y-8 animate-in fade-in duration-300">
 
-                            {/* -- GLOBAL FLAG (COMPACT) -- */}
+                            {/* -- MULTI-FLAG SECTION -- */}
                             <section className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 mb-6 shadow-sm">
-                                <div className="flex flex-col md:flex-row md:items-center gap-4">
-                                    <div className="flex items-center gap-2 px-2 py-1 bg-zinc-50 dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800 self-start md:self-auto">
-                                        <input 
-                                            type="checkbox" 
-                                            name="isFlagged" 
-                                            id="global-flag" 
-                                            checked={formData.isFlagged} 
-                                            onChange={handleInputChange} 
-                                            className="h-4 w-4 text-primary border-zinc-300 rounded focus:ring-primary cursor-pointer" 
-                                        />
-                                        <label htmlFor="global-flag" className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-widest cursor-pointer select-none">Record Flag</label>
+                                <div className="flex flex-col gap-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 px-2 py-1 bg-zinc-50 dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800">
+                                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-widest select-none">Record Flags / Reminders</span>
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            onClick={addFlag}
+                                            className="text-[10px] font-black text-primary hover:text-primary/80 uppercase tracking-widest flex items-center gap-1 transition-colors"
+                                        >
+                                            <Plus className="h-3 w-3" />
+                                            Add Flag
+                                        </button>
                                     </div>
 
-                                    {formData.isFlagged && (
-                                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                                            <div className="flex items-center gap-2">
-                                                <label className="shrink-0 text-[10px] font-black uppercase tracking-widest text-zinc-400">Remind:</label>
-                                                <input 
-                                                    type="date" 
-                                                    name="flagReminderDate" 
-                                                    value={formData.flagReminderDate || ""} 
-                                                    onChange={handleInputChange} 
-                                                    className="flex-1 px-2 py-1 bg-transparent border-b border-zinc-200 dark:border-zinc-800 text-xs font-bold outline-none focus:border-primary transition-colors" 
-                                                />
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <label className="shrink-0 text-[10px] font-black uppercase tracking-widest text-zinc-400">Note:</label>
-                                                <input 
-                                                    type="text"
-                                                    name="flagDescription" 
-                                                    value={formData.flagDescription || ""} 
-                                                    onChange={handleInputChange} 
-                                                    placeholder="Reason for flagging..." 
-                                                    className="flex-1 px-2 py-1 bg-transparent border-b border-zinc-200 dark:border-zinc-800 text-xs font-bold outline-none focus:border-primary transition-colors uppercase whitespace-nowrap overflow-hidden text-ellipsis"
-                                                />
-                                            </div>
+                                    {formData.flags.length > 0 && (
+                                        <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                            {formData.flags.map((flag) => (
+                                                <div key={flag.id} className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto] gap-3 items-center bg-zinc-50/50 dark:bg-zinc-900/50 p-2 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800">
+                                                    <div className="flex items-center gap-2 min-w-[150px]">
+                                                        <label className="shrink-0 text-[10px] font-black uppercase text-zinc-400">Remind:</label>
+                                                        <input 
+                                                            type="date" 
+                                                            value={flag.reminderDate} 
+                                                            onChange={(e) => handleFlagChange(flag.id, 'reminderDate', e.target.value)} 
+                                                            className="flex-1 px-2 py-1 bg-transparent border-b border-zinc-200 dark:border-zinc-800 text-xs font-bold outline-none focus:border-primary transition-colors" 
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <label className="shrink-0 text-[10px] font-black uppercase text-zinc-400">Note:</label>
+                                                        <input 
+                                                            type="text"
+                                                            value={flag.description} 
+                                                            onChange={(e) => handleFlagChange(flag.id, 'description', e.target.value)} 
+                                                            placeholder="Describe the flag..." 
+                                                            className="flex-1 px-2 py-1 bg-transparent border-b border-zinc-200 dark:border-zinc-800 text-xs font-bold outline-none focus:border-primary transition-colors uppercase"
+                                                        />
+                                                    </div>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => removeFlag(flag.id)}
+                                                        className="text-zinc-400 hover:text-rose-500 transition-colors p-1"
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
+                                    )}
+                                    {formData.flags.length === 0 && (
+                                        <p className="text-[10px] text-zinc-400 italic px-2">No flags added. Click &quot;Add Flag&quot; to record important notes.</p>
                                     )}
                                 </div>
                             </section>
@@ -1370,9 +1406,9 @@ export function RegistrationForm() {
                         <div className="flex-1">
                             <div className="flex items-center gap-2">
                                 <p className="font-semibold">Registration submitted successfully!</p>
-                                {formData.isFlagged && (
-                                    <span className="flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-md border border-amber-200">
-                                        Flagged
+                                {formData.flags.length > 0 && (
+                                    <span className="flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-[10px] font-black uppercase tracking-widest rounded-md border border-zinc-200">
+                                        Flagged ({formData.flags.length})
                                     </span>
                                 )}
                             </div>
