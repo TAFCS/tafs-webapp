@@ -176,6 +176,7 @@ function StudentwiseFeeEditor() {
     const [isSaving, setIsSaving] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+    const [isTemplate, setIsTemplate] = useState(false);
 
     const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
     const tbodyRef = useRef<HTMLTableSectionElement>(null);
@@ -282,7 +283,7 @@ function StudentwiseFeeEditor() {
     }, [searchQuery]);
 
     const fetchFeeSchedule = useCallback(async (classId: number, campusId: number | "", ccNumber: string, academicYear: string, signal?: AbortSignal) => {
-        setIsLoading(true); setLoadError(null); setRows([]); setActiveCell(null);
+        setIsLoading(true); setLoadError(null); setRows([]); setActiveCell(null); setIsTemplate(false);
         try {
             // 1. ALWAYS Fetch the class-wide fee template for amount lookups
             const params: any = { class_id: classId };
@@ -332,6 +333,8 @@ function StudentwiseFeeEditor() {
             let finalRows: SpreadsheetRow[] = [];
 
             if (is_template) {
+
+            if (is_template) {
                 // Map from class_fee_schedule template
                 finalRows = (fees as any[]).flatMap((fee) => {
                     const months = sortMonths(fee.fee_types.breakup ?? []);
@@ -372,6 +375,7 @@ function StudentwiseFeeEditor() {
 
             if (signal?.aborted) return;
             setRows(sortSpreadsheetRows(finalRows));
+            setIsTemplate(is_template);
         } catch (err: any) {
             if (err.name === "AbortError") return;
             setLoadError(err.response?.data?.message || "Failed to load fee schedule.");
@@ -1063,6 +1067,20 @@ function StudentwiseFeeEditor() {
                                     <span className="text-[11px] font-bold text-amber-800/60 uppercase tracking-wider">Some rows are locked due to existing vouchers or bundling</span>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                )}
+
+                {isTemplate && rows.length > 0 && (
+                    <div className="p-4 rounded-[20px] border border-blue-100 bg-blue-50/30 flex items-center gap-4 animate-in slide-in-from-top-2 duration-500 shadow-sm border-dashed">
+                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                            <Info className="h-4 w-4" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none mb-1">Template Data</span>
+                            <span className="text-[13px] font-bold text-blue-900/70 tracking-tight">
+                                This schedule is showing the class template. {studentId ? "No individual customizations have been saved for this student yet." : "Select a student to view or customize their fee schedule."}
+                            </span>
                         </div>
                     </div>
                 )}
