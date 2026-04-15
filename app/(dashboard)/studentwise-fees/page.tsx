@@ -494,12 +494,12 @@ function StudentwiseFeeEditor() {
             return;
         }
 
-        // Validate: every row must have a positive amount
-        const zeroRows = rows.filter(r => !(parseFloat(r.amount || "0") > 0));
-        if (zeroRows.length > 0) {
-            const names = zeroRows.map(r => `${r.feeDescription} (${r.month})`).join(", ");
-            setSaveStatus({ type: "error", message: `Amount must be greater than 0 for: ${names}` });
-            toast.error("Fix zero-amount rows before saving.");
+        // Validate: every row must have a non-negative amount
+        const invalidRows = rows.filter(r => !(parseFloat(r.amount || "0") >= 0));
+        if (invalidRows.length > 0) {
+            const names = invalidRows.map(r => `${r.feeDescription} (${r.month})`).join(", ");
+            setSaveStatus({ type: "error", message: `Amount must be 0 or greater for: ${names}` });
+            toast.error("Fix invalid amount rows before saving.");
             return;
         }
 
