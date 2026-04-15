@@ -333,8 +333,6 @@ function StudentwiseFeeEditor() {
             let finalRows: SpreadsheetRow[] = [];
 
             if (is_template) {
-
-            if (is_template) {
                 // Map from class_fee_schedule template
                 finalRows = (fees as any[]).flatMap((fee) => {
                     const months = sortMonths(fee.fee_types.breakup ?? []);
@@ -372,8 +370,6 @@ function StudentwiseFeeEditor() {
                     status: (sf.voucher_heads && sf.voucher_heads.length > 0) ? (sf.status === 'NOT_ISSUED' ? 'ISSUED' : sf.status) : sf.status
                 }));
             }
-
-            if (signal?.aborted) return;
             setRows(sortSpreadsheetRows(finalRows));
             setIsTemplate(is_template);
         } catch (err: any) {
