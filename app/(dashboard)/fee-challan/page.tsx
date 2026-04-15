@@ -394,13 +394,15 @@ export default function FeeChallanGenerator() {
                     _mergeKey: isTuition ? `${f.fee_type_id ?? 0}|${baseDesc}|${f.bundle_id ?? f.student_fee_bundles?.id ?? 'none'}` : null,
                     description: baseDesc,
                     amount: Number(f.amount_before_discount || f.amount || 0),
-                    netAmount: Number(f.amount || f.amount_before_discount || 0),
+                    // netAmount should account for amount_paid
+                    netAmount: Math.max(0, Number(f.amount || f.amount_before_discount || 0) - Number(f.amount_paid || 0)),
                     discount: Math.max(0, Number(f.amount_before_discount || 0) - Number(f.amount || 0)),
-                    discountLabel: undefined as undefined,
+                    amountPaid: Number(f.amount_paid || 0),
+                    originalHeadAmount: Number(f.amount || f.amount_before_discount || 0),
                     bundleId: f.bundle_id || f.student_fee_bundles?.id,
                     priority: f.fee_types?.priority_order ?? 999
                 };
-            });
+            }).filter(f => f.netAmount > 0); // skip fully paid
 
             // Merge tuition rows that share the same fee type / base description ONLY if they are consecutive
             const tuitionGroups: Record<string, typeof detailedRows> = {};
@@ -456,12 +458,13 @@ export default function FeeChallanGenerator() {
                         descSuffix = `(${startLabel} - ${endLabel})`;
                     }
 
+                    const isPartial = range.reduce((s, r) => s + r.netAmount, 0) < range.reduce((s, r) => s + r.originalHeadAmount, 0);
                     const mergedRow = {
                         ...range[0],
-                        amount: range.reduce((s, r) => s + r.amount, 0),
+                        amount: isPartial ? range.reduce((s, r) => s + r.netAmount, 0) : range.reduce((s, r) => s + r.amount, 0),
                         netAmount: range.reduce((s, r) => s + r.netAmount, 0),
-                        discount: range.reduce((s, r) => s + r.discount, 0),
-                        description: `${range[0]._baseDesc} ${descSuffix}`,
+                        discount: isPartial ? 0 : range.reduce((s, r) => s + r.discount, 0),
+                        description: `${isPartial ? 'BALANCE PAYMENT OF — ' : ''}${range[0]._baseDesc} ${descSuffix}`,
                     };
                     const { _baseDesc, _isTuition, _monthNum, _mergeKey, ...rest } = mergedRow;
                     mergedTuitionRows.push(rest);
@@ -477,13 +480,15 @@ export default function FeeChallanGenerator() {
                         description: f.fee_types?.description || "Fee",
                         amount: 0,
                         netAmount: 0,
+                        originalHeadAmount: 0,
                         months: [] as number[],
                         bundleId: f.bundle_id || f.student_fee_bundles?.id,
                         priority: f.fee_types?.priority_order ?? 999
                     };
                 }
                 acc[headId].amount += Number(f.amount_before_discount || f.amount || 0);
-                acc[headId].netAmount += Number(f.amount || f.amount_before_discount || 0);
+                acc[headId].netAmount += Math.max(0, Number(f.amount || f.amount_before_discount || 0) - Number(f.amount_paid || 0));
+                acc[headId].originalHeadAmount += Number(f.amount || f.amount_before_discount || 0);
                 const m = f.target_month || f.month;
                 if (m) acc[headId].months.push(m);
                 return acc;
@@ -499,11 +504,12 @@ export default function FeeChallanGenerator() {
                     const yrShort = academicYear.split('-')[0].slice(-2);
                     monthStr = sorted.length > 1 ? ` (${startMonth.slice(0, 3)} ${yrShort} - ${endMonth.slice(0, 3)} ${yrShort})` : ` (${startMonth.slice(0, 3)} ${yrShort})`;
                 }
+                const isPartial = g.netAmount < g.originalHeadAmount;
                 return {
-                    description: `${g.description}${monthStr}`,
-                    amount: g.amount,
+                    description: `${isPartial ? 'BALANCE PAYMENT OF — ' : ''}${g.description}${monthStr}`,
+                    amount: isPartial ? g.netAmount : g.amount,
                     netAmount: g.netAmount,
-                    discount: Math.max(0, g.amount - g.netAmount),
+                    discount: isPartial ? 0 : Math.max(0, g.amount - g.netAmount),
                     bundleId: g.bundleId,
                     priority: g.priority
                 };
@@ -546,17 +552,22 @@ export default function FeeChallanGenerator() {
     };
 
     const processedArrearPdfFees = useMemo(() => {
-        return (arrearsData?.rows ?? []).map((r: any) => ({
-            description: `${r.fee_type} (ARREAR – ${r.fee_date})`,
-            amount: Number(r.amount),
-            netAmount: Number(r.outstanding),
-            discount: Number(r.amount_paid),
-            discountLabel: r.amount_paid !== "0.00" ? `Paid: ${r.amount_paid}` : undefined,
-            isArrear: true,
-            feeDate: r.fee_date,
-            target_month: r.target_month,
-            academic_year: r.academic_year,
-        }));
+        return (arrearsData?.rows ?? []).map((r: any) => {
+            const isPartial = Number(r.amount_paid) > 0;
+            const prefix = isPartial ? 'BALANCE PAYMENT OF — ' : '';
+            const netAmount = Number(r.outstanding);
+            return {
+                description: `${prefix}${r.fee_type} (ARREAR – ${r.fee_date})`,
+                amount: isPartial ? netAmount : Number(r.amount), 
+                netAmount: netAmount,
+                discount: isPartial ? 0 : Number(r.amount_paid),
+                discountLabel: (isPartial || r.amount_paid === "0.00") ? undefined : `Paid: ${Number(r.amount_paid).toLocaleString()}`,
+                isArrear: true,
+                feeDate: r.fee_date,
+                target_month: r.target_month,
+                academic_year: r.academic_year,
+            };
+        });
     }, [arrearsData]);
 
     const processedPdfFees = useMemo(() => {
@@ -663,14 +674,19 @@ export default function FeeChallanGenerator() {
             setVoucherSaved(true);
 
             // Build arrear PDF items (isArrear: true)
-            const arrearPdfFees = (freshArrears?.rows ?? []).map((r: any) => ({
-                description: `${r.fee_type} (ARREAR – ${r.fee_date})`,
-                amount: Number(r.outstanding),
-                netAmount: Number(r.outstanding),
-                discount: 0,
-                isArrear: true,
-                feeDate: r.fee_date,
-            }));
+            const arrearPdfFees = (freshArrears?.rows ?? []).map((r: any) => {
+                const isPartial = Number(r.amount_paid) > 0;
+                const prefix = isPartial ? 'BALANCE PAYMENT OF — ' : '';
+                const netAmount = Number(r.outstanding);
+                return {
+                    description: `${prefix}${r.fee_type} (ARREAR – ${r.fee_date})`,
+                    amount: isPartial ? netAmount : Number(r.amount),
+                    netAmount: netAmount,
+                    discount: isPartial ? 0 : Number(r.amount_paid),
+                    isArrear: true,
+                    feeDate: r.fee_date,
+                };
+            });
             const currentPdfFees = processedPdfFees.map(f => ({ ...f, isArrear: false }));
             const allPdfFees = [...arrearPdfFees, ...currentPdfFees];
             const allPdfTotal = allPdfFees.reduce((s, f) => s + (f.netAmount || 0), 0);
@@ -814,14 +830,19 @@ export default function FeeChallanGenerator() {
             setSavedGroupVoucherIds(prev => ({ ...prev, [group.fee_date]: voucherId }));
 
             // Build arrear PDF items
-            const arrearPdfFees = (freshArrears?.rows ?? []).map((r: any) => ({
-                description: `${r.fee_type} (ARREAR – ${r.fee_date})`,
-                amount: Number(r.outstanding),
-                netAmount: Number(r.outstanding),
-                discount: 0,
-                isArrear: true,
-                feeDate: r.fee_date,
-            }));
+            const arrearPdfFees = (freshArrears?.rows ?? []).map((r: any) => {
+                const isPartial = Number(r.amount_paid) > 0;
+                const prefix = isPartial ? 'BALANCE PAYMENT OF — ' : '';
+                const netAmount = Number(r.outstanding);
+                return {
+                    description: `${prefix}${r.fee_type} (ARREAR – ${r.fee_date})`,
+                    amount: isPartial ? netAmount : Number(r.amount),
+                    netAmount: netAmount,
+                    discount: isPartial ? 0 : Number(r.amount_paid),
+                    isArrear: true,
+                    feeDate: r.fee_date,
+                };
+            });
             const currentPdfFees = groupPdfFees.map(f => ({ ...f, isArrear: false }));
             const allPdfFees = [...arrearPdfFees, ...currentPdfFees];
             const allPdfTotal = allPdfFees.reduce((s, f) => s + (f.netAmount || 0), 0);

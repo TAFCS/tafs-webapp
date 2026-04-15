@@ -104,7 +104,8 @@ export function groupFees(
         }
         const adHocDiscount = (appliedDiscounts[item.id] || []).reduce((sum, d) => sum + d.amount, 0);
         const currentAmount = Number(item.amount || item.amount_before_discount);
-        return currentAmount - adHocDiscount;
+        const amountPaid = Number(item.amount_paid || 0);
+        return currentAmount - adHocDiscount - amountPaid;
     };
 
     const getGrossAmount = (item: any): number => {
@@ -275,18 +276,26 @@ export function groupFees(
                     let rangeNet = 0;
                     let rangeDiscount = 0;
                     let rangeLabels: string[] = [];
+                    let rangeOrigAmount = 0;
 
                     range.forEach(f => {
                         const data = getFeeData(f);
+                        const net = getNetAmount(f);
+                        if (net <= 0) return; // skip fully paid
+
                         rangeGross += getGrossAmount(f);
-                        rangeNet += getNetAmount(f);
+                        rangeNet += net;
                         rangeDiscount += getDiscount(f);
+                        rangeOrigAmount += Number(f.amount || f.amount_before_discount || 0);
+
                         if (data.discount_label) rangeLabels.push(data.discount_label);
                         if (!options.isVoucherHeads && Number(f.amount_before_discount) > Number(f.amount || f.amount_before_discount)) {
                             rangeLabels.push("Profile Disc");
                         }
                         alreadyHandledIds.add(f.id);
                     });
+
+                    if (rangeNet <= 0) return;
 
                     const first = getFeeData(range[0]);
                     const last = getFeeData(range[range.length - 1]);
@@ -298,12 +307,15 @@ export function groupFees(
                         rangeMonthStr = `${firstLabel} - ${lastLabel}`;
                     }
 
+                    const isPartial = rangeNet < rangeOrigAmount;
+                    const balancePrefix = isPartial ? 'BALANCE PAYMENT OF — ' : '';
+
                     results.push({
-                        description: `${(getFeeData(range[0]).fee_types?.description || "").toUpperCase()} (${rangeMonthStr})`,
-                        amount: rangeGross,
+                        description: `${balancePrefix}${(getFeeData(range[0]).fee_types?.description || "").toUpperCase()} (${rangeMonthStr})`,
+                        amount: isPartial ? rangeNet : rangeGross,
                         netAmount: rangeNet,
-                        discount: rangeDiscount,
-                        discountLabel: [...new Set(rangeLabels.filter(Boolean))].join(", "),
+                        discount: isPartial ? 0 : rangeDiscount,
+                        discountLabel: isPartial ? "" : [...new Set(rangeLabels.filter(Boolean))].join(", "),
                         priority: Math.min(...range.map(f => getFeeData(f).fee_types?.priority_order ?? 999)),
                         feeIds: range.map(f => f.id),
                         isGrouped: true,
@@ -317,6 +329,9 @@ export function groupFees(
     // 2. Individual fees
     items.forEach(item => {
         if (!alreadyHandledIds.has(item.id)) {
+            const netAmount = getNetAmount(item);
+            if (netAmount <= 0) return; // skip fully paid
+
             const data = getFeeData(item);
             const headLabels: string[] = [];
             if (data.discount_label) headLabels.push(data.discount_label);
@@ -331,12 +346,15 @@ export function groupFees(
                 desc = `${desc.toUpperCase()} (${monthLabel.toUpperCase()})`;
             }
 
+            const isPartial = netAmount < Number(item.amount || item.amount_before_discount);
+            const balancePrefix = isPartial ? 'BALANCE PAYMENT OF — ' : '';
+
             results.push({
-                description: desc,
-                amount: getGrossAmount(item),
-                netAmount: getNetAmount(item),
-                discount: getDiscount(item),
-                discountLabel: [...new Set(headLabels.filter(Boolean))].join(", "),
+                description: `${balancePrefix}${desc}`,
+                amount: isPartial ? netAmount : getGrossAmount(item),
+                netAmount: netAmount,
+                discount: isPartial ? 0 : getDiscount(item),
+                discountLabel: isPartial ? "" : [...new Set(headLabels.filter(Boolean))].join(", "),
                 priority: data.fee_types?.priority_order ?? 999,
                 feeIds: [item.id],
                 isGrouped: false,
