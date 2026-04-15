@@ -610,6 +610,11 @@ function VoucherRow({ voucher, index, sections, onRefresh }: { voucher: VoucherI
                 </span>
             </td>
             <td className="px-5 py-3.5">
+                <span className="text-sm text-zinc-600 dark:text-zinc-400 font-mono">
+                    {formatDate(voucher.validity_date || voucher.due_date)}
+                </span>
+            </td>
+            <td className="px-5 py-3.5">
                 <span className="text-sm text-zinc-400 dark:text-zinc-600 font-mono line-through decoration-rose-300">
                     {Number(voucher.sf_gross_total ?? voucher.voucher_heads?.reduce((sum, h) => sum + Number(h.net_amount) + Number(h.discount_amount || 0), 0)).toLocaleString()}
                 </span>
@@ -622,11 +627,6 @@ function VoucherRow({ voucher, index, sections, onRefresh }: { voucher: VoucherI
             <td className="px-5 py-3.5">
                 <span className={`inline-flex items-center px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border ${status.classes}`}>
                     {status.label}
-                </span>
-            </td>
-            <td className="px-5 py-3.5">
-                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md ${voucher.late_fee_charge ? "bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400" : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800"}`}>
-                    {voucher.late_fee_charge ? "Yes" : "No"}
                 </span>
             </td>
             <td className="px-5 py-3.5">
@@ -1120,7 +1120,7 @@ export default function VouchersPage() {
                         <table className="w-full border-collapse">
                             <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800">
                                 <tr>
-                                    {["ID", "Student", "Campus", "Class", "Section", "Issue Date", "Due Date", "Original", "Net", "Status", "Late Fee", "Bank", "Actions"].map(h => (
+                                    {["ID", "Student", "Campus", "Class", "Section", "Issue Date", "Due Date", "Validity", "Original", "Net", "Status", "Bank", "Actions"].map(h => (
                                         <th key={h} className="px-5 py-3.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">
                                             {h}
                                         </th>
