@@ -757,7 +757,7 @@ export default function BulkPromotePage() {
                       <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">
                         {item.graduated
                           ? <span className="inline-flex items-center gap-1 text-violet-600"><GraduationCap className="h-3.5 w-3.5" />Graduated</span>
-                          : item.expelled
+                          : item.status === 'expelled'
                           ? <span className="inline-flex items-center gap-1 text-orange-600"><X className="h-3.5 w-3.5" />Expelled (data kept)</span>
                           : resolveClassName(item.to_class_id, classMap)}
                       </td>
