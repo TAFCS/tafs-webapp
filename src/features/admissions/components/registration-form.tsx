@@ -71,6 +71,10 @@ const INITIAL_FORM_DATA = {
     isFastTrack: false,
     fastTrackDate1: "",
     fastTrackDate2: "",
+    isFatherCnicForeign: false,
+    isMotherCnicForeign: false,
+    isFatherPhoneForeign: false,
+    isMotherPhoneForeign: false,
 };
 
 import { memo } from "react";
@@ -229,6 +233,12 @@ export function RegistrationForm() {
 
         // 1. Handle CNIC formatting
         if (name === "fatherCnic" || name === "motherCnic") {
+            const isForeign = name === "fatherCnic" ? formData.isFatherCnicForeign : formData.isMotherCnicForeign;
+            if (isForeign) {
+                setFormData(prev => ({ ...prev, [name]: value.toUpperCase() }));
+                // No auto-fetch for foreign CNIC as it doesn't match standard format
+                return;
+            }
             const formatted = formatCNIC(value);
             setFormData(prev => ({ ...prev, [name]: formatted }));
             
@@ -240,9 +250,16 @@ export function RegistrationForm() {
             return;
         }
 
-        // 2. Handle Phones, WhatsApp, and Fax (Numeric only)
+        // 2. Handle Phones, WhatsApp, and Fax (Numeric/Symbolic)
         if (name.toLowerCase().includes("phone") || name.toLowerCase().includes("whatsapp") || name.toLowerCase().includes("fax")) {
             if (type !== "checkbox") {
+                const isForeign = (name === "fatherPhone" && formData.isFatherPhoneForeign) || (name === "motherPhone" && formData.isMotherPhoneForeign);
+                if (isForeign || name === "homePhone" || name.includes("CountryCode")) {
+                    // Allow free-form entry for foreign or home phones
+                    const filtered = value.replace(/[^0-9+]/g, "");
+                    setFormData(prev => ({ ...prev, [name]: filtered }));
+                    return;
+                }
                 setFormData(prev => ({ ...prev, [name]: formatPhone(value) }));
                 return;
             }
@@ -382,8 +399,14 @@ export function RegistrationForm() {
 
     const isStep1Valid = () => {
         const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
-        const isFatherCnicValid = !formData.fatherCnic || cnicRegex.test(formData.fatherCnic);
-        const isMotherCnicValid = !formData.motherCnic || cnicRegex.test(formData.motherCnic);
+        
+        const isFatherCnicValid = !formData.fatherCnic || 
+                                 formData.isFatherCnicForeign || 
+                                 cnicRegex.test(formData.fatherCnic);
+                                 
+        const isMotherCnicValid = !formData.motherCnic || 
+                                 formData.isMotherCnicForeign || 
+                                 cnicRegex.test(formData.motherCnic);
 
         return (
             formData.campusId &&
@@ -437,10 +460,10 @@ export function RegistrationForm() {
         // Student Name
         const fullName = formData.candidateName.trim();
 
-        const fatherFullName = formData.fatherName.trim() || 'Father';
+        const fatherFullName = formData.fatherName.trim() || 'N/A';
 
         // Mother full_name
-        const motherFullName = formData.motherName.trim() || 'Mother';
+        const motherFullName = formData.motherName.trim() || 'N/A';
 
         // Map admissionSystem to enum
         const academicSystem = formData.admissionSystem === 'cambridge' ? 'Cambridge' : 'Secondary';
@@ -720,9 +743,15 @@ export function RegistrationForm() {
                                         <input type="text" name="candidateName" value={formData.candidateName || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Father&apos;s CNIC (Optional)</label>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Father&apos;s CNIC (Optional)</label>
+                                            <div className="flex items-center gap-1.5">
+                                                <input type="checkbox" name="isFatherCnicForeign" id="fatherCnicForeign" checked={formData.isFatherCnicForeign} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
+                                                <label htmlFor="fatherCnicForeign" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Foreign / Passport</label>
+                                            </div>
+                                        </div>
                                         <div className="relative">
-                                            <input type="text" name="fatherCnic" value={formData.fatherCnic || ""} onChange={handleInputChange} onBlur={(e) => fetchGuardianData("father", e.target.value)} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
+                                            <input type="text" name="fatherCnic" value={formData.fatherCnic || ""} onChange={handleInputChange} onBlur={(e) => !formData.isFatherCnicForeign && fetchGuardianData("father", e.target.value)} placeholder={formData.isFatherCnicForeign ? "PASSPORT / ID #" : "XXXXX-XXXXXXX-X"} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
                                             {fetchingCnic === "father" && (
                                                 <div className="absolute right-3 top-2.5">
                                                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
@@ -733,9 +762,15 @@ export function RegistrationForm() {
                                         <input type="text" name="fatherName" value={formData.fatherName || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Mother&apos;s CNIC (Optional)</label>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Mother&apos;s CNIC (Optional)</label>
+                                            <div className="flex items-center gap-1.5">
+                                                <input type="checkbox" name="isMotherCnicForeign" id="motherCnicForeign" checked={formData.isMotherCnicForeign} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
+                                                <label htmlFor="motherCnicForeign" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Foreign / Passport</label>
+                                            </div>
+                                        </div>
                                         <div className="relative">
-                                            <input type="text" name="motherCnic" value={formData.motherCnic || ""} onChange={handleInputChange} onBlur={(e) => fetchGuardianData("mother", e.target.value)} placeholder="XXXXX-XXXXXXX-X" className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
+                                            <input type="text" name="motherCnic" value={formData.motherCnic || ""} onChange={handleInputChange} onBlur={(e) => !formData.isMotherCnicForeign && fetchGuardianData("mother", e.target.value)} placeholder={formData.isMotherCnicForeign ? "PASSPORT / ID #" : "XXXXX-XXXXXXX-X"} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
                                             {fetchingCnic === "mother" && (
                                                 <div className="absolute right-3 top-2.5">
                                                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
@@ -1118,13 +1153,23 @@ export function RegistrationForm() {
                                                 <td className="px-2 py-2">
                                                     <div className="flex flex-col gap-2">
                                                         <div className={`flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary ${formData.isFatherPhoneNA ? 'opacity-50 bg-zinc-50' : ''}`}>
-                                                            <span className="flex items-center px-2 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 whitespace-nowrap">+92</span>
-                                                            <input type="text" name="fatherPhone" value={formData.fatherPhone || ""} onChange={handleInputChange} disabled={formData.isFatherPhoneNA} placeholder="3XXXXXXXXX" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none disabled:cursor-not-allowed" />
+                                                            {formData.isFatherPhoneForeign ? (
+                                                                <input type="text" name="fatherPrimaryPhoneCountryCode" value={formData.fatherPrimaryPhoneCountryCode || ""} onChange={handleInputChange} className="w-12 px-1 text-center bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 outline-none" />
+                                                            ) : (
+                                                                <span className="flex items-center px-2 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 whitespace-nowrap">+92</span>
+                                                            )}
+                                                            <input type="text" name="fatherPhone" value={formData.fatherPhone || ""} onChange={handleInputChange} disabled={formData.isFatherPhoneNA} placeholder={formData.isFatherPhoneForeign ? "Foreign Number" : "3XXXXXXXXX"} className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none disabled:cursor-not-allowed" />
                                                         </div>
                                                         <div className="flex items-center justify-between">
-                                                            <div className="flex items-center gap-2">
-                                                                <input type="checkbox" name="isFatherWhatsapp" id="wa-father" checked={formData.isFatherWhatsapp} onChange={handleInputChange} disabled={formData.isFatherPhoneNA} className="h-3.5 w-3.5 text-emerald-600 rounded disabled:opacity-50" />
-                                                                <label htmlFor="wa-father" className={`text-[10px] uppercase font-bold text-emerald-700 flex items-center gap-1 ${formData.isFatherPhoneNA ? 'opacity-50' : ''}`}><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> WhatsApp</label>
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <input type="checkbox" name="isFatherPhoneForeign" id="fatherPhoneForeign" checked={formData.isFatherPhoneForeign} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
+                                                                    <label htmlFor="fatherPhoneForeign" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Foreign</label>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <input type="checkbox" name="isFatherWhatsapp" id="wa-father" checked={formData.isFatherWhatsapp} onChange={handleInputChange} disabled={formData.isFatherPhoneNA} className="h-3.5 w-3.5 text-emerald-600 rounded disabled:opacity-50" />
+                                                                    <label htmlFor="wa-father" className={`text-[10px] uppercase font-bold text-emerald-700 flex items-center gap-1 ${formData.isFatherPhoneNA ? 'opacity-50' : ''}`}><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> WhatsApp</label>
+                                                                </div>
                                                             </div>
                                                             <div className="flex items-center gap-1.5 mr-2">
                                                                 <input type="checkbox" name="isFatherPhoneNA" id="na-father-phone" checked={formData.isFatherPhoneNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
@@ -1159,13 +1204,23 @@ export function RegistrationForm() {
                                                 <td className="px-2 py-2">
                                                     <div className="flex flex-col gap-2">
                                                         <div className={`flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary ${formData.isMotherPhoneNA ? 'opacity-50 bg-zinc-50' : ''}`}>
-                                                            <span className="flex items-center px-2 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 whitespace-nowrap">+92</span>
-                                                            <input type="text" name="motherPhone" value={formData.motherPhone || ""} onChange={handleInputChange} disabled={formData.isMotherPhoneNA} placeholder="3XXXXXXXXX" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none disabled:cursor-not-allowed" />
+                                                            {formData.isMotherPhoneForeign ? (
+                                                                <input type="text" name="motherPrimaryPhoneCountryCode" value={formData.motherPrimaryPhoneCountryCode || ""} onChange={handleInputChange} className="w-12 px-1 text-center bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 outline-none" />
+                                                            ) : (
+                                                                <span className="flex items-center px-2 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 whitespace-nowrap">+92</span>
+                                                            )}
+                                                            <input type="text" name="motherPhone" value={formData.motherPhone || ""} onChange={handleInputChange} disabled={formData.isMotherPhoneNA} placeholder={formData.isMotherPhoneForeign ? "Foreign Number" : "3XXXXXXXXX"} className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none disabled:cursor-not-allowed" />
                                                         </div>
                                                         <div className="flex items-center justify-between">
-                                                            <div className="flex items-center gap-2">
-                                                                <input type="checkbox" name="isMotherWhatsapp" id="wa-mother" checked={formData.isMotherWhatsapp} onChange={handleInputChange} disabled={formData.isMotherPhoneNA} className="h-3.5 w-3.5 text-emerald-600 rounded disabled:opacity-50" />
-                                                                <label htmlFor="wa-mother" className={`text-[10px] uppercase font-bold text-emerald-700 flex items-center gap-1 ${formData.isMotherPhoneNA ? 'opacity-50' : ''}`}><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> WhatsApp</label>
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <input type="checkbox" name="isMotherPhoneForeign" id="motherPhoneForeign" checked={formData.isMotherPhoneForeign} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
+                                                                    <label htmlFor="motherPhoneForeign" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Foreign</label>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <input type="checkbox" name="isMotherWhatsapp" id="wa-mother" checked={formData.isMotherWhatsapp} onChange={handleInputChange} disabled={formData.isMotherPhoneNA} className="h-3.5 w-3.5 text-emerald-600 rounded disabled:opacity-50" />
+                                                                    <label htmlFor="wa-mother" className={`text-[10px] uppercase font-bold text-emerald-700 flex items-center gap-1 ${formData.isMotherPhoneNA ? 'opacity-50' : ''}`}><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> WhatsApp</label>
+                                                                </div>
                                                             </div>
                                                             <div className="flex items-center gap-1.5 mr-2">
                                                                 <input type="checkbox" name="isMotherPhoneNA" id="na-mother-phone" checked={formData.isMotherPhoneNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
