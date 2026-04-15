@@ -187,6 +187,7 @@ export default function DashboardPage() {
                             </div>
                         </div>
                     </Link>
+
                     <Link href="/enrollments" className="group text-left">
                         <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex flex-col items-center justify-center text-center h-full gap-4">
                             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">

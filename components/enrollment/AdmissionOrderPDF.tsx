@@ -143,12 +143,20 @@ const styles = StyleSheet.create({
         marginTop: 30,
     },
     signatureLine: {
-        borderTopWidth: 1,
-        borderTopColor: '#000000',
-        width: 140,
+        borderTopWidth: 1.5,
+        borderColor: '#000000',
+        width: 160,
         textAlign: 'center',
         paddingTop: 5,
+        alignItems: 'center',
+    },
+    signatureName: {
         fontSize: 8,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+    },
+    signatureTitle: {
+        fontSize: 7,
         fontWeight: 'bold',
     },
     stampLabel: {
@@ -204,13 +212,12 @@ export const AdmissionOrderPDF = ({ data }: { data: AdmissionOrderData }) => {
         <Document>
             <Page size="A4" style={styles.page}>
                 <View style={styles.borderContainer}>
-                    {/* Header */}
                     <View style={styles.header}>
                         <Image src="/logo.png" style={styles.logo} />
                         <View style={styles.titleContainer}>
-                            <Text style={styles.title}>Admission Order</Text>
+                            <Text style={[styles.title, { color: '#0047AB' }]}>ADMISSION ORDER</Text>
                             <Text style={styles.schoolName}>The American Foundation School for A Level Studies</Text>
-                            <Text style={styles.campusName}>Campus - {data.campus_name || '________________'}</Text>
+                            <Text style={styles.campusName}>{data.campus_name || '________________'}</Text>
                         </View>
                         <View style={{ width: 60 }} />
                     </View>
@@ -225,10 +232,6 @@ export const AdmissionOrderPDF = ({ data }: { data: AdmissionOrderData }) => {
                             <View style={styles.metricRow}>
                                 <Text style={styles.metricLabel}>DATE :</Text>
                                 <Text style={styles.metricValue}>{data.date}</Text>
-                            </View>
-                            <View style={styles.metricRow}>
-                                <Text style={styles.metricLabel}>FROM :</Text>
-                                <Text style={styles.metricValue}>{data.from}</Text>
                             </View>
                         </View>
                         <View style={styles.metricCol}>
@@ -367,10 +370,12 @@ export const AdmissionOrderPDF = ({ data }: { data: AdmissionOrderData }) => {
 
                         <View style={styles.signatureSection}>
                             <Text style={styles.stampLabel}>School Stamp</Text>
-                            <Text style={styles.signatureLine}>System Analyst</Text>
-                            <View style={{ alignItems: 'center' }}>
-                                <Text style={{ fontSize: 8, fontWeight: 'bold' }}>MRS. FOZIA HUSSAIN</Text>
-                                <Text style={styles.signatureLine}>Directress A. & P. - G</Text>
+                            <View style={styles.signatureLine}>
+                                <Text style={styles.signatureName}>System Analyst</Text>
+                            </View>
+                            <View style={styles.signatureLine}>
+                                <Text style={styles.signatureName}>MRS. FOZIA HUSSAIN</Text>
+                                <Text style={styles.signatureTitle}>Directress A. & P. - G</Text>
                             </View>
                         </View>
                     </View>

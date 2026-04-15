@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { UserPlus, UserCheck, ChevronRight } from "lucide-react";
+import { UserPlus, UserCheck, ChevronRight, FileText } from "lucide-react";
 
 export default function RegisterSelectionPage() {
     return (
@@ -11,7 +11,7 @@ export default function RegisterSelectionPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 max-w-6xl mx-auto">
                 <Link href="/identity/register/registration-form" className="group block">
                     <div className="bg-white dark:bg-zinc-950 border text-left border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-primary/40 transition-all h-full relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0 duration-300">
@@ -38,6 +38,21 @@ export default function RegisterSelectionPage() {
                         <h2 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-emerald-700 transition-colors mb-3">Admission Form</h2>
                         <p className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed">
                             Form #2. Comprehensive admission form requiring a pre-existing Computer Code (CC). Captures in-depth family backgrounds and agreements.
+                        </p>
+                    </div>
+                </Link>
+
+                <Link href="/identity/admission/admission-order" className="group block">
+                    <div className="bg-white dark:bg-zinc-950 border text-left border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-blue-600/40 transition-all h-full relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0 duration-300">
+                            <ChevronRight className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center mb-6 group-hover:bg-blue-200 transition-colors">
+                            <FileText className="h-8 w-8 text-blue-600" />
+                        </div>
+                        <h2 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-blue-700 transition-colors mb-3">Admission Order</h2>
+                        <p className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed">
+                            Form #3. Generate and print official admission order documents for enrolled students using their Computer Code (CC).
                         </p>
                     </div>
                 </Link>
