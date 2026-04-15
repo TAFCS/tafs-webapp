@@ -21,6 +21,7 @@ import {
     ChevronRight,
     X,
     MoreHorizontal,
+    RotateCcw,
 } from "lucide-react";
 
 export type FinancialStatus = "Cleared" | "Overdue" | "Partial";
@@ -30,6 +31,7 @@ import { StudentListItem } from "../../../store/slices/studentsSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../store/store";
 import { fetchStudents } from "../../../store/slices/studentsSlice";
+import { studentsService } from "../../../lib/students.service";
 
 interface ColumnDef {
     id: keyof StudentListItem;
@@ -121,6 +123,7 @@ export function StudentDataTable() {
     const [limit] = useState(15);
     const [viewingStudentId, setViewingStudentId] = useState<number | null>(null);
     const [openActionRowKey, setOpenActionRowKey] = useState<string | null>(null);
+    const [unexpellingRowKey, setUnexpellingRowKey] = useState<string | null>(null);
 
     const [visibleColumns, setVisibleColumns] = useState<Set<keyof StudentListItem>>(
         new Set(COLUMNS.filter(c => c.isDefault).map(c => c.id))
@@ -208,6 +211,37 @@ export function StudentDataTable() {
 
     const getStudentRowKey = (student: StudentListItem, index: number) =>
         `${student.id}-${student.cc_number ?? student.gr_number ?? "row"}-${index}`;
+
+    const resolveStudentIdentifier = (student: StudentListItem): number | null => {
+        const raw = student.id ?? student.cc_number ?? student.registration_number;
+        if (raw === null || raw === undefined) return null;
+        const parsed = typeof raw === "number" ? raw : Number(raw);
+        return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const handleUnexpelStudent = async (student: StudentListItem, rowKey: string) => {
+        const studentId = resolveStudentIdentifier(student);
+        if (!studentId) {
+            window.alert("Unable to determine this student's ID.");
+            return;
+        }
+
+        const studentName = student.student_full_name || `Student #${studentId}`;
+        const confirmed = window.confirm(`Unexpel ${studentName}?`);
+        if (!confirmed) return;
+
+        try {
+            setUnexpellingRowKey(rowKey);
+            setOpenActionRowKey(null);
+            await studentsService.unexpel(studentId);
+            await dispatch(fetchStudents(buildFetchParams()));
+        } catch (error: any) {
+            const message = error?.response?.data?.message || "Failed to unexpel student.";
+            window.alert(message);
+        } finally {
+            setUnexpellingRowKey(null);
+        }
+    };
 
     // ─── Render ────────────────────────────────────────────────────────────
 
@@ -573,6 +607,17 @@ export function StudentDataTable() {
                                                                 />
                                                                 <ActionItem icon={<Calendar />} label="Edit Fee Schedule" />
                                                                 <ActionItem icon={<LinkIcon />} label="Edit Sibling Link" />
+                                                                {student.enrollment_status === "EXPELLED" && (
+                                                                    <ActionItem
+                                                                        icon={<RotateCcw />}
+                                                                        label={unexpellingRowKey === rowKey ? "Unexpelling..." : "Unexpel Student"}
+                                                                        color="text-emerald-700"
+                                                                        disabled={unexpellingRowKey === rowKey}
+                                                                        onClick={() => {
+                                                                            void handleUnexpelStudent(student, rowKey);
+                                                                        }}
+                                                                    />
+                                                                )}
                                                             </div>
                                                         </div>
                                                     )}
@@ -644,13 +689,15 @@ function FilterSelect({ label, value, onChange, children }: {
     );
 }
 
-function ActionItem({ icon, label, color = "text-zinc-700 dark:text-zinc-300", onClick }: {
-    icon: React.ReactNode; label: string; color?: string; onClick?: () => void;
+function ActionItem({ icon, label, color = "text-zinc-700 dark:text-zinc-300", onClick, disabled = false }: {
+    icon: React.ReactNode; label: string; color?: string; onClick?: () => void; disabled?: boolean;
 }) {
+
     return (
         <button
             onClick={onClick}
-            className={`flex w-full items-center gap-2.5 px-4 py-2 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 ${color} transition-colors`}
+            disabled={disabled}
+            className={`flex w-full items-center gap-2.5 px-4 py-2 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 ${color} transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
             role="menuitem"
         >
             <span className="h-4 w-4 opacity-60 shrink-0">{icon}</span>

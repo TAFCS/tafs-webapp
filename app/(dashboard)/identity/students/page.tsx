@@ -255,8 +255,8 @@ export default function StudentsDirectoryPage() {
                     <button
                         onClick={() => { setIsAbnormal(!isAbnormal); setPage(1); }}
                         className={`h-9 px-4 flex items-center gap-2 text-[12px] font-bold rounded-xl transition-all border ${
-                            isAbnormal 
-                            ? "bg-rose-50 border-rose-200 text-rose-600 shadow-sm" 
+                            isAbnormal
+                            ? "bg-rose-50 border-rose-200 text-rose-600 shadow-sm"
                             : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"
                         }`}
                     >
@@ -345,10 +345,11 @@ export default function StudentsDirectoryPage() {
                 </div>
             )}
 
-            <StudentDetailDrawer 
-                cc={selectedCc} 
-                onClose={() => setSelectedCc(null)} 
+            <StudentDetailDrawer
+                cc={selectedCc}
+                onClose={() => setSelectedCc(null)}
                 classes={classes}
+                onUpdated={triggerFetch}
             />
         </div>
     );

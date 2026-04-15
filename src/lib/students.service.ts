@@ -6,4 +6,8 @@ export const studentsService = {
         const { data } = await api.get(`/v1/students/${id}`);
         return data.data;
     },
+
+    async unexpel(id: number): Promise<void> {
+        await api.patch(`/v1/students/${id}/unexpel`);
+    },
 };

@@ -1,18 +1,20 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText } from "lucide-react";
+import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History } from "lucide-react";
 import api from "@/lib/api";
 import { IdentityTab } from "./IdentityTab";
 import { AdmissionsTab } from "./AdmissionsTab";
 import { AcademicTab } from "./AcademicTab";
 import { GuardiansTab } from "./GuardiansTab";
 import { AdmissionOrderTab } from "./AdmissionOrderTab";
+import { StudentLogsTab } from "./StudentLogsTab";
 
 const TABS = [
     { id: "identity",   label: "Identity",   icon: User },
     { id: "admissions", label: "Admissions",  icon: BookOpen },
     { id: "academic",   label: "Academic",    icon: GraduationCap },
     { id: "guardians",  label: "Guardians",   icon: Shield },
+    { id: "logs", label: "Logs", icon: History },
     { id: "admission_order", label: "Print Order", icon: FileText },
 ] as const;
 
@@ -22,11 +24,13 @@ interface Props {
     cc: number | null;
     onClose: () => void;
     classes?: any[];
+    onUpdated?: () => void;
 }
 
-export function StudentDetailDrawer({ cc, onClose, classes = [] }: Props) {
+export function StudentDetailDrawer({ cc, onClose, classes = [], onUpdated }: Props) {
     const [student, setStudent] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [unexpelling, setUnexpelling] = useState(false);
     const [tab, setTab] = useState<TabId>("identity");
 
     const reload = useCallback(async () => {
@@ -44,6 +48,27 @@ export function StudentDetailDrawer({ cc, onClose, classes = [] }: Props) {
         setTab("identity");
         reload();
     }, [cc, reload]);
+
+    const isExpelled = (student?.status || "").toUpperCase() === "EXPELLED";
+
+    const handleUnexpel = async () => {
+        if (!cc || !student) return;
+
+        const confirmed = window.confirm(`Unexpel ${student.full_name || `student #${cc}`}?`);
+        if (!confirmed) return;
+
+        setUnexpelling(true);
+        try {
+            await api.patch(`/v1/students/${cc}/unexpel`);
+            await reload();
+            onUpdated?.();
+        } catch (error: any) {
+            const message = error?.response?.data?.message || "Failed to unexpel student.";
+            window.alert(message);
+        } finally {
+            setUnexpelling(false);
+        }
+    };
 
     const isOpen = !!cc;
 
@@ -72,9 +97,28 @@ export function StudentDetailDrawer({ cc, onClose, classes = [] }: Props) {
                             </div>
                         )}
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-zinc-100 rounded-xl transition-colors">
-                        <X className="h-4 w-4 text-zinc-400" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {student && isExpelled && (
+                            <button
+                                onClick={() => {
+                                    void handleUnexpel();
+                                }}
+                                disabled={unexpelling}
+                                className="inline-flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {unexpelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                                {unexpelling ? "Unexpelling..." : "Unexpel Student"}
+                            </button>
+                        )}
+                        <button
+                            onClick={onClose}
+                            title="Close"
+                            aria-label="Close"
+                            className="p-2 hover:bg-zinc-100 rounded-xl transition-colors"
+                        >
+                            <X className="h-4 w-4 text-zinc-400" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Tab Bar */}
@@ -109,6 +153,7 @@ export function StudentDetailDrawer({ cc, onClose, classes = [] }: Props) {
                             {tab === "admissions" && <AdmissionsTab student={student} onReload={reload} classes={classes} />}
                             {tab === "academic"   && <AcademicTab   student={student} onReload={reload} />}
                             {tab === "guardians"  && <GuardiansTab  student={student} onReload={reload} />}
+                            {tab === "logs" && <StudentLogsTab student={student} />}
                             {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
                         </div>
                     )}
