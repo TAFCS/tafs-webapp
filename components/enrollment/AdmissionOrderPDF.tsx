@@ -22,8 +22,24 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     logo: {
-        width: 60,
-        height: 60,
+        width: 65,
+        height: 65,
+        flexShrink: 0,
+    },
+    photoContainer: {
+        width: 75,
+        height: 85,
+        borderWidth: 1,
+        borderColor: '#000',
+        flexShrink: 0,
+        backgroundColor: '#f9f9f9',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    studentPhoto: {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
     },
     titleContainer: {
         alignItems: 'center',
@@ -194,6 +210,8 @@ export interface AdmissionOrderData {
     relationship?: string;
     email?: string;
     remarks_general?: string;
+    photograph_url?: string | null;
+    logo_url?: string | null;
 }
 
 const formatDate = (dateStr?: string) => {
@@ -213,13 +231,24 @@ export const AdmissionOrderPDF = ({ data }: { data: AdmissionOrderData }) => {
             <Page size="A4" style={styles.page}>
                 <View style={styles.borderContainer}>
                     <View style={styles.header}>
-                        <Image src="/logo.png" style={styles.logo} />
+                        <Image src={data.logo_url || "/logo.png"} style={styles.logo} />
                         <View style={styles.titleContainer}>
                             <Text style={[styles.title, { color: '#0047AB' }]}>ADMISSION ORDER</Text>
                             <Text style={styles.schoolName}>The American Foundation School for A Level Studies</Text>
                             <Text style={styles.campusName}>{data.campus_name || '________________'}</Text>
                         </View>
-                        <View style={{ width: 60 }} />
+                        {data.photograph_url && data.photograph_url.trim() !== '' ? (
+                            <View style={styles.photoContainer}>
+                                <Image 
+                                    src={data.photograph_url} 
+                                    style={styles.studentPhoto} 
+                                />
+                            </View>
+                        ) : (
+                            <View style={styles.photoContainer}>
+                                <Text style={{ fontSize: 8, color: '#999' }}>PHOTO</Text>
+                            </View>
+                        )}
                     </View>
 
                     {/* Top Metrics */}
