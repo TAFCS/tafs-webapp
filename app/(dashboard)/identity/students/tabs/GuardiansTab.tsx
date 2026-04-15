@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2, Search, Link, X as XIcon } from "lucide-react";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
 
@@ -275,6 +275,56 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
 
+    // Search and Link Existing Guardian
+    const [searchCnic, setSearchCnic] = useState("");
+    const [searching, setSearching] = useState(false);
+    const [foundGuardian, setFoundGuardian] = useState<any>(null);
+    const [linking, setLinking] = useState(false);
+    const [linkRel, setLinkRel] = useState("GUARDIAN");
+    const [isLinkPrimary, setIsLinkPrimary] = useState(false);
+    const [isLinkEmergency, setIsLinkEmergency] = useState(false);
+
+    const handleSearch = async () => {
+        if (!searchCnic || searchCnic.length < 15) return;
+        setSearching(true);
+        setFoundGuardian(null);
+        try {
+            const { data } = await api.get(`/v1/staff-editing/guardians/by-nic/${searchCnic}`);
+            if (data?.data) {
+                // Check if already linked
+                const isLinked = guardians.some(g => g.guardian_id === data.data.id || g.id === data.data.id);
+                if (isLinked) {
+                    alert("This guardian is already linked to this student.");
+                } else {
+                    setFoundGuardian(data.data);
+                }
+            } else {
+                alert("No guardian found with this CNIC.");
+            }
+        } catch(e) {
+            alert("Error searching for guardian.");
+        } finally { setSearching(false); }
+    };
+
+    const handleLink = async () => {
+        if (!foundGuardian) return;
+        setLinking(true);
+        try {
+            const { data } = await api.post(`/v1/staff-editing/students/${student.cc}/guardians/link-existing`, {
+                guardian_id: foundGuardian.id,
+                relationship: linkRel,
+                is_primary_contact: isLinkPrimary,
+                is_emergency_contact: isLinkEmergency
+            });
+            setGuardians(prev => [...prev, data?.data]);
+            setFoundGuardian(null);
+            setSearchCnic("");
+            onReload();
+        } catch(e) {
+            alert("Failed to link guardian.");
+        } finally { setLinking(false); }
+    };
+
     // Unified Family Address state
     const [familyAddress, setFamilyAddress] = useState<any>({
         house_appt_name: "", area_block: "", city: "", postal_code: "", province: "", country: "", work_phone: ""
@@ -353,6 +403,67 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
                 <button onClick={() => setAdding(a => !a)} className="flex items-center gap-1 px-3 h-8 text-[11px] font-bold text-primary bg-primary/10 rounded-xl hover:bg-primary/20 transition-all">
                     <Plus className="h-3.5 w-3.5" /> Add Guardian
                 </button>
+            </div>
+
+            {/* CNIC Search Section */}
+            <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                    <div className="flex-1 relative">
+                        <Input 
+                            value={searchCnic} 
+                            onChange={v => setSearchCnic(formatCNIC(v))} 
+                            placeholder="SEARCH BY CNIC (xxxxx-xxxxxxx-x)" 
+                            className="pl-9"
+                        />
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
+                    </div>
+                    <button 
+                        onClick={handleSearch} 
+                        disabled={searching || searchCnic.length < 15}
+                        className="px-4 h-9 bg-zinc-900 text-white text-[11px] font-bold rounded-xl hover:bg-zinc-800 disabled:opacity-50 transition-all"
+                    >
+                        {searching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "SEARCH"}
+                    </button>
+                </div>
+
+                {foundGuardian && (
+                    <div className="mt-4 bg-white border border-emerald-100 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-emerald-50">
+                            <div>
+                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Guardian Found</p>
+                                <h4 className="font-bold text-zinc-900 uppercase">{foundGuardian.full_name}</h4>
+                            </div>
+                            <button onClick={() => setFoundGuardian(null)} className="p-1 hover:bg-zinc-100 rounded-lg text-zinc-400">
+                                <XIcon className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                            <Field label="Relationship">
+                                <select 
+                                    value={linkRel} 
+                                    onChange={e => setLinkRel(e.target.value)}
+                                    className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary appearance-none uppercase"
+                                >
+                                    {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+                                </select>
+                            </Field>
+                            <div className="flex flex-col gap-2 justify-center">
+                                <Toggle label="Primary" checked={isLinkPrimary} onChange={setIsLinkPrimary} />
+                                <Toggle label="Emergency" checked={isLinkEmergency} onChange={setIsLinkEmergency} />
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={handleLink} 
+                            disabled={linking}
+                            className="w-full h-9 bg-emerald-600 text-white text-[11px] font-bold rounded-xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+                        >
+                            {linking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link className="h-3.5 w-3.5" />}
+                            LINK TO THIS STUDENT
+                        </button>
+                    </div>
+                )}
             </div>
 
             {adding && (
