@@ -14,7 +14,7 @@ interface StudentProfileModalProps {
     studentId?: number | string | null;
     student?: StudentListItem | null; // For direct display from registration success
     onClose: () => void;
-    onUpdate?: (student: StudentListItem) => void;
+    onUpdate?: (student?: StudentListItem) => void;
 }
 
 export function StudentProfileModal({ studentId, student: initialStudent, onClose, onUpdate }: StudentProfileModalProps) {
