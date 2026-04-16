@@ -118,4 +118,8 @@ export const familiesService = {
       student_id: Number(studentId),
     });
   },
+
+  async initializeFromStudent(studentId: number): Promise<void> {
+    await api.post(`/v1/families/from-student/${studentId}`);
+  },
 };

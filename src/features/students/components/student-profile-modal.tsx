@@ -30,6 +30,29 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
     }, [dispatch, classes.length]);
     const [isLoading, setIsLoading] = useState(false);
     const [isChangeFamilyOpen, setIsChangeFamilyOpen] = useState(false);
+    const [isInitializingFamily, setIsInitializingFamily] = useState(false);
+
+    const handleInitializeFamily = async () => {
+        const sid = Number(student?.cc || student?.cc_number || student?.registration_number || 0);
+        if (!sid) {
+            toast.error("Could not find student ID");
+            return;
+        }
+
+        setIsInitializingFamily(true);
+        try {
+            await familiesService.initializeFromStudent(sid);
+            toast.success("Household initialized successfully");
+            // Always reload to get the new family details
+            loadStudent();
+            onUpdate?.();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to initialize household");
+            console.error(err);
+        } finally {
+            setIsInitializingFamily(false);
+        }
+    };
 
     const loadStudent = async () => {
         if (!studentId) return;
@@ -177,12 +200,22 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                             <div className="h-2 w-2 bg-amber-500 rounded-full animate-pulse" />
                                             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-tight">No Household Assigned</p>
                                         </div>
-                                        <button
-                                            onClick={() => setIsChangeFamilyOpen(true)}
-                                            className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider bg-primary text-white rounded-lg hover:bg-primary/90 transition-all shadow-sm"
-                                        >
-                                            Link Family
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setIsChangeFamilyOpen(true)}
+                                                className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg hover:bg-zinc-300 dark:hover:bg-zinc-700 transition-all"
+                                            >
+                                                Link Existing
+                                            </button>
+                                            <button
+                                                onClick={handleInitializeFamily}
+                                                disabled={isInitializingFamily}
+                                                className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm flex items-center gap-1.5"
+                                            >
+                                                {isInitializingFamily ? <RefreshCw className="h-3 w-3 animate-spin" /> : <MapPin className="h-3 w-3" />}
+                                                Create New
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                                 {student.siblings && student.siblings.length > 0 ? (

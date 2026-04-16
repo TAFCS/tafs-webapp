@@ -73,7 +73,6 @@ const INITIAL_FORM_DATA = {
     isMotherCnicForeign: false,
     isFatherPhoneForeign: false,
     isMotherPhoneForeign: false,
-    shouldCreateFamily: false,
 };
 
 import { memo } from "react";
@@ -546,7 +545,6 @@ export function RegistrationForm() {
                     description: f.description,
                     reminder_date: f.reminderDate || undefined
                 })),
-            should_create_family: formData.shouldCreateFamily,
             previous_schools: formData.previousSchools
                 .filter(s => s.name.trim())
                 .map(s => ({
@@ -687,23 +685,7 @@ export function RegistrationForm() {
                         </select>
                     </div>
 
-                    <div className="pt-2">
-                        <label className="flex items-center gap-2 cursor-pointer group">
-                            <div className="relative">
-                                <input 
-                                    type="checkbox" 
-                                    name="shouldCreateFamily" 
-                                    checked={formData.shouldCreateFamily} 
-                                    onChange={handleInputChange}
-                                    className="peer sr-only"
-                                />
-                                <div className="w-10 h-5 bg-zinc-200 dark:bg-zinc-800 rounded-full peer peer-checked:bg-primary transition-colors"></div>
-                                <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
-                            </div>
-                            <span className="text-[10px] font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-widest group-hover:text-primary transition-colors">Create New Household</span>
-                        </label>
-                        <p className="text-[9px] text-zinc-400 mt-1 italic pl-12 leading-tight">Leave unchecked to link family manually after submission.</p>
-                    </div>
+
                 </div>
 
                 <div className="mt-8 space-y-4">
