@@ -38,10 +38,12 @@ export interface StudentListItem {
   }>;
   siblings?: {
     id: number;
+    cc: number;
     full_name: string;
     cc_number: string;
     grade?: string;
     father_name?: string;
+    photograph_url?: string | null;
   }[];
 }
 
