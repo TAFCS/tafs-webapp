@@ -11,16 +11,17 @@ import { RootState, AppDispatch } from "../../../store/store";
 import { fetchClasses } from "../../../store/slices/classesSlice";
 
 interface StudentProfileModalProps {
-    studentId: number | null;
+    studentId?: number | string | null;
+    student?: StudentListItem | null; // For direct display from registration success
     onClose: () => void;
     onUpdate?: () => void;
 }
 
-export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentProfileModalProps) {
+export function StudentProfileModal({ studentId, student: initialStudent, onClose, onUpdate }: StudentProfileModalProps) {
     const router = useRouter();
     const dispatch = useDispatch<AppDispatch>();
     const { items: classes } = useSelector((state: RootState) => state.classes);
-    const [student, setStudent] = useState<StudentListItem | null>(null);
+    const [student, setStudent] = useState<StudentListItem | null>(initialStudent || null);
 
     useEffect(() => {
         if (classes.length === 0) {
@@ -34,7 +35,7 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
         if (!studentId) return;
         setIsLoading(true);
         try {
-            const data = await studentsService.getById(studentId);
+            const data = await studentsService.getById(Number(studentId));
             setStudent(data);
         } catch (err) {
             toast.error("Failed to load student details");
@@ -45,10 +46,12 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
     };
 
     useEffect(() => {
-        loadStudent();
-    }, [studentId]);
+        if (!initialStudent) {
+            loadStudent();
+        }
+    }, [studentId, initialStudent]);
 
-    if (!studentId) return null;
+    if (!studentId && !initialStudent) return null;
 
     if (isLoading && !student) {
         return (
@@ -77,12 +80,13 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
         EXPELLED: "bg-rose-100 text-rose-800 border-rose-200 line-through decoration-rose-400",
     };
 
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
-
                 {/* Header (Premium Gradient) */}
                 <div className="relative h-32 bg-gradient-to-r from-blue-600 to-indigo-700 p-6 flex items-end">
+
                     <button
                         onClick={onClose}
                         className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full transition-colors"
@@ -91,9 +95,9 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                     </button>
 
                     <div className="absolute -bottom-12 left-8 h-24 w-24 bg-white dark:bg-zinc-950 rounded-2xl p-1 shadow-lg border border-zinc-100 overflow-hidden">
-                        <StudentAvatar 
-                            url={student.photograph_url} 
-                            name={student.student_full_name} 
+                        <StudentAvatar
+                            url={student.photograph_url}
+                            name={student.student_full_name}
                         />
                     </div>
                 </div>
@@ -101,6 +105,7 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                 {/* Main Body (Scrollable) */}
                 <div className="flex-1 overflow-y-auto w-full">
                     <div className="p-8 pt-16 grid grid-cols-1 lg:grid-cols-3 gap-8">
+
 
                         {/* Profile Summary (Left side) */}
                         <div className="flex flex-col gap-6 lg:col-span-1">
@@ -127,72 +132,85 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
 
                             <div className="flex flex-col gap-4">
                                 <InfoItem icon={<LayoutGrid />} label="Campus" value={student.campus || "N/A"} />
-                                <InfoItem 
-                                    icon={<GraduationCap className="h-4 w-4" />} 
-                                    label="Grade & Section" 
+                                <InfoItem
+                                    icon={<GraduationCap className="h-4 w-4" />}
+                                    label="Grade & Section"
                                     value={(() => {
                                         if (student.enrollment_status === 'ENROLLED' && student.grade_and_section) return student.grade_and_section;
                                         const val = student.grade_and_section;
                                         if (!val) return "N/A";
                                         const match = classes.find(c => c.class_code === val || c.description === val);
                                         return match ? match.description : val;
-                                    })()} 
+                                    })()}
                                 />
                                 <InfoItem icon={<Tag />} label="House" value={student.house_and_color || "N/A"} />
                             </div>
 
                             {/* Siblings Section */}
-                            {(student.household_name || (student.siblings && student.siblings.length > 0)) && (
-                                <div className="mt-4">
-                                    <div className="w-full h-px bg-zinc-100 dark:bg-zinc-800 my-4"></div>
-                                    <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-1 flex items-center gap-2">
-                                        <User className="h-3 w-3 text-indigo-500" /> Sibling / Family Members
-                                    </h3>
-                                    {student.household_name && (
-                                        <div className="mb-3 flex items-start justify-between gap-2">
-                                            <div>
-                                                <p className="text-[11px] font-bold text-indigo-600 italic">
-                                                    {student.household_name}&apos;s Family
-                                                </p>
-                                                <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 mt-0.5">
-                                                    Family ID: {student.family_id || "N/A"}
-                                                </p>
-                                            </div>
-                                            <button
-                                                onClick={() => setIsChangeFamilyOpen(true)}
-                                                className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-colors"
-                                            >
-                                                <RefreshCw className="h-2.5 w-2.5" />
-                                                Change
-                                            </button>
+                            <div className="mt-4">
+                                <div className="w-full h-px bg-zinc-100 dark:bg-zinc-800 my-4"></div>
+
+                                <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-1 flex items-center gap-2">
+                                    <User className="h-3 w-3 text-indigo-500" /> Sibling / Family Members
+                                </h3>
+                                {student.household_name ? (
+                                    <div className="mb-3 flex items-start justify-between gap-2">
+                                        <div>
+                                            <p className="text-[11px] font-bold text-indigo-600 italic">
+                                                {student.household_name}&apos;s Family
+                                            </p>
+                                            <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 mt-0.5">
+                                                Family ID: {student.family_id || "N/A"}
+                                            </p>
                                         </div>
-                                    )}
-                                    {student.siblings && student.siblings.length > 0 ? (
-                                        <div className="space-y-3">
-                                            {student.siblings.map((sibling) => (
-                                                <div key={sibling.id} className="flex items-center justify-between p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl group transition-all hover:bg-indigo-50 hover:border-indigo-200">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="h-8 w-8 rounded-lg bg-white dark:bg-zinc-950 flex items-center justify-center text-indigo-500 shadow-sm">
-                                                            <User className="h-4 w-4" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 leading-none uppercase">{sibling.full_name}</p>
-                                                            {sibling.father_name && (
-                                                                <p className="text-[9px] text-indigo-600 font-bold mt-1 uppercase tracking-tight">S/O: {sibling.father_name.toUpperCase()}</p>
-                                                            )}
-                                                            <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium mt-1 uppercase tracking-tight">{sibling.cc_number} • {sibling.grade || 'N/A'}</p>
-                                                        </div>
+                                        <button
+                                            onClick={() => setIsChangeFamilyOpen(true)}
+                                            className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-colors"
+                                        >
+                                            <RefreshCw className="h-2.5 w-2.5" />
+                                            Change
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="mb-3 flex items-center justify-between gap-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 rounded-xl p-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-2 w-2 bg-amber-500 rounded-full animate-pulse" />
+                                            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-tight">No Household Assigned</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setIsChangeFamilyOpen(true)}
+                                            className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider bg-primary text-white rounded-lg hover:bg-primary/90 transition-all shadow-sm"
+                                        >
+                                            Link Family
+                                        </button>
+                                    </div>
+                                )}
+                                {student.siblings && student.siblings.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {student.siblings.map((sibling) => (
+                                            <div key={sibling.id} className="flex items-center justify-between p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl group transition-all hover:bg-indigo-50 hover:border-indigo-200">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-lg bg-white dark:bg-zinc-950 flex items-center justify-center text-indigo-500 shadow-sm">
+                                                        <User className="h-4 w-4" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 leading-none uppercase">{sibling.full_name}</p>
+                                                        {sibling.father_name && (
+                                                            <p className="text-[9px] text-indigo-600 font-bold mt-1 uppercase tracking-tight">S/O: {sibling.father_name.toUpperCase()}</p>
+                                                        )}
+                                                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium mt-1 uppercase tracking-tight">{sibling.cc_number} • {sibling.grade || 'N/A'}</p>
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 rounded-xl">
-                                            <p className="text-xs text-zinc-500 dark:text-zinc-400 text-center italic">No other siblings linked to this family yet.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 rounded-xl">
+                                        <p className="text-xs text-zinc-500 dark:text-zinc-400 text-center italic">No other siblings linked to this family yet.</p>
+                                    </div>
+                                )}
+                            </div>
+
 
                         </div>
 
@@ -276,6 +294,25 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                     </div>
                 </div>
 
+                {/* Consolidated ChangeFamilyModal sits below the main layout */}
+                {isChangeFamilyOpen && (
+                    <ChangeFamilyModal
+                        studentId={Number(student.cc || student.cc_number || student.registration_number || student.id || 0)}
+                        studentName={student.student_full_name || student.full_name || ""}
+                        currentFamilyId={student.family_id}
+                        onClose={() => setIsChangeFamilyOpen(false)}
+                        onSuccess={() => {
+                            setIsChangeFamilyOpen(false);
+                            if (initialStudent) {
+                                // Success Flow: Success Modal handles its own updates
+                            } else {
+                                loadStudent();
+                                onUpdate?.();
+                            }
+                        }}
+                    />
+                )}
+
                 {/* Footer Actions */}
                 <div className="bg-zinc-50 dark:bg-zinc-900 p-4 border-t flex justify-end gap-3 flex-shrink-0">
                     <button
@@ -294,21 +331,6 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
                         Edit Profile
                     </button>
                 </div>
-
-                {/* Family Reassignment Modal */}
-                {isChangeFamilyOpen && (
-                    <ChangeFamilyModal
-                        studentId={student.id}
-                        studentName={student.student_full_name}
-                        currentFamilyId={student.family_id}
-                        onClose={() => setIsChangeFamilyOpen(false)}
-                        onSuccess={() => {
-                            setIsChangeFamilyOpen(false);
-                            loadStudent(); // Refresh local profile
-                            onUpdate?.(); // Refresh background list
-                        }}
-                    />
-                )}
             </div>
         </div>
     );
@@ -317,7 +339,7 @@ export function StudentProfileModal({ studentId, onClose, onUpdate }: StudentPro
 // ─── Sub-Components ───────────────────────────────────────────────────────────
 function StudentAvatar({ url, name }: { url?: string | null; name: string }) {
     const [imgError, setImgError] = useState(false);
-    
+
     // Reset error state when URL changes
     useEffect(() => {
         setImgError(false);
@@ -328,10 +350,10 @@ function StudentAvatar({ url, name }: { url?: string | null; name: string }) {
     return (
         <div className="h-full w-full bg-blue-50 rounded-xl flex items-center justify-center text-blue-500 overflow-hidden relative">
             {sanitizedUrl && !imgError ? (
-                <img 
-                    src={sanitizedUrl} 
-                    alt={name} 
-                    className="w-full h-full object-cover" 
+                <img
+                    src={sanitizedUrl}
+                    alt={name}
+                    className="w-full h-full object-cover"
                     onError={() => setImgError(true)}
                 />
             ) : (
@@ -341,7 +363,7 @@ function StudentAvatar({ url, name }: { url?: string | null; name: string }) {
     );
 }
 
-interface ChangeFamilyModalProps {
+export interface ChangeFamilyModalProps {
     studentId: number;
     studentName: string;
     currentFamilyId: number | null;
@@ -349,7 +371,7 @@ interface ChangeFamilyModalProps {
     onSuccess: () => void;
 }
 
-function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, onSuccess }: ChangeFamilyModalProps) {
+export function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, onSuccess }: ChangeFamilyModalProps) {
     const [searchQ, setSearchQ] = useState("");
     const debouncedSearch = useDebounce(searchQ, 350);
     const [results, setResults] = useState<Family[]>([]);
@@ -371,11 +393,20 @@ function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, o
 
     const handleAssign = async () => {
         if (!selectedFamily) return;
+        
+        const sid = Number(studentId);
+        if (!sid || sid <= 0) {
+            toast.error("Invalid student ID. Please try again.");
+            console.error("Assign Error: Invalid studentId", studentId);
+            return;
+        }
+
         setIsAssigning(true);
         try {
-            await familiesService.assignChild(selectedFamily.id, studentId);
+            console.log(`Assigning student ${sid} to family ${selectedFamily.id}`);
+            await familiesService.assignChild(selectedFamily.id, sid);
             toast.success("Family updated successfully");
-            onSuccess(); // Now triggers loadStudent() in the parent
+            onSuccess(); 
             onClose();
         } catch (err) {
             toast.error("Failed to update family");
@@ -404,7 +435,7 @@ function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onClose, o
                         <input
                             autoFocus
                             type="text"
-                            placeholder="Search Household, CNIC or ID..."
+                            placeholder="Search Household, Sibling CC/GR, or CNIC..."
                             className="w-full pl-9 pr-4 py-2.5 text-sm border-zinc-200 dark:border-zinc-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
                             value={searchQ}
                             onChange={(e) => setSearchQ(e.target.value)}

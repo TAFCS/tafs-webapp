@@ -5,7 +5,9 @@ import api from '../../lib/api';
 
 export interface StudentListItem {
   id: number;
+  cc?: number;
   student_full_name: string;
+  full_name?: string | null;
   gr_number: string | null;
   cc_number: string | null;
   class_id?: number | null;

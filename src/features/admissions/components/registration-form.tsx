@@ -73,6 +73,7 @@ const INITIAL_FORM_DATA = {
     isMotherCnicForeign: false,
     isFatherPhoneForeign: false,
     isMotherPhoneForeign: false,
+    shouldCreateFamily: false,
 };
 
 import { memo } from "react";
@@ -545,6 +546,7 @@ export function RegistrationForm() {
                     description: f.description,
                     reminder_date: f.reminderDate || undefined
                 })),
+            should_create_family: formData.shouldCreateFamily,
             previous_schools: formData.previousSchools
                 .filter(s => s.name.trim())
                 .map(s => ({
@@ -605,7 +607,8 @@ export function RegistrationForm() {
             const latestAdmission = rawStudent.student_admissions?.[0];
 
             const mappedStudent: StudentListItem = {
-                id: rawStudent.cc,
+                id: rawStudent.cc || rawStudent.id || 0,
+                cc: rawStudent.cc || rawStudent.id || 0,
                 student_full_name: rawStudent.full_name,
                 gr_number: rawStudent.gr_number,
                 cc_number: rawStudent.cc,
@@ -682,6 +685,24 @@ export function RegistrationForm() {
                                 <option key={campus.id} value={campus.id}>{campus.campus_name} ({campus.campus_code})</option>
                             ))}
                         </select>
+                    </div>
+
+                    <div className="pt-2">
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                            <div className="relative">
+                                <input 
+                                    type="checkbox" 
+                                    name="shouldCreateFamily" 
+                                    checked={formData.shouldCreateFamily} 
+                                    onChange={handleInputChange}
+                                    className="peer sr-only"
+                                />
+                                <div className="w-10 h-5 bg-zinc-200 dark:bg-zinc-800 rounded-full peer peer-checked:bg-primary transition-colors"></div>
+                                <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                            </div>
+                            <span className="text-[10px] font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-widest group-hover:text-primary transition-colors">Create New Household</span>
+                        </label>
+                        <p className="text-[9px] text-zinc-400 mt-1 italic pl-12 leading-tight">Leave unchecked to link family manually after submission.</p>
                     </div>
                 </div>
 
@@ -762,7 +783,7 @@ export function RegistrationForm() {
                                                         <label className="shrink-0 text-[10px] font-black uppercase text-zinc-400">Remind:</label>
                                                         <input 
                                                             type="date" 
-                                                            value={flag.reminderDate} 
+                                                            value={flag.reminderDate || ""} 
                                                             onChange={(e) => handleFlagChange(flag.id, 'reminderDate', e.target.value)} 
                                                             className="flex-1 px-2 py-1 bg-transparent border-b border-zinc-200 dark:border-zinc-800 text-xs font-bold outline-none focus:border-primary transition-colors" 
                                                         />
@@ -771,7 +792,7 @@ export function RegistrationForm() {
                                                         <label className="shrink-0 text-[10px] font-black uppercase text-zinc-400">Note:</label>
                                                         <input 
                                                             type="text"
-                                                            value={flag.description} 
+                                                            value={flag.description || ""} 
                                                             onChange={(e) => handleFlagChange(flag.id, 'description', e.target.value)} 
                                                             placeholder="Describe the flag..." 
                                                             className="flex-1 px-2 py-1 bg-transparent border-b border-zinc-200 dark:border-zinc-800 text-xs font-bold outline-none focus:border-primary transition-colors uppercase"
@@ -1495,6 +1516,7 @@ export function RegistrationForm() {
                 submitSuccess && isProfileModalOpen && (
                     <StudentProfileModal
                         studentId={submitSuccess.id}
+                        student={submitSuccess}
                         onClose={() => setIsProfileModalOpen(false)}
                     />
                 )

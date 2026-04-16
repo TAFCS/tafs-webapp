@@ -113,9 +113,9 @@ export const familiesService = {
     return data.data;
   },
 
-  async assignChild(familyId: number, studentId: number): Promise<void> {
+  async assignChild(familyId: number, studentId: number | string): Promise<void> {
     await api.post(`/v1/families/${familyId}/assign-child`, {
-      student_id: studentId,
+      student_id: Number(studentId),
     });
   },
 };
