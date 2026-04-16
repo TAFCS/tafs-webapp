@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Save, Loader2, CheckCircle2, User, RefreshCw } from "lucide-react";
-import { ChangeFamilyModal } from "@/features/students/components/student-profile-modal";
+import { Save, Loader2, CheckCircle2 } from "lucide-react";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
 
@@ -143,7 +142,6 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
         }
     };
 
-    const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
 
     const validateEmail = (email: string) => {
         if (!email) return true;
@@ -312,50 +310,6 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                     </Field>
                 </div>
             </SectionCard>
-
-            {/* Section: Family / Household */}
-            <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-[11px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2">
-                        <User className="h-3 w-3" /> Family / Household Connection
-                    </h3>
-                </div>
-                
-                <div className="flex items-center justify-between gap-4 p-4 bg-white border border-indigo-100/50 rounded-xl shadow-sm">
-                    {student.families ? (
-                        <div className="flex-1">
-                            <p className="text-[13px] font-bold text-zinc-900 uppercase">{student.families.household_name}</p>
-                            <p className="text-[10px] text-indigo-600 font-medium mt-0.5">Family ID: #{student.family_id} {student.families.legacy_pid ? `· PID ${student.families.legacy_pid}` : ""}</p>
-                        </div>
-                    ) : (
-                        <div className="flex-1">
-                            <p className="text-[13px] font-bold text-zinc-400 uppercase italic">No family linked</p>
-                            <p className="text-[10px] text-zinc-400 mt-0.5 italic">This student is currently not part of any household.</p>
-                        </div>
-                    )}
-                    
-                    <button
-                        onClick={() => setIsFamilyModalOpen(true)}
-                        className="flex items-center gap-1.5 px-4 h-8 text-[11px] font-black uppercase tracking-wider rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100"
-                    >
-                        <RefreshCw className="h-3 w-3" />
-                        {student.family_id ? "Change Family" : "Link Family"}
-                    </button>
-                </div>
-
-                {isFamilyModalOpen && (
-                    <ChangeFamilyModal
-                        studentId={student.cc}
-                        studentName={student.full_name}
-                        currentFamilyId={student.family_id}
-                        onClose={() => setIsFamilyModalOpen(false)}
-                        onSuccess={() => {
-                            setIsFamilyModalOpen(false);
-                            onReload();
-                        }}
-                    />
-                )}
-            </div>
         </div>
     );
 }

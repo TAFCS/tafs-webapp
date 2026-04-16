@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Home } from "lucide-react";
 import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -144,7 +145,9 @@ function FilterSelect({ label, value, onChange, options, icon }: { label: string
 }
 
 // ── Main Page ──────────────────────────────────────────────────────────────
-export default function StudentsDirectoryPage() {
+// ── Wrapper for SearchParams ──────────────────────────────────────────────
+function DirectoryContent() {
+    const searchParams = useSearchParams();
     const dispatch = useAppDispatch();
     const { items: campuses } = useAppSelector(s => s.campuses);
     const { items: classes }  = useAppSelector(s => s.classes);
@@ -164,6 +167,13 @@ export default function StudentsDirectoryPage() {
     const [status, setStatus]         = useState("");
     const [isAbnormal, setIsAbnormal] = useState(false);
     const [page, setPage]             = useState(1);
+
+    useEffect(() => {
+        const cc = searchParams.get("cc");
+        if (cc && !isNaN(Number(cc))) {
+            setSelectedCc(Number(cc));
+        }
+    }, [searchParams]);
 
     const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -348,9 +358,18 @@ export default function StudentsDirectoryPage() {
             <StudentDetailDrawer
                 cc={selectedCc}
                 onClose={() => setSelectedCc(null)}
+                onSwitchStudent={(newCc: number) => setSelectedCc(newCc)}
                 classes={classes}
                 onUpdated={triggerFetch}
             />
         </div>
+    );
+}
+
+export default function StudentsDirectoryPage() {
+    return (
+        <Suspense fallback={<div className="p-8 text-center text-zinc-400 font-medium animate-pulse">Loading Student Directory...</div>}>
+            <DirectoryContent />
+        </Suspense>
     );
 }

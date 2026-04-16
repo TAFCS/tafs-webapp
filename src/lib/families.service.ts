@@ -16,6 +16,11 @@ export interface Family {
     name: string;
     cnic: string | null;
   } | null;
+  students?: {
+    cc: number;
+    full_name: string;
+    gr_number?: string | null;
+  }[];
 }
 
 export interface FamilyStudent {

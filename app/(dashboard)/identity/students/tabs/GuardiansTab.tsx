@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2, Search, Link, X as XIcon } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2, Search, Link, X as XIcon, User, RefreshCw, MapPin } from "lucide-react";
+import { ChangeFamilyModal } from "@/src/features/students/components/student-profile-modal";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
 
@@ -268,7 +269,11 @@ const EMPTY_GUARDIAN = {
     occupation: "", email_address: "", is_primary_contact: false, is_emergency_contact: false,
 };
 
-export function GuardiansTab({ student, onReload }: { student: any; onReload: () => void }) {
+export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: any; onReload: () => void; onSwitchStudent?: (cc: number) => void }) {
+    const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [tempHouseholdName, setTempHouseholdName] = useState("");
+    const [isSavingName, setIsSavingName] = useState(false);
     const [guardians, setGuardians] = useState<any[]>(student.guardians || []);
     const [adding, setAdding] = useState(false);
     const [newG, setNewG] = useState<any>({ ...EMPTY_GUARDIAN });
@@ -332,6 +337,37 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
     const [savingAddr, setSavingAddr] = useState(false);
     const [savedAddr, setSavedAddr] = useState(false);
     const [isAddrDirty, setIsAddrDirty] = useState(false);
+    const [syncToHousehold, setSyncToHousehold] = useState(false);
+
+    // Calculate Data Quality Score (Household Health)
+    const calculateHealthScore = () => {
+        let score = 0;
+        const isFather = (rel: string) => (rel || "").trim().toUpperCase().includes("FATHER");
+        const isMother = (rel: string) => (rel || "").trim().toUpperCase().includes("MOTHER");
+        
+        const f = student.guardians?.find((g: any) => isFather(g.relationship));
+        const m = student.guardians?.find((g: any) => isMother(g.relationship));
+        const has = (v: any) => v && v !== "N/A" && v !== "NOT PROVIDED" && v.toString().trim() !== "";
+        
+        // Father (35%): Name(15), CNIC(10), Phone(10)
+        if (has(f?.full_name)) score += 15;
+        if (has(f?.cnic)) score += 10;
+        if (has(f?.primary_phone)) score += 10;
+        
+        // Mother (35%): Name(15), CNIC(10), Phone(10)
+        if (has(m?.full_name)) score += 15;
+        if (has(m?.cnic)) score += 10;
+        if (has(m?.primary_phone)) score += 10;
+        
+        // Address (30%): House(10), Area(10), City/Postal(10)
+        if (has(familyAddress.house_appt_name)) score += 10;
+        if (has(familyAddress.area_block)) score += 10;
+        if (has(familyAddress.city) || has(familyAddress.postal_code)) score += 10;
+        
+        return Math.min(score, 100);
+    };
+
+    const healthScore = calculateHealthScore();
 
     const update = (g: any) => setGuardians(prev => prev.map(x => x.guardian_id === g.guardian_id ? { ...x, ...g } : x));
     const remove = (guardianId: number) => setGuardians(prev => prev.filter(x => x.guardian_id !== guardianId));
@@ -384,20 +420,213 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
     const saveFamilyAddress = async () => {
         setSavingAddr(true);
         try {
-            await api.patch(`/v1/staff-editing/students/${student.cc}/family-address`, familyAddress);
+            await api.patch(`/v1/staff-editing/students/${student.cc}/family-address`, {
+                ...familyAddress,
+                bulk_sync: syncToHousehold
+            });
             setSavedAddr(true);
             setTimeout(() => setSavedAddr(false), 3000);
             setIsAddrDirty(false);
             
             // Update all local guardians to keep UI in sync
             setGuardians(prev => prev.map(g => ({ ...g, ...familyAddress })));
+            
+            if (syncToHousehold) {
+                // If bulk sync was performed, reload to get latest for everyone
+                setTimeout(onReload, 1000);
+            }
         } catch(e) {
             alert("Failed to update family address");
-        } finally { setSavingAddr(false); }
+        } finally { 
+            setSavingAddr(false); 
+        }
+    };
+
+    const [isInitializingFamily, setIsInitializingFamily] = useState(false);
+    const handleCreateFamily = async () => {
+        setIsInitializingFamily(true);
+        try {
+            await api.post(`/v1/families/from-student/${student.cc}`);
+            onReload();
+        } catch (e) {
+            console.error(e);
+            alert("Failed to initialize family.");
+        } finally {
+            setIsInitializingFamily(false);
+        }
+    };
+
+    const handleUpdateHouseholdName = async () => {
+        const familyId = student.family_id || student.families?.id;
+        if (!familyId) return;
+        if (!tempHouseholdName.trim()) return alert("Household name cannot be empty");
+        
+        setIsSavingName(true);
+        try {
+            await api.patch(`/v1/families/${familyId}`, { household_name: tempHouseholdName.toUpperCase() });
+            setIsEditingName(false);
+            onReload();
+        } catch (e) {
+            console.error(e);
+            alert("Failed to update household name");
+        } finally {
+            setIsSavingName(false);
+        }
     };
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-8 pb-8">
+            {/* Section: Family / Household */}
+            <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-[11px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2">
+                        <User className="h-3.5 w-3.5" /> Family / Household Connection
+                    </h3>
+                </div>
+                
+                <div className="flex items-center justify-between gap-4 p-5 bg-white border border-indigo-100/50 rounded-2xl shadow-sm">
+                    {(student.families || student.family_id || student.household_name) ? (
+                        <div className="flex-1 min-w-0 flex items-center justify-between">
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-3 mb-1">
+                                    {isEditingName ? (
+                                        <div className="flex items-center gap-2 flex-1">
+                                            <input 
+                                                autoFocus
+                                                value={tempHouseholdName}
+                                                onChange={e => setTempHouseholdName(e.target.value)}
+                                                onKeyDown={e => e.key === "Enter" && handleUpdateHouseholdName()}
+                                                className="flex-1 h-8 px-2 text-[13px] font-bold text-zinc-900 bg-zinc-50 border border-indigo-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/10 uppercase"
+                                                placeholder="ENTER HOUSEHOLD NAME..."
+                                            />
+                                            <button 
+                                                onClick={handleUpdateHouseholdName}
+                                                disabled={isSavingName}
+                                                className="px-3 h-8 text-[10px] font-black uppercase bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-all"
+                                            >
+                                                {isSavingName ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                                            </button>
+                                            <button 
+                                                onClick={() => setIsEditingName(false)}
+                                                className="px-3 h-8 text-[10px] font-black uppercase bg-zinc-100 text-zinc-500 rounded-lg hover:bg-zinc-200 transition-all"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div 
+                                            className="group flex items-center gap-2 cursor-pointer"
+                                            onClick={() => {
+                                                setTempHouseholdName(student.families?.household_name || student.household_name || "");
+                                                setIsEditingName(true);
+                                            }}
+                                        >
+                                            <p className="text-[14px] font-bold text-zinc-900 uppercase truncate">
+                                                {student.families?.household_name || student.household_name || "Assigned Family"}
+                                            </p>
+                                            <button className="p-1 opacity-0 group-hover:opacity-100 bg-indigo-50 text-indigo-600 rounded-md transition-all">
+                                                <Save className="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-zinc-100 rounded-lg">
+                                        <div className="h-1.5 w-16 bg-zinc-200 rounded-full overflow-hidden">
+                                            <div 
+                                                className={`h-full transition-all duration-1000 ${healthScore > 80 ? "bg-emerald-500" : healthScore > 50 ? "bg-amber-500" : "bg-rose-500"}`}
+                                                style={{ width: `${healthScore}%` }}
+                                            />
+                                        </div>
+                                        <span className="text-[9px] font-black text-zinc-500">{healthScore}%</span>
+                                    </div>
+                                </div>
+                                
+                                <p className="text-[11px] text-indigo-600 font-bold tracking-tight">
+                                    Family ID: #{student.family_id || student.families?.id} {student.families?.legacy_pid ? `· PID ${student.families.legacy_pid}` : ""}
+                                </p>
+
+                                {/* Sibling Navigation */}
+                                {student.siblings && student.siblings.length > 0 && (
+                                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                                        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Siblings:</span>
+                                        {student.siblings.map((sib: any) => (
+                                            <button
+                                                key={sib.cc}
+                                                onClick={() => onSwitchStudent?.(sib.cc)}
+                                                className="group relative flex items-center gap-2 p-1 pr-3 bg-zinc-50 border border-zinc-100 rounded-full hover:bg-white hover:border-indigo-200 hover:shadow-sm transition-all active:scale-95"
+                                            >
+                                                <div className="h-5 w-5 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden border border-indigo-200 shadow-sm">
+                                                    {sib.photograph_url ? (
+                                                        <img src={sib.photograph_url} alt="" className="h-full w-full object-cover" />
+                                                    ) : (
+                                                        <User className="h-3 w-3 text-indigo-400" />
+                                                    )}
+                                                </div>
+                                                <span className="text-[10px] font-bold text-zinc-500 group-hover:text-indigo-600 truncate max-w-[80px] uppercase">
+                                                    {sib.full_name.split(' ')[0]}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <button
+                                onClick={() => setIsFamilyModalOpen(true)}
+                                className="flex items-center gap-1.5 h-8 px-3 text-[10px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-all active:scale-95 shrink-0"
+                            >
+                                <RefreshCw className="h-3 w-3" />
+                                Change
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex-1 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.5)] animate-pulse" />
+                                <div>
+                                    <p className="text-[13px] font-black text-zinc-500 uppercase tracking-tight">No Household Assigned</p>
+                                    <p className="text-[10px] text-zinc-400 font-medium">Link an existing family or create a new one.</p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setIsFamilyModalOpen(true)}
+                                    className="h-9 px-4 text-[11px] font-black uppercase tracking-wider rounded-xl bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-all active:scale-95"
+                                >
+                                    Link Existing
+                                </button>
+                                <button
+                                    onClick={handleCreateFamily}
+                                    disabled={isInitializingFamily}
+                                    className="flex items-center gap-2 h-9 px-4 text-[11px] font-black uppercase tracking-wider rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 active:scale-95 disabled:opacity-50"
+                                >
+                                    {isInitializingFamily ? (
+                                        <RefreshCw className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                        <MapPin className="h-3 w-3" />
+                                    )}
+                                    Create New
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {isFamilyModalOpen && (
+                    <ChangeFamilyModal
+                        studentId={student.cc}
+                        studentName={student.full_name}
+                        currentFamilyId={student.family_id}
+                        onClose={() => setIsFamilyModalOpen(false)}
+                        onSuccess={() => {
+                            setIsFamilyModalOpen(false);
+                            onReload();
+                        }}
+                    />
+                )}
+            </div>
+
+            <div className="space-y-3">
             <div className="flex items-center justify-between">
                 <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Guardians ({guardians.length})</h3>
                 <button onClick={() => setAdding(a => !a)} className="flex items-center gap-1 px-3 h-8 text-[11px] font-bold text-primary bg-primary/10 rounded-xl hover:bg-primary/20 transition-all">
@@ -543,14 +772,28 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
                                 <h3 className="text-[11px] font-black text-zinc-900 uppercase tracking-widest">Family Mailing Address</h3>
                                 <p className="text-[10px] text-zinc-400 font-bold uppercase">This address applies to Father, Mother, and all guardians</p>
                             </div>
-                            <button 
-                                onClick={saveFamilyAddress}
-                                disabled={savingAddr || (savedAddr && !isAddrDirty)}
-                                className={`flex items-center gap-2 px-5 h-9 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all shadow-sm ${savedAddr ? "bg-emerald-500 text-white shadow-emerald-200" : "bg-primary text-white shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"}`}
-                            >
-                                {savingAddr ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedAddr ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
-                                {savingAddr ? "Submitting..." : savedAddr ? "Address Saved" : "Save All Addresses"}
-                            </button>
+                            <div className="flex items-center justify-between pt-2">
+                                <div className="flex items-center gap-4">
+                                    <Toggle 
+                                        label="Apply to all household members" 
+                                        checked={syncToHousehold} 
+                                        onChange={setSyncToHousehold} 
+                                    />
+                                    {syncToHousehold && (
+                                        <span className="text-[9px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded uppercase animate-pulse">
+                                            Bulk Sync Enabled
+                                        </span>
+                                    )}
+                                </div>
+                                <button 
+                                    onClick={saveFamilyAddress} 
+                                    disabled={savingAddr || (!isAddrDirty && !savedAddr)} 
+                                    className={`flex items-center gap-1.5 px-6 h-9 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all shadow-lg ${savedAddr ? "bg-emerald-500 text-white shadow-emerald-200" : "bg-primary text-white shadow-primary/20 hover:bg-primary/90 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:scale-100"}`}
+                                >
+                                    {savingAddr ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedAddr ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
+                                    {savingAddr ? "Submitting..." : savedAddr ? "Submitted" : "Save All Addresses"}
+                                </button>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -582,5 +825,6 @@ export function GuardiansTab({ student, onReload }: { student: any; onReload: ()
                 </div>
             )}
         </div>
+    </div>
     );
 }

@@ -14,7 +14,7 @@ interface StudentProfileModalProps {
     studentId?: number | string | null;
     student?: StudentListItem | null; // For direct display from registration success
     onClose: () => void;
-    onUpdate?: () => void;
+    onUpdate?: (student: StudentListItem) => void;
 }
 
 export function StudentProfileModal({ studentId, student: initialStudent, onClose, onUpdate }: StudentProfileModalProps) {
@@ -60,6 +60,9 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
         try {
             const data = await studentsService.getById(Number(studentId));
             setStudent(data);
+            if (data) {
+                onUpdate?.(data);
+            }
         } catch (err) {
             toast.error("Failed to load student details");
             console.error(err);
@@ -110,12 +113,6 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                 {/* Header (Premium Gradient) */}
                 <div className="relative h-32 bg-gradient-to-r from-blue-600 to-indigo-700 p-6 flex items-end">
 
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full transition-colors"
-                    >
-                        <X className="h-5 w-5" />
-                    </button>
 
                     <div className="absolute -bottom-12 left-8 h-24 w-24 bg-white dark:bg-zinc-950 rounded-2xl p-1 shadow-lg border border-zinc-100 overflow-hidden">
                         <StudentAvatar
@@ -221,7 +218,7 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                 {student.siblings && student.siblings.length > 0 ? (
                                     <div className="space-y-3">
                                         {student.siblings.map((sibling) => (
-                                            <div key={sibling.id} className="flex items-center justify-between p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl group transition-all hover:bg-indigo-50 hover:border-indigo-200">
+                                            <div key={sibling.cc} className="flex items-center justify-between p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl group transition-all hover:bg-indigo-50 hover:border-indigo-200">
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-8 w-8 rounded-lg bg-white dark:bg-zinc-950 flex items-center justify-center text-indigo-500 shadow-sm">
                                                         <User className="h-4 w-4" />
@@ -336,30 +333,39 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                         onClose={() => setIsChangeFamilyOpen(false)}
                         onSuccess={() => {
                             setIsChangeFamilyOpen(false);
-                            if (initialStudent) {
-                                // Success Flow: Success Modal handles its own updates
-                            } else {
-                                loadStudent();
-                                onUpdate?.();
-                            }
+                            // Always reload student data on success to keep local state in sync with backend
+                            loadStudent();
+                            onUpdate?.();
                         }}
                     />
                 )}
 
                 {/* Footer Actions */}
-                <div className="bg-zinc-50 dark:bg-zinc-900 p-4 border-t flex justify-end gap-3 flex-shrink-0">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 transition-colors"
-                    >
-                        Close
-                    </button>
+                <div className="bg-zinc-50 dark:bg-zinc-900 p-4 border-t flex justify-end items-center gap-3 flex-shrink-0">
+                    {!student.household_name ? (
+                        <button
+                            onClick={handleInitializeFamily}
+                            disabled={isInitializingFamily}
+                            className="flex items-center gap-2 px-5 h-10 text-[12px] font-bold uppercase tracking-wide rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100 disabled:opacity-50"
+                        >
+                            {isInitializingFamily ? <RefreshCw className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                            Create New Family & Save
+                        </button>
+                    ) : (
+                        <button
+                            onClick={onClose}
+                            className="px-5 h-10 text-[13px] font-bold text-zinc-500 hover:text-zinc-800 transition-colors"
+                        >
+                            Close
+                        </button>
+                    )}
                     <button
                         onClick={() => {
-                            router.push(`/staff-editing/students?search=${student.cc_number}`);
+                            const sid = Number(student.cc || student.cc_number || student.registration_number || 0);
+                            router.push(`/identity/students?cc=${sid}`);
                             onClose();
                         }}
-                        className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-all shadow-sm"
+                        className="flex items-center justify-center px-6 h-10 bg-primary text-white text-[13px] font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/20"
                     >
                         Edit Profile
                     </button>
@@ -507,6 +513,15 @@ export function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onC
                                                     <p className="text-[10px] font-bold text-indigo-600/80 bg-indigo-50/50 px-1.5 py-0.5 rounded-md self-start mt-1">
                                                         {family.primary_guardian.name} {family.primary_guardian.cnic ? `(${family.primary_guardian.cnic})` : ""}
                                                     </p>
+                                                )}
+                                                {family.students && family.students.length > 0 && (
+                                                    <div className="mt-1.5 flex flex-wrap gap-1">
+                                                        {family.students.map(s => (
+                                                            <span key={s.cc} className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-[9px] font-bold text-zinc-600 dark:text-zinc-400 rounded-md uppercase tracking-tight">
+                                                                {s.full_name} ({s.cc})
+                                                            </span>
+                                                        ))}
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
