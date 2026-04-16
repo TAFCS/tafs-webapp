@@ -25,8 +25,10 @@ export interface Family {
 
 export interface FamilyStudent {
   id: number;
+  cc: number;
   first_name: string;
   last_name: string;
+  full_name: string;
   cc_number: string | null;
   gr_number: string | null;
   status: string;
