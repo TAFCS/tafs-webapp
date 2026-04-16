@@ -1500,7 +1500,7 @@ export function RegistrationForm() {
                         studentId={submitSuccess.id}
                         student={submitSuccess}
                         onClose={() => setIsProfileModalOpen(false)}
-                        onUpdate={(updated) => setSubmitSuccess(updated)}
+                        onUpdate={(updated) => updated && setSubmitSuccess(updated)}
                     />
                 )
             }
