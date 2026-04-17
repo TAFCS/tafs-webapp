@@ -47,8 +47,8 @@ const INITIAL_FORM_DATA = {
     birthCountry: "", birthProvince: "", birthCity: "",
     ageYears: "",
     previousSchools: [{ id: 1, name: "", location: "", classStudiedFrom: "", classStudiedTo: "", reasonForLeaving: "" }],
-    admissionSystem: "", admissionLevel: "", discipline: "",
-    houseNo: "", areaBlock: "", city: "", postalCode: "", province: "", country: "", 
+    admissionSystem: "", admissionLevel: "", discipline: "", isDisciplineNA: false,
+    houseNo: "", areaBlock: "", city: "", postalCode: "", isPostalCodeNA: false, province: "", country: "", 
     homePhoneCountryCode: "+92", homePhone: "", isHomePhoneNA: false,
     fatherPrimaryPhoneCountryCode: "+92", motherPrimaryPhoneCountryCode: "+92", emergencyPrimaryPhoneCountryCode: "+92",
     candidatePhone: "", isCandidatePhoneNA: false, 
@@ -304,7 +304,7 @@ export function RegistrationForm() {
             setFormData(prev => ({
                 ...prev,
                 [name]: checked,
-                [lowerField]: checked ? "N/A" : ""
+                [lowerField]: checked ? (lowerField === "discipline" ? "" : "N/A") : ""
             }));
             return;
         }
@@ -563,7 +563,7 @@ export function RegistrationForm() {
                 academic_system: academicSystem,
                 requested_grade: GRADE_NAME_TO_CODE[formData.admissionLevel] || formData.admissionLevel || 'N/A',
                 academic_year: academicYear,
-                discipline: formData.discipline || undefined,
+                discipline: formData.isDisciplineNA ? null : (formData.discipline || undefined),
                 campus_id: formData.campusId ? parseInt(formData.campusId) : undefined,
             },
             flags: formData.flags
@@ -1084,16 +1084,30 @@ export function RegistrationForm() {
                                     {formData.admissionLevel && (['VI', 'VII', 'VIII', 'IX', 'X', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III'].includes(formData.admissionLevel)) && (
                                         <div className="md:col-span-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 animate-in slide-in-from-top-2 duration-300">
                                             <div className="flex flex-col md:flex-row md:items-center gap-4">
-                                                <div className="flex-shrink-0 flex items-center gap-2">
-                                                    <div className="w-1.5 h-8 bg-primary rounded-full" />
-                                                    <label className="text-sm font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">Academic Discipline</label>
+                                                <div className="flex-shrink-0 flex items-center justify-between w-full md:w-auto gap-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-1.5 h-8 bg-primary rounded-full" />
+                                                        <label className="text-sm font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">Academic Discipline</label>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-950 px-2 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            name="isDisciplineNA" 
+                                                            id="na-discipline" 
+                                                            checked={formData.isDisciplineNA} 
+                                                            onChange={handleInputChange} 
+                                                            className="h-3.5 w-3.5 text-primary rounded" 
+                                                        />
+                                                        <label htmlFor="na-discipline" className="text-[10px] font-bold uppercase text-zinc-400 cursor-pointer">N/A</label>
+                                                    </div>
                                                 </div>
-                                                <div className="flex-1">
+                                                <div className={`flex-1 ${formData.isDisciplineNA ? 'opacity-50' : ''}`}>
                                                     <select 
                                                         name="discipline" 
                                                         value={formData.discipline || ""} 
                                                         onChange={handleInputChange}
-                                                        className="w-full px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                                        disabled={formData.isDisciplineNA}
+                                                        className="w-full px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none disabled:cursor-not-allowed"
                                                     >
                                                         <option value="">Select Discipline (Optional)...</option>
                                                         {formData.admissionSystem === "cambridge" ? (
@@ -1147,7 +1161,30 @@ export function RegistrationForm() {
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div><label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">City</label><input type="text" name="city" value={formData.city || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase text-sm font-medium" /></div>
-                                        <div><label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Postal Code</label><input type="text" name="postalCode" value={formData.postalCode || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg text-sm font-medium" /></div>
+                                        <div>
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Postal Code</label>
+                                                <div className="flex items-center gap-1.5">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        name="isPostalCodeNA" 
+                                                        id="na-postal-code" 
+                                                        checked={formData.isPostalCodeNA} 
+                                                        onChange={handleInputChange} 
+                                                        className="h-3.5 w-3.5 text-primary rounded" 
+                                                    />
+                                                    <label htmlFor="na-postal-code" className="text-[10px] font-bold uppercase text-zinc-400 cursor-pointer">N/A</label>
+                                                </div>
+                                            </div>
+                                            <input 
+                                                type="text" 
+                                                name="postalCode" 
+                                                value={formData.postalCode || ""} 
+                                                onChange={handleInputChange} 
+                                                disabled={formData.isPostalCodeNA}
+                                                className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg text-sm font-medium outline-none focus:border-primary focus:ring-1 focus:ring-primary ${formData.isPostalCodeNA ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                            />
+                                        </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div><label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Province</label><input type="text" name="province" value={formData.province || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase text-sm font-medium" /></div>
@@ -1416,11 +1453,22 @@ export function RegistrationForm() {
                                         </div>
                                     </div>
                                     <div className="flex flex-col justify-end pb-8">
-                                        <input type="text" placeholder="Day (e.g. Monday)" className="h-10 border-b-2 border-dashed border-zinc-300 dark:border-zinc-700 bg-transparent mb-2 outline-none focus:border-primary text-center px-4" />
+                                        <input 
+                                            type="text" 
+                                            placeholder="Day (e.g. Monday)" 
+                                            value=""
+                                            readOnly
+                                            className="h-10 border-b-2 border-dashed border-zinc-300 dark:border-zinc-700 bg-transparent mb-2 outline-none focus:border-primary text-center px-4" 
+                                        />
                                         <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-400 text-center uppercase tracking-wider">Day</span>
                                     </div>
                                     <div className="flex flex-col justify-end pb-8">
-                                        <input type="date" className="h-10 border-b-2 border-dashed border-zinc-300 dark:border-zinc-700 bg-transparent mb-2 outline-none focus:border-primary text-center px-4 text-sm" />
+                                        <input 
+                                            type="date" 
+                                            value=""
+                                            readOnly
+                                            className="h-10 border-b-2 border-dashed border-zinc-300 dark:border-zinc-700 bg-transparent mb-2 outline-none focus:border-primary text-center px-4 text-sm" 
+                                        />
                                         <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-400 text-center uppercase tracking-wider">Date</span>
                                     </div>
                                 </div>

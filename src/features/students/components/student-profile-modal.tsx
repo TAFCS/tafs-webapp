@@ -72,10 +72,10 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
     };
 
     useEffect(() => {
-        if (!initialStudent) {
-            loadStudent();
-        }
-    }, [studentId, initialStudent]);
+        // Always load full student details to ensure accuracy (e.g., fee status, latest photo)
+        // even if initialStudent was provided from a shallow list view.
+        loadStudent();
+    }, [studentId]);
 
     if (!studentId && !initialStudent) return null;
 
@@ -131,7 +131,9 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                         <div className="flex flex-col gap-6 lg:col-span-1">
                             <div>
                                 <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight uppercase">{student.student_full_name}</h2>
-                                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mt-1">{student.gr_number || "N/A GR"} • {student.cc_number || "N/A CC"}</p>
+                                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mt-1">
+                                    {student.gr_number ? `${student.gr_number} GR` : "N/A GR"} • {student.cc_number ? `${student.cc_number} CC` : "N/A CC"}
+                                </p>
                             </div>
 
                             <div className="flex flex-wrap gap-2">
@@ -139,7 +141,7 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                     {(student.enrollment_status || 'N/A').replace('_', ' ')} Student
                                 </span>
                                 <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${statusStyles[student.financial_status_badge || 'Cleared'] || statusStyles.Cleared}`}>
-                                    Fee: {student.financial_status_badge === 'NO_SCHEDULE' ? 'No Schedule Set' : (student.financial_status_badge || 'Cleared')}
+                                    Fee: {student.financial_status_badge === 'NO_SCHEDULE' ? 'No Schedule Set' : (student.financial_status_badge || 'Pending...')}
                                 </span>
                                 {student.student_flags && student.student_flags.some(f => f.flag.includes('fast_track')) && (
                                     <span className="px-2.5 py-1 text-[10px] font-black uppercase rounded-full bg-amber-100 text-amber-700 border border-amber-200 tracking-widest animate-pulse">
@@ -385,12 +387,14 @@ function StudentAvatar({ url, name }: { url?: string | null; name: string }) {
     }, [url]);
 
     const sanitizedUrl = url?.replace(/([^:])\/\//g, '$1/');
+    // Proxy the URL through our backend to bypass potential CORS/access issues for the browser
+    const proxiedUrl = sanitizedUrl ? `/api/v1/media/proxy?url=${encodeURIComponent(sanitizedUrl)}` : null;
 
     return (
         <div className="h-full w-full bg-blue-50 rounded-xl flex items-center justify-center text-blue-500 overflow-hidden relative">
-            {sanitizedUrl && !imgError ? (
+            {proxiedUrl && !imgError ? (
                 <img
-                    src={sanitizedUrl}
+                    src={proxiedUrl}
                     alt={name}
                     className="w-full h-full object-cover"
                     onError={() => setImgError(true)}
