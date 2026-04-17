@@ -348,6 +348,7 @@ export function RegistrationForm() {
                     province: guardian.province || prev.province,
                     country: guardian.country || prev.country,
                     postalCode: guardian.postal_code || prev.postalCode,
+                    homePhone: guardian.home_phone || prev.homePhone,
                 }));
             }
         } catch (error) {
