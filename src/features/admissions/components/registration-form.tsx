@@ -61,6 +61,7 @@ const INITIAL_FORM_DATA = {
     motherFax: "", isMotherFaxNA: false,
     isFatherWhatsapp: true, fatherWhatsapp: "",
     isMotherWhatsapp: true, motherWhatsapp: "",
+    emergencyContactType: "other", // Added for selection logic
     emergencyContactName: "", isEmergencyContactNameNA: false,
     emergencyContactPhone: "", emergencyRelationship: "",
     testDay: "", testDate: "", testTime: "", testLevel: "",
@@ -402,6 +403,31 @@ export function RegistrationForm() {
         }));
     };
 
+    const handleEmergencyTypeChange = (type: string) => {
+        setFormData(prev => {
+            const updates: any = { emergencyContactType: type };
+            
+            if (type === 'father') {
+                updates.emergencyContactName = prev.fatherName;
+                updates.emergencyContactPhone = prev.fatherPhone;
+                updates.emergencyRelationship = 'FATHER';
+                updates.isEmergencyContactNameNA = !prev.fatherName && !prev.fatherPhone;
+            } else if (type === 'mother') {
+                updates.emergencyContactName = prev.motherName;
+                updates.emergencyContactPhone = prev.motherPhone;
+                updates.emergencyRelationship = 'MOTHER';
+                updates.isEmergencyContactNameNA = !prev.motherName && !prev.motherPhone;
+            } else if (type === 'other') {
+                updates.emergencyContactName = "";
+                updates.emergencyContactPhone = "";
+                updates.emergencyRelationship = "";
+                updates.isEmergencyContactNameNA = false;
+            }
+            
+            return { ...prev, ...updates };
+        });
+    };
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitSuccess, setSubmitSuccess] = useState<StudentListItem | null>(null);
@@ -530,6 +556,7 @@ export function RegistrationForm() {
                     primary_phone_country_code: formData.emergencyPrimaryPhoneCountryCode || "+92",
                     primary_phone: formData.emergencyContactPhone || '0000-0000000',
                     relationship: formData.emergencyRelationship || 'Guardian',
+                    role: formData.emergencyContactType,
                 }
                 : undefined,
             admission: {
@@ -1069,11 +1096,27 @@ export function RegistrationForm() {
                                                         className="w-full px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                                                     >
                                                         <option value="">Select Discipline (Optional)...</option>
-                                                        <option value="Pre-Medical">Pre-Medical</option>
-                                                        <option value="Pre-Engineering">Pre-Engineering</option>
-                                                        <option value="Pre-Commerce">Pre-Commerce</option>
-                                                        <option value="Computer Science">Computer Science</option>
-                                                        <option value="Humanities">Humanities</option>
+                                                        {formData.admissionSystem === "cambridge" ? (
+                                                            <>
+                                                                <option value="Pre-Medical">Pre-Medical</option>
+                                                                <option value="Pre-Engineering">Pre-Engineering</option>
+                                                                <option value="Commerce">Commerce</option>
+                                                                <option value="Computer Science">Computer Science</option>
+                                                            </>
+                                                        ) : formData.admissionSystem === "secondary" ? (
+                                                            <>
+                                                                <option value="Pre-Medical">Pre-Medical</option>
+                                                                <option value="Pre-Engineering">Pre-Engineering</option>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <option value="Pre-Medical">Pre-Medical</option>
+                                                                <option value="Pre-Engineering">Pre-Engineering</option>
+                                                                <option value="Pre-Commerce">Pre-Commerce</option>
+                                                                <option value="Computer Science">Computer Science</option>
+                                                                <option value="Humanities">Humanities</option>
+                                                            </>
+                                                        )}
                                                     </select>
                                                 </div>
                                             </div>
@@ -1277,38 +1320,78 @@ export function RegistrationForm() {
                             </section>
 
                             <section>
-                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8">
+                                <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-5 mt-8 flex items-center justify-between">
                                     <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">Emergency Contact</h3>
+                                    <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                                        {(['father', 'mother', 'other'] as const).map((type) => (
+                                            <button
+                                                key={type}
+                                                type="button"
+                                                onClick={() => handleEmergencyTypeChange(type)}
+                                                className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                                                    formData.emergencyContactType === type 
+                                                    ? 'bg-white dark:bg-zinc-950 text-primary shadow-sm' 
+                                                    : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+                                                }`}
+                                            >
+                                                {type}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="bg-red-50/50 p-6 rounded-2xl border border-red-100 flex flex-col md:flex-row items-center gap-6">
-                                    <div className="flex-[1.5] w-full">
-                                        <div className="flex items-center justify-between mb-1.5 ml-1">
-                                            <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40">Contact Name</label>
-                                            <div className="flex items-center gap-1.5">
-                                                <input 
-                                                    type="checkbox" 
-                                                    name="isEmergencyContactNameNA" 
-                                                    id="na-emergency-name" 
-                                                    checked={formData.isEmergencyContactNameNA} 
-                                                    onChange={handleInputChange} 
-                                                    className="h-3 w-3 text-red-600 rounded" 
-                                                />
-                                                <label htmlFor="na-emergency-name" className="text-[10px] font-bold uppercase text-red-900/40 cursor-pointer">N/A</label>
+                                <div className="bg-red-50/50 p-6 rounded-2xl border border-red-100">
+                                    {formData.emergencyContactType === 'other' ? (
+                                        <div className="flex flex-col md:flex-row items-center gap-6 animate-in fade-in slide-in-from-top-1 duration-200">
+                                            <div className="flex-[1.5] w-full">
+                                                <div className="flex items-center justify-between mb-1.5 ml-1">
+                                                    <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40">Contact Name</label>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            name="isEmergencyContactNameNA" 
+                                                            id="na-emergency-name" 
+                                                            checked={formData.isEmergencyContactNameNA} 
+                                                            onChange={handleInputChange} 
+                                                            className="h-3 w-3 text-red-600 rounded" 
+                                                        />
+                                                        <label htmlFor="na-emergency-name" className="text-[10px] font-bold uppercase text-red-900/40 cursor-pointer">N/A</label>
+                                                    </div>
+                                                </div>
+                                                <input type="text" name="emergencyContactName" value={formData.emergencyContactName || ""} onChange={handleInputChange} disabled={formData.isEmergencyContactNameNA} placeholder="Full Name" className={`w-full px-4 py-3 bg-white dark:bg-zinc-950 border border-red-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none shadow-sm disabled:cursor-not-allowed ${formData.isEmergencyContactNameNA ? 'opacity-50 bg-zinc-50' : ''}`} />
+                                            </div>
+                                            <div className="flex-[1.5] w-full">
+                                                <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 mb-1.5 ml-1">Contact Number</label>
+                                                <div className="flex border border-red-200 dark:border-zinc-800 rounded-xl focus-within:ring-2 focus-within:ring-red-500 bg-white overflow-hidden shadow-sm">
+                                                    <input type="text" name="emergencyPrimaryPhoneCountryCode" value={formData.emergencyPrimaryPhoneCountryCode || ""} onChange={handleInputChange} placeholder="+92" className="w-16 px-3 py-3 border-0 bg-red-50/50 dark:bg-zinc-900 outline-none text-xs font-bold border-r border-red-100" />
+                                                    <input type="text" name="emergencyContactPhone" value={formData.emergencyContactPhone || ""} onChange={handleInputChange} placeholder="Phone Number" className="flex-1 min-w-0 px-4 py-3 border-0 outline-none text-sm bg-white dark:bg-zinc-950" />
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 w-full">
+                                                <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 mb-1.5 ml-1">Relationship</label>
+                                                <input type="text" name="emergencyRelationship" value={formData.emergencyRelationship || ""} onChange={handleInputChange} placeholder="Relative / Guardian" className="w-full px-4 py-3 bg-white dark:bg-zinc-950 border border-red-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none shadow-sm" />
                                             </div>
                                         </div>
-                                        <input type="text" name="emergencyContactName" value={formData.emergencyContactName || ""} onChange={handleInputChange} disabled={formData.isEmergencyContactNameNA} placeholder="Full Name" className={`w-full px-4 py-3 bg-white dark:bg-zinc-950 border border-red-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none shadow-sm disabled:cursor-not-allowed ${formData.isEmergencyContactNameNA ? 'opacity-50 bg-zinc-50' : ''}`} />
-                                    </div>
-                                    <div className="flex-[1.5] w-full">
-                                        <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 mb-1.5 ml-1">Contact Number</label>
-                                        <div className="flex border border-red-200 dark:border-zinc-800 rounded-xl focus-within:ring-2 focus-within:ring-red-500 bg-white overflow-hidden shadow-sm">
-                                            <input type="text" name="emergencyPrimaryPhoneCountryCode" value={formData.emergencyPrimaryPhoneCountryCode || ""} onChange={handleInputChange} placeholder="+92" className="w-16 px-3 py-3 border-0 bg-red-50/50 dark:bg-zinc-900 outline-none text-xs font-bold border-r border-red-100" />
-                                            <input type="text" name="emergencyContactPhone" value={formData.emergencyContactPhone || ""} onChange={handleInputChange} placeholder="Phone Number" className="flex-1 min-w-0 px-4 py-3 border-0 outline-none text-sm bg-white dark:bg-zinc-950" />
+                                    ) : (
+                                        <div className="flex items-center justify-between p-2 animate-in fade-in duration-300">
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-12 w-12 rounded-xl bg-red-100 flex items-center justify-center">
+                                                    <span className="text-xl font-black text-red-600 uppercase">
+                                                        {formData.emergencyContactType === 'father' ? 'F' : 'M'}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-black uppercase text-red-900/30 tracking-widest">Linked Emergency Contact</p>
+                                                    <h4 className="text-sm font-bold text-red-900/80 uppercase">
+                                                        {formData.emergencyContactType === 'father' ? 'Father' : 'Mother'}: {formData.emergencyContactName || 'No Name Provided'}
+                                                    </h4>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] font-black uppercase text-red-900/30 tracking-widest">Contact Phone</p>
+                                                <p className="text-sm font-mono font-bold text-red-900/80">{formData.emergencyContactPhone || 'No Phone Registered'}</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex-1 w-full">
-                                        <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 mb-1.5 ml-1">Relationship</label>
-                                        <input type="text" name="emergencyRelationship" value={formData.emergencyRelationship || ""} onChange={handleInputChange} placeholder="Relative / Guardian" className="w-full px-4 py-3 bg-white dark:bg-zinc-950 border border-red-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none shadow-sm" />
-                                    </div>
+                                    )}
                                 </div>
                             </section>
 

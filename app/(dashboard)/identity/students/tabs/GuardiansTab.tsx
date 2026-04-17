@@ -96,6 +96,10 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
     const [removing, setRemoving] = useState(false);
     const [expanded, setExpanded] = useState(false);
 
+    useEffect(() => {
+        setLocal(guardian);
+    }, [guardian]);
+
     const set = (k: string, v: any) => setLocal((p: any) => ({ ...p, [k]: v }));
 
     const isInfoDirty = (local.full_name || "") !== (guardian.full_name || "") ||
