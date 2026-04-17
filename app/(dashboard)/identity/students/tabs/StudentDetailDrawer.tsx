@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History } from "lucide-react";
+import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert } from "lucide-react";
 import api from "@/lib/api";
 import { IdentityTab } from "./IdentityTab";
 import { AdmissionsTab } from "./AdmissionsTab";
@@ -8,14 +8,14 @@ import { AcademicTab } from "./AcademicTab";
 import { GuardiansTab } from "./GuardiansTab";
 import { AdmissionOrderTab } from "./AdmissionOrderTab";
 import { StudentLogsTab } from "./StudentLogsTab";
+import { DangerZoneTab } from "./DangerZoneTab";
 
 const TABS = [
     { id: "identity",   label: "Identity",   icon: User },
     { id: "admissions", label: "Admissions",  icon: BookOpen },
     { id: "academic",   label: "Academic",    icon: GraduationCap },
     { id: "guardians",  label: "Guardians",   icon: Shield },
-    { id: "logs", label: "Logs", icon: History },
-    { id: "admission_order", label: "Print Order", icon: FileText },
+    { id: "logs",       label: "Logs",        icon: History },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -99,6 +99,27 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                         )}
                     </div>
                     <div className="flex items-center gap-2">
+                        {student && (
+                            <div className="flex items-center bg-zinc-50 border border-zinc-100 rounded-xl p-0.5 mr-2">
+                                <button 
+                                    onClick={() => setTab("admission_order" as any)}
+                                    className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "admission_order" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "text-indigo-400 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-600 border border-indigo-100/50"}`}
+                                    title="Admission Order"
+                                >
+                                    <FileText className="h-3.5 w-3.5" />
+                                    <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Admission Order</span>
+                                </button>
+                                <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
+                                <button 
+                                    onClick={() => setTab("danger_zone" as any)}
+                                    className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "danger_zone" ? "bg-rose-600 text-white shadow-lg shadow-rose-200" : "text-rose-400 bg-rose-50 hover:bg-rose-100 hover:text-rose-600 border border-rose-100/50"}`}
+                                    title="Danger Zone"
+                                >
+                                    <ShieldAlert className="h-3.5 w-3.5" />
+                                    <span className="text-[10px] font-black uppercase tracking-tighter">Danger</span>
+                                </button>
+                            </div>
+                        )}
                         {student && isExpelled && (
                             <button
                                 onClick={() => {
@@ -156,6 +177,7 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                             {tab === "guardians"  && <GuardiansTab  student={student} onReload={reload} onSwitchStudent={onSwitchStudent} />}
                             {tab === "logs" && <StudentLogsTab student={student} />}
                             {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
+                            {tab === "danger_zone" && <DangerZoneTab student={student} />}
                         </div>
                     )}
                 </div>
