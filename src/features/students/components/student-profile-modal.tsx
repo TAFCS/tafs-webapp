@@ -43,8 +43,8 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
         try {
             await familiesService.initializeFromStudent(sid);
             toast.success("Household initialized successfully");
-            // Always reload to get the new family details
-            loadStudent();
+            // Await the full refresh before hiding the loader to ensure UI doesn't flicker/stay stale
+            await loadStudent();
             onUpdate?.();
         } catch (err: any) {
             toast.error(err.response?.data?.message || "Failed to initialize household");

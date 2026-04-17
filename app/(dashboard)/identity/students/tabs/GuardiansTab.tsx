@@ -390,7 +390,7 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                     postal_code: g.postal_code || "",
                     province: g.province || "",
                     country: g.country || "",
-                    work_phone: g.work_phone || ""
+                    work_phone: student.home_phone || g.work_phone || ""
                 });
                 setIsAddrDirty(false);
             }
