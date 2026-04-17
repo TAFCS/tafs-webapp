@@ -18,7 +18,7 @@ const TABS = [
     { id: "logs",       label: "Logs",        icon: History },
 ] as const;
 
-type TabId = typeof TABS[number]["id"];
+type TabId = typeof TABS[number]["id"] | "admission_order" | "danger_zone";
 
 interface Props {
     cc: number | null;
