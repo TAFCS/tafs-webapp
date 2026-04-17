@@ -74,6 +74,8 @@ const INITIAL_FORM_DATA = {
     isMotherCnicForeign: false,
     isFatherPhoneForeign: false,
     isMotherPhoneForeign: false,
+    fatherPhotoUrl: "",
+    motherPhotoUrl: "",
 };
 
 import { memo } from "react";
@@ -81,11 +83,13 @@ import { memo } from "react";
 const RegistrationPhotoBox = memo(function RegistrationPhotoBox({ 
     label, 
     file, 
+    existingUrl,
     onChange, 
     className = "" 
 }: { 
     label: string; 
     file: File | null; 
+    existingUrl?: string | null;
     onChange: (file: File | null) => void;
     className?: string;
 }) {
@@ -106,16 +110,24 @@ const RegistrationPhotoBox = memo(function RegistrationPhotoBox({
         };
     }, [file]);
 
+    // Proxy for existing URLs to bypass CORS/access issues
+    const proxiedExistingUrl = existingUrl ? `/api/v1/media/proxy?url=${encodeURIComponent(existingUrl.replace(/([^:])\/\//g, '$1/'))}` : null;
+
     return (
         <div 
             onClick={() => inputRef.current?.click()}
             className={`relative group border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700/50 hover:border-primary transition-all overflow-hidden ${className}`}
         >
-            {previewUrl ? (
+            {previewUrl || proxiedExistingUrl ? (
                 <>
-                    <img src={previewUrl} alt={label} className="w-full h-full object-cover" />
+                    <img src={previewUrl || proxiedExistingUrl!} alt={label} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Camera className="h-5 w-5 text-white" />
+                        <div className="flex flex-col items-center gap-2">
+                            <Camera className="h-5 w-5 text-white" />
+                            <span className="text-[8px] font-black uppercase text-white tracking-widest bg-black/50 px-2 py-0.5 rounded">
+                                {previewUrl ? 'Change New' : 'Upload New'}
+                            </span>
+                        </div>
                     </div>
                 </>
             ) : (
@@ -128,9 +140,10 @@ const RegistrationPhotoBox = memo(function RegistrationPhotoBox({
             {file && (
                 <button 
                     onClick={(e) => { e.stopPropagation(); onChange(null); }}
-                    className="absolute top-1 right-1 p-1 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                    className="absolute top-1 right-1 p-1 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:scale-110 active:scale-95"
+                    title="Remove selected file"
                 >
-                    <X className="h-2 w-2" />
+                    <X className="h-3 w-3" />
                 </button>
             )}
 
@@ -335,12 +348,14 @@ export function RegistrationForm() {
                         fatherEmail: guardian.email_address || prev.fatherEmail,
                         fatherFax: guardian.fax_number || prev.fatherFax,
                         fatherWhatsapp: guardian.whatsapp_number || prev.fatherWhatsapp,
+                        fatherPhotoUrl: guardian.photo_url || prev.fatherPhotoUrl,
                     } : {
                         motherName: guardian.full_name || prev.motherName,
                         motherPhone: guardian.primary_phone || prev.motherPhone,
                         motherEmail: guardian.email_address || prev.motherEmail,
                         motherFax: guardian.fax_number || prev.motherFax,
                         motherWhatsapp: guardian.whatsapp_number || prev.motherWhatsapp,
+                        motherPhotoUrl: guardian.photo_url || prev.motherPhotoUrl,
                     }),
                     houseNo: guardian.house_appt_number || guardian.house_appt_name || prev.houseNo,
                     areaBlock: guardian.area_block || prev.areaBlock,
@@ -729,12 +744,14 @@ export function RegistrationForm() {
                             <RegistrationPhotoBox 
                                 label="Father"
                                 file={formData.fatherPhotoFile}
+                                existingUrl={formData.fatherPhotoUrl}
                                 onChange={(f) => setFormData(prev => ({ ...prev, fatherPhotoFile: f }))}
                                 className="h-20 w-1/2"
                             />
                             <RegistrationPhotoBox 
                                 label="Mother"
                                 file={formData.motherPhotoFile}
+                                existingUrl={formData.motherPhotoUrl}
                                 onChange={(f) => setFormData(prev => ({ ...prev, motherPhotoFile: f }))}
                                 className="h-20 w-1/2"
                             />
