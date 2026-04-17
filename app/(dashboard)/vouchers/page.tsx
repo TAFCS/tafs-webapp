@@ -359,6 +359,7 @@ function VoucherRow({ voucher, index, sections, onRefresh }: { voucher: VoucherI
     const status = getStatusConfig(voucher.status);
     const [isDownloading, setIsDownloading] = useState(false);
     const [showPartialModal, setShowPartialModal] = useState(false);
+    const [paidPdfUrl, setPaidPdfUrl] = useState<string | null>(typeof voucher.pdf_url === "string" && voucher.pdf_url.trim() ? voucher.pdf_url.trim() : null);
     const user = useAppSelector(s => s.auth.user);
 
     // ── UNPAID / OVERDUE: serve existing pdf_url directly ─────────────────
@@ -378,14 +379,28 @@ function VoucherRow({ voucher, index, sections, onRefresh }: { voucher: VoucherI
         toast.error("No PDF available for this voucher.");
     };
 
-    // ── PAID: request server-side PAID-stamped PDF (consistent with voucher generation flow)
+    // ── PAID: reuse existing paid PDF URL, otherwise request one from backend once
     const handlePaidDownload = async () => {
+        const existingUrl = paidPdfUrl || (typeof voucher.pdf_url === "string" ? voucher.pdf_url.trim() : "");
+        if (existingUrl) {
+            const link = document.createElement("a");
+            link.href = existingUrl;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toast.success("PAID voucher opened in a new tab.");
+            return;
+        }
+
         setIsDownloading(true);
         const loadingToast = toast.loading("Generating PAID PDF…");
         try {
             const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, { paid_stamp: true });
             const pdfUrl = pdfRes.data?.pdf_url;
             if (!pdfUrl) throw new Error("No PDF URL returned from server.");
+            setPaidPdfUrl(pdfUrl);
 
             const link = document.createElement("a");
             link.href = pdfUrl;
