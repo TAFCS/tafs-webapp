@@ -102,7 +102,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             icon: Settings,
             permissions: ['system.users.view', 'system.permissions.manage', 'system.analytics.view'],
             items: [
-                { name: 'User Management', href: '/identity', icon: UserCog, permission: 'system.users.view' },
+                { name: 'User Management', href: '/system/users', icon: UserCog, permission: 'system.users.view' },
                 { name: 'Permissions', href: '/system/permissions', icon: ShieldCheck, permission: 'system.permissions.manage' },
                 { name: 'Analytics', href: '/dashboard', icon: BarChart3, permission: 'system.analytics.view' },
             ]
