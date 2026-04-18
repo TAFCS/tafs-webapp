@@ -2,9 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Download, Loader2, ArrowLeftRight, CheckCircle2, ChevronDown, AlertCircle } from 'lucide-react';
-import { pdf } from '@react-pdf/renderer';
-import { TransferOrderPDF } from './TransferOrderPDF';
-import type { TransferOrderData } from './TransferOrderPDF';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
@@ -45,21 +42,6 @@ interface ClassOption {
     academic_system: string;
 }
 
-async function toBase64DataUrl(url: string): Promise<string | null> {
-    try {
-        const res = await fetch(url);
-        if (!res.ok) return null;
-        const blob = await res.blob();
-        return new Promise<string | null>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = () => resolve(null);
-            reader.readAsDataURL(blob);
-        });
-    } catch {
-        return null;
-    }
-}
 
 interface Props {
     student: TransferStudent;
@@ -80,38 +62,18 @@ export default function TransferOrderForm({ student }: Props) {
     const [transferred, setTransferred] = useState(false);
     const [updatedData, setUpdatedData] = useState<TransferStudent | null>(null);
 
-    // PDF assets
-    const [photoBase64, setPhotoBase64] = useState<string | null>(null);
-    const [logoBase64, setLogoBase64] = useState<string | null>(null);
-    const [isPreparingAssets, setIsPreparingAssets] = useState(true);
+    // PDF Generation state
     const [isGenerating, setIsGenerating] = useState(false);
 
     // Fetch classes on mount
     useEffect(() => {
-        api.get('/v1/transfers/classes')
+        api.get(`/v1/transfers/${student.cc}/classes`)
             .then(({ data: res }) => setAllClasses(res.data || res))
             .catch(() => toast.error('Failed to load class list'))
             .finally(() => setLoadingClasses(false));
-    }, []);
+    }, [student.cc]);
 
-    // Prefetch PDF assets
-    useEffect(() => {
-        let cancelled = false;
-        setIsPreparingAssets(true);
-        const prepare = async () => {
-            const logo = await toBase64DataUrl('/logo.png');
-            if (!cancelled) setLogoBase64(logo);
-            if (student.photograph_url) {
-                const origin = window.location.origin;
-                const proxy = `${origin}/api/photo-proxy?url=${encodeURIComponent(student.photograph_url)}`;
-                const photo = await toBase64DataUrl(proxy);
-                if (!cancelled && photo) setPhotoBase64(photo);
-            }
-            if (!cancelled) setIsPreparingAssets(false);
-        };
-        prepare();
-        return () => { cancelled = true; };
-    }, [student.cc, student.photograph_url]);
+
 
     // Derived: the selected class object
     const selectedClass = allClasses.find(c => c.id === toClassId);
@@ -153,62 +115,38 @@ export default function TransferOrderForm({ student }: Props) {
         try {
             const now = new Date();
             const months = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
-            const days = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
-            const pdfData: TransferOrderData = {
-                cc: source.cc,
-                gr_number: source.gr_number,
-                reg_number: source.reg_number,
-                full_name: source.full_name,
-                father_name: source.father_name,
-                dob: source.dob,
-                gender: source.gender,
-                scholastic_year: source.scholastic_year || source.academic_year,
-                academic_year: source.academic_year,
-                campus_name: source.campus_name,
-                campus_number: source.campus_number,
-                class_name: source.class_name,
-                section_name: source.section_name,
-                segment_head: source.segment_head,
-                address: source.address,
-                home_phone: source.home_phone,
-                fax: source.fax,
-                father_cell: source.father_cell,
-                mother_cell: source.mother_cell,
-                nearest_phone: source.nearest_phone,
-                nearest_name: source.nearest_name,
-                nearest_relationship: source.nearest_relationship,
-                email: source.email,
-                day: source.day || days[now.getDay()],
-                date: source.date || `${months[now.getMonth()]} ${String(now.getDate()).padStart(2, '0')}, ${now.getFullYear()}`,
-                photograph_url: photoBase64,
-                logo_url: logoBase64,
-                transfer_from: fromSystem,
-                transfer_to: toSystem || selectedClass?.academic_system || '',
-                discipline: discipline,
-                date_of_transfer: `${String(now.getDate()).padStart(2, '0')} ${months[now.getMonth()]} ${now.getFullYear()}`,
-                remarks_inline: '',
-                remarks_footer: remarks,
-            };
+            const dateStr = `${String(now.getDate()).padStart(2,'0')} ${months[now.getMonth()]} ${now.getFullYear()}`;
 
-            const blob = await pdf(<TransferOrderPDF data={pdfData} />).toBlob();
-            const url = URL.createObjectURL(blob);
+            const { data: res } = await api.post(`/v1/transfers/${source.cc}/generate-pdf`, {
+                transfer_from: fromSystem,
+                transfer_to: toSystem,
+                discipline: discipline || undefined,
+                remarks: remarks || undefined,
+                date_of_transfer: dateStr,
+            });
+
+            const pdfUrl: string = res.data?.url || res.url;
+            if (!pdfUrl) throw new Error('No URL returned from server');
+
+            // Trigger browser download
             const a = document.createElement('a');
-            a.href = url;
+            a.href = pdfUrl;
+            a.target = '_blank';
             a.download = `transfer-order-${source.cc}.pdf`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
-        } catch (err) {
+
+            toast.success('Transfer Order PDF downloaded!');
+        } catch (err: any) {
             console.error(err);
-            alert('Failed to generate PDF. Please try again.');
+            toast.error(err?.response?.data?.message || 'PDF generation failed. Please try again.');
         } finally {
             setIsGenerating(false);
         }
-    }, [student, updatedData, photoBase64, logoBase64, fromSystem, toSystem, selectedClass, discipline, remarks]);
+    }, [student, updatedData, fromSystem, toSystem, discipline, remarks]);
 
     const displayPhoto = (() => {
-        if (photoBase64) return photoBase64;
         if (student.photograph_url && typeof window !== 'undefined')
             return `${window.location.origin}/api/photo-proxy?url=${encodeURIComponent(student.photograph_url)}`;
         return null;
@@ -258,13 +196,11 @@ export default function TransferOrderForm({ student }: Props) {
                 {/* Download PDF */}
                 <button
                     onClick={handleDownload}
-                    disabled={isPreparingAssets || isGenerating}
+                    disabled={isGenerating}
                     className="group w-full flex items-center justify-center gap-3 px-8 py-5 bg-gradient-to-r from-red-700 to-red-800 text-white rounded-2xl font-black text-base shadow-xl shadow-red-900/25 hover:shadow-red-900/40 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isGenerating ? (
                         <><Loader2 className="h-5 w-5 animate-spin" />Generating PDF...</>
-                    ) : isPreparingAssets ? (
-                        <><Loader2 className="h-5 w-5 animate-spin" />Preparing...</>
                     ) : (
                         <><Download className="h-5 w-5" />Download Transfer Order PDF</>
                     )}

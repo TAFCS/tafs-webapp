@@ -88,9 +88,9 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         <span className="font-medium text-sm">Enrollments</span>
                     </Link>
 
-                    <Link href="/transfers" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-                        <ArrowLeftRight className="h-5 w-5 mr-3 text-red-600 dark:text-red-400" />
-                        <span className="font-medium text-sm">Transfers</span>
+                    <Link href="/transitions" className="flex items-center px-3 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                        <ArrowLeftRight className="h-5 w-5 mr-3 text-violet-600 dark:text-violet-400" />
+                        <span className="font-medium text-sm">Transitions</span>
                     </Link>
 
                     <div className="mt-auto pt-4 border-t border-zinc-100">

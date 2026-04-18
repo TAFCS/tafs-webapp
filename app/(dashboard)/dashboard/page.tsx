@@ -165,18 +165,6 @@ export default function DashboardPage() {
             <div className="space-y-4 pt-4">
                 <h2 className="text-lg font-medium text-zinc-800 dark:text-zinc-200">Student Management</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-                    <Link href="/bulk-promote" className="group text-left">
-                        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex flex-col items-center justify-center text-center h-full gap-4">
-                            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                                <TrendingUp className="h-8 w-8 text-primary" />
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">Bulk Promote</h2>
-                                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Bulk promote children to next classes</p>
-                            </div>
-                        </div>
-                    </Link>
-
                     <Link href="/identity/register" className="group">
                         <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex flex-col items-center justify-center text-center h-full gap-4">
                             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
@@ -201,19 +189,18 @@ export default function DashboardPage() {
                         </div>
                     </Link>
 
-                    <Link href="/transfers" className="group text-left">
-                        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-red-300/40 dark:hover:border-red-700/40 transition-all flex flex-col items-center justify-center text-center h-full gap-4 relative overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-br from-red-500/0 to-red-500/0 group-hover:from-red-500/5 group-hover:to-red-500/0 transition-all duration-500" />
-                            <div className="h-16 w-16 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center group-hover:bg-red-100 dark:group-hover:bg-red-900/30 transition-colors relative z-10">
-                                <ArrowLeftRight className="h-8 w-8 text-red-600 dark:text-red-400" />
+                    <Link href="/transitions" className="group text-left">
+                        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-violet-300/40 dark:hover:border-violet-700/40 transition-all flex flex-col items-center justify-center text-center h-full gap-4 relative overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 to-violet-500/0 group-hover:from-violet-500/5 group-hover:to-violet-500/0 transition-all duration-500" />
+                            <div className="h-16 w-16 rounded-full bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center group-hover:bg-violet-100 dark:group-hover:bg-violet-900/30 transition-colors relative z-10">
+                                <ArrowLeftRight className="h-8 w-8 text-violet-600 dark:text-violet-400" />
                             </div>
                             <div className="relative z-10">
-                                <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">Transfers</h2>
-                                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Shift between Cambridge &amp; Secondary</p>
+                                <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">Transitions</h2>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Promotions & system transfers</p>
                             </div>
                         </div>
                     </Link>
-
 
                     <Link href="/families" className="group">
                         <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex flex-col items-center justify-center text-center h-full gap-4">
