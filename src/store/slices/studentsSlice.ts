@@ -19,6 +19,7 @@ export interface StudentListItem {
   financial_status_badge: string | null;
   family_id: number | null;
   household_name: string | null;
+  home_phone?: string | null;
   total_outstanding_balance: number | null;
   advance_credit_balance: number | null;
   primary_guardian_cnic: string | null;

@@ -661,6 +661,7 @@ export function RegistrationForm() {
                 financial_status_badge: 'Cleared',
                 family_id: rawStudent.families?.id,
                 household_name: rawStudent.families?.household_name,
+                home_phone: rawStudent.families?.home_phone || rawStudent.home_phone,
                 total_outstanding_balance: 0,
                 advance_credit_balance: 0,
                 primary_guardian_cnic: primaryGuardian?.cnic,

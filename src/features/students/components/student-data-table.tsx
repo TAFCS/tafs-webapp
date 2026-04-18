@@ -61,6 +61,7 @@ const COLUMNS: ColumnDef[] = [
     { id: "residential_address", label: "Address", isDefault: false },
     { id: "father_name", label: "Father's Name", isDefault: false },
     { id: "siblings", label: "Siblings", isDefault: false },
+    { id: "home_phone", label: "Family Home Phone", isDefault: false },
 ];
 
 const COL_TO_CATEGORY_MAP: Record<keyof StudentListItem, string> = {
@@ -74,6 +75,7 @@ const COL_TO_CATEGORY_MAP: Record<keyof StudentListItem, string> = {
     total_outstanding_balance: "core", advance_credit_balance: "core",
     father_name: "contact", siblings: "family", photograph_url: "core",
     student_flags: "core", cc: "core", full_name: "core",
+    home_phone: "contact",
 };
 
 function useDebounce<T>(value: T, delay: number): T {
