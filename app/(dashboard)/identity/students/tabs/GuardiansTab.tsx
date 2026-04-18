@@ -35,7 +35,7 @@ function Input({ value, onChange, placeholder, type = "text", className = "", sh
     );
 }
 
-function PhoneInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+function PhoneInput({ value, onChange, placeholder, className = "" }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) {
     const handlePhoneChange = (v: string) => {
         if (v === "N/A") return;
         if (!v.startsWith("+92")) {
@@ -47,7 +47,7 @@ function PhoneInput({ value, onChange, placeholder }: { value: string; onChange:
     };
 
     return (
-        <div className="relative flex items-center">
+        <div className={`relative flex items-center ${className}`}>
             <input
                 type="text"
                 value={value === "N/A" ? "N/A" : (value?.startsWith("+92") ? value : ("+92" + (value || "")))}
@@ -107,7 +107,8 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                        (local.primary_phone || "") !== (guardian.primary_phone || "") ||
                        (local.whatsapp_number || "") !== (guardian.whatsapp_number || "") ||
                        (local.occupation || "") !== (guardian.occupation || "") ||
-                       (local.email_address || "") !== (guardian.email_address || "");
+                       (local.email_address || "") !== (guardian.email_address || "") ||
+                       JSON.stringify(local.additional_phones || []) !== JSON.stringify(guardian.additional_phones || []);
 
     const isRelDirty = (local.relationship || "") !== (guardian.relationship || "") ||
                        !!local.is_primary_contact !== !!guardian.is_primary_contact ||
@@ -123,6 +124,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                 whatsapp_number: local.whatsapp_number,
                 occupation: local.occupation,
                 email_address: local.email_address,
+                additional_phones: local.additional_phones || [],
             });
             setSavedInfo(true);
             setTimeout(() => setSavedInfo(false), 3000);
@@ -248,6 +250,61 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                             <div className="col-span-2"><Field label="Email"><Input type="email" value={local.email_address ?? ""} onChange={v => set("email_address", v)} /></Field></div>
                         </div>
 
+                        {/* Additional Phone Numbers */}
+                        <div className="pt-2">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Additional Numbers</p>
+                                <button 
+                                    onClick={() => {
+                                        const current = local.additional_phones || [];
+                                        set("additional_phones", [...current, { label: "", number: "+92" }]);
+                                    }}
+                                    className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-all"
+                                >
+                                    <Plus className="h-3 w-3" /> Add Number
+                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                {(local.additional_phones || []).map((ph: any, idx: number) => (
+                                    <div key={idx} className="flex gap-2 items-end group animate-in slide-in-from-right-2 duration-200">
+                                        <div className="flex-1">
+                                            <Input 
+                                                value={ph.label} 
+                                                onChange={v => {
+                                                    const updated = [...(local.additional_phones || [])];
+                                                    updated[idx] = { ...updated[idx], label: v };
+                                                    set("additional_phones", updated);
+                                                }} 
+                                                placeholder="LABEL (E.G. OFFICE)" 
+                                            />
+                                        </div>
+                                        <div className="flex-[1.5]">
+                                            <PhoneInput 
+                                                value={ph.number} 
+                                                onChange={v => {
+                                                    const updated = [...(local.additional_phones || [])];
+                                                    updated[idx] = { ...updated[idx], number: v };
+                                                    set("additional_phones", updated);
+                                                }} 
+                                            />
+                                        </div>
+                                        <button 
+                                            onClick={() => {
+                                                const updated = (local.additional_phones || []).filter((_: any, i: number) => i !== idx);
+                                                set("additional_phones", updated);
+                                            }}
+                                            className="h-9 w-9 flex items-center justify-center text-rose-500 bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-100"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                                {(!local.additional_phones || local.additional_phones.length === 0) && (
+                                    <p className="text-[10px] text-zinc-400 italic py-2 text-center border border-dashed border-zinc-100 rounded-xl">No additional numbers saved.</p>
+                                )}
+                            </div>
+                        </div>
+
                         <div className="flex gap-2 pt-1">
                             <button 
                                 onClick={saveGuardianInfo} 
@@ -269,8 +326,9 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
 }
 
 const EMPTY_GUARDIAN = { 
-    full_name: "", cnic: "", relationship: "GUARDIAN", primary_phone: "", whatsapp_number: "", 
+    full_name: "", cnic: "", relationship: "GUARDIAN", primary_phone: "+92", whatsapp_number: "+92", 
     occupation: "", email_address: "", is_primary_contact: false, is_emergency_contact: false,
+    additional_phones: []
 };
 
 export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: any; onReload: () => void; onSwitchStudent?: (cc: number) => void }) {
@@ -761,6 +819,53 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="col-span-2"><Field label="Full Name"><Input value={newG.full_name} onChange={v => set("full_name", v)} showNA /></Field></div>
+                            </div>
+
+                            {/* Additional Numbers for NEW Guardian */}
+                            <div className="mt-2 pt-2 border-t border-blue-100/30">
+                                <div className="flex items-center justify-between mb-2">
+                                    <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Additional Numbers</p>
+                                    <button 
+                                        onClick={() => set("additional_phones", [...(newG.additional_phones || []), { label: "", number: "+92" }])}
+                                        className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-black bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
+                                    >
+                                        <Plus className="h-2.5 w-2.5" /> Row
+                                    </button>
+                                </div>
+                                <div className="space-y-2">
+                                    {(newG.additional_phones || []).map((ph: any, idx: number) => (
+                                        <div key={idx} className="flex gap-2 animate-in fade-in duration-200">
+                                            <Input 
+                                                className="flex-1"
+                                                value={ph.label} 
+                                                onChange={v => {
+                                                    const updated = [...(newG.additional_phones || [])];
+                                                    updated[idx] = { ...updated[idx], label: v };
+                                                    set("additional_phones", updated);
+                                                }} 
+                                                placeholder="LABEL"
+                                            />
+                                            <PhoneInput 
+                                                className="flex-[1.5]"
+                                                value={ph.number} 
+                                                onChange={v => {
+                                                    const updated = [...(newG.additional_phones || [])];
+                                                    updated[idx] = { ...updated[idx], number: v };
+                                                    set("additional_phones", updated);
+                                                }} 
+                                            />
+                                            <button 
+                                                onClick={() => {
+                                                    const updated = (newG.additional_phones || []).filter((_: any, i: number) => i !== idx);
+                                                    set("additional_phones", updated);
+                                                }}
+                                                className="h-9 w-9 flex items-center justify-center text-rose-500 bg-rose-50 rounded-xl"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>

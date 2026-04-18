@@ -76,6 +76,8 @@ const INITIAL_FORM_DATA = {
     isMotherPhoneForeign: false,
     fatherPhotoUrl: "",
     motherPhotoUrl: "",
+    fatherAdditionalPhones: [] as Array<{ id: string; label: string; number: string }>,
+    motherAdditionalPhones: [] as Array<{ id: string; label: string; number: string }>,
 };
 
 import { memo } from "react";
@@ -254,10 +256,10 @@ export function RegistrationForm() {
             const formatted = formatCNIC(value);
             setFormData(prev => ({ ...prev, [name]: formatted }));
             
-            // Auto-fetch if 13 digits are reached
+            // Auto-fetch if 13+ digits are reached (local) or any input (foreign)
             const digits = value.replace(/\D/g, "");
-            if (digits.length === 13) {
-                fetchGuardianData(name === "fatherCnic" ? "father" : "mother", formatted);
+            if (digits.length === 13 || isForeign) {
+                fetchGuardianData(name === "fatherCnic" ? "father" : "mother", value);
             }
             return;
         }
@@ -333,38 +335,99 @@ export function RegistrationForm() {
     };
 
     const fetchGuardianData = async (type: "father" | "mother", cnic: string) => {
-        if (!cnic || cnic.length < 15) return;
+        if (!cnic || (cnic.length < 15 && !cnic.includes('-'))) return;
 
         setFetchingCnic(type);
         try {
             const response = await api.get(`/v1/admissions/guardians/by-cnic/${cnic}`);
             if (response.data?.success && response.data.data) {
                 const guardian = response.data.data;
-                setFormData(prev => ({
-                    ...prev,
-                    ...(type === "father" ? {
-                        fatherName: guardian.full_name || prev.fatherName,
-                        fatherPhone: guardian.primary_phone || prev.fatherPhone,
-                        fatherEmail: guardian.email_address || prev.fatherEmail,
-                        fatherFax: guardian.fax_number || prev.fatherFax,
-                        fatherWhatsapp: guardian.whatsapp_number || prev.fatherWhatsapp,
-                        fatherPhotoUrl: guardian.photo_url || prev.fatherPhotoUrl,
-                    } : {
-                        motherName: guardian.full_name || prev.motherName,
-                        motherPhone: guardian.primary_phone || prev.motherPhone,
-                        motherEmail: guardian.email_address || prev.motherEmail,
-                        motherFax: guardian.fax_number || prev.motherFax,
-                        motherWhatsapp: guardian.whatsapp_number || prev.motherWhatsapp,
-                        motherPhotoUrl: guardian.photo_url || prev.motherPhotoUrl,
-                    }),
-                    houseNo: guardian.house_appt_number || guardian.house_appt_name || prev.houseNo,
-                    areaBlock: guardian.area_block || prev.areaBlock,
-                    city: guardian.city || prev.city,
-                    province: guardian.province || prev.province,
-                    country: guardian.country || prev.country,
-                    postalCode: guardian.postal_code || prev.postalCode,
-                    homePhone: guardian.home_phone || prev.homePhone,
-                }));
+                const family = guardian.family;
+                
+                setFormData(prev => {
+                    const updates: any = {};
+
+                    // 1. Populate searched guardian (Father or Mother)
+                    if (type === "father") {
+                        updates.fatherName = guardian.full_name || prev.fatherName;
+                        updates.fatherPhone = guardian.primary_phone || prev.fatherPhone;
+                        updates.fatherEmail = guardian.email_address || prev.fatherEmail;
+                        updates.fatherFax = guardian.fax_number || prev.fatherFax;
+                        updates.fatherWhatsapp = guardian.whatsapp_number || prev.fatherWhatsapp;
+                        updates.fatherPhotoUrl = guardian.photo_url || prev.fatherPhotoUrl;
+                        updates.fatherAdditionalPhones = (guardian.additional_phones || []).map((p: any) => 
+                            typeof p === 'object' ? { id: Math.random().toString(), ...p } : { id: Math.random().toString(), label: 'Other', number: p }
+                        );
+                    } else {
+                        updates.motherName = guardian.full_name || prev.motherName;
+                        updates.motherPhone = guardian.primary_phone || prev.motherPhone;
+                        updates.motherEmail = guardian.email_address || prev.motherEmail;
+                        updates.motherFax = guardian.fax_number || prev.motherFax;
+                        updates.motherWhatsapp = guardian.whatsapp_number || prev.motherWhatsapp;
+                        updates.motherPhotoUrl = guardian.photo_url || prev.motherPhotoUrl;
+                        updates.motherAdditionalPhones = (guardian.additional_phones || []).map((p: any) => 
+                            typeof p === 'object' ? { id: Math.random().toString(), ...p } : { id: Math.random().toString(), label: 'Other', number: p }
+                        );
+                    }
+
+                    // 2. If a family exists, populate Mother/Father and Address
+                    if (family) {
+                        // Populate other parent automatically as requested (overwrites if present)
+                        const otherParentRel = type === "father" ? "Mother" : "Father";
+                        const otherParent = family.other_guardians?.[otherParentRel];
+
+                        if (otherParent) {
+                            if (type === "father") {
+                                updates.motherName = otherParent.full_name || prev.motherName;
+                                updates.motherCnic = otherParent.cnic || prev.motherCnic;
+                                updates.motherPhone = otherParent.primary_phone || prev.motherPhone;
+                                updates.motherEmail = otherParent.email_address || prev.motherEmail;
+                                updates.motherWhatsapp = otherParent.whatsapp_number || prev.motherWhatsapp;
+                                updates.motherPhotoUrl = otherParent.photo_url || prev.motherPhotoUrl;
+                                updates.motherAdditionalPhones = (otherParent.additional_phones || []).map((p: any) => 
+                                    typeof p === 'object' ? { id: Math.random().toString(), ...p } : { id: Math.random().toString(), label: 'Other', number: p }
+                                );
+                            } else {
+                                updates.fatherName = otherParent.full_name || prev.fatherName;
+                                updates.fatherCnic = otherParent.cnic || prev.fatherCnic;
+                                updates.fatherPhone = otherParent.primary_phone || prev.fatherPhone;
+                                updates.fatherEmail = otherParent.email_address || prev.fatherEmail;
+                                updates.fatherWhatsapp = otherParent.whatsapp_number || prev.fatherWhatsapp;
+                                updates.fatherPhotoUrl = otherParent.photo_url || prev.fatherPhotoUrl;
+                                updates.fatherAdditionalPhones = (otherParent.additional_phones || []).map((p: any) => 
+                                    typeof p === 'object' ? { id: Math.random().toString(), ...p } : { id: Math.random().toString(), label: 'Other', number: p }
+                                );
+                            }
+                        }
+
+                        // 3. Address Population
+                        // Prefer separate fields from guardian if they exist
+                        const gHouse = guardian.house_appt_number || guardian.house_appt_name;
+                        if (gHouse) {
+                            updates.houseNo = gHouse;
+                            updates.areaBlock = guardian.area_block || prev.areaBlock;
+                            updates.city = guardian.city || prev.city;
+                            updates.province = guardian.province || prev.province;
+                            updates.country = guardian.country || prev.country;
+                            updates.postalCode = guardian.postal_code || prev.postalCode;
+                        } else if (family?.primary_address) {
+                            // Fallback: Split concatenated address string by commas
+                            const parts = family.primary_address.split(',').map((s: string) => s.trim());
+                            if (parts.length > 0) updates.houseNo = parts[0];
+                            if (parts.length > 1) updates.areaBlock = parts[1];
+                            if (parts.length > 2) updates.city = parts[2];
+                            if (parts.length > 3) updates.province = parts[3];
+                            if (parts.length > 4) updates.country = parts[4];
+                            if (parts.length > 5) updates.postalCode = parts[5];
+                        }
+
+                        if (family?.home_phone) {
+                            updates.homePhone = family.home_phone;
+                        }
+                    }
+
+                    return { ...prev, ...updates };
+                });
             }
         } catch (error) {
             console.log(`No existing guardian found for CNIC. Proceeding normally.`);
@@ -442,6 +505,32 @@ export function RegistrationForm() {
             
             return { ...prev, ...updates };
         });
+    };
+
+    const addAdditionalPhone = (type: 'father' | 'mother') => {
+        const field = type === 'father' ? 'fatherAdditionalPhones' : 'motherAdditionalPhones';
+        setFormData(prev => ({
+            ...prev,
+            [field]: [...(prev as any)[field], { id: Date.now().toString(), label: "SECONDARY", number: "" }]
+        }));
+    };
+
+    const removeAdditionalPhone = (type: 'father' | 'mother', id: string) => {
+        const field = type === 'father' ? 'fatherAdditionalPhones' : 'motherAdditionalPhones';
+        setFormData(prev => ({
+            ...prev,
+            [field]: (prev as any)[field].filter((p: any) => p.id !== id)
+        }));
+    };
+
+    const handleAdditionalPhoneChange = (type: 'father' | 'mother', id: string, key: 'label' | 'number', value: string) => {
+        const field = type === 'father' ? 'fatherAdditionalPhones' : 'motherAdditionalPhones';
+        setFormData(prev => ({
+            ...prev,
+            [field]: (prev as any)[field].map((p: any) => 
+                p.id === id ? { ...p, [key]: value.toUpperCase() } : p
+            )
+        }));
     };
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -555,6 +644,9 @@ export function RegistrationForm() {
                 postal_code: formData.postalCode || undefined,
                 fax_number: formData.fatherFax || undefined,
                 whatsapp_number: formData.isFatherWhatsapp ? formData.fatherPhone : formData.fatherWhatsapp || undefined,
+                additional_phones: formData.fatherAdditionalPhones
+                    .filter(p => p.number.trim())
+                    .map(p => ({ label: p.label, number: p.number })),
             },
             mother: {
                 full_name: motherFullName,
@@ -564,6 +656,9 @@ export function RegistrationForm() {
                 email_address: formData.motherEmail || undefined,
                 fax_number: formData.motherFax || undefined,
                 whatsapp_number: formData.isMotherWhatsapp ? formData.motherPhone : formData.motherWhatsapp || undefined,
+                additional_phones: formData.motherAdditionalPhones
+                    .filter(p => p.number.trim())
+                    .map(p => ({ label: p.label, number: p.number })),
             },
             home_phone: formData.homePhone || undefined,
             emergency_contact: formData.emergencyContactName
@@ -1302,6 +1397,44 @@ export function RegistrationForm() {
                                                                 <input type="text" name="fatherWhatsapp" value={formData.fatherWhatsapp || ""} onChange={handleInputChange} placeholder="WA Number" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none bg-emerald-50/30" />
                                                             </div>
                                                         )}
+                                                        {/* Father Additional Phones */}
+                                                        <div className="mt-2 space-y-2">
+                                                            {formData.fatherAdditionalPhones.map((phone) => (
+                                                                <div key={phone.id} className="flex gap-1 animate-in slide-in-from-right-2 duration-200">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        value={phone.label} 
+                                                                        onChange={(e) => handleAdditionalPhoneChange('father', phone.id, 'label', e.target.value)}
+                                                                        placeholder="LABEL"
+                                                                        className="w-16 px-1 py-1 text-[9px] font-black border border-zinc-200 dark:border-zinc-800 rounded uppercase outline-none focus:border-primary"
+                                                                    />
+                                                                    <div className="flex flex-1 border border-zinc-200 dark:border-zinc-800 rounded overflow-hidden">
+                                                                        <span className="flex items-center px-1 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-[9px] font-semibold text-zinc-500">+92</span>
+                                                                        <input 
+                                                                            type="text" 
+                                                                            value={phone.number} 
+                                                                            onChange={(e) => handleAdditionalPhoneChange('father', phone.id, 'number', e.target.value)}
+                                                                            placeholder="Number"
+                                                                            className="w-full px-2 py-1 text-xs outline-none"
+                                                                        />
+                                                                        <button 
+                                                                            type="button" 
+                                                                            onClick={() => removeAdditionalPhone('father', phone.id)}
+                                                                            className="px-1.5 bg-zinc-50 hover:bg-red-50 hover:text-red-500 border-l border-zinc-200 transition-colors"
+                                                                        >
+                                                                            <X className="h-3 w-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => addAdditionalPhone('father')}
+                                                                className="text-[9px] font-black text-primary hover:text-primary/80 uppercase tracking-widest flex items-center gap-1 transition-colors mt-1"
+                                                            >
+                                                                <Plus className="h-2.5 w-2.5" /> Additional Number
+                                                            </button>
+                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2">
@@ -1353,6 +1486,45 @@ export function RegistrationForm() {
                                                                 <input type="text" name="motherWhatsapp" value={formData.motherWhatsapp || ""} onChange={handleInputChange} placeholder="WA Number" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none bg-emerald-50/30" />
                                                             </div>
                                                         )}
+
+                                                        {/* Mother Additional Phones */}
+                                                        <div className="mt-2 space-y-2">
+                                                            {formData.motherAdditionalPhones.map((phone) => (
+                                                                <div key={phone.id} className="flex gap-1 animate-in slide-in-from-right-2 duration-200">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        value={phone.label} 
+                                                                        onChange={(e) => handleAdditionalPhoneChange('mother', phone.id, 'label', e.target.value)}
+                                                                        placeholder="LABEL"
+                                                                        className="w-16 px-1 py-1 text-[9px] font-black border border-zinc-200 dark:border-zinc-800 rounded uppercase outline-none focus:border-primary"
+                                                                    />
+                                                                    <div className="flex flex-1 border border-zinc-200 dark:border-zinc-800 rounded overflow-hidden">
+                                                                        <span className="flex items-center px-1 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-[9px] font-semibold text-zinc-500">+92</span>
+                                                                        <input 
+                                                                            type="text" 
+                                                                            value={phone.number} 
+                                                                            onChange={(e) => handleAdditionalPhoneChange('mother', phone.id, 'number', e.target.value)}
+                                                                            placeholder="Number"
+                                                                            className="w-full px-2 py-1 text-xs outline-none"
+                                                                        />
+                                                                        <button 
+                                                                            type="button" 
+                                                                            onClick={() => removeAdditionalPhone('mother', phone.id)}
+                                                                            className="px-1.5 bg-zinc-50 hover:bg-red-50 hover:text-red-500 border-l border-zinc-200 transition-colors"
+                                                                        >
+                                                                            <X className="h-3 w-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => addAdditionalPhone('mother')}
+                                                                className="text-[9px] font-black text-primary hover:text-primary/80 uppercase tracking-widest flex items-center gap-1 transition-colors mt-1"
+                                                            >
+                                                                <Plus className="h-2.5 w-2.5" /> Additional Number
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2">
