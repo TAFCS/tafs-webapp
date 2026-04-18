@@ -55,10 +55,11 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
     };
 
     const loadStudent = async () => {
-        if (!studentId) return;
+        const sid = studentId || student?.cc || student?.cc_number || student?.registration_number;
+        if (!sid) return;
         setIsLoading(true);
         try {
-            const data = await studentsService.getById(Number(studentId));
+            const data = await studentsService.getById(Number(sid));
             setStudent(data);
             if (data) {
                 onUpdate?.(data);
@@ -262,6 +263,8 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                     <DataPoint label="Guardian CNIC" value={student.primary_guardian_cnic?.toString() || ""} />
                                     <DataPoint label="WhatsApp Number" value={student.whatsapp_number?.toString() || ""} />
                                     <DataPoint label="Family / Household ID" value={student.family_id?.toString() || ""} />
+                                    <DataPoint label="Household Name" value={student.household_name || ""} />
+                                    <DataPoint label="Family Home Phone" value={student.home_phone || ""} />
                                 </div>
                             </div>
 
@@ -344,7 +347,7 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
 
                 {/* Footer Actions */}
                 <div className="bg-zinc-50 dark:bg-zinc-900 p-4 border-t flex justify-end items-center gap-3 flex-shrink-0">
-                    {!student.household_name ? (
+                    {!student.family_id ? (
                         <button
                             onClick={handleInitializeFamily}
                             disabled={isInitializingFamily}
