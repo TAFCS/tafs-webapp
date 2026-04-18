@@ -1100,7 +1100,7 @@ export function RegistrationForm() {
                                     </div>
 
                                     {/* Discipline Dropdown (Conditional) */}
-                                    {formData.admissionLevel && (['VI', 'VII', 'VIII', 'IX', 'X', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III'].includes(formData.admissionLevel)) && (
+                                    {formData.admissionLevel && (['VI', 'VII', 'VIII', 'IX', 'X', 'O-I', 'O-II', 'O-III'].includes(formData.admissionLevel)) && (
                                         <div className="md:col-span-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 animate-in slide-in-from-top-2 duration-300">
                                             <div className="flex flex-col md:flex-row md:items-center gap-4">
                                                 <div className="flex-shrink-0 flex items-center justify-between w-full md:w-auto gap-4">
