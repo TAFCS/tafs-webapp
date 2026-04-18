@@ -509,9 +509,11 @@ export function RegistrationForm() {
 
     const addAdditionalPhone = (type: 'father' | 'mother') => {
         const field = type === 'father' ? 'fatherAdditionalPhones' : 'motherAdditionalPhones';
+        const current = (formData as any)[field];
+        if (current.length >= 10) return;
         setFormData(prev => ({
             ...prev,
-            [field]: [...(prev as any)[field], { id: Date.now().toString(), label: "SECONDARY", number: "" }]
+            [field]: [...current, { id: Date.now().toString(), label: "SECONDARY", number: "" }]
         }));
     };
 
@@ -527,9 +529,14 @@ export function RegistrationForm() {
         const field = type === 'father' ? 'fatherAdditionalPhones' : 'motherAdditionalPhones';
         setFormData(prev => ({
             ...prev,
-            [field]: (prev as any)[field].map((p: any) => 
-                p.id === id ? { ...p, [key]: value.toUpperCase() } : p
-            )
+            [field]: (prev as any)[field].map((p: any) => {
+                if (p.id !== id) return p;
+                if (key === 'number') {
+                    // Extract only digits, limit to 15
+                    return { ...p, [key]: value.replace(/\D/g, "").slice(0, 15) };
+                }
+                return { ...p, [key]: value.toUpperCase() };
+            })
         }));
     };
 
@@ -1430,7 +1437,8 @@ export function RegistrationForm() {
                                                             <button 
                                                                 type="button" 
                                                                 onClick={() => addAdditionalPhone('father')}
-                                                                className="text-[9px] font-black text-primary hover:text-primary/80 uppercase tracking-widest flex items-center gap-1 transition-colors mt-1"
+                                                                disabled={formData.fatherAdditionalPhones.length >= 10}
+                                                                className="text-[9px] font-black text-primary hover:text-primary/80 uppercase tracking-widest flex items-center gap-1 transition-colors mt-1 disabled:opacity-30 disabled:cursor-not-allowed"
                                                             >
                                                                 <Plus className="h-2.5 w-2.5" /> Additional Number
                                                             </button>
@@ -1520,7 +1528,8 @@ export function RegistrationForm() {
                                                             <button 
                                                                 type="button" 
                                                                 onClick={() => addAdditionalPhone('mother')}
-                                                                className="text-[9px] font-black text-primary hover:text-primary/80 uppercase tracking-widest flex items-center gap-1 transition-colors mt-1"
+                                                                disabled={formData.motherAdditionalPhones.length >= 10}
+                                                                className="text-[9px] font-black text-primary hover:text-primary/80 uppercase tracking-widest flex items-center gap-1 transition-colors mt-1 disabled:opacity-30 disabled:cursor-not-allowed"
                                                             >
                                                                 <Plus className="h-2.5 w-2.5" /> Additional Number
                                                             </button>

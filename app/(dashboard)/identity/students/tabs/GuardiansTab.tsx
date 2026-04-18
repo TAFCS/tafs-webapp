@@ -257,9 +257,11 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                                 <button 
                                     onClick={() => {
                                         const current = local.additional_phones || [];
+                                        if (current.length >= 10) return;
                                         set("additional_phones", [...current, { label: "", number: "+92" }]);
                                     }}
-                                    className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-all"
+                                    disabled={(local.additional_phones || []).length >= 10}
+                                    className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                                 >
                                     <Plus className="h-3 w-3" /> Add Number
                                 </button>
@@ -826,8 +828,13 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                                 <div className="flex items-center justify-between mb-2">
                                     <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Additional Numbers</p>
                                     <button 
-                                        onClick={() => set("additional_phones", [...(newG.additional_phones || []), { label: "", number: "+92" }])}
-                                        className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-black bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
+                                        onClick={() => {
+                                            const current = newG.additional_phones || [];
+                                            if (current.length >= 10) return;
+                                            set("additional_phones", [...current, { label: "", number: "+92" }]);
+                                        }}
+                                        disabled={(newG.additional_phones || []).length >= 10}
+                                        className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-black bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                                     >
                                         <Plus className="h-2.5 w-2.5" /> Row
                                     </button>
