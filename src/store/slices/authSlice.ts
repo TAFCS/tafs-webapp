@@ -9,6 +9,7 @@ export interface StaffUser {
   role: string;
   campusId: number | null;
   campusName: string | null;
+  permissions: string[];
 }
 
 interface AuthState {
