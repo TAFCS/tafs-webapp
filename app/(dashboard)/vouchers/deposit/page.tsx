@@ -28,6 +28,11 @@ const STATUS_OPTIONS = [
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
 
+const MONTH_NAMES = [
+    "", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+];
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatDate(dateStr: string | null | undefined) {
@@ -110,8 +115,12 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const [paymentMethod, setPaymentMethod] = useState<string>("cash");
     const [referenceNumber, setReferenceNumber] = useState<string>("");
 
-    const heads = voucher.voucher_heads || [];
-    // Determine if each head is an arrear (its student_fee.fee_date < voucher.fee_date)
+    const heads = [...(voucher.voucher_heads || [])].sort((a, b) => {
+        const dateA = new Date(a.student_fees?.fee_date || 0).getTime();
+        const dateB = new Date(b.student_fees?.fee_date || 0).getTime();
+        return dateA - dateB;
+    });
+
     const voucherFeeDate = voucher.fee_date ? new Date(voucher.fee_date) : null;
     const isArrearHead = (h: typeof heads[0]) => {
         if (!voucherFeeDate || !h.student_fees?.fee_date) return false;
@@ -157,7 +166,15 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     };
 
     useEffect(() => {
-        if (fillingMode === "auto") handleAutoFill();
+        if (fillingMode === "auto") {
+            handleAutoFill();
+        } else {
+            // Manual mode: Clear all distributions as requested
+            const clearedDistributions: Record<number, string> = {};
+            heads.forEach(h => clearedDistributions[h.id] = "0");
+            setManualDistributions(clearedDistributions);
+            setManualLateFee("0");
+        }
     }, [amount, fillingMode]);
 
     const handleSave = async () => {
@@ -360,11 +377,18 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                         <p className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]">
                                             {h.student_fees?.fee_types?.description || "Fee Head"}
                                         </p>
-                                        <span className={`inline-flex items-center px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5 ${
-                                            arrear ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"
-                                        }`}>
-                                            {arrear ? "Arrear" : "Current"}
-                                        </span>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                            <span className={`inline-flex items-center px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-md ${
+                                                arrear ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"
+                                            }`}>
+                                                {arrear ? "Arrear" : "Current"}
+                                            </span>
+                                            {h.student_fees?.month && (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[9px] font-black uppercase tracking-widest rounded-md">
+                                                    {MONTH_NAMES[h.student_fees.month] || h.student_fees.month}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                     {/* Net Amount from student_fees */}
                                     <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{hSfNet.toLocaleString()}</span>

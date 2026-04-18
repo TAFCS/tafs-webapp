@@ -29,6 +29,11 @@ const STATUS_OPTIONS = [
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
 
+const MONTH_NAMES = [
+    "", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+];
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatDate(dateStr: string | null | undefined) {
@@ -280,8 +285,24 @@ function PartiallyPaidModal({
                                     const goesToColor = goesTo === "Both" ? "text-purple-600 dark:text-purple-400" : goesTo === "Paid PDF" ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400";
                                     return (
                                         <tr key={h.id} className="border-b border-zinc-100 dark:border-zinc-800/60">
-                                            <td className="px-4 py-2.5 font-medium text-zinc-700 dark:text-zinc-300">
-                                                {h.student_fees?.fee_types?.description || `Head #${h.id}`}
+                                            <td className="px-4 py-2.5 font-medium text-zinc-700 dark:text-zinc-300 flex flex-col gap-0.5">
+                                                <span>{h.student_fees?.fee_types?.description || `Head #${h.id}`}</span>
+                                                <div className="flex items-center gap-1.5">
+                                                    {h.student_fees?.fee_date && (
+                                                        <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${
+                                                            new Date(h.student_fees.fee_date) < new Date(voucher.fee_date || 0)
+                                                                ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+                                                                : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
+                                                        }`}>
+                                                            {new Date(h.student_fees.fee_date) < new Date(voucher.fee_date || 0) ? "Arrear" : "Current"}
+                                                        </span>
+                                                    )}
+                                                    {h.student_fees?.month && (
+                                                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md">
+                                                            {MONTH_NAMES[h.student_fees.month] || h.student_fees.month}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-4 py-2.5 font-mono text-zinc-600 dark:text-zinc-400">{net.toLocaleString()}</td>
                                             <td className="px-4 py-2.5 font-mono font-bold text-emerald-600 dark:text-emerald-400">{dep.toLocaleString()}</td>

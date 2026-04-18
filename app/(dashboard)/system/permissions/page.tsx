@@ -74,7 +74,7 @@ export default function RolePermissionsPage() {
     async function fetchRolePerms() {
       try {
         const { data: rData } = await api.get(`/v1/users/roles/${selectedRole}/permissions`);
-        const ids = new Set((rData.data || []).map((p: any) => p.permission_id));
+        const ids = new Set<number>((rData.data || []).map((p: any) => p.permission_id));
         setRolePermIds(ids);
       } catch (error) {
         toast.error(`Failed to load defaults for ${selectedRole}`);
