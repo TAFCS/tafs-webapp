@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2, Search, Link, X as XIcon, User, RefreshCw, MapPin } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2, Search, Link, X as XIcon, User, RefreshCw, MapPin, Camera } from "lucide-react";
 import { ChangeFamilyModal } from "@/src/features/students/components/student-profile-modal";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
@@ -284,6 +284,19 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
 
+    // New Guardian Photo State
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith("image/")) return alert("Please select an image file");
+        setPhotoFile(file);
+        setPhotoPreview(URL.createObjectURL(file));
+    };
+
     // Search and Link Existing Guardian
     const [searchCnic, setSearchCnic] = useState("");
     const [searching, setSearching] = useState(false);
@@ -402,12 +415,25 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
         setSaving(true);
         try {
             const { data } = await api.post(`/v1/staff-editing/students/${student.cc}/guardians`, newG);
+            const guardianId = data?.data?.guardian_id || data?.data?.id;
+
+            // Upload Photo if exists
+            if (photoFile && guardianId) {
+                const formData = new FormData();
+                formData.append("file", photoFile);
+                await api.post(`/v1/media/guardian/${guardianId}/photo`, formData, {
+                    headers: { "Content-Type": "multipart/form-data" }
+                });
+            }
+
             setGuardians(prev => [...prev, data?.data]);
             setSaved(true);
             setTimeout(() => {
                 setSaved(false);
                 setAdding(false);
                 setNewG({ ...EMPTY_GUARDIAN });
+                setPhotoFile(null);
+                setPhotoPreview(null);
             }, 1500);
         } catch(e) {
             alert("Failed to add new guardian");
@@ -702,14 +728,44 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
             {adding && (
                 <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 space-y-3 shadow-sm">
                     <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">New Guardian</p>
-                    <div className="flex gap-4 border-b border-blue-100/50 pb-3 mb-1">
-                        <Toggle label="Primary Contact" checked={newG.is_primary_contact} onChange={v => set("is_primary_contact", v)} />
-                        <Toggle label="Emergency Contact" checked={newG.is_emergency_contact} onChange={v => set("is_emergency_contact", v)} />
+                    
+                    <div className="flex flex-col md:flex-row gap-6 border-b border-blue-100/50 pb-4 mb-1">
+                        {/* Photo Picker */}
+                        <div className="flex-shrink-0">
+                            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Profile Picture</label>
+                            <div 
+                                onClick={() => fileInputRef.current?.click()}
+                                className="relative group w-24 h-32 bg-white rounded-xl border-2 border-dashed border-blue-200 flex flex-col items-center justify-center overflow-hidden transition-all hover:border-primary/50 cursor-pointer shadow-sm"
+                            >
+                                {photoPreview ? (
+                                    <>
+                                        <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <Camera className="h-5 w-5 text-white" />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-1 text-blue-300 group-hover:text-primary transition-colors">
+                                        <Camera className="h-6 w-6" />
+                                        <span className="text-[9px] font-black uppercase">Upload</span>
+                                    </div>
+                                )}
+                                <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handlePhotoSelect} />
+                            </div>
+                        </div>
+
+                        <div className="flex-1 space-y-4">
+                            <div className="flex gap-4">
+                                <Toggle label="Primary Contact" checked={newG.is_primary_contact} onChange={v => set("is_primary_contact", v)} />
+                                <Toggle label="Emergency Contact" checked={newG.is_emergency_contact} onChange={v => set("is_emergency_contact", v)} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="col-span-2"><Field label="Full Name"><Input value={newG.full_name} onChange={v => set("full_name", v)} showNA /></Field></div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="col-span-2"><Field label="Full Name"><Input value={newG.full_name} onChange={v => set("full_name", v)} showNA /></Field></div>
-                        
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="col-span-1">
                             <Field label="Relationship">
                                 <select 
