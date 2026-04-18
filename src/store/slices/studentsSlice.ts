@@ -42,6 +42,7 @@ export interface StudentListItem {
     cc: number;
     full_name: string;
     cc_number: string;
+    gr_number?: string | null;
     grade?: string;
     father_name?: string;
     photograph_url?: string | null;

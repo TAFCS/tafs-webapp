@@ -220,8 +220,8 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                 )}
                                 {student.siblings && student.siblings.length > 0 ? (
                                     <div className="space-y-3">
-                                        {student.siblings.map((sibling) => (
-                                            <div key={sibling.cc} className="flex items-center justify-between p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl group transition-all hover:bg-indigo-50 hover:border-indigo-200">
+                                        {student.siblings.map((sibling, index) => (
+                                            <div key={sibling.cc || `sib-${index}`} className="flex items-center justify-between p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl group transition-all hover:bg-indigo-50 hover:border-indigo-200">
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-8 w-8 rounded-lg bg-white dark:bg-zinc-950 flex items-center justify-center text-indigo-500 shadow-sm">
                                                         <User className="h-4 w-4" />
@@ -231,7 +231,9 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                                         {sibling.father_name && (
                                                             <p className="text-[9px] text-indigo-600 font-bold mt-1 uppercase tracking-tight">S/O: {sibling.father_name.toUpperCase()}</p>
                                                         )}
-                                                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium mt-1 uppercase tracking-tight">{sibling.cc_number} • {sibling.grade || 'N/A'}</p>
+                                                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium mt-1 uppercase tracking-tight">
+                                                            {sibling.cc_number} CC • {sibling.gr_number || 'N/A'} GR • {sibling.grade || 'N/A Grade'}
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -523,8 +525,8 @@ export function ChangeFamilyModal({ studentId, studentName, currentFamilyId, onC
                                                 )}
                                                 {family.students && family.students.length > 0 && (
                                                     <div className="mt-1.5 flex flex-wrap gap-1">
-                                                        {family.students.map(s => (
-                                                            <span key={s.cc} className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-[9px] font-bold text-zinc-600 dark:text-zinc-400 rounded-md uppercase tracking-tight">
+                                                        {family.students.map((s, index) => (
+                                                            <span key={s.cc || `stu-${index}`} className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-[9px] font-bold text-zinc-600 dark:text-zinc-400 rounded-md uppercase tracking-tight">
                                                                 {s.full_name} ({s.cc})
                                                             </span>
                                                         ))}
