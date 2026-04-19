@@ -38,30 +38,37 @@ export function GlobalHeader({ onMenuClick }: GlobalHeaderProps) {
     };
 
     return (
-        <header className="h-16 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 sticky top-0 z-50 flex-shrink-0">
+        <header className="h-16 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 sticky top-0 z-50 flex-shrink-0">
 
             {/* Left: Menu/Profile Trigger */}
-            <button
-                onClick={onMenuClick}
-                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:ring-offset-zinc-950 transition-colors"
-                aria-label="Open profile menu"
-            >
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
-                    <Menu className="h-5 w-5" />
-                </div>
-            </button>
+            <div className="flex flex-1 items-center">
+                <button
+                    onClick={onMenuClick}
+                    className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:ring-offset-zinc-950 transition-all group"
+                    aria-label="Open profile menu"
+                >
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary group-hover:scale-110 transition-transform shadow-[0_0_10px_rgba(var(--primary),0.2)]">
+                        <Menu className="h-4 w-4" />
+                    </div>
+                </button>
+            </div>
 
             {/* Center: Branding */}
-            <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity active:scale-[0.98]">
-                <Image src={LogoImage} alt="TAFSync Logo" width={32} height={32} className="object-contain" priority unoptimized />
-                <div className="flex flex-col items-start justify-center">
-                    <h1 className="text-lg font-bold text-primary tracking-tight leading-tight">TAFSync</h1>
-                    <span className="text-[10px] font-medium text-secondary uppercase tracking-widest leading-none">All-in-One Portal</span>
-                </div>
-            </Link>
+            <div className="flex justify-center shrink-0">
+                <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity active:scale-[0.98]">
+                    <div className="relative">
+                        <Image src={LogoImage} alt="TAFSync Logo" width={32} height={32} className="object-contain drop-shadow-sm" priority unoptimized />
+                        <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full z-[-1]"></div>
+                    </div>
+                    <div className="flex flex-col items-start justify-center">
+                        <h1 className="text-lg font-bold text-primary tracking-tight leading-tight">TAFSync</h1>
+                        <span className="text-[10px] font-medium text-secondary uppercase tracking-widest leading-none hidden sm:block">All-in-One Portal</span>
+                    </div>
+                </Link>
+            </div>
 
             {/* Right: Notifications & Theme */}
-            <div className="flex items-center gap-2 relative">
+            <div className="flex flex-1 items-center justify-end gap-1.5 sm:gap-2 relative">
                 {mounted && (
                     <button
                         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
