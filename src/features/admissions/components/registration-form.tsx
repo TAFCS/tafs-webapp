@@ -49,8 +49,8 @@ const INITIAL_FORM_DATA = {
     previousSchools: [{ id: 1, name: "", location: "", classStudiedFrom: "", classStudiedTo: "", reasonForLeaving: "" }],
     admissionSystem: "", admissionLevel: "", discipline: "", isDisciplineNA: false,
     houseNo: "", areaBlock: "", city: "", postalCode: "", isPostalCodeNA: false, province: "", country: "", 
-    homePhoneCountryCode: "+92", homePhone: "", isHomePhoneNA: false,
-    fatherPrimaryPhoneCountryCode: "+92", motherPrimaryPhoneCountryCode: "+92", emergencyPrimaryPhoneCountryCode: "+92",
+    homePhoneCountryCode: "021", homePhone: "", isHomePhoneNA: false,
+    homeAddress: "", fatherPrimaryPhoneCountryCode: "+92", motherPrimaryPhoneCountryCode: "+92", emergencyPrimaryPhoneCountryCode: "+92",
     candidatePhone: "", isCandidatePhoneNA: false, 
     candidateEmail: "", isCandidateEmailNA: false, 
     fatherPhone: "", isFatherPhoneNA: false, 
@@ -271,7 +271,9 @@ export function RegistrationForm() {
                 if (isForeign || name === "homePhone" || name.includes("CountryCode")) {
                     // Allow free-form entry for foreign or home phones
                     const filtered = value.replace(/[^0-9+]/g, "");
-                    setFormData(prev => ({ ...prev, [name]: filtered }));
+                    // Enforce 8-digit limit for homeLandline specifically
+                    const finalValue = name === "homePhone" ? filtered.replace(/\D/g, "").slice(0, 8) : filtered;
+                    setFormData(prev => ({ ...prev, [name]: finalValue }));
                     return;
                 }
                 setFormData(prev => ({ ...prev, [name]: formatPhone(value) }));
@@ -615,6 +617,12 @@ export function RegistrationForm() {
             return;
         }
 
+        // Validation: Home Landline must be exactly 8 digits if provided
+        if (formData.homePhone && !formData.isHomePhoneNA && formData.homePhone.length !== 8) {
+            setSubmitError("Home Landline must be exactly 8 digits.");
+            return;
+        }
+
         setIsSubmitting(true);
         setSubmitError(null);
         setSubmitSuccess(null);
@@ -677,7 +685,7 @@ export function RegistrationForm() {
                     .filter(p => p.number.trim())
                     .map(p => ({ label: p.label, number: p.number })),
             },
-            home_phone: formData.homePhone || undefined,
+            home_phone: formData.homePhone ? `${formData.homePhoneCountryCode}-${formData.homePhone}` : undefined,
             emergency_contact: formData.emergencyContactName
                 ? {
                     full_name: formData.emergencyContactName,
@@ -1337,8 +1345,8 @@ export function RegistrationForm() {
                                             </div>
                                         </div>
                                         <div className={`flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary ${formData.isHomePhoneNA ? 'opacity-50' : ''}`}>
-                                            <input type="text" name="homePhoneCountryCode" value={formData.homePhoneCountryCode || ""} onChange={handleInputChange} placeholder="+92" disabled={formData.isHomePhoneNA} className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm disabled:cursor-not-allowed" />
-                                            <input type="text" name="homePhone" value={formData.homePhone || ""} onChange={handleInputChange} disabled={formData.isHomePhoneNA} className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none disabled:cursor-not-allowed" />
+                                            <input type="text" name="homePhoneCountryCode" value={formData.homePhoneCountryCode || ""} onChange={handleInputChange} placeholder="021" disabled={formData.isHomePhoneNA} className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm disabled:cursor-not-allowed" />
+                                            <input type="text" name="homePhone" value={formData.homePhone || ""} onChange={handleInputChange} disabled={formData.isHomePhoneNA} className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none disabled:cursor-not-allowed shadow-inner" />
                                         </div>
                                     </div>
                                 </div>

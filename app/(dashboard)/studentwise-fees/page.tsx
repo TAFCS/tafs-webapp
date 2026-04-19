@@ -177,6 +177,9 @@ function StudentwiseFeeEditor() {
     const [loadError, setLoadError] = useState<string | null>(null);
     const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
     const [isTemplate, setIsTemplate] = useState(false);
+    const [isTemplatePending, setIsTemplatePending] = useState(false);
+    const [pendingTemplateRows, setPendingTemplateRows] = useState<SpreadsheetRow[]>([]);
+    const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
 
     const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
     const tbodyRef = useRef<HTMLTableSectionElement>(null);
@@ -282,15 +285,16 @@ function StudentwiseFeeEditor() {
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    const fetchFeeSchedule = useCallback(async (classId: number, campusId: number | "", ccNumber: string, academicYear: string, signal?: AbortSignal) => {
+    const fetchFeeSchedule = useCallback(async (classId: number, campusId: number | "", ccNumber: string, academicYear: string, signal?: AbortSignal, forceApplyTemplate?: boolean) => {
         setIsLoading(true); setLoadError(null); setRows([]); setActiveCell(null); setIsTemplate(false);
+        setIsTemplatePending(false); if (!forceApplyTemplate) setPendingTemplateRows([]);
         try {
             // 1. ALWAYS Fetch the class-wide fee template for amount lookups
             const params: any = { class_id: classId };
             if (campusId) params.campus_id = campusId;
             const { data: templateData } = await api.get("/v1/class-fee-schedule/by-class", { params, signal });
             const feeRows: ClassFeeRow[] = Array.isArray(templateData?.data) ? templateData.data : [];
-            
+
             const lookup: Record<number, string> = {};
             feeRows.forEach(f => { lookup[f.fee_id] = f.amount; });
             setFeeToAmountMap(lookup);
@@ -318,7 +322,7 @@ function StudentwiseFeeEditor() {
             // NEW: Use the strict schedule endpoint for selected students
             const numericMatch = ccNumber.match(/\d+$/);
             const studentId = numericMatch ? parseInt(numericMatch[0]) : 0;
-            
+
             const { data: scheduleRes } = await api.get("/v1/student-fees/schedule", {
                 params: {
                     studentId,
@@ -370,7 +374,14 @@ function StudentwiseFeeEditor() {
                     status: (sf.voucher_heads && sf.voucher_heads.length > 0) ? (sf.status === 'NOT_ISSUED' ? 'ISSUED' : sf.status) : sf.status
                 }));
             }
-            setRows(sortSpreadsheetRows(finalRows));
+            if (is_template && !forceApplyTemplate) {
+                // Store but do not apply yet (wait for user confirmation)
+                setPendingTemplateRows(sortSpreadsheetRows(finalRows));
+                setIsTemplatePending(true);
+            } else {
+                setRows(sortSpreadsheetRows(finalRows));
+                setIsTemplatePending(false);
+            }
             setIsTemplate(is_template);
         } catch (err: any) {
             if (err.name === "AbortError") return;
@@ -433,6 +444,8 @@ function StudentwiseFeeEditor() {
         setShowSearchDropdown(false);
         setLoadError(null);
         setSaveStatus(null);
+        setIsTemplatePending(false);
+        setPendingTemplateRows([]);
     };
 
     // ── Keyboard navigation ───────────────────────────────────────────────
@@ -568,9 +581,9 @@ function StudentwiseFeeEditor() {
     };
 
     // ── Row Mutators ────────────────────────────────────────────────────
-    const isRowLocked = (row?: SpreadsheetRow) => 
-        row?.status === "PAID" || 
-        row?.status === "PARTIALLY_PAID" || 
+    const isRowLocked = (row?: SpreadsheetRow) =>
+        row?.status === "PAID" ||
+        row?.status === "PARTIALLY_PAID" ||
         row?.status === "ISSUED";
 
     const deleteRow = (idx: number) => {
@@ -622,6 +635,7 @@ function StudentwiseFeeEditor() {
             isNew: true,
         };
         pendingFocusId.current = newRow.__id;
+        setRecentlyAddedId(newRow.__id);
         setRows((prev) => sortSpreadsheetRows([...prev, newRow]));
     };
 
@@ -642,7 +656,7 @@ function StudentwiseFeeEditor() {
                     // Prevent non-numeric junk
                     const cleaned = val.replace(/[^0-9.]/g, "");
                     if (val !== "" && cleaned === "") return r; // ignore if user typed only letters
-                    
+
                     updated.amount = cleaned;
                 }
 
@@ -833,12 +847,7 @@ function StudentwiseFeeEditor() {
                         Bulk Operations
                     </button>
 
-                    {selectedClassId !== "" && (
-                        <button onClick={addRow} className="group flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 transition-all active:scale-95">
-                            <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-                            New Row
-                        </button>
-                    )}
+
                 </div>
             </div>
 
@@ -1090,6 +1099,21 @@ function StudentwiseFeeEditor() {
                 </div>
             )}
 
+            {/* Main Table Actions */}
+            {rows.length > 0 && (
+                <div className="flex items-center justify-between mt-2 mb-4 px-1">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={addRow}
+                            className="inline-flex items-center gap-2 px-6 h-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 transition-all active:scale-95 shadow-sm"
+                        >
+                            <Plus className="h-3.5 w-3.5 text-primary" />
+                            Add Row
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Main Table */}
             {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-40 gap-4">
@@ -1099,34 +1123,68 @@ function StudentwiseFeeEditor() {
             ) : rows.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-32 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[28px] gap-4 animate-in fade-in zoom-in-95 duration-500">
                     <div className="p-6 bg-white dark:bg-zinc-800 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/20">
-                        {studentId ? <Trash2 className="h-8 w-8 text-rose-500/50" /> : <GraduationCap className="h-8 w-8 text-zinc-300" />}
+                        {isTemplatePending ? (
+                            <GraduationCap className="h-8 w-8 text-blue-500/50" />
+                        ) : studentId ? (
+                            <Trash2 className="h-8 w-8 text-rose-500/50" />
+                        ) : (
+                            <GraduationCap className="h-8 w-8 text-zinc-300" />
+                        )}
                     </div>
+
                     <div className="text-center space-y-2 max-w-md px-6">
                         <p className="font-black text-zinc-900 dark:text-zinc-100 tracking-tight text-lg">
-                            {studentId ? "Individual Schedule Cleared" : "Workspace Empty"}
+                            {isTemplatePending
+                                ? "Template Available"
+                                : studentId
+                                    ? "Individual Schedule Cleared"
+                                    : "Workspace Empty"}
                         </p>
                         <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
-                            {studentId 
-                                ? `You have removed all individual fee heads. Saving now will effectively reset this student to follow the standard ${selectedClass?.description || "class"} fee template.`
-                                : "Select a campus and class to load a template, or search for a student using their computer code to begin customizing."}
+                            {isTemplatePending
+                                ? `No customized schedule found for this student. Use the standard ${selectedClass?.description || "class"} template or start with manual entry.`
+                                : (studentId
+                                    ? `You have removed all individual fee heads. Saving now will effectively reset this student to follow the standard ${selectedClass?.description || "class"} fee template.`
+                                    : "Select a campus and class to load a template, or search for a student using their computer code to begin customizing.")
+                            }
                         </p>
                     </div>
+
                     {studentId && (
                         <div className="flex gap-3 mt-4">
-                            <button 
-                                onClick={() => fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear)}
-                                className="px-6 py-2.5 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg active:scale-95"
-                            >
-                                <RefreshCw className="h-3.5 w-3.5 mr-2 inline-block" />
-                                Restore Template
-                            </button>
-                            <button 
-                                onClick={addRow}
-                                className="px-6 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 transition-all active:scale-95"
-                            >
-                                <Plus className="h-3.5 w-3.5 mr-2 inline-block text-primary" />
-                                Add Manual Row
-                            </button>
+                            {isTemplatePending ? (
+                                <>
+                                    <button
+                                        onClick={() => { setRows(pendingTemplateRows); setIsTemplatePending(false); toast.success("Template loaded - Click Save to persist."); }}
+                                        className="px-8 py-3 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 active:scale-95 flex items-center gap-2"
+                                    >
+                                        <GraduationCap className="h-4 w-4" /> Load Class Template
+                                    </button>
+                                    <button
+                                        onClick={() => { setIsTemplatePending(false); addRow(); }}
+                                        className="px-8 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 transition-all active:scale-95 flex items-center gap-2"
+                                    >
+                                        <Plus className="h-4 w-4 text-primary" /> Add New Row
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear, undefined, true)}
+                                        className="px-6 py-2.5 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg active:scale-95 flex items-center gap-2"
+                                    >
+                                        <RefreshCw className="h-3.5 w-3.5" />
+                                        Restore Template
+                                    </button>
+                                    <button
+                                        onClick={addRow}
+                                        className="px-6 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 transition-all active:scale-95 flex items-center gap-2"
+                                    >
+                                        <Plus className="h-3.5 w-3.5 text-primary" />
+                                        Add Row
+                                    </button>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
@@ -1161,17 +1219,20 @@ function StudentwiseFeeEditor() {
                                     <th className="min-w-[120px] border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount (Rs.)</th>
                                 </tr>
                             </thead>
-                            <tbody ref={tbodyRef}>
+                            <tbody ref={tbodyRef} onMouseDown={() => recentlyAddedId && setRecentlyAddedId(null)}>
                                 {rows.map((row, rIdx) => {
                                     const aCell = (c: number) => isCellActive(rIdx, c);
                                     const isLocked = isRowLocked(row);
                                     const isCurrentRowActive = activeCell?.row === rIdx;
                                     const groupSeparator = row.isGroupStart && rIdx > 0 ? "border-t-2 border-zinc-100" : "";
                                     const lockedBg = row.status === "PAID" ? "bg-emerald-50/10 dark:bg-emerald-950/20" : "bg-amber-50/20 dark:bg-amber-950/20";
-                                    const rowBg = isLocked ? lockedBg : (isCurrentRowActive ? "bg-primary/[0.04]" : "bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900");
+                                    const isRecentlyAdded = row.__id === recentlyAddedId;
+                                    const rowBg = isRecentlyAdded
+                                        ? "bg-amber-100/50 dark:bg-amber-900/30 animate-in fade-in zoom-in-95 duration-300 shadow-inner"
+                                        : (isLocked ? lockedBg : (isCurrentRowActive ? "bg-primary/[0.04]" : "bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900"));
 
                                     return (
-                                        <tr key={rIdx} className={`${groupSeparator} ${rowBg} transition-colors relative`}>
+                                        <tr key={row.__id} className={`${groupSeparator} ${rowBg} transition-all relative ${isRecentlyAdded ? 'ring-2 ring-inset ring-amber-400/50' : ''}`}>
                                             <td data-row={rIdx} data-col={COL_SELECT} className={`border-r border-b border-zinc-100 text-center ${aCell(COL_SELECT) ? "ring-2 ring-inset ring-primary/30 z-10" : ""}`}>
                                                 <input
                                                     type="checkbox"
@@ -1183,8 +1244,8 @@ function StudentwiseFeeEditor() {
                                             <td data-row={rIdx} data-col={COL_ACTIONS} tabIndex={0} onFocus={() => setActiveCell({ row: rIdx, col: COL_ACTIONS })}
                                                 className={`border-r border-b border-zinc-100 text-center ${aCell(COL_ACTIONS) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950" : ""}`}
                                             >
-                                                <button 
-                                                    onClick={() => deleteRow(rIdx)} 
+                                                <button
+                                                    onClick={() => deleteRow(rIdx)}
                                                     disabled={isLocked}
                                                     className={`p-2 rounded-lg transition-all active:scale-90 ${isLocked ? "opacity-20 cursor-not-allowed" : "hover:bg-rose-50 text-zinc-300 hover:text-rose-600"}`}
                                                 >
@@ -1427,9 +1488,9 @@ function StudentwiseFeeEditor() {
                 </div>
             )}
             {/* Bulk Operations Drawer */}
-            <BulkOperationsDrawer 
-                isOpen={showBulkDrawer} 
-                onClose={() => setShowBulkDrawer(false)} 
+            <BulkOperationsDrawer
+                isOpen={showBulkDrawer}
+                onClose={() => setShowBulkDrawer(false)}
             />
         </div>
     );
