@@ -39,7 +39,7 @@ import { fetchSections } from "@/store/slices/sectionsSlice";
 import { pdf } from "@react-pdf/renderer";
 import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
 import { bankAccountsService, BankAccount } from "@/lib/bank-accounts.service";
-import { groupFees, MONTHS, MONTH_TO_NUM, getMonthYearLabel, getCurrentAcademicYear } from "@/lib/fee-utils";
+import { groupFees, MONTHS, MONTH_TO_NUM, getMonthYearLabel, getCurrentAcademicYear, getConsolidatedMonthsLabel } from "@/lib/fee-utils";
 // --- Types ---
 interface StudentProfile {
     cc: number;
@@ -177,7 +177,6 @@ export default function FeeChallanGenerator() {
 
     // --- Voucher Display Options ---
     const [showDiscount, setShowDiscount] = useState(true);
-    const [voucherLayout, setVoucherLayout] = useState<'detailed' | 'consolidated'>('detailed');
     const [showBundleHeads, setShowBundleHeads] = useState(false);
 
     useEffect(() => {
@@ -379,176 +378,11 @@ export default function FeeChallanGenerator() {
     }, [currentStep, student, studentFees, feeGroupsByDate, dateFrom, issueDate, arrearsFetchedForDate, isFetchingArrears]);
 
     const processFeesForPdf = (rawFees: any[]) => {
-        let baseFees = [];
-
-        if (voucherLayout === 'detailed') {
-            // Build per-row entries, keeping tuition metadata for later merge
-            const detailedRows = rawFees.map(f => {
-                const baseDesc = f.description || f.fee_types?.description || f.student_fee_bundles?.bundle_name || "Fee";
-                const isTuition = baseDesc.toLowerCase().includes('tuition');
-                const m = f.target_month || f.month;
-                return {
-                    _baseDesc: baseDesc,
-                    _isTuition: isTuition,
-                    _monthNum: (isTuition && m) ? m as number : null,
-                    _mergeKey: isTuition ? `${f.fee_type_id ?? 0}|${baseDesc}|${f.bundle_id ?? f.student_fee_bundles?.id ?? 'none'}` : null,
-                    description: baseDesc,
-                    amount: Number(f.amount_before_discount || f.amount || 0),
-                    // netAmount should account for amount_paid
-                    netAmount: Math.max(0, Number(f.amount || f.amount_before_discount || 0) - Number(f.amount_paid || 0)),
-                    discount: Math.max(0, Number(f.amount_before_discount || 0) - Number(f.amount || 0)),
-                    amountPaid: Number(f.amount_paid || 0),
-                    originalHeadAmount: Number(f.amount || f.amount_before_discount || 0),
-                    bundleId: f.bundle_id || f.student_fee_bundles?.id,
-                    priority: f.fee_types?.priority_order ?? 999
-                };
-            }).filter(f => f.netAmount > 0); // skip fully paid
-
-            // Merge tuition rows that share the same fee type / base description ONLY if they are consecutive
-            const tuitionGroups: Record<string, typeof detailedRows> = {};
-            const nonTuitionRows: typeof detailedRows = [];
-
-            detailedRows.forEach(row => {
-                if (row._isTuition && row._mergeKey && row._monthNum !== null) {
-                    if (!tuitionGroups[row._mergeKey]) tuitionGroups[row._mergeKey] = [];
-                    tuitionGroups[row._mergeKey].push(row);
-                } else {
-                    nonTuitionRows.push(row);
-                }
-            });
-
-            const mergedTuitionRows: any[] = [];
-            Object.values(tuitionGroups).forEach(group => {
-                // Helper to get raw month and year for sequencing (Aug=0... Jul=11)
-                const getSeq = (m: number) => {
-                    const startYear = parseInt(academicYear.split('-')[0]) || 0;
-                    return startYear * 12 + (m >= 8 ? m - 8 : m + 4);
-                };
-
-                group.sort((a, b) => getSeq(a._monthNum!) - getSeq(b._monthNum!));
-
-                // Identify consecutive ranges
-                const ranges: any[][] = [];
-                let currentRange: any[] = [];
-                group.forEach((row, idx) => {
-                    if (idx === 0) {
-                        currentRange.push(row);
-                    } else {
-                        const prevSeq = getSeq(group[idx - 1]._monthNum!);
-                        const currSeq = getSeq(row._monthNum!);
-                        if (currSeq === prevSeq + 1) {
-                            currentRange.push(row);
-                        } else {
-                            ranges.push(currentRange);
-                            currentRange = [row];
-                        }
-                    }
-                });
-                ranges.push(currentRange);
-
-                // Build result rows for each range
-                ranges.forEach(range => {
-                    const firstMonth = range[0]._monthNum!;
-                    const lastMonth = range[range.length - 1]._monthNum!;
-                    
-                    let descSuffix = `(${getMonthYearLabel(firstMonth, academicYear).toUpperCase()})`;
-                    if (range.length > 1) {
-                        const startLabel = getMonthYearLabel(firstMonth, academicYear).toUpperCase();
-                        const endLabel = getMonthYearLabel(lastMonth, academicYear).toUpperCase();
-                        descSuffix = `(${startLabel} - ${endLabel})`;
-                    }
-
-                    const isPartial = range.reduce((s, r) => s + r.netAmount, 0) < range.reduce((s, r) => s + r.originalHeadAmount, 0);
-                    const mergedRow = {
-                        ...range[0],
-                        amount: isPartial ? range.reduce((s, r) => s + r.netAmount, 0) : range.reduce((s, r) => s + r.amount, 0),
-                        netAmount: range.reduce((s, r) => s + r.netAmount, 0),
-                        discount: isPartial ? 0 : range.reduce((s, r) => s + r.discount, 0),
-                        description: `${isPartial ? 'BALANCE PAYMENT OF — ' : ''}${range[0]._baseDesc} ${descSuffix}`,
-                    };
-                    const { _baseDesc, _isTuition, _monthNum, _mergeKey, ...rest } = mergedRow;
-                    mergedTuitionRows.push(rest);
-                });
-            });
-
-            baseFees = [...nonTuitionRows.map(({ _baseDesc, _isTuition, _monthNum, _mergeKey, ...rest }: any) => rest), ...mergedTuitionRows];
-        } else {
-            const grouped = rawFees.reduce((acc: Record<number, any>, f) => {
-                const headId = f.fee_type_id || 0;
-                if (!acc[headId]) {
-                    acc[headId] = {
-                        description: f.fee_types?.description || "Fee",
-                        amount: 0,
-                        netAmount: 0,
-                        originalHeadAmount: 0,
-                        months: [] as number[],
-                        bundleId: f.bundle_id || f.student_fee_bundles?.id,
-                        priority: f.fee_types?.priority_order ?? 999
-                    };
-                }
-                acc[headId].amount += Number(f.amount_before_discount || f.amount || 0);
-                acc[headId].netAmount += Math.max(0, Number(f.amount || f.amount_before_discount || 0) - Number(f.amount_paid || 0));
-                acc[headId].originalHeadAmount += Number(f.amount || f.amount_before_discount || 0);
-                const m = f.target_month || f.month;
-                if (m) acc[headId].months.push(m);
-                return acc;
-            }, {});
-
-            baseFees = Object.values(grouped).map((g: any) => {
-                const isTuition = (g.description as string).toLowerCase().includes('tuition');
-                let monthStr = "";
-                if (isTuition && g.months.length > 0) {
-                    const sorted = [...new Set(g.months)].sort((a, b) => Number(a) - Number(b)) as number[];
-                    const startMonth = MONTHS[sorted[0] - 1] || "N/A";
-                    const endMonth = MONTHS[sorted[sorted.length - 1] - 1] || "N/A";
-                    const yrShort = academicYear.split('-')[0].slice(-2);
-                    monthStr = sorted.length > 1 ? ` (${startMonth.slice(0, 3)} ${yrShort} - ${endMonth.slice(0, 3)} ${yrShort})` : ` (${startMonth.slice(0, 3)} ${yrShort})`;
-                }
-                const isPartial = g.netAmount < g.originalHeadAmount;
-                return {
-                    description: `${isPartial ? 'BALANCE PAYMENT OF — ' : ''}${g.description}${monthStr}`,
-                    amount: isPartial ? g.netAmount : g.amount,
-                    netAmount: g.netAmount,
-                    discount: isPartial ? 0 : Math.max(0, g.amount - g.netAmount),
-                    bundleId: g.bundleId,
-                    priority: g.priority
-                };
-            });
-        }
-
-        // Apply Bundle Grouping if showBundleHeads is false
-        if (!showBundleHeads) {
-            const bundledMap: Record<string, any> = {};
-            const finalFees: any[] = [];
-
-            baseFees.forEach(f => {
-                if (f.bundleId) {
-                    // Find original fee row to get bundle name if not already in description
-                    const rawFee = rawFees.find(rf => (rf.bundle_id || rf.student_fee_bundles?.id) === f.bundleId);
-                    const bName = rawFee?.student_fee_bundles?.bundle_name || f.description;
-                    
-                    if (!bundledMap[f.bundleId]) {
-                        bundledMap[f.bundleId] = {
-                            description: bName,
-                            amount: 0,
-                            netAmount: 0,
-                            discount: 0,
-                            priority: f.priority ?? 999
-                        };
-                        finalFees.push(bundledMap[f.bundleId]);
-                    }
-                    bundledMap[f.bundleId].amount += f.amount;
-                    bundledMap[f.bundleId].netAmount += f.netAmount;
-                    bundledMap[f.bundleId].discount += f.discount;
-                    bundledMap[f.bundleId].priority = Math.min(bundledMap[f.bundleId].priority, f.priority ?? 999);
-                } else {
-                    finalFees.push(f);
-                }
-            });
-            return finalFees.sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
-        }
-
-        return baseFees.sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+        return groupFees(rawFees, {}, {
+            groupTuitionFees: true,
+            isVoucherHeads: false,
+            ignoreBundles: !showBundles,
+        });
     };
 
     const processedArrearPdfFees = useMemo(() => {
@@ -572,7 +406,7 @@ export default function FeeChallanGenerator() {
 
     const processedPdfFees = useMemo(() => {
         return processFeesForPdf(studentFees).map(f => ({ ...f, isArrear: false }));
-    }, [studentFees, voucherLayout, academicYear, showBundleHeads]);
+    }, [studentFees, academicYear, showBundleHeads]);
 
     // Combined fees for PDF = arrears first, then current
     const allPdfFeesForDisplay = useMemo(() => [
@@ -607,14 +441,13 @@ export default function FeeChallanGenerator() {
 
     /** Derive "FOR MONTH(S) OF" label from the actual months present in the fee rows. */
     const getMonthLabelFromFees = (fees: any[]): string => {
-        const monthNums = [...new Set(
-            fees.map(f => f.target_month || f.month).filter(Boolean) as number[]
-        )].sort((a, b) => a - b);
-        if (monthNums.length === 0) return month; // fallback to UI picker
-        return monthNums.map(m => {
-            const label = getMonthYearLabel(m, academicYear);
-            return label;
-        }).join(" / ");
+        const items = fees.map(f => ({
+            month: f.target_month || f.month,
+            academicYear: f.academic_year || academicYear
+        })).filter(x => x.month);
+        
+        if (items.length === 0) return month;
+        return getConsolidatedMonthsLabel(items);
     };
 
     const handleSaveVoucher = async () => {
@@ -1348,16 +1181,9 @@ export default function FeeChallanGenerator() {
                                         <div className="w-[1px] h-3.5 bg-zinc-200 dark:bg-zinc-800 mx-1" />
                                         <div className="flex items-center gap-1">
                                             <button
-                                                onClick={() => setVoucherLayout('detailed')}
-                                                className={`px-4 h-9 rounded-[18px] text-[9px] font-black uppercase tracking-[0.15em] whitespace-nowrap transition-all ${voucherLayout === 'detailed' ? "bg-white dark:bg-zinc-800 text-zinc-900 shadow-xl shadow-zinc-500/5 border border-zinc-100 dark:border-zinc-700" : "text-zinc-400 hover:text-zinc-500"}`}
+                                                className={`px-4 h-9 rounded-[18px] text-[9px] font-black uppercase tracking-[0.15em] whitespace-nowrap transition-all bg-white dark:bg-zinc-800 text-zinc-900 shadow-xl shadow-zinc-500/5 border border-zinc-100 dark:border-zinc-700`}
                                             >
-                                                Row by Row
-                                            </button>
-                                            <button
-                                                onClick={() => setVoucherLayout('consolidated')}
-                                                className={`px-4 h-9 rounded-[18px] text-[9px] font-black uppercase tracking-[0.15em] whitespace-nowrap transition-all ${voucherLayout === 'consolidated' ? "bg-white dark:bg-zinc-800 text-zinc-900 shadow-xl shadow-zinc-500/5 border border-zinc-100 dark:border-zinc-700" : "text-zinc-400 hover:text-zinc-500"}`}
-                                            >
-                                                Line
+                                                Consolidated View
                                             </button>
                                         </div>
                                     </div>

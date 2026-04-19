@@ -76,6 +76,48 @@ export interface AdHocDiscount {
     title: string;
 }
 
+export const getConsolidatedMonthsLabel = (items: { month: number; academicYear: string }[]) => {
+    if (!items || items.length === 0) return "";
+
+    const getSeq = (m: number, ay: string) => {
+        const startYear = parseInt(ay.split('-')[0]) || 0;
+        return startYear * 12 + (m >= 8 ? m - 8 : m + 4);
+    };
+
+    // Extract unique month/year pairs and sort by sequence
+    const uniqueMonths = Array.from(new Set(items.map(f => JSON.stringify({ m: f.month, ay: f.academicYear }))))
+        .map(s => JSON.parse(s))
+        .sort((a, b) => getSeq(a.m, a.ay) - getSeq(b.m, b.ay));
+
+    const ranges: { m: number; ay: string }[][] = [];
+    let currentRange: { m: number; ay: string }[] = [];
+
+    uniqueMonths.forEach((item, idx) => {
+        if (idx === 0) {
+            currentRange.push(item);
+        } else {
+            const prevSeq = getSeq(uniqueMonths[idx - 1].m, uniqueMonths[idx - 1].ay);
+            const currSeq = getSeq(item.m, item.ay);
+            if (currSeq === prevSeq + 1) {
+                currentRange.push(item);
+            } else {
+                ranges.push(currentRange);
+                currentRange = [item];
+            }
+        }
+    });
+    ranges.push(currentRange);
+
+    return ranges.map(range => {
+        const first = range[0];
+        const last = range[range.length - 1];
+        const firstLabel = getMonthYearLabel(first.m, first.ay).toUpperCase();
+        if (range.length === 1) return firstLabel;
+        const lastLabel = getMonthYearLabel(last.m, last.ay).toUpperCase();
+        return `${firstLabel} - ${lastLabel}`;
+    }).join(", ");
+};
+
 export function groupFees(
     items: any[],
     appliedDiscounts: Record<number, AdHocDiscount[]> = {},
@@ -142,6 +184,7 @@ export function groupFees(
             let groupNet = 0;
             let groupDiscount = 0;
             let groupLabels: string[] = [];
+            let groupMonths: { month: number, academicYear: string }[] = [];
 
             group.feeIds.forEach(feeId => {
                 const item = items.find(f => f.id === feeId);
@@ -151,6 +194,9 @@ export function groupFees(
                     groupNet += getNetAmount(item);
                     groupDiscount += getDiscount(item);
 
+                    const m = data.target_month || data.month;
+                    if (m) groupMonths.push({ month: m, academicYear: data.academic_year || "" });
+
                     if (data.discount_label) groupLabels.push(data.discount_label);
                     if (!options.isVoucherHeads && Number(item.amount_before_discount) > Number(item.amount || item.amount_before_discount)) {
                         groupLabels.push("Profile Disc");
@@ -159,8 +205,10 @@ export function groupFees(
                 }
             });
 
+            const monthSuffix = groupMonths.length > 0 ? ` (${getConsolidatedMonthsLabel(groupMonths)})` : "";
+
             results.push({
-                description: group.name,
+                description: `${group.name}${monthSuffix}`,
                 amount: groupGross,
                 netAmount: groupNet,
                 discount: groupDiscount,
@@ -188,6 +236,7 @@ export function groupFees(
             let groupNet = 0;
             let groupDiscount = 0;
             let groupLabels: string[] = [];
+            let groupMonths: { month: number, academicYear: string }[] = [];
             const bundleName = group[0].student_fee_bundles?.bundle_name || `Bundle ${bundleId}`;
 
             group.forEach(item => {
@@ -196,6 +245,9 @@ export function groupFees(
                 groupNet += getNetAmount(item);
                 groupDiscount += getDiscount(item);
 
+                const m = data.target_month || data.month;
+                if (m) groupMonths.push({ month: m, academicYear: data.academic_year || "" });
+
                 if (data.discount_label) groupLabels.push(data.discount_label);
                 if (!options.isVoucherHeads && Number(item.amount_before_discount) > Number(item.amount || item.amount_before_discount)) {
                     groupLabels.push("Profile Disc");
@@ -203,8 +255,10 @@ export function groupFees(
                 alreadyHandledIds.add(item.id);
             });
 
+            const monthSuffix = groupMonths.length > 0 ? ` (${getConsolidatedMonthsLabel(groupMonths)})` : "";
+
             results.push({
-                description: bundleName,
+                description: `${bundleName}${monthSuffix}`,
                 amount: groupGross,
                 netAmount: groupNet,
                 discount: groupDiscount,
@@ -222,6 +276,7 @@ export function groupFees(
     if (showTuitionGroup) {
 
         const tuitionFees = items.filter(f => {
+            if (alreadyHandledIds.has(f.id)) return false;
             const data = getFeeData(f);
             return data.fee_types?.description?.toLowerCase().includes("tuition");
         });
@@ -277,6 +332,7 @@ export function groupFees(
                     let rangeDiscount = 0;
                     let rangeLabels: string[] = [];
                     let rangeOrigAmount = 0;
+                    let rangeMonths: { month: number, academicYear: string }[] = [];
 
                     range.forEach(f => {
                         const data = getFeeData(f);
@@ -288,6 +344,9 @@ export function groupFees(
                         rangeDiscount += getDiscount(f);
                         rangeOrigAmount += Number(f.amount || f.amount_before_discount || 0);
 
+                        const m = data.target_month || data.month;
+                        if (m) rangeMonths.push({ month: m, academicYear: data.academic_year || "" });
+
                         if (data.discount_label) rangeLabels.push(data.discount_label);
                         if (!options.isVoucherHeads && Number(f.amount_before_discount) > Number(f.amount || f.amount_before_discount)) {
                             rangeLabels.push("Profile Disc");
@@ -297,16 +356,7 @@ export function groupFees(
 
                     if (rangeNet <= 0) return;
 
-                    const first = getFeeData(range[0]);
-                    const last = getFeeData(range[range.length - 1]);
-                    const firstLabel = getMonthYearLabel(first.target_month || first.month || 0, first.academic_year || "").toUpperCase();
-                    
-                    let rangeMonthStr = firstLabel;
-                    if (range.length > 1) {
-                        const lastLabel = getMonthYearLabel(last.target_month || last.month || 0, last.academic_year || "").toUpperCase();
-                        rangeMonthStr = `${firstLabel} - ${lastLabel}`;
-                    }
-
+                    const rangeMonthStr = getConsolidatedMonthsLabel(rangeMonths);
                     const isPartial = rangeNet < rangeOrigAmount;
                     const balancePrefix = isPartial ? 'BALANCE PAYMENT OF — ' : '';
 
@@ -330,6 +380,7 @@ export function groupFees(
     items.forEach(item => {
         if (!alreadyHandledIds.has(item.id)) {
             const netAmount = getNetAmount(item);
+            if (netAmount <= netAmount * 0.001 && netAmount > 0) { /* edge case */ }
             if (netAmount <= 0) return; // skip fully paid
 
             const data = getFeeData(item);
@@ -339,11 +390,11 @@ export function groupFees(
                 headLabels.push("Profile Disc");
             }
 
-            let desc = data.fee_types?.description || 'Unknown Fee';
+            let desc = data.fee_types?.description?.toUpperCase() || 'UNKNOWN FEE';
             const m = data.target_month || data.month;
             if (m) {
                 const monthLabel = getMonthYearLabel(m, data.academic_year || "");
-                desc = `${desc.toUpperCase()} (${monthLabel.toUpperCase()})`;
+                desc = `${desc} (${monthLabel.toUpperCase()})`;
             }
 
             const isPartial = netAmount < Number(item.amount || item.amount_before_discount);
@@ -367,4 +418,5 @@ export function groupFees(
 
     return results;
 }
+
 
