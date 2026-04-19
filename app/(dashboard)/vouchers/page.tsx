@@ -580,6 +580,7 @@ export default function VouchersPage() {
     const vouchers = useAppSelector(s => s.vouchers.items);
     const vouchersLoading = useAppSelector(s => s.vouchers.isLoading);
     const vouchersError = useAppSelector(s => s.vouchers.error);
+    const pagination = useAppSelector(s => s.vouchers.pagination);
     const campuses = useAppSelector(s => s.campuses.items);
     const campusesLoading = useAppSelector(s => s.campuses.isLoading);
     const classes = useAppSelector(s => s.classes.items);
@@ -603,13 +604,21 @@ export default function VouchersPage() {
     const [pageSize, setPageSize] = useState(20);
     const [showFilters, setShowFilters] = useState(true);
 
-    // Load reference data + initial vouchers
+    // Load reference data
     useEffect(() => {
         if (campuses.length === 0) dispatch(fetchCampuses());
         if (classes.length === 0) dispatch(fetchClasses());
         if (sections.length === 0) dispatch(fetchSections());
-        dispatch(fetchVouchers({}));
     }, [dispatch]);
+
+    // Fetch vouchers on page/filter change
+    useEffect(() => {
+        dispatch(fetchVouchers({ 
+            ...activeFiltersApplied, 
+            page, 
+            limit: pageSize 
+        }));
+    }, [dispatch, page, pageSize, activeFiltersApplied]);
 
     const buildFilters = useCallback((): VoucherFilters => {
         const f: VoucherFilters = {};
@@ -630,8 +639,7 @@ export default function VouchersPage() {
         const filters = buildFilters();
         setActiveFiltersApplied(filters);
         setPage(1);
-        dispatch(fetchVouchers(filters));
-    }, [buildFilters, dispatch]);
+    }, [buildFilters]);
 
     const handleClearFilters = () => {
         setCampusId("");
@@ -658,9 +666,10 @@ export default function VouchersPage() {
 
     const activeFilterCount = Object.keys(activeFiltersApplied).length;
 
-    // Stat cards
+    // Stat cards (Showing current page stats for now, total count from pagination)
     const stats = {
-        total: vouchers.length,
+        total: pagination.total,
+        pageTotal: vouchers.length,
         paid: vouchers.filter(v => v.status === "PAID").length,
         unpaid: vouchers.filter(v => v.status !== "PAID" && v.status !== "OVERDUE").length,
         overdue: vouchers.filter(v => v.status === "OVERDUE").length,
@@ -950,7 +959,7 @@ export default function VouchersPage() {
                 <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                            {vouchersLoading ? "Loading…" : `${vouchers.length.toLocaleString()} voucher${vouchers.length !== 1 ? "s" : ""}`}
+                            {vouchersLoading ? "Loading…" : `${pagination.total.toLocaleString()} total voucher${pagination.total !== 1 ? "s" : ""}`}
                         </span>
                         {activeFilterCount > 0 && (
                             <span className="text-[10px] font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
@@ -1012,7 +1021,7 @@ export default function VouchersPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {paginatedVouchers.map((v, i) => (
+                                {vouchers.map((v, i) => (
                                     <VoucherRow key={v.id} voucher={v} index={(page - 1) * pageSize + i} sections={sections} onRefresh={handleRefresh} />
                                 ))}
                             </tbody>
@@ -1021,10 +1030,10 @@ export default function VouchersPage() {
                 )}
 
                 {/* Pagination */}
-                {!vouchersLoading && totalPages > 1 && (
+                {!vouchersLoading && pagination.totalPages > 1 && (
                     <div className="px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
                         <p className="text-xs text-zinc-400 font-medium">
-                            Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, vouchers.length)} of {vouchers.length}
+                            Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, pagination.total)} of {pagination.total}
                         </p>
                         <div className="flex items-center gap-1">
                             <button
@@ -1035,11 +1044,11 @@ export default function VouchersPage() {
                             >
                                 <ChevronLeft className="h-4 w-4 text-zinc-500" />
                             </button>
-                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
                                 let p: number;
-                                if (totalPages <= 5) { p = i + 1; }
+                                if (pagination.totalPages <= 5) { p = i + 1; }
                                 else if (page <= 3) { p = i + 1; }
-                                else if (page >= totalPages - 2) { p = totalPages - 4 + i; }
+                                else if (page >= pagination.totalPages - 2) { p = pagination.totalPages - 4 + i; }
                                 else { p = page - 2 + i; }
                                 return (
                                     <button
@@ -1054,8 +1063,8 @@ export default function VouchersPage() {
                             })}
                             <button
                                 id="btn-next-page"
-                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                disabled={page === totalPages}
+                                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                                disabled={page === pagination.totalPages}
                                 className="p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                             >
                                 <ChevronRight className="h-4 w-4 text-zinc-500" />
