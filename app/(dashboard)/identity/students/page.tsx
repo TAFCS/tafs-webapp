@@ -25,6 +25,7 @@ interface StudentCore {
     house_name: string | null;
     house_color: string | null;
     enrollment_status: "SOFT_ADMISSION" | "ENROLLED" | "EXPELLED" | "GRADUATED";
+    class_id: number;
     photograph_url: string | null;
     primary_guardian_name?: string | null;
     guardian_relationship?: string | null;
@@ -49,6 +50,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; d
     SOFT_ADMISSION: { label: "SOFT ADMISSION",  bg: "bg-blue-50",     text: "text-blue-700",    dot: "bg-blue-500" },
     EXPELLED:       { label: "EXPELLED",        bg: "bg-rose-50",     text: "text-rose-700",    dot: "bg-rose-500" },
     GRADUATED:      { label: "GRADUATED",       bg: "bg-violet-50",   text: "text-violet-700",  dot: "bg-violet-500" },
+    LEFT:           { label: "LEFT",            bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -81,7 +83,7 @@ function StudentCard({ student, onClick }: { student: Student; onClick: () => vo
     return (
         <button
             onClick={onClick}
-            className="w-full text-left bg-white border border-zinc-100 rounded-2xl p-4 hover:shadow-md hover:border-zinc-200 transition-all duration-200 group active:scale-[0.99]"
+            className="w-full text-left bg-white border border-zinc-100 rounded-2xl p-4 hover:shadow-md hover:border-zinc-200 transition-all duration-200 active:scale-[0.99]"
         >
             <div className="flex items-start gap-3">
                 <Avatar url={c.photograph_url} name={c.full_name} size={44} />
@@ -104,22 +106,6 @@ function StudentCard({ student, onClick }: { student: Student; onClick: () => vo
                             <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
                                 <BookOpen className="h-2.5 w-2.5 text-zinc-400" />{c.class_description}
                             </span>
-                        )}
-                        {c.section_description && (
-                            <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
-                                <Layers className="h-2.5 w-2.5 text-zinc-400" />{c.section_description}
-                            </span>
-                        )}
-                        {c.house_name && (
-                            <span className="flex items-center gap-1 text-[10px] rounded-md px-1.5 py-0.5 font-bold" style={{ background: c.house_color ? `${c.house_color}22` : "#f4f4f5", color: c.house_color || "#71717a" }}>
-                                <Home className="h-2.5 w-2.5" />{c.house_name}
-                            </span>
-                        )}
-                        {c.primary_guardian_name && (
-                             <span className="flex items-center gap-1 text-[10px] bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-md px-1.5 py-0.5 font-bold">
-                                 <Users className="h-2.5 w-2.5 text-indigo-400" />
-                                 {c.guardian_relationship ? `${c.guardian_relationship}: ` : ""}{c.primary_guardian_name}
-                             </span>
                         )}
                     </div>
                 </div>
@@ -319,7 +305,11 @@ function DirectoryContent() {
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                     {students.map(s => (
-                        <StudentCard key={s.cc} student={s} onClick={() => setSelectedCc(s.cc)} />
+                        <StudentCard 
+                            key={s.cc} 
+                            student={s} 
+                            onClick={() => setSelectedCc(s.cc)} 
+                        />
                     ))}
                 </div>
             )}

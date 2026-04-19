@@ -1,11 +1,12 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert } from "lucide-react";
+import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, GraduationCap as GraduateIcon } from "lucide-react";
 import api from "@/lib/api";
 import { IdentityTab } from "./IdentityTab";
 import { AdmissionsTab } from "./AdmissionsTab";
 import { AcademicTab } from "./AcademicTab";
 import { GuardiansTab } from "./GuardiansTab";
+import { LifecycleActionModal } from "./LifecycleActionModal";
 import { AdmissionOrderTab } from "./AdmissionOrderTab";
 import { StudentLogsTab } from "./StudentLogsTab";
 import { DangerZoneTab } from "./DangerZoneTab";
@@ -31,6 +32,11 @@ interface Props {
 export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = [], onUpdated }: Props) {
     const [student, setStudent] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [lifecycleModal, setLifecycleModal] = useState<{ open: boolean; action: 'graduate' | 'expel' | 'left' }>({
+        open: false,
+        action: 'graduate'
+    });
     const [unexpelling, setUnexpelling] = useState(false);
     const [tab, setTab] = useState<TabId>("identity");
 
@@ -51,6 +57,34 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
     }, [cc, reload]);
 
     const isExpelled = (student?.status || "").toUpperCase() === "EXPELLED";
+
+    const handleLifecycleAction = (action: 'graduate' | 'expel' | 'left') => {
+        setLifecycleModal({ open: true, action });
+    };
+
+    const confirmLifecycleAction = async (reason: string) => {
+        const { action } = lifecycleModal;
+        if (!cc || !student) return;
+
+        setActionLoading(action);
+        try {
+            await api.post('/v1/students/promotion/single', {
+                student_id: cc,
+                from: { class_id: student.class_id },
+                [action]: true,
+                reason: reason.trim() || undefined
+            });
+            await reload();
+            onUpdated?.();
+            setLifecycleModal(prev => ({ ...prev, open: false }));
+        } catch (error: any) {
+            const message = error?.response?.data?.message || `Failed to ${action} student.`;
+            window.alert(message);
+            throw error; // Re-throw for modal loading state
+        } finally {
+            setActionLoading(null);
+        }
+    };
 
     const handleUnexpel = async () => {
         if (!cc || !student) return;
@@ -132,6 +166,39 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                                 {unexpelling ? "Unexpelling..." : "Unexpel Student"}
                             </button>
                         )}
+                        {student && !isExpelled && student.status !== 'GRADUATED' && student.status !== 'LEFT' && (
+                            <div className="flex items-center bg-zinc-50 border border-zinc-100 rounded-xl p-0.5 mr-2 gap-0.5">
+                                <button
+                                    onClick={() => handleLifecycleAction('graduate')}
+                                    disabled={!!actionLoading}
+                                    className="flex items-center gap-1 px-2 h-7 rounded-lg text-violet-600 hover:bg-violet-50 transition-all font-bold text-[10px] uppercase"
+                                    title="Graduate Student"
+                                >
+                                    {actionLoading === 'graduate' ? <Loader2 className="h-3 w-3 animate-spin" /> : <GraduateIcon className="h-3 w-3" />}
+                                    Graduate
+                                </button>
+                                <div className="w-[1px] h-3 bg-zinc-200" />
+                                <button
+                                    onClick={() => handleLifecycleAction('left')}
+                                    disabled={!!actionLoading}
+                                    className="flex items-center gap-1 px-2 h-7 rounded-lg text-amber-600 hover:bg-amber-50 transition-all font-bold text-[10px] uppercase"
+                                    title="Mark as Left"
+                                >
+                                    {actionLoading === 'left' ? <Loader2 className="h-3 w-3 animate-spin" /> : <DoorOpen className="h-3 w-3" />}
+                                    Left
+                                </button>
+                                <div className="w-[1px] h-3 bg-zinc-200" />
+                                <button
+                                    onClick={() => handleLifecycleAction('expel')}
+                                    disabled={!!actionLoading}
+                                    className="flex items-center gap-1 px-2 h-7 rounded-lg text-rose-600 hover:bg-rose-50 transition-all font-bold text-[10px] uppercase"
+                                    title="Expel Student"
+                                >
+                                    {actionLoading === 'expel' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Ban className="h-3 w-3" />}
+                                    Expel
+                                </button>
+                            </div>
+                        )}
                         <button
                             onClick={onClose}
                             title="Close"
@@ -140,6 +207,7 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                         >
                             <X className="h-4 w-4 text-zinc-400" />
                         </button>
+
                     </div>
                 </div>
 
@@ -182,6 +250,14 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                     )}
                 </div>
             </div>
+
+            <LifecycleActionModal
+                isOpen={lifecycleModal.open}
+                action={lifecycleModal.action}
+                studentName={student?.full_name || "Student"}
+                onClose={() => setLifecycleModal(prev => ({ ...prev, open: false }))}
+                onConfirm={confirmLifecycleAction}
+            />
         </>
     );
 }
