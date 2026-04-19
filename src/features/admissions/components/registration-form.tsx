@@ -328,8 +328,14 @@ export function RegistrationForm() {
             const filteredValue = value.replace(/\D/g, "");
 
             // Additional constraints for DOB
-            if (name === "dobDay" && filteredValue.length > 2) return;
-            if (name === "dobMonth" && filteredValue.length > 2) return;
+            if (name === "dobMonth") {
+                if (filteredValue.length > 2) return;
+                if (filteredValue !== "" && (parseInt(filteredValue) > 12 || (filteredValue.length === 2 && parseInt(filteredValue) === 0))) return;
+            }
+            if (name === "dobDay") {
+                if (filteredValue.length > 2) return;
+                if (filteredValue !== "" && (parseInt(filteredValue) > 31 || (filteredValue.length === 2 && parseInt(filteredValue) === 0))) return;
+            }
             if (name === "dobYear" && filteredValue.length > 4) return;
 
             setFormData(prev => ({ ...prev, [name]: filteredValue }));
@@ -535,8 +541,8 @@ export function RegistrationForm() {
             const newPhones = currentPhones.map((p: any) => {
                 if (p.id !== id) return p;
                 if (key === 'number') {
-                    // Extract only digits, limit to 15
-                    return { ...p, [key]: value.replace(/\D/g, "").slice(0, 15) };
+                    // Extract only digits, limit to 10
+                    return { ...p, [key]: value.replace(/\D/g, "").slice(0, 10) };
                 }
                 return { ...p, [key]: value.toUpperCase() };
             });
@@ -659,6 +665,28 @@ export function RegistrationForm() {
         // Validation: Home Landline must be exactly 8 digits if provided
         if (formData.homePhone && !formData.isHomePhoneNA && formData.homePhone.length !== 8) {
             setSubmitError("Home Landline must be exactly 8 digits.");
+            setIsSubmitting(false);
+            return;
+        }
+
+        // Validation: Additional numbers must be exactly 10 digits
+        const allAdditionalPhones = [
+            ...formData.fatherAdditionalPhones,
+            ...formData.motherAdditionalPhones,
+            ...(formData.emergencyAdditionalPhones || [])
+        ];
+        for (const p of allAdditionalPhones) {
+            if (p.number && p.number.length !== 10) {
+                setSubmitError(`Additional Number "${p.label}" must be exactly 10 digits.`);
+                setIsSubmitting(false);
+                return;
+            }
+        }
+
+        // Validation: DOB Month must be valid
+        if (formData.dobMonth && (parseInt(formData.dobMonth) < 1 || parseInt(formData.dobMonth) > 12)) {
+            setSubmitError("Date of Birth (Month) must be between 1 and 12.");
+            setIsSubmitting(false);
             return;
         }
 
