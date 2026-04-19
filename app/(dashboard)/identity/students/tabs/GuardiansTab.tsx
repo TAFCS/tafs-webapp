@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2, Search, Link, X as XIcon, User, RefreshCw, MapPin, Camera } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2, Search, Link, X as XIcon, User, RefreshCw, MapPin, Camera, ShieldAlert } from "lucide-react";
 import { ChangeFamilyModal } from "@/src/features/students/components/student-profile-modal";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
@@ -179,9 +179,18 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                     <div className="flex items-center gap-2 flex-wrap mt-0.5">
                         <span className="text-[10px] font-bold text-zinc-400 uppercase">{local.relationship}</span>
                         {isPrimary && <span className="text-[9px] font-black px-1.5 py-0.5 bg-primary/10 text-primary rounded-md uppercase">Primary</span>}
-                        {isEmergency && <span className="text-[9px] font-black px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-md uppercase">Emergency</span>}
+                        {isEmergency && <span className="text-[9px] font-black px-1.5 py-0.5 bg-rose-600 text-white rounded-md uppercase">Emergency Contact</span>}
                         {local.cnic && <span className="flex items-center gap-1 text-[10px] text-zinc-500 font-medium bg-zinc-100 px-1.5 py-0.5 rounded-md"><User className="h-2.5 w-2.5" />{local.cnic}</span>}
-                        {local.primary_phone && <span className="flex items-center gap-1 text-[10px] text-zinc-400"><Phone className="h-2.5 w-2.5" />{local.primary_phone}</span>}
+                        {local.primary_phone && (
+                            <span className={`flex items-center gap-1 text-[10px] font-bold ${isEmergency && !(local.additional_phones || []).some((p: any) => p.label?.toUpperCase().includes("EMERGENCY")) ? "text-rose-600" : "text-zinc-400"}`}>
+                                <Phone className="h-2.5 w-2.5" />{local.primary_phone}
+                            </span>
+                        )}
+                        {(local.additional_phones || []).filter((p: any) => p.label?.toUpperCase().includes("EMERGENCY")).map((p: any, i: number) => (
+                            <span key={i} className="flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
+                                <Phone className="h-2.5 w-2.5" />{p.number} ({p.label.replace(/\(EMERGENCY\)/gi, "").trim() || "Work"})
+                            </span>
+                        ))}
                     </div>
                 </div>
                 <span className="text-zinc-300 text-xs">{expanded ? "▲" : "▼"}</span>
@@ -564,6 +573,8 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
             setIsSavingName(false);
         }
     };
+
+    const emergencyContacts = guardians.filter(g => g.is_emergency_contact);
 
     return (
         <div className="space-y-8 pb-8">

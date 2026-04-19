@@ -78,6 +78,7 @@ const INITIAL_FORM_DATA = {
     motherPhotoUrl: "",
     fatherAdditionalPhones: [] as Array<{ id: string; label: string; number: string }>,
     motherAdditionalPhones: [] as Array<{ id: string; label: string; number: string }>,
+    emergencyAdditionalPhones: [] as Array<{ id: string; label: string; number: string }>,
 };
 
 import { memo } from "react";
@@ -268,15 +269,30 @@ export function RegistrationForm() {
         if (name.toLowerCase().includes("phone") || name.toLowerCase().includes("whatsapp") || name.toLowerCase().includes("fax")) {
             if (type !== "checkbox") {
                 const isForeign = (name === "fatherPhone" && formData.isFatherPhoneForeign) || (name === "motherPhone" && formData.isMotherPhoneForeign);
+                let finalValue = value;
                 if (isForeign || name === "homePhone" || name.includes("CountryCode")) {
                     // Allow free-form entry for foreign or home phones
                     const filtered = value.replace(/[^0-9+]/g, "");
                     // Enforce 8-digit limit for homeLandline specifically
-                    const finalValue = name === "homePhone" ? filtered.replace(/\D/g, "").slice(0, 8) : filtered;
-                    setFormData(prev => ({ ...prev, [name]: finalValue }));
-                    return;
+                    finalValue = name === "homePhone" ? filtered.replace(/\D/g, "").slice(0, 8) : filtered;
+                } else {
+                    finalValue = formatPhone(value);
                 }
-                setFormData(prev => ({ ...prev, [name]: formatPhone(value) }));
+
+                setFormData(prev => {
+                    const updates: any = { [name]: finalValue };
+                    
+                    // Sync with emergency contact if this phone is currently selected as primary
+                    if (name === "fatherPhone" && prev.emergencyContactType === "father" && prev.emergencyContactPhone === prev.fatherPhone) {
+                        updates.emergencyContactPhone = finalValue;
+                    } else if (name === "motherPhone" && prev.emergencyContactType === "mother" && prev.emergencyContactPhone === prev.motherPhone) {
+                        updates.emergencyContactPhone = finalValue;
+                    } else if (name === "emergencyContactPhone" && prev.emergencyContactType === "other") {
+                        // For 'other', just update normally
+                    }
+
+                    return { ...prev, ...updates };
+                });
                 return;
             }
         }
@@ -291,7 +307,18 @@ export function RegistrationForm() {
         if (alphaFields.includes(name)) {
             // Allow letters, spaces, dots, and hyphens for names/locations
             const filteredValue = value.replace(/[^a-zA-Z\s.-]/g, "").toUpperCase();
-            setFormData(prev => ({ ...prev, [name]: filteredValue }));
+            setFormData(prev => {
+                const updates: any = { [name]: filteredValue };
+
+                // Sync Name with emergency contact
+                if (name === "fatherName" && prev.emergencyContactType === "father") {
+                    updates.emergencyContactName = filteredValue;
+                } else if (name === "motherName" && prev.emergencyContactType === "mother") {
+                    updates.emergencyContactName = filteredValue;
+                }
+
+                return { ...prev, ...updates };
+            });
             return;
         }
 
@@ -483,9 +510,9 @@ export function RegistrationForm() {
         });
     };
 
-    const addAdditionalPhone = (type: 'father' | 'mother') => {
-        const field = type === 'father' ? 'fatherAdditionalPhones' : 'motherAdditionalPhones';
-        const current = (formData as any)[field];
+    const addAdditionalPhone = (type: 'father' | 'mother' | 'emergency') => {
+        const field = type === 'father' ? 'fatherAdditionalPhones' : type === 'mother' ? 'motherAdditionalPhones' : 'emergencyAdditionalPhones';
+        const current = (formData as any)[field] || [];
         if (current.length >= 10) return;
         setFormData(prev => ({
             ...prev,
@@ -493,27 +520,39 @@ export function RegistrationForm() {
         }));
     };
 
-    const removeAdditionalPhone = (type: 'father' | 'mother', id: string) => {
-        const field = type === 'father' ? 'fatherAdditionalPhones' : 'motherAdditionalPhones';
+    const removeAdditionalPhone = (type: 'father' | 'mother' | 'emergency', id: string) => {
+        const field = type === 'father' ? 'fatherAdditionalPhones' : type === 'mother' ? 'motherAdditionalPhones' : 'emergencyAdditionalPhones';
         setFormData(prev => ({
             ...prev,
-            [field]: (prev as any)[field].filter((p: any) => p.id !== id)
+            [field]: ((prev as any)[field] || []).filter((p: any) => p.id !== id)
         }));
     };
 
-    const handleAdditionalPhoneChange = (type: 'father' | 'mother', id: string, key: 'label' | 'number', value: string) => {
-        const field = type === 'father' ? 'fatherAdditionalPhones' : 'motherAdditionalPhones';
-        setFormData(prev => ({
-            ...prev,
-            [field]: (prev as any)[field].map((p: any) => {
+    const handleAdditionalPhoneChange = (type: 'father' | 'mother' | 'emergency', id: string, key: 'label' | 'number', value: string) => {
+        const field = type === 'father' ? 'fatherAdditionalPhones' : type === 'mother' ? 'motherAdditionalPhones' : 'emergencyAdditionalPhones';
+        setFormData(prev => {
+            const currentPhones = (prev as any)[field] || [];
+            const newPhones = currentPhones.map((p: any) => {
                 if (p.id !== id) return p;
                 if (key === 'number') {
                     // Extract only digits, limit to 15
                     return { ...p, [key]: value.replace(/\D/g, "").slice(0, 15) };
                 }
                 return { ...p, [key]: value.toUpperCase() };
-            })
-        }));
+            });
+
+            const updates: any = { [field]: newPhones };
+
+            // If this is the current emergency phone, update it
+            if (prev.emergencyContactType === type) {
+                const updatedPhone = newPhones.find((p: any) => p.id === id);
+                if (updatedPhone && prev.emergencyContactPhone === (currentPhones.find((p: any) => p.id === id)?.number)) {
+                    updates.emergencyContactPhone = updatedPhone.number;
+                }
+            }
+
+            return { ...prev, ...updates };
+        });
     };
 
     const clearGuardianSection = (type: 'father' | 'mother') => {
@@ -669,9 +708,17 @@ export function RegistrationForm() {
                 postal_code: formData.postalCode || undefined,
                 fax_number: formData.fatherFax || undefined,
                 whatsapp_number: formData.isFatherWhatsapp ? formData.fatherPhone : formData.fatherWhatsapp || undefined,
-                additional_phones: formData.fatherAdditionalPhones
+                additional_phones: (formData.fatherAdditionalPhones || [])
                     .filter(p => p.number.trim())
-                    .map(p => ({ label: p.label, number: p.number })),
+                    .map(p => {
+                        let label = p.label || "";
+                        if (formData.emergencyContactType === 'father' && p.number === formData.emergencyContactPhone) {
+                            if (!label.toUpperCase().includes("EMERGENCY")) {
+                                label = label ? `${label} (EMERGENCY)` : "EMERGENCY";
+                            }
+                        }
+                        return { label, number: p.number };
+                    }),
             },
             mother: {
                 full_name: motherFullName,
@@ -681,9 +728,17 @@ export function RegistrationForm() {
                 email_address: formData.motherEmail || undefined,
                 fax_number: formData.motherFax || undefined,
                 whatsapp_number: formData.isMotherWhatsapp ? formData.motherPhone : formData.motherWhatsapp || undefined,
-                additional_phones: formData.motherAdditionalPhones
+                additional_phones: (formData.motherAdditionalPhones || [])
                     .filter(p => p.number.trim())
-                    .map(p => ({ label: p.label, number: p.number })),
+                    .map(p => {
+                        let label = p.label || "";
+                        if (formData.emergencyContactType === 'mother' && p.number === formData.emergencyContactPhone) {
+                            if (!label.toUpperCase().includes("EMERGENCY")) {
+                                label = label ? `${label} (EMERGENCY)` : "EMERGENCY";
+                            }
+                        }
+                        return { label, number: p.number };
+                    }),
             },
             home_phone: formData.homePhone ? `${formData.homePhoneCountryCode}-${formData.homePhone}` : undefined,
             emergency_contact: formData.emergencyContactName
@@ -693,6 +748,11 @@ export function RegistrationForm() {
                     primary_phone: formData.emergencyContactPhone || '0000-0000000',
                     relationship: formData.emergencyRelationship || 'Guardian',
                     role: formData.emergencyContactType,
+                    additional_phones: formData.emergencyContactType === 'other' 
+                        ? (formData.emergencyAdditionalPhones || [])
+                            .filter(p => p.number.trim())
+                            .map(p => ({ label: p.label, number: p.number }))
+                        : undefined,
                 }
                 : undefined,
             admission: {
@@ -1616,56 +1676,170 @@ export function RegistrationForm() {
                                         ))}
                                     </div>
                                 </div>
-                                <div className="bg-red-50/50 p-6 rounded-2xl border border-red-100">
+
+                                <div className="bg-red-50/50 dark:bg-red-950/10 p-4 sm:p-6 rounded-2xl border border-red-100 dark:border-red-900/30">
                                     {formData.emergencyContactType === 'other' ? (
-                                        <div className="flex flex-col md:flex-row items-center gap-6 animate-in fade-in slide-in-from-top-1 duration-200">
-                                            <div className="flex-[1.5] w-full">
-                                                <div className="flex items-center justify-between mb-1.5 ml-1">
-                                                    <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40">Contact Name</label>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            name="isEmergencyContactNameNA" 
-                                                            id="na-emergency-name" 
-                                                            checked={formData.isEmergencyContactNameNA} 
-                                                            onChange={handleInputChange} 
-                                                            className="h-3 w-3 text-red-600 rounded" 
-                                                        />
-                                                        <label htmlFor="na-emergency-name" className="text-[10px] font-bold uppercase text-red-900/40 cursor-pointer">N/A</label>
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-top-1 duration-200">
+                                            <div className="flex flex-col md:flex-row items-center gap-6">
+                                                <div className="flex-[1.5] w-full">
+                                                    <div className="flex items-center justify-between mb-1.5 ml-1">
+                                                        <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 dark:text-red-400/40">Contact Name</label>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                name="isEmergencyContactNameNA" 
+                                                                id="na-emergency-name" 
+                                                                checked={formData.isEmergencyContactNameNA} 
+                                                                onChange={handleInputChange} 
+                                                                className="h-3 w-3 text-red-600 rounded" 
+                                                            />
+                                                            <label htmlFor="na-emergency-name" className="text-[10px] font-bold uppercase text-red-900/40 dark:text-red-400/40 cursor-pointer">N/A</label>
+                                                        </div>
+                                                    </div>
+                                                    <input type="text" name="emergencyContactName" value={formData.emergencyContactName || ""} onChange={handleInputChange} disabled={formData.isEmergencyContactNameNA} placeholder="Full Name" className={`w-full px-4 py-3 bg-white dark:bg-zinc-950 border border-red-200 dark:border-red-900/20 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none shadow-sm disabled:cursor-not-allowed ${formData.isEmergencyContactNameNA ? 'opacity-50 bg-zinc-50' : ''}`} />
+                                                </div>
+                                                <div className="flex-[1.5] w-full">
+                                                    <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 dark:text-red-400/40 mb-1.5 ml-1">Contact Number (Primary)</label>
+                                                    <div className={`flex border border-red-200 dark:border-red-900/20 rounded-xl focus-within:ring-2 focus-within:ring-red-500 bg-white dark:bg-zinc-950 overflow-hidden shadow-sm ${formData.isEmergencyContactNameNA ? 'opacity-50' : ''}`}>
+                                                        <input type="text" name="emergencyPrimaryPhoneCountryCode" value={formData.emergencyPrimaryPhoneCountryCode || ""} onChange={handleInputChange} disabled={formData.isEmergencyContactNameNA} placeholder="+92" className="w-16 px-3 py-3 border-0 bg-red-50/50 dark:bg-zinc-900 outline-none text-xs font-bold border-r border-red-100 dark:border-red-900/20" />
+                                                        <input type="text" name="emergencyContactPhone" value={formData.emergencyContactPhone || ""} onChange={handleInputChange} disabled={formData.isEmergencyContactNameNA} placeholder="Phone Number" className="flex-1 min-w-0 px-4 py-3 border-0 outline-none text-sm bg-transparent" />
                                                     </div>
                                                 </div>
-                                                <input type="text" name="emergencyContactName" value={formData.emergencyContactName || ""} onChange={handleInputChange} disabled={formData.isEmergencyContactNameNA} placeholder="Full Name" className={`w-full px-4 py-3 bg-white dark:bg-zinc-950 border border-red-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none shadow-sm disabled:cursor-not-allowed ${formData.isEmergencyContactNameNA ? 'opacity-50 bg-zinc-50' : ''}`} />
-                                            </div>
-                                            <div className="flex-[1.5] w-full">
-                                                <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 mb-1.5 ml-1">Contact Number</label>
-                                                <div className="flex border border-red-200 dark:border-zinc-800 rounded-xl focus-within:ring-2 focus-within:ring-red-500 bg-white overflow-hidden shadow-sm">
-                                                    <input type="text" name="emergencyPrimaryPhoneCountryCode" value={formData.emergencyPrimaryPhoneCountryCode || ""} onChange={handleInputChange} placeholder="+92" className="w-16 px-3 py-3 border-0 bg-red-50/50 dark:bg-zinc-900 outline-none text-xs font-bold border-r border-red-100" />
-                                                    <input type="text" name="emergencyContactPhone" value={formData.emergencyContactPhone || ""} onChange={handleInputChange} placeholder="Phone Number" className="flex-1 min-w-0 px-4 py-3 border-0 outline-none text-sm bg-white dark:bg-zinc-950" />
+                                                <div className="flex-1 w-full">
+                                                    <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 dark:text-red-400/40 mb-1.5 ml-1">Relationship</label>
+                                                    <input type="text" name="emergencyRelationship" value={formData.emergencyRelationship || ""} onChange={handleInputChange} disabled={formData.isEmergencyContactNameNA} placeholder="Relative / Guardian" className={`w-full px-4 py-3 bg-white dark:bg-zinc-950 border border-red-200 dark:border-red-900/20 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none shadow-sm disabled:cursor-not-allowed ${formData.isEmergencyContactNameNA ? 'opacity-50' : ''}`} />
                                                 </div>
                                             </div>
-                                            <div className="flex-1 w-full">
-                                                <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 mb-1.5 ml-1">Relationship</label>
-                                                <input type="text" name="emergencyRelationship" value={formData.emergencyRelationship || ""} onChange={handleInputChange} placeholder="Relative / Guardian" className="w-full px-4 py-3 bg-white dark:bg-zinc-950 border border-red-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none shadow-sm" />
-                                            </div>
+
+                                            {/* Additional Numbers for Other */}
+                                            {!formData.isEmergencyContactNameNA && (
+                                                <div className="pl-1 space-y-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-red-900/30 dark:text-red-400/30">Additional Contact Numbers</p>
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => addAdditionalPhone('emergency')}
+                                                            className="text-[9px] font-black text-red-600 hover:text-red-700 uppercase tracking-widest flex items-center gap-1 transition-colors"
+                                                        >
+                                                            <Plus className="h-2.5 w-2.5" /> Add Number
+                                                        </button>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                        {(formData.emergencyAdditionalPhones || []).map((phone) => (
+                                                            <div key={phone.id} className="flex gap-1 animate-in slide-in-from-left-2 duration-200 group">
+                                                                <input 
+                                                                    type="text" 
+                                                                    value={phone.label} 
+                                                                    onChange={(e) => handleAdditionalPhoneChange('emergency', phone.id, 'label', e.target.value)}
+                                                                    placeholder="LABEL"
+                                                                    className="w-20 px-2 py-1.5 text-[10px] font-black border border-red-100 dark:border-red-900/20 rounded-lg bg-white/50 dark:bg-zinc-900/50 uppercase outline-none focus:border-red-400"
+                                                                />
+                                                                <div className="flex flex-1 border border-red-100 dark:border-red-900/20 rounded-lg overflow-hidden bg-white/50 dark:bg-zinc-900/50">
+                                                                    <span className="flex items-center px-2 bg-red-50/50 dark:bg-zinc-800/50 border-r border-red-100 dark:border-red-900/20 text-[10px] font-semibold text-red-800/40">+92</span>
+                                                                    <input 
+                                                                        type="text" 
+                                                                        value={phone.number} 
+                                                                        onChange={(e) => handleAdditionalPhoneChange('emergency', phone.id, 'number', e.target.value)}
+                                                                        placeholder="Number"
+                                                                        className="w-full px-2 py-1.5 text-xs outline-none bg-transparent"
+                                                                    />
+                                                                    <button 
+                                                                        type="button" 
+                                                                        onClick={() => removeAdditionalPhone('emergency', phone.id)}
+                                                                        className="px-2 bg-red-50/50 dark:bg-zinc-800/50 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-400 hover:text-red-600 border-l border-red-100 dark:border-red-900/20 transition-colors"
+                                                                    >
+                                                                        <X className="h-3 w-3" />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Selection grid for 'Other' if additional phones exist */}
+                                                    {(formData.emergencyAdditionalPhones || []).length > 0 && (
+                                                        <div className="pt-4 border-t border-red-100 dark:border-red-900/20">
+                                                            <p className="text-[10px] font-black uppercase tracking-widest text-red-900/30 dark:text-red-400/30 mb-3">Select Active Emergency Number (click to select)</p>
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setFormData(prev => ({ ...prev, emergencyContactPhone: prev.emergencyContactPhone }))} // Already set by the input usually, but we keep it for consistency
+                                                                    className={`flex flex-col items-start p-3 rounded-xl border transition-all text-left bg-white dark:bg-zinc-950 border-red-100 dark:border-red-900/30 text-red-900/60 dark:text-red-100/60 hover:border-red-300 pointer-events-none opacity-50`}
+                                                                >
+                                                                     <span className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Primary Number</span>
+                                                                     <span className="text-sm font-mono font-bold italic">See Input Above</span>
+                                                                </button>
+                                                                {(formData.emergencyAdditionalPhones || []).map((phone) => (
+                                                                    <button
+                                                                        key={phone.id}
+                                                                        type="button"
+                                                                        onClick={() => setFormData(prev => ({ ...prev, emergencyContactPhone: phone.number }))}
+                                                                        className={`flex flex-col items-start p-3 rounded-xl border transition-all text-left ${formData.emergencyContactPhone === phone.number 
+                                                                            ? 'bg-red-600 text-white border-red-600 shadow-md shadow-red-200' 
+                                                                            : 'bg-white dark:bg-zinc-950 border-red-100 dark:border-red-900/30 text-red-900/60 dark:text-red-100/60 hover:border-red-300'}`}
+                                                                    >
+                                                                        <span className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">{phone.label || 'Additional'}</span>
+                                                                        <span className="text-sm font-mono font-bold">{phone.number}</span>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
-                                        <div className="flex items-center justify-between p-2 animate-in fade-in duration-300">
-                                            <div className="flex items-center gap-4">
-                                                <div className="h-12 w-12 rounded-xl bg-red-100 flex items-center justify-center">
-                                                    <span className="text-xl font-black text-red-600 uppercase">
-                                                        {formData.emergencyContactType === 'father' ? 'F' : 'M'}
-                                                    </span>
+                                        <div className="space-y-4 animate-in fade-in duration-300">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="h-12 w-12 rounded-xl bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
+                                                        <span className="text-xl font-black text-red-600 uppercase">
+                                                            {formData.emergencyContactType === 'father' ? 'F' : 'M'}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-black uppercase text-red-900/30 dark:text-red-400/30 tracking-widest">Linked Emergency Contact</p>
+                                                        <h4 className="text-sm font-bold text-red-900/80 dark:text-red-100/80 uppercase">
+                                                            {formData.emergencyContactType === 'father' ? 'Father' : 'Mother'}: {formData.emergencyContactName || 'No Name Provided'}
+                                                        </h4>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-xs font-black uppercase text-red-900/30 tracking-widest">Linked Emergency Contact</p>
-                                                    <h4 className="text-sm font-bold text-red-900/80 uppercase">
-                                                        {formData.emergencyContactType === 'father' ? 'Father' : 'Mother'}: {formData.emergencyContactName || 'No Name Provided'}
-                                                    </h4>
+                                                <div className="text-right">
+                                                    <p className="text-[10px] font-black uppercase text-red-900/30 dark:text-red-400/30 tracking-widest">Selected Emergency Number</p>
+                                                    <p className="text-sm font-mono font-bold text-red-900/80 dark:text-red-100/80">{formData.emergencyContactPhone || 'No Phone Registered'}</p>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
-                                                <p className="text-[10px] font-black uppercase text-red-900/30 tracking-widest">Contact Phone</p>
-                                                <p className="text-sm font-mono font-bold text-red-900/80">{formData.emergencyContactPhone || 'No Phone Registered'}</p>
+
+                                            {/* Number Selection Grid for Father/Mother */}
+                                            <div className="mt-4 pt-4 border-t border-red-100 dark:border-red-900/20">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-red-900/30 dark:text-red-400/30 mb-3">Select Active Emergency Number (click to select)</p>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                    {/* Primary Option */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormData(prev => ({ ...prev, emergencyContactPhone: formData.emergencyContactType === 'father' ? prev.fatherPhone : prev.motherPhone }))}
+                                                        className={`flex flex-col items-start p-3 rounded-xl border transition-all text-left ${formData.emergencyContactPhone === (formData.emergencyContactType === 'father' ? formData.fatherPhone : formData.motherPhone) 
+                                                            ? 'bg-red-600 text-white border-red-600 shadow-md shadow-red-200' 
+                                                            : 'bg-white dark:bg-zinc-950 border-red-100 dark:border-red-900/30 text-red-900/60 dark:text-red-100/60 hover:border-red-300'}`}
+                                                    >
+                                                        <span className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Primary Number</span>
+                                                        <span className="text-sm font-mono font-bold">{formData.emergencyContactType === 'father' ? formData.fatherPhone : formData.motherPhone}</span>
+                                                    </button>
+
+                                                    {/* Additional Options */}
+                                                    {(formData.emergencyContactType === 'father' ? (formData.fatherAdditionalPhones || []) : (formData.motherAdditionalPhones || [])).map((phone) => (
+                                                        <button
+                                                            key={phone.id}
+                                                            type="button"
+                                                            onClick={() => setFormData(prev => ({ ...prev, emergencyContactPhone: phone.number }))}
+                                                            className={`flex flex-col items-start p-3 rounded-xl border transition-all text-left ${formData.emergencyContactPhone === phone.number 
+                                                                ? 'bg-red-600 text-white border-red-600 shadow-md shadow-red-200' 
+                                                                : 'bg-white dark:bg-zinc-950 border-red-100 dark:border-red-900/30 text-red-900/60 dark:text-red-100/60 hover:border-red-300'}`}
+                                                        >
+                                                            <span className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">{phone.label || 'Additional'}</span>
+                                                            <span className="text-sm font-mono font-bold">{phone.number}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
                                     )}
