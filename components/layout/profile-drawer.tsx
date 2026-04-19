@@ -116,12 +116,12 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             opacity: 1,
             transition: { staggerChildren: 0.05, delayChildren: 0.1 }
         }
-    };
+    } as const;
 
     const itemVariants = {
         hidden: { opacity: 0, x: 20 },
         show: { opacity: 1, x: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
-    };
+    } as const;
 
     return (
         <AnimatePresence>
