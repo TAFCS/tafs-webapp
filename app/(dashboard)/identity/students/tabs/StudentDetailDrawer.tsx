@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, GraduationCap as GraduateIcon } from "lucide-react";
+import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, ChevronDown, GraduationCap as GraduateIcon } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import { IdentityTab } from "./IdentityTab";
 import { AdmissionsTab } from "./AdmissionsTab";
@@ -154,110 +155,150 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                                 </button>
                             </div>
                         )}
-                        {student && isExpelled && (
-                            <button
-                                onClick={() => {
-                                    void handleUnexpel();
-                                }}
-                                disabled={unexpelling}
-                                className="inline-flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {unexpelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
-                                {unexpelling ? "Unexpelling..." : "Unexpel Student"}
-                            </button>
-                        )}
-                        {student && !isExpelled && student.status !== 'GRADUATED' && student.status !== 'LEFT' && (
-                            <div className="flex items-center bg-zinc-50 border border-zinc-100 rounded-xl p-0.5 mr-2 gap-0.5">
-                                <button
-                                    onClick={() => handleLifecycleAction('graduate')}
-                                    disabled={!!actionLoading}
-                                    className="flex items-center gap-1 px-2 h-7 rounded-lg text-violet-600 hover:bg-violet-50 transition-all font-bold text-[10px] uppercase"
-                                    title="Graduate Student"
-                                >
-                                    {actionLoading === 'graduate' ? <Loader2 className="h-3 w-3 animate-spin" /> : <GraduateIcon className="h-3 w-3" />}
-                                    Graduate
-                                </button>
-                                <div className="w-[1px] h-3 bg-zinc-200" />
-                                <button
-                                    onClick={() => handleLifecycleAction('left')}
-                                    disabled={!!actionLoading}
-                                    className="flex items-center gap-1 px-2 h-7 rounded-lg text-amber-600 hover:bg-amber-50 transition-all font-bold text-[10px] uppercase"
-                                    title="Mark as Left"
-                                >
-                                    {actionLoading === 'left' ? <Loader2 className="h-3 w-3 animate-spin" /> : <DoorOpen className="h-3 w-3" />}
-                                    Left
-                                </button>
-                                <div className="w-[1px] h-3 bg-zinc-200" />
-                                <button
-                                    onClick={() => handleLifecycleAction('expel')}
-                                    disabled={!!actionLoading}
-                                    className="flex items-center gap-1 px-2 h-7 rounded-lg text-rose-600 hover:bg-rose-50 transition-all font-bold text-[10px] uppercase"
-                                    title="Expel Student"
-                                >
-                                    {actionLoading === 'expel' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Ban className="h-3 w-3" />}
-                                    Expel
-                                </button>
+                        {student && (
+                            <div className="relative group mr-2">
+                                <StatusDropdown 
+                                    status={student.status} 
+                                    loading={!!actionLoading || unexpelling}
+                                    onAction={(action) => {
+                                        if (action === 'unexpel') handleUnexpel();
+                                        else handleLifecycleAction(action as any);
+                                    }}
+                                />
                             </div>
                         )}
                         <button
                             onClick={onClose}
-                            title="Close"
-                            aria-label="Close"
-                            className="p-2 hover:bg-zinc-100 rounded-xl transition-colors"
+                            className="p-2 hover:bg-zinc-100 rounded-xl transition-colors text-zinc-400 hover:text-zinc-600"
                         >
-                            <X className="h-4 w-4 text-zinc-400" />
+                            <X className="h-5 w-5" />
                         </button>
-
                     </div>
                 </div>
 
-                {/* Tab Bar */}
-                <div className="flex border-b border-zinc-100 shrink-0 px-4 pt-2 gap-1">
-                    {TABS.map(t => {
-                        const Icon = t.icon;
-                        const active = tab === t.id;
-                        return (
-                            <button
-                                key={t.id}
-                                onClick={() => setTab(t.id)}
-                                className={`flex items-center gap-1.5 px-3 py-2 text-[12px] font-bold rounded-t-xl border-b-2 transition-all ${active ? "border-primary text-primary bg-primary/5" : "border-transparent text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50"}`}
-                            >
-                                <Icon className="h-3.5 w-3.5" />
-                                {t.label}
-                            </button>
-                        );
-                    })}
+                <div className="flex items-center px-6 border-b border-zinc-100 bg-white/50 backdrop-blur-xl shrink-0">
+                    {TABS.map((t) => (
+                        <button
+                            key={t.id}
+                            onClick={() => setTab(t.id)}
+                            className={`flex items-center gap-2 px-4 py-3 text-[13px] font-bold transition-all border-b-2 -mb-[1px] ${tab === t.id ? "border-indigo-600 text-indigo-600" : "border-transparent text-zinc-400 hover:text-zinc-600"}`}
+                        >
+                            <t.icon className="h-4 w-4" />
+                            {t.label}
+                        </button>
+                    ))}
                 </div>
 
-                {/* Body */}
-                <div className="flex-1 overflow-y-auto">
-                    {loading ? (
-                        <div className="flex items-center justify-center h-40">
-                            <Loader2 className="h-6 w-6 animate-spin text-primary/40" />
-                        </div>
-                    ) : !student ? (
-                        <div className="flex items-center justify-center h-40 text-zinc-400 text-sm">Student not found</div>
-                    ) : (
-                        <div className="p-6">
-                            {tab === "identity"   && <IdentityTab   student={student} onReload={reload} />}
-                            {tab === "admissions" && <AdmissionsTab student={student} onReload={reload} classes={classes} />}
-                            {tab === "academic"   && <AcademicTab   student={student} onReload={reload} />}
-                            {tab === "guardians"  && <GuardiansTab  student={student} onReload={reload} onSwitchStudent={onSwitchStudent} />}
-                            {tab === "logs" && <StudentLogsTab student={student} />}
-                            {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
-                            {tab === "danger_zone" && <DangerZoneTab student={student} />}
-                        </div>
-                    )}
+                <div className="flex-1 overflow-y-auto bg-zinc-50/30">
+                    <div className="max-w-3xl mx-auto p-6">
+                        {loading ? (
+                            <div className="flex flex-col items-center justify-center py-20">
+                                <Loader2 className="h-10 w-10 text-indigo-600 animate-spin" />
+                                <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mt-4">Initializing Data Matrix...</p>
+                            </div>
+                        ) : student ? (
+                            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                {tab === "identity" && <IdentityTab student={student} onUpdated={reload} />}
+                                {tab === "admissions" && <AdmissionsTab student={student} onUpdated={reload} />}
+                                {tab === "academic" && <AcademicTab student={student} onUpdated={reload} />}
+                                {tab === "guardians" && <GuardiansTab student={student} onUpdated={reload} />}
+                                {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
+                                {tab === "logs" && <StudentLogsTab student={student} />}
+                                {tab === "danger_zone" && <DangerZoneTab student={student} />}
+                            </div>
+                        ) : (
+                            <div className="text-center py-20">
+                                <p className="text-zinc-400">Unable to load student profile.</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
             <LifecycleActionModal
                 isOpen={lifecycleModal.open}
-                action={lifecycleModal.action}
-                studentName={student?.full_name || "Student"}
                 onClose={() => setLifecycleModal(prev => ({ ...prev, open: false }))}
                 onConfirm={confirmLifecycleAction}
+                action={lifecycleModal.action}
+                studentName={student?.full_name || ""}
             />
         </>
+    );
+}
+
+function StatusDropdown({ status, onAction, loading }: { status: string; onAction: (a: string) => void; loading: boolean }) {
+    const [isOpen, setIsOpen] = useState(false);
+    
+    const normalizedStatus = (status || "ENROLLED").toUpperCase();
+    const isActive = normalizedStatus === 'ENROLLED' || normalizedStatus === 'ACTIVE';
+
+    const statuses = [
+        { id: 'ENROLLED', label: 'Enrolled', icon: User, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100', hover: 'hover:bg-emerald-100/50' },
+        { id: 'GRADUATED', label: 'Graduate', icon: GraduationCap, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100', hover: 'hover:bg-violet-100/50', action: 'graduate' },
+        { id: 'LEFT', label: 'Mark as Left', icon: DoorOpen, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100', hover: 'hover:bg-amber-100/50', action: 'left' },
+        { id: 'EXPELLED', label: 'Expel', icon: Ban, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100', hover: 'hover:bg-rose-100/50', action: 'expel' },
+    ];
+
+    const currentId = isActive ? 'ENROLLED' : normalizedStatus;
+    const current = statuses.find(x => x.id === currentId) || statuses[0];
+
+    return (
+        <div className="relative">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                disabled={loading}
+                className={`flex items-center gap-2 px-3 h-8 rounded-xl border transition-all ${current.bg} ${current.border} ${current.color} hover:shadow-sm active:scale-95 disabled:opacity-50`}
+            >
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <current.icon className="h-3.5 w-3.5" />}
+                <span className="text-[11px] font-black uppercase tracking-tight">{current.label}</span>
+                <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <>
+                        <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+                        <motion.div
+                            initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 4, scale: 0.95 }}
+                            className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-zinc-100 py-1.5 z-20 overflow-hidden"
+                        >
+                            <div className="px-3 py-1.5 mb-1 border-b border-zinc-50">
+                                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Change Status</span>
+                            </div>
+                            {statuses.map((item) => {
+                                const isCurrent = item.id === currentId;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        disabled={isCurrent || loading}
+                                        onClick={() => {
+                                            setIsOpen(false);
+                                            if (item.id === 'ENROLLED') {
+                                                if (normalizedStatus === 'EXPELLED') onAction('unexpel');
+                                            } else if (item.action) {
+                                                onAction(item.action);
+                                            }
+                                        }}
+                                        className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${isCurrent ? "bg-zinc-50 opacity-50 cursor-default" : `${item.hover} group`}`}
+                                    >
+                                        <div className={`p-1.5 rounded-lg border ${item.bg} ${item.border} ${item.color}`}>
+                                            <item.icon className="h-3.5 w-3.5" />
+                                        </div>
+                                        <div className="flex flex-col text-left">
+                                            <span className={`text-[12px] font-bold ${isCurrent ? "text-zinc-400" : "text-zinc-700"}`}>
+                                                {item.label}
+                                            </span>
+                                            {isCurrent && <span className="text-[9px] text-zinc-400 italic font-medium">Current Status</span>}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        </div>
     );
 }
