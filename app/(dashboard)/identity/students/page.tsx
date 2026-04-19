@@ -165,7 +165,7 @@ function DirectoryContent() {
     const [sectionId, setSectionId]   = useState("");
     const [houseId, setHouseId]       = useState("");
     const [status, setStatus]         = useState("");
-    const [isAbnormal, setIsAbnormal] = useState(false);
+    const [auditType, setAuditType]   = useState("");
     const [page, setPage]             = useState(1);
 
     useEffect(() => {
@@ -198,8 +198,8 @@ function DirectoryContent() {
     }, []);
 
     const triggerFetch = useCallback(() => {
-        fetchStudents({ page, search, campus_id: campusId, class_id: classId, section_id: sectionId, house_id: houseId, status, is_abnormal: isAbnormal ? 1 : 0 });
-    }, [page, search, campusId, classId, sectionId, houseId, status, isAbnormal, fetchStudents]);
+        fetchStudents({ page, search, campus_id: campusId, class_id: classId, section_id: sectionId, house_id: houseId, status, audit_type: auditType });
+    }, [page, search, campusId, classId, sectionId, houseId, status, auditType, fetchStudents]);
 
     // Debounced search
     useEffect(() => {
@@ -212,8 +212,8 @@ function DirectoryContent() {
     // Instant on filter/page change
     useEffect(() => { triggerFetch(); }, [page, campusId, classId, sectionId, houseId, status, triggerFetch]);
 
-    const hasFilters = campusId || classId || sectionId || houseId || status || isAbnormal;
-    const clearFilters = () => { setCampusId(""); setClassId(""); setSectionId(""); setHouseId(""); setStatus(""); setIsAbnormal(false); setPage(1); };
+    const hasFilters = campusId || classId || sectionId || houseId || status || auditType;
+    const clearFilters = () => { setCampusId(""); setClassId(""); setSectionId(""); setHouseId(""); setStatus(""); setAuditType(""); setPage(1); };
 
     const campusOptions  = campuses.map((c: any) => ({ value: String(c.id), label: c.campus_name }));
     const classOptions   = classes.map((c: any) => ({ value: String(c.id), label: c.description }));
@@ -223,6 +223,11 @@ function DirectoryContent() {
         { value: "SOFT_ADMISSION", label: "Soft Admission" },
         { value: "EXPELLED", label: "Expelled" },
         { value: "GRADUATED", label: "Graduated" },
+    ];
+    const auditOptions = [
+        { value: "missing_guardian", label: "Missing Guardians" },
+        { value: "no_family", label: "Missing Families" },
+        { value: "abnormal", label: "Abnormal (All)" },
     ];
 
     return (
@@ -261,18 +266,16 @@ function DirectoryContent() {
                     <SlidersHorizontal className="h-4 w-4 text-zinc-400 shrink-0" />
                     <FilterSelect label="All Campuses" value={campusId} onChange={v => { setCampusId(v); setPage(1); }} options={campusOptions} />
 
-                    {/* TEMP: Abnormal Filter Button */}
-                    <button
-                        onClick={() => { setIsAbnormal(!isAbnormal); setPage(1); }}
-                        className={`h-9 px-4 flex items-center gap-2 text-[12px] font-bold rounded-xl transition-all border ${
-                            isAbnormal
-                            ? "bg-rose-50 border-rose-200 text-rose-600 shadow-sm"
-                            : "bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300"
-                        }`}
-                    >
-                        <div className={`h-2 w-2 rounded-full ${isAbnormal ? "bg-rose-500 animate-pulse" : "bg-zinc-300"}`} />
-                        Audit
-                    </button>
+                    <div className="flex items-center">
+                        <FilterSelect
+                            label="Data Audit"
+                            value={auditType}
+                            onChange={v => { setAuditType(v); setPage(1); }}
+                            options={auditOptions}
+                            icon={<div className={`h-2 w-2 rounded-full ${auditType ? "bg-rose-500 animate-pulse" : "bg-zinc-300"}`} />}
+                        />
+                    </div>
+
                     <FilterSelect label="All Classes"  value={classId}  onChange={v => { setClassId(v);  setPage(1); }} options={classOptions} />
                     <FilterSelect label="All Sections" value={sectionId} onChange={v => { setSectionId(v); setPage(1); }} options={sectionOptions} />
                     <FilterSelect label="All Statuses" value={status}   onChange={v => { setStatus(v);   setPage(1); }} options={statusOptions} />
