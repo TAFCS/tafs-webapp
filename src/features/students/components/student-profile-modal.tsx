@@ -218,6 +218,42 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Potential Match Suggestion - Stacked beneath the household div */}
+                                {student.potential_family_match && (
+                                    <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl animate-in slide-in-from-top-1 duration-300">
+                                        <div className="flex items-start gap-2.5">
+                                            <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                                            <div className="flex-1">
+                                                <p className="text-[10px] font-black uppercase tracking-tight text-amber-800 dark:text-amber-200 leading-none">Potential Sibling Match</p>
+                                                <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-1.5">
+                                                    Father linked to <span className="font-bold">{student.potential_family_match.household_name}</span>.
+                                                </p>
+                                                <button
+                                                    onClick={async () => {
+                                                        const match = student.potential_family_match;
+                                                        if (!match) return;
+                                                        try {
+                                                            setIsInitializingFamily(true);
+                                                            await familiesService.assignChild(match.id, Number(student.cc));
+                                                            toast.success("Linked to existing household");
+                                                            await loadStudent();
+                                                            onUpdate?.();
+                                                        } catch (err: any) {
+                                                            toast.error(err.response?.data?.message || "Failed to link");
+                                                        } finally {
+                                                            setIsInitializingFamily(false);
+                                                        }
+                                                    }}
+                                                    disabled={isInitializingFamily}
+                                                    className="mt-2.5 w-full py-1.5 text-[9px] font-black uppercase tracking-wider bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-sm"
+                                                >
+                                                    Link to this Household
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                                 {student.siblings && student.siblings.length > 0 ? (
                                     <div className="space-y-3">
                                         {student.siblings.map((sibling, index) => (

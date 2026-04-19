@@ -47,6 +47,12 @@ export interface StudentListItem {
     father_name?: string;
     photograph_url?: string | null;
   }[];
+  potential_family_match?: {
+    id: number;
+    household_name: string;
+    spouse_name?: string;
+    spouse_cnic?: string;
+  } | null;
 }
 
 export interface PaginatedMeta {

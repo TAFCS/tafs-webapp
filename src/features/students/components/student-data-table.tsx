@@ -75,7 +75,7 @@ const COL_TO_CATEGORY_MAP: Record<keyof StudentListItem, string> = {
     total_outstanding_balance: "core", advance_credit_balance: "core",
     father_name: "contact", siblings: "family", photograph_url: "core",
     student_flags: "core", cc: "core", full_name: "core",
-    home_phone: "contact",
+    home_phone: "contact", potential_family_match: "family",
 };
 
 function useDebounce<T>(value: T, delay: number): T {

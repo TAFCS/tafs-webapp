@@ -695,6 +695,7 @@ export function RegistrationForm() {
             primary_phone: formData.candidatePhone || undefined,
             email: formData.candidateEmail || undefined,
             father: {
+
                 full_name: fatherFullName,
                 cnic: formData.fatherCnic || undefined,
                 primary_phone_country_code: formData.fatherPrimaryPhoneCountryCode || "+92",
@@ -1948,6 +1949,7 @@ export function RegistrationForm() {
                 </div>
 
                 {/* Success / Error Banners */}
+
                 {submitSuccess && (
                     <div className="mx-6 mb-0 mt-4 flex items-start gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-4 text-sm animate-in fade-in duration-300">
                         <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
