@@ -3,7 +3,7 @@ import {
     School, UserCircle, Wallet, Banknote, Settings, ChevronDown, 
     Database, FileText, Landmark, UserCog, BarChart3, ShieldCheck,
     LandPlot, BookOpen, LayoutGrid, TrendingUp, UserCheck, Contact,
-    Tags, CalendarDays, Library, FilePlus2, HandCoins, History,
+    Tags, CalendarDays, Library, FilePlus2, HandCoins, History, Printer,
     LayoutGrid as GridIcon
 } from "lucide-react";
 import Link from "next/link";
@@ -57,7 +57,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'Classes', href: '/classes', icon: BookOpen, permission: 'academic.classes.view' },
                 { name: 'Sections', href: '/sections', icon: LayoutGrid, permission: 'academic.sections.view' },
                 { name: 'Transfers', href: '/transfers', icon: ArrowLeftRight, permission: 'academic.transfers.view' },
-                { name: 'Bulk Promote', href: '/bulk-promote', icon: TrendingUp, permission: 'academic.bulk_promote.execute' },
+                { name: 'Academic Actions (Bulk)', href: '/bulk-promote', icon: TrendingUp, permission: 'academic.bulk_promote.execute' },
             ]
         },
         {
@@ -81,7 +81,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'Fee Types', href: '/fee-types', icon: Tags, permission: 'fee_admin.fee_types.view' },
                 { name: 'Class Schedule', href: '/classwise-fees-schedule', icon: CalendarDays, permission: 'fee_admin.classwise_schedule.view' },
                 { name: 'Student Overrides', href: '/studentwise-fees', icon: UserCog, permission: 'fee_admin.studentwise_schedule.view' },
-                { name: 'Transitions', href: '/transitions', icon: ArrowLeftRight, permission: 'academic.transfers.view' },
+                // Transitions middle page removed for efficiency
             ]
         },
         {
@@ -90,7 +90,8 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             icon: Banknote,
             permissions: ['finance.vouchers.view', 'finance.deposits.view', 'finance.banks.view'],
             items: [
-                { name: 'Generate Vouchers', href: '/bulk-voucher', icon: FilePlus2, permission: 'finance.vouchers.generate_bulk' },
+                { name: 'Single Voucher Issuance', href: '/fee-challan', icon: Printer, permission: 'finance.vouchers.view' },
+                { name: 'Bulk Voucher Issuance', href: '/bulk-voucher', icon: FilePlus2, permission: 'finance.vouchers.generate_bulk' },
                 { name: 'Vouchers', href: '/vouchers', icon: FileText, permission: 'finance.vouchers.view' },
                 { name: 'Receive Deposit', href: '/vouchers/deposit', icon: HandCoins, permission: 'finance.deposits.record' },
                 { name: 'Banks', href: '/banks', icon: Landmark, permission: 'finance.banks.view' },

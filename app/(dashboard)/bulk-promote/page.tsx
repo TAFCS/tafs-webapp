@@ -408,10 +408,10 @@ export default function BulkPromotePage() {
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-            Bulk Promote
+            Academic Actions Hub
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Promote or graduate students in batch. Preview who will be affected before executing.
+            Execute batch promotions, graduations, or student removals (expulsions) with a safety-first preview.
           </p>
         </div>
         {(response || errorLog) && (
