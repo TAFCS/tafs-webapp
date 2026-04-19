@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/src/store/store";
@@ -370,37 +370,11 @@ export function RegistrationForm() {
                         );
                     }
 
-                    // 2. If a family exists, populate Mother/Father and Address
+                    // 2. If a family exists, populate Address and other family fields
+                    // Note: We no longer auto-populate the spouse (Mother/Father) automatically 
+                    // to ensure manual CNIC verification for cases like second marriages.
                     if (family) {
-                        // Populate other parent automatically as requested (overwrites if present)
-                        const otherParentRel = type === "father" ? "Mother" : "Father";
-                        const otherParent = family.other_guardians?.[otherParentRel];
-
-                        if (otherParent) {
-                            if (type === "father") {
-                                updates.motherName = otherParent.full_name || prev.motherName;
-                                updates.motherCnic = otherParent.cnic || prev.motherCnic;
-                                updates.motherPhone = otherParent.primary_phone || prev.motherPhone;
-                                updates.motherEmail = otherParent.email_address || prev.motherEmail;
-                                updates.motherWhatsapp = otherParent.whatsapp_number || prev.motherWhatsapp;
-                                updates.motherPhotoUrl = otherParent.photo_url || prev.motherPhotoUrl;
-                                updates.motherAdditionalPhones = (otherParent.additional_phones || []).map((p: any) => 
-                                    typeof p === 'object' ? { id: Math.random().toString(), ...p } : { id: Math.random().toString(), label: 'Other', number: p }
-                                );
-                            } else {
-                                updates.fatherName = otherParent.full_name || prev.fatherName;
-                                updates.fatherCnic = otherParent.cnic || prev.fatherCnic;
-                                updates.fatherPhone = otherParent.primary_phone || prev.fatherPhone;
-                                updates.fatherEmail = otherParent.email_address || prev.fatherEmail;
-                                updates.fatherWhatsapp = otherParent.whatsapp_number || prev.fatherWhatsapp;
-                                updates.fatherPhotoUrl = otherParent.photo_url || prev.fatherPhotoUrl;
-                                updates.fatherAdditionalPhones = (otherParent.additional_phones || []).map((p: any) => 
-                                    typeof p === 'object' ? { id: Math.random().toString(), ...p } : { id: Math.random().toString(), label: 'Other', number: p }
-                                );
-                            }
-                        }
-
-                        // 3. Address Population
+                        // Address Population
                         // Prefer separate fields from guardian if they exist
                         const gHouse = guardian.house_appt_number || guardian.house_appt_name;
                         if (gHouse) {
@@ -538,6 +512,42 @@ export function RegistrationForm() {
                 return { ...p, [key]: value.toUpperCase() };
             })
         }));
+    };
+
+    const clearGuardianSection = (type: 'father' | 'mother') => {
+        setFormData(prev => {
+            const updates: any = {};
+            if (type === 'father') {
+                updates.fatherName = "";
+                updates.fatherCnic = "";
+                updates.fatherPhone = "";
+                updates.fatherEmail = "";
+                updates.fatherFax = "";
+                updates.fatherWhatsapp = "";
+                updates.isFatherWhatsapp = true;
+                updates.isFatherPhoneNA = false;
+                updates.isFatherEmailNA = false;
+                updates.isFatherFaxNA = false;
+                updates.fatherPhotoUrl = "";
+                updates.fatherPhotoFile = null;
+                updates.fatherAdditionalPhones = [];
+            } else {
+                updates.motherName = "";
+                updates.motherCnic = "";
+                updates.motherPhone = "";
+                updates.motherEmail = "";
+                updates.motherFax = "";
+                updates.motherWhatsapp = "";
+                updates.isMotherWhatsapp = true;
+                updates.isMotherPhoneNA = false;
+                updates.isMotherEmailNA = false;
+                updates.isMotherFaxNA = false;
+                updates.motherPhotoUrl = "";
+                updates.motherPhotoFile = null;
+                updates.motherAdditionalPhones = [];
+            }
+            return { ...prev, ...updates };
+        });
     };
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1371,7 +1381,18 @@ export function RegistrationForm() {
                                                 <td className="px-2 py-2"><input type="text" disabled className="w-full px-2 py-1.5 bg-zinc-50 dark:bg-zinc-900 text-zinc-400 rounded text-sm cursor-not-allowed text-center" placeholder="N/A" /></td>
                                             </tr>
                                             <tr className="border-b border-zinc-100">
-                                                <td className="px-4 py-3 font-black text-zinc-700 dark:text-zinc-300 uppercase text-[11px] tracking-tight">Father</td>
+                                                <td className="px-4 py-3 align-top">
+                                                    <div className="flex flex-col gap-1.5">
+                                                        <span className="font-black text-zinc-700 dark:text-zinc-300 uppercase text-[11px] tracking-tight">Father</span>
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => clearGuardianSection('father')}
+                                                            className="text-[8px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest flex items-center gap-1 transition-colors"
+                                                        >
+                                                            <Trash2 className="h-2 w-2" /> Reset
+                                                        </button>
+                                                    </div>
+                                                </td>
                                                 <td className="px-2 py-2">
                                                     <div className="flex flex-col gap-2">
                                                         <div className={`flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary ${formData.isFatherPhoneNA ? 'opacity-50 bg-zinc-50' : ''}`}>
@@ -1461,7 +1482,18 @@ export function RegistrationForm() {
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td className="px-4 py-3 font-black text-zinc-700 dark:text-zinc-300 uppercase text-[11px] tracking-tight">Mother</td>
+                                                <td className="px-4 py-3 align-top">
+                                                    <div className="flex flex-col gap-1.5">
+                                                        <span className="font-black text-zinc-700 dark:text-zinc-300 uppercase text-[11px] tracking-tight">Mother</span>
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => clearGuardianSection('mother')}
+                                                            className="text-[8px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest flex items-center gap-1 transition-colors"
+                                                        >
+                                                            <Trash2 className="h-2 w-2" /> Reset
+                                                        </button>
+                                                    </div>
+                                                </td>
                                                 <td className="px-2 py-2">
                                                     <div className="flex flex-col gap-2">
                                                         <div className={`flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary ${formData.isMotherPhoneNA ? 'opacity-50 bg-zinc-50' : ''}`}>
