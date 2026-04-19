@@ -88,6 +88,34 @@ export interface VoucherItem {
     voucher_heads?: VoucherHead[];
 }
 
+export interface VouchersPagination {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}
+
+export interface VouchersState {
+    items: VoucherItem[];
+    isLoading: boolean;
+    error: string | null;
+    activeFilters: VoucherFilters;
+    pagination: VouchersPagination;
+}
+
+const initialState: VouchersState = {
+    items: [],
+    isLoading: false,
+    error: null,
+    activeFilters: {},
+    pagination: {
+        total: 0,
+        page: 1,
+        limit: 20,
+        totalPages: 0
+    }
+};
+
 export interface VoucherFilters {
     campus_id?: number;
     class_id?: number;
@@ -98,21 +126,9 @@ export interface VoucherFilters {
     status?: string;
     date_from?: string;
     date_to?: string;
+    page?: number;
+    limit?: number;
 }
-
-export interface VouchersState {
-    items: VoucherItem[];
-    isLoading: boolean;
-    error: string | null;
-    activeFilters: VoucherFilters;
-}
-
-const initialState: VouchersState = {
-    items: [],
-    isLoading: false,
-    error: null,
-    activeFilters: {},
-};
 
 // ─── Async Thunk ─────────────────────────────────────────────────────────────
 
@@ -130,10 +146,25 @@ export const fetchVouchers = createAsyncThunk(
             if (filters.id) params.id = filters.id;
             if (filters.date_from) params.date_from = filters.date_from;
             if (filters.date_to) params.date_to = filters.date_to;
+            if (filters.page) params.page = filters.page;
+            if (filters.limit) params.limit = filters.limit;
 
             const response = await api.get('/v1/vouchers', { params });
             const data = response.data?.data;
-            return Array.isArray(data) ? data : [];
+            
+            // Handle the new paginated structure { items, meta }
+            if (data && data.items && Array.isArray(data.items)) {
+                return {
+                    items: data.items,
+                    pagination: data.meta || { total: data.items.length, page: 1, limit: data.items.length, totalPages: 1 }
+                };
+            }
+            
+            // Fallback for non-paginated or unexpected shapes
+            return {
+                items: Array.isArray(data) ? data : [],
+                pagination: { total: Array.isArray(data) ? data.length : 0, page: 1, limit: 20, totalPages: 1 }
+            };
         } catch (err: any) {
             return rejectWithValue(
                 err.response?.data?.message || 'Failed to fetch vouchers.'
@@ -178,9 +209,10 @@ export const vouchersSlice = createSlice({
                 state.isLoading = true;
                 state.error = null;
             })
-            .addCase(fetchVouchers.fulfilled, (state, action: PayloadAction<VoucherItem[]>) => {
+            .addCase(fetchVouchers.fulfilled, (state, action: PayloadAction<{ items: VoucherItem[]; pagination: VouchersPagination }>) => {
                 state.isLoading = false;
-                state.items = action.payload;
+                state.items = action.payload.items;
+                state.pagination = action.payload.pagination;
             })
             .addCase(fetchVouchers.rejected, (state, action) => {
                 state.isLoading = false;
