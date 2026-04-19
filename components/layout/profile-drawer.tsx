@@ -1,6 +1,6 @@
-import { 
-    X, LogOut, Users, UserPlus, ArrowLeftRight, LayoutDashboard, 
-    School, UserCircle, Wallet, Banknote, Settings, ChevronDown, 
+import {
+    X, LogOut, Users, UserPlus, ArrowLeftRight, LayoutDashboard,
+    School, UserCircle, Wallet, Banknote, Settings, ChevronDown,
     Database, FileText, Landmark, UserCog, BarChart3, ShieldCheck,
     LandPlot, BookOpen, LayoutGrid, TrendingUp, UserCheck, Contact,
     Tags, CalendarDays, Library, FilePlus2, HandCoins, History, Printer,
@@ -57,7 +57,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'Classes', href: '/classes', icon: BookOpen, permission: 'academic.classes.view' },
                 { name: 'Sections', href: '/sections', icon: LayoutGrid, permission: 'academic.sections.view' },
                 { name: 'Transfers', href: '/transfers', icon: ArrowLeftRight, permission: 'academic.transfers.view' },
-                { name: 'Academic Actions (Bulk)', href: '/bulk-promote', icon: TrendingUp, permission: 'academic.bulk_promote.execute' },
+                { name: 'Academic Actions', href: '/bulk-promote', icon: TrendingUp, permission: 'academic.bulk_promote.execute' },
             ]
         },
         {
@@ -154,8 +154,8 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 </div>
 
                 <div className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-2">
-                    <Link 
-                        href="/dashboard" 
+                    <Link
+                        href="/dashboard"
                         onClick={onClose}
                         className="flex items-center px-4 py-3 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all font-semibold"
                     >
@@ -181,7 +181,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                                     </div>
                                     <ChevronDown className={`h-4 w-4 transition-transform ${!isModuleOpen ? "-rotate-90" : ""}`} />
                                 </button>
-                                
+
                                 {isModuleOpen && (
                                     <div className="flex flex-col gap-1 ml-2 pl-2 border-l border-zinc-100 dark:border-zinc-800">
                                         {visibleItems.map(item => (
@@ -206,7 +206,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                             <Settings className="h-5 w-5 mr-3 opacity-60 group-hover:opacity-100" />
                             <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Settings</span>
                         </Link>
-                        
+
                         <button
                             onClick={handleLogout}
                             disabled={signingOut}
