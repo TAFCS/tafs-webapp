@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { 
     Users, Banknote, FileText, TrendingUp, Calendar, 
-    CreditCard, Clock, Activity, Loader2
+    CreditCard, Clock, Activity, Loader2, Landmark
 } from "lucide-react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
@@ -27,15 +27,17 @@ const item = {
 export default function DashboardPage() {
     const [statsData, setStatsData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedCampusId, setSelectedCampusId] = useState<string>("");
 
     useEffect(() => {
-        fetchDashboardData();
-    }, []);
+        fetchDashboardData(selectedCampusId);
+    }, [selectedCampusId]);
 
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = async (campusId?: string) => {
         setIsLoading(true);
         try {
-            const { data } = await api.get("/v1/analytics/dashboard");
+            const url = campusId ? `/v1/analytics/dashboard?campusId=${campusId}` : "/v1/analytics/dashboard";
+            const { data } = await api.get(url);
             if (data.status === 200) {
                 setStatsData(data.data);
             }
@@ -47,7 +49,7 @@ export default function DashboardPage() {
         }
     };
 
-    if (isLoading) {
+    if (isLoading && !statsData) {
         return (
             <div className="flex items-center justify-center h-[60vh]">
                 <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
@@ -57,6 +59,7 @@ export default function DashboardPage() {
 
     const financials = statsData?.financials || {};
     const students = statsData?.students || {};
+    const campuses = statsData?.campuses || [];
 
     const summaryStats = [
         { 
@@ -115,11 +118,29 @@ export default function DashboardPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-4">
+                    {/* Campus Selector */}
+                    <div className="relative flex items-center">
+                        <div className="absolute left-3 text-zinc-400 pointer-events-none">
+                            <Landmark className="h-4 w-4" />
+                        </div>
+                        <select
+                            value={selectedCampusId}
+                            onChange={(e) => setSelectedCampusId(e.target.value)}
+                            className="pl-10 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold focus:ring-2 focus:ring-primary/20 appearance-none min-w-[200px] outline-none transition-all shadow-sm"
+                        >
+                            <option value="">All Campuses</option>
+                            {campuses.map((c: any) => (
+                                <option key={c.id} value={c.id}>{c.campus_name}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     <button 
-                        onClick={fetchDashboardData}
-                        className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all shadow-sm"
+                        onClick={() => fetchDashboardData(selectedCampusId)}
+                        disabled={isLoading}
+                        className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all shadow-sm disabled:opacity-50"
                     >
-                        <Activity className="h-5 w-5" />
+                        <Activity className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
                     </button>
                     <div className="text-right hidden md:block border-l border-zinc-200 dark:border-zinc-800 pl-4">
                         <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-none">Status</p>
@@ -137,6 +158,7 @@ export default function DashboardPage() {
                 initial="hidden"
                 animate="show"
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6"
+                key={selectedCampusId} // Trigger animation on campus change
             >
                 {summaryStats.map((stat, idx) => (
                     <motion.div 
@@ -162,12 +184,14 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between mb-10">
                         <div>
                             <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Branch-wise Student Strength</h3>
-                            <p className="text-sm text-zinc-500 mt-1 font-medium">Distribution of active students across all campuses</p>
+                            <p className="text-sm text-zinc-500 mt-1 font-medium">Distribution of active students (ENROLLED) across all campuses</p>
                         </div>
                         <div className="flex items-center gap-4">
                            <div className="text-right">
-                               <p className="text-xs font-bold text-zinc-400 uppercase">Grand Total</p>
-                               <p className="text-xl font-black text-primary">{students.total}</p>
+                               <p className="text-xs font-bold text-zinc-400 uppercase">Global Enrolled</p>
+                               <p className="text-xl font-black text-primary">
+                                   {statsData?.students?.total_global || statsData?.students?.total}
+                               </p>
                            </div>
                            <Users className="h-8 w-8 text-primary opacity-20" />
                         </div>
@@ -175,7 +199,7 @@ export default function DashboardPage() {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-10">
                         {(students.branchwise || []).map((branch: any) => (
-                            <div key={branch.campus_id} className="space-y-4 group">
+                            <div key={branch.campus_id} className={`space-y-4 group transition-opacity ${selectedCampusId && parseInt(selectedCampusId) !== branch.campus_id ? 'opacity-30' : 'opacity-100'}`}>
                                 <div className="flex items-center justify-between">
                                     <span className="text-base font-bold text-zinc-800 dark:text-zinc-200">{branch.campus_name}</span>
                                     <div className="text-right">
