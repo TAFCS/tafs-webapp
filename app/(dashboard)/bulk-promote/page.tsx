@@ -17,6 +17,7 @@ import {
   ChevronUp,
   UserCheck,
   UserX,
+  LogOut,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/src/lib/api";
@@ -27,7 +28,7 @@ import { fetchSections } from "@/src/store/slices/sectionsSlice";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type PromotionStatus = "promoted" | "graduated" | "expelled" | "skipped" | "failed";
+type PromotionStatus = "promoted" | "graduated" | "expelled" | "left" | "skipped" | "failed";
 
 type PromotionResult = {
   student_id: number;
@@ -40,6 +41,7 @@ type PromotionResult = {
   to_academic_year?: string;
   graduated?: boolean;
   expelled?: boolean;
+  left?: boolean;
   dry_run: boolean;
 };
 
@@ -49,10 +51,11 @@ type PromotionSummary = {
   total_promoted_only?: number;
   total_graduated?: number;
   total_expelled?: number;
+  total_left?: number;
   total_skipped: number;
   total_failed: number;
   dry_run: boolean;
-  mode?: "promotion" | "graduation" | "expulsion";
+  mode?: "promotion" | "graduation" | "expulsion" | "leaving";
 };
 
 type PromotionResponse = {
@@ -84,6 +87,7 @@ type PreviewStudent = {
 
 const GRADUATE_SENTINEL = "__GRADUATE__";
 const EXPEL_SENTINEL = "__EXPEL__";
+const LEFT_SENTINEL = "__LEFT__";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -196,6 +200,7 @@ export default function BulkPromotePage() {
 
   const isGraduating = toClassId === GRADUATE_SENTINEL;
   const isExpelling = toClassId === EXPEL_SENTINEL;
+  const isLeaving = toClassId === LEFT_SENTINEL;
   const academicYears = useMemo(() => generateAcademicYears(), []);
 
   // ── Live student ID resolution via search-simple ────────────────────────────
@@ -358,6 +363,8 @@ export default function BulkPromotePage() {
       payload.graduate = true;
     } else if (isExpelling) {
       payload.expel = true;
+    } else if (isLeaving) {
+      payload.left = true;
     } else {
       payload.to = { class_id: Number(toClassId) };
     }
@@ -373,11 +380,12 @@ export default function BulkPromotePage() {
       const { data } = await api.post("/v1/students/promotion/bulk", payload);
       const responseData = data?.data as PromotionResponse;
       setResponse(responseData);
-      const { total_failed, total_promoted, total_graduated = 0, total_expelled = 0, dry_run: isDry } = responseData?.summary ?? {};
+      const { total_failed, total_promoted, total_graduated = 0, total_expelled = 0, total_left = 0, dry_run: isDry } = responseData?.summary ?? {};
       if (total_failed > 0) toast.error(`Completed with ${total_failed} failed record(s).`);
       else if (isDry) toast.success("Dry-run complete. No changes saved.");
       else if (total_graduated > 0) toast.success(`${total_graduated} student(s) graduated.`);
       else if (total_expelled > 0) toast.success(`${total_expelled} student(s) expelled.`);
+      else if (total_left > 0) toast.success(`${total_left} student(s) marked as left.`);
       else toast.success(`${total_promoted} student(s) promoted.`);
     } catch (err: unknown) {
       const e = err as { response?: { data?: unknown }; message?: string };
@@ -391,12 +399,12 @@ export default function BulkPromotePage() {
 
   const sortedResults = useMemo(() => {
     if (!response?.results) return [];
-    const rank: Record<PromotionStatus, number> = { failed: 0, skipped: 1, promoted: 2, graduated: 3, expelled: 4 };
+    const rank: Record<PromotionStatus, number> = { failed: 0, skipped: 1, promoted: 2, graduated: 3, expelled: 4, left: 5 };
     return [...response.results].sort((a, b) => rank[a.status] - rank[b.status]);
   }, [response]);
 
   const fromClassName = sortedClasses.find((c) => String(c.id) === fromClassId)?.description ?? "";
-  const toClassName = isGraduating ? "Graduate" : isExpelling ? "Expel" : (sortedClasses.find((c) => String(c.id) === toClassId)?.description ?? "");
+  const toClassName = isGraduating ? "Graduate" : isExpelling ? "Expel" : isLeaving ? "Left" : (sortedClasses.find((c) => String(c.id) === toClassId)?.description ?? "");
 
   // How many students will be targeted (for confirmation modal)
   const targetCount = previewStudents?.length ?? parsedStudentIds.length;
@@ -452,6 +460,7 @@ export default function BulkPromotePage() {
                 <option value="">{fromClassId ? "Select target or action" : "Select From Class first"}</option>
                 <option value={GRADUATE_SENTINEL}>🎓 Graduate Students</option>
                 <option value={EXPEL_SENTINEL}>🚫 Expel Students</option>
+                <option value={LEFT_SENTINEL}>🚪 Left Students</option>
                 {sortedClasses.map((cls) => (
                   <option key={cls.id} value={cls.id}>{cls.description} ({cls.class_code})</option>
                 ))}
@@ -469,6 +478,14 @@ export default function BulkPromotePage() {
                   <AlertCircle className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400 shrink-0" />
                   <p className="text-xs text-orange-700 dark:text-orange-300 font-medium">
                     Status → EXPELLED. All data (class, section, records) is preserved.
+                  </p>
+                </div>
+              )}
+              {isLeaving && (
+                <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5">
+                  <LogOut className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+                    Status → LEFT. All data (class, section, records) is preserved.
                   </p>
                 </div>
               )}
@@ -597,10 +614,10 @@ export default function BulkPromotePage() {
               <button type="button" id="bulk-promote-submit" onClick={handleSubmitRequest}
                 disabled={isSubmitting || classesLoading}
                 className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-60 ${
-                  isGraduating ? "bg-violet-600 hover:bg-violet-700" : isExpelling ? "bg-orange-600 hover:bg-orange-700" : "bg-primary hover:bg-primary/90"
+                  isGraduating ? "bg-violet-600 hover:bg-violet-700" : isExpelling ? "bg-orange-600 hover:bg-orange-700" : isLeaving ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary/90"
                 }`}>
-                {isSubmitting ? <RefreshCw className="h-4 w-4 animate-spin" /> : isGraduating ? <GraduationCap className="h-4 w-4" /> : isExpelling ? <X className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-                {dryRun ? "Run Dry-Run" : isGraduating ? "Graduate Students" : isExpelling ? "Expel Students" : "Execute Promotion"}
+                {isSubmitting ? <RefreshCw className="h-4 w-4 animate-spin" /> : isGraduating ? <GraduationCap className="h-4 w-4" /> : isExpelling ? <X className="h-4 w-4" /> : isLeaving ? <LogOut className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+                {dryRun ? "Run Dry-Run" : isGraduating ? "Graduate Students" : isExpelling ? "Expel Students" : isLeaving ? "Mark as Left" : "Execute Promotion"}
               </button>
             </div>
           </div>
@@ -760,6 +777,8 @@ export default function BulkPromotePage() {
                           ? <span className="inline-flex items-center gap-1 text-violet-600"><GraduationCap className="h-3.5 w-3.5" />Graduated</span>
                           : item.status === "expelled"
                           ? <span className="inline-flex items-center gap-1 text-orange-600"><X className="h-3.5 w-3.5" />Expelled (data kept)</span>
+                          : item.status === "left"
+                          ? <span className="inline-flex items-center gap-1 text-amber-600"><LogOut className="h-3.5 w-3.5" />Left (data kept)</span>
                           : resolveClassName(item.to_class_id, classMap)}
                       </td>
                       <td className="px-4 py-3 text-xs font-mono text-zinc-500">
@@ -780,6 +799,7 @@ export default function BulkPromotePage() {
         <ConfirmationModal
           isGraduating={isGraduating}
           isExpelling={isExpelling}
+          isLeaving={isLeaving}
           fromClassName={fromClassName}
           toClassName={toClassName}
           previewStudents={previewStudents}
@@ -843,7 +863,8 @@ function StatusBadge({ status }: { status: PromotionStatus }) {
     promoted: { label: "Promoted", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400", icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
     graduated: { label: "Graduated", cls: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400", icon: <GraduationCap className="h-3.5 w-3.5" /> },
     expelled: { label: "Expelled", cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", icon: <X className="h-3.5 w-3.5" /> },
-    skipped: { label: "Skipped", cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", icon: <Clock3 className="h-3.5 w-3.5" /> },
+    left: { label: "Left", cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", icon: <LogOut className="h-3.5 w-3.5" /> },
+    skipped: { label: "Skipped", cls: "bg-zinc-100 text-zinc-700 dark:bg-zinc-900/30 dark:text-zinc-400", icon: <Clock3 className="h-3.5 w-3.5" /> },
     failed: { label: "Failed", cls: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400", icon: <AlertCircle className="h-3.5 w-3.5" /> },
   };
   const { label, cls, icon } = cfg[status] ?? cfg.failed;
@@ -867,6 +888,9 @@ function SummaryPanel({ summary }: { summary: PromotionSummary }) {
       {(summary.total_expelled ?? 0) > 0 && (
         <div className="flex justify-between text-orange-600"><span>Expelled</span><span className="font-semibold">{summary.total_expelled}</span></div>
       )}
+      {(summary.total_left ?? 0) > 0 && (
+        <div className="flex justify-between text-amber-600"><span>Left</span><span className="font-semibold">{summary.total_left}</span></div>
+      )}
       <div className="flex justify-between text-emerald-600">
         <span>Promoted</span>
         <span className="font-semibold">{summary.total_promoted_only ?? summary.total_promoted}</span>
@@ -888,6 +912,7 @@ function SummaryPanel({ summary }: { summary: PromotionSummary }) {
 function ConfirmationModal({
   isGraduating,
   isExpelling,
+  isLeaving,
   fromClassName,
   toClassName,
   previewStudents,
@@ -898,6 +923,7 @@ function ConfirmationModal({
 }: {
   isGraduating: boolean;
   isExpelling: boolean;
+  isLeaving: boolean;
   fromClassName: string;
   toClassName: string;
   previewStudents: PreviewStudent[] | null;
@@ -917,16 +943,18 @@ function ConfirmationModal({
         <div className={`px-6 py-4 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 ${
           isGraduating ? "bg-violet-50 dark:bg-violet-900/20" :
           isExpelling  ? "bg-orange-50 dark:bg-orange-900/20" :
-                         "bg-amber-50 dark:bg-amber-900/20"
+          isLeaving    ? "bg-amber-50 dark:bg-amber-900/20" :
+                         "bg-primary/10"
         }`}>
           <div className="flex items-center gap-2">
-            {isGraduating ? <GraduationCap className="h-5 w-5 text-violet-600" /> : <AlertCircle className={`h-5 w-5 ${isExpelling ? "text-orange-600" : "text-amber-600"}`} />}
+            {isGraduating ? <GraduationCap className="h-5 w-5 text-violet-600" /> : isExpelling ? <AlertCircle className="h-5 w-5 text-orange-600" /> : isLeaving ? <LogOut className="h-5 w-5 text-amber-600" /> : <AlertCircle className="h-5 w-5 text-primary" />}
             <h3 className={`text-base font-semibold ${
               isGraduating ? "text-violet-900 dark:text-violet-100" :
               isExpelling  ? "text-orange-900 dark:text-orange-100" :
-                             "text-amber-900 dark:text-amber-100"
+              isLeaving    ? "text-amber-900 dark:text-amber-100" :
+                             "text-primary"
             }`}>
-              Confirm {isGraduating ? "Graduation" : isExpelling ? "Expulsion" : "Bulk Promotion"}
+              Confirm {isGraduating ? "Graduation" : isExpelling ? "Expulsion" : isLeaving ? "Leaving" : "Bulk Promotion"}
             </h3>
           </div>
           <button type="button" onClick={onCancel} aria-label="Close">
@@ -937,7 +965,7 @@ function ConfirmationModal({
         {/* Body */}
         <div className="px-6 py-5 space-y-4">
           <p className="text-sm text-zinc-600 dark:text-zinc-300">
-            You are about to run a <strong>live {isGraduating ? "graduation" : isExpelling ? "expulsion" : "promotion"}</strong>. This will permanently write changes to the database.
+            You are about to run a <strong>live {isGraduating ? "graduation" : isExpelling ? "expulsion" : isLeaving ? "leaving" : "promotion"}</strong>. This will permanently write changes to the database.
           </p>
 
           {/* Summary card */}
@@ -983,9 +1011,10 @@ function ConfirmationModal({
             className={`rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors ${
               isGraduating ? "bg-violet-600 hover:bg-violet-700" :
               isExpelling  ? "bg-orange-600 hover:bg-orange-700" :
-                             "bg-rose-600 hover:bg-rose-700"
+              isLeaving    ? "bg-amber-600 hover:bg-amber-700" :
+                             "bg-primary hover:bg-primary/90"
             }`}>
-            Yes, {isGraduating ? "Graduate" : isExpelling ? "Expel" : "Promote"} Now
+            Yes, {isGraduating ? "Graduate" : isExpelling ? "Expel" : isLeaving ? "Mark as Left" : "Promote"} Now
           </button>
         </div>
       </div>
