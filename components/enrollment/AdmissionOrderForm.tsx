@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Loader2, AlertTriangle } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { AdmissionOrderPDF } from './AdmissionOrderPDF';
 
@@ -35,21 +35,72 @@ interface Student {
   photograph_url?: string | null;
 }
 
-/** Fetch a URL and return it as a base64 data URI */
-async function toBase64DataUrl(url: string): Promise<string | null> {
+/**
+ * Fetch a URL and convert it to a JPEG base64 data URI using a canvas.
+ * This ensures that even if the source is WebP (which react-pdf doesn't support),
+ * it gets converted to a standard JPEG that react-pdf can render.
+ */
+async function toJpegBase64Url(url: string, label = url): Promise<string | null> {
   try {
     const res = await fetch(url);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`[AdmissionOrder] ${label} → HTTP ${res.status} ${res.statusText}`);
+      return null;
+    }
     const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+
     return new Promise<string | null>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          // Fill background with white in case of transparent PNG/WebP
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+        } else {
+          resolve(null);
+        }
+        URL.revokeObjectURL(objectUrl);
+      };
+      img.onerror = (e) => {
+        console.warn(`[AdmissionOrder] Image decode failed for ${label}`, e);
+        resolve(null);
+        URL.revokeObjectURL(objectUrl);
+      };
+      img.src = objectUrl;
     });
-  } catch {
+  } catch (e) {
+    console.warn(`[AdmissionOrder] fetch failed for ${label}`, e);
     return null;
   }
+}
+
+/**
+ * Try the proxy URL first. If it fails (wrong URL format, 403, 404, etc.),
+ * fall back to fetching the raw photograph_url directly.
+ * This makes the system robust regardless of what URL variant is stored in the DB.
+ */
+async function fetchPhotoAsBase64(photographUrl: string): Promise<string | null> {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+
+  // Attempt 1 – same-origin proxy (avoids CORS)
+  const proxyUrl = `${origin}/api/photo-proxy?url=${encodeURIComponent(photographUrl)}`;
+  const viaProxy = await toJpegBase64Url(proxyUrl, 'proxy');
+  if (viaProxy) return viaProxy;
+
+  // Attempt 2 – direct URL (works when CORS headers are present on the CDN)
+  console.warn('[AdmissionOrder] Proxy failed, attempting direct fetch...');
+  const viaDirect = await toJpegBase64Url(photographUrl, 'direct');
+  if (viaDirect) return viaDirect;
+
+  console.error('[AdmissionOrder] Both proxy and direct fetch failed for:', photographUrl);
+  return null;
 }
 
 function RemarksField({ value, onChange }: { value: string; onChange: (val: string) => void }) {
@@ -77,40 +128,37 @@ export default function AdmissionOrderForm({ student }: AdmissionOrderFormProps)
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [isPreparingAssets, setIsPreparingAssets] = useState(true);
+  const [photoError, setPhotoError] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Pre-fetch all images as base64 on mount
+  // Pre-fetch all images as base64 on mount / when student changes
   useEffect(() => {
     let cancelled = false;
     setIsPreparingAssets(true);
+    setPhotoBase64(null);
+    setPhotoError(false);
 
     const prepare = async () => {
-      console.log(`[AdmissionOrder] Starting asset preparation for CC: ${student.cc}`);
-      
-      // 1. Fetch logo from public dir
-      const logo = await toBase64DataUrl('/logo.png');
-      if (!cancelled) {
-        console.log(`[AdmissionOrder] Logo fetched: ${!!logo}`);
-        setLogoBase64(logo);
-      }
+      console.log(`[AdmissionOrder] Preparing assets for CC ${student.cc}, photograph_url: ${student.photograph_url}`);
 
-      // 2. Fetch student photo via same-origin Next.js proxy to bypass CORS
+      // 1. Logo
+      const logo = await toJpegBase64Url('/logo.png', 'logo');
+      if (!cancelled) setLogoBase64(logo);
+
+      // 2. Student photo – robust dual-attempt fetch
       if (student.photograph_url) {
-        const origin = window.location.origin;
-        const proxyUrl = `${origin}/api/photo-proxy?url=${encodeURIComponent(student.photograph_url)}`;
-        console.log(`[AdmissionOrder] Fetching student photo via proxy: ${proxyUrl}`);
-        
-        const photo = await toBase64DataUrl(proxyUrl);
+        const photo = await fetchPhotoAsBase64(student.photograph_url);
         if (!cancelled) {
           if (photo) {
-            console.log(`[AdmissionOrder] Photo fetched and converted successfully. Length: ${photo.length}`);
+            console.log(`[AdmissionOrder] Photo ready (${Math.round(photo.length / 1024)} KB)`);
             setPhotoBase64(photo);
           } else {
-            console.warn(`[AdmissionOrder] Photo fetch/conversion failed. Fallback to direct proxy URL display.`);
+            console.error(`[AdmissionOrder] Could not load photo for CC ${student.cc}`);
+            setPhotoError(true);
           }
         }
       } else {
-        console.log(`[AdmissionOrder] No photograph_url found for student.`);
+        console.log(`[AdmissionOrder] No photograph_url for CC ${student.cc}`);
       }
 
       if (!cancelled) setIsPreparingAssets(false);
@@ -123,6 +171,14 @@ export default function AdmissionOrderForm({ student }: AdmissionOrderFormProps)
   const handleDownload = useCallback(async () => {
     setIsGenerating(true);
     try {
+      // Last-chance: if background load failed, try once more synchronously
+      let resolvedPhoto = photoBase64;
+      if (!resolvedPhoto && student.photograph_url) {
+        console.log('[AdmissionOrder] Last-chance photo re-fetch on download...');
+        resolvedPhoto = await fetchPhotoAsBase64(student.photograph_url);
+        if (resolvedPhoto) setPhotoBase64(resolvedPhoto);
+      }
+
       const doc = (
         <AdmissionOrderPDF data={{
           cc: student.cc,
@@ -150,7 +206,7 @@ export default function AdmissionOrderForm({ student }: AdmissionOrderFormProps)
           email: student.email,
           day: student.day,
           date: student.date,
-          photograph_url: photoBase64,
+          photograph_url: resolvedPhoto,
           logo_url: logoBase64,
         }} />
       );
@@ -321,6 +377,11 @@ export default function AdmissionOrderForm({ student }: AdmissionOrderFormProps)
               <div className="flex items-center gap-3 px-4 py-2 bg-green-50 text-green-700 rounded-full border border-green-200 text-sm font-bold shadow-sm animate-in fade-in slide-in-from-left-4">
                 <div className="h-2 w-2 bg-green-500 rounded-full" />
                 Asset Ready for High-Res Print
+              </div>
+            ) : photoError ? (
+              <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-700 rounded-full border border-orange-200 text-sm font-bold shadow-sm">
+                <AlertTriangle className="h-4 w-4" />
+                Photo unavailable — PDF will print without photo
               </div>
             ) : student.photograph_url ? (
                 <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 text-blue-700 rounded-full border border-blue-200 text-sm font-bold shadow-sm">
