@@ -198,10 +198,10 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                             </div>
                         ) : student ? (
                             <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                {tab === "identity" && <IdentityTab student={student} onUpdated={reload} />}
-                                {tab === "admissions" && <AdmissionsTab student={student} onUpdated={reload} />}
-                                {tab === "academic" && <AcademicTab student={student} onUpdated={reload} />}
-                                {tab === "guardians" && <GuardiansTab student={student} onUpdated={reload} />}
+                                {tab === "identity" && <IdentityTab student={student} onReload={reload} />}
+                                {tab === "admissions" && <AdmissionsTab student={student} onReload={reload} classes={classes} />}
+                                {tab === "academic" && <AcademicTab student={student} onReload={reload} />}
+                                {tab === "guardians" && <GuardiansTab student={student} onReload={reload} />}
                                 {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
                                 {tab === "logs" && <StudentLogsTab student={student} />}
                                 {tab === "danger_zone" && <DangerZoneTab student={student} />}
