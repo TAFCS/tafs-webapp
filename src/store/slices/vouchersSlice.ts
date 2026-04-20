@@ -42,6 +42,8 @@ export interface VoucherHead {
     net_amount: string;
     amount_deposited: string;
     balance: string;
+    /** Set for split vouchers — e.g. "Partial Payment of — " */
+    description_prefix?: string | null;
     student_fees?: {
         id: number;
         amount: string;

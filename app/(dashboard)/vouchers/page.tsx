@@ -286,7 +286,10 @@ function PartiallyPaidModal({
                                     return (
                                         <tr key={h.id} className="border-b border-zinc-100 dark:border-zinc-800/60">
                                             <td className="px-4 py-2.5 font-medium text-zinc-700 dark:text-zinc-300 flex flex-col gap-0.5">
-                                                <span>{h.student_fees?.fee_types?.description || `Head #${h.id}`}</span>
+                                                <span>
+                                                    {h.description_prefix ? `${h.description_prefix}` : ''}
+                                                    {h.student_fees?.fee_types?.description || `Head #${h.id}`}
+                                                </span>
                                                 <div className="flex items-center gap-1.5">
                                                     {h.student_fees?.fee_date && (
                                                         <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${
