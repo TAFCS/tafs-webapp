@@ -7,10 +7,10 @@ import {
     setStep, 
     updateFilters, 
     setSelectedStudents, 
-    fetchBulkPreview,
     startBulkJob,
     pollJobStatus,
-    resetBulkProcess
+    resetBulkProcess,
+    fetchBulkHistory
 } from "@/store/slices/bulkVoucherSlice";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchBanks } from "@/store/slices/banksSlice";
@@ -32,7 +32,10 @@ import {
     FileText,
     Banknote,
     Clock,
-    Download
+    Download,
+    History,
+    RefreshCw,
+    ExternalLink
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -62,11 +65,20 @@ export default function BulkVoucherPage() {
 
     const { items: campuses, isLoading: isCampusesLoading } = useSelector((state: RootState) => state.campuses);
     const { items: banks, isLoading: isBanksLoading } = useSelector((state: RootState) => state.banks);
+    const { history, isFetchingHistory } = useSelector((state: RootState) => state.bulkVoucher);
     const user = useSelector((state: RootState) => state.auth.user);
+
+    const [isHistoryView, setIsHistoryView] = useState(false);
 
     const [showYearDropdown, setShowYearDropdown] = useState(false);
     const [baseYear, setBaseYear] = useState(new Date().getFullYear() - 2);
     const yearDropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (isHistoryView) {
+            dispatch(fetchBulkHistory(filters.campusId || undefined));
+        }
+    }, [dispatch, isHistoryView, filters.campusId]);
 
     useEffect(() => {
         dispatch(fetchCampuses());
@@ -625,6 +637,23 @@ export default function BulkVoucherPage() {
                     <p className="text-zinc-500 dark:text-zinc-400 font-medium">Issue fee vouchers for entire classes or campuses at once.</p>
                 </div>
 
+                <div className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-900 p-1.5 rounded-[22px]">
+                    <button 
+                        onClick={() => setIsHistoryView(false)}
+                        className={`h-11 px-6 rounded-2xl flex items-center gap-2 text-[12px] font-black transition-all ${!isHistoryView ? "bg-white dark:bg-zinc-800 text-primary shadow-sm" : "text-zinc-500 hover:text-zinc-900"}`}
+                    >
+                        <Layers className="h-4 w-4" />
+                        NEW JOB
+                    </button>
+                    <button 
+                        onClick={() => setIsHistoryView(true)}
+                        className={`h-11 px-6 rounded-2xl flex items-center gap-2 text-[12px] font-black transition-all ${isHistoryView ? "bg-white dark:bg-zinc-800 text-primary shadow-sm" : "text-zinc-500 hover:text-zinc-900"}`}
+                    >
+                        <History className="h-4 w-4" />
+                        HISTORY
+                    </button>
+                </div>
+
                 {/* Progress Stepper */}
                 <div className="flex items-center gap-12 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 p-2 pl-6 rounded-3xl shadow-sm">
                     {[
@@ -649,13 +678,17 @@ export default function BulkVoucherPage() {
 
             {/* Step Content */}
             <div className="min-h-[500px]">
-                {currentStep === 1 && renderStep1()}
-                {currentStep === 2 && renderStep2()}
-                {currentStep === 3 && renderStep3()}
+                {isHistoryView ? renderHistory() : (
+                    <>
+                        {currentStep === 1 && renderStep1()}
+                        {currentStep === 2 && renderStep2()}
+                        {currentStep === 3 && renderStep3()}
+                    </>
+                )}
             </div>
 
             {/* Global Actions */}
-            {currentStep < 3 && (
+            {currentStep < 3 && !isHistoryView && (
                 <div className="fixed bottom-0 left-0 right-0 p-8 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-t border-zinc-200 dark:border-zinc-800 z-50">
                     <div className="max-w-7xl mx-auto flex items-center justify-between">
                         <button 
@@ -687,13 +720,125 @@ export default function BulkVoucherPage() {
                                     <>
                                         {currentStep === 1 ? "CONTINUE TO PREVIEW" : "GENERATE VOUCHERS"}
                                         <ChevronRight className="h-6 w-6" />
-                                    </>
-                                )}
-                            </button>
+    const handleDownloadUrls = (job: any) => {
+        if (!job.report || job.report.length === 0) {
+            toast.error("No URLs found for this job.");
+            return;
+        }
+
+        const headers = ["Student Name", "CC", "PDF URL", "Status"];
+        const rows = (job.report as any[]).map(item => [
+            item.student_name,
+            item.cc,
+            item.pdf_url || "",
+            item.status
+        ]);
+
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `bulk_voucher_urls_job_${job.id}.csv`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const renderHistory = () => (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-500">
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] overflow-hidden shadow-sm">
+                <div className="p-8 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                            <History className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-100">Job History</h3>
+                            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Previous generation jobs</p>
                         </div>
                     </div>
+                    <button 
+                        onClick={() => dispatch(fetchBulkHistory(filters.campusId || undefined))}
+                        className="h-10 px-4 bg-zinc-100 dark:bg-zinc-900 rounded-xl flex items-center gap-2 text-[12px] font-black hover:bg-zinc-200 transition-all"
+                    >
+                        <RefreshCw className={`h-4 w-4 ${isFetchingHistory ? "animate-spin" : ""}`} />
+                        REFRESH
+                    </button>
                 </div>
-            )}
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-zinc-50 dark:bg-zinc-900/50">
+                                <th className="px-8 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">ID & Date</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Scope</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Progress</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
+                            {history.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="px-8 py-12 text-center text-zinc-500 font-medium italic">No recent jobs found.</td>
+                                </tr>
+                            ) : (
+                                history.map(job => (
+                                    <tr key={job.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/10 transition-colors">
+                                        <td className="px-8 py-6">
+                                            <p className="text-[14px] font-black text-zinc-900 dark:text-zinc-100">Job #{job.id}</p>
+                                            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">{new Date(job.created_at).toLocaleString()}</p>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <p className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100">{job.campuses?.campus_name}</p>
+                                            <p className="text-[11px] font-medium text-zinc-500">{job.academic_year} • {new Date(job.fee_date_from).toLocaleDateString()} - {new Date(job.fee_date_to).toLocaleDateString()}</p>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex-1 min-w-[100px] h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-primary" style={{ width: `${Math.round(((job.success_count + job.skip_count + job.fail_count) / job.total_count) * 100)}%` }} />
+                                                </div>
+                                                <span className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">{job.success_count}/{job.total_count}</span>
+                                            </div>
+                                            <div className="flex gap-2 mt-2">
+                                                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${job.status === 'DONE' ? 'bg-emerald-50 text-emerald-600' : job.status === 'FAILED' ? 'bg-rose-50 text-rose-600' : 'bg-primary/10 text-primary'}`}>
+                                                    {job.status}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-2">
+                                                {job.merged_pdf_url && (
+                                                    <a 
+                                                        href={job.merged_pdf_url}
+                                                        target="_blank"
+                                                        className="h-9 px-4 bg-emerald-500 text-white rounded-xl flex items-center gap-2 text-[11px] font-black hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/10"
+                                                    >
+                                                        <Download className="h-3.5 w-3.5" />
+                                                        MERGED PDF
+                                                    </a>
+                                                )}
+                                                <button 
+                                                    onClick={() => handleDownloadUrls(job)}
+                                                    className="h-9 px-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl flex items-center gap-2 text-[11px] font-black hover:bg-zinc-50 transition-all"
+                                                >
+                                                    <ExternalLink className="h-3.5 w-3.5" />
+                                                    URLS CSV
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     );
 }

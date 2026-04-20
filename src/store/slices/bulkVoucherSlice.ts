@@ -46,6 +46,8 @@ export interface BulkVoucherState {
     skipCount: number;
     failCount: number;
     mergedPdfUrl: string | null;
+    history: any[];
+    isFetchingHistory: boolean;
     error: string | null;
 }
 
@@ -149,6 +151,25 @@ export const pollJobStatus = createAsyncThunk(
     },
 );
 
+/**
+ * Fetch bulk job history.
+ */
+export const fetchBulkHistory = createAsyncThunk(
+    'bulkVoucher/fetchHistory',
+    async (campusId: string | undefined, { rejectWithValue }) => {
+        try {
+            const response = await api.get('/v1/bulk-voucher-jobs', {
+                params: { campus_id: campusId },
+            });
+            return response.data.data;
+        } catch (err: any) {
+            return rejectWithValue(
+                err.response?.data?.message ?? err.message ?? 'History fetch failed.',
+            );
+        }
+    },
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Initial State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -182,6 +203,8 @@ const initialState: BulkVoucherState = {
     skipCount: 0,
     failCount: 0,
     mergedPdfUrl: null,
+    history: [],
+    isFetchingHistory: false,
     error: null,
 };
 
@@ -280,8 +303,17 @@ const bulkVoucherSlice = createSlice({
                     state.jobStatus = 'processing';
                 }
             })
-            .addCase(pollJobStatus.rejected, (_state, _action) => {
-                // Don't fail the whole UI on a transient poll error
+            // ── History ────────────────────────────────────────────────────────
+            .addCase(fetchBulkHistory.pending, (state) => {
+                state.isFetchingHistory = true;
+            })
+            .addCase(fetchBulkHistory.fulfilled, (state, action) => {
+                state.isFetchingHistory = false;
+                state.history = action.payload;
+            })
+            .addCase(fetchBulkHistory.rejected, (state, action) => {
+                state.isFetchingHistory = false;
+                state.error = action.payload as string;
             });
     },
 });
