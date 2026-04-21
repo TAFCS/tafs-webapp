@@ -72,10 +72,6 @@ export default function BulkVoucherPage() {
 
     const [isHistoryView, setIsHistoryView] = useState(false);
 
-    const [showYearDropdown, setShowYearDropdown] = useState(false);
-    const [baseYear, setBaseYear] = useState(new Date().getFullYear() - 2);
-    const yearDropdownRef = useRef<HTMLDivElement>(null);
-
     useEffect(() => {
         if (isHistoryView) {
             dispatch(fetchBulkHistory(filters.campusId || undefined));
@@ -85,14 +81,6 @@ export default function BulkVoucherPage() {
     useEffect(() => {
         dispatch(fetchCampuses());
         dispatch(fetchBanks());
-
-        const handleClickOutside = (e: MouseEvent) => {
-            if (yearDropdownRef.current && !yearDropdownRef.current.contains(e.target as Node)) {
-                setShowYearDropdown(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [dispatch]);
 
     // ── Polling ────────────────────────────────────────────────────────────
@@ -148,37 +136,6 @@ export default function BulkVoucherPage() {
         dispatch(updateFilters(updates));
     };
 
-    const YearPicker = () => {
-        const years = Array.from({ length: 12 }, (_, i) => `${baseYear + i}-${baseYear + i + 1}`);
-        return (
-            <div className="relative" ref={yearDropdownRef}>
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Academic Year</label>
-                <button
-                    onClick={() => setShowYearDropdown(!showYearDropdown)}
-                    className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold flex items-center justify-between focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all shadow-sm"
-                >
-                    <span className="text-zinc-900 dark:text-zinc-100">{filters.academicYear}</span>
-                    <Calendar className="h-4 w-4 text-zinc-400" />
-                </button>
-                {showYearDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[28px] shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 min-w-[280px]">
-                        <div className="p-4 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
-                            <button onClick={() => setBaseYear(prev => prev - 12)} className="p-2 hover:bg-white dark:hover:bg-zinc-800 rounded-xl transition-all"><ChevronLeft className="h-4 w-4" /></button>
-                            <span className="text-[11px] font-black uppercase tracking-widest text-zinc-400">{baseYear} - {baseYear + 11}</span>
-                            <button onClick={() => setBaseYear(prev => prev + 12)} className="p-2 hover:bg-white dark:hover:bg-zinc-800 rounded-xl transition-all"><ChevronRight className="h-4 w-4" /></button>
-                        </div>
-                        <div className="p-4 grid grid-cols-2 gap-3">
-                            {years.map(y => (
-                                <button key={y} onClick={() => { handleFilterChange({ academicYear: y }); setShowYearDropdown(false); }} className={`px-3 py-3 text-center text-[12px] font-bold rounded-xl transition-all border ${filters.academicYear === y ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-transparent hover:border-zinc-100"}`}>
-                                    {y}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
-    };
 
     const handleNext = async () => {
         if (currentStep === 1) {
@@ -301,7 +258,7 @@ export default function BulkVoucherPage() {
                                         </td>
                                         <td className="px-8 py-6">
                                             <p className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100">{job.campuses?.campus_name}</p>
-                                            <p className="text-[11px] font-medium text-zinc-500">{job.academic_year} • {new Date(job.fee_date_from).toLocaleDateString()} - {new Date(job.fee_date_to).toLocaleDateString()}</p>
+                                            <p className="text-[11px] font-medium text-zinc-500">{new Date(job.fee_date_from).toLocaleDateString()} - {new Date(job.fee_date_to).toLocaleDateString()}</p>
                                         </td>
                                         <td className="px-8 py-6">
                                             <div className="flex items-center gap-4">
@@ -385,7 +342,6 @@ export default function BulkVoucherPage() {
                                 </div>
                             </div>
 
-                            <YearPicker />
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>

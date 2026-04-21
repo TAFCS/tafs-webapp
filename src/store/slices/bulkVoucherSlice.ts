@@ -10,7 +10,6 @@ export interface BulkFilters {
     campusId: string;
     classId: string;
     sectionId: string;
-    academicYear: string;
     dateFrom: string;
     dateTo: string;
     issueDate: string;
@@ -69,7 +68,6 @@ export const fetchBulkPreview = createAsyncThunk(
                     campus_id: parseInt(filters.campusId),
                     class_id: filters.classId ? parseInt(filters.classId) : undefined,
                     section_id: filters.sectionId ? parseInt(filters.sectionId) : undefined,
-                    academic_year: filters.academicYear,
                     fee_date_from: filters.dateFrom,
                     fee_date_to: filters.dateTo,
                     skip_already_issued: filters.skipAlreadyIssued,
@@ -102,7 +100,6 @@ export const startBulkJob = createAsyncThunk(
                     campus_id: parseInt(filters.campusId),
                     class_id: filters.classId ? parseInt(filters.classId) : undefined,
                     section_id: filters.sectionId ? parseInt(filters.sectionId) : undefined,
-                    academic_year: filters.academicYear,
                     fee_date_from: filters.dateFrom,
                     fee_date_to: filters.dateTo,
                     issue_date: filters.issueDate,
@@ -180,7 +177,6 @@ const initialState: BulkVoucherState = {
         campusId: '',
         classId: '',
         sectionId: '',
-        academicYear: getCurrentAcademicYear(),
         dateFrom: new Date().toISOString().split('T')[0],
         dateTo: new Date().toISOString().split('T')[0],
         issueDate: new Date().toISOString().split('T')[0],
