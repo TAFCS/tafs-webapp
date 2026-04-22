@@ -51,6 +51,7 @@ interface SpreadsheetRow {
     bundle_id?: number | null;
     bundle_name?: string | null;
     status?: "NOT_ISSUED" | "ISSUED" | "PARTIALLY_PAID" | "PAID";
+    description_prefix?: string | null;
 }
 
 const MONTH_ORDER = MONTHS;
@@ -368,10 +369,10 @@ function StudentwiseFeeEditor() {
                     amount: sf.amount?.toString() || sf.amount_before_discount?.toString() || "0",
                     originalAmount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
                     fee_date: sf.fee_date ? new Date(sf.fee_date).toISOString().split('T')[0] : undefined,
-                    bundle_id: sf.bundle_id,
                     bundle_name: sf.student_fee_bundles?.bundle_name,
                     // If backend status is NOT_ISSUED but it has voucher_heads, it's effectively ISSUED or in a draft state
-                    status: (sf.voucher_heads && sf.voucher_heads.length > 0) ? (sf.status === 'NOT_ISSUED' ? 'ISSUED' : sf.status) : sf.status
+                    status: (sf.voucher_heads && sf.voucher_heads.length > 0) ? (sf.status === 'NOT_ISSUED' ? 'ISSUED' : sf.status) : sf.status,
+                    description_prefix: sf.description_prefix,
                 }));
             }
             if (is_template && !forceApplyTemplate) {
@@ -1267,7 +1268,11 @@ function StudentwiseFeeEditor() {
                                                             onFocus={() => setActiveCell({ row: rIdx, col: COL_FEE_TYPE })}
                                                             className={`w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-800 dark:text-zinc-200 text-[13px] ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
                                                         >
-                                                            {feeTypes.map(ft => <option key={ft.id} value={ft.id}>{ft.description}</option>)}
+                                                            {feeTypes.map(ft => (
+                                                                <option key={ft.id} value={ft.id}>
+                                                                    {ft.id === Number(row.feeId) && row.description_prefix ? `${row.description_prefix} — ` : ""}{ft.description}
+                                                                </option>
+                                                            ))}
                                                         </select>
                                                         {!isLocked && <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />}
                                                         {isLocked && row.status && row.status !== "ISSUED" && (
