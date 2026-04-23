@@ -802,46 +802,47 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                     <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 space-y-3 shadow-sm">
                         <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">New Guardian</p>
 
-                        <div className="flex flex-col md:flex-row gap-6 border-b border-blue-100/50 pb-4 mb-1">
+                        <div className="flex flex-col md:flex-row gap-6">
                             {/* Photo Picker */}
-                            <div className="flex-shrink-0">
+                            <div className="shrink-0">
                                 <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Profile Picture</label>
                                 <div
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="relative group w-24 h-32 bg-white rounded-xl border-2 border-dashed border-blue-200 flex flex-col items-center justify-center overflow-hidden transition-all hover:border-primary/50 cursor-pointer shadow-sm"
+                                    className="relative group w-32 h-40 bg-white rounded-2xl border-2 border-dashed border-blue-200 flex flex-col items-center justify-center overflow-hidden transition-all hover:border-primary/50 cursor-pointer shadow-sm"
                                 >
                                     {photoPreview ? (
                                         <>
                                             <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <Camera className="h-5 w-5 text-white" />
+                                                <Camera className="h-6 w-6 text-white" />
                                             </div>
                                         </>
                                     ) : (
-                                        <div className="flex flex-col items-center gap-1 text-blue-300 group-hover:text-primary transition-colors">
-                                            <Camera className="h-6 w-6" />
-                                            <span className="text-[9px] font-black uppercase">Upload</span>
+                                        <div className="flex flex-col items-center gap-2 text-blue-300 group-hover:text-primary transition-colors">
+                                            <Camera className="h-8 w-8" />
+                                            <span className="text-[10px] font-black uppercase">Upload</span>
                                         </div>
                                     )}
                                     <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handlePhotoSelect} />
                                 </div>
                             </div>
 
-                            <div className="flex-1 space-y-4">
-                                <div className="flex gap-4">
+                            {/* Form Fields */}
+                            <div className="flex-1 space-y-5">
+                                <div className="flex gap-6 pb-2 border-b border-blue-100/30">
                                     <Toggle label="Primary Contact" checked={newG.is_primary_contact} onChange={v => set("is_primary_contact", v)} />
                                     <Toggle label="Emergency Contact" checked={newG.is_emergency_contact} onChange={v => set("is_emergency_contact", v)} />
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="col-span-2"><Field label="Full Name"><Input value={newG.full_name || ""} onChange={v => set("full_name", v)} showNA /></Field></div>
-                                        <Field label="CNIC"><Input value={newG.cnic || ""} onChange={v => set("cnic", formatCNIC(v))} placeholder="xxxxx-xxxxxxx-x" /></Field>
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="col-span-1">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="md:col-span-2">
+                                        <Field label="Full Name"><Input value={newG.full_name || ""} onChange={v => set("full_name", v)} showNA /></Field>
+                                    </div>
+
+                                    <Field label="CNIC">
+                                        <Input value={newG.cnic || ""} onChange={v => set("cnic", formatCNIC(v))} placeholder="xxxxx-xxxxxxx-x" />
+                                    </Field>
+
                                     <Field label="Relationship">
                                         <select
                                             value={RELATIONSHIPS.filter(r => r !== "OTHER").includes((newG.relationship || "").toUpperCase()) ? (newG.relationship || "").toUpperCase() : "OTHER"}
@@ -851,29 +852,32 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                                             {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
                                         </select>
                                     </Field>
+
                                     {(!RELATIONSHIPS.filter(r => r !== "OTHER").includes((newG.relationship || "").toUpperCase())) && (
-                                        <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <div className="md:col-span-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                             <Field label="Specify Relationship">
                                                 <Input value={newG.relationship === "OTHER" ? "" : newG.relationship} onChange={v => set("relationship", v)} placeholder="e.g. DRIVER, TUTOR" showNA />
                                             </Field>
                                         </div>
                                     )}
-                                </div>
 
-                                <div className="col-span-1">
-                                    <Field label="Phone"><PhoneInput value={newG.primary_phone || ""} onChange={v => set("primary_phone", v)} /></Field>
+                                    <Field label="Phone">
+                                        <PhoneInput value={newG.primary_phone || ""} onChange={v => set("primary_phone", v)} />
+                                    </Field>
+
+                                    <Field label="WhatsApp">
+                                        <PhoneInput value={newG.whatsapp_number || ""} onChange={v => set("whatsapp_number", v)} />
+                                    </Field>
+
+                                    <Field label="Occupation">
+                                        <Input value={newG.occupation || ""} onChange={v => set("occupation", v)} />
+                                    </Field>
+
+                                    <Field label="Email">
+                                        <Input type="email" value={newG.email_address || ""} onChange={v => set("email_address", v)} />
+                                    </Field>
                                 </div>
                             </div>
-
-                            {!newG.is_emergency_contact && (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Field label="WhatsApp"><PhoneInput value={newG.whatsapp_number || ""} onChange={v => set("whatsapp_number", v)} /></Field>
-                                    <Field label="Occupation"><Input value={newG.occupation || ""} onChange={v => set("occupation", v)} /></Field>
-                                    <div className="col-span-2">
-                                        <Field label="Email"><Input type="email" value={newG.email_address || ""} onChange={v => set("email_address", v)} /></Field>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                         <div className="flex gap-2">
                             <button onClick={addNew} disabled={saving || saved} className={`flex items-center gap-1.5 px-4 h-8 text-[11px] font-bold text-white rounded-xl transition-all ${saved ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}>
