@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/src/store/store";
@@ -561,41 +561,6 @@ export function RegistrationForm() {
         });
     };
 
-    const clearGuardianSection = (type: 'father' | 'mother') => {
-        setFormData(prev => {
-            const updates: any = {};
-            if (type === 'father') {
-                updates.fatherName = "";
-                updates.fatherCnic = "";
-                updates.fatherPhone = "";
-                updates.fatherEmail = "";
-                updates.fatherFax = "";
-                updates.fatherWhatsapp = "";
-                updates.isFatherWhatsapp = true;
-                updates.isFatherPhoneNA = false;
-                updates.isFatherEmailNA = false;
-                updates.isFatherFaxNA = false;
-                updates.fatherPhotoUrl = "";
-                updates.fatherPhotoFile = null;
-                updates.fatherAdditionalPhones = [];
-            } else {
-                updates.motherName = "";
-                updates.motherCnic = "";
-                updates.motherPhone = "";
-                updates.motherEmail = "";
-                updates.motherFax = "";
-                updates.motherWhatsapp = "";
-                updates.isMotherWhatsapp = true;
-                updates.isMotherPhoneNA = false;
-                updates.isMotherEmailNA = false;
-                updates.isMotherFaxNA = false;
-                updates.motherPhotoUrl = "";
-                updates.motherPhotoFile = null;
-                updates.motherAdditionalPhones = [];
-            }
-            return { ...prev, ...updates };
-        });
-    };
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
@@ -1481,13 +1446,6 @@ export function RegistrationForm() {
                                                 <td className="px-4 py-3 align-top">
                                                     <div className="flex flex-col gap-1.5">
                                                         <span className="font-black text-zinc-700 dark:text-zinc-300 uppercase text-[11px] tracking-tight">Father</span>
-                                                        <button 
-                                                            type="button" 
-                                                            onClick={() => clearGuardianSection('father')}
-                                                            className="text-[8px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest flex items-center gap-1 transition-colors"
-                                                        >
-                                                            <Trash2 className="h-2 w-2" /> Reset
-                                                        </button>
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2">
@@ -1582,13 +1540,6 @@ export function RegistrationForm() {
                                                 <td className="px-4 py-3 align-top">
                                                     <div className="flex flex-col gap-1.5">
                                                         <span className="font-black text-zinc-700 dark:text-zinc-300 uppercase text-[11px] tracking-tight">Mother</span>
-                                                        <button 
-                                                            type="button" 
-                                                            onClick={() => clearGuardianSection('mother')}
-                                                            className="text-[8px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest flex items-center gap-1 transition-colors"
-                                                        >
-                                                            <Trash2 className="h-2 w-2" /> Reset
-                                                        </button>
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2">
