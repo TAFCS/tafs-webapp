@@ -501,6 +501,19 @@ export default function BulkVoucherPage() {
                         </button>
                     </div>
 
+                    <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                        <div>
+                            <p className="text-[13px] font-black text-zinc-900 dark:text-zinc-100">Waive Surcharge</p>
+                            <p className="text-[11px] font-medium text-zinc-500">Skip PKR 1,000 arrears fee</p>
+                        </div>
+                        <button 
+                            onClick={() => handleFilterChange({ waiveSurcharge: !filters.waiveSurcharge })}
+                            className={`h-6 w-11 rounded-full transition-all relative ${filters.waiveSurcharge ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-700"}`}
+                        >
+                            <div className={`h-4 w-4 bg-white rounded-full absolute top-1 transition-all ${filters.waiveSurcharge ? "left-6" : "left-1"}`} />
+                        </button>
+                    </div>
+
                     {filters.applyLateFee && (
                         <div className="flex items-center gap-4 animate-in zoom-in duration-300">
                             <div className="flex-1">

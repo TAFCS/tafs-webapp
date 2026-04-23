@@ -19,6 +19,7 @@ export interface BulkFilters {
     applyLateFee: boolean;
     lateFeeAmount: number;
     skipAlreadyIssued: boolean;
+    waiveSurcharge: boolean;
 }
 
 export interface BulkStudent {
@@ -109,6 +110,7 @@ export const startBulkJob = createAsyncThunk(
                     apply_late_fee: filters.applyLateFee,
                     late_fee_amount: filters.lateFeeAmount,
                     skip_already_issued: filters.skipAlreadyIssued,
+                    waive_surcharge: filters.waiveSurcharge,
                     student_ccs: studentCCs,
                 }
             );
@@ -186,6 +188,7 @@ const initialState: BulkVoucherState = {
         applyLateFee: true,
         lateFeeAmount: 1000,
         skipAlreadyIssued: true,
+        waiveSurcharge: false,
     },
     previewStudents: [],
     selectedStudentCCs: [],

@@ -127,6 +127,7 @@ export default function FeeChallanGenerator() {
 
     const [applyLateFee, setApplyLateFee] = useState(true);
     const [lateFeeAmount, setLateFeeAmount] = useState(1000);
+    const [waiveSurcharge, setWaiveSurcharge] = useState(false);
     const [showBundles, setShowBundles] = useState(true);
 
     // --- Date Range Selection ---
@@ -191,6 +192,7 @@ export default function FeeChallanGenerator() {
         dateTo,
         applyLateFee,
         lateFeeAmount,
+        waiveSurcharge,
         selectedBank,
         accTitle,
         accNo,
@@ -396,7 +398,8 @@ export default function FeeChallanGenerator() {
                 netAmount: netAmount,
                 discount: isPartial ? 0 : Number(r.amount_paid),
                 discountLabel: (isPartial || r.amount_paid === "0.00") ? undefined : `Paid: ${Number(r.amount_paid).toLocaleString()}`,
-                isArrear: true,
+                isArrear: !r.isSurcharge,
+                isSurcharge: !!r.isSurcharge,
                 feeDate: r.fee_date,
                 target_month: r.target_month,
                 academic_year: r.academic_year,
@@ -425,7 +428,7 @@ export default function FeeChallanGenerator() {
         setIsFetchingArrears(true);
         try {
             const { data } = await api.get('/v1/vouchers/arrears', {
-                params: { student_id: studentCc, fee_date: feeDate, _t: Date.now() },
+                params: { student_id: studentCc, fee_date: feeDate, _t: Date.now(), waive_surcharge: waiveSurcharge },
             });
             const result = data.data ?? null;
             setArrearsData(result);
@@ -485,6 +488,8 @@ export default function FeeChallanGenerator() {
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
             formData.append('late_fee_charge', applyLateFee.toString());
             formData.append('late_fee_amount', (lateFeeAmount || 0).toString());
+            formData.append('waive_surcharge', waiveSurcharge.toString());
+            formData.append('waived_by', (user?.fullName || user?.username || "Administrator").toString());
             formData.append('precedence', '1');
             allFeeIds.forEach(id => formData.append('orderedFeeIds', id.toString()));
 
@@ -516,7 +521,8 @@ export default function FeeChallanGenerator() {
                     amount: isPartial ? netAmount : Number(r.amount),
                     netAmount: netAmount,
                     discount: isPartial ? 0 : Number(r.amount_paid),
-                    isArrear: true,
+                    isArrear: !r.isSurcharge,
+                    isSurcharge: !!r.isSurcharge,
                     feeDate: r.fee_date,
                 };
             });
@@ -643,6 +649,8 @@ export default function FeeChallanGenerator() {
             formData.append('month', (MONTH_TO_NUM[month] || 1).toString());
             formData.append('late_fee_charge', applyLateFee.toString());
             formData.append('late_fee_amount', (lateFeeAmount || 0).toString());
+            formData.append('waive_surcharge', waiveSurcharge.toString());
+            formData.append('waived_by', (user?.fullName || user?.username || "Administrator").toString());
             formData.append('precedence', '1');
             allFeeIds.forEach(id => formData.append('orderedFeeIds', id.toString()));
 
@@ -672,7 +680,8 @@ export default function FeeChallanGenerator() {
                     amount: isPartial ? netAmount : Number(r.amount),
                     netAmount: netAmount,
                     discount: isPartial ? 0 : Number(r.amount_paid),
-                    isArrear: true,
+                    isArrear: !r.isSurcharge,
+                    isSurcharge: !!r.isSurcharge,
                     feeDate: r.fee_date,
                 };
             });
@@ -1112,6 +1121,27 @@ export default function FeeChallanGenerator() {
                                             <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-rose-400" />
                                         </div>
                                     )}
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-3">
+                                        <Info className="h-4 w-4 text-emerald-500" />
+                                        <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Waiver Policy</h3>
+                                    </div>
+                                    <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50 dark:border-zinc-800">
+                                        <button
+                                            onClick={() => setWaiveSurcharge(true)}
+                                            className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${waiveSurcharge === true ? "bg-white dark:bg-zinc-800 text-emerald-600 shadow-xl shadow-emerald-500/10 border border-emerald-100/50 dark:border-emerald-900/20" : "text-zinc-400 hover:text-zinc-600"}`}
+                                        >
+                                            Waive
+                                        </button>
+                                        <button
+                                            onClick={() => setWaiveSurcharge(false)}
+                                            className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${waiveSurcharge === false ? "bg-white dark:bg-zinc-800 text-emerald-600 shadow-xl shadow-emerald-500/10 border border-emerald-100/50 dark:border-emerald-900/20" : "text-zinc-400 hover:text-zinc-600"}`}
+                                        >
+                                            Charge
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-6">
