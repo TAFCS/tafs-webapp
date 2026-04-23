@@ -439,6 +439,8 @@ interface FeeChallanPDFProps {
             address: string;
             iban: string;
         }
+        surchargeWaived?: boolean;
+        totalSurcharge?: number;
     };
     fees: FeeItem[];
     totalAmount: number;
@@ -632,6 +634,25 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                 );
             })()}
 
+            {/* ── Surcharge waiver note — shown when surcharge was waived ───── */}
+            {details.surchargeWaived && details.totalSurcharge && details.totalSurcharge > 0 && (
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: '#fefce8',
+                    borderWidth: 0.5,
+                    borderColor: '#fbbf24',
+                    borderRadius: 2,
+                    paddingVertical: 2,
+                    paddingHorizontal: 4,
+                    marginTop: 3,
+                    marginBottom: 1,
+                }}>
+                    <Text style={{ flex: 1, fontSize: 5.5, color: '#92400e', fontWeight: 'bold' }}>
+                        ⚠ Late payment surcharge of PKR {details.totalSurcharge.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} waived.
+                    </Text>
+                </View>
+            )}
 
             {details.applyLateFee && (
                 <View style={[styles.tableRow, { borderBottomWidth: 0, marginTop: 2 }]}>
@@ -722,13 +743,13 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
     </View>
 );
 
-export const FeeChallanPDF = ({ 
-    student, 
-    details, 
-    fees, 
-    totalAmount, 
-    siblings, 
-    showDiscount, 
+export const FeeChallanPDF = ({
+    student,
+    details,
+    fees,
+    totalAmount,
+    siblings,
+    showDiscount,
     paidStamp,
     paymentsHistory,
     arrearsHistory,
@@ -747,7 +768,7 @@ export const FeeChallanPDF = ({
 
             {/* Right 15% for the 4th Column - History & Metadata */}
             <View style={{ width: '15%', paddingLeft: 8, borderLeftWidth: 1, borderLeftColor: '#e4e4e4', borderLeftStyle: 'solid', flexDirection: 'column', height: '100%' }}>
-                
+
                 {/* PAYMENTS HISTORY */}
                 <View style={styles.historySection}>
                     <Text style={styles.historyTitle}>PAYMENTS HISTORY</Text>
@@ -789,7 +810,7 @@ export const FeeChallanPDF = ({
                             <Text style={styles.historyTableHeaderCell}>TOTAL</Text>
                         </View>
                         {arrearsHistory && arrearsHistory.length > 0 ? (() => {
-                            const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                            const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                             const getMonthLabel = (r: any) => {
                                 if (r.target_month && r.academic_year) {
                                     const parts = r.academic_year.split('-');
@@ -797,7 +818,7 @@ export const FeeChallanPDF = ({
                                     return `${MONTHS_SHORT[r.target_month - 1].toUpperCase()} ${year.slice(-2)}`;
                                 }
                                 const [y, m] = r.date.split('-');
-                                return `${MONTHS_SHORT[parseInt(m)-1].toUpperCase()} ${y.slice(-2)}`;
+                                return `${MONTHS_SHORT[parseInt(m) - 1].toUpperCase()} ${y.slice(-2)}`;
                             };
 
                             let runningTotal = 0;
