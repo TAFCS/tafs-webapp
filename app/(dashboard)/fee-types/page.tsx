@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Banknote, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2 } from "lucide-react";
+import { Banknote, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, Package } from "lucide-react";
+import Link from "next/link";
 import api from "@/lib/api";
 
 const ACADEMIC_MONTHS = [
@@ -482,6 +483,13 @@ export default function FeeTypesPage() {
                         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                         Refresh
                     </button>
+                    <Link
+                        href="/fee-types/bundle-names"
+                        className="inline-flex items-center justify-center px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95"
+                    >
+                        <Package className="h-4 w-4 mr-2" />
+                        Bundle Names
+                    </Link>
                     <button
                         onClick={handleSave}
                         disabled={isLoading || isSaving || !hasChanges}

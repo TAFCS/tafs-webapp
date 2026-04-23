@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo, Suspense } from "react";
 import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -190,6 +191,7 @@ function StudentwiseFeeEditor() {
     const [selectedForBundling, setSelectedForBundling] = useState<string[]>([]);
     const [bundleNameInput, setBundleNameInput] = useState("");
     const [isCreatingBundle, setIsCreatingBundle] = useState(false);
+    const [bundleNames, setBundleNames] = useState<{ id: number; name: string }[]>([]);
     const [pendingBundles, setPendingBundles] = useState<{
         bundle_name: string;
         target_month: number;
@@ -209,11 +211,18 @@ function StudentwiseFeeEditor() {
         }
     }, [rows, activeCell]);
 
+    const user = useAppSelector((s) => s.auth.user);
+
     useEffect(() => {
         if (classes.length === 0) dispatch(fetchClasses());
         if (feeTypes.length === 0) dispatch(fetchFeeTypes());
         if (campuses.length === 0) dispatch(fetchCampuses());
         if (sections.length === 0) dispatch(fetchSections());
+
+        // Fetch bundle names for the dropdown
+        api.get("/v1/fee-types/bundle-names?activeOnly=true")
+            .then(res => setBundleNames(res.data?.data || []))
+            .catch(err => console.error("Failed to fetch bundle names:", err));
     }, [classes.length, feeTypes.length, campuses.length, sections.length, dispatch]);
 
     // Read params from URL
@@ -1446,15 +1455,29 @@ function StudentwiseFeeEditor() {
                         <Plus className="h-5 w-5" />
                     </div>
                     <div className="flex-1">
-                        <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5 ml-1">Bundle {selectedForBundling.length} Heads</p>
+                        <div className="flex items-center justify-between mb-1.5 ml-1">
+                            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Bundle {selectedForBundling.length} Heads</p>
+                            {(user?.role === 'SUPER_ADMIN' || user?.role === 'CAMPUS_ADMIN') && (
+                                <Link href="/fee-types/bundle-names" className="text-[9px] font-black text-primary hover:underline uppercase tracking-widest flex items-center gap-1">
+                                    <Plus className="h-2 w-2" />
+                                    Manage bundle names
+                                </Link>
+                            )}
+                        </div>
                         <div className="flex gap-2">
-                            <input
-                                type="text"
-                                placeholder="Bundle Name (e.g. Semi-Annual Pkg)"
-                                value={bundleNameInput}
-                                onChange={(e) => setBundleNameInput(e.target.value)}
-                                className="w-64 h-10 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold focus:outline-none focus:border-primary transition-all"
-                            />
+                             <div className="relative">
+                                <select
+                                    value={bundleNameInput}
+                                    onChange={(e) => setBundleNameInput(e.target.value)}
+                                    className="w-64 h-10 pl-4 pr-10 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold focus:outline-none focus:border-primary transition-all appearance-none cursor-pointer"
+                                >
+                                    <option value="" disabled>Select Bundle Name...</option>
+                                    {bundleNames.map(bn => (
+                                        <option key={bn.id} value={bn.name}>{bn.name}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                            </div>
                             {distinctDates.length > 1 ? (
                                 <div className="h-10 px-4 flex items-center gap-2 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 animate-pulse">
                                     <AlertCircle className="h-4 w-4" />
