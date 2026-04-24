@@ -431,11 +431,11 @@ function StudentwiseFeeEditor() {
                             const annualRows = prevFees.filter((f: any) => f.fee_type_id === 4 || (f.installment_amount && f.installment_id && f.student_fee_installments?.fee_type_id === 4));
 
                             if (tuitionRows.length > 0) {
-                                const tTotal = tuitionRows.reduce((a, b) => a + parseFloat(b.amount || "0"), 0);
+                                const tTotal = tuitionRows.reduce((a: number, b: any) => a + parseFloat(b.amount || "0"), 0);
                                 suggestedTuition = Math.round((tTotal / 12) * 1.10);
                             }
                             if (annualRows.length > 0) {
-                                const aTotal = annualRows.reduce((a, b: any) => {
+                                const aTotal = annualRows.reduce((a: number, b: any) => {
                                     const inst = parseFloat(b.installment_amount || "0");
                                     return a + (inst > 0 ? inst : parseFloat(b.amount || "0"));
                                 }, 0);
