@@ -363,7 +363,7 @@ export default function PaymentHistoryPage() {
     return (
         <div className="max-w-[1600px] mx-auto p-6 space-y-8 pb-32">
             {/* Zone 1: Header & Search */}
-            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[40px] p-6 shadow-xl shadow-zinc-200/10 dark:shadow-none sticky top-6 z-30">
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[40px] p-6 shadow-xl shadow-zinc-200/10 dark:shadow-none">
                 <div className="flex flex-col lg:flex-row items-center gap-8">
                     <StudentSearch onSelect={fetchHistory} />
 
@@ -475,12 +475,25 @@ export default function PaymentHistoryPage() {
                         />
                         <StatCard 
                             title="Arrears & Surcharges" 
-                            value={data.stats.total_arrears_ever > 0 ? formatCurrency(data.stats.total_arrears_ever) : "None"}
+                            value={
+                                (data.stats.total_arrears_ever + data.vouchers
+                                    .filter(v => v.status !== 'VOID')
+                                    .reduce((acc, v) => 
+                                        acc + v.heads.reduce((hAcc, h) => hAcc + (h.is_arrear ? h.balance : 0), 0)
+                                    , 0)) > 0 
+                                ? formatCurrency(data.stats.total_arrears_ever + data.vouchers
+                                    .filter(v => v.status !== 'VOID')
+                                    .reduce((acc, v) => 
+                                        acc + v.heads.reduce((hAcc, h) => hAcc + (h.is_arrear ? h.balance : 0), 0)
+                                    , 0)) 
+                                : "None"
+                            }
                             color="text-rose-600"
                             icon={Wallet}
                             subValues={[
                                 { label: 'Surcharges', value: formatCurrency(data.stats.total_surcharges_charged) },
-                                { label: 'Waived', value: formatCurrency(data.stats.total_surcharges_waived), color: 'text-emerald-600' }
+                                { label: 'Waived', value: formatCurrency(data.stats.total_surcharges_waived), color: 'text-emerald-600' },
+                                { label: 'Old Bal.', value: formatCurrency(data.stats.total_arrears_ever) }
                             ]}
                         />
                         <StatCard 
@@ -566,7 +579,11 @@ export default function PaymentHistoryPage() {
                                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-4">
                                                 <div className="flex items-center gap-4">
                                                     <h3 className="text-xl font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
-                                                        {new Date(2000, group.target_month - 1).toLocaleString('default', { month: 'long' })} {group.academic_year.split('-')[0]}
+                                                        {new Date(2000, group.target_month - 1).toLocaleString('default', { month: 'long' })} {
+                                                            group.target_month >= 8 
+                                                            ? group.academic_year.split('-')[0] 
+                                                            : group.academic_year.split('-')[1]
+                                                        }
                                                     </h3>
                                                     <SimpleBadge color={group.month_balance === 0 ? 'green' : group.month_total_paid > 0 ? 'amber' : 'rose'}>
                                                         {group.month_balance === 0 ? 'Fully Settled' : group.month_total_paid > 0 ? 'Partial Recovery' : 'Non-Recovered'}
@@ -700,7 +717,9 @@ const VoucherRow = ({ voucher, isExpanded, onToggle, formatCurrency }: { voucher
             </td>
             <td className="px-6 py-5 text-right">
                 <div className="flex flex-col items-end">
-                    <span className="text-sm font-black text-amber-600">{formatCurrency(voucher.total_arrears)}</span>
+                    <span className="text-sm font-black text-amber-600">
+                        {formatCurrency(voucher.heads.reduce((acc, h) => acc + (h.is_arrear ? h.balance : 0), 0))}
+                    </span>
                     {voucher.total_arrear_surcharge > 0 && (
                         <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="text-[9px] font-black text-rose-400 uppercase">Penalty: {formatCurrency(voucher.total_arrear_surcharge)}</span>
