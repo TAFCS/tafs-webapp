@@ -6,7 +6,7 @@ import {
     Search, Loader2, AlertCircle, FileText, ChevronDown, X,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Building2, GraduationCap, Users, Hash, CreditCard, SlidersHorizontal,
-    ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split
+    ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -25,6 +25,7 @@ const STATUS_OPTIONS = [
     { value: "PARTIALLY_PAID", label: "Partially Paid", icon: FileText, color: "text-blue-500" },
     { value: "PAID", label: "Paid", icon: CheckCircle2, color: "text-emerald-500" },
     { value: "OVERDUE", label: "Overdue", icon: XCircle, color: "text-rose-500" },
+    { value: "VOID", label: "Void", icon: XCircle, color: "text-zinc-500" },
 ];
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
@@ -51,6 +52,8 @@ function getStatusConfig(status: string | null) {
             return { label: "Partially Paid", classes: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800" };
         case "OVERDUE":
             return { label: "Overdue", classes: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800" };
+        case "VOID":
+            return { label: "Void", classes: "bg-zinc-50 text-zinc-500 border-zinc-200 dark:bg-zinc-800/10 dark:text-zinc-500 dark:border-zinc-800 line-through" };
         default:
             return { label: "Unpaid", classes: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800" };
     }
@@ -431,6 +434,24 @@ function VoucherRow({ voucher, index, sections, onRefresh }: { voucher: VoucherI
         }
     };
 
+    const handleDelete = async () => {
+        if (!window.confirm(`Are you sure you want to PERMANENTLY delete Voucher #${voucher.id}? This will reset the associated fee heads to 'Not Issued'.`)) {
+            return;
+        }
+
+        const loadingToast = toast.loading("Deleting voucher...");
+        try {
+            await api.delete(`/v1/vouchers/${voucher.id}`);
+            toast.dismiss(loadingToast);
+            toast.success("Voucher deleted successfully.");
+            onRefresh();
+        } catch (err: any) {
+            toast.dismiss(loadingToast);
+            toast.error(err.response?.data?.message || "Failed to delete voucher.");
+            console.error(err);
+        }
+    };
+
     const isPaid = voucher.status === "PAID";
     const isPartiallyPaid = voucher.status === "PARTIALLY_PAID";
 
@@ -536,8 +557,18 @@ function VoucherRow({ voucher, index, sections, onRefresh }: { voucher: VoucherI
                             title="Download original PDF"
                             className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
                         >
-                            {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            <Download className="h-3.5 w-3.5" />
                             {isDownloading ? "..." : "PDF"}
+                        </button>
+                    )}
+
+                    {(voucher.status === "UNPAID" || voucher.status === "OVERDUE") && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                            title="Delete Voucher & Reset Heads"
+                            className="p-1.5 text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                        >
+                            <Trash2 className="h-4 w-4" />
                         </button>
                     )}
                 </div>
