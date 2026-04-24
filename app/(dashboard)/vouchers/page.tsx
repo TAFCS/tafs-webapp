@@ -303,9 +303,9 @@ function PartiallyPaidModal({
                                                             {new Date(h.student_fees.fee_date) < new Date(voucher.fee_date || 0) ? "Arrear" : "Current"}
                                                         </span>
                                                     )}
-                                                    {h.student_fees?.month && (
+                                                    {(h.student_fees?.target_month || h.student_fees?.month) && (
                                                         <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md">
-                                                            {MONTH_NAMES[h.student_fees.month] || h.student_fees.month}
+                                                            {MONTH_NAMES[h.student_fees.target_month || h.student_fees.month!] || h.student_fees.target_month || h.student_fees.month}
                                                         </span>
                                                     )}
                                                 </div>

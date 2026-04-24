@@ -383,9 +383,9 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                             }`}>
                                                 {arrear ? "Arrear" : "Current"}
                                             </span>
-                                            {h.student_fees?.month && (
+                                            {(h.student_fees?.target_month || h.student_fees?.month) && (
                                                 <span className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[9px] font-black uppercase tracking-widest rounded-md">
-                                                    {MONTH_NAMES[h.student_fees.month] || h.student_fees.month}
+                                                    {MONTH_NAMES[h.student_fees.target_month || h.student_fees.month!] || h.student_fees.target_month || h.student_fees.month}
                                                 </span>
                                             )}
                                         </div>
