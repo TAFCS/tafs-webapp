@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo, Suspense } from "react";
-import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info } from "lucide-react";
+import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info, CreditCard, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
@@ -11,6 +11,7 @@ import { fetchFeeTypes } from "@/store/slices/feeTypesSlice";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchSections } from "@/store/slices/sectionsSlice";
 import toast from "react-hot-toast";
+import InstallmentModal from "@/components/modals/InstallmentModal";
 import { getCurrentAcademicYear, getAcademicYears, MONTHS, MONTH_TO_NUM } from "@/lib/fee-utils";
 import { BulkOperationsDrawer } from "./components/BulkOperationsDrawer";
 
@@ -44,20 +45,26 @@ interface SpreadsheetRow {
     amount: string;
     originalAmount: string; // The original template amount from class-wise schedule
     fee_date?: string;    // Optional exact date (YYYY-MM-DD) for multi-voucher-per-month
-    // UI state
     isGroupStart?: boolean;
     groupSize?: number;
     isNew?: boolean;      // True for manually-added rows (not loaded from class schedule/DB)
-    // Bundling (Parent-Child)
     bundle_id?: number | null;
     bundle_name?: string | null;
+    installment_id?: number | null;
+    installment_amount?: string | null;
+    installment_fee_type_desc?: string | null;
     status?: "NOT_ISSUED" | "ISSUED" | "PARTIALLY_PAID" | "PAID";
     description_prefix?: string | null;
 }
 
 const MONTH_ORDER = MONTHS;
+const ACADEMIC_YEARS = getAcademicYears(1, 4);
 
-const ACADEMIC_YEARS = getAcademicYears(1, 2);
+const getPreviousYear = (year: string) => {
+    const parts = year.split("-");
+    if (parts.length !== 2) return "";
+    return `${parseInt(parts[0]) - 1}-${parseInt(parts[1]) - 1}`;
+};
 
 function calendarYear(academicYearStart: number, monthNum: number): number {
     return monthNum >= 8 ? academicYearStart : academicYearStart + 1;
@@ -86,12 +93,13 @@ function sortMonths(months: unknown): string[] {
 }
 
 function sortSpreadsheetRows(rows: SpreadsheetRow[]): SpreadsheetRow[] {
+    // Sequence value logic: Aug=0, Sep=1 ... Dec=4, Jan=5 ... July=11
+    const getSeq = (m: number) => (m >= 8 ? m - 8 : m + 4);
+
     return [...rows].sort((a, b) => {
-        const ai = MONTH_ORDER.indexOf(a.month);
-        const bi = MONTH_ORDER.indexOf(b.month);
-        const va = ai === -1 ? 99 : ai;
-        const vb = bi === -1 ? 99 : bi;
-        if (va !== vb) return va - vb;
+        const sa = getSeq(a.target_month);
+        const sb = getSeq(b.target_month);
+        if (sa !== sb) return sa - sb;
         // Secondary sort by description
         return a.feeDescription.localeCompare(b.feeDescription);
     }).map((r, i, arr) => ({
@@ -172,6 +180,67 @@ function StudentwiseFeeEditor() {
 
     const [studentId, setStudentId] = useState("");
 
+    // Projection / Stats State
+    const [projections, setProjections] = useState<{
+        prevTuitionTotal: number;
+        prevAnnualTotal: number;
+        newTuitionMonthly: number;
+        newAnnualMonthly: number;
+        isLoading: boolean;
+    } | null>(null);
+
+    const fetchProjections = useCallback(async (sid: number, year: string) => {
+        setProjections(prev => ({ ...(prev || { prevTuitionTotal: 0, prevAnnualTotal: 0, newTuitionMonthly: 0, newAnnualMonthly: 0 }), isLoading: true }));
+        try {
+            const parts = year.split('-');
+            if (parts.length !== 2) return;
+            const prevYear = `${parseInt(parts[0]) - 1}-${parseInt(parts[1]) - 1}`;
+
+            const { data } = await api.get(`/v1/student-fees/student/${sid}/schedule`, { params: { academic_year: prevYear } });
+            const prevFees = data?.data?.fees || [];
+
+            // Tuition = Fee Type 1
+            const tuitionRows = prevFees.filter((f: any) => f.fee_type_id === 1);
+            
+            // Annual = Fee Type 4 (either primary or through installment tracking)
+            const annualRows = prevFees.filter((f: any) => 
+                f.fee_type_id === 4 || 
+                (f.installment_amount && f.installment_id && f.student_fee_installments?.fee_type_id === 4)
+            );
+
+            const tuitionTotal = tuitionRows.reduce((a: number, b: any) => a + parseFloat(b.amount || "0"), 0);
+            
+            // For annual total, we sum up the installment portions OR the full amount if it was standalone
+            const annualTotal = annualRows.reduce((a: number, b: any) => {
+                const installmentPart = parseFloat(b.installment_amount || "0");
+                const fullAmount = parseFloat(b.amount || "0");
+                // If it's a tuition row with annual installment, take just the installment. 
+                // If it's a standalone annual row, take the full amount.
+                return a + (installmentPart > 0 ? installmentPart : fullAmount);
+            }, 0);
+
+            const newTuitionMonthly = (tuitionRows.length > 0 ? tuitionTotal / tuitionRows.length : 0) * 1.10;
+            const newAnnualMonthly = (annualTotal * 1.12) / 12;
+
+            setProjections({
+                prevTuitionTotal: tuitionTotal,
+                prevAnnualTotal: annualTotal,
+                newTuitionMonthly: Math.round(newTuitionMonthly),
+                newAnnualMonthly: Math.round(newAnnualMonthly),
+                isLoading: false
+            });
+        } catch (err) {
+            console.error("Failed to fetch projections", err);
+            setProjections(null);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (studentId && selectedYear) {
+            fetchProjections(Number(studentId), selectedYear);
+        }
+    }, [studentId, selectedYear, fetchProjections]);
+
     const [rows, setRows] = useState<SpreadsheetRow[]>([]);
     const [feeToAmountMap, setFeeToAmountMap] = useState<Record<number, string>>({});
     const [isLoading, setIsLoading] = useState(false);
@@ -192,6 +261,7 @@ function StudentwiseFeeEditor() {
     const [bundleNameInput, setBundleNameInput] = useState("");
     const [isCreatingBundle, setIsCreatingBundle] = useState(false);
     const [bundleNames, setBundleNames] = useState<{ id: number; name: string }[]>([]);
+    const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     const [pendingBundles, setPendingBundles] = useState<{
         bundle_name: string;
         target_month: number;
@@ -347,22 +417,59 @@ function StudentwiseFeeEditor() {
             let finalRows: SpreadsheetRow[] = [];
 
             if (is_template) {
-                // Map from class_fee_schedule template
+                // Determine previous year suggestions (10% Tuition, 12% Annual Fee)
+                let suggestedTuition: number | null = null;
+                let suggestedAnnual: number | null = null;
+
+                try {
+                    const prevYearStr = getPreviousYear(academicYear);
+                    if (prevYearStr && studentId) {
+                        const { data: prevData } = await api.get(`/v1/student-fees/student/${studentId}/schedule`, { params: { academic_year: prevYearStr } });
+                        const prevFees = prevData?.data?.fees || [];
+                        if (prevFees.length > 0) {
+                            const tuitionRows = prevFees.filter((f: any) => f.fee_type_id === 1);
+                            const annualRows = prevFees.filter((f: any) => f.fee_type_id === 4 || (f.installment_amount && f.installment_id && f.student_fee_installments?.fee_type_id === 4));
+
+                            if (tuitionRows.length > 0) {
+                                const tTotal = tuitionRows.reduce((a, b) => a + parseFloat(b.amount || "0"), 0);
+                                suggestedTuition = Math.round((tTotal / 12) * 1.10);
+                            }
+                            if (annualRows.length > 0) {
+                                const aTotal = annualRows.reduce((a, b: any) => {
+                                    const inst = parseFloat(b.installment_amount || "0");
+                                    return a + (inst > 0 ? inst : parseFloat(b.amount || "0"));
+                                }, 0);
+                                suggestedAnnual = Math.round(aTotal * 1.12);
+                            }
+                        }
+                    }
+                } catch (e) { console.error("Suggestion fetch failed", e); }
+
+                // Map from class_fee_schedule template with optional adjusted amounts
                 finalRows = (fees as any[]).flatMap((fee) => {
                     const months = sortMonths(fee.fee_types.breakup ?? []);
-                    return months.map((month) => ({
-                        __id: Math.random().toString(36).substring(7),
-                        dbId: undefined,
-                        feeId: fee.fee_id,
-                        feeDescription: fee.fee_types.description,
-                        freq: fee.fee_types.freq,
-                        initialMonth: month,
-                        month,
-                        target_month: MONTH_TO_NUM[month] || 8,
-                        amount: fee.amount,
-                        originalAmount: fee.amount,
-                        fee_date: calculateInitialFeeDate(month, academicYear, fee.fee_id, fee.fee_types),
-                    }));
+                    return months.map((month) => {
+                        let finalAmount = fee.amount;
+                        if (fee.fee_id === 1 && suggestedTuition !== null) {
+                            finalAmount = suggestedTuition.toString();
+                        } else if (fee.fee_id === 4 && suggestedAnnual !== null) {
+                            finalAmount = Math.round(suggestedAnnual / months.length).toString();
+                        }
+
+                        return {
+                            __id: Math.random().toString(36).substring(7),
+                            dbId: undefined,
+                            feeId: fee.fee_id,
+                            feeDescription: fee.fee_types.description,
+                            freq: fee.fee_types.freq,
+                            initialMonth: month,
+                            month,
+                            target_month: MONTH_TO_NUM[month] || 8,
+                            amount: finalAmount,
+                            originalAmount: fee.amount,
+                            fee_date: calculateInitialFeeDate(month, academicYear, fee.fee_id, fee.fee_types),
+                        };
+                    });
                 });
             } else {
                 // Map from student_fees (Strict Rule: do not pull template)
@@ -378,7 +485,11 @@ function StudentwiseFeeEditor() {
                     amount: sf.amount?.toString() || sf.amount_before_discount?.toString() || "0",
                     originalAmount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
                     fee_date: sf.fee_date ? new Date(sf.fee_date).toISOString().split('T')[0] : undefined,
+                    bundle_id: sf.bundle_id,
                     bundle_name: sf.student_fee_bundles?.bundle_name,
+                    installment_id: sf.installment_id,
+                    installment_amount: sf.installment_amount?.toString(),
+                    installment_fee_type_desc: sf.student_fee_installments?.fee_types?.description,
                     // If backend status is NOT_ISSUED but it has voucher_heads, it's effectively ISSUED or in a draft state
                     status: (sf.voucher_heads && sf.voucher_heads.length > 0) ? (sf.status === 'NOT_ISSUED' ? 'ISSUED' : sf.status) : sf.status,
                     description_prefix: sf.description_prefix,
@@ -1044,11 +1155,20 @@ function StudentwiseFeeEditor() {
                             </button>
                         )}
                         {studentId.trim() !== "" && (
-                            <button onClick={handleSave} disabled={isSaving || !studentId.trim()}
-                                className="inline-flex items-center gap-2 h-11 px-8 bg-primary text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50 active:scale-95"
-                            >
-                                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Schedule"}
-                            </button>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setIsInstallmentModalOpen(true)}
+                                    className="inline-flex items-center gap-2 h-11 px-6 bg-zinc-900 dark:bg-zinc-100 hover:opacity-90 text-white dark:text-zinc-900 text-sm font-bold rounded-xl shadow-lg transition-all active:scale-95"
+                                >
+                                    <CreditCard className="h-4 w-4" />
+                                    Create Installment
+                                </button>
+                                <button onClick={handleSave} disabled={isSaving || !studentId.trim()}
+                                    className="inline-flex items-center gap-2 h-11 px-8 bg-primary text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50 active:scale-95"
+                                >
+                                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Schedule"}
+                                </button>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -1106,6 +1226,53 @@ function StudentwiseFeeEditor() {
                 <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 text-sm">
                     <AlertCircle className="h-5 w-5 text-red-400 shrink-0" /><span>{loadError}</span>
                     <button onClick={() => setLoadError(null)} className="ml-auto p-1 hover:bg-black/5 rounded-lg"><X className="h-4 w-4 opacity-40" /></button>
+                </div>
+            )}
+
+            {/* Annual Fee & Tuition Projection Stats */}
+            {studentId && !projections?.isLoading && projections && (
+                <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm overflow-hidden p-8 flex flex-col md:flex-row items-center gap-10">
+                        <div className="flex-shrink-0 text-center md:text-left">
+                            <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-4 mx-auto md:mx-0">
+                                <Plus className="h-7 w-7 text-primary" />
+                            </div>
+                            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 italic">Term Increment Projection</h2>
+                            <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mt-1">Based on Previous Academic Year</p>
+                        </div>
+
+                        <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Base Tuition (Avg)</p>
+                                <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">PKR {Math.round(projections.prevTuitionTotal / 12 || 0).toLocaleString()}</p>
+                                <p className="text-[10px] font-black text-emerald-500 uppercase">+10% Inc. Requested</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Annual Fee (Total)</p>
+                                <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">PKR {projections.prevAnnualTotal.toLocaleString()}</p>
+                                <p className="text-[10px] font-black text-emerald-500 uppercase">+12% Inc. Requested</p>
+                            </div>
+                            <div className="h-full w-px bg-zinc-100 dark:bg-zinc-800 hidden lg:block mx-auto" />
+                            <div className="space-y-2 col-span-2 lg:col-span-1 bg-zinc-50 dark:bg-zinc-900 p-4 rounded-3xl border border-zinc-100 dark:border-zinc-800">
+                                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Proposed Monthly Total</p>
+                                <p className="text-2xl font-black text-primary">PKR {(projections.newTuitionMonthly + projections.newAnnualMonthly).toLocaleString()}</p>
+                                <p className="text-[10px] font-bold text-zinc-400 leading-tight">
+                                    {projections.newTuitionMonthly.toLocaleString()} (Tuition) + {projections.newAnnualMonthly.toLocaleString()} (Annual split)
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex-shrink-0">
+                            <button 
+                                onClick={() => setIsInstallmentModalOpen(true)}
+                                className="h-16 px-8 bg-primary hover:bg-primary/90 text-white text-sm font-black rounded-2xl shadow-2xl shadow-primary/20 transition-all active:scale-95 flex items-center gap-2 group"
+                            >
+                                <CreditCard className="h-5 w-5 group-hover:rotate-12 transition-transform" />
+                                Breakdown Tool
+                                <ArrowRight className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -1284,13 +1451,6 @@ function StudentwiseFeeEditor() {
                                                             ))}
                                                         </select>
                                                         {!isLocked && <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />}
-                                                        {isLocked && row.status && row.status !== "ISSUED" && (
-                                                            <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                                                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shadow-sm ${row.status === "PAID" ? "bg-emerald-500 text-white" : "bg-blue-500 text-white"}`}>
-                                                                    {row.status?.replace("_", " ")}
-                                                                </span>
-                                                            </div>
-                                                        )}
                                                     </div>
                                                     {isLocked && (
                                                         <div className="px-5 pb-2 flex items-center gap-1.5">
@@ -1300,23 +1460,34 @@ function StudentwiseFeeEditor() {
                                                             </span>
                                                         </div>
                                                     )}
-                                                    {row.bundle_id && (
-                                                        <div className="px-5 pb-2 flex items-center gap-2 group/bundle">
-                                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 border border-primary/20 rounded-md">
+                                                    <div className="px-5 pb-2 flex flex-wrap items-center gap-2">
+                                                        {row.bundle_id && (
+                                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 border border-primary/20 rounded-md group/bundle">
                                                                 <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                                                                 <span className="text-[9px] font-black text-primary uppercase tracking-tighter truncate max-w-[100px]">
                                                                     {row.bundle_name || "Bundled"}
                                                                 </span>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleDissolveBundle(row.bundle_id!); }}
+                                                                    className="opacity-0 group-hover/bundle:opacity-100 p-0.5 text-zinc-300 hover:text-rose-500 transition-all"
+                                                                    title="Dissolve Bundle"
+                                                                >
+                                                                    <Trash2 className="h-2.5 w-2.5" />
+                                                                </button>
                                                             </div>
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); handleDissolveBundle(row.bundle_id!); }}
-                                                                className="opacity-0 group-hover/bundle:opacity-100 p-0.5 text-zinc-300 hover:text-rose-500 transition-all"
-                                                                title="Dissolve Bundle"
-                                                            >
-                                                                <Trash2 className="h-2.5 w-2.5" />
-                                                            </button>
-                                                        </div>
-                                                    )}
+                                                        )}
+                                                        {row.installment_id && (
+                                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 rounded-md">
+                                                                <CreditCard className="h-2.5 w-2.5 text-indigo-500" />
+                                                                <span className="text-[9px] font-black text-indigo-600 uppercase tracking-tighter">
+                                                                    {row.installment_fee_type_desc 
+                                                                        ? `${row.installment_fee_type_desc} Split` 
+                                                                        : "Installment Plan"}
+                                                                    {row.installment_amount && ` — Rs. ${parseInt(row.installment_amount).toLocaleString()}`}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
 
                                                     {/* Pending Bundles Visual */}
                                                     {pendingBundles.filter(pb => pb.member_ids.includes(row.__id)).map((pb, idx) => (
@@ -1519,6 +1690,16 @@ function StudentwiseFeeEditor() {
             <BulkOperationsDrawer
                 isOpen={showBulkDrawer}
                 onClose={() => setShowBulkDrawer(false)}
+            />
+            {/* Modal */}
+            <InstallmentModal
+                isOpen={isInstallmentModalOpen}
+                onClose={() => setIsInstallmentModalOpen(false)}
+                onSuccess={() => fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear)}
+                studentId={Number(studentId)}
+                studentName={searchQuery.split(/\s\(/)[0] || "Student"}
+                existingFees={rows}
+                academicYear={selectedYear}
             />
         </div>
     );
