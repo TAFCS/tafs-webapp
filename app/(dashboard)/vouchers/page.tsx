@@ -686,13 +686,13 @@ export default function VouchersPage() {
 
     const activeFilterCount = Object.keys(activeFiltersApplied).length;
 
-    // Stat cards (Showing current page stats for now, total count from pagination)
+    // Stat cards (Using accurate overall stats from backend pagination meta)
     const stats = {
         total: pagination.total,
-        pageTotal: vouchers.length,
-        paid: vouchers.filter(v => v.status === "PAID").length,
-        unpaid: vouchers.filter(v => v.status !== "PAID" && v.status !== "OVERDUE").length,
-        overdue: vouchers.filter(v => v.status === "OVERDUE").length,
+        paid: pagination.paid || 0,
+        unpaid: pagination.unpaid || 0,
+        overdue: pagination.overdue || 0,
+        void: pagination.void || 0,
     };
 
     const campusOptions: DropdownOption[] = campuses.map(c => ({ id: c.id, label: c.campus_name, sub: c.campus_code }));
@@ -744,12 +744,13 @@ export default function VouchersPage() {
             </div>
 
             {/* ── Stat Cards ───────────────────────────────────────────────── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 {[
-                    { label: "Total Vouchers", value: stats.total, icon: FileText, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20" },
+                    { label: "Total", value: stats.total, icon: FileText, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20" },
                     { label: "Paid", value: stats.paid, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
                     { label: "Unpaid", value: stats.unpaid, icon: Clock, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-900/20" },
                     { label: "Overdue", value: stats.overdue, icon: XCircle, color: "text-rose-500", bg: "bg-rose-50 dark:bg-rose-900/20" },
+                    { label: "Void", value: stats.void, icon: XCircle, color: "text-zinc-500", bg: "bg-zinc-50 dark:bg-zinc-900/20" },
                 ].map(s => (
                     <div key={s.label} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
                         <div className={`p-3 rounded-xl ${s.bg}`}>

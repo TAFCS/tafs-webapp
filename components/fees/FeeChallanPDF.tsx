@@ -890,29 +890,23 @@ export const FeeChallanPDF = ({
                     <Text style={styles.historyTitle}>INSTALLMENTS HISTORY</Text>
                     <View style={styles.historyTable}>
                         <View style={styles.historyTableHeader}>
-                            <Text style={[styles.historyTableHeaderCell, { flex: 1.2 }]}>PAY ID</Text>
-                            <Text style={styles.historyTableHeaderCell}>DATE</Text>
-                            <Text style={styles.historyTableHeaderCell}>AMT</Text>
-                            <Text style={styles.historyTableHeaderCell}>FINE</Text>
-                            <Text style={styles.historyTableHeaderCell}>TOTAL</Text>
+                            <Text style={[styles.historyTableHeaderCell, { flex: 1 }]}>MONTH</Text>
+                            <Text style={[styles.historyTableHeaderCell, { flex: 2 }]}>HEAD</Text>
+                            <Text style={[styles.historyTableHeaderCell, { flex: 1, textAlign: 'right' }]}>AMOUNT</Text>
                         </View>
                         {installmentsHistory && installmentsHistory.length > 0 ? (
                             installmentsHistory.map((inst: any, idx: number) => (
                                 <View key={idx} style={styles.historyTableRow}>
-                                    <Text style={[styles.historyTableCell, { flex: 1.2 }]}>{inst.paymentId}</Text>
-                                    <Text style={styles.historyTableCell}>{inst.date}</Text>
-                                    <Text style={styles.historyTableCell}>{inst.amount}</Text>
-                                    <Text style={styles.historyTableCell}>{inst.fine}</Text>
-                                    <Text style={styles.historyTableCell}>{inst.total}</Text>
+                                    <Text style={[styles.historyTableCell, { flex: 1 }]}>{inst.month}</Text>
+                                    <Text style={[styles.historyTableCell, { flex: 2 }]}>{inst.head}</Text>
+                                    <Text style={[styles.historyTableCell, { flex: 1, textAlign: 'right' }]}>{inst.amount}</Text>
                                 </View>
                             ))
                         ) : (
                             <View style={styles.historyTableRow}>
-                                <Text style={[styles.historyTableCell, { flex: 1.2 }]}>-</Text>
-                                <Text style={styles.historyTableCell}>-</Text>
-                                <Text style={styles.historyTableCell}>-</Text>
-                                <Text style={styles.historyTableCell}>-</Text>
-                                <Text style={styles.historyTableCell}>-</Text>
+                                <Text style={[styles.historyTableCell, { flex: 1 }]}>-</Text>
+                                <Text style={[styles.historyTableCell, { flex: 2 }]}>-</Text>
+                                <Text style={[styles.historyTableCell, { flex: 1, textAlign: 'right' }]}>-</Text>
                             </View>
                         )}
                     </View>

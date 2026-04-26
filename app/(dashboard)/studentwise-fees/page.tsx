@@ -439,7 +439,7 @@ function StudentwiseFeeEditor() {
                                     const inst = parseFloat(b.installment_amount || "0");
                                     return a + (inst > 0 ? inst : parseFloat(b.amount || "0"));
                                 }, 0);
-                                suggestedAnnual = Math.round(aTotal * 1.12);
+                                suggestedAnnual = Math.round(aTotal * 1.10); // 10% increase
                             }
                         }
                     }
@@ -1389,10 +1389,9 @@ function StudentwiseFeeEditor() {
                                     <th className="min-w-[180px] border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee Description</th>
                                     <th className="w-24 md:w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Frequency</th>
                                     <th className="w-24 md:w-32 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month</th>
-                                    <th className="w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-primary/70 uppercase tracking-widest">
-                                        Fee Date
-                                        {/* <span className="ml-1 text-[8px] font-bold bg-primary/10 text-primary px-1 py-0.5 rounded normal-case tracking-normal">multi-voucher</span> */}
-                                    </th>
+                                    <th className="w-32 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-primary/70 uppercase tracking-widest">Fee Date</th>
+                                    <th className="w-48 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Adjustments</th>
+                                    <th className="w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Status</th>
                                     <th className="min-w-[120px] border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount (Rs.)</th>
                                 </tr>
                             </thead>
@@ -1431,7 +1430,6 @@ function StudentwiseFeeEditor() {
                                             </td>
 
                                             <td className="border-r border-b border-zinc-100 text-center font-mono text-[10px] text-zinc-400">{rIdx + 1}</td>
-
                                             {/* Fee Type Select */}
                                             <td data-row={rIdx} data-col={COL_FEE_TYPE} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FEE_TYPE) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
                                                 <div className="flex flex-col">
@@ -1565,7 +1563,66 @@ function StudentwiseFeeEditor() {
                                                 />
                                             </td>
 
-                                            {/* Amount Input */}
+                                            <td className={`p-0 border-r border-b border-zinc-100 relative bg-zinc-50/10`}>
+                                                <div className="flex flex-col gap-1 px-4 py-2">
+                                                    {row.installment_id && (
+                                                        <div className="flex items-center gap-1.5 p-1.5 bg-indigo-50/50 border border-indigo-100 rounded-lg">
+                                                            <CreditCard className="h-2.5 w-2.5 text-indigo-500" />
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[8px] font-black text-indigo-600 uppercase tracking-tighter">
+                                                                    {row.installment_fee_type_desc || "Merged Installment"}
+                                                                </span>
+                                                                {row.installment_amount && (
+                                                                    <span className="text-[9px] font-bold text-indigo-400 font-mono">
+                                                                        Added: Rs. {parseInt(row.installment_amount).toLocaleString()}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {row.bundle_id && (
+                                                        <div className="flex items-center gap-1.5 p-1.5 bg-primary/5 border border-primary/10 rounded-lg group/bundle">
+                                                            <Layers className="h-2.5 w-2.5 text-primary" />
+                                                            <span className="text-[8px] font-black text-primary uppercase tracking-tighter truncate max-w-[100px]">
+                                                                Bundled: {row.bundle_name || "Pack"}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {!row.installment_id && !row.bundle_id && (
+                                                        <span className="text-[9px] font-bold text-zinc-300 italic">— No Adjustments</span>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            {/* Status Column */}
+                                            <td className={`p-0 border-r border-b border-zinc-100 relative`}>
+                                                <div className="flex flex-wrap items-center gap-1 px-4 py-2">
+                                                    {row.status === "PAID" && (
+                                                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-md">
+                                                            <span className="h-1 w-1 rounded-full bg-emerald-500" />
+                                                            <span className="text-[8px] font-black text-emerald-600 uppercase tracking-tighter text-nowrap">Paid</span>
+                                                        </div>
+                                                    )}
+                                                    {row.status === "PARTIALLY_PAID" && (
+                                                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-cyan-500/10 border border-cyan-500/20 rounded-md">
+                                                            <span className="h-1 w-1 rounded-full bg-cyan-500" />
+                                                            <span className="text-[8px] font-black text-cyan-600 uppercase tracking-tighter text-nowrap">Partial</span>
+                                                        </div>
+                                                    )}
+                                                    {row.status === "ISSUED" && (
+                                                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-md">
+                                                            <span className="h-1 w-1 rounded-full bg-amber-500" />
+                                                            <span className="text-[8px] font-black text-amber-600 uppercase tracking-tighter text-nowrap">Locked</span>
+                                                        </div>
+                                                    )}
+                                                    {!row.status || row.status === "NOT_ISSUED" && (
+                                                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-zinc-100 border border-zinc-200 rounded-md">
+                                                            <span className="h-1 w-1 rounded-full bg-zinc-300" />
+                                                            <span className="text-[8px] font-black text-zinc-400 uppercase tracking-tighter text-nowrap">Pending</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td data-row={rIdx} data-col={COL_AMOUNT} className={`p-0 border-b border-zinc-100 ${aCell(COL_AMOUNT) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
                                                 <div className="relative h-10 flex items-center">
                                                     <span className="pl-5 text-[10px] font-bold text-zinc-300">Rs.</span>
