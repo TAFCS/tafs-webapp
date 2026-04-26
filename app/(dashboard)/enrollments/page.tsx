@@ -45,6 +45,7 @@ interface Suggestions {
     suggested_gr: string;
     suggested_house: number | null;
     suggested_section: number | null;
+    min_gr: string | null;
     all_houses: Array<{ id: number, house_name: string, house_color: string }>;
     available_sections: Array<{ id: number, description: string }>;
 }
@@ -360,6 +361,11 @@ export default function EnrollmentsPage() {
                                                     className="w-full pl-12 pr-4 py-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-black text-lg text-primary uppercase"
                                                 />
                                             </div>
+                                            {suggestions?.min_gr && (
+                                                <p className="text-[10px] text-zinc-400 font-bold ml-1 italic">
+                                                    Minimum GR for this campus is <span className="text-zinc-500">{suggestions.min_gr}</span>. Sequence integrity is enforced.
+                                                </p>
+                                            )}
                                         </div>
 
                                         {/* Section Selection - Moved up as House balancing now depends on it */}
