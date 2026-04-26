@@ -120,6 +120,27 @@ export default function EnrollmentsPage() {
         }
     };
 
+    const handleSectionChange = async (sectionId: number | "") => {
+        setFinalSectionId(sectionId);
+        if (!selectedStudent) return;
+        
+        // We don't show a full loader here to avoid jarring UX, 
+        // just update the suggestions in the background
+        try {
+            const { data } = await api.get(`/v1/enrollments/${selectedStudent.cc}/suggestions`, {
+                params: { section_id: sectionId || undefined }
+            });
+            const res = data.data || data;
+            setSuggestions(res);
+            // Auto-select the newly suggested house if one is returned
+            if (res.suggested_house) {
+                setFinalHouseId(res.suggested_house);
+            }
+        } catch (error) {
+            console.error("Failed to refresh house suggestions", error);
+        }
+    };
+
     const handleConfirmEnroll = async () => {
         if (!selectedStudent || !finalGr || !finalHouseId) {
             toast.error("Please provide GR number and House");
@@ -341,9 +362,37 @@ export default function EnrollmentsPage() {
                                             </div>
                                         </div>
 
-                                        {/* House Selection */}
+                                        {/* Section Selection - Moved up as House balancing now depends on it */}
+                                        <div className="space-y-2 text-left">
+                                            <div className="flex items-center justify-between ml-1">
+                                                <label className="text-xs font-black uppercase tracking-wider text-zinc-500">Assign Section</label>
+                                                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-100 dark:bg-zinc-900 px-2 py-0.5 rounded-full">Step 1</span>
+                                            </div>
+                                            <div className="relative">
+                                                <select
+                                                    value={finalSectionId}
+                                                    onChange={(e) => handleSectionChange(e.target.value === "" ? "" : Number(e.target.value))}
+                                                    className="w-full px-4 py-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-black text-zinc-700 dark:text-zinc-300 appearance-none cursor-pointer"
+                                                >
+                                                    <option value="">Unassigned</option>
+                                                    {suggestions?.available_sections.map(section => (
+                                                        <option key={section.id} value={section.id}>
+                                                            {section.description} {suggestions?.suggested_section === section.id ? '(Recommended)' : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                                                    <ChevronRight className="h-5 w-5 rotate-90" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* House Selection - Now balanced within the selected section */}
                                         <div className="space-y-2">
-                                            <label className="text-xs font-black uppercase tracking-wider text-zinc-500 ml-1">Assigned House</label>
+                                            <div className="flex items-center justify-between ml-1">
+                                                <label className="text-xs font-black uppercase tracking-wider text-zinc-500">Assigned House</label>
+                                                <span className="text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded-full">Step 2: {finalSectionId ? 'Balanced by Section' : 'Balanced by Class'}</span>
+                                            </div>
                                             <div className="grid grid-cols-2 gap-3">
                                                 {suggestions?.all_houses.map(house => (
                                                     <button
@@ -370,28 +419,6 @@ export default function EnrollmentsPage() {
                                                         )}
                                                     </button>
                                                 ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Section Selection */}
-                                        <div className="space-y-2 text-left">
-                                            <label className="text-xs font-black uppercase tracking-wider text-zinc-500 ml-1">Assign Section</label>
-                                            <div className="relative">
-                                                <select
-                                                    value={finalSectionId}
-                                                    onChange={(e) => setFinalSectionId(e.target.value === "" ? "" : Number(e.target.value))}
-                                                    className="w-full px-4 py-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-black text-zinc-700 dark:text-zinc-300 appearance-none cursor-pointer"
-                                                >
-                                                    <option value="">Unassigned</option>
-                                                    {suggestions?.available_sections.map(section => (
-                                                        <option key={section.id} value={section.id}>
-                                                            {section.description} {suggestions?.suggested_section === section.id ? '(Recommended)' : ''}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
-                                                    <ChevronRight className="h-5 w-5 rotate-90" />
-                                                </div>
                                             </div>
                                         </div>
                                     </div>
