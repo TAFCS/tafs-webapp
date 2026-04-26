@@ -574,7 +574,13 @@ export default function PaymentHistoryPage() {
                                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                                     className="space-y-12 pb-10"
                                 >
-                                    {data.fee_heads.map((group, idx) => (
+                                    {[...data.fee_heads]
+                                        .sort((a, b) => {
+                                            const adjA = (a.target_month - 8 + 12) % 12;
+                                            const adjB = (b.target_month - 8 + 12) % 12;
+                                            return adjA - adjB;
+                                        })
+                                        .map((group, idx) => (
                                         <div key={idx} className="space-y-6">
                                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-4">
                                                 <div className="flex items-center gap-4">
