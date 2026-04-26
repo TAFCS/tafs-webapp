@@ -53,6 +53,7 @@ interface SpreadsheetRow {
     installment_id?: number | null;
     installment_amount?: string | null;
     installment_fee_type_desc?: string | null;
+    installment_fee_type_id?: number | null;
     status?: "NOT_ISSUED" | "ISSUED" | "PARTIALLY_PAID" | "PAID";
     description_prefix?: string | null;
 }
@@ -70,7 +71,7 @@ function calendarYear(academicYearStart: number, monthNum: number): number {
     return monthNum >= 8 ? academicYearStart : academicYearStart + 1;
 }
 
-const COLS = ["Select", "Actions", "#", "Fee Type", "Frequency", "Month", "Fee Date", "Amount"] as const;
+const COLS = ["Select", "Actions", "#", "Fee Type", "Frequency", "Month", "Fee Date", "Adjustments", "Status", "Amount"] as const;
 const COL_SELECT = 0;
 const COL_ACTIONS = 1;
 const COL_NUM = 2;
@@ -78,7 +79,9 @@ const COL_FEE_TYPE = 3;
 const COL_FREQ = 4;
 const COL_MONTH = 5;
 const COL_FEE_DATE = 6;
-const COL_AMOUNT = 7;
+const COL_ADJUSTMENTS = 7;
+const COL_STATUS = 8;
+const COL_AMOUNT = 9;
 
 function sortMonths(months: unknown): string[] {
     let arr = months;
@@ -490,6 +493,7 @@ function StudentwiseFeeEditor() {
                     installment_id: sf.installment_id,
                     installment_amount: sf.installment_amount?.toString(),
                     installment_fee_type_desc: sf.student_fee_installments?.fee_types?.description,
+                    installment_fee_type_id: sf.student_fee_installments?.fee_types?.id,
                     // If backend status is NOT_ISSUED but it has voucher_heads, it's effectively ISSUED or in a draft state
                     status: (sf.voucher_heads && sf.voucher_heads.length > 0) ? (sf.status === 'NOT_ISSUED' ? 'ISSUED' : sf.status) : sf.status,
                     description_prefix: sf.description_prefix,
@@ -1450,75 +1454,6 @@ function StudentwiseFeeEditor() {
                                                         </select>
                                                         {!isLocked && <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />}
                                                     </div>
-                                                    <div className="px-5 pb-2 flex flex-wrap items-center gap-1.5">
-                                                        {/* Status Tags */}
-                                                        {row.status === "PAID" && (
-                                                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-md">
-                                                                <span className="h-1 w-1 rounded-full bg-emerald-500" />
-                                                                <span className="text-[8px] font-black text-emerald-600 uppercase tracking-tighter">Fully Paid</span>
-                                                            </div>
-                                                        )}
-                                                        {row.status === "PARTIALLY_PAID" && (
-                                                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-cyan-500/10 border border-cyan-500/20 rounded-md">
-                                                                <span className="h-1 w-1 rounded-full bg-cyan-500" />
-                                                                <span className="text-[8px] font-black text-cyan-600 uppercase tracking-tighter">Partially Paid</span>
-                                                            </div>
-                                                        )}
-                                                        {row.status === "ISSUED" && (
-                                                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-md">
-                                                                <span className="h-1 w-1 rounded-full bg-amber-500" />
-                                                                <span className="text-[8px] font-black text-amber-600 uppercase tracking-tighter">Voucher Issued — Locked</span>
-                                                            </div>
-                                                        )}
-
-                                                        {/* Functional Tags */}
-                                                        {row.installment_id && (
-                                                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-indigo-500/10 border border-indigo-500/20 rounded-md shadow-sm">
-                                                                <CreditCard className="h-2 w-2 text-indigo-500" />
-                                                                <span className="text-[8px] font-black text-indigo-600 uppercase tracking-tighter">
-                                                                    {row.installment_fee_type_desc || "Installment Plan"}
-                                                                    {row.installment_amount && ` • Rs. ${parseInt(row.installment_amount).toLocaleString()}`}
-                                                                </span>
-                                                            </div>
-                                                        )}
-
-                                                        {row.bundle_id && (
-                                                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-primary/10 border border-primary/20 rounded-md group/bundle">
-                                                                <LayoutGrid className="h-2 w-2 text-primary" />
-                                                                <span className="text-[8px] font-black text-primary uppercase tracking-tighter truncate max-w-[80px]">
-                                                                    {row.bundle_name || "Bundled"}
-                                                                </span>
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); handleDissolveBundle(row.bundle_id!); }}
-                                                                    className="opacity-0 group-hover/bundle:opacity-100 p-0 text-zinc-300 hover:text-rose-500 transition-all ml-0.5"
-                                                                    title="Dissolve Bundle"
-                                                                >
-                                                                    <Trash2 className="h-2 w-2" />
-                                                                </button>
-                                                            </div>
-                                                        )}
-
-                                                        {/* Pending Actions */}
-                                                        {pendingBundles.filter(pb => pb.member_ids.includes(row.__id)).map((pb, idx) => (
-                                                            <div key={idx} className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/20 rounded-md group/bundle animate-pulse">
-                                                                <span className="h-1 w-1 rounded-full bg-rose-500" />
-                                                                <span className="text-[8px] font-black text-rose-600 uppercase tracking-tighter">
-                                                                    {pb.bundle_name} (Pending)
-                                                                </span>
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setPendingBundles(prev => prev.filter(p => p !== pb));
-                                                                    }}
-                                                                    className="opacity-0 group-hover/bundle:opacity-100 text-zinc-300 hover:text-rose-500 transition-all ml-0.5"
-                                                                    title="Remove Pending Bundle"
-                                                                >
-                                                                    <Trash2 className="h-2 w-2" />
-                                                                </button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-
                                                 </div>
                                             </td>
 
@@ -1565,7 +1500,7 @@ function StudentwiseFeeEditor() {
 
                                             <td className={`p-0 border-r border-b border-zinc-100 relative bg-zinc-50/10`}>
                                                 <div className="flex flex-col gap-1 px-4 py-2">
-                                                    {row.installment_id && (
+                                                    {row.installment_id && row.installment_fee_type_id !== Number(row.feeId) && (
                                                         <div className="flex items-center gap-1.5 p-1.5 bg-indigo-50/50 border border-indigo-100 rounded-lg">
                                                             <CreditCard className="h-2.5 w-2.5 text-indigo-500" />
                                                             <div className="flex flex-col">
@@ -1586,9 +1521,35 @@ function StudentwiseFeeEditor() {
                                                             <span className="text-[8px] font-black text-primary uppercase tracking-tighter truncate max-w-[100px]">
                                                                 Bundled: {row.bundle_name || "Pack"}
                                                             </span>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleDissolveBundle(row.bundle_id!); }}
+                                                                className="opacity-0 group-hover/bundle:opacity-100 p-0 text-zinc-300 hover:text-rose-500 transition-all ml-auto"
+                                                                title="Dissolve Bundle"
+                                                            >
+                                                                <Trash2 className="h-2.5 w-2.5" />
+                                                            </button>
                                                         </div>
                                                     )}
-                                                    {!row.installment_id && !row.bundle_id && (
+                                                    {/* Pending Actions */}
+                                                    {pendingBundles.filter(pb => pb.member_ids.includes(row.__id)).map((pb, idx) => (
+                                                        <div key={idx} className="flex items-center gap-1.5 p-1.5 bg-rose-500/5 border border-rose-500/10 rounded-lg group/bundle animate-pulse">
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                                                            <span className="text-[8px] font-black text-rose-600 uppercase tracking-tighter">
+                                                                {pb.bundle_name} (Pending)
+                                                            </span>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setPendingBundles(prev => prev.filter(p => p !== pb));
+                                                                }}
+                                                                className="opacity-0 group-hover/bundle:opacity-100 text-zinc-300 hover:text-rose-500 transition-all ml-auto"
+                                                                title="Remove Pending Bundle"
+                                                            >
+                                                                <Trash2 className="h-2.5 w-2.5" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    {!row.installment_id && !row.bundle_id && pendingBundles.filter(pb => pb.member_ids.includes(row.__id)).length === 0 && (
                                                         <span className="text-[9px] font-bold text-zinc-300 italic">— No Adjustments</span>
                                                     )}
                                                 </div>
@@ -1615,7 +1576,7 @@ function StudentwiseFeeEditor() {
                                                             <span className="text-[8px] font-black text-amber-600 uppercase tracking-tighter text-nowrap">Locked</span>
                                                         </div>
                                                     )}
-                                                    {!row.status || row.status === "NOT_ISSUED" && (
+                                                    {(!row.status || row.status === "NOT_ISSUED") && (
                                                         <div className="flex items-center gap-1 px-1.5 py-0.5 bg-zinc-100 border border-zinc-200 rounded-md">
                                                             <span className="h-1 w-1 rounded-full bg-zinc-300" />
                                                             <span className="text-[8px] font-black text-zinc-400 uppercase tracking-tighter text-nowrap">Pending</span>

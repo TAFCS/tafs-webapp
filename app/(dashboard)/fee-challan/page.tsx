@@ -85,7 +85,14 @@ interface StudentFee {
     freq: string;
   };
   voucher_heads?: VoucherHead[];
-  bundle_id?: number | null;
+  installment_id?: number | null;
+  installment_sequence?: number | null;
+  installment_total?: number | null;
+  student_fee_installments?: {
+    id: number;
+    fee_type_id: number;
+    installment_count: number;
+  } | null;
   student_fee_bundles?: {
     id: number;
     bundle_name: string;

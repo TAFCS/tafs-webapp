@@ -391,6 +391,14 @@ export function groupFees(
             }
 
             let desc = data.fee_types?.description?.toUpperCase() || 'UNKNOWN FEE';
+
+            // STANDALONE INSTALLMENT CHECK
+            const itm = item as any;
+            const isStandaloneInst = itm.installment_id && itm.fee_type_id === itm.student_fee_installments?.fee_type_id;
+            if (isStandaloneInst && itm.installment_sequence && itm.installment_total) {
+                desc = `${desc} INSTALLMENTS (${itm.installment_sequence}/${itm.installment_total})`;
+            }
+
             const m = data.target_month || data.month;
             if (m) {
                 const monthLabel = getMonthYearLabel(m, data.academic_year || "");
