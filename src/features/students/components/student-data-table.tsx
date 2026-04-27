@@ -485,7 +485,7 @@ export function StudentDataTable() {
                                             <td className="px-5 py-4 min-w-[200px]">
                                                 <div className="flex flex-col gap-0.5">
                                                     <button
-                                                        onClick={() => setViewingStudentId(student.id)}
+                                                        onClick={() => setViewingStudentId(student.id || (student as any).cc)}
                                                         className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors text-left leading-tight"
                                                     >
                                                         {student.student_full_name}
@@ -595,7 +595,7 @@ export function StudentDataTable() {
                                                     {openActionRowKey === rowKey && (
                                                         <div className="absolute right-0 top-9 w-52 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-zinc-100 py-1">
                                                             <div className="py-1">
-                                                                <ActionItem icon={<Eye />} label="View Profile" onClick={() => { setViewingStudentId(student.id); setOpenActionRowKey(null); }} />
+                                                                <ActionItem icon={<Eye />} label="View Profile" onClick={() => { setViewingStudentId(student.id || (student as any).cc); setOpenActionRowKey(null); }} />
                                                             </div>
                                                             <div className="py-1">
                                                                 <ActionItem icon={<FileText />} label="Instant Challan" />
@@ -666,6 +666,7 @@ export function StudentDataTable() {
             <StudentProfileModal
                 studentId={viewingStudentId}
                 onClose={() => setViewingStudentId(null)}
+                onSelectStudent={setViewingStudentId}
                 onUpdate={() => dispatch(fetchStudents(buildFetchParams()))}
             />
         </div>

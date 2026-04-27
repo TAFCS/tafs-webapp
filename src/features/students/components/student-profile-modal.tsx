@@ -15,9 +15,10 @@ interface StudentProfileModalProps {
     student?: StudentListItem | null; // For direct display from registration success
     onClose: () => void;
     onUpdate?: (student?: StudentListItem) => void;
+    onSelectStudent?: (id: number) => void;
 }
 
-export function StudentProfileModal({ studentId, student: initialStudent, onClose, onUpdate }: StudentProfileModalProps) {
+export function StudentProfileModal({ studentId, student: initialStudent, onClose, onUpdate, onSelectStudent }: StudentProfileModalProps) {
     const router = useRouter();
     const dispatch = useDispatch<AppDispatch>();
     const { items: classes } = useSelector((state: RootState) => state.classes);
@@ -73,8 +74,8 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
     };
 
     useEffect(() => {
-        // Always load full student details to ensure accuracy (e.g., fee status, latest photo)
-        // even if initialStudent was provided from a shallow list view.
+        // Clear current student to show loading state when switching profiles
+        setStudent(null);
         loadStudent();
     }, [studentId]);
 
@@ -257,13 +258,17 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                 {student.siblings && student.siblings.length > 0 ? (
                                     <div className="space-y-3">
                                         {student.siblings.map((sibling, index) => (
-                                            <div key={sibling.cc || `sib-${index}`} className="flex items-center justify-between p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl group transition-all hover:bg-indigo-50 hover:border-indigo-200">
+                                            <div
+                                                key={sibling.cc || `sib-${index}`}
+                                                onClick={() => onSelectStudent?.(sibling.id || (sibling as any).cc)}
+                                                className="flex items-center justify-between p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl group transition-all hover:bg-indigo-50 hover:border-indigo-200 cursor-pointer"
+                                            >
                                                 <div className="flex items-center gap-3">
-                                                    <div className="h-8 w-8 rounded-lg bg-white dark:bg-zinc-950 flex items-center justify-center text-indigo-500 shadow-sm">
+                                                    <div className="h-8 w-8 rounded-lg bg-white dark:bg-zinc-950 flex items-center justify-center text-indigo-500 shadow-sm group-hover:scale-110 transition-transform">
                                                         <User className="h-4 w-4" />
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 leading-none uppercase">{sibling.full_name}</p>
+                                                        <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 leading-none uppercase group-hover:text-indigo-600 transition-colors">{sibling.full_name}</p>
                                                         {sibling.father_name && (
                                                             <p className="text-[9px] text-indigo-600 font-bold mt-1 uppercase tracking-tight">S/O: {sibling.father_name.toUpperCase()}</p>
                                                         )}
@@ -272,6 +277,7 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                                         </p>
                                                     </div>
                                                 </div>
+                                                <ChevronRight className="h-4 w-4 text-indigo-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                                             </div>
                                         ))}
                                     </div>
