@@ -44,6 +44,8 @@ export interface VoucherHead {
     balance: string;
     /** Split voucher line label prefix, e.g. "PARTIAL PAYMENT OF Monthly Tuition Fee — " */
     description_prefix?: string | null;
+    is_installment?: boolean;
+    has_installment_merged?: boolean;
     student_fees?: {
         id: number;
         amount: string;
