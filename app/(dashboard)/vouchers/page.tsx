@@ -562,7 +562,7 @@ function VoucherRow({ voucher, index, sections, onRefresh }: { voucher: VoucherI
                         </button>
                     )}
 
-                    {(voucher.status === "UNPAID" || voucher.status === "OVERDUE") && (
+                    {(voucher.status === "UNPAID" || voucher.status === "OVERDUE" || voucher.status === "VOID") && (
                         <button
                             onClick={(e) => { e.stopPropagation(); handleDelete(); }}
                             title="Delete Voucher & Reset Heads"
