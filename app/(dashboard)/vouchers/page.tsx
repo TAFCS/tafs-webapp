@@ -308,6 +308,16 @@ function PartiallyPaidModal({
                                                             {MONTH_NAMES[h.student_fees.target_month || h.student_fees.month!] || h.student_fees.target_month || h.student_fees.month}
                                                         </span>
                                                     )}
+                                                    {h.is_installment && (
+                                                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-md">
+                                                            Installment
+                                                        </span>
+                                                    )}
+                                                    {h.has_installment_merged && (
+                                                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 rounded-md">
+                                                            Merged Installment
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-2.5 font-mono text-zinc-600 dark:text-zinc-400">{net.toLocaleString()}</td>

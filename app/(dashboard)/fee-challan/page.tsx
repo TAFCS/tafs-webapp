@@ -1196,14 +1196,14 @@ export default function FeeChallanGenerator() {
                       {fee.description || "Fee item"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-12">
+                  {/* <div className="flex items-center gap-12">
                     <span className="text-zinc-400 font-bold font-mono">
                       {fee.amount.toLocaleString()}
                     </span>
                     <span className="text-zinc-900 dark:text-zinc-100 font-black font-mono w-24 text-right">
                       {fee.amount.toLocaleString()}
                     </span>
-                  </div>
+                  </div> */}
                 </div>
               ))}
             </div>
@@ -1229,21 +1229,21 @@ export default function FeeChallanGenerator() {
                       {fee.description || "Fee item"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-12">
+                  {/* <div className="flex items-center gap-12">
                     <span className="text-zinc-400 font-bold font-mono line-through">
                       {fee.amount.toLocaleString()}
                     </span>
                     <span className="text-emerald-600 font-black font-mono w-24 text-right">
                       {fee.netAmount.toLocaleString()}
                     </span>
-                  </div>
+                  </div> */}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {discFees.length > 0 && (
+        {/* {discFees.length > 0 && (
           <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center text-[12px]">
             <span className="font-black text-zinc-500 uppercase tracking-widest">
               Gross Details Total
@@ -1252,7 +1252,7 @@ export default function FeeChallanGenerator() {
               PKR {grossTotal.toLocaleString()}
             </span>
           </div>
-        )}
+        )} */}
       </div>
     );
   };
@@ -1285,670 +1285,439 @@ export default function FeeChallanGenerator() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column (Cards) */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Step 1 Card */}
-          <div
-            className={`bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[40px] p-8 space-y-10 shadow-xl shadow-zinc-100/50 dark:shadow-none transition-all ${currentStep === 1 ? "opacity-100 ring-4 ring-primary/5" : "opacity-40 grayscale pointer-events-none"}`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-5">
-                <div className="h-14 w-14 bg-primary/10 rounded-3xl flex items-center justify-center text-primary rotate-3 transition-transform hover:rotate-0 shadow-sm border border-primary/5">
-                  <UserSearch className="h-7 w-7" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100">
-                    1. Select Student
-                  </h2>
-                  <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">
-                    Search student profile
-                  </p>
-                </div>
+      <div className="flex flex-col gap-10">
+        {/* Step 1: Select Student (FULL WIDTH) */}
+        <div
+          className={`bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[40px] p-8 space-y-10 shadow-xl transition-all duration-500 w-full ${currentStep === 1 ? "ring-4 ring-primary/5 active-step" : "opacity-60 grayscale-[0.5] hover:grayscale-0 hover:opacity-100 cursor-pointer"}`}
+          onClick={() => { if (currentStep > 1) setCurrentStep(1); }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-5">
+              <div className="h-14 w-14 bg-primary/10 rounded-3xl flex items-center justify-center text-primary rotate-3 transition-transform shadow-sm border border-primary/5">
+                <UserSearch className="h-7 w-7" />
               </div>
-              {student && currentStep > 1 && (
-                <div className="h-8 w-8 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 animate-in zoom-in">
+              <div>
+                <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-3">
+                  1. Select Student
+                  {currentStep > 1 && <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full uppercase tracking-widest font-black">Completed</span>}
+                </h2>
+                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">
+                  Search student profile to begin
+                </p>
+              </div>
+            </div>
+            {currentStep > 1 ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); setCurrentStep(1); }}
+                className="px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-sm"
+              >
+                Change Student
+              </button>
+            ) : (
+              student && (
+                <div className="h-8 w-8 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg animate-in zoom-in">
                   <CheckCircle2 className="h-5 w-5" />
                 </div>
-              )}
-            </div>
-
-            <div className="space-y-6">
-              <div className="relative" ref={searchDropdownRef}>
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">
-                  Student Database
-                </label>
-                <div className="relative group">
-                  <input
-                    type="text"
-                    placeholder="Enter Name, CC ID, or GR Number..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-14 pl-14 pr-14 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-zinc-100 dark:border-zinc-800 rounded-2xl text-[14px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700"
-                  />
-                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                  {isSearching && (
-                    <Loader2 className="absolute right-5 top-1/2 -translate-y-1/2 h-5 w-5 text-primary animate-spin" />
-                  )}
-                </div>
-                {showSearchDropdown && searchResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[28px] shadow-2xl z-[100] max-h-[400px] overflow-hidden overflow-y-auto animate-in fade-in slide-in-from-top-4 duration-300">
-                    {searchResults.map((res) => (
-                      <button
-                        key={res.cc}
-                        onClick={() => handleSelectStudent(res)}
-                        className="w-full px-6 py-5 flex items-center gap-5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-left transition-all border-b border-zinc-50 dark:border-zinc-800/50 last:border-0 group"
-                      >
-                        <div className="h-12 w-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
-                          <UserCircle className="h-7 w-7" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[14px] font-black text-zinc-900 dark:text-zinc-100">
-                              {res.full_name}
-                            </p>
-                            <span className="text-[10px] font-black bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-lg text-zinc-500">
-                              GR: {res.gr_number}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-primary font-bold mt-0.5">
-                            COMPUTER CODE: {res.cc}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {student && (
-                <div className="p-6 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-zinc-100 dark:border-zinc-800 rounded-[32px] relative overflow-hidden group hover:shadow-lg hover:shadow-zinc-200/50 dark:hover:shadow-none transition-all duration-500">
-                  <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
-                    <UserSearch className="h-16 w-16 text-primary" />
-                  </div>
-                  <div className="flex items-center gap-6 relative z-10">
-                    <div className="h-16 w-16 rounded-[22px] bg-white dark:bg-zinc-800 flex items-center justify-center text-zinc-300 shadow-sm ring-1 ring-zinc-100 dark:ring-zinc-700">
-                      <UserCircle className="h-10 w-10" />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <h3 className="font-black text-lg text-zinc-900 dark:text-zinc-100 leading-tight">
-                        {student.student_full_name}
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="px-3 py-1 rounded-full bg-zinc-200 text-zinc-500 text-[10px] font-black uppercase tracking-tight flex items-center gap-1.5">
-                          <Building2 className="h-3 w-3" /> {student.campus}
-                        </span>
-                        <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-tight">
-                          CC: {student.cc}
-                        </span>
-                        <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-tight">
-                          GR: {student.gr_number}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+              )
+            )}
           </div>
 
-          {/* Active Invoicing Card */}
-          {student && (
-            <div className="bg-emerald-50/30 dark:bg-emerald-900/5 border border-emerald-100 dark:border-emerald-900/30 rounded-[32px] p-8 space-y-4 shadow-sm animate-in fade-in slide-in-from-bottom-5 duration-700">
-              <div className="flex items-center gap-5">
-                <div className="h-12 w-12 bg-emerald-100 dark:bg-emerald-900/20 rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm">
-                  <CreditCard className="h-6 w-6" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+            <div className="relative" ref={searchDropdownRef}>
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">
+                Find Student
+              </label>
+              <div className="relative group">
+                <input
+                  type="text"
+                  placeholder="Enter Name, CC ID, or GR Number..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-14 pl-14 pr-14 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-zinc-100 dark:border-zinc-800 rounded-2xl text-[14px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all pointer-events-auto"
+                  disabled={currentStep !== 1}
+                />
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
+                {isSearching && (
+                  <Loader2 className="absolute right-5 top-1/2 -translate-y-1/2 h-5 w-5 text-primary animate-spin" />
+                )}
+              </div>
+              {showSearchDropdown && searchResults.length > 0 && currentStep === 1 && (
+                <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[28px] shadow-2xl z-[100] max-h-[400px] overflow-hidden overflow-y-auto animate-in fade-in slide-in-from-top-4 duration-300">
+                  {searchResults.map((res) => (
+                    <button
+                      key={res.cc}
+                      onClick={(e) => { e.stopPropagation(); handleSelectStudent(res); }}
+                      className="w-full px-6 py-5 flex items-center gap-5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-left transition-all border-b border-zinc-50 dark:border-zinc-800/50 last:border-0 group"
+                    >
+                      <div className="h-12 w-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
+                        <UserCircle className="h-7 w-7" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[14px] font-black text-zinc-900 dark:text-zinc-100">
+                            {res.full_name}
+                          </p>
+                          <span className="text-[10px] font-black bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-lg text-zinc-500">
+                            GR: {res.gr_number}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-primary font-bold mt-0.5">
+                          COMPUTER CODE: {res.cc}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <h3 className="text-emerald-700 dark:text-emerald-400 font-black text-sm uppercase tracking-wider">
-                    Active Invoicing
-                  </h3>
-                  <p className="text-emerald-600/60 dark:text-emerald-500/50 text-[11px] font-bold italic mt-0.5">
-                    Standard fee structure will be applied.
-                  </p>
+              )}
+            </div>
+
+            {student && (
+              <div className="p-6 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-zinc-100 dark:border-zinc-800 rounded-[32px] relative overflow-hidden group hover:shadow-lg transition-all duration-500">
+                <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+                  <UserSearch className="h-16 w-16 text-primary" />
+                </div>
+                <div className="flex items-center gap-6 relative z-10">
+                  <div className="h-16 w-16 rounded-[22px] bg-white dark:bg-zinc-800 flex items-center justify-center text-zinc-300 shadow-sm ring-1 ring-zinc-100 dark:ring-zinc-700">
+                    <UserCircle className="h-10 w-10" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <h3 className="font-black text-lg text-zinc-900 dark:text-zinc-100 leading-tight">
+                      {student.student_full_name}
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="px-3 py-1 rounded-full bg-zinc-200 text-zinc-500 text-[10px] font-black uppercase tracking-tight flex items-center gap-1.5">
+                        <Building2 className="h-3 w-3" /> {student.campus}
+                      </span>
+                      <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-tight">
+                        CC: {student.cc}
+                      </span>
+                      <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-tight">
+                        GR: {student.gr_number}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* Right Column (Parameters) */}
-        <div className="lg:col-span-7 space-y-8">
+        {/* Step 2: Parameters (FULL WIDTH) */}
+        {(currentStep >= 2 || student) && (
           <div
-            className={`bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[40px] shadow-2xl transition-all ${currentStep === 2 ? "opacity-100 scale-100" : "opacity-40 pointer-events-none scale-[0.98]"}`}
+            className={`bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[40px] shadow-2xl transition-all duration-500 w-full animate-in slide-in-from-top-10 ${currentStep === 2 ? "ring-4 ring-primary/5 active-step" : "opacity-60 grayscale-[0.5] hover:grayscale-0 hover:opacity-100 cursor-pointer"}`}
+            onClick={() => { if (currentStep > 2) setCurrentStep(2); }}
           >
-            <div className="p-10 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/30 dark:bg-zinc-900/10">
+            <div className="p-8 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/30 dark:bg-zinc-900/10">
               <div className="flex items-center gap-5">
                 <div className="h-14 w-14 bg-primary/10 rounded-3xl flex items-center justify-center text-primary shadow-sm border border-primary/5">
                   <SettingsIcon className="h-7 w-7" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100">
+                  <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-3">
                     2. Define Parameters
+                    {currentStep > 2 && <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full uppercase tracking-widest font-black">Completed</span>}
                   </h2>
                   <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">
                     Configure voucher constraints and banking
                   </p>
                 </div>
               </div>
-            </div>
-
-            <div className="p-10 space-y-12">
-              {/* Fee Date Range Section */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
-                    Fee Date Range
-                  </h3>
-                </div>
-                <div className="flex flex-wrap items-end gap-6">
-                  <div className="flex-1 min-w-[200px] space-y-2">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 block">
-                      Start Date
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                        className="w-full h-12 px-5 pl-14 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-black focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
-                      />
-                      <Calendar className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-[200px] space-y-2">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 block">
-                      End Date
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                        className="w-full h-12 px-5 pl-14 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-black focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
-                      />
-                      <Calendar className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleApplyDateFilter}
-                    className="h-12 px-8 bg-primary hover:bg-primary-hover text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-primary/25 transition-all active:scale-95 disabled:opacity-50"
-                  >
-                    Apply Date Filter
-                  </button>
-                </div>
-              </div>
-
-              {/* Collection Bank Section */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-3">
-                  <Building2 className="h-4 w-4 text-primary" />
-                  <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
-                    Collection Bank
-                  </h3>
-                </div>
-                <div className="relative" ref={bankDropdownRef}>
-                  <button
-                    onClick={() => setShowBankDropdown(!showBankDropdown)}
-                    className="w-full min-h-[64px] p-5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-3xl flex items-center justify-between hover:border-primary/50 transition-all group"
-                  >
-                    <div className="flex items-center gap-5">
-                      <div className="h-10 w-10 bg-white dark:bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-400 group-hover:text-primary transition-colors">
-                        <Building2 className="h-5 w-5" />
-                      </div>
-                      <div className="text-left">
-                        <p className="text-[14px] font-black text-zinc-900 dark:text-zinc-100">
-                          {selectedBank
-                            ? `${selectedBank.bank_name}`
-                            : "Select Bank Account"}
-                        </p>
-                        {selectedBank && (
-                          <p className="text-[11px] font-bold text-zinc-400">
-                            Account: {selectedBank.account_number}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <ChevronDown
-                      className={`h-5 w-5 text-zinc-400 transition-transform ${showBankDropdown ? "rotate-180" : ""}`}
-                    />
-                  </button>
-                  {showBankDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
-                      <div className="max-h-[300px] overflow-y-auto p-3">
-                        {banks.map((b) => (
-                          <button
-                            key={b.id}
-                            onClick={() => {
-                              selectBank(b);
-                              setShowBankDropdown(false);
-                            }}
-                            className={`w-full p-5 rounded-2xl flex items-center justify-between transition-all ${selectedBank?.id === b.id ? "bg-primary/5 border-2 border-primary/20" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 border-2 border-transparent"}`}
-                          >
-                            <div className="text-left">
-                              <p className="text-[13px] font-black text-zinc-900 dark:text-zinc-100">
-                                {b.bank_name}
-                              </p>
-                              <p className="text-[11px] font-bold text-zinc-400">
-                                {b.account_title} - {b.account_number}
-                              </p>
-                            </div>
-                            {selectedBank?.id === b.id && (
-                              <CheckCircle2 className="h-5 w-5 text-primary" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Voucher Timeline Section */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-4 w-4 text-primary" />
-                  <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
-                    Voucher Timeline
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {[
-                    {
-                      label: "Date of Issue",
-                      val: issueDate,
-                      setter: setIssueDate,
-                      color: "primary",
-                    },
-                    {
-                      label: "Due Date",
-                      val: dueDate,
-                      setter: setDueDate,
-                      color: "primary",
-                    },
-                    {
-                      label: "Valid Till",
-                      val: validityDate,
-                      setter: setValidityDate,
-                      color: "rose",
-                    },
-                  ].map((item, i) => (
-                    <div key={item.label} className="space-y-2">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
-                        {item.label}
-                      </label>
-                      <input
-                        type="date"
-                        value={item.val}
-                        onChange={(e) => item.setter(e.target.value)}
-                        className={`w-full h-12 px-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-black focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all ${item.color === "rose" ? "text-rose-600 dark:text-rose-400" : ""}`}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Late Surcharge Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-4">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="h-4 w-4 text-rose-500" />
-                    <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
-                      Late Surcharge
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50 dark:border-zinc-800">
-                    <button
-                      onClick={() => setApplyLateFee(true)}
-                      className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${applyLateFee ? "bg-white dark:bg-zinc-800 text-rose-600 shadow-xl shadow-rose-500/10 border border-rose-100/50 dark:border-rose-900/20" : "text-zinc-400 hover:text-zinc-600"}`}
-                    >
-                      Apply
-                    </button>
-                    <button
-                      onClick={() => setApplyLateFee(false)}
-                      className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!applyLateFee ? "bg-white dark:bg-zinc-800 text-zinc-400 shadow-xl shadow-zinc-500/5" : "text-zinc-400 hover:text-zinc-600"}`}
-                    >
-                      None
-                    </button>
-                  </div>
-                  {applyLateFee && (
-                    <div className="relative animate-in zoom-in-95 fade-in duration-300">
-                      <input
-                        type="number"
-                        value={lateFeeAmount}
-                        onChange={(e) =>
-                          setLateFeeAmount(Number(e.target.value))
-                        }
-                        className="w-full h-12 px-12 bg-rose-50/50 dark:bg-rose-900/10 border-2 border-rose-100 dark:border-rose-900/30 rounded-2xl text-[14px] font-black text-rose-600 dark:text-rose-400 focus:ring-4 focus:ring-rose-500/5 focus:border-rose-500/30 transition-all"
-                      />
-                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-rose-400" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3">
-                    <Info className="h-4 w-4 text-emerald-500" />
-                    <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
-                      Waiver Policy
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50 dark:border-zinc-800">
-                    <button
-                      onClick={() => setWaiveSurcharge(true)}
-                      className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${waiveSurcharge === true ? "bg-white dark:bg-zinc-800 text-emerald-600 shadow-xl shadow-emerald-500/10 border border-emerald-100/50 dark:border-emerald-900/20" : "text-zinc-400 hover:text-zinc-600"}`}
-                    >
-                      Waive
-                    </button>
-                    <button
-                      onClick={() => setWaiveSurcharge(false)}
-                      className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${waiveSurcharge === false ? "bg-white dark:bg-zinc-800 text-emerald-600 shadow-xl shadow-emerald-500/10 border border-emerald-100/50 dark:border-emerald-900/20" : "text-zinc-400 hover:text-zinc-600"}`}
-                    >
-                      Charge
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3">
-                    <LinkIcon className="h-4 w-4 text-emerald-500" />
-                    <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
-                      Fee Bundling
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50 dark:border-zinc-800">
-                    <button
-                      onClick={() => setShowBundleHeads(false)}
-                      className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!showBundleHeads ? "bg-white dark:bg-zinc-800 text-emerald-600 shadow-xl shadow-emerald-500/10 border border-emerald-100/50" : "text-zinc-400 hover:text-zinc-600"}`}
-                    >
-                      Bundle
-                    </button>
-                    <button
-                      onClick={() => setShowBundleHeads(true)}
-                      className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${showBundleHeads ? "bg-white dark:bg-zinc-800 text-emerald-600 shadow-xl shadow-emerald-500/5" : "text-zinc-400 hover:text-zinc-600"}`}
-                    >
-                      Heads
-                    </button>
-                  </div>
-                  <p className="text-[10px] font-bold text-zinc-400 italic px-2">
-                    {showBundleHeads
-                      ? "Listing individual heads."
-                      : "Showing bundle as single item."}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer Buttons */}
-            <div className="p-10 border-t border-zinc-100 dark:border-zinc-900 flex justify-between bg-zinc-50/30 dark:bg-zinc-900/10 rounded-b-[40px]">
-              <button
-                onClick={() => setCurrentStep(1)}
-                className="px-8 h-14 text-[12px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all flex items-center gap-2 group"
-              >
-                <ChevronLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
-                Back
-              </button>
-              <button
-                onClick={() => {
-                  if (selectedBank) setCurrentStep(3);
-                  else toast.error("Select bank");
-                }}
-                className="px-10 h-14 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-[22px] text-[12px] font-black uppercase tracking-widest shadow-2xl shadow-zinc-900/20 dark:shadow-zinc-100/10 transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-3 group"
-              >
-                Preview Fees
-                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </button>
-            </div>
-          </div>
-
-          {/* Step 3 (Review) Overlay/Section */}
-          {currentStep === 3 && (
-            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[40px] shadow-2xl overflow-hidden min-h-[600px] flex flex-col animate-in slide-in-from-bottom-10 fade-in duration-700">
-              <div className="p-10 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/30 dark:bg-zinc-900/10">
-                <div className="flex items-center gap-5">
-                  <div className="h-14 w-14 bg-emerald-500/10 rounded-3xl flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-500/10">
-                    <FileSearch className="h-7 w-7" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
-                      3. Review & Generate
-                    </h2>
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mt-0.5">
-                      Final Verification & Voucher Generation
-                    </p>
-                  </div>
-                </div>
+              {currentStep > 1 && (
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[22px] border border-zinc-200/50 dark:border-zinc-800/50">
+                  {currentStep === 2 ? (
                     <button
-                      onClick={() => setShowDiscount(!showDiscount)}
-                      className={`px-4 h-9 rounded-[18px] text-[9px] font-black uppercase tracking-[0.15em] whitespace-nowrap transition-all flex items-center gap-2 ${showDiscount ? "bg-white dark:bg-zinc-800 text-emerald-600 shadow-xl shadow-emerald-500/5 border border-emerald-100/50" : "text-zinc-400 hover:text-zinc-500"}`}
+                      onClick={(e) => { e.stopPropagation(); setCurrentStep(1); }}
+                      className="px-6 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all flex items-center gap-2"
                     >
-                      <div
-                        className={`h-1.5 w-1.5 rounded-full ${showDiscount ? "bg-emerald-500 animate-pulse" : "bg-zinc-300"}`}
-                      />
-                      Show Discount
+                      <ChevronLeft className="h-4 w-4" /> Change Student
                     </button>
-                    <div className="w-[1px] h-3.5 bg-zinc-200 dark:bg-zinc-800 mx-1" />
-                    <div className="flex items-center gap-1">
-                      <button
-                        className={`px-4 h-9 rounded-[18px] text-[9px] font-black uppercase tracking-[0.15em] whitespace-nowrap transition-all bg-white dark:bg-zinc-800 text-zinc-900 shadow-xl shadow-zinc-500/5 border border-zinc-100 dark:border-zinc-700`}
-                      >
-                        Consolidated View
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setCurrentStep(2)}
-                    className="h-12 w-12 flex items-center justify-center rounded-[20px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 shadow-sm transition-all active:scale-95 hover:shadow-lg hover:shadow-zinc-200/50"
-                  >
-                    <ChevronLeft className="h-6 w-6" />
-                  </button>
+                  ) : (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setCurrentStep(2); }}
+                      className="px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-sm"
+                    >
+                      Edit Params
+                    </button>
+                  )}
                 </div>
-              </div>
+              )}
+            </div>
 
-              <div className="flex-1 p-10 overflow-y-auto bg-zinc-50/20 dark:bg-zinc-900/5">
-                {isFetchingFees ? (
-                  <div className="py-20 flex flex-col items-center gap-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                    <p className="text-zinc-400 font-bold text-[13px] uppercase tracking-widest">
-                      Scanning academic records...
-                    </p>
-                  </div>
-                ) : feeGroupsByDate.length > 0 ? (
-                  <div className="space-y-10 max-w-4xl mx-auto pb-10">
-                    {/* Groups Summary Banner */}
-                    <div className="bg-primary/5 border-2 border-primary/10 p-8 rounded-[32px] flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-4 duration-500">
-                      <div className="flex items-center gap-6">
-                        <div className="h-14 w-14 rounded-2xl bg-white dark:bg-zinc-800 flex items-center justify-center text-primary shadow-sm ring-1 ring-primary/10">
-                          <CreditCard className="h-7 w-7" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-black text-primary uppercase tracking-tight">
-                            {feeGroupsByDate.length} Voucher Groups Found
-                          </h3>
-                          <p className="text-[11px] font-bold text-primary/60 uppercase tracking-widest mt-0.5">
-                            Each fee_date becomes a separate voucher
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={handleGenerateAllGroups}
-                        disabled={isGeneratingAll}
-                        className="h-14 px-10 bg-primary hover:bg-primary-hover text-white rounded-2xl font-black uppercase text-[12px] tracking-widest shadow-xl shadow-primary/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-4 disabled:opacity-50"
-                      >
-                        {isGeneratingAll ? (
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        ) : (
-                          <CreditCard className="h-5 w-5" />
-                        )}
-                        Generate All
-                      </button>
+            <div className={`p-10 space-y-12 ${currentStep !== 2 ? "pointer-events-none" : ""}`}>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+                {/* Left Column: Bank & Dates */}
+                <div className="space-y-12">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3">
+                      <Building2 className="h-4 w-4 text-primary" />
+                      <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
+                        Collection Bank
+                      </h3>
                     </div>
-
-                    {/* Detailed Group Cards */}
-                    <div className="space-y-8">
-                      {feeGroupsByDate.map((g, idx) => {
-                        const isEarliestGroup = idx === 0;
-                        const groupArrears = isEarliestGroup
-                          ? processedArrearPdfFees
-                          : [];
-                        const groupArrearsTotal = isEarliestGroup
-                          ? totalArrearsAmount
-                          : 0;
-
-                        const currentGroupPdfFees = processFeesForPdf(
-                          g.fees,
-                        ).map((f) => ({ ...f, isArrear: false }));
-                        const combinedGroupFees = [
-                          ...groupArrears,
-                          ...currentGroupPdfFees,
-                        ];
-                        const combinedGroupTotal = combinedGroupFees.reduce(
-                          (acc, f) => acc + (f.netAmount || 0),
-                          0,
-                        );
-
-                        return (
-                          <div
-                            key={g.fee_date}
-                            className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] overflow-hidden shadow-xl shadow-zinc-100/50 dark:shadow-none animate-in fade-in slide-in-from-bottom-4 duration-500"
-                            style={{ animationDelay: `${idx * 100}ms` }}
-                          >
-                            {/* Card Header */}
-                            <div className="p-8 border-b border-zinc-50 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/30 dark:bg-zinc-900/10">
-                              <div className="flex items-center gap-5">
-                                <div className="h-12 w-12 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-primary transition-colors">
-                                  <Calendar className="h-6 w-6" />
-                                </div>
-                                <div>
-                                  <h4 className="font-black text-lg text-zinc-900 dark:text-zinc-100">
-                                    FEE DATE: {g.fee_date}
-                                  </h4>
-                                  <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">
-                                    {combinedGroupFees.length} fee heads • PKR{" "}
-                                    {combinedGroupTotal.toLocaleString()}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <button
-                                  onClick={() => handleSaveVoucherForGroup(g)}
-                                  disabled={generatingGroupDate === g.fee_date}
-                                  className={`h-12 px-10 rounded-2xl text-[11px] uppercase font-black tracking-widest transition-all flex items-center gap-3 ${generatedGroupDates.has(g.fee_date) ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:-translate-y-0.5 active:scale-95"}`}
-                                >
-                                  {generatingGroupDate === g.fee_date ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Printer className="h-4 w-4" />
-                                  )}
-                                  {generatedGroupDates.has(g.fee_date)
-                                    ? "Regenerate"
-                                    : "Generate"}
-                                </button>
-                                {generatedGroupDates.has(g.fee_date) &&
-                                  savedGroupBlobUrls[g.fee_date] && (
-                                    <a
-                                      href={savedGroupBlobUrls[g.fee_date]}
-                                      download={`challan-${student?.gr_number || student?.cc}-${g.fee_date}.pdf`}
-                                      className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white transition-all flex items-center gap-2 hover:-translate-y-0.5 active:scale-95 shadow-lg shadow-emerald-600/20"
-                                    >
-                                      <Download className="h-4 w-4" />
-                                      Download
-                                    </a>
-                                  )}
-                              </div>
-                            </div>
-
-                            {/* Detailed Line Items Grouped */}
-                            {renderFeesTable(
-                              combinedGroupFees,
-                              combinedGroupTotal,
-                            )}
-
-                            {/* Card Footer */}
-                            <div className="px-8 py-5 bg-zinc-50/50 dark:bg-zinc-900/30 border-t border-zinc-50 dark:border-zinc-900 flex items-center justify-between">
-                              <span className="text-[11px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-                                Group Total
-                              </span>
-                              <div className="flex items-center gap-3">
-                                <span className="text-[13px] font-black text-zinc-500 uppercase tracking-widest">
-                                  PKR
-                                </span>
-                                <span className="text-xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">
-                                  {combinedGroupTotal.toLocaleString()}
-                                </span>
-                              </div>
-                            </div>
+                    <div className="relative" ref={bankDropdownRef}>
+                      <button
+                        onClick={() => setShowBankDropdown(!showBankDropdown)}
+                        className="w-full min-h-[64px] p-5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-3xl flex items-center justify-between hover:border-primary/50 transition-all group"
+                      >
+                        <div className="flex items-center gap-5">
+                          <div className="h-10 w-10 bg-white dark:bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-400 group-hover:text-primary transition-colors">
+                            <Building2 className="h-5 w-5" />
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : studentFees.length > 0 ? (
-                  <div className="space-y-10 max-w-4xl mx-auto">
-                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] overflow-hidden shadow-xl">
-                      <div className="p-8 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50/30">
-                        <h3 className="text-lg font-black text-zinc-900 uppercase tracking-tight">
-                          Fee Review Listing
-                        </h3>
-                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">
-                          Manual generation for current selection
-                        </p>
-                      </div>
-                      {renderFeesTable(allPdfFeesForDisplay, totalFeesAmount)}
-                      <div className="px-8 py-8 bg-zinc-900 text-white flex items-center justify-between">
-                        <span className="text-[12px] font-black uppercase tracking-[0.2em]">
-                          Total Payable
-                        </span>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm font-black text-zinc-400">
-                            PKR
-                          </span>
-                          <span className="text-3xl font-black tracking-tighter">
-                            {totalFeesAmount.toLocaleString()}
-                          </span>
+                          <div className="text-left">
+                            <p className="text-[14px] font-black text-zinc-900 dark:text-zinc-100">
+                              {selectedBank ? selectedBank.bank_name : "Select Bank Account"}
+                            </p>
+                            {selectedBank && (
+                              <p className="text-[11px] font-bold text-zinc-400">
+                                {selectedBank.account_title} - {selectedBank.account_number}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end gap-6 pb-10">
-                      <button
-                        onClick={handleSaveVoucher}
-                        disabled={isSavingVoucher}
-                        className="h-16 px-12 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl shadow-zinc-900/20 dark:shadow-zinc-100/20 transition-all hover:-translate-y-1 active:scale-95"
-                      >
-                        {isSavingVoucher ? (
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        ) : (
-                          <Printer className="h-5 w-5" />
-                        )}{" "}
-                        Generate Voucher
+                        <ChevronDown className={`h-5 w-5 text-zinc-400 transition-transform ${showBankDropdown ? "rotate-180" : ""}`} />
                       </button>
-                      {voucherSaved && savedVoucherBlobUrl && (
-                        <a
-                          href={savedVoucherBlobUrl}
-                          download={`challan-${student?.gr_number || student?.cc}-${savedVoucherId}.pdf`}
-                          className="h-16 px-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl shadow-emerald-600/20 transition-all hover:-translate-y-1 active:scale-95"
-                        >
-                          <Download className="h-5 w-5" /> Download PDF
-                        </a>
+                      {showBankDropdown && (
+                        <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-4">
+                          <div className="max-h-[300px] overflow-y-auto p-3">
+                            {banks.map((b) => (
+                              <button
+                                key={b.id}
+                                onClick={() => { selectBank(b); setShowBankDropdown(false); }}
+                                className={`w-full p-5 rounded-2xl flex items-center justify-between transition-all ${selectedBank?.id === b.id ? "bg-primary/5 border-2 border-primary/20" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 border-2 border-transparent"}`}
+                              >
+                                <div className="text-left">
+                                  <p className="text-[13px] font-black text-zinc-900 dark:text-zinc-100">{b.bank_name}</p>
+                                  <p className="text-[11px] font-bold text-zinc-400">{b.account_title} - {b.account_number}</p>
+                                </div>
+                                {selectedBank?.id === b.id && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
-                ) : (
-                  <div className="py-32 flex flex-col items-center gap-6 opacity-30">
-                    <AlertCircle className="h-20 w-20" />
-                    <p className="text-[16px] font-black uppercase tracking-[0.2em]">
-                      No fees identified in range
-                    </p>
+
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
+                        Voucher Timeline
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {[
+                        { label: "Date of Issue", val: issueDate, setter: setIssueDate, color: "primary" },
+                        { label: "Due Date", val: dueDate, setter: setDueDate, color: "primary" },
+                        { label: "Valid Till", val: validityDate, setter: setValidityDate, color: "rose" },
+                      ].map((item) => (
+                        <div key={item.label} className="space-y-2">
+                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">{item.label}</label>
+                          <input
+                            type="date"
+                            value={item.val}
+                            onChange={(e) => item.setter(e.target.value)}
+                            className={`w-full h-12 px-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-black focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all ${item.color === "rose" ? "text-rose-600" : ""}`}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                )}
+                </div>
+
+                {/* Right Column: Date Range and Policies */}
+                <div className="space-y-12">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
+                        Fee Date Range
+                      </h3>
+                    </div>
+                    <div className="flex flex-wrap items-end gap-6">
+                      <div className="flex-1 min-w-[140px] space-y-2">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Start Date</label>
+                        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 rounded-2xl text-[13px] font-black" />
+                      </div>
+                      <div className="flex-1 min-w-[140px] space-y-2">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">End Date</label>
+                        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 rounded-2xl text-[13px] font-black" />
+                      </div>
+                      <button onClick={handleApplyDateFilter} className="h-12 px-8 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-lg active:scale-95">Apply</button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3">
+                        <AlertCircle className="h-4 w-4 text-rose-500" />
+                        <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Late Surcharge</h3>
+                      </div>
+                      <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50">
+                        <button onClick={() => setApplyLateFee(true)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${applyLateFee ? "bg-white text-rose-600 shadow-xl" : "text-zinc-400"}`}>Apply</button>
+                        <button onClick={() => setApplyLateFee(false)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!applyLateFee ? "bg-white text-zinc-400 shadow-xl" : "text-zinc-400"}`}>None</button>
+                      </div>
+                      {applyLateFee && <input type="number" value={lateFeeAmount} onChange={(e) => setLateFeeAmount(Number(e.target.value))} className="w-full h-12 px-5 bg-rose-50/50 border-2 border-rose-100 rounded-2xl text-[14px] font-black text-rose-600" />}
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3">
+                        <Info className="h-4 w-4 text-emerald-500" />
+                        <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Waiver Policy</h3>
+                      </div>
+                      <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50">
+                        <button onClick={() => setWaiveSurcharge(true)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${waiveSurcharge ? "bg-white text-emerald-600 shadow-xl" : "text-zinc-400"}`}>Waive</button>
+                        <button onClick={() => setWaiveSurcharge(false)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!waiveSurcharge ? "bg-white text-emerald-600 shadow-xl" : "text-zinc-400"}`}>Charge</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
-        </div>
+
+            {currentStep === 2 && (
+              <div className="p-10 border-t border-zinc-100 dark:border-zinc-900 flex justify-end bg-zinc-50/30 dark:bg-zinc-900/10 rounded-b-[40px]">
+                <button
+                  onClick={() => { if (selectedBank) setCurrentStep(3); else toast.error("Select bank"); }}
+                  className="px-12 h-16 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-[24px] text-[13px] font-black uppercase tracking-[0.2em] shadow-2xl transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-4 group"
+                >
+                  Preview & Generate
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 3: Review & Generate (FULL WIDTH STACKED) */}
+        {currentStep === 3 && (
+          <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[40px] shadow-2xl overflow-hidden min-h-[600px] flex flex-col animate-in slide-in-from-top-10 duration-700 w-full">
+            <div className="p-10 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/30 dark:bg-zinc-900/10">
+              <div className="flex items-center gap-5">
+                <div className="h-14 w-14 bg-emerald-500/10 rounded-3xl flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-500/10">
+                  <FileSearch className="h-7 w-7" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
+                    3. Review & Generate
+                  </h2>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mt-0.5">
+                    Final Verification & Voucher Generation
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setCurrentStep(2)}
+                  className="px-6 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all flex items-center gap-2"
+                >
+                  <ChevronLeft className="h-4 w-4" /> Back to Parameters
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 p-10 overflow-y-auto bg-zinc-50/20 dark:bg-zinc-900/5">
+              {isFetchingFees ? (
+                <div className="py-20 flex flex-col items-center gap-4">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                  <p className="text-zinc-400 font-bold text-[13px] uppercase tracking-widest">Scanning academic records...</p>
+                </div>
+              ) : feeGroupsByDate.length > 0 ? (
+                <div className="space-y-10 w-full max-w-6xl mx-auto pb-10">
+                  <div className="bg-primary/5 border-2 border-primary/10 p-8 rounded-[32px] flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-6">
+                      <div className="h-14 w-14 rounded-2xl bg-white dark:bg-zinc-800 flex items-center justify-center text-primary shadow-sm ring-1 ring-primary/10">
+                        <CreditCard className="h-7 w-7" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black text-primary uppercase tracking-tight">{feeGroupsByDate.length} Voucher Groups Found</h3>
+                        <p className="text-[11px] font-bold text-primary/60 uppercase tracking-widest mt-0.5">Each fee_date becomes a separate voucher</p>
+                      </div>
+                    </div>
+                    <button onClick={handleGenerateAllGroups} disabled={isGeneratingAll} className="h-14 px-10 bg-primary text-white rounded-2xl font-black uppercase text-[12px] tracking-widest shadow-xl flex items-center gap-4 disabled:opacity-50">
+                      {isGeneratingAll ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} Generate All
+                    </button>
+                  </div>
+
+                  <div className="space-y-8">
+                    {feeGroupsByDate.map((g, idx) => {
+                      const isEarliestGroup = idx === 0;
+                      const groupArrears = isEarliestGroup ? processedArrearPdfFees : [];
+                      const currentGroupPdfFees = processFeesForPdf(g.fees).map((f) => ({ ...f, isArrear: false }));
+                      const combinedGroupFees = [...groupArrears, ...currentGroupPdfFees];
+                      const combinedGroupTotal = combinedGroupFees.reduce((acc, f) => acc + (f.netAmount || 0), 0);
+
+                      return (
+                        <div key={g.fee_date} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] overflow-hidden shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+                          <div className="p-8 border-b border-zinc-50 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/30 dark:bg-zinc-900/10">
+                            <div className="flex items-center gap-5">
+                              <Calendar className="h-6 w-6 text-zinc-400" />
+                              <div>
+                                <h4 className="font-black text-lg text-zinc-900 dark:text-zinc-100">FEE DATE: {g.fee_date}</h4>
+                                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">{combinedGroupFees.length} heads • PKR {combinedGroupTotal.toLocaleString()}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <button onClick={() => handleSaveVoucherForGroup(g)} disabled={generatingGroupDate === g.fee_date} className={`h-12 px-10 rounded-2xl text-[11px] uppercase font-black tracking-widest transition-all flex items-center gap-3 ${generatedGroupDates.has(g.fee_date) ? "bg-emerald-50 text-emerald-600" : "bg-zinc-900 text-white"}`}>
+                                {generatingGroupDate === g.fee_date ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                                {generatedGroupDates.has(g.fee_date) ? "Regenerate" : "Generate"}
+                              </button>
+                              {generatedGroupDates.has(g.fee_date) && savedGroupBlobUrls[g.fee_date] && (
+                                <a href={savedGroupBlobUrls[g.fee_date]} download={`challan-${student?.gr_number || student?.cc}-${g.fee_date}.pdf`} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-emerald-600 text-white flex items-center gap-2">
+                                  <Download className="h-4 w-4" /> Download
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                          {renderFeesTable(combinedGroupFees, combinedGroupTotal)}
+                          <div className="px-8 py-5 bg-zinc-50/50 border-t flex items-center justify-between">
+                            <span className="text-[11px] font-black text-zinc-400 uppercase tracking-[0.2em]">Group Total</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-[13px] font-black text-zinc-500 uppercase">PKR</span>
+                              <span className="text-xl font-black text-zinc-900">{combinedGroupTotal.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : studentFees.length > 0 ? (
+                <div className="space-y-10 w-full max-w-6xl mx-auto">
+                  <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] overflow-hidden shadow-xl">
+                    <div className="p-8 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50/30">
+                      <h3 className="text-lg font-black text-zinc-900 uppercase tracking-tight">Fee Review Listing</h3>
+                    </div>
+                    {renderFeesTable(allPdfFeesForDisplay, totalFeesAmount)}
+                    <div className="px-8 py-8 bg-zinc-900 text-white flex items-center justify-between">
+                      <span className="text-[12px] font-black uppercase tracking-[0.2em]">Total Payable</span>
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm font-black text-zinc-400">PKR</span>
+                        <span className="text-3xl font-black">{totalFeesAmount.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-6 pb-10">
+                    <button onClick={handleSaveVoucher} disabled={isSavingVoucher} className="h-16 px-12 bg-zinc-900 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl transition-all hover:-translate-y-1">
+                      {isSavingVoucher ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} Generate Voucher
+                    </button>
+                    {voucherSaved && savedVoucherBlobUrl && (
+                      <a href={savedVoucherBlobUrl} download={`challan-${student?.gr_number || student?.cc}-${savedVoucherId}.pdf`} className="h-16 px-12 bg-emerald-600 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl transition-all hover:-translate-y-1">
+                        <Download className="h-5 w-5" /> Download PDF
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="py-32 flex flex-col items-center gap-6 opacity-30">
+                  <AlertCircle className="h-20 w-20" />
+                  <p className="text-[16px] font-black uppercase tracking-[0.2em]">No fees identified in range</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -201,7 +201,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-2xl w-full max-w-3xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in-95 duration-200">
                 {/* Modal Header */}
                 <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
                     <div className="flex items-center gap-4">
@@ -328,7 +328,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                     {/* Full Heads Breakdown Table */}
                     <div className="space-y-2">
                         {/* Column Headers */}
-                        <div className="grid grid-cols-[1fr_100px_100px_100px_110px] gap-x-3 px-4 pb-2 border-b border-zinc-100 dark:border-zinc-800">
+                        <div className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 px-4 pb-2 border-b border-zinc-100 dark:border-zinc-800">
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Fee Head</span>
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">Net Amt</span>
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">Deposited</span>
@@ -338,7 +338,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
 
                         {/* Late Fee row */}
                         {actualLateFee > 0 && (
-                            <div className="grid grid-cols-[1fr_100px_100px_100px_110px] gap-x-3 items-center px-4 py-3 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-900/30 rounded-2xl">
+                            <div className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-900/30 rounded-2xl">
                                 <div>
                                     <p className="text-[12px] font-black text-rose-600">Late Payment Surcharge</p>
                                     <span className="inline-flex items-center px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5">System • Priority 0</span>
@@ -367,14 +367,14 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             return (
                                 <div
                                     key={h.id}
-                                    className={`grid grid-cols-[1fr_100px_100px_100px_110px] gap-x-3 items-center px-4 py-3 border rounded-2xl transition-all ${
+                                    className={`grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 border rounded-2xl transition-all ${
                                         arrear
                                             ? "bg-amber-50/30 dark:bg-amber-900/5 border-amber-100 dark:border-amber-900/20 hover:border-amber-200 dark:hover:border-amber-800/40"
                                             : "bg-zinc-50 dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 hover:border-zinc-200 dark:hover:border-zinc-700"
                                     }`}
                                 >
                                     <div>
-                                        <p className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]">
+                                        <p className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 truncate">
                                             {h.student_fees?.fee_types?.description || "Fee Head"}
                                         </p>
                                         <div className="flex items-center gap-1.5 mt-0.5">
@@ -386,6 +386,16 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                             {(h.student_fees?.target_month || h.student_fees?.month) && (
                                                 <span className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[9px] font-black uppercase tracking-widest rounded-md">
                                                     {MONTH_NAMES[h.student_fees.target_month || h.student_fees.month!] || h.student_fees.target_month || h.student_fees.month}
+                                                </span>
+                                            )}
+                                            {h.is_installment && (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-widest rounded-md">
+                                                    Installment
+                                                </span>
+                                            )}
+                                            {h.has_installment_merged && (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[9px] font-black uppercase tracking-widest rounded-md">
+                                                    Merged Installment
                                                 </span>
                                             )}
                                         </div>
@@ -415,10 +425,10 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         })}
 
                         {/* Summary totals row */}
-                        <div className="grid grid-cols-[1fr_100px_100px_100px_110px] gap-x-3 items-center px-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                        <div className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
                             <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Total</span>
-                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{heads.reduce((s,h) => s+sfNetAmt(h),0).toLocaleString()}</span>
-                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{heads.reduce((s,h) => s+sfDeposited(h),0).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{heads.reduce((s,f) => s+sfNetAmt(f),0).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{heads.reduce((s,f) => s+sfDeposited(f),0).toLocaleString()}</span>
                             <span className="text-[11px] font-black text-emerald-600 tabular-nums text-right">{totalBalance.toLocaleString()}</span>
                             <span />
                         </div>
