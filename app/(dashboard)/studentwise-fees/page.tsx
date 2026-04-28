@@ -100,10 +100,21 @@ function sortSpreadsheetRows(rows: SpreadsheetRow[]): SpreadsheetRow[] {
     const getSeq = (m: number) => (m >= 8 ? m - 8 : m + 4);
 
     return [...rows].sort((a, b) => {
+        // 1. Sort by fee_date (Primary)
+        if (a.fee_date && b.fee_date) {
+            if (a.fee_date !== b.fee_date) return a.fee_date.localeCompare(b.fee_date);
+        } else if (a.fee_date) {
+            return -1;
+        } else if (b.fee_date) {
+            return 1;
+        }
+
+        // 2. Fallback: target_month sequence
         const sa = getSeq(a.target_month);
         const sb = getSeq(b.target_month);
         if (sa !== sb) return sa - sb;
-        // Secondary sort by description
+
+        // 3. Fallback: description
         return a.feeDescription.localeCompare(b.feeDescription);
     }).map((r, i, arr) => ({
         ...r,
