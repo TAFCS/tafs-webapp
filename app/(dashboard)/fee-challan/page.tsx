@@ -670,12 +670,15 @@ export default function FeeChallanGenerator() {
         formData.append("orderedFeeIds", id.toString()),
       );
 
-      // Build fee_lines: arrear lines use their outstanding balance, current use their discount calc
-      const arrearLines = (freshArrears?.rows ?? []).map((r: any) => ({
-        student_fee_id: r.student_fee_id,
-        discount_amount: 0,
-        discount_label: undefined,
-      }));
+      // Build fee_lines: surcharge rows are now written by the backend to voucher_arrear_surcharges,
+      // so we only pass real arrear student_fee rows (isSurcharge === false).
+      const arrearLines = (freshArrears?.rows ?? [])
+        .filter((r: any) => !r.isSurcharge)
+        .map((r: any) => ({
+          student_fee_id: r.student_fee_id,
+          discount_amount: 0,
+          discount_label: undefined,
+        }));
       const currentLines = studentFees.map((f) => ({
         student_fee_id: Number(f.id),
         discount_amount: Math.max(
@@ -696,32 +699,31 @@ export default function FeeChallanGenerator() {
       setSavedVoucherId(voucherId);
       setVoucherSaved(true);
 
-      // Build arrear PDF items (isArrear: true)
-      const arrearPdfFees = (freshArrears?.rows ?? []).map((r: any) => {
-        const isPartial = Number(r.amount_paid) > 0;
-        const prefix = isPartial ? "BALANCE PAYMENT OF — " : "";
-        const netAmount = Number(r.outstanding);
-        return {
-          description: `${prefix}${r.fee_type} (ARREAR – ${r.fee_date})`,
-          amount: isPartial ? netAmount : Number(r.amount),
-          netAmount: netAmount,
-          discount: isPartial ? 0 : Number(r.amount_paid),
-          isArrear: !r.isSurcharge,
-          isSurcharge: !!r.isSurcharge,
-          feeDate: r.fee_date,
-        };
-      });
+      // Build arrear PDF items — surcharge rows excluded (shown via details.totalSurcharge instead)
+      const arrearPdfFees = (freshArrears?.rows ?? [])
+        .filter((r: any) => !r.isSurcharge)
+        .map((r: any) => {
+          const isPartial = Number(r.amount_paid) > 0;
+          const prefix = isPartial ? "BALANCE PAYMENT OF — " : "";
+          const netAmount = Number(r.outstanding);
+          return {
+            description: `${prefix}${r.fee_type} (ARREAR – ${r.fee_date})`,
+            amount: isPartial ? netAmount : Number(r.amount),
+            netAmount: netAmount,
+            discount: isPartial ? 0 : Number(r.amount_paid),
+            isArrear: true,
+            feeDate: r.fee_date,
+          };
+        });
       const currentPdfFees = processedPdfFees.map((f) => ({
         ...f,
         isArrear: false,
       }));
       const allPdfFees = [...arrearPdfFees, ...currentPdfFees];
-      const allPdfTotal = allPdfFees.reduce(
-        (s, f) => s + (f.netAmount || 0),
-        0,
-      );
+      const activeSurchargeAmt = waiveSurcharge ? 0 : (arrearsData?.total_surcharge ?? 0);
+      const allPdfTotal = allPdfFees.reduce((s, f) => s + (f.netAmount || 0), 0) + activeSurchargeAmt;
       console.log(
-        `[VOUCHER_DEBUG] Manual PDF: arrears=${arrearPdfFees.length}, current=${currentPdfFees.length}, total=${allPdfTotal}`,
+        `[VOUCHER_DEBUG] Manual PDF: arrears=${arrearPdfFees.length}, current=${currentPdfFees.length}, surcharge=${activeSurchargeAmt}, total=${allPdfTotal}`,
       );
 
       // Helper to build PDF element (DRY for the two renders below)
@@ -922,11 +924,13 @@ export default function FeeChallanGenerator() {
         formData.append("orderedFeeIds", id.toString()),
       );
 
-      const arrearLines = (freshArrears?.rows ?? []).map((r: any) => ({
-        student_fee_id: r.student_fee_id,
-        discount_amount: 0,
-        discount_label: undefined,
-      }));
+      const arrearLines = (freshArrears?.rows ?? [])
+        .filter((r: any) => !r.isSurcharge)
+        .map((r: any) => ({
+          student_fee_id: r.student_fee_id,
+          discount_amount: 0,
+          discount_label: undefined,
+        }));
       const currentLines = group.fees.map((f) => ({
         student_fee_id: Number(f.id),
         discount_amount: Math.max(
@@ -949,34 +953,31 @@ export default function FeeChallanGenerator() {
         [group.fee_date]: voucherId,
       }));
 
-      // Build arrear PDF items
-      const arrearPdfFees = (freshArrears?.rows ?? []).map((r: any) => {
-        const isPartial = Number(r.amount_paid) > 0;
-        const prefix = isPartial ? "BALANCE PAYMENT OF — " : "";
-        const netAmount = Number(r.outstanding);
-        return {
-          description: r.isSurcharge
-    ? `${r.fee_type} (${formatArrearMonthLabel(r)})`
-    : `${prefix}${r.fee_type} (${formatArrearMonthLabel(r)})`,
-          amount: isPartial ? netAmount : Number(r.amount),
-          netAmount: netAmount,
-          discount: isPartial ? 0 : Number(r.amount_paid),
-          isArrear: !r.isSurcharge,
-          isSurcharge: !!r.isSurcharge,
-          feeDate: r.fee_date,
-        };
-      });
+      // Build arrear PDF items — surcharge rows excluded (shown via details.totalSurcharge instead)
+      const arrearPdfFees = (freshArrears?.rows ?? [])
+        .filter((r: any) => !r.isSurcharge)
+        .map((r: any) => {
+          const isPartial = Number(r.amount_paid) > 0;
+          const prefix = isPartial ? "BALANCE PAYMENT OF — " : "";
+          const netAmount = Number(r.outstanding);
+          return {
+            description: `${prefix}${r.fee_type} (${formatArrearMonthLabel(r)})`,
+            amount: isPartial ? netAmount : Number(r.amount),
+            netAmount: netAmount,
+            discount: isPartial ? 0 : Number(r.amount_paid),
+            isArrear: true,
+            feeDate: r.fee_date,
+          };
+        });
       const currentPdfFees = groupPdfFees.map((f) => ({
         ...f,
         isArrear: false,
       }));
       const allPdfFees = [...arrearPdfFees, ...currentPdfFees];
-      const allPdfTotal = allPdfFees.reduce(
-        (s, f) => s + (f.netAmount || 0),
-        0,
-      );
+      const activeSurchargeAmt = waiveSurcharge ? 0 : (arrearsData?.total_surcharge ?? 0);
+      const allPdfTotal = allPdfFees.reduce((s, f) => s + (f.netAmount || 0), 0) + activeSurchargeAmt;
       console.log(
-        `[VOUCHER_DEBUG] Bulk PDF: arrears=${arrearPdfFees.length}, current=${currentPdfFees.length}, total=${allPdfTotal}`,
+        `[VOUCHER_DEBUG] Bulk PDF: arrears=${arrearPdfFees.length}, current=${currentPdfFees.length}, surcharge=${activeSurchargeAmt}, total=${allPdfTotal}`,
       );
 
       // Helper to build PDF element for this group

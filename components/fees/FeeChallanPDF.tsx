@@ -395,6 +395,29 @@ export interface FeeItem {
     feeDate?: string;      // underlying fee_date (for ARREAR rows)
 }
 
+const MONTHS_SHORT_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const buildArrearLabel = (arrearFees: FeeItem[]): string => {
+    const feeDates = arrearFees.map(f => f.feeDate).filter(Boolean) as string[];
+    if (feeDates.length === 0) return 'Arrears';
+    const parsed = feeDates.map(d => {
+        const dt = new Date(d);
+        return { year: dt.getUTCFullYear(), month: dt.getUTCMonth() };
+    });
+    const unique = Array.from(new Set(parsed.map(p => `${p.year}-${p.month}`)))
+        .map(s => { const [y, m] = s.split('-').map(Number); return { year: y, month: m }; })
+        .sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
+    if (unique.length === 0) return 'Arrears';
+    const fmt = (p: { year: number; month: number }) => `${MONTHS_SHORT_EN[p.month]} ${p.year}`;
+    if (unique.length === 1) return `Arrears (${fmt(unique[0])})`;
+    const first = unique[0];
+    const last = unique[unique.length - 1];
+    if (first.year === last.year) {
+        return `Arrears (${MONTHS_SHORT_EN[first.month]}–${MONTHS_SHORT_EN[last.month]} ${first.year})`;
+    }
+    return `Arrears (${fmt(first)}–${fmt(last)})`;
+};
+
 const formatDateToDDMMYYYY = (dateStr: string) => {
     if (!dateStr || dateStr === 'N/A') return dateStr;
     const parts = dateStr.split('-');
@@ -599,16 +622,38 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                         {(() => {
                             const arrearFees = fees.filter(f => f.isArrear);
                             const currentFees = fees.filter(f => !f.isArrear);
-                            const arrearTotal = arrearFees.reduce((s, f) => s + f.amount, 0);
+                            const arrearTotal = arrearFees.reduce((s, f) => s + (f.netAmount ?? f.amount), 0);
+                            const arrearLabel = buildArrearLabel(arrearFees);
+                            const hasSurcharge = (details.totalSurcharge ?? 0) > 0;
+                            const activeSurcharge = details.surchargeWaived ? 0 : (details.totalSurcharge ?? 0);
                             return (
                                 <>
                                     {arrearFees.length > 0 && (
-                                        <View style={styles.tableRow}>
-                                            <Text style={[styles.colDesc, { fontWeight: 'bold' }]}>TOTAL ARREARS</Text>
-                                            <Text style={[styles.colAmount, { fontWeight: 'bold' }]}>
+                                        <View style={[styles.tableRow, { borderBottomColor: '#fde68a' }]}>
+                                            <Text style={[styles.colDesc, { fontWeight: 'bold', color: '#92400e' }]}>{arrearLabel}</Text>
+                                            <Text style={[styles.colAmount, { fontWeight: 'bold', color: '#92400e' }]}>
                                                 {Math.round(arrearTotal).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                             </Text>
                                         </View>
+                                    )}
+                                    {hasSurcharge && (
+                                        details.surchargeWaived ? (
+                                            <View style={[styles.tableRow, { borderBottomColor: '#bbf7d0' }]}>
+                                                <Text style={[styles.colDesc, { color: '#15803d', fontSize: 6 }]}>
+                                                    {`Late Payment Surcharge (WAIVED – PKR ${(details.totalSurcharge ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })})`}
+                                                </Text>
+                                                <Text style={[styles.colAmount, { color: '#15803d', fontSize: 6, textDecoration: 'line-through' }]}>
+                                                    {(details.totalSurcharge ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                                </Text>
+                                            </View>
+                                        ) : (
+                                            <View style={[styles.tableRow, { borderBottomColor: '#fecaca' }]}>
+                                                <Text style={[styles.colDesc, { color: '#dc2626', fontWeight: 'bold' }]}>Late Payment Surcharge</Text>
+                                                <Text style={[styles.colAmount, { color: '#dc2626', fontWeight: 'bold' }]}>
+                                                    {activeSurcharge.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                                </Text>
+                                            </View>
+                                        )
                                     )}
                                     {currentFees.map((fee, idx) => renderFeeRow(fee, `c-${idx}`))}
                                 </>
@@ -633,26 +678,6 @@ const ChallanCopy = ({ copyType, student, details, fees, totalAmount, siblings, 
                     </>
                 );
             })()}
-
-            {/* ── Surcharge waiver note — shown when surcharge was waived ───── */}
-            {details.surchargeWaived && details.totalSurcharge && details.totalSurcharge > 0 && (
-                <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: '#fefce8',
-                    borderWidth: 0.5,
-                    borderColor: '#fbbf24',
-                    borderRadius: 2,
-                    paddingVertical: 2,
-                    paddingHorizontal: 4,
-                    marginTop: 3,
-                    marginBottom: 1,
-                }}>
-                    <Text style={{ flex: 1, fontSize: 5.5, color: '#92400e', fontWeight: 'bold' }}>
-                        ⚠ Late payment surcharge of PKR {details.totalSurcharge.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} waived.
-                    </Text>
-                </View>
-            )}
 
             {details.applyLateFee && (
                 <View style={[styles.tableRow, { borderBottomWidth: 0, marginTop: 2 }]}>
