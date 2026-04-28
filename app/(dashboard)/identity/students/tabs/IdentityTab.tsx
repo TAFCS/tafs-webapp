@@ -4,6 +4,8 @@ import { Save, Loader2, CheckCircle2 } from "lucide-react";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
 
+const isNA = (v: any) => v === "N/A" || v === "021-N/A";
+
 // ── Primitives ──────────────────────────────────────────────────────────────
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
@@ -20,7 +22,7 @@ function Input({ value, onChange, type = "text", placeholder, className = "", sh
         <div className="relative flex items-center w-full">
             <input
                 type={type}
-                value={value ?? ""}
+                value={isNA(value) ? "N/A" : (value ?? "")}
                 onChange={e => onChange(isEmail ? e.target.value.toLowerCase() : e.target.value.toUpperCase())}
                 placeholder={placeholder}
                 className={`w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all ${isEmail ? "" : "uppercase"} ${showNA ? "pr-10" : ""} ${className}`}
@@ -28,8 +30,8 @@ function Input({ value, onChange, type = "text", placeholder, className = "", sh
             {showNA && (
                 <button 
                     type="button"
-                    onClick={() => onChange(value === "N/A" ? "" : "N/A")}
-                    className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${value === "N/A" ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
+                    onClick={() => onChange(isNA(value) ? "" : "N/A")}
+                    className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${isNA(value) ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
                 >
                     N/A
                 </button>
@@ -54,15 +56,15 @@ function PhoneInput({ value, onChange, placeholder }: { value: string; onChange:
         <div className="relative flex items-center">
             <input
                 type="text"
-                value={value === "N/A" ? "N/A" : (value?.startsWith("+92") ? value : ("+92" + (value || "")))}
+                value={isNA(value) ? "N/A" : (value?.startsWith("+92") ? value : ("+92" + (value || "")))}
                 onChange={e => handlePhoneChange(e.target.value)}
                 placeholder={placeholder}
                 className="w-full h-9 pl-3 pr-10 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-mono"
             />
             <button 
                 type="button"
-                onClick={() => onChange(value === "N/A" ? "+92" : "N/A")}
-                className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${value === "N/A" ? "bg-indigo-600 text-white shadow-sm" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
+                onClick={() => onChange(isNA(value) ? "+92" : "N/A")}
+                className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${isNA(value) ? "bg-indigo-600 text-white shadow-sm" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
             >
                 N/A
             </button>
@@ -292,20 +294,20 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                 <Field label="Country">
                     <div className="relative flex items-center">
                         <Input value={contact.country} onChange={c("country")} />
-                        <button type="button" onClick={() => c("country")(contact.country === "N/A" ? "" : "N/A")} className={`absolute right-1 px-1.5 py-1 text-[9px] font-black rounded-lg ${contact.country === "N/A" ? "bg-primary text-white" : "text-zinc-400 hover:bg-zinc-100"}`}>N/A</button>
+                        <button type="button" onClick={() => c("country")(isNA(contact.country) ? "" : "N/A")} className={`absolute right-1 px-1.5 py-1 text-[9px] font-black rounded-lg ${isNA(contact.country) ? "bg-primary text-white" : "text-zinc-400 hover:bg-zinc-100"}`}>N/A</button>
                     </div>
                 </Field>
                 <Field label="Province">
                     <div className="relative flex items-center">
                         <Input value={contact.province} onChange={c("province")} />
-                        <button type="button" onClick={() => c("province")(contact.province === "N/A" ? "" : "N/A")} className={`absolute right-1 px-1.5 py-1 text-[9px] font-black rounded-lg ${contact.province === "N/A" ? "bg-primary text-white" : "text-zinc-400 hover:bg-zinc-100"}`}>N/A</button>
+                        <button type="button" onClick={() => c("province")(isNA(contact.province) ? "" : "N/A")} className={`absolute right-1 px-1.5 py-1 text-[9px] font-black rounded-lg ${isNA(contact.province) ? "bg-primary text-white" : "text-zinc-400 hover:bg-zinc-100"}`}>N/A</button>
                     </div>
                 </Field>
                 <div className="col-span-2">
                     <Field label="City">
                         <div className="relative flex items-center">
                             <Input value={contact.city} onChange={c("city")} />
-                            <button type="button" onClick={() => c("city")(contact.city === "N/A" ? "" : "N/A")} className={`absolute right-1 px-1.5 py-1 text-[9px] font-black rounded-lg ${contact.city === "N/A" ? "bg-primary text-white" : "text-zinc-400 hover:bg-zinc-100"}`}>N/A</button>
+                            <button type="button" onClick={() => c("city")(isNA(contact.city) ? "" : "N/A")} className={`absolute right-1 px-1.5 py-1 text-[9px] font-black rounded-lg ${isNA(contact.city) ? "bg-primary text-white" : "text-zinc-400 hover:bg-zinc-100"}`}>N/A</button>
                         </div>
                     </Field>
                 </div>

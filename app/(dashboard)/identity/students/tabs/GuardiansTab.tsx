@@ -5,6 +5,8 @@ import { ChangeFamilyModal } from "@/src/features/students/components/student-pr
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
 
+const isNA = (v: any) => v === "N/A" || v === "021-N/A";
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
@@ -18,15 +20,15 @@ function Input({ value, onChange, placeholder, type = "text", className = "", sh
     const isEmail = type === "email";
     return (
         <div className="relative flex items-center">
-            <input type={type} value={value ?? ""}
+            <input type={type} value={isNA(value) ? "N/A" : (value ?? "")}
                 onChange={e => onChange(isEmail ? e.target.value.toLowerCase() : e.target.value.toUpperCase())}
                 placeholder={placeholder}
                 className={`w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all ${isEmail ? "" : "uppercase"} ${showNA ? "pr-10" : ""} ${className}`} />
             {showNA && (
                 <button
                     type="button"
-                    onClick={() => onChange(value === "N/A" ? "" : "N/A")}
-                    className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${value === "N/A" ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
+                    onClick={() => onChange(isNA(value) ? "" : "N/A")}
+                    className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${isNA(value) ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
                 >
                     N/A
                 </button>
@@ -50,15 +52,15 @@ function PhoneInput({ value, onChange, placeholder, className = "" }: { value: s
         <div className={`relative flex items-center ${className}`}>
             <input
                 type="text"
-                value={value === "N/A" ? "N/A" : (value?.startsWith("+92") ? value : ("+92" + (value || "")))}
+                value={isNA(value) ? "N/A" : (value?.startsWith("+92") ? value : ("+92" + (value || "")))}
                 onChange={e => handlePhoneChange(e.target.value)}
                 placeholder={placeholder}
                 className="w-full h-9 pl-3 pr-10 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-mono"
             />
             <button
                 type="button"
-                onClick={() => onChange(value === "N/A" ? "+92" : "N/A")}
-                className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${value === "N/A" ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
+                onClick={() => onChange(isNA(value) ? "+92" : "N/A")}
+                className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${isNA(value) ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
             >
                 N/A
             </button>
