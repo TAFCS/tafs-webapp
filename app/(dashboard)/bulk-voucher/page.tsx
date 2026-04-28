@@ -188,12 +188,13 @@ export default function BulkVoucherPage() {
             return;
         }
 
-        const headers = ["Student Name", "CC", "PDF URL", "Status"];
+        const headers = ["Student Name", "CC", "PDF URL", "Status", "Notes/Reason"];
         const rows = (job.report as any[]).map(item => [
             item.student_name,
             item.cc,
             item.pdf_url || "",
-            item.status
+            item.status,
+            item.reason || item.error || ""
         ]);
 
         const csvContent = [
