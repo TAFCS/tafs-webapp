@@ -469,7 +469,7 @@ export default function BulkPromotePage() {
                 <div className="flex items-center gap-1.5 rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 px-2.5 py-1.5">
                   <GraduationCap className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
                   <p className="text-xs text-violet-700 dark:text-violet-300 font-medium">
-                    Status → GRADUATED, class_id → null.
+                    Status → GRADUATED, class_id → null, graduated_from_class_id ← current class_id preserved.
                   </p>
                 </div>
               )}
@@ -774,7 +774,7 @@ export default function BulkPromotePage() {
                       <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{resolveClassName(item.from_class_id, classMap)}</td>
                       <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">
                         {item.graduated
-                          ? <span className="inline-flex items-center gap-1 text-violet-600"><GraduationCap className="h-3.5 w-3.5" />Graduated</span>
+                          ? <span className="inline-flex items-center gap-1 text-violet-600"><GraduationCap className="h-3.5 w-3.5" />Graduated from {resolveClassName(item.from_class_id, classMap)}</span>
                           : item.status === "expelled"
                           ? <span className="inline-flex items-center gap-1 text-orange-600"><X className="h-3.5 w-3.5" />Expelled (data kept)</span>
                           : item.status === "left"
