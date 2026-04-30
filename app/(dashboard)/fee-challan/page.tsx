@@ -1342,9 +1342,22 @@ export default function FeeChallanGenerator() {
                       {isSavingVoucher ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} Generate Voucher
                     </button>
                     {voucherSaved && savedVoucherPdfUrl && (
-                      <a href={savedVoucherPdfUrl} target="_blank" rel="noopener noreferrer" className="h-16 px-12 bg-emerald-600 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl transition-all hover:-translate-y-1">
-                        <Download className="h-5 w-5" /> Download PDF
-                      </a>
+                      <div className="w-full mt-8 flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex items-center justify-between bg-zinc-900 text-white px-6 py-4 rounded-t-2xl">
+                          <h3 className="font-black tracking-widest uppercase text-[12px] flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-emerald-400" />
+                            Generated Voucher Preview
+                          </h3>
+                          <a href={savedVoucherPdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 font-bold text-xs bg-emerald-950/50 px-4 py-2 rounded-lg transition-colors">
+                            <Download className="h-4 w-4" /> Download
+                          </a>
+                        </div>
+                        <iframe 
+                          src={savedVoucherPdfUrl} 
+                          className="w-full h-[600px] rounded-b-2xl border-2 border-zinc-900 shadow-2xl bg-zinc-100"
+                          title="Voucher PDF"
+                        />
+                      </div>
                     )}
                   </div>
                 </div>
