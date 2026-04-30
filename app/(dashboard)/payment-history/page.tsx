@@ -89,6 +89,17 @@ interface DepositAllocation {
     fee_type_description?: string;
 }
 
+interface ArrearSurchargeHistory {
+    id: number;
+    arrear_month: number;
+    arrear_year: string;
+    arrear_fee_date: string;
+    amount: number;
+    amount_paid: number;
+    waived: boolean;
+    waived_by?: string | null;
+}
+
 interface VoucherHistoryItem {
     id: number;
     issue_date: string;
@@ -106,6 +117,7 @@ interface VoucherHistoryItem {
     pdf_url?: string;
     heads: VoucherHead[];
     deposit_allocations: DepositAllocation[];
+    voucher_arrear_surcharges?: ArrearSurchargeHistory[];
 }
 
 interface FeeHead {
@@ -799,6 +811,51 @@ const VoucherRow = ({ voucher, isExpanded, onToggle, formatCurrency }: { voucher
                                             </tbody>
                                         </table>
                                     </div>
+
+                                    {/* Arrear Surcharges sub-panel */}
+                                    {(voucher.voucher_arrear_surcharges ?? []).length > 0 && (
+                                        <div className="mt-4">
+                                            <p className="text-[10px] font-black text-rose-500 uppercase tracking-[0.18em] mb-2 flex items-center gap-1.5">
+                                                <ShieldAlert className="h-3 w-3" /> Arrear Surcharges
+                                            </p>
+                                            <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
+                                                <table className="w-full text-left border-collapse">
+                                                    <thead className="bg-rose-50/60 dark:bg-rose-900/10">
+                                                        <tr className="text-[9px] font-black text-zinc-400 uppercase">
+                                                            <th className="px-4 py-2">Month</th>
+                                                            <th className="px-4 py-2 text-right">Amount</th>
+                                                            <th className="px-4 py-2 text-right">Paid</th>
+                                                            <th className="px-4 py-2 text-right">Balance</th>
+                                                            <th className="px-4 py-2">Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                                                        {(voucher.voucher_arrear_surcharges ?? []).map(s => {
+                                                            const MLABELS = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                                                            const yr = s.arrear_year?.split('-');
+                                                            const m = s.arrear_month;
+                                                            const yearPart = m >= 8 ? yr?.[0] : yr?.[1];
+                                                            const label = `${MLABELS[m] || m} '${String(yearPart ?? s.arrear_year).slice(-2)}`;
+                                                            const bal = Math.max(s.amount - s.amount_paid, 0);
+                                                            const surchargeStatus = s.waived ? 'WAIVED' : bal === 0 ? 'PAID' : s.amount_paid > 0 ? 'PARTIAL' : 'UNPAID';
+                                                            const statusColor: Record<string,string> = { PAID: 'green', PARTIAL: 'amber', UNPAID: 'rose', WAIVED: 'zinc' };
+                                                            return (
+                                                                <tr key={s.id} className="text-[11px] font-bold hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
+                                                                    <td className="px-4 py-2.5 font-black text-zinc-700 dark:text-zinc-200">{label}</td>
+                                                                    <td className="px-4 py-2.5 text-right">{formatCurrency(s.amount)}</td>
+                                                                    <td className="px-4 py-2.5 text-right text-emerald-600">{formatCurrency(s.amount_paid)}</td>
+                                                                    <td className="px-4 py-2.5 text-right text-rose-500">{s.waived ? '—' : formatCurrency(bal)}</td>
+                                                                    <td className="px-4 py-2.5">
+                                                                        <SimpleBadge color={statusColor[surchargeStatus]}>{surchargeStatus}</SimpleBadge>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="space-y-4">

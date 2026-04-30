@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import {
     Search, Loader2, AlertCircle, FileText,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
-    Hash, SlidersHorizontal,
+    Hash, SlidersHorizontal, ShieldAlert,
     ChevronLeft, ChevronRight, Wallet, UserCircle, UserSearch, Ban, X
 } from "lucide-react";
 import api from "@/lib/api";
@@ -112,6 +112,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const [fillingMode, setFillingMode] = useState<"auto" | "manual">("auto");
     const [manualDistributions, setManualDistributions] = useState<Record<number, string>>({});
     const [manualLateFee, setManualLateFee] = useState<string>("0");
+    const [surchargeDistributions, setSurchargeDistributions] = useState<Record<number, string>>({});
     const [paymentMethod, setPaymentMethod] = useState<string>("cash");
     const [referenceNumber, setReferenceNumber] = useState<string>("");
 
@@ -121,6 +122,21 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         return dateA - dateB;
     });
 
+    // Arrear surcharges from the voucher
+    const arrearSurcharges = (voucher.voucher_arrear_surcharges || []).filter(s => !s.waived);
+    const waivedSurcharges = (voucher.voucher_arrear_surcharges || []).filter(s => s.waived);
+    const getSurchargeBalance = (s: typeof arrearSurcharges[0]) =>
+        Math.max(Number(s.amount) - Number(s.amount_paid ?? 0), 0);
+    const totalArrearSurchargeBalance = arrearSurcharges.reduce((sum, s) => sum + getSurchargeBalance(s), 0);
+
+    const MONTH_LABELS = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const getSurchargeLabel = (s: typeof arrearSurcharges[0]) => {
+        const yr = s.arrear_year?.split('-');
+        const m = s.arrear_month;
+        const yearPart = m >= 8 ? yr?.[0] : yr?.[1];
+        return `${MONTH_LABELS[m] || m} ${yearPart ? `'${String(yearPart).slice(-2)}` : s.arrear_year}`;
+    };
+
     const voucherFeeDate = voucher.fee_date ? new Date(voucher.fee_date) : null;
     const isArrearHead = (h: typeof heads[0]) => {
         if (!voucherFeeDate || !h.student_fees?.fee_date) return false;
@@ -128,12 +144,8 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     };
     const arrearCount = heads.filter(h => isArrearHead(h)).length;
 
-    // ── SOURCE OF TRUTH: student_fees.amount = canonical net per head ──────────────
-    // Balance authority: voucher_heads.balance (backend normalizeVoucher already
-    // cross-references student_fees and sets this correctly — including PAID = 0).
-    // Deposited is derived: sf.amount - head.balance (avoids stale amount_paid).
     const sfNetAmt = (h: typeof heads[0]) => Number(h.student_fees?.amount ?? h.net_amount ?? 0);
-    const sfBalance = (h: typeof heads[0]) => Number(h.balance ?? 0); // authoritative
+    const sfBalance = (h: typeof heads[0]) => Number(h.balance ?? 0);
     const sfDeposited = (h: typeof heads[0]) => Math.max(sfNetAmt(h) - sfBalance(h), 0);
 
     const totalBalance = heads.reduce((sum, h) => sum + sfBalance(h), 0);
@@ -141,11 +153,14 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const remainingSurcharge = Math.max(totalSurcharge - Number(voucher.late_fee_deposited ?? 0), 0);
     const isOverdue = new Date() > new Date(voucher.due_date);
     const actualLateFee = isOverdue ? remainingSurcharge : 0;
-    const finalTotal = totalBalance + actualLateFee;
+    const finalTotal = totalBalance + actualLateFee + totalArrearSurchargeBalance;
 
+    const surchargeDistTotal = Object.values(surchargeDistributions).reduce((s, v) => s + (Number(v) || 0), 0);
     const distributedTotal = fillingMode === "auto"
         ? Number(amount) || 0
-        : Object.values(manualDistributions).reduce((sum, val) => sum + (Number(val) || 0), 0) + (Number(manualLateFee) || 0);
+        : Object.values(manualDistributions).reduce((sum, val) => sum + (Number(val) || 0), 0)
+            + (Number(manualLateFee) || 0)
+            + surchargeDistTotal;
 
     const remainingPool = (Number(amount) || 0) - distributedTotal;
 
@@ -153,26 +168,36 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         const depositAmt = Number(amount) || 0;
         let remaining = depositAmt;
         const dist: Record<number, string> = {};
+        const sDist: Record<number, string> = {};
         const lateToFill = Math.min(remaining, actualLateFee);
         setManualLateFee(lateToFill.toString());
         remaining -= lateToFill;
         heads.forEach(h => {
-            const hBal = sfBalance(h); // use student_fees balance
+            const hBal = sfBalance(h);
             const toFill = Math.min(remaining, hBal);
             dist[h.id] = toFill.toString();
             remaining -= toFill;
         });
+        arrearSurcharges.forEach(s => {
+            const sBal = getSurchargeBalance(s);
+            const toFill = Math.min(remaining, sBal);
+            sDist[s.id] = toFill.toString();
+            remaining -= toFill;
+        });
         setManualDistributions(dist);
+        setSurchargeDistributions(sDist);
     };
 
     useEffect(() => {
         if (fillingMode === "auto") {
             handleAutoFill();
         } else {
-            // Manual mode: Clear all distributions as requested
             const clearedDistributions: Record<number, string> = {};
             heads.forEach(h => clearedDistributions[h.id] = "0");
             setManualDistributions(clearedDistributions);
+            const clearedSurcharges: Record<number, string> = {};
+            arrearSurcharges.forEach(s => clearedSurcharges[s.id] = "0");
+            setSurchargeDistributions(clearedSurcharges);
             setManualLateFee("0");
         }
     }, [amount, fillingMode]);
@@ -181,12 +206,16 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         if (!amount || Number(amount) <= 0) { toast.error("Please enter a valid deposit amount."); return; }
         if (distributedTotal > finalTotal) { toast.error("Distribution exceeds voucher balance."); return; }
         if (remainingPool !== 0) { toast.error("Total distribution must match deposit amount."); return; }
+        const surchargeAllocations = arrearSurcharges
+            .filter(s => Number(surchargeDistributions[s.id] || 0) > 0)
+            .map(s => ({ surcharge_id: s.id, amount: Number(surchargeDistributions[s.id]) }));
         setIsSaving(true);
         try {
             await api.post(`/v1/vouchers/${voucher.id}/deposit`, {
                 amount: Number(amount),
                 distributions: manualDistributions,
                 late_fee: Number(manualLateFee),
+                surcharge_allocations: surchargeAllocations.length > 0 ? surchargeAllocations : undefined,
                 payment_method: paymentMethod || undefined,
                 reference_number: referenceNumber.trim() || undefined,
             });
@@ -424,12 +453,83 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             );
                         })}
 
+                        {/* ── Arrear Surcharges Section ─────────────────────── */}
+                        {(arrearSurcharges.length > 0 || waivedSurcharges.length > 0) && (
+                            <>
+                                <div className="pt-3 pb-1 px-1">
+                                    <span className="flex items-center gap-2 text-[10px] font-black text-rose-500 uppercase tracking-[0.18em]">
+                                        <ShieldAlert className="h-3.5 w-3.5" />
+                                        Arrear Surcharges
+                                    </span>
+                                </div>
+
+                                {/* Active (unpaid) surcharges */}
+                                {arrearSurcharges.map(s => {
+                                    const sBal = getSurchargeBalance(s);
+                                    const sPaid = Number(s.amount_paid ?? 0);
+                                    const sTotal = Number(s.amount);
+                                    const sDistVal = Number(surchargeDistributions[s.id] || 0);
+                                    return (
+                                        <div
+                                            key={s.id}
+                                            className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/60 dark:border-rose-900/30 rounded-2xl"
+                                        >
+                                            <div>
+                                                <p className="text-[12px] font-black text-rose-600">
+                                                    Late Surcharge — {getSurchargeLabel(s)}
+                                                </p>
+                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5">
+                                                    Arrear Penalty
+                                                </span>
+                                            </div>
+                                            <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{sTotal.toLocaleString()}</span>
+                                            <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{sPaid.toLocaleString()}</span>
+                                            <span className={`text-[11px] font-black tabular-nums text-right ${sBal === 0 ? "text-emerald-600" : "text-rose-600"}`}>{sBal.toLocaleString()}</span>
+                                            <div className="flex justify-end">
+                                                {fillingMode === "manual" ? (
+                                                    <input
+                                                        type="text" inputMode="numeric" pattern="[0-9]*"
+                                                        value={surchargeDistributions[s.id] || ""}
+                                                        onChange={e => {
+                                                            const v = e.target.value.replace(/[^0-9]/g, '');
+                                                            setSurchargeDistributions({ ...surchargeDistributions, [s.id]: v === "" || Number(v) <= sBal ? v : sBal.toString() });
+                                                        }}
+                                                        className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-rose-200 dark:border-rose-900 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-rose-400 transition-all font-mono"
+                                                    />
+                                                ) : (
+                                                    <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {sDistVal.toLocaleString()}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Waived surcharges — display only */}
+                                {waivedSurcharges.map(s => (
+                                    <div key={s.id} className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800 rounded-2xl opacity-60">
+                                        <div>
+                                            <p className="text-[12px] font-black text-zinc-500">Late Surcharge — {getSurchargeLabel(s)}</p>
+                                            <span className="inline-flex items-center px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5">
+                                                Waived{s.waived_by ? ` by ${s.waived_by}` : ""}
+                                            </span>
+                                        </div>
+                                        <span className="text-[11px] font-bold text-zinc-400 tabular-nums text-right">{Number(s.amount).toLocaleString()}</span>
+                                        <span className="text-[11px] font-bold text-zinc-400 tabular-nums text-right">—</span>
+                                        <span className="text-[11px] font-black text-emerald-500 tabular-nums text-right">0</span>
+                                        <div className="flex justify-end">
+                                            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Waived</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </>
+                        )}
+
                         {/* Summary totals row */}
                         <div className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
                             <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Total</span>
-                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{heads.reduce((s,f) => s+sfNetAmt(f),0).toLocaleString()}</span>
-                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{heads.reduce((s,f) => s+sfDeposited(f),0).toLocaleString()}</span>
-                            <span className="text-[11px] font-black text-emerald-600 tabular-nums text-right">{totalBalance.toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{(heads.reduce((s,f) => s+sfNetAmt(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount),0)).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{(heads.reduce((s,f) => s+sfDeposited(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount_paid??0),0)).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-emerald-600 tabular-nums text-right">{(totalBalance + totalArrearSurchargeBalance).toLocaleString()}</span>
                             <span />
                         </div>
                     </div>
