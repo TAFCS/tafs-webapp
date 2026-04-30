@@ -161,6 +161,13 @@ export default function BulkDeleteVouchersPage() {
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [academicYear, setAcademicYear] = useState("");
+    const [voucherId, setVoucherId] = useState("");
+
+    // Modal state
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showForceDeleteModal, setShowForceDeleteModal] = useState(false);
+    const [forceDeleteConfirmText, setForceDeleteConfirmText] = useState("");
+    const [deleteMode, setDeleteMode] = useState<"normal" | "force">("normal");
 
     // Load reference data
     useEffect(() => {
@@ -183,6 +190,7 @@ export default function BulkDeleteVouchersPage() {
             if (dateFrom) params.date_from = dateFrom;
             if (dateTo) params.date_to = dateTo;
             if (academicYear) params.academic_year = academicYear;
+            if (voucherId) params.id = voucherId;
 
             const { data } = await api.get("/v1/vouchers", { params });
             setVouchers(data.data.items);
@@ -194,7 +202,7 @@ export default function BulkDeleteVouchersPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [page, pageSize, campusId, classId, sectionId, statusFilter, dateFrom, dateTo, academicYear]);
+    }, [page, pageSize, campusId, classId, sectionId, statusFilter, dateFrom, dateTo, academicYear, voucherId]);
 
     useEffect(() => {
         fetchFilteredVouchers();
@@ -214,25 +222,24 @@ export default function BulkDeleteVouchersPage() {
         }
     };
 
-    const handleDeleteSelected = async () => {
+    const handleDeleteSelected = async (force: boolean) => {
         if (selectedIds.length === 0) return;
 
-        if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} vouchers? This will reset all linked fee heads to NOT_ISSUED. This cannot be undone.`)) {
-            return;
-        }
-
-        const loadingToast = toast.loading(`Deleting ${selectedIds.length} vouchers...`);
+        const loadingToast = toast.loading(force ? `Force deleting ${selectedIds.length} vouchers...` : `Deleting ${selectedIds.length} vouchers...`);
         try {
-            const { data } = await api.delete("/v1/vouchers/bulk", { data: { ids: selectedIds } });
+            const { data } = await api.delete("/v1/vouchers/bulk", { data: { ids: selectedIds, force } });
             toast.dismiss(loadingToast);
-            
+
             if (data.data.skipped > 0) {
-                toast.success(`${data.data.deleted} deleted, ${data.data.skipped} skipped (due to status or other reasons).`, { duration: 5000 });
+                toast.success(`${data.data.deleted} deleted, ${data.data.skipped} skipped.`, { duration: 5000 });
             } else {
                 toast.success(`${data.data.deleted} vouchers deleted successfully.`);
             }
-            
+
             fetchFilteredVouchers();
+            setShowDeleteModal(false);
+            setShowForceDeleteModal(false);
+            setForceDeleteConfirmText("");
         } catch (err: any) {
             toast.dismiss(loadingToast);
             toast.error(err.response?.data?.message || "Failed to delete vouchers.");
@@ -248,6 +255,7 @@ export default function BulkDeleteVouchersPage() {
         setDateFrom("");
         setDateTo("");
         setAcademicYear("");
+        setVoucherId("");
         setPage(1);
     };
 
@@ -331,7 +339,7 @@ export default function BulkDeleteVouchersPage() {
                                 <Filter className="h-3 w-3" /> Status
                             </label>
                             <div className="flex flex-wrap gap-2">
-                                {["UNPAID", "OVERDUE", "VOID", "PAID"].map(s => (
+                                {["UNPAID", "OVERDUE", "VOID", "PAID", "PARTIALLY_PAID"].map(s => (
                                     <button
                                         key={s}
                                         onClick={() => {
@@ -380,6 +388,19 @@ export default function BulkDeleteVouchersPage() {
                                 placeholder="e.g. 2025-2026"
                                 value={academicYear}
                                 onChange={e => setAcademicYear(e.target.value)}
+                                className="h-11 px-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all text-zinc-700 dark:text-zinc-300 placeholder:text-zinc-400 font-semibold"
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                                <Search className="h-3 w-3" /> Voucher Number
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. 12345"
+                                value={voucherId}
+                                onChange={e => setVoucherId(e.target.value)}
                                 className="h-11 px-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all text-zinc-700 dark:text-zinc-300 placeholder:text-zinc-400 font-semibold"
                             />
                         </div>
@@ -523,7 +544,7 @@ export default function BulkDeleteVouchersPage() {
 
             {/* Bulk Action Bar */}
             {selectedIds.length > 0 && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-8 animate-in slide-in-from-bottom-10 duration-300 z-[100]">
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-8 animate-in slide-in-from-bottom-10 duration-300 z-50">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-rose-500 flex items-center justify-center text-white font-black text-xs">
                             {selectedIds.length}
@@ -541,25 +562,93 @@ export default function BulkDeleteVouchersPage() {
                             Clear
                         </button>
                         <button
-                            onClick={handleDeleteSelected}
+                            onClick={() => setShowDeleteModal(true)}
                             className="flex items-center gap-2 px-6 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-black rounded-xl transition-all shadow-lg shadow-rose-500/20 active:scale-95"
                         >
                             <Trash2 className="h-4 w-4" />
-                            Delete Selected
+                            Delete Selected (UNPAID/OVERDUE/VOID)
+                        </button>
+                        <button
+                            onClick={() => setShowForceDeleteModal(true)}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-black rounded-xl transition-all shadow-lg shadow-red-600/20 active:scale-95 border-2 border-red-500/50"
+                        >
+                            <AlertTriangle className="h-4 w-4" />
+                            Force Delete ALL
                         </button>
                     </div>
                 </div>
             )}
-            
-            {/* Warning for mass delete */}
-            {statusFilter.includes("PAID") && (
-                <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl">
-                    <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                        <p className="text-sm font-bold text-amber-700 dark:text-amber-400">Caution: PAID status included</p>
-                        <p className="text-xs text-amber-600/80 mt-1">
-                            Deleting PAID vouchers is usually restricted to prevent financial discrepancies. Ensure you only delete them if they were recorded in error.
+
+            {/* Standard Delete Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in p-4">
+                    <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95">
+                        <div className="w-12 h-12 bg-rose-100 dark:bg-rose-900/20 rounded-full flex items-center justify-center mb-4 text-rose-600">
+                            <Trash2 className="h-6 w-6" />
+                        </div>
+                        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">Delete Vouchers?</h2>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6">
+                            Delete {selectedIds.length} vouchers? PAID vouchers will be skipped. <code className="text-xs bg-zinc-100 dark:bg-zinc-900 px-1 py-0.5 rounded text-zinc-800 dark:text-zinc-300">student_fees</code> will be reset to <code className="text-xs bg-zinc-100 dark:bg-zinc-900 px-1 py-0.5 rounded text-zinc-800 dark:text-zinc-300">NOT_ISSUED</code>.
                         </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setShowDeleteModal(false)}
+                                className="px-5 py-2.5 text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-xl transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleDeleteSelected(false)}
+                                className="px-5 py-2.5 text-sm font-bold text-white bg-rose-500 hover:bg-rose-600 rounded-xl transition-colors shadow-lg shadow-rose-500/20"
+                            >
+                                Delete {selectedIds.length} Vouchers
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Force Delete Modal */}
+            {showForceDeleteModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-red-950/80 backdrop-blur-md animate-in fade-in p-4">
+                    <div className="bg-white dark:bg-zinc-950 border-2 border-red-500 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95">
+                        <div className="w-12 h-12 bg-red-100 dark:bg-red-900/40 rounded-full flex items-center justify-center mb-4 text-red-600">
+                            <AlertTriangle className="h-6 w-6" />
+                        </div>
+                        <h2 className="text-xl font-bold text-red-600 mb-2">⚠️ DESTRUCTIVE ACTION</h2>
+                        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-4 leading-relaxed">
+                            You are permanently deleting {selectedIds.length} vouchers including PAID records. Deposit links will be broken.
+                        </p>
+                        <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 mb-6 border border-zinc-200 dark:border-zinc-800">
+                            <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">
+                                Type <span className="text-red-500 font-black">DELETE</span> to confirm
+                            </label>
+                            <input
+                                type="text"
+                                value={forceDeleteConfirmText}
+                                onChange={(e) => setForceDeleteConfirmText(e.target.value)}
+                                placeholder="DELETE"
+                                className="w-full h-10 px-3 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500/50 uppercase"
+                            />
+                        </div>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => {
+                                    setShowForceDeleteModal(false);
+                                    setForceDeleteConfirmText("");
+                                }}
+                                className="px-5 py-2.5 text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-xl transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                disabled={forceDeleteConfirmText !== "DELETE"}
+                                onClick={() => handleDeleteSelected(true)}
+                                className="px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 disabled:bg-red-300 disabled:cursor-not-allowed rounded-xl transition-all shadow-lg shadow-red-600/20"
+                            >
+                                Force Delete ALL
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
