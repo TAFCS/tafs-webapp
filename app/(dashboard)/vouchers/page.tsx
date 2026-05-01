@@ -6,7 +6,7 @@ import {
     Search, Loader2, AlertCircle, FileText, ChevronDown, X,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Building2, GraduationCap, Users, Hash, CreditCard, SlidersHorizontal,
-    ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2
+    ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2, Sparkles
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -749,6 +749,14 @@ export default function VouchersPage() {
                     >
                         <RefreshCw className={`h-4 w-4 ${vouchersLoading ? "animate-spin" : ""}`} />
                         Refresh
+                    </button>
+
+                    <button
+                        onClick={() => window.location.href = '/batch-issue'}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-lg shadow-zinc-200 dark:shadow-none hover:translate-y-[-2px] transition-all"
+                    >
+                        <Sparkles className="h-4 w-4 text-amber-500" />
+                        Batch Issue
                     </button>
                 </div>
             </div>

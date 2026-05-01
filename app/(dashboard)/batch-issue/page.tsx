@@ -1,660 +1,841 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
-    Search, Loader2, Filter, CheckCircle2, Clock, XCircle, Trash2,
-    Building2, GraduationCap, Users, Hash, SlidersHorizontal,
-    ChevronLeft, ChevronRight, RefreshCw, X, Calendar, AlertTriangle,
-    Layers, Landmark, Banknote, ArrowRight, Download, ChevronDown,
-    FilePlus2, Calculator
+    AlertCircle,
+    CheckCircle2,
+    Clock3,
+    FileText,
+    RefreshCw,
+    Send,
+    Search,
+    Users,
+    ChevronDown,
+    ChevronUp,
+    Download,
+    Ban,
+    Banknote,
+    Calendar,
+    Building2,
+    Sparkles,
+    Trash2,
 } from "lucide-react";
-import api from "@/lib/api";
-import { useAppSelector, useAppDispatch } from "@/store/hooks";
-import { fetchClasses } from "@/store/slices/classesSlice";
-import { fetchCampuses } from "@/store/slices/campusesSlice";
-import { fetchSections } from "@/store/slices/sectionsSlice";
-import { fetchBanks } from "@/store/slices/banksSlice";
 import toast from "react-hot-toast";
-import { motion, AnimatePresence } from "framer-motion";
+import api from "@/src/lib/api";
+import { AppDispatch, RootState } from "@/src/store/store";
+import { fetchClasses } from "@/src/store/slices/classesSlice";
+import { fetchCampuses } from "@/src/store/slices/campusesSlice";
+import { fetchSections } from "@/src/store/slices/sectionsSlice";
 import { useRouter } from "next/navigation";
 
-// --- Custom Dropdown ---
-interface DropdownOption { id: number; label: string; sub?: string; }
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-function FilterDropdown({
-    label, icon: Icon, value, options, loading, placeholder, onSelect, onClear,
-}: {
+interface BulkStudentPreview {
+    cc: number;
+    student_full_name: string;
+    gr_number: string | null;
+    class_name: string;
+    section_name: string;
+    is_already_issued: boolean;
+}
+
+type ResolvedStudent = {
+    cc: number;
+    full_name: string;
+    gr_number?: string | null;
+};
+
+interface BankAccount {
+    id: number;
+    bank_name: string;
+    account_number: string;
+    is_active: boolean;
+}
+
+// ─── Components ──────────────────────────────────────────────────────────────
+interface MultiSelectProps {
     label: string;
-    icon: React.ElementType;
-    value: number | "";
-    options: DropdownOption[];
-    loading?: boolean;
+    options: { id: number; label: string }[];
+    selectedIds: number[];
+    onChange: (ids: number[]) => void;
     placeholder: string;
-    onSelect: (id: number) => void;
-    onClear: () => void;
-}) {
-    const [open, setOpen] = useState(false);
-    const [search, setSearch] = useState("");
-    const ref = useRef<HTMLDivElement>(null);
-    const selected = options.find(o => o.id === value);
-    const filtered = options.filter(o =>
-        o.label.toLowerCase().includes(search.toLowerCase()) ||
-        (o.sub && o.sub.toLowerCase().includes(search.toLowerCase()))
-    );
+    icon: React.ReactNode;
+}
+
+function MultiSelect({ label, options, selectedIds, onChange, placeholder, icon }: MultiSelectProps) {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const h = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
         };
-        document.addEventListener("mousedown", h);
-        return () => document.removeEventListener("mousedown", h);
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    const toggleId = (id: number) => {
+        if (selectedIds.includes(id)) {
+            onChange(selectedIds.filter(x => x !== id));
+        } else {
+            onChange([...selectedIds, id]);
+        }
+    };
+
+    const selectedLabels = options
+        .filter(opt => selectedIds.includes(opt.id))
+        .map(opt => opt.label);
+
     return (
-        <div className="flex flex-col gap-1.5" ref={ref}>
-            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
-                <Icon className="h-3 w-3" /> {label}
-            </label>
-            <div className="relative">
-                <button
-                    type="button"
-                    onClick={() => { setOpen(o => !o); setSearch(""); }}
-                    className={`w-full h-11 flex items-center justify-between px-4 rounded-xl text-sm transition-all border shadow-sm
-                        ${value !== "" ? "bg-primary/5 border-primary/30 text-zinc-900 dark:text-zinc-100" : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-400"}
-                        hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/10`}
-                >
-                    <span className="font-semibold truncate">
-                        {selected ? selected.label : placeholder}
-                    </span>
-                    <div className="flex items-center gap-1.5 ml-2 shrink-0">
-                        {value !== "" && (
-                            <span
-                                role="button"
-                                onClick={(e) => { e.stopPropagation(); onClear(); }}
-                                className="p-0.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
-                            >
-                                <X className="h-3.5 w-3.5" />
+        <div className="space-y-2 relative" ref={containerRef}>
+            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-1">{label}</label>
+            <div 
+                onClick={() => setIsOpen(!isOpen)}
+                className={`w-full min-h-14 px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border ${isOpen ? 'border-primary ring-2 ring-primary/10' : 'border-zinc-200 dark:border-zinc-800'} rounded-2xl transition-all cursor-pointer flex items-center justify-between gap-3 group`}
+            >
+                <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="text-zinc-400 group-hover:text-primary transition-colors">
+                        {icon}
+                    </div>
+                    <div className="flex flex-wrap gap-1 items-center">
+                        {selectedIds.length === 0 ? (
+                            <span className="text-zinc-400 font-bold text-sm italic">{placeholder}</span>
+                        ) : (
+                            <span className="text-zinc-900 dark:text-zinc-100 font-black text-sm">
+                                {selectedIds.length === options.length ? 'All Selected' : `${selectedIds.length} Selected`}
                             </span>
                         )}
-                        <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
                     </div>
-                </button>
-
-                {open && (
-                    <div className="absolute z-50 top-full mt-2 w-full min-w-[220px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                        <div className="p-2.5 border-b border-zinc-100 dark:border-zinc-800">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
-                                <input
-                                    autoFocus type="text" placeholder="Search..."
-                                    value={search} onChange={e => setSearch(e.target.value)}
-                                    className="w-full pl-9 pr-3 h-8 text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:border-primary placeholder:text-zinc-400"
-                                />
-                            </div>
-                        </div>
-                        <div className="max-h-56 overflow-y-auto p-1">
-                            {loading ? (
-                                <div className="flex items-center justify-center gap-2 py-6 text-zinc-400 text-xs">
-                                    <Loader2 className="h-4 w-4 animate-spin" /> Loading...
-                                </div>
-                            ) : filtered.length === 0 ? (
-                                <div className="py-6 text-center text-xs text-zinc-400">No results</div>
-                            ) : filtered.map(o => (
-                                <button
-                                    key={o.id} type="button"
-                                    onClick={() => { onSelect(o.id); setOpen(false); }}
-                                    className={`w-full flex items-center justify-between px-3.5 h-10 rounded-lg text-sm transition-all
-                                        ${value === o.id ? "bg-primary text-white font-semibold" : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}
-                                >
-                                    <span>{o.label}</span>
-                                    {o.sub && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${value === o.id ? "bg-white/20" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400"}`}>{o.sub}</span>}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                </div>
+                {isOpen ? <ChevronUp className="h-4 w-4 text-zinc-400" /> : <ChevronDown className="h-4 w-4 text-zinc-400" />}
             </div>
+
+            {isOpen && (
+                <div className="absolute z-[100] top-full mt-2 w-full max-h-60 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="p-3 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
+                        <button 
+                            onClick={() => onChange(options.map(o => o.id))}
+                            className="text-[10px] font-black text-primary hover:underline"
+                        >
+                            SELECT ALL
+                        </button>
+                        <button 
+                            onClick={() => onChange([])}
+                            className="text-[10px] font-black text-rose-500 hover:underline"
+                        >
+                            CLEAR
+                        </button>
+                    </div>
+                    <div className="overflow-y-auto">
+                        {options.map(opt => (
+                            <div 
+                                key={opt.id}
+                                onClick={() => toggleId(opt.id)}
+                                className="px-4 py-3 hover:bg-primary/[0.03] flex items-center gap-3 cursor-pointer group transition-colors"
+                            >
+                                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${selectedIds.includes(opt.id) ? 'bg-primary border-primary' : 'border-zinc-200 dark:border-zinc-700 group-hover:border-primary/30'}`}>
+                                    {selectedIds.includes(opt.id) && <CheckCircle2 className="h-3.5 w-3.5 text-white" />}
+                                </div>
+                                <span className={`text-sm font-bold ${selectedIds.includes(opt.id) ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 group-hover:text-zinc-700 dark:group-hover:text-zinc-300'}`}>
+                                    {opt.label}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function BatchIssuePage() {
-    const dispatch = useAppDispatch();
+    const dispatch = useDispatch<AppDispatch>();
     const router = useRouter();
 
-    // Redux data
-    const campuses = useAppSelector(s => s.campuses.items);
-    const classes = useAppSelector(s => s.classes.items);
-    const sections = useAppSelector(s => s.sections.items);
-    const banks = useAppSelector(s => s.banks.items);
+    const { items: classes } = useSelector((state: RootState) => state.classes);
+    const { items: campuses } = useSelector((state: RootState) => state.campuses);
+    const { items: sections } = useSelector((state: RootState) => state.sections);
 
-    // Filter/Config State
-    const [campusId, setCampusId] = useState<number | "">("");
-    const [classId, setClassId] = useState<number | "">("");
-    const [sectionId, setSectionId] = useState<number | "">("");
+    // ── Form State ────────────────────────────────────────────────────────────
+    const [campusIds, setCampusIds] = useState<number[]>([]);
+    const [classIds, setClassIds] = useState<number[]>([]);
+    const [sectionIds, setSectionIds] = useState<number[]>([]);
+    const [studentIdsRaw, setStudentIdsRaw] = useState("");
     const [feeDateFrom, setFeeDateFrom] = useState("");
     const [feeDateTo, setFeeDateTo] = useState("");
-    const [academicYear, setAcademicYear] = useState("");
-    const [bankAccountId, setBankAccountId] = useState<number | "">("");
-    const [issueDate, setIssueDate] = useState(() => new Date().toISOString().split("T")[0]);
+    const [bankAccountId, setBankAccountId] = useState("");
+    const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
     const [dueDate, setDueDate] = useState("");
     const [validityDate, setValidityDate] = useState("");
     const [applyLateFee, setApplyLateFee] = useState(true);
     const [lateFeeAmount, setLateFeeAmount] = useState(1000);
     const [waiveSurcharge, setWaiveSurcharge] = useState(false);
+    const [skipAlreadyIssued, setSkipAlreadyIssued] = useState(true);
 
-    // Preview State
-    const [previewData, setPreviewData] = useState<any[]>([]);
-    const [isPrevewing, setIsPreviewing] = useState(false);
+    // ── UI State ──────────────────────────────────────────────────────────────
+    const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewStudents, setPreviewStudents] = useState<BulkStudentPreview[] | null>(null);
+    const [selectedCcs, setSelectedCcs] = useState<Set<number>>(new Set());
     const [isGenerating, setIsGenerating] = useState(false);
-    const [expandedCC, setExpandedCC] = useState<number[]>([]);
-    const [skippedVouchers, setSkippedVouchers] = useState<Record<string, boolean>>({}); // studentCc|feeDate -> boolean
+    const [lastJobId, setLastJobId] = useState<number | null>(null);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [activeJobStatus, setActiveJobStatus] = useState<any>(null);
+    const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // Load reference data
     useEffect(() => {
-        if (campuses.length === 0) dispatch(fetchCampuses());
-        if (classes.length === 0) dispatch(fetchClasses());
-        if (sections.length === 0) dispatch(fetchSections());
-        if (banks.length === 0) dispatch(fetchBanks());
+        return () => {
+            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+        };
+    }, []);
+
+    const startPolling = useCallback((jobId: number) => {
+        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+        
+        pollingIntervalRef.current = setInterval(async () => {
+            try {
+                const { data } = await api.get(`/v1/bulk-voucher-jobs/${jobId}/status`);
+                const status = data.data || data;
+                setActiveJobStatus(status);
+                
+                if (['DONE', 'FAILED', 'PARTIAL_FAILURE'].includes(status.status)) {
+                    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+                }
+            } catch (error) {
+                console.error("Polling error", error);
+            }
+        }, 1500);
+    }, []);
+
+    // ── Student ID resolution state ─────────────────────────────────────────────
+    const [resolvedIds, setResolvedIds] = useState<
+        Map<number, ResolvedStudent | "not_found" | "loading">
+    >(new Map());
+    const [isResolvingIds, setIsResolvingIds] = useState(false);
+    const resolveAbortRef = useRef<AbortController | null>(null);
+    const resolveDebouncerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // ── Data Loading ────────────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!classes.length) dispatch(fetchClasses());
+        if (!campuses.length) dispatch(fetchCampuses());
+        if (!sections.length) dispatch(fetchSections());
+        
+        // Load bank accounts
+        api.get('/v1/bank-accounts').then(res => {
+            setBankAccounts(res.data?.data || []);
+        });
     }, [dispatch]);
 
-    const handleExportCSV = () => {
-        if (previewData.length === 0) return;
+    // ── Parsed CCs ─────────────────────────────────────────────────────────────
+    const parsedStudentCcs = useMemo(() => {
+        return studentIdsRaw
+            .split(/[\s,]+/)
+            .map((x) => x.trim())
+            .filter(Boolean)
+            .map((x) => Number(x))
+            .filter((n) => Number.isInteger(n) && n > 0);
+    }, [studentIdsRaw]);
 
-        const rows = [
-            ["CC", "Full Name", "Class", "Section", "Fee Month", "Academic Year", "Heads Count", "Total Amount", "Status"]
-        ];
+    // ── Live student ID resolution ───────────────────────
+    useEffect(() => {
+        if (resolveDebouncerRef.current) clearTimeout(resolveDebouncerRef.current);
+        if (parsedStudentCcs.length === 0) {
+            setResolvedIds(new Map());
+            setIsResolvingIds(false);
+            return;
+        }
 
-        previewData.forEach(student => {
-            student.voucher_groups.forEach((group: any) => {
-                const skipKey = `${student.cc}|${group.fee_date}`;
-                const isSkipped = group.already_issued || skippedVouchers[skipKey];
-                const total = group.heads.reduce((sum: number, h: any) => sum + h.amount, 0);
-                
-                rows.push([
-                    student.cc.toString(),
-                    student.full_name,
-                    student.class,
-                    student.section,
-                    group.fee_date,
-                    group.academic_year,
-                    group.heads.length.toString(),
-                    total.toString(),
-                    isSkipped ? "SKIPPED" : "WILL_GENERATE"
-                ]);
-            });
-        });
+        setIsResolvingIds(true);
+        const loadingMap = new Map<number, "loading">(parsedStudentCcs.map((id) => [id, "loading"]));
+        setResolvedIds(loadingMap as Map<number, ResolvedStudent | "not_found" | "loading">);
 
-        const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `batch_preview_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+        resolveDebouncerRef.current = setTimeout(async () => {
+            if (resolveAbortRef.current) resolveAbortRef.current.abort();
+            const ctrl = new AbortController();
+            resolveAbortRef.current = ctrl;
+
+            const results = await Promise.allSettled(
+                parsedStudentCcs.map((id) =>
+                    api.get<{ data: { cc: number; full_name: string; gr_number?: string | null }[] }>(
+                        `/v1/students/search-simple`,
+                        { params: { q: String(id) }, signal: ctrl.signal }
+                    ).then((res) => {
+                        const match = res.data?.data?.find?.((s: { cc: number }) => s.cc === id);
+                        return { id, student: match ?? null };
+                    }).catch(() => ({ id, student: null }))
+                )
+            );
+
+            if (ctrl.signal.aborted) return;
+
+            const newMap = new Map<number, ResolvedStudent | "not_found" | "loading">();
+            for (const res of results) {
+                if (res.status === "fulfilled") {
+                    const { id, student } = res.value;
+                    newMap.set(id, student ? { cc: student.cc, full_name: student.full_name, gr_number: student.gr_number } : "not_found");
+                }
+            }
+            setResolvedIds(newMap);
+            setIsResolvingIds(false);
+        }, 600);
+
+        return () => {
+            if (resolveDebouncerRef.current) clearTimeout(resolveDebouncerRef.current);
+        };
+    }, [studentIdsRaw]);
+
+    // ── Handlers ────────────────────────────────────────────────────────────────
 
     const handlePreview = async () => {
-        if (!campusId || !feeDateFrom || !feeDateTo) {
-            toast.error("Please select Campus and Fee Date Range.");
-            return;
-        }
+        if (campusIds.length === 0 && parsedStudentCcs.length === 0) return toast.error("Please select at least one campus or enter specific CCs");
+        if (!feeDateFrom || !feeDateTo) return toast.error("Please select fee date range");
 
-        setIsPreviewing(true);
-        const loadingToast = toast.loading("Generating preview...");
+        setPreviewLoading(true);
         try {
-            const { data } = await api.post("/v1/vouchers/batch-preview", {
-                campus_id: campusId,
-                class_id: classId || undefined,
-                section_id: sectionId || undefined,
+            const { data } = await api.post('/v1/bulk-voucher-jobs/preview', {
+                campus_ids: campusIds.length > 0 ? campusIds : undefined,
+                class_ids: classIds.length > 0 ? classIds : undefined,
+                section_ids: sectionIds.length > 0 ? sectionIds : undefined,
+                student_ccs: parsedStudentCcs.length > 0 ? parsedStudentCcs : undefined,
                 fee_date_from: feeDateFrom,
                 fee_date_to: feeDateTo,
-                academic_year: academicYear || undefined,
+                skip_already_issued: skipAlreadyIssued
             });
-            setPreviewData(data.data);
-            toast.dismiss(loadingToast);
-            toast.success("Preview loaded.");
-        } catch (err: any) {
-            toast.dismiss(loadingToast);
-            toast.error(err.response?.data?.message || "Failed to generate preview.");
-            console.error(err);
+
+            const students: BulkStudentPreview[] = data.data || data;
+            setPreviewStudents(students);
+            
+            // Auto-select students who aren't already issued
+            const initialSelected = new Set<number>();
+            students.forEach(s => {
+                if (!s.is_already_issued) initialSelected.add(s.cc);
+            });
+            setSelectedCcs(initialSelected);
+            
+            toast.success(`Found ${students.length} students matching criteria`);
+        } catch (error) {
+            toast.error("Failed to load preview");
         } finally {
-            setIsPreviewing(false);
+            setPreviewLoading(false);
         }
     };
 
-    const handleGenerate = async () => {
+    const handleGenerateBatch = async () => {
         if (!bankAccountId || !issueDate || !dueDate) {
-            toast.error("Please select Bank Account, Issue Date and Due Date.");
-            return;
+            return toast.error("Missing required configuration fields");
+        }
+        if (selectedCcs.size === 0) {
+            return toast.error("No students selected for voucher generation");
         }
 
-        // Collect all student CCs that have at least one voucher group NOT skipped
-        const studentCCs = previewData
-            .filter(student => {
-                const hasVouchers = student.voucher_groups.some((group: any) => {
-                    const skipKey = `${student.cc}|${group.fee_date}`;
-                    return !group.already_issued && !skippedVouchers[skipKey];
-                });
-                return hasVouchers;
-            })
-            .map(s => s.cc);
-
-        if (studentCCs.length === 0) {
-            toast.error("No vouchers to generate based on selection.");
-            return;
-        }
-
-        if (!window.confirm(`Generate vouchers for ${studentCCs.length} students?`)) {
-            return;
-        }
+        if (!window.confirm(`Generate vouchers for ${selectedCcs.size} students?`)) return;
 
         setIsGenerating(true);
-        const loadingToast = toast.loading("Starting batch generation job...");
         try {
-            const { data } = await api.post("/v1/vouchers/batch-issue", {
-                campus_id: campusId,
-                class_id: classId || undefined,
-                section_id: sectionId || undefined,
+            const { data } = await api.post('/v1/bulk-voucher-jobs', {
+                campus_ids: campusIds,
+                class_ids: classIds,
+                section_ids: sectionIds,
                 fee_date_from: feeDateFrom,
                 fee_date_to: feeDateTo,
-                academic_year: academicYear || undefined,
-                bank_account_id: bankAccountId,
                 issue_date: issueDate,
                 due_date: dueDate,
                 validity_date: validityDate || undefined,
+                bank_account_id: Number(bankAccountId),
+                skip_already_issued: true,
                 apply_late_fee: applyLateFee,
                 late_fee_amount: lateFeeAmount,
                 waive_surcharge: waiveSurcharge,
-                student_ccs: studentCCs,
-                skip_already_issued: true,
+                student_ccs: Array.from(selectedCcs)
             });
 
-            toast.dismiss(loadingToast);
-            toast.success("Batch generation job started!");
-            router.push(`/bulk-voucher`); // Redirect to status page
-        } catch (err: any) {
-            toast.dismiss(loadingToast);
-            toast.error(err.response?.data?.message || "Failed to start batch generation.");
-            console.error(err);
+            const jobId = data.data?.job_id || data.job_id;
+            setLastJobId(jobId);
+            setShowSuccessModal(true);
+            startPolling(jobId);
+            toast.success("Bulk job started successfully!");
+        } catch (error) {
+            toast.error("Failed to start bulk job");
         } finally {
             setIsGenerating(false);
         }
     };
 
-    const toggleExpand = (cc: number) => {
-        setExpandedCC(prev => prev.includes(cc) ? prev.filter(c => c !== cc) : [...prev, cc]);
+    const handleExportCsv = () => {
+        if (!previewStudents) return;
+        
+        const headers = ["CC", "Name", "GR#", "Class", "Section", "Status"];
+        const rows = previewStudents.map(s => [
+            s.cc,
+            s.student_full_name,
+            s.gr_number || "N/A",
+            s.class_name,
+            s.section_name,
+            s.is_already_issued ? "Already Issued" : "Will Generate"
+        ]);
+
+        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `voucher_preview_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
-    const toggleSkip = (cc: number, date: string) => {
-        const key = `${cc}|${date}`;
-        setSkippedVouchers(prev => ({ ...prev, [key]: !prev[key] }));
+    const toggleSelectAll = () => {
+        if (!previewStudents) return;
+        if (selectedCcs.size === previewStudents.length) {
+            setSelectedCcs(new Set());
+        } else {
+            setSelectedCcs(new Set(previewStudents.map(s => s.cc)));
+        }
     };
 
-    // Stats
-    const totalStudents = previewData.length;
-    let totalGroups = 0;
-    let willGenerateCount = 0;
-    let alreadyIssuedCount = 0;
-    let manuallySkippedCount = 0;
-    let estimatedTotal = 0;
+    const toggleCc = (cc: number) => {
+        const next = new Set(selectedCcs);
+        if (next.has(cc)) next.delete(cc);
+        else next.add(cc);
+        setSelectedCcs(next);
+    };
 
-    previewData.forEach(student => {
-        student.voucher_groups.forEach((group: any) => {
-            totalGroups++;
-            const skipKey = `${student.cc}|${group.fee_date}`;
-            if (group.already_issued) {
-                alreadyIssuedCount++;
-            } else if (skippedVouchers[skipKey]) {
-                manuallySkippedCount++;
-            } else {
-                willGenerateCount++;
-                estimatedTotal += group.heads.reduce((sum: number, h: any) => sum + h.amount, 0);
-            }
-        });
-    });
-
-    const campusOptions: DropdownOption[] = campuses.map(c => ({ id: c.id, label: c.campus_name, sub: c.campus_code }));
-    const classOptions: DropdownOption[] = classes.map(c => ({ id: c.id, label: c.description, sub: c.class_code }));
-    const sectionOptions: DropdownOption[] = sections.map(s => ({ id: s.id, label: s.description }));
-    const bankOptions: DropdownOption[] = banks.map(b => ({ id: b.id, label: b.bank_name, sub: b.account_number }));
+    // ─── Render ────────────────────────────────────────────────────────────────
 
     return (
-        <div className="space-y-6 pb-20">
+        <div className="max-w-[1600px] mx-auto p-6 space-y-8">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-3">
-                        <span className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl text-indigo-600">
-                            <Layers className="h-6 w-6" />
-                        </span>
-                        Batch Issue Vouchers
-                    </h1>
-                    <p className="text-zinc-500 dark:text-zinc-400 mt-1 text-sm">
-                        Preview fee heads and generate vouchers in bulk with precision.
-                    </p>
-                </div>
+            <div className="flex flex-col gap-1">
+                <h1 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-3">
+                    <Sparkles className="h-8 w-8 text-amber-500" />
+                    Batch Voucher Issuance
+                </h1>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    A smarter front-door for bulk fee generation. Select students, preview, and generate vouchers in one flow.
+                </p>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                {/* Configuration Panel (4 cols) */}
-                <div className="xl:col-span-4 space-y-6 sticky top-6">
-                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[28px] p-6 shadow-sm overflow-hidden">
-                        <div className="flex items-center gap-2 mb-6">
-                            <SlidersHorizontal className="h-4 w-4 text-primary" />
-                            <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Batch Configuration</h2>
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+                {/* ── Left: Configuration Panel ── */}
+                <div className="xl:col-span-8 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[2.5rem] p-8 shadow-sm space-y-8 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-5">
+                        <FileText className="h-32 w-32" />
+                    </div>
+
+                    <div className="flex items-center gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-6 mb-2">
+                        <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+                            <Calendar className="h-5 w-5 text-primary" />
+                        </div>
+                        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Configuration</h2>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Campus */}
+                        <MultiSelect 
+                            label="Campuses"
+                            placeholder="All Campuses"
+                            options={campuses.map(c => ({ id: c.id, label: c.campus_name }))}
+                            selectedIds={campusIds}
+                            onChange={setCampusIds}
+                            icon={<Building2 className="h-5 w-5" />}
+                        />
+
+                        {/* Class */}
+                        <MultiSelect 
+                            label="Classes"
+                            placeholder="All Classes"
+                            options={classes.map(c => ({ id: c.id, label: c.description }))}
+                            selectedIds={classIds}
+                            onChange={setClassIds}
+                            icon={<Users className="h-5 w-5" />}
+                        />
+
+                        {/* Section */}
+                        <MultiSelect 
+                            label="Sections"
+                            placeholder="All Sections"
+                            options={sections.map(s => ({ id: s.id, label: s.description }))}
+                            selectedIds={sectionIds}
+                            onChange={setSectionIds}
+                            icon={<Search className="h-5 w-5" />}
+                        />
+                    </div>
+
+                    {/* Specific CCs */}
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-1">
+                            Specific CC Numbers <span className="font-medium lowercase">(comma or space separated)</span>
+                        </label>
+                        <div className="relative group">
+                            <textarea
+                                value={studentIdsRaw}
+                                onChange={e => setStudentIdsRaw(e.target.value)}
+                                placeholder="Enter CC numbers..."
+                                className="w-full min-h-[100px] p-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-mono text-sm leading-relaxed"
+                            />
+                            <div className="absolute right-4 bottom-4 pointer-events-none group-focus-within:opacity-0 transition-opacity">
+                                <Search className="h-5 w-5 text-zinc-300" />
+                            </div>
                         </div>
 
-                        <div className="space-y-5">
-                            {/* Scope Filters */}
-                            <div className="grid grid-cols-1 gap-4">
-                                <FilterDropdown
-                                    label="Campus" icon={Building2} value={campusId} options={campusOptions}
-                                    placeholder="Select Campus" onSelect={setCampusId} onClear={() => setCampusId("")}
-                                />
+                        {/* Resolved CC chips */}
+                        {parsedStudentCcs.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-2">
+                                {parsedStudentCcs.map(cc => {
+                                    const student = resolvedIds.get(cc);
+                                    if (student === 'loading') return (
+                                        <div key={cc} className="px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center gap-2 animate-pulse">
+                                            <div className="w-2 h-2 rounded-full bg-zinc-400" />
+                                            <span className="text-[10px] font-black font-mono">{cc}</span>
+                                        </div>
+                                    );
+                                    if (student === 'not_found') return (
+                                        <div key={cc} className="px-3 py-1.5 rounded-full bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/30 flex items-center gap-2">
+                                            <Ban className="h-3 w-3 text-rose-500" />
+                                            <span className="text-[10px] font-black font-mono text-rose-600">{cc}</span>
+                                        </div>
+                                    );
+                                    return (
+                                        <div key={cc} className="px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/30 flex items-center gap-2">
+                                            <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                                            <span className="text-[10px] font-black font-mono text-emerald-600">{cc}</span>
+                                            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">{student?.full_name}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Date Range Section */}
+                        <div className="space-y-6">
+                            <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                                <Clock3 className="h-4 w-4" /> Date Range
+                            </h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-1">Fee Date From</label>
+                                    <input 
+                                        type="date"
+                                        value={feeDateFrom}
+                                        onChange={e => setFeeDateFrom(e.target.value)}
+                                        className="w-full h-14 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-bold text-sm"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-1">Fee Date To</label>
+                                    <input 
+                                        type="date"
+                                        value={feeDateTo}
+                                        onChange={e => setFeeDateTo(e.target.value)}
+                                        className="w-full h-14 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-bold text-sm"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Payment Configuration */}
+                        <div className="space-y-6">
+                            <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                                <Building2 className="h-4 w-4" /> Bank & Issues
+                            </h3>
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-1">Bank Account</label>
+                                    <select 
+                                        value={bankAccountId}
+                                        onChange={e => setBankAccountId(e.target.value)}
+                                        className="w-full h-14 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-bold text-sm"
+                                    >
+                                        <option value="">Select Account</option>
+                                        {bankAccounts.map(b => <option key={b.id} value={b.id}>{b.bank_name} ({b.account_number})</option>)}
+                                    </select>
+                                </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <FilterDropdown
-                                        label="Class" icon={GraduationCap} value={classId} options={classOptions}
-                                        placeholder="Select Class" onSelect={setClassId} onClear={() => setClassId("")}
-                                    />
-                                    <FilterDropdown
-                                        label="Section" icon={Users} value={sectionId} options={sectionOptions}
-                                        placeholder="Select Section" onSelect={setSectionId} onClear={() => setSectionId("")}
-                                    />
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-1">Issue Date</label>
+                                        <input 
+                                            type="date"
+                                            value={issueDate}
+                                            onChange={e => setIssueDate(e.target.value)}
+                                            className="w-full h-14 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-bold text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-1">Due Date</label>
+                                        <input 
+                                            type="date"
+                                            value={dueDate}
+                                            onChange={e => setDueDate(e.target.value)}
+                                            className="w-full h-14 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-bold text-sm"
+                                        />
+                                    </div>
                                 </div>
                             </div>
-
-                            <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-2" />
-
-                            {/* Fee Dates */}
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
-                                    <Calendar className="h-3.5 w-3.5" /> Fee Month Range
-                                </label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <input
-                                        type="date" value={feeDateFrom} onChange={e => setFeeDateFrom(e.target.value)}
-                                        className="h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all text-zinc-700 dark:text-zinc-300"
-                                    />
-                                    <input
-                                        type="date" value={feeDateTo} onChange={e => setFeeDateTo(e.target.value)}
-                                        className="h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all text-zinc-700 dark:text-zinc-300"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
-                                    <Hash className="h-3.5 w-3.5" /> Academic Year
-                                </label>
-                                <input
-                                    type="text" placeholder="e.g. 2025-2026" value={academicYear} onChange={e => setAcademicYear(e.target.value)}
-                                    className="h-11 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all text-zinc-700 dark:text-zinc-300 font-semibold"
-                                />
-                            </div>
-
-                            <button
-                                onClick={handlePreview}
-                                disabled={isPrevewing}
-                                className="w-full flex items-center justify-center gap-2 h-12 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-zinc-500/10 active:scale-95"
-                            >
-                                {isPrevewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
-                                {isPrevewing ? "Loading Preview..." : "Calculate Preview"}
-                            </button>
                         </div>
                     </div>
 
-                    {previewData.length > 0 && (
-                        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[28px] p-6 shadow-sm animate-in slide-in-from-bottom-4 duration-300">
-                            <div className="flex items-center gap-2 mb-6">
-                                <Banknote className="h-4 w-4 text-emerald-500" />
-                                <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Issuance Settings</h2>
-                            </div>
-
-                            <div className="space-y-5">
-                                <FilterDropdown
-                                    label="Bank Account" icon={Landmark} value={bankAccountId} options={bankOptions}
-                                    placeholder="Select Bank" onSelect={setBankAccountId} onClear={() => setBankAccountId("")}
+                    {/* Toggles Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-[2rem] border border-zinc-100 dark:border-zinc-800">
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={() => setApplyLateFee(!applyLateFee)}
+                                className={`w-12 h-6 rounded-full transition-all relative ${applyLateFee ? 'bg-primary' : 'bg-zinc-300 dark:bg-zinc-700'}`}
+                            >
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all ${applyLateFee ? 'translate-x-6' : 'translate-x-0'}`} />
+                            </button>
+                            <span className="text-xs font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400">Late Fee</span>
+                            {applyLateFee && (
+                                <input 
+                                    type="number"
+                                    value={lateFeeAmount}
+                                    onChange={e => setLateFeeAmount(Number(e.target.value))}
+                                    className="w-16 bg-transparent border-b border-zinc-300 dark:border-zinc-700 text-xs font-black text-primary outline-none"
                                 />
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Issue Date</label>
-                                        <input
-                                            type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)}
-                                            className="h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 text-rose-500">Due Date</label>
-                                        <input
-                                            type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-                                            className="h-11 px-3 bg-rose-50 dark:bg-rose-900/10 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded-xl text-sm"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col gap-4 p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Late Fee Charge</span>
-                                        <button 
-                                            onClick={() => setApplyLateFee(!applyLateFee)}
-                                            className={`w-10 h-5 rounded-full relative transition-colors ${applyLateFee ? "bg-primary" : "bg-zinc-300"}`}
-                                        >
-                                            <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${applyLateFee ? "right-1" : "left-1"}`} />
-                                        </button>
-                                    </div>
-                                    {applyLateFee && (
-                                        <input
-                                            type="number" value={lateFeeAmount} onChange={e => setLateFeeAmount(Number(e.target.value))}
-                                            className="h-9 px-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm font-mono"
-                                        />
-                                    )}
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Waive Surcharges</span>
-                                        <button 
-                                            onClick={() => setWaiveSurcharge(!waiveSurcharge)}
-                                            className={`w-10 h-5 rounded-full relative transition-colors ${waiveSurcharge ? "bg-amber-500" : "bg-zinc-300"}`}
-                                        >
-                                            <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${waiveSurcharge ? "right-1" : "left-1"}`} />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={handleGenerate}
-                                    disabled={isGenerating}
-                                    className="w-full flex items-center justify-center gap-2 h-14 bg-primary text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:bg-primary-hover transition-all shadow-xl shadow-primary/20 active:scale-95 disabled:opacity-50"
-                                >
-                                    {isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <FilePlus2 className="h-5 w-5" />}
-                                    {isGenerating ? "Generating..." : "Generate Batch"}
-                                </button>
-                            </div>
+                            )}
                         </div>
-                    )}
+
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={() => setWaiveSurcharge(!waiveSurcharge)}
+                                className={`w-12 h-6 rounded-full transition-all relative ${waiveSurcharge ? 'bg-primary' : 'bg-zinc-300 dark:bg-zinc-700'}`}
+                            >
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all ${waiveSurcharge ? 'translate-x-6' : 'translate-x-0'}`} />
+                            </button>
+                            <span className="text-xs font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400">Waive Surcharge</span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={() => setSkipAlreadyIssued(!skipAlreadyIssued)}
+                                className={`w-12 h-6 rounded-full transition-all relative ${skipAlreadyIssued ? 'bg-primary' : 'bg-zinc-300 dark:bg-zinc-700'}`}
+                            >
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all ${skipAlreadyIssued ? 'translate-x-6' : 'translate-x-0'}`} />
+                            </button>
+                            <span className="text-xs font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400">Skip Already Issued</span>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end pt-4">
+                        <button 
+                            onClick={handlePreview}
+                            disabled={previewLoading}
+                            className="h-16 px-10 bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white rounded-3xl font-black text-base shadow-xl hover:translate-y-[-2px] transition-all flex items-center gap-3 disabled:opacity-50"
+                        >
+                            {previewLoading ? <RefreshCw className="h-6 w-6 animate-spin" /> : <Users className="h-6 w-6" />}
+                            PREVIEW STUDENTS →
+                        </button>
+                    </div>
                 </div>
 
-                {/* Preview Table (8 cols) */}
-                <div className="xl:col-span-8 space-y-6">
-                    {previewData.length === 0 ? (
-                        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[28px] p-20 flex flex-col items-center text-center shadow-sm">
-                            <div className="p-6 bg-zinc-50 dark:bg-zinc-900 rounded-full mb-4">
-                                <Search className="h-10 w-10 text-zinc-300" />
+                {/* ── Right: Preview Table ── */}
+                <div className="xl:col-span-4 flex flex-col gap-6">
+                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[2.5rem] shadow-sm overflow-hidden flex flex-col h-[700px]">
+                        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Preview List</h2>
+                            {previewStudents && (
+                                <span className="text-[10px] font-black px-3 py-1 bg-zinc-100 dark:bg-zinc-900 rounded-full text-zinc-500">
+                                    {selectedCcs.size} / {previewStudents.length} SELECTED
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto">
+                            {!previewStudents ? (
+                                <div className="h-full flex flex-col items-center justify-center p-12 text-center space-y-4">
+                                    <div className="h-20 w-20 rounded-full bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center">
+                                        <Users className="h-10 w-10 text-zinc-200" />
+                                    </div>
+                                    <p className="text-sm font-bold text-zinc-400 leading-relaxed italic">
+                                        Configure filters on the left and click preview to see student list.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="p-4 space-y-3">
+                                    {/* Disclaimer */}
+                                    <div className="mx-2 mb-4 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-2xl flex items-start gap-3">
+                                        <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-400">Disclaimer</p>
+                                            <p className="text-xs font-bold text-amber-700/80 dark:text-amber-500/80 leading-relaxed">
+                                                This list strictly excludes students who have already been issued a voucher for the selected period.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Select All Toggle */}
+                                    <button 
+                                        onClick={toggleSelectAll}
+                                        className="w-full p-4 rounded-2xl border-2 border-dashed border-zinc-100 dark:border-zinc-800 hover:border-primary/20 transition-all flex items-center justify-center gap-3 group"
+                                    >
+                                        <div className={`w-5 h-5 rounded-md border-2 transition-all ${selectedCcs.size === previewStudents.length ? 'bg-primary border-primary' : 'border-zinc-200 group-hover:border-primary/30'}`}>
+                                            {selectedCcs.size === previewStudents.length && <CheckCircle2 className="h-full w-full text-white p-0.5" />}
+                                        </div>
+                                        <span className="text-xs font-black uppercase tracking-widest text-zinc-500">Select All Students</span>
+                                    </button>
+
+                                    {previewStudents.map(student => (
+                                        <button
+                                            key={student.cc}
+                                            disabled={student.is_already_issued}
+                                            onClick={() => toggleCc(student.cc)}
+                                            className={`w-full p-5 rounded-3xl border-2 transition-all text-left relative group ${student.is_already_issued ? 'opacity-50 grayscale cursor-not-allowed border-zinc-100' : selectedCcs.has(student.cc)
+                                                ? 'border-primary bg-primary/[0.02]'
+                                                : 'border-zinc-100 dark:border-zinc-800 hover:border-zinc-200'
+                                                }`}
+                                        >
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="text-[10px] font-black font-mono text-zinc-400">#{student.cc}</span>
+                                                        <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${student.is_already_issued ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                            {student.is_already_issued ? 'Already Issued' : 'Ready'}
+                                                        </span>
+                                                    </div>
+                                                    <h3 className="text-sm font-black text-zinc-900 dark:text-zinc-100 truncate">{student.student_full_name}</h3>
+                                                    <div className="flex items-center gap-2 mt-2 opacity-50">
+                                                        <span className="text-[10px] font-bold uppercase">{student.class_name}</span>
+                                                        <span className="w-1 h-1 rounded-full bg-zinc-300" />
+                                                        <span className="text-[10px] font-bold uppercase">{student.section_name}</span>
+                                                    </div>
+                                                </div>
+                                                <div className={`w-6 h-6 rounded-lg border-2 mt-1 flex items-center justify-center transition-all ${student.is_already_issued ? 'bg-zinc-100 border-zinc-200' : selectedCcs.has(student.cc) ? 'bg-primary border-primary shadow-lg shadow-primary/20' : 'border-zinc-200 group-hover:border-primary/30'}`}>
+                                                    {selectedCcs.has(student.cc) && <CheckCircle2 className="h-4 w-4 text-white" />}
+                                                    {student.is_already_issued && <Ban className="h-3 w-3 text-zinc-400" />}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Summary Bar */}
+                        <div className="p-8 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 space-y-6">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Selected</div>
+                                    <div className="text-2xl font-black text-zinc-900 dark:text-zinc-100">{selectedCcs.size} <span className="text-sm text-zinc-400">Students</span></div>
+                                </div>
+                                {previewStudents && (
+                                    <button 
+                                        onClick={handleExportCsv}
+                                        className="h-12 w-12 rounded-2xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center hover:shadow-lg transition-all"
+                                        title="Export CSV"
+                                    >
+                                        <Download className="h-5 w-5 text-zinc-600 dark:text-zinc-400" />
+                                    </button>
+                                )}
                             </div>
-                            <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Ready to Preview</h3>
-                            <p className="text-zinc-400 text-sm max-w-sm mt-2">
-                                Configure the scope and fee date range on the left, then click "Calculate Preview" to see exactly what will be issued.
+
+                            <button
+                                onClick={handleGenerateBatch}
+                                disabled={isGenerating || selectedCcs.size === 0}
+                                className="w-full h-16 bg-primary text-white rounded-3xl font-black text-base shadow-xl shadow-primary/20 hover:translate-y-[-2px] active:translate-y-[0px] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                            >
+                                {isGenerating ? <RefreshCw className="h-6 w-6 animate-spin" /> : <Banknote className="h-6 w-6" />}
+                                GENERATE BATCH →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {/* Success/Progress Modal Overlay */}
+            {showSuccessModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-zinc-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[3rem] p-10 max-w-lg w-full shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
+                        <div className="flex flex-col items-center text-center space-y-4">
+                            {!activeJobStatus || activeJobStatus.status === 'PENDING' || activeJobStatus.status === 'PROCESSING' ? (
+                                <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                                    <RefreshCw className="h-12 w-12 text-primary animate-spin" />
+                                </div>
+                            ) : activeJobStatus.status === 'DONE' ? (
+                                <div className="h-24 w-24 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mb-2">
+                                    <CheckCircle2 className="h-12 w-12 text-emerald-500 animate-bounce" />
+                                </div>
+                            ) : (
+                                <div className="h-24 w-24 rounded-full bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center mb-2">
+                                    <AlertCircle className="h-12 w-12 text-rose-500" />
+                                </div>
+                            )}
+                            
+                            <h2 className="text-3xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">
+                                {activeJobStatus?.status === 'DONE' ? 'Generation Complete!' : 
+                                 activeJobStatus?.status === 'FAILED' ? 'Generation Failed' : 
+                                 'Processing Vouchers...'}
+                            </h2>
+                            
+                            <p className="text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
+                                {activeJobStatus?.status === 'DONE' 
+                                    ? `Successfully generated ${activeJobStatus.success_count} vouchers. ${activeJobStatus.skip_count} were skipped.`
+                                    : `Voucher generation job #${lastJobId} is currently in progress. Please stay on this page.`}
                             </p>
                         </div>
-                    ) : (
-                        <>
-                            {/* Summary Stats */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {[
-                                    { label: "Students", value: totalStudents, icon: Users, color: "text-blue-500" },
-                                    { label: "Will Generate", value: willGenerateCount, icon: FilePlus2, color: "text-emerald-500" },
-                                    { label: "Already Issued", value: alreadyIssuedCount, icon: AlertTriangle, color: "text-amber-500" },
-                                    { label: "Est. Total Amount", value: `PKR ${estimatedTotal.toLocaleString()}`, icon: Banknote, color: "text-indigo-500", full: true },
-                                ].map(s => (
-                                    <div key={s.label} className={`bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col ${s.full ? "md:col-span-1" : ""}`}>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{s.label}</span>
-                                            <s.icon className={`h-4 w-4 ${s.color}`} />
-                                        </div>
-                                        <p className="text-lg font-black text-zinc-900 dark:text-zinc-100 tabular-nums">{s.value}</p>
-                                    </div>
-                                ))}
-                            </div>
 
-                            {/* Actions Toolbar */}
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-sm font-black text-zinc-400 uppercase tracking-widest">Preview Results</h3>
-                                <button
-                                    onClick={handleExportCSV}
-                                    className="flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-xl text-xs font-bold hover:bg-zinc-200 transition-all border border-zinc-200 dark:border-zinc-700"
+                        {/* Progress Stats */}
+                        {activeJobStatus && (
+                            <div className="grid grid-cols-3 gap-4 p-6 bg-zinc-50 dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800">
+                                <div className="text-center space-y-1">
+                                    <div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Success</div>
+                                    <div className="text-xl font-black text-emerald-600">{activeJobStatus.success_count}</div>
+                                </div>
+                                <div className="text-center space-y-1">
+                                    <div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Skipped</div>
+                                    <div className="text-xl font-black text-amber-600">{activeJobStatus.skip_count}</div>
+                                </div>
+                                <div className="text-center space-y-1 border-l border-zinc-200 dark:border-zinc-800">
+                                    <div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Failed</div>
+                                    <div className="text-xl font-black text-rose-600">{activeJobStatus.fail_count}</div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-3">
+                            {activeJobStatus?.merged_pdf_url && (
+                                <a 
+                                    href={activeJobStatus.merged_pdf_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="h-16 w-full bg-emerald-600 text-white rounded-3xl font-black text-base shadow-xl flex items-center justify-center gap-3 hover:translate-y-[-2px] transition-all"
                                 >
-                                    <Download className="h-4 w-4" />
-                                    Export CSV
+                                    <Download className="h-5 w-5" />
+                                    DOWNLOAD ALL VOUCHERS →
+                                </a>
+                            )}
+                            
+                            {activeJobStatus?.status === 'DONE' || activeJobStatus?.status === 'FAILED' || activeJobStatus?.status === 'PARTIAL_FAILURE' ? (
+                                <button 
+                                    onClick={() => {
+                                        setShowSuccessModal(false);
+                                        setActiveJobStatus(null);
+                                        setPreviewStudents(null);
+                                    }}
+                                    className="h-16 w-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-3xl font-black text-base shadow-xl flex items-center justify-center gap-3 hover:translate-y-[-2px] transition-all"
+                                >
+                                    DONE & CLOSE
                                 </button>
-                            </div>
-
-                            {/* Student List */}
-                            <div className="space-y-4">
-                                {previewData.map((student) => (
-                                    <div 
-                                        key={student.cc}
-                                        className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm transition-all"
-                                    >
-                                        {/* Student Header */}
-                                        <div 
-                                            onClick={() => toggleExpand(student.cc)}
-                                            className="px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors"
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xs font-black text-zinc-500">
-                                                    CC-{student.cc}
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{student.full_name}</h3>
-                                                    <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-widest">{student.class} · {student.section}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-6">
-                                                <div className="hidden md:flex items-center gap-4">
-                                                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                                                        {student.voucher_groups.length} Groups
-                                                    </span>
-                                                    <div className="flex -space-x-1">
-                                                        {student.voucher_groups.map((g: any, i: number) => {
-                                                            const skipKey = `${student.cc}|${g.fee_date}`;
-                                                            const isSkipped = g.already_issued || skippedVouchers[skipKey];
-                                                            return (
-                                                                <div 
-                                                                    key={i} 
-                                                                    className={`w-2 h-2 rounded-full border-2 border-white dark:border-zinc-950 ${isSkipped ? "bg-amber-400" : "bg-emerald-500"}`} 
-                                                                    title={g.fee_date}
-                                                                />
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                                <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${expandedCC.includes(student.cc) ? "rotate-180" : ""}`} />
-                                            </div>
-                                        </div>
-
-                                        {/* Expandable Voucher Groups */}
-                                        <AnimatePresence>
-                                            {expandedCC.includes(student.cc) && (
-                                                <motion.div
-                                                    initial={{ height: 0 }}
-                                                    animate={{ height: "auto" }}
-                                                    exit={{ height: 0 }}
-                                                    className="overflow-hidden bg-zinc-50/50 dark:bg-zinc-900/30 border-t border-zinc-100 dark:border-zinc-800"
-                                                >
-                                                    <div className="p-6 space-y-4">
-                                                        {student.voucher_groups.map((group: any, idx: number) => {
-                                                            const skipKey = `${student.cc}|${group.fee_date}`;
-                                                            const isManuallySkipped = skippedVouchers[skipKey];
-                                                            const isWillGenerate = !group.already_issued && !isManuallySkipped;
-                                                            const total = group.heads.reduce((s: number, h: any) => s + h.amount, 0);
-
-                                                            return (
-                                                                <div 
-                                                                    key={idx}
-                                                                    className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all
-                                                                        ${isWillGenerate ? "bg-white dark:bg-zinc-950 border-emerald-100 dark:border-emerald-900/30 shadow-sm" : "bg-zinc-100/50 dark:bg-zinc-800/20 border-zinc-200 dark:border-zinc-800 opacity-70"}`}
-                                                                >
-                                                                    <div className="flex items-center gap-4">
-                                                                        <div className={`p-2 rounded-lg ${isWillGenerate ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"}`}>
-                                                                            <Calendar className="h-4 w-4" />
-                                                                        </div>
-                                                                        <div>
-                                                                            <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{new Date(group.fee_date).toLocaleDateString("en-PK", { month: "long", year: "numeric" })}</p>
-                                                                            <p className="text-[10px] text-zinc-400 font-medium">Academic Year: {group.academic_year}</p>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className="flex-1 max-w-xs">
-                                                                        <div className="flex flex-wrap gap-1">
-                                                                            {group.heads.map((h: any) => (
-                                                                                <span key={h.id} className="text-[9px] px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded border border-zinc-200 dark:border-zinc-700 whitespace-nowrap">
-                                                                                    {h.fee_type}
-                                                                                </span>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className="text-right flex items-center gap-6 justify-between md:justify-end">
-                                                                        <div className="flex flex-col items-end">
-                                                                            <p className={`text-sm font-black tabular-nums ${isWillGenerate ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-400"}`}>
-                                                                                {total.toLocaleString()}
-                                                                            </p>
-                                                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md mt-1
-                                                                                ${group.already_issued ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600" : 
-                                                                                  isManuallySkipped ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-400" : 
-                                                                                  "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600"}`}>
-                                                                                {group.already_issued ? "Already Issued" : isManuallySkipped ? "Skipped" : "Will Generate"}
-                                                                            </span>
-                                                                        </div>
-
-                                                                        {!group.already_issued && (
-                                                                            <button 
-                                                                                onClick={(e) => { e.stopPropagation(); toggleSkip(student.cc, group.fee_date); }}
-                                                                                className={`p-2 rounded-lg transition-colors ${isManuallySkipped ? "text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" : "text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20"}`}
-                                                                                title={isManuallySkipped ? "Restore" : "Skip this voucher"}
-                                                                            >
-                                                                                {isManuallySkipped ? <RefreshCw className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                ))}
-                            </div>
-                        </>
-                    )}
+                            ) : (
+                                <button 
+                                    disabled
+                                    className="h-16 w-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 rounded-3xl font-black text-base flex items-center justify-center gap-3 cursor-not-allowed"
+                                >
+                                    <RefreshCw className="h-5 w-5 animate-spin" />
+                                    PLEASE WAIT...
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
-            </div>
-
-            {/* Warning Footer */}
-            <div className="flex items-center gap-3 p-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-[24px] shadow-2xl">
-                <div className="p-2 bg-white/10 dark:bg-black/5 rounded-xl">
-                    <AlertTriangle className="h-5 w-5 text-amber-400" />
-                </div>
-                <div className="flex-1">
-                    <p className="text-xs font-bold">Important Notice</p>
-                    <p className="text-[10px] opacity-70">
-                        Vouchers will only be generated for groups marked as "Will Generate". Existing non-VOID vouchers are automatically skipped to prevent duplication.
-                    </p>
-                </div>
-            </div>
+            )}
         </div>
     );
 }
