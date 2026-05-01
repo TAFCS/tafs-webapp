@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Search,
   Loader2,
@@ -17,13 +17,10 @@ import {
   UserSearch,
   ChevronDown,
   Settings2 as SettingsIcon,
-  X,
   ChevronLeft,
   ChevronRight,
-  GripVertical,
   FileSearch,
   Info,
-  Lock as LockIcon,
   Link as LinkIcon,
   Layers,
 } from "lucide-react";
@@ -32,20 +29,14 @@ import Link from "next/link";
 import { useRef } from "react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
-import { useSelector, useDispatch } from "react-redux";
-import { RootState, AppDispatch } from "@/store/store";
-import { fetchClasses } from "@/store/slices/classesSlice";
-import { fetchSections } from "@/store/slices/sectionsSlice";
-import { pdf } from "@react-pdf/renderer";
-import { FeeChallanPDF } from "@/components/fees/FeeChallanPDF";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store/store";
 import { bankAccountsService, BankAccount } from "@/lib/bank-accounts.service";
 import {
   groupFees,
   MONTHS,
   MONTH_TO_NUM,
-  getMonthYearLabel,
   getCurrentAcademicYear,
-  getConsolidatedMonthsLabel,
 } from "@/lib/fee-utils";
 // --- Types ---
 interface StudentProfile {
@@ -132,8 +123,6 @@ function formatArrearMonthLabel(r: {
 }
 
 export default function FeeChallanGenerator() {
-  const dispatch = useDispatch<AppDispatch>();
-
   // --- Form States ---
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -143,8 +132,6 @@ export default function FeeChallanGenerator() {
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
 
-  const classes = useSelector((state: RootState) => state.classes.items);
-  const sections = useSelector((state: RootState) => state.sections.items);
   const user = useSelector((state: RootState) => state.auth.user);
 
   const [student, setStudent] = useState<StudentProfile | null>(null);
@@ -197,8 +184,6 @@ export default function FeeChallanGenerator() {
   const [isFetchingFees, setIsFetchingFees] = useState(false);
   const [voucherSaved, setVoucherSaved] = useState(false);
   const [isSavingVoucher, setIsSavingVoucher] = useState(false);
-  const [isClient, setIsClient] = useState(false);
-  const [siblings, setSiblings] = useState<any[]>([]);
 
   // Grouped fees by fee_date (from backend)
   const [feeGroupsByDate, setFeeGroupsByDate] = useState<
@@ -212,21 +197,11 @@ export default function FeeChallanGenerator() {
   );
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
 
-  // --- Saved Voucher IDs (set after successful creation, used for correct PDF numbering) ---
-  const [savedVoucherId, setSavedVoucherId] = useState<number | null>(null);
-  const [savedGroupVoucherIds, setSavedGroupVoucherIds] = useState<
-    Record<string, number>
-  >({});
+  // --- Saved Voucher PDF URLs ---
   const [savedVoucherPdfUrl, setSavedVoucherPdfUrl] = useState<string | null>(
     null,
   );
   const [savedGroupVoucherPdfUrls, setSavedGroupVoucherPdfUrls] = useState<
-    Record<string, string>
-  >({});
-  const [savedVoucherBlobUrl, setSavedVoucherBlobUrl] = useState<string | null>(
-    null,
-  );
-  const [savedGroupBlobUrls, setSavedGroupBlobUrls] = useState<
     Record<string, string>
   >({});
 
@@ -251,19 +226,7 @@ export default function FeeChallanGenerator() {
     string | null
   >(null);
 
-  // --- Bulk Voucher States ---
-  const [bulkCampusId, setBulkCampusId] = useState<string>("");
-  const [bulkClassId, setBulkClassId] = useState<string>("");
-  const [bulkSectionId, setBulkSectionId] = useState<string>("");
-  const [bulkPreview, setBulkPreview] = useState<any>(null);
-  const [bulkResult, setBulkResult] = useState<any>(null);
-  const [isBulkPreviewing, setIsBulkPreviewing] = useState(false);
-  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-
-  // --- Voucher Display Options ---
-  const [showDiscount, setShowDiscount] = useState(true);
-  const [showBundleHeads, setShowBundleHeads] = useState(false);
 
   useEffect(() => {
     setVoucherSaved(false);
@@ -290,10 +253,7 @@ export default function FeeChallanGenerator() {
   ]);
 
   useEffect(() => {
-    setIsClient(true);
     fetchBanks();
-    dispatch(fetchClasses());
-    dispatch(fetchSections());
 
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -351,25 +311,6 @@ export default function FeeChallanGenerator() {
     }
   }, [student, month, academicYear]);
 
-  useEffect(() => {
-    setBulkPreview(null);
-    setBulkResult(null);
-  }, [
-    bulkCampusId,
-    bulkClassId,
-    bulkSectionId,
-    month,
-    academicYear,
-    issueDate,
-    dueDate,
-    validityDate,
-    selectedBank,
-    applyLateFee,
-    lateFeeAmount,
-    dateFrom,
-    dateTo,
-  ]);
-
   const fetchStudentFees = async (
     cc: number,
     selectedMonth: string,
@@ -386,8 +327,6 @@ export default function FeeChallanGenerator() {
         `/v1/student-fees/by-student/${cc}${queryStr}`,
       );
       const responseData = data?.data;
-      const familyStudents = responseData?.family?.students || [];
-
       const groups: { fee_date: string; fees: StudentFee[] }[] =
         responseData?.groups || [];
       setFeeGroupsByDate(groups);
@@ -416,7 +355,6 @@ export default function FeeChallanGenerator() {
         if (feeAcademicYear) setAcademicYear(feeAcademicYear);
       }
 
-      setSiblings(familyStudents.filter((s: any) => s.cc !== cc));
     } catch (err) {
       console.error(err);
       toast.error("Failed to fetch applicable fees.");
@@ -563,7 +501,7 @@ export default function FeeChallanGenerator() {
       ...f,
       isArrear: false,
     }));
-  }, [studentFees, academicYear, showBundleHeads]);
+  }, [studentFees, showBundles]);
 
   // Combined fees for PDF = arrears first, then current
   const allPdfFeesForDisplay = useMemo(
@@ -575,11 +513,6 @@ export default function FeeChallanGenerator() {
     () => allPdfFeesForDisplay.reduce((sum, f) => sum + (f.netAmount || 0), 0),
     [allPdfFeesForDisplay],
   );
-  const totalArrearsAmount = arrearsData?.total_arrears ?? 0;
-
-  const voucherNumberStr = savedVoucherId ? `${savedVoucherId}` : "PENDING";
-  const timestampStr = new Date().toLocaleString();
-
   // Fetch arrears for a given fee_date (called when a group card loads or before single-voucher generation)
   const fetchArrears = async (studentCc: number, feeDate: string) => {
     setIsFetchingArrears(true);
@@ -602,19 +535,6 @@ export default function FeeChallanGenerator() {
     } finally {
       setIsFetchingArrears(false);
     }
-  };
-
-  /** Derive "FOR MONTH(S) OF" label from the actual months present in the fee rows. */
-  const getMonthLabelFromFees = (fees: any[]): string => {
-    const items = fees
-      .map((f) => ({
-        month: f.target_month || f.month,
-        academicYear: f.academic_year || academicYear,
-      }))
-      .filter((x) => x.month);
-
-    if (items.length === 0) return month;
-    return getConsolidatedMonthsLabel(items);
   };
 
   const handleSaveVoucher = async () => {
@@ -696,138 +616,11 @@ export default function FeeChallanGenerator() {
 
       const { data: createRes } = await api.post("/v1/vouchers", formData);
       const voucherId: number = createRes.data.id;
-      setSavedVoucherId(voucherId);
-      setVoucherSaved(true);
 
-      // Build arrear PDF items — surcharge rows excluded (shown via details.totalSurcharge instead)
-      const arrearPdfFees = (freshArrears?.rows ?? [])
-        .filter((r: any) => !r.isSurcharge)
-        .map((r: any) => {
-          const isPartial = Number(r.amount_paid) > 0;
-          const prefix = isPartial ? "BALANCE PAYMENT OF — " : "";
-          const netAmount = Number(r.outstanding);
-          return {
-            description: `${prefix}${r.fee_type} (ARREAR – ${r.fee_date})`,
-            amount: isPartial ? netAmount : Number(r.amount),
-            netAmount: netAmount,
-            discount: isPartial ? 0 : Number(r.amount_paid),
-            isArrear: true,
-            feeDate: r.fee_date,
-          };
-        });
-      const currentPdfFees = processedPdfFees.map((f) => ({
-        ...f,
-        isArrear: false,
-      }));
-      const allPdfFees = [...arrearPdfFees, ...currentPdfFees];
-      const activeSurchargeAmt = waiveSurcharge ? 0 : (arrearsData?.total_surcharge ?? 0);
-      const allPdfTotal = allPdfFees.reduce((s, f) => s + (f.netAmount || 0), 0) + activeSurchargeAmt;
-      console.log(
-        `[VOUCHER_DEBUG] Manual PDF: arrears=${arrearPdfFees.length}, current=${currentPdfFees.length}, surcharge=${activeSurchargeAmt}, total=${allPdfTotal}`,
-      );
-
-      // Helper to build PDF element (DRY for the two renders below)
-      const buildPdfEl = (qrUrl: string | undefined) => (
-        <FeeChallanPDF
-          student={{
-            cc: student.cc,
-            student_full_name: student.student_full_name,
-            gr_number: student.gr_number,
-            campus: student.campus,
-            class_id: student.class_id,
-            section_id: student.section_id,
-            className:
-              (classes.find((c) => c.id === student.class_id) as any)
-                ?.description || "N/A",
-            sectionName:
-              (sections.find((s) => s.id === student.section_id) as any)
-                ?.description || "N/A",
-            grade_and_section: student.grade_and_section,
-            father_name: student.father_name,
-            gender: student.gender,
-          }}
-          details={{
-            month: getMonthLabelFromFees(studentFees),
-            academicYear,
-            issueDate,
-            dueDate,
-            validityDate,
-            applyLateFee,
-            lateFeeAmount,
-            voucherNumber: voucherId,
-            generatedBy: {
-              fullName: user?.fullName || user?.username || "N/A",
-              timestampStr,
-            },
-            bank: {
-              name: selectedBank.bank_name,
-              title: accTitle,
-              account: accNo,
-              branch: branchCode,
-              address: bankAddress,
-              iban,
-            },
-            surchargeWaived: waiveSurcharge,                                         // ← ADD
-            totalSurcharge: arrearsData?.total_surcharge ?? 0, 
-          }}
-          fees={allPdfFees}
-          totalAmount={allPdfTotal}
-          showDiscount={showDiscount}
-          arrearsHistory={(freshArrears?.rows ?? []).map((r: any) => ({
-            date: r.fee_date,
-            head: r.fee_type,
-            amount: Number(r.outstanding).toLocaleString(),
-            totalAmount: (freshArrears?.total_arrears ?? 0).toLocaleString(),
-            target_month: r.target_month,
-            academic_year: r.academic_year,
-          }))}
-          siblings={siblings.map((s) => ({
-            full_name: s.student_full_name || s.full_name,
-            cc: s.cc,
-            gr_number: s.gr_number,
-            className:
-              s.classes?.description ||
-              s.grade_and_section?.split("-")[0] ||
-              "N/A",
-            sectionName:
-              s.sections?.description ||
-              s.grade_and_section?.split("-")[1] ||
-              "N/A",
-          }))}
-          qrUrl={qrUrl}
-        />
-      );
-
-      // 2. Generate PDF WITHOUT QR → upload to server
-      const uploadBlob = await pdf(buildPdfEl(undefined)).toBlob();
-
-      // 3. Upload the PDF (no QR) to Digital Ocean
-      const pdfFormData = new FormData();
-      pdfFormData.append(
-        "pdf",
-        new File([uploadBlob], `v-${student.cc}.pdf`, {
-          type: "application/pdf",
-        }),
-      );
-      const uploadRes = await api.patch(
-        `/v1/vouchers/${voucherId}/paid-pdf`,
-        pdfFormData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        },
-      );
-      const uploadedPdfUrl = uploadRes.data?.data?.pdf_url || null;
-      setSavedVoucherPdfUrl(uploadedPdfUrl);
-
-      // 4. Generate PDF WITH QR (pointing to the uploaded URL) → for local download
-      const downloadBlob = await pdf(
-        buildPdfEl(uploadedPdfUrl || undefined),
-      ).toBlob();
-      const blobUrl = URL.createObjectURL(downloadBlob);
-      setSavedVoucherBlobUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return blobUrl;
-      });
+      // Generate PDF using backend (single source of truth)
+      const genRes = await api.post(`/v1/vouchers/${voucherId}/generate-pdf`);
+      const pdfUrl = genRes.data?.data?.pdf_url || null;
+      setSavedVoucherPdfUrl(pdfUrl);
 
       toast.success("Voucher generated!");
       setVoucherSaved(true);
@@ -861,33 +654,7 @@ export default function FeeChallanGenerator() {
       freshArrears,
     );
 
-    const feeDateMonth = (function () {
-      try {
-        const m = parseInt(group.fee_date.split("-")[1], 10);
-        const sm = [
-          "January",
-          "February",
-          "March",
-          "April",
-          "May",
-          "June",
-          "July",
-          "August",
-          "September",
-          "October",
-          "November",
-          "December",
-        ];
-        return sm[m - 1] || month;
-      } catch {
-        return month;
-      }
-    })();
-
     try {
-      const groupPdfFees = processFeesForPdf(group.fees);
-      const groupTotal = groupPdfFees.reduce((s, f) => s + f.netAmount, 0);
-
       // Merge arrear IDs (prepend) to current group IDs
       const arrearIds = freshArrears?.arrear_fee_ids ?? [];
       const currentGroupIds = group.fees.map((f) => f.id);
@@ -948,144 +715,15 @@ export default function FeeChallanGenerator() {
 
       const { data: createRes } = await api.post("/v1/vouchers", formData);
       const voucherId: number = createRes.data.id;
-      setSavedGroupVoucherIds((prev) => ({
-        ...prev,
-        [group.fee_date]: voucherId,
-      }));
 
-      // Build arrear PDF items — surcharge rows excluded (shown via details.totalSurcharge instead)
-      const arrearPdfFees = (freshArrears?.rows ?? [])
-        .filter((r: any) => !r.isSurcharge)
-        .map((r: any) => {
-          const isPartial = Number(r.amount_paid) > 0;
-          const prefix = isPartial ? "BALANCE PAYMENT OF — " : "";
-          const netAmount = Number(r.outstanding);
-          return {
-            description: `${prefix}${r.fee_type} (${formatArrearMonthLabel(r)})`,
-            amount: isPartial ? netAmount : Number(r.amount),
-            netAmount: netAmount,
-            discount: isPartial ? 0 : Number(r.amount_paid),
-            isArrear: true,
-            feeDate: r.fee_date,
-          };
-        });
-      const currentPdfFees = groupPdfFees.map((f) => ({
-        ...f,
-        isArrear: false,
-      }));
-      const allPdfFees = [...arrearPdfFees, ...currentPdfFees];
-      const activeSurchargeAmt = waiveSurcharge ? 0 : (arrearsData?.total_surcharge ?? 0);
-      const allPdfTotal = allPdfFees.reduce((s, f) => s + (f.netAmount || 0), 0) + activeSurchargeAmt;
-      console.log(
-        `[VOUCHER_DEBUG] Bulk PDF: arrears=${arrearPdfFees.length}, current=${currentPdfFees.length}, surcharge=${activeSurchargeAmt}, total=${allPdfTotal}`,
-      );
-
-      // Helper to build PDF element for this group
-      const buildGroupPdfEl = (qrUrl: string | undefined) => (
-        <FeeChallanPDF
-          student={{
-            cc: student.cc,
-            student_full_name: student.student_full_name,
-            gr_number: student.gr_number,
-            campus: student.campus,
-            class_id: student.class_id,
-            section_id: student.section_id,
-            className:
-              (classes.find((c) => c.id === student.class_id) as any)
-                ?.description || "N/A",
-            sectionName:
-              (sections.find((s) => s.id === student.section_id) as any)
-                ?.description || "N/A",
-            grade_and_section: student.grade_and_section,
-            father_name: student.father_name,
-            gender: student.gender,
-          }}
-          details={{
-            month: getMonthLabelFromFees(group.fees),
-            academicYear,
-            issueDate,
-            dueDate,
-            validityDate,
-            applyLateFee,
-            lateFeeAmount,
-            voucherNumber: voucherId,
-            generatedBy: {
-              fullName: user?.fullName || user?.username || "N/A",
-              timestampStr,
-            },
-            bank: {
-              name: selectedBank.bank_name,
-              title: accTitle,
-              account: accNo,
-              branch: branchCode,
-              address: bankAddress,
-              iban,
-            },
-            surchargeWaived: waiveSurcharge,                                         // ← ADD
-            totalSurcharge: arrearsData?.total_surcharge ?? 0,
-          }}
-          fees={allPdfFees}
-          totalAmount={allPdfTotal}
-          showDiscount={showDiscount}
-          arrearsHistory={(freshArrears?.rows ?? []).map((r: any) => ({
-            date: r.fee_date,
-            head: r.fee_type,
-            amount: Number(r.outstanding).toLocaleString(),
-            totalAmount: (freshArrears?.total_arrears ?? 0).toLocaleString(),
-            target_month: r.target_month,
-            academic_year: r.academic_year,
-          }))}
-          siblings={siblings.map((s) => ({
-            full_name: s.student_full_name || s.full_name,
-            cc: s.cc,
-            gr_number: s.gr_number,
-            className:
-              s.classes?.description ||
-              s.grade_and_section?.split("-")[0] ||
-              "N/A",
-            sectionName:
-              s.sections?.description ||
-              s.grade_and_section?.split("-")[1] ||
-              "N/A",
-          }))}
-          qrUrl={qrUrl}
-        />
-      );
-
-      // 2. Generate PDF WITHOUT QR → upload to server (Digital Ocean)
-      const uploadBlob = await pdf(buildGroupPdfEl(undefined)).toBlob();
-
-      // 3. Upload the PDF (no QR)
-      const pdfFormData = new FormData();
-      pdfFormData.append(
-        "pdf",
-        new File([uploadBlob], `vg-${group.fee_date}.pdf`, {
-          type: "application/pdf",
-        }),
-      );
-      const uploadRes = await api.patch(
-        `/v1/vouchers/${voucherId}/paid-pdf`,
-        pdfFormData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        },
-      );
-      const uploadedPdfUrl = uploadRes.data?.data?.pdf_url || null;
-      if (uploadedPdfUrl)
+      // Generate PDF using backend (single source of truth)
+      const genRes = await api.post(`/v1/vouchers/${voucherId}/generate-pdf`);
+      const groupPdfUrl = genRes.data?.data?.pdf_url || null;
+      if (groupPdfUrl)
         setSavedGroupVoucherPdfUrls((prev) => ({
           ...prev,
-          [group.fee_date]: uploadedPdfUrl,
+          [group.fee_date]: groupPdfUrl,
         }));
-
-      // 4. Generate PDF WITH QR (pointing to uploaded URL) → for local download
-      const downloadBlob = await pdf(
-        buildGroupPdfEl(uploadedPdfUrl || undefined),
-      ).toBlob();
-      const groupBlobUrl = URL.createObjectURL(downloadBlob);
-      setSavedGroupBlobUrls((prev) => {
-        if (prev[group.fee_date]) URL.revokeObjectURL(prev[group.fee_date]);
-        return { ...prev, [group.fee_date]: groupBlobUrl };
-      });
 
       setGeneratedGroupDates((p) => new Set([...p, group.fee_date]));
       toast.success(`Generated for ${group.fee_date}`);
@@ -1664,8 +1302,8 @@ export default function FeeChallanGenerator() {
                                 {generatingGroupDate === g.fee_date ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
                                 {generatedGroupDates.has(g.fee_date) ? "Regenerate" : "Generate"}
                               </button>
-                              {generatedGroupDates.has(g.fee_date) && savedGroupBlobUrls[g.fee_date] && (
-                                <a href={savedGroupBlobUrls[g.fee_date]} download={`challan-${student?.gr_number || student?.cc}-${g.fee_date}.pdf`} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-emerald-600 text-white flex items-center gap-2">
+                              {generatedGroupDates.has(g.fee_date) && savedGroupVoucherPdfUrls[g.fee_date] && (
+                                <a href={savedGroupVoucherPdfUrls[g.fee_date]} target="_blank" rel="noopener noreferrer" className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-emerald-600 text-white flex items-center gap-2">
                                   <Download className="h-4 w-4" /> Download
                                 </a>
                               )}
@@ -1703,10 +1341,23 @@ export default function FeeChallanGenerator() {
                     <button onClick={handleSaveVoucher} disabled={isSavingVoucher} className="h-16 px-12 bg-zinc-900 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl transition-all hover:-translate-y-1">
                       {isSavingVoucher ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} Generate Voucher
                     </button>
-                    {voucherSaved && savedVoucherBlobUrl && (
-                      <a href={savedVoucherBlobUrl} download={`challan-${student?.gr_number || student?.cc}-${savedVoucherId}.pdf`} className="h-16 px-12 bg-emerald-600 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl transition-all hover:-translate-y-1">
-                        <Download className="h-5 w-5" /> Download PDF
-                      </a>
+                    {voucherSaved && savedVoucherPdfUrl && (
+                      <div className="w-full mt-8 flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex items-center justify-between bg-zinc-900 text-white px-6 py-4 rounded-t-2xl">
+                          <h3 className="font-black tracking-widest uppercase text-[12px] flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-emerald-400" />
+                            Generated Voucher Preview
+                          </h3>
+                          <a href={savedVoucherPdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 font-bold text-xs bg-emerald-950/50 px-4 py-2 rounded-lg transition-colors">
+                            <Download className="h-4 w-4" /> Download
+                          </a>
+                        </div>
+                        <iframe 
+                          src={savedVoucherPdfUrl} 
+                          className="w-full h-[600px] rounded-b-2xl border-2 border-zinc-900 shadow-2xl bg-zinc-100"
+                          title="Voucher PDF"
+                        />
+                      </div>
                     )}
                   </div>
                 </div>

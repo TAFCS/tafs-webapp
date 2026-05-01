@@ -62,6 +62,18 @@ export interface VoucherHead {
 
 }
 
+export interface VoucherArrearSurcharge {
+    id: number;
+    voucher_id: number;
+    arrear_month: number;
+    arrear_year: string;
+    arrear_fee_date: string;
+    amount: string;
+    amount_paid: string;
+    waived: boolean;
+    waived_by: string | null;
+}
+
 export interface VoucherItem {
     id: number;
     student_id: number;
@@ -90,6 +102,7 @@ export interface VoucherItem {
     sections: VoucherSection | null;
     bank_accounts: VoucherBankAccount;
     voucher_heads?: VoucherHead[];
+    voucher_arrear_surcharges?: VoucherArrearSurcharge[];
 }
 
 export interface VouchersPagination {

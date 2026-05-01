@@ -265,6 +265,8 @@ function StudentwiseFeeEditor() {
     const [isTemplatePending, setIsTemplatePending] = useState(false);
     const [pendingTemplateRows, setPendingTemplateRows] = useState<SpreadsheetRow[]>([]);
     const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
+    const [isGraduated, setIsGraduated] = useState(false);
+    const [graduatedFromClassId, setGraduatedFromClassId] = useState<number | null>(null);
 
     const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
     const tbodyRef = useRef<HTMLTableSectionElement>(null);
@@ -324,8 +326,11 @@ function StudentwiseFeeEditor() {
                     const { data } = await api.get(`/v1/students/${ccKey}`);
                     const fullStudent = data?.data;
                     if (fullStudent) {
+                        const isGrad = fullStudent.enrollment_status === 'GRADUATED';
+                        setIsGraduated(isGrad);
+                        setGraduatedFromClassId(isGrad ? (fullStudent.graduated_from_class_id ?? null) : null);
                         if (fullStudent.campus_id) setSelectedCampusId(fullStudent.campus_id);
-                        if (fullStudent.class_id) setSelectedClassId(fullStudent.class_id);
+                        if (!isGrad && fullStudent.class_id) setSelectedClassId(fullStudent.class_id);
                         if (fullStudent.section_id) setSelectedSectionId(fullStudent.section_id);
                         setSkipSearch(true);
                         setSearchQuery(`${fullStudent.student_full_name || fullStudent.full_name} (${fullStudent.cc_number || fullStudent.cc})`);
@@ -527,17 +532,69 @@ function StudentwiseFeeEditor() {
         }
     }, [sortSpreadsheetRows, calculateInitialFeeDate]);
 
+    const fetchGraduatedStudentSchedule = useCallback(async (ccNumber: string, academicYear: string, signal?: AbortSignal) => {
+        setIsLoading(true);
+        setLoadError(null);
+        setRows([]);
+        setActiveCell(null);
+        setIsTemplate(false);
+        setIsTemplatePending(false);
+        try {
+            const numericMatch = ccNumber.match(/\d+$/);
+            const sid = numericMatch ? parseInt(numericMatch[0]) : 0;
+            const { data } = await api.get(`/v1/student-fees/student/${sid}/schedule`, {
+                params: { academic_year: academicYear },
+                signal,
+            });
+            const fees: any[] = data?.data?.fees || [];
+            const finalRows: SpreadsheetRow[] = fees.map((sf) => ({
+                __id: Math.random().toString(36).substring(7),
+                dbId: sf.id,
+                feeId: sf.fee_type_id,
+                feeDescription: sf.fee_types?.description || "Unknown Fee",
+                freq: sf.fee_types?.freq || "MONTHLY",
+                initialMonth: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === sf.target_month) || "August",
+                month: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === sf.month) || "August",
+                target_month: sf.target_month,
+                amount: sf.amount?.toString() || sf.amount_before_discount?.toString() || "0",
+                originalAmount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
+                fee_date: sf.fee_date ? new Date(sf.fee_date).toISOString().split("T")[0] : undefined,
+                bundle_id: sf.bundle_id,
+                bundle_name: sf.student_fee_bundles?.bundle_name,
+                installment_id: sf.installment_id,
+                installment_amount: sf.installment_amount?.toString(),
+                installment_fee_type_desc: sf.student_fee_installments?.fee_types?.description,
+                installment_fee_type_id: sf.student_fee_installments?.fee_types?.id,
+                status: (sf.voucher_heads && sf.voucher_heads.length > 0) ? (sf.status === "NOT_ISSUED" ? "ISSUED" : sf.status) : sf.status,
+                description_prefix: sf.description_prefix,
+            }));
+            setRows(sortSpreadsheetRows(finalRows));
+        } catch (err: any) {
+            if (err.name === "AbortError") return;
+            setLoadError(err.response?.data?.message || "Failed to load fee schedule.");
+        } finally {
+            if (!signal?.aborted) setIsLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
         const controller = new AbortController();
         if (selectedClassId !== "") {
             fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear, controller.signal);
             setPendingBundles([]);
             setSelectedForBundling([]);
-        } else {
+        } else if (!isGraduated) {
             setRows([]);
         }
         return () => controller.abort();
-    }, [selectedClassId, selectedCampusId, studentId, selectedYear, fetchFeeSchedule]);
+    }, [selectedClassId, selectedCampusId, studentId, selectedYear, fetchFeeSchedule, isGraduated]);
+
+    useEffect(() => {
+        if (!isGraduated || !studentId.trim()) return;
+        const controller = new AbortController();
+        fetchGraduatedStudentSchedule(studentId, selectedYear, controller.signal);
+        return () => controller.abort();
+    }, [isGraduated, studentId, selectedYear, fetchGraduatedStudentSchedule]);
 
     const handleSelectStudent = async (student: { cc: number; full_name: string; gr_number: string }) => {
         setIsSearching(true);
@@ -547,8 +604,11 @@ function StudentwiseFeeEditor() {
 
             if (fullStudent) {
                 console.log(`[handleSelectStudent] Loaded profile:`, fullStudent);
+                const isGrad = fullStudent.enrollment_status === 'GRADUATED';
+                setIsGraduated(isGrad);
+                setGraduatedFromClassId(isGrad ? (fullStudent.graduated_from_class_id ?? null) : null);
                 setSelectedCampusId(fullStudent.campus_id || "");
-                setSelectedClassId(fullStudent.class_id || "");
+                if (!isGrad) setSelectedClassId(fullStudent.class_id || "");
                 setSelectedSectionId(fullStudent.section_id || "");
                 const ccStr = `${fullStudent.cc_number || fullStudent.cc}`;
                 setStudentId(ccStr);
@@ -582,6 +642,8 @@ function StudentwiseFeeEditor() {
         setSaveStatus(null);
         setIsTemplatePending(false);
         setPendingTemplateRows([]);
+        setIsGraduated(false);
+        setGraduatedFromClassId(null);
     };
 
     // ── Keyboard navigation ───────────────────────────────────────────────
@@ -940,6 +1002,7 @@ function StudentwiseFeeEditor() {
     const distinctDates = Array.from(new Set(selectedRowsForBundling.map(r => r.fee_date || "none")));
 
     const selectedClass = classes.find((c) => c.id === Number(selectedClassId));
+    const graduatedFromClass = graduatedFromClassId ? classes.find((c) => c.id === graduatedFromClassId) : null;
     const filteredClasses = classes.filter((c) =>
         c.description.toLowerCase().includes(classSearch.toLowerCase()) ||
         c.class_code.toLowerCase().includes(classSearch.toLowerCase())
@@ -1046,13 +1109,23 @@ function StudentwiseFeeEditor() {
                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Class / Grade</label>
                         <div className="relative" ref={classDropdownRef}>
                             <button type="button" disabled
-                                className="w-full h-11 flex items-center justify-between px-5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all cursor-not-allowed opacity-70"
+                                className={`w-full h-11 flex items-center justify-between px-5 border rounded-xl text-sm transition-all cursor-not-allowed opacity-70 ${isGraduated ? "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800" : "bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"}`}
                             >
-                                <span className={selectedClass ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
-                                    {selectedClass ? `${selectedClass.description}` : "Choose a class..."}
-                                </span>
+                                {isGraduated ? (
+                                    <span className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-semibold">
+                                        <GraduationCap className="h-3.5 w-3.5 shrink-0" />
+                                        {graduatedFromClass
+                                            ? `Graduated from ${graduatedFromClass.description}`
+                                            : "Graduated"}
+                                    </span>
+                                ) : selectedClass ? (
+                                    <span className="text-zinc-800 dark:text-zinc-200 font-semibold">{selectedClass.description}</span>
+                                ) : (
+                                    <span className="text-zinc-400">Choose a class...</span>
+                                )}
                                 <div className="flex items-center gap-2">
-                                    {selectedClass && <span className="text-[10px] font-bold px-2 py-0.5 bg-zinc-200 text-zinc-600 dark:text-zinc-400 rounded-md">{selectedClass.class_code}</span>}
+                                    {!isGraduated && selectedClass && <span className="text-[10px] font-bold px-2 py-0.5 bg-zinc-200 text-zinc-600 dark:text-zinc-400 rounded-md">{selectedClass.class_code}</span>}
+                                    {isGraduated && graduatedFromClass && <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300 rounded-md">{graduatedFromClass.class_code}</span>}
                                     <ChevronDown className="h-4 w-4 text-zinc-300" />
                                 </div>
                             </button>
@@ -1173,13 +1246,16 @@ function StudentwiseFeeEditor() {
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setIsInstallmentModalOpen(true)}
-                                    className="inline-flex items-center gap-2 h-11 px-6 bg-zinc-900 dark:bg-zinc-100 hover:opacity-90 text-white dark:text-zinc-900 text-sm font-bold rounded-xl shadow-lg transition-all active:scale-95"
+                                    disabled={isGraduated}
+                                    title={isGraduated ? "Cannot create installments for a graduated student" : undefined}
+                                    className="inline-flex items-center gap-2 h-11 px-6 bg-zinc-900 dark:bg-zinc-100 hover:opacity-90 text-white dark:text-zinc-900 text-sm font-bold rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
                                 >
                                     <CreditCard className="h-4 w-4" />
                                     Create Installment
                                 </button>
-                                <button onClick={handleSave} disabled={isSaving || !studentId.trim()}
-                                    className="inline-flex items-center gap-2 h-11 px-8 bg-primary text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50 active:scale-95"
+                                <button onClick={handleSave} disabled={isSaving || !studentId.trim() || isGraduated}
+                                    title={isGraduated ? "Cannot modify fees for a graduated student" : undefined}
+                                    className="inline-flex items-center gap-2 h-11 px-8 bg-primary text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none active:scale-95"
                                 >
                                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Schedule"}
                                 </button>
@@ -1201,7 +1277,7 @@ function StudentwiseFeeEditor() {
                     </div>
                 )}
 
-                {studentId && !saveStatus && rows.length > 0 && (
+                {studentId && !saveStatus && rows.length > 0 && !isGraduated && (
                     <div className="p-4 rounded-[20px] border border-amber-100 bg-amber-50/30 flex items-center gap-4 animate-in slide-in-from-top-2 duration-500 shadow-sm border-dashed">
                         <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
                             <Info className="h-4 w-4" />
@@ -1230,6 +1306,23 @@ function StudentwiseFeeEditor() {
                             <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none mb-1">Template Data</span>
                             <span className="text-[13px] font-bold text-blue-900/70 tracking-tight">
                                 This schedule is showing the class template. {studentId ? "No individual customizations have been saved for this student yet." : "Select a student to view or customize their fee schedule."}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                {isGraduated && studentId && (
+                    <div className="p-4 rounded-[20px] border border-indigo-200 bg-indigo-50/60 dark:bg-indigo-950/20 dark:border-indigo-800 flex items-center gap-4 animate-in slide-in-from-top-2 duration-500 shadow-sm">
+                        <div className="h-10 w-10 rounded-2xl bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                            <GraduationCap className="h-5 w-5" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest leading-none mb-1">Graduated Student</span>
+                            <span className="text-[13px] font-bold text-indigo-900/80 dark:text-indigo-200/70 tracking-tight">
+                                {graduatedFromClass
+                                    ? <>This student has graduated from <span className="text-indigo-700 dark:text-indigo-300">{graduatedFromClass.description}</span>.</>
+                                    : "This student has graduated."}
+                                {" "}Fee history is shown below in view-only mode. New fees cannot be assigned to graduated students.
                             </span>
                         </div>
                     </div>
@@ -1292,7 +1385,7 @@ function StudentwiseFeeEditor() {
             )}
 
             {/* Main Table Actions */}
-            {rows.length > 0 && (
+            {rows.length > 0 && !isGraduated && (
                 <div className="flex items-center justify-between mt-2 mb-4 px-1">
                     <div className="flex items-center gap-3">
                         <button
@@ -1315,7 +1408,9 @@ function StudentwiseFeeEditor() {
             ) : rows.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-32 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[28px] gap-4 animate-in fade-in zoom-in-95 duration-500">
                     <div className="p-6 bg-white dark:bg-zinc-800 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-xl shadow-zinc-200/20">
-                        {isTemplatePending ? (
+                        {isGraduated ? (
+                            <GraduationCap className="h-8 w-8 text-indigo-400/60" />
+                        ) : isTemplatePending ? (
                             <GraduationCap className="h-8 w-8 text-blue-500/50" />
                         ) : studentId ? (
                             <Trash2 className="h-8 w-8 text-rose-500/50" />
@@ -1326,23 +1421,26 @@ function StudentwiseFeeEditor() {
 
                     <div className="text-center space-y-2 max-w-md px-6">
                         <p className="font-black text-zinc-900 dark:text-zinc-100 tracking-tight text-lg">
-                            {isTemplatePending
-                                ? "Template Available"
-                                : studentId
-                                    ? "Individual Schedule Cleared"
-                                    : "Workspace Empty"}
+                            {isGraduated
+                                ? "No Fee Records Found"
+                                : isTemplatePending
+                                    ? "Template Available"
+                                    : studentId
+                                        ? "Individual Schedule Cleared"
+                                        : "Workspace Empty"}
                         </p>
                         <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
-                            {isTemplatePending
-                                ? `No customized schedule found for this student. Use the standard ${selectedClass?.description || "class"} template or start with manual entry.`
-                                : (studentId
-                                    ? `You have removed all individual fee heads. Saving now will effectively reset this student to follow the standard ${selectedClass?.description || "class"} fee template.`
-                                    : "Select a campus and class to load a template, or search for a student using their computer code to begin customizing.")
-                            }
+                            {isGraduated
+                                ? `No fee records exist for this graduated student in ${selectedYear}.`
+                                : isTemplatePending
+                                    ? `No customized schedule found for this student. Use the standard ${selectedClass?.description || "class"} template or start with manual entry.`
+                                    : (studentId
+                                        ? `You have removed all individual fee heads. Saving now will effectively reset this student to follow the standard ${selectedClass?.description || "class"} fee template.`
+                                        : "Select a campus and class to load a template, or search for a student using their computer code to begin customizing.")}
                         </p>
                     </div>
 
-                    {studentId && (
+                    {studentId && !isGraduated && (
                         <div className="flex gap-3 mt-4">
                             {isTemplatePending ? (
                                 <>

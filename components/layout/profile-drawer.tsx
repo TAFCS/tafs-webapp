@@ -4,7 +4,9 @@ import {
     Landmark, UserCog, BarChart3, ShieldCheck,
     LandPlot, BookOpen, LayoutGrid, TrendingUp, UserCheck, Contact,
     Tags, CalendarDays, FilePlus2, HandCoins, Printer,
-    FileText, History
+    FileText, History,
+    Layers,
+    Trash2
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -92,6 +94,8 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             items: [
                 { name: 'Single Voucher Issuance', href: '/fee-challan', icon: Printer, permission: 'finance.vouchers.view' },
                 { name: 'Bulk Voucher Issuance', href: '/bulk-voucher', icon: FilePlus2, permission: 'finance.vouchers.generate_bulk' },
+                { name: 'Bulk Delete Vouchers', href: '/bulk-delete', icon: Trash2, permission: 'finance.vouchers.delete' },
+                { name: 'Batch Issue Vouchers', href: '/batch-issue', icon: Layers, permission: 'finance.vouchers.generate_bulk' },
                 { name: 'Vouchers', href: '/vouchers', icon: FileText, permission: 'finance.vouchers.view' },
                 { name: 'Payment History', href: '/payment-history', icon: History, permission: 'finance.vouchers.view' },
                 { name: 'Receive Deposit', href: '/vouchers/deposit', icon: HandCoins, permission: 'finance.deposits.record' },
@@ -148,15 +152,15 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         <div className="h-40 relative p-6 flex flex-col justify-end overflow-hidden flex-shrink-0">
                             {/* Animated Gradient Background */}
                             <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-purple-600/80 dark:from-primary/40 dark:via-primary/20 dark:to-purple-900/40 z-0"></div>
-                            
+
                             {/* Glass overlay */}
                             <div className="absolute inset-0 bg-white/10 dark:bg-black/20 backdrop-blur-md z-0"></div>
 
                             {/* Glow Orbs */}
-                            <motion.div 
-                                animate={{ 
+                            <motion.div
+                                animate={{
                                     scale: [1, 1.2, 1],
-                                    opacity: [0.5, 0.8, 0.5] 
+                                    opacity: [0.5, 0.8, 0.5]
                                 }}
                                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                                 className="absolute -top-10 -left-10 w-40 h-40 bg-white/20 rounded-full blur-2xl z-0"
@@ -170,7 +174,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                             </button>
 
                             <div className="flex items-center space-x-4 relative z-10">
-                                <motion.div 
+                                <motion.div
                                     initial={{ scale: 0.8, opacity: 0 }}
                                     animate={{ scale: 1, opacity: 1 }}
                                     transition={{ delay: 0.2, type: "spring" }}
@@ -178,7 +182,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                                 >
                                     {initials}
                                 </motion.div>
-                                <motion.div 
+                                <motion.div
                                     initial={{ x: -10, opacity: 0 }}
                                     animate={{ x: 0, opacity: 1 }}
                                     transition={{ delay: 0.3 }}
@@ -202,7 +206,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         </div>
 
                         {/* Navigation List */}
-                        <motion.div 
+                        <motion.div
                             variants={containerVariants}
                             initial="hidden"
                             animate="show"
@@ -242,7 +246,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
 
                                         <AnimatePresence>
                                             {isModuleOpen && (
-                                                <motion.div 
+                                                <motion.div
                                                     initial={{ height: 0, opacity: 0 }}
                                                     animate={{ height: "auto", opacity: 1 }}
                                                     exit={{ height: 0, opacity: 0 }}
