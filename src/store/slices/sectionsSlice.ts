@@ -6,6 +6,7 @@ import api from '../../lib/api';
 export interface SectionItem {
     id: number;
     description: string;
+    class_id: number;
 }
 
 export interface SectionsState {
