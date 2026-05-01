@@ -330,7 +330,10 @@ function StudentwiseFeeEditor() {
                         setIsGraduated(isGrad);
                         setGraduatedFromClassId(isGrad ? (fullStudent.graduated_from_class_id ?? null) : null);
                         if (fullStudent.campus_id) setSelectedCampusId(fullStudent.campus_id);
-                        if (!isGrad && fullStudent.class_id) setSelectedClassId(fullStudent.class_id);
+                        const classForFetch = isGrad
+                            ? (fullStudent.graduated_from_class_id ?? null)
+                            : (fullStudent.class_id ?? null);
+                        if (classForFetch) setSelectedClassId(classForFetch);
                         if (fullStudent.section_id) setSelectedSectionId(fullStudent.section_id);
                         setSkipSearch(true);
                         setSearchQuery(`${fullStudent.student_full_name || fullStudent.full_name} (${fullStudent.cc_number || fullStudent.cc})`);
@@ -532,50 +535,6 @@ function StudentwiseFeeEditor() {
         }
     }, [sortSpreadsheetRows, calculateInitialFeeDate]);
 
-    const fetchGraduatedStudentSchedule = useCallback(async (ccNumber: string, academicYear: string, signal?: AbortSignal) => {
-        setIsLoading(true);
-        setLoadError(null);
-        setRows([]);
-        setActiveCell(null);
-        setIsTemplate(false);
-        setIsTemplatePending(false);
-        try {
-            const numericMatch = ccNumber.match(/\d+$/);
-            const sid = numericMatch ? parseInt(numericMatch[0]) : 0;
-            const { data } = await api.get(`/v1/student-fees/student/${sid}/schedule`, {
-                params: { academic_year: academicYear },
-                signal,
-            });
-            const fees: any[] = data?.data?.fees || [];
-            const finalRows: SpreadsheetRow[] = fees.map((sf) => ({
-                __id: Math.random().toString(36).substring(7),
-                dbId: sf.id,
-                feeId: sf.fee_type_id,
-                feeDescription: sf.fee_types?.description || "Unknown Fee",
-                freq: sf.fee_types?.freq || "MONTHLY",
-                initialMonth: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === sf.target_month) || "August",
-                month: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === sf.month) || "August",
-                target_month: sf.target_month,
-                amount: sf.amount?.toString() || sf.amount_before_discount?.toString() || "0",
-                originalAmount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
-                fee_date: sf.fee_date ? new Date(sf.fee_date).toISOString().split("T")[0] : undefined,
-                bundle_id: sf.bundle_id,
-                bundle_name: sf.student_fee_bundles?.bundle_name,
-                installment_id: sf.installment_id,
-                installment_amount: sf.installment_amount?.toString(),
-                installment_fee_type_desc: sf.student_fee_installments?.fee_types?.description,
-                installment_fee_type_id: sf.student_fee_installments?.fee_types?.id,
-                status: (sf.voucher_heads && sf.voucher_heads.length > 0) ? (sf.status === "NOT_ISSUED" ? "ISSUED" : sf.status) : sf.status,
-                description_prefix: sf.description_prefix,
-            }));
-            setRows(sortSpreadsheetRows(finalRows));
-        } catch (err: any) {
-            if (err.name === "AbortError") return;
-            setLoadError(err.response?.data?.message || "Failed to load fee schedule.");
-        } finally {
-            if (!signal?.aborted) setIsLoading(false);
-        }
-    }, []);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -583,18 +542,11 @@ function StudentwiseFeeEditor() {
             fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear, controller.signal);
             setPendingBundles([]);
             setSelectedForBundling([]);
-        } else if (!isGraduated) {
+        } else {
             setRows([]);
         }
         return () => controller.abort();
-    }, [selectedClassId, selectedCampusId, studentId, selectedYear, fetchFeeSchedule, isGraduated]);
-
-    useEffect(() => {
-        if (!isGraduated || !studentId.trim()) return;
-        const controller = new AbortController();
-        fetchGraduatedStudentSchedule(studentId, selectedYear, controller.signal);
-        return () => controller.abort();
-    }, [isGraduated, studentId, selectedYear, fetchGraduatedStudentSchedule]);
+    }, [selectedClassId, selectedCampusId, studentId, selectedYear, fetchFeeSchedule]);
 
     const handleSelectStudent = async (student: { cc: number; full_name: string; gr_number: string }) => {
         setIsSearching(true);
@@ -608,7 +560,10 @@ function StudentwiseFeeEditor() {
                 setIsGraduated(isGrad);
                 setGraduatedFromClassId(isGrad ? (fullStudent.graduated_from_class_id ?? null) : null);
                 setSelectedCampusId(fullStudent.campus_id || "");
-                if (!isGrad) setSelectedClassId(fullStudent.class_id || "");
+                const classForFetch = isGrad
+                    ? (fullStudent.graduated_from_class_id ?? null)
+                    : (fullStudent.class_id ?? null);
+                setSelectedClassId(classForFetch ? classForFetch : "");
                 setSelectedSectionId(fullStudent.section_id || "");
                 const ccStr = `${fullStudent.cc_number || fullStudent.cc}`;
                 setStudentId(ccStr);
@@ -1246,15 +1201,12 @@ function StudentwiseFeeEditor() {
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setIsInstallmentModalOpen(true)}
-                                    disabled={isGraduated}
-                                    title={isGraduated ? "Cannot create installments for a graduated student" : undefined}
                                     className="inline-flex items-center gap-2 h-11 px-6 bg-zinc-900 dark:bg-zinc-100 hover:opacity-90 text-white dark:text-zinc-900 text-sm font-bold rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
                                 >
                                     <CreditCard className="h-4 w-4" />
                                     Create Installment
                                 </button>
-                                <button onClick={handleSave} disabled={isSaving || !studentId.trim() || isGraduated}
-                                    title={isGraduated ? "Cannot modify fees for a graduated student" : undefined}
+                                <button onClick={handleSave} disabled={isSaving || !studentId.trim()}
                                     className="inline-flex items-center gap-2 h-11 px-8 bg-primary text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none active:scale-95"
                                 >
                                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Schedule"}
@@ -1277,7 +1229,7 @@ function StudentwiseFeeEditor() {
                     </div>
                 )}
 
-                {studentId && !saveStatus && rows.length > 0 && !isGraduated && (
+                {studentId && !saveStatus && rows.length > 0 && (
                     <div className="p-4 rounded-[20px] border border-amber-100 bg-amber-50/30 flex items-center gap-4 animate-in slide-in-from-top-2 duration-500 shadow-sm border-dashed">
                         <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
                             <Info className="h-4 w-4" />
@@ -1322,7 +1274,7 @@ function StudentwiseFeeEditor() {
                                 {graduatedFromClass
                                     ? <>This student has graduated from <span className="text-indigo-700 dark:text-indigo-300">{graduatedFromClass.description}</span>.</>
                                     : "This student has graduated."}
-                                {" "}Fee history is shown below in view-only mode. New fees cannot be assigned to graduated students.
+                                {" "}Fee records are shown below. You can view, edit, and add fees for this student.
                             </span>
                         </div>
                     </div>
@@ -1385,7 +1337,7 @@ function StudentwiseFeeEditor() {
             )}
 
             {/* Main Table Actions */}
-            {rows.length > 0 && !isGraduated && (
+            {rows.length > 0 && (
                 <div className="flex items-center justify-between mt-2 mb-4 px-1">
                     <div className="flex items-center gap-3">
                         <button
