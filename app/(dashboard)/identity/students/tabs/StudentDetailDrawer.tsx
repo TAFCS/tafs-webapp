@@ -47,9 +47,10 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
         try {
             const { data } = await api.get(`/v1/staff-editing/students/${cc}`);
             setStudent(data?.data || null);
+            onUpdated?.();
         } catch { setStudent(null); }
         finally { setLoading(false); }
-    }, [cc]);
+    }, [cc, onUpdated]);
 
     useEffect(() => {
         setStudent(null);

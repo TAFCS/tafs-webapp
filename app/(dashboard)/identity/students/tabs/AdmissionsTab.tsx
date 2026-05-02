@@ -59,7 +59,7 @@ function Input({ value, onChange, type = "text", placeholder }: { value: string;
 }
 
 // Each row is its own component so useState is legal
-function AdmissionRow({ admission, studentCc, classes, onSaved, onDeleted }: { admission: any; studentCc: number; classes: any[]; onSaved: (a: any) => void; onDeleted: () => void }) {
+function AdmissionRow({ admission, studentCc, classes, onSaved, onDeleted, onReload }: { admission: any; studentCc: number; classes: any[]; onSaved: (a: any) => void; onDeleted: () => void; onReload: () => void }) {
     const [local, setLocal] = useState(admission);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -92,6 +92,7 @@ function AdmissionRow({ admission, studentCc, classes, onSaved, onDeleted }: { a
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
             onSaved(data?.data);
+            onReload();
         } catch (e) {
             alert("Failed to save admission record");
         } finally { setSaving(false); }
@@ -103,6 +104,7 @@ function AdmissionRow({ admission, studentCc, classes, onSaved, onDeleted }: { a
         try {
             await api.delete(`/v1/staff-editing/admissions/${local.id}`);
             onDeleted();
+            onReload();
         } catch (e) {
             alert("Failed to delete record");
         } finally { setRemoving(false); }
@@ -263,6 +265,7 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
                         classes={classes}
                         onSaved={updated => setAdmissions(prev => prev.map(x => x.id === updated.id ? updated : x))}
                         onDeleted={() => setAdmissions(prev => prev.filter(x => x.id !== a.id))}
+                        onReload={onReload}
                     />
                 ))}
 
