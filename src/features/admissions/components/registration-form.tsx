@@ -13,7 +13,7 @@ import LogoImage from "@/public/logo.png";
 import { StudentProfileModal } from "@/src/features/students/components/student-profile-modal";
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
 
-const isNA = (v: any) => v === "N/A" || v === "021-N/A";
+const isNA = (v: any) => v === "N/A" || v === "021-N/A" || !v;
 
 const GRADE_NAME_TO_CODE: Record<string, string> = {
     'Pre-Nursery': 'PN',
@@ -39,32 +39,48 @@ const GRADE_NAME_TO_CODE: Record<string, string> = {
     'A2 Level': 'A2'
 };
 
+const FIELD_TO_NA_CHECKBOX: Record<string, string> = {
+    identificationMarks: 'isIdentificationMarksNA',
+    discipline: 'isDisciplineNA',
+    postalCode: 'isPostalCodeNA',
+    homePhone: 'isHomePhoneNA',
+    candidatePhone: 'isCandidatePhoneNA',
+    candidateEmail: 'isCandidateEmailNA',
+    fatherPhone: 'isFatherPhoneNA',
+    fatherEmail: 'isFatherEmailNA',
+    fatherFax: 'isFatherFaxNA',
+    motherPhone: 'isMotherPhoneNA',
+    motherEmail: 'isMotherEmailNA',
+    motherFax: 'isMotherFaxNA',
+    emergencyContactName: 'isEmergencyContactNameNA',
+};
+
 const INITIAL_FORM_DATA = {
     campusId: "",
     candidateName: "", fatherName: "", motherName: "",
     fatherCnic: "", motherCnic: "",
     dobDay: "", dobMonth: "", dobYear: "",
     nationalityPakistani: true, nationalityOther: "",
-    gender: "", religion: "", identificationMarks: "", isIdentificationMarksNA: false,
+    gender: "", religion: "", identificationMarks: "", isIdentificationMarksNA: true,
     birthCountry: "", birthProvince: "", birthCity: "",
     ageYears: "",
     previousSchools: [{ id: 1, name: "", location: "", classStudiedFrom: "", classStudiedTo: "", reasonForLeaving: "" }],
-    admissionSystem: "", admissionLevel: "", discipline: "", isDisciplineNA: false,
-    houseNo: "", areaBlock: "", city: "", postalCode: "", isPostalCodeNA: false, province: "", country: "", 
-    homePhoneCountryCode: "021", homePhone: "", isHomePhoneNA: false,
+    admissionSystem: "", admissionLevel: "", discipline: "", isDisciplineNA: true,
+    houseNo: "", areaBlock: "", city: "", postalCode: "", isPostalCodeNA: true, province: "", country: "", 
+    homePhoneCountryCode: "021", homePhone: "", isHomePhoneNA: true,
     homeAddress: "", fatherPrimaryPhoneCountryCode: "+92", motherPrimaryPhoneCountryCode: "+92", emergencyPrimaryPhoneCountryCode: "+92",
-    candidatePhone: "", isCandidatePhoneNA: false, 
-    candidateEmail: "", isCandidateEmailNA: false, 
-    fatherPhone: "", isFatherPhoneNA: false, 
-    fatherEmail: "", isFatherEmailNA: false, 
-    fatherFax: "", isFatherFaxNA: false,
-    motherPhone: "", isMotherPhoneNA: false,
-    motherEmail: "", isMotherEmailNA: false,
-    motherFax: "", isMotherFaxNA: false,
+    candidatePhone: "", isCandidatePhoneNA: true, 
+    candidateEmail: "", isCandidateEmailNA: true, 
+    fatherPhone: "", isFatherPhoneNA: true, 
+    fatherEmail: "", isFatherEmailNA: true, 
+    fatherFax: "", isFatherFaxNA: true,
+    motherPhone: "", isMotherPhoneNA: true,
+    motherEmail: "", isMotherEmailNA: true,
+    motherFax: "", isMotherFaxNA: true,
     isFatherWhatsapp: true, fatherWhatsapp: "",
     isMotherWhatsapp: true, motherWhatsapp: "",
     emergencyContactType: "other", // Added for selection logic
-    emergencyContactName: "", isEmergencyContactNameNA: false,
+    emergencyContactName: "", isEmergencyContactNameNA: true,
     emergencyContactPhone: "", emergencyRelationship: "",
     testDay: "", testDate: "", testTime: "", testLevel: "",
     // New: Staged files for upload
@@ -284,13 +300,22 @@ export function RegistrationForm() {
                 setFormData(prev => {
                     const updates: any = { [name]: finalValue };
                     
+                    // Auto-tick N/A logic
+                    const naCheckbox = FIELD_TO_NA_CHECKBOX[name];
+                    if (naCheckbox) {
+                        if (finalValue === "" || finalValue === "N/A") {
+                            updates[naCheckbox] = true;
+                            updates[name] = ""; // Keep it empty, don't show "N/A"
+                        } else {
+                            updates[naCheckbox] = false;
+                        }
+                    }
+
                     // Sync with emergency contact if this phone is currently selected as primary
                     if (name === "fatherPhone" && prev.emergencyContactType === "father" && prev.emergencyContactPhone === prev.fatherPhone) {
-                        updates.emergencyContactPhone = finalValue;
+                        updates.emergencyContactPhone = updates[name];
                     } else if (name === "motherPhone" && prev.emergencyContactType === "mother" && prev.emergencyContactPhone === prev.motherPhone) {
-                        updates.emergencyContactPhone = finalValue;
-                    } else if (name === "emergencyContactPhone" && prev.emergencyContactType === "other") {
-                        // For 'other', just update normally
+                        updates.emergencyContactPhone = updates[name];
                     }
 
                     return { ...prev, ...updates };
@@ -312,11 +337,22 @@ export function RegistrationForm() {
             setFormData(prev => {
                 const updates: any = { [name]: filteredValue };
 
+                // Auto-tick N/A logic
+                const naCheckbox = FIELD_TO_NA_CHECKBOX[name];
+                if (naCheckbox) {
+                    if (filteredValue === "" || filteredValue === "N/A") {
+                        updates[naCheckbox] = true;
+                        updates[name] = ""; // Keep it empty, don't show "N/A"
+                    } else {
+                        updates[naCheckbox] = false;
+                    }
+                }
+
                 // Sync Name with emergency contact
                 if (name === "fatherName" && prev.emergencyContactType === "father") {
-                    updates.emergencyContactName = filteredValue;
+                    updates.emergencyContactName = updates[name];
                 } else if (name === "motherName" && prev.emergencyContactType === "mother") {
-                    updates.emergencyContactName = filteredValue;
+                    updates.emergencyContactName = updates[name];
                 }
 
                 return { ...prev, ...updates };
@@ -340,7 +376,19 @@ export function RegistrationForm() {
             }
             if (name === "dobYear" && filteredValue.length > 4) return;
 
-            setFormData(prev => ({ ...prev, [name]: filteredValue }));
+            setFormData(prev => {
+                const updates: any = { [name]: filteredValue };
+                const naCheckbox = FIELD_TO_NA_CHECKBOX[name];
+                if (naCheckbox) {
+                    if (filteredValue === "" || filteredValue === "N/A") {
+                        updates[naCheckbox] = true;
+                        updates[name] = ""; // Keep it empty, don't show "N/A"
+                    } else {
+                        updates[naCheckbox] = false;
+                    }
+                }
+                return { ...prev, ...updates };
+            });
             return;
         }
 
@@ -356,7 +404,7 @@ export function RegistrationForm() {
             setFormData(prev => ({
                 ...prev,
                 [name]: checked,
-                [lowerField]: checked ? (lowerField === "discipline" ? "" : "N/A") : ""
+                [lowerField]: checked ? "" : "" // Both cases lead to empty string for N/A fields
             }));
             return;
         }
@@ -365,10 +413,22 @@ export function RegistrationForm() {
         const functionalFields = ["admissionLevel", "admissionSystem", "discipline", "campusId", "gender", "religion"];
         const preserveCase = functionalFields.includes(name) || name.toLowerCase().includes('email');
 
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : (preserveCase ? value : value.toUpperCase())
-        }));
+        setFormData(prev => {
+            const updates: any = { [name]: type === 'checkbox' ? checked : (preserveCase ? value : value.toUpperCase()) };
+            // Auto-tick N/A logic
+            const naCheckbox = FIELD_TO_NA_CHECKBOX[name];
+            if (naCheckbox && type !== 'checkbox') {
+                const val = updates[name];
+                if (val === "" || val === "N/A") {
+                    updates[naCheckbox] = true;
+                    updates[name] = ""; // Keep it empty, don't show "N/A"
+                } else {
+                    updates[naCheckbox] = false;
+                }
+            }
+
+            return { ...prev, ...updates };
+        });
     };
 
     const fetchGuardianData = async (type: "father" | "mother", cnic: string) => {
@@ -672,6 +732,9 @@ export function RegistrationForm() {
         setSubmitError(null);
         setSubmitSuccess(null);
 
+        // Helper to convert "N/A" to null
+        const sanitizeValue = (val: any) => isNA(val) || val === "" ? null : val;
+
         // Build ISO date string from day/month/year fields
         const dob = formData.dobYear && formData.dobMonth && formData.dobDay
             ? `${formData.dobYear}-${String(formData.dobMonth).padStart(2, '0')}-${String(formData.dobDay).padStart(2, '0')}`
@@ -693,28 +756,27 @@ export function RegistrationForm() {
             dob,
             gender: formData.gender || 'Male',
             nationality: formData.nationalityPakistani ? 'Pakistani' : formData.nationalityOther || 'Pakistani',
-            religion: formData.religion || undefined,
-            country: formData.birthCountry || undefined,
-            province: formData.birthProvince || undefined,
-            city: formData.birthCity || undefined,
-            identification_marks: formData.identificationMarks || undefined,
-            primary_phone: formData.candidatePhone || undefined,
-            email: formData.candidateEmail || undefined,
+            religion: sanitizeValue(formData.religion),
+            country: sanitizeValue(formData.birthCountry),
+            province: sanitizeValue(formData.birthProvince),
+            city: sanitizeValue(formData.birthCity),
+            identification_marks: sanitizeValue(formData.identificationMarks),
+            primary_phone: sanitizeValue(formData.candidatePhone),
+            email: sanitizeValue(formData.candidateEmail),
             father: {
-
-                full_name: fatherFullName,
-                cnic: formData.fatherCnic || undefined,
+                full_name: fatherFullName === 'N/A' ? null : fatherFullName,
+                cnic: sanitizeValue(formData.fatherCnic),
                 primary_phone_country_code: formData.fatherPrimaryPhoneCountryCode || "+92",
-                primary_phone: formData.fatherPhone || undefined,
-                email_address: formData.fatherEmail || undefined,
-                house_appt_name: formData.houseNo || undefined,
-                area_block: formData.areaBlock || undefined,
-                city: formData.city || undefined,
-                province: formData.province || undefined,
-                country: formData.country || undefined,
-                postal_code: formData.postalCode || undefined,
-                fax_number: formData.fatherFax || undefined,
-                whatsapp_number: formData.isFatherWhatsapp ? formData.fatherPhone : formData.fatherWhatsapp || undefined,
+                primary_phone: sanitizeValue(formData.fatherPhone),
+                email_address: sanitizeValue(formData.fatherEmail),
+                house_appt_name: sanitizeValue(formData.houseNo),
+                area_block: sanitizeValue(formData.areaBlock),
+                city: sanitizeValue(formData.city),
+                province: sanitizeValue(formData.province),
+                country: sanitizeValue(formData.country),
+                postal_code: sanitizeValue(formData.postalCode),
+                fax_number: sanitizeValue(formData.fatherFax),
+                whatsapp_number: formData.isFatherWhatsapp ? formData.fatherPhone : sanitizeValue(formData.fatherWhatsapp),
                 additional_phones: (formData.fatherAdditionalPhones || [])
                     .filter(p => p.number.trim())
                     .map(p => {
@@ -728,13 +790,13 @@ export function RegistrationForm() {
                     }),
             },
             mother: {
-                full_name: motherFullName,
-                cnic: formData.motherCnic || undefined,
+                full_name: motherFullName === 'N/A' ? null : motherFullName,
+                cnic: sanitizeValue(formData.motherCnic),
                 primary_phone_country_code: formData.motherPrimaryPhoneCountryCode || "+92",
-                primary_phone: formData.motherPhone || undefined,
-                email_address: formData.motherEmail || undefined,
-                fax_number: formData.motherFax || undefined,
-                whatsapp_number: formData.isMotherWhatsapp ? formData.motherPhone : formData.motherWhatsapp || undefined,
+                primary_phone: sanitizeValue(formData.motherPhone),
+                email_address: sanitizeValue(formData.motherEmail),
+                fax_number: sanitizeValue(formData.motherFax),
+                whatsapp_number: formData.isMotherWhatsapp ? formData.motherPhone : sanitizeValue(formData.motherWhatsapp),
                 additional_phones: (formData.motherAdditionalPhones || [])
                     .filter(p => p.number.trim())
                     .map(p => {
@@ -747,13 +809,13 @@ export function RegistrationForm() {
                         return { label, number: p.number };
                     }),
             },
-            home_phone: formData.homePhone ? `${formData.homePhoneCountryCode}-${formData.homePhone}` : undefined,
+            home_phone: (formData.isHomePhoneNA || !formData.homePhone) ? null : `${formData.homePhoneCountryCode}-${formData.homePhone}`,
             emergency_contact: formData.emergencyContactName
                 ? {
-                    full_name: formData.emergencyContactName,
+                    full_name: sanitizeValue(formData.emergencyContactName),
                     primary_phone_country_code: formData.emergencyPrimaryPhoneCountryCode || "+92",
-                    primary_phone: formData.emergencyContactPhone || '0000-0000000',
-                    relationship: formData.emergencyRelationship || 'Guardian',
+                    primary_phone: sanitizeValue(formData.emergencyContactPhone) || '0000-0000000',
+                    relationship: sanitizeValue(formData.emergencyRelationship) || 'Guardian',
                     role: formData.emergencyContactType,
                     additional_phones: formData.emergencyContactType === 'other' 
                         ? (formData.emergencyAdditionalPhones || [])
@@ -766,7 +828,7 @@ export function RegistrationForm() {
                 academic_system: academicSystem,
                 requested_grade: GRADE_NAME_TO_CODE[formData.admissionLevel] || formData.admissionLevel || 'N/A',
                 academic_year: academicYear,
-                discipline: formData.isDisciplineNA ? null : (formData.discipline || undefined),
+                discipline: formData.isDisciplineNA ? null : sanitizeValue(formData.discipline),
                 campus_id: formData.campusId ? parseInt(formData.campusId) : undefined,
             },
             flags: formData.flags
@@ -1693,14 +1755,14 @@ export function RegistrationForm() {
                                                 </div>
                                                 <div className="flex-[1.5] w-full">
                                                     <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 dark:text-red-400/40 mb-1.5 ml-1">Contact Number (Primary)</label>
-                                                    <div className={`flex border border-red-200 dark:border-red-900/20 rounded-xl focus-within:ring-2 focus-within:ring-red-500 bg-white dark:bg-zinc-950 overflow-hidden shadow-sm ${formData.isEmergencyContactNameNA ? 'opacity-50' : ''}`}>
-                                                        <input type="text" name="emergencyPrimaryPhoneCountryCode" value={formData.emergencyPrimaryPhoneCountryCode || ""} onChange={handleInputChange} disabled={formData.isEmergencyContactNameNA} placeholder="+92" className="w-16 px-3 py-3 border-0 bg-red-50/50 dark:bg-zinc-900 outline-none text-xs font-bold border-r border-red-100 dark:border-red-900/20" />
-                                                        <input type="text" name="emergencyContactPhone" value={formData.emergencyContactPhone || ""} onChange={handleInputChange} disabled={formData.isEmergencyContactNameNA} placeholder="Phone Number" className="flex-1 min-w-0 px-4 py-3 border-0 outline-none text-sm bg-transparent" />
+                                                    <div className={`flex border border-red-200 dark:border-red-900/20 rounded-xl focus-within:ring-2 focus-within:ring-red-500 bg-white dark:bg-zinc-950 overflow-hidden shadow-sm`}>
+                                                        <input type="text" name="emergencyPrimaryPhoneCountryCode" value={formData.emergencyPrimaryPhoneCountryCode || ""} onChange={handleInputChange} placeholder="+92" className="w-16 px-3 py-3 border-0 bg-red-50/50 dark:bg-zinc-900 outline-none text-xs font-bold border-r border-red-100 dark:border-red-900/20" />
+                                                        <input type="text" name="emergencyContactPhone" value={formData.emergencyContactPhone || ""} onChange={handleInputChange} placeholder="Phone Number" className="flex-1 min-w-0 px-4 py-3 border-0 outline-none text-sm bg-transparent" />
                                                     </div>
                                                 </div>
                                                 <div className="flex-1 w-full">
                                                     <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 dark:text-red-400/40 mb-1.5 ml-1">Relationship</label>
-                                                    <input type="text" name="emergencyRelationship" value={formData.emergencyRelationship || ""} onChange={handleInputChange} disabled={formData.isEmergencyContactNameNA} placeholder="Relative / Guardian" className={`w-full px-4 py-3 bg-white dark:bg-zinc-950 border border-red-200 dark:border-red-900/20 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none shadow-sm disabled:cursor-not-allowed ${formData.isEmergencyContactNameNA ? 'opacity-50' : ''}`} />
+                                                    <input type="text" name="emergencyRelationship" value={formData.emergencyRelationship || ""} onChange={handleInputChange} placeholder="Relative / Guardian" className={`w-full px-4 py-3 bg-white dark:bg-zinc-950 border border-red-200 dark:border-red-900/20 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none shadow-sm`} />
                                                 </div>
                                             </div>
 
