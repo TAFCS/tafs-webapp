@@ -20,6 +20,8 @@ export interface BulkFilters {
     lateFeeAmount: number;
     skipAlreadyIssued: boolean;
     waiveSurcharge: boolean;
+    jobType?: 'BULK' | 'BATCH';
+    student_ccs?: number[];
 }
 
 export interface BulkStudent {
@@ -72,6 +74,7 @@ export const fetchBulkPreview = createAsyncThunk(
                     fee_date_from: filters.dateFrom,
                     fee_date_to: filters.dateTo,
                     skip_already_issued: filters.skipAlreadyIssued,
+                    student_ccs: filters.student_ccs,
                 }
             );
 
@@ -111,6 +114,7 @@ export const startBulkJob = createAsyncThunk(
                     late_fee_amount: filters.lateFeeAmount,
                     skip_already_issued: filters.skipAlreadyIssued,
                     waive_surcharge: filters.waiveSurcharge,
+                    job_type: filters.jobType || 'BULK',
                     student_ccs: studentCCs,
                 }
             );
@@ -169,6 +173,35 @@ export const fetchBulkHistory = createAsyncThunk(
     },
 );
 
+/**
+ * Validates a list of CCs and returns previews.
+ */
+export const validateCCs = createAsyncThunk(
+    'bulkVoucher/validateCCs',
+    async (
+        { ccs, filters }: { ccs: number[]; filters: BulkFilters },
+        { rejectWithValue },
+    ) => {
+        try {
+            const response = await api.post(
+                '/v1/bulk-voucher-jobs/preview',
+                {
+                    student_ccs: ccs,
+                    fee_date_from: filters.dateFrom,
+                    fee_date_to: filters.dateTo,
+                    skip_already_issued: filters.skipAlreadyIssued,
+                }
+            );
+
+            return response.data.data as BulkStudent[];
+        } catch (err: any) {
+            return rejectWithValue(
+                err.response?.data?.message ?? err.message ?? 'Validation failed.',
+            );
+        }
+    },
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Initial State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -189,6 +222,7 @@ const initialState: BulkVoucherState = {
         lateFeeAmount: 1000,
         skipAlreadyIssued: true,
         waiveSurcharge: false,
+        jobType: 'BULK',
     },
     previewStudents: [],
     selectedStudentCCs: [],
@@ -255,6 +289,19 @@ const bulkVoucherSlice = createSlice({
                     .map((s) => s.cc);
             })
             .addCase(fetchBulkPreview.rejected, (state, action) => {
+                state.isFetchingPreview = false;
+                state.error = action.payload as string;
+            })
+            .addCase(validateCCs.pending, (state) => {
+                state.isFetchingPreview = true;
+                state.error = null;
+            })
+            .addCase(validateCCs.fulfilled, (state, action) => {
+                state.isFetchingPreview = false;
+                state.previewStudents = action.payload;
+                state.selectedStudentCCs = action.payload.map((s) => s.cc);
+            })
+            .addCase(validateCCs.rejected, (state, action) => {
                 state.isFetchingPreview = false;
                 state.error = action.payload as string;
             });

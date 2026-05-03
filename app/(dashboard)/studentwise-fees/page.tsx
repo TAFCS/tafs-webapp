@@ -298,6 +298,16 @@ function StudentwiseFeeEditor() {
     }, [rows, activeCell]);
 
     const user = useAppSelector((s) => s.auth.user);
+    
+    const selectedClass = useMemo(() => {
+        if (selectedClassId === "") return null;
+        return classes.find(c => c.id === selectedClassId);
+    }, [selectedClassId, classes]);
+
+    const graduatedFromClass = useMemo(() => {
+        if (!graduatedFromClassId) return null;
+        return classes.find(c => c.id === graduatedFromClassId);
+    }, [graduatedFromClassId, classes]);
 
     useEffect(() => {
         if (classes.length === 0) dispatch(fetchClasses());
@@ -956,8 +966,6 @@ function StudentwiseFeeEditor() {
     const selectedRowsForBundling = rows.filter(r => selectedForBundling.includes(r.__id));
     const distinctDates = Array.from(new Set(selectedRowsForBundling.map(r => r.fee_date || "none")));
 
-    const selectedClass = classes.find((c) => c.id === Number(selectedClassId));
-    const graduatedFromClass = graduatedFromClassId ? classes.find((c) => c.id === graduatedFromClassId) : null;
     const filteredClasses = classes.filter((c) =>
         c.description.toLowerCase().includes(classSearch.toLowerCase()) ||
         c.class_code.toLowerCase().includes(classSearch.toLowerCase())
@@ -1392,7 +1400,7 @@ function StudentwiseFeeEditor() {
                         </p>
                     </div>
 
-                    {studentId && !isGraduated && (
+                    {studentId && (
                         <div className="flex gap-3 mt-4">
                             {isTemplatePending ? (
                                 <>

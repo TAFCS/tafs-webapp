@@ -11,7 +11,8 @@ import {
     startBulkJob,
     pollJobStatus,
     resetBulkProcess,
-    fetchBulkHistory
+    fetchBulkHistory,
+    validateCCs
 } from "@/store/slices/bulkVoucherSlice";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchBanks } from "@/store/slices/banksSlice";
@@ -36,8 +37,15 @@ import {
     Download,
     History,
     RefreshCw,
-    ExternalLink
+    ExternalLink,
+    Search,
+    Filter,
+    ArrowUpDown,
+    CheckCircle,
+    Archive,
+    ArrowRight,
 } from "lucide-react";
+import api from "@/lib/api";
 import toast from "react-hot-toast";
 
 const MONTHS = [
@@ -71,6 +79,10 @@ export default function BulkVoucherPage() {
     const user = useSelector((state: RootState) => state.auth.user);
 
     const [isHistoryView, setIsHistoryView] = useState(false);
+    const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
+    const [reportSearch, setReportSearch] = useState("");
+    const [reportStatusFilter, setReportStatusFilter] = useState("all");
+    const [ccListInput, setCcListInput] = useState("");
 
     useEffect(() => {
         if (isHistoryView) {
@@ -139,13 +151,26 @@ export default function BulkVoucherPage() {
 
     const handleNext = async () => {
         if (currentStep === 1) {
-            if (!filters.campusId) return toast.error("Campus is required");
-            if (!filters.dateFrom || !filters.dateTo) return toast.error("Date range is required");
-            if (!filters.bankAccountId) return toast.error("Bank is required");
-            if (!filters.validityDate) return toast.error("Validity Date is required");
-            
-            await dispatch(fetchBulkPreview(filters)).unwrap();
-            dispatch(setStep(2));
+            if (filters.jobType === 'BATCH') {
+                if (!ccListInput.trim()) return toast.error("Please enter at least one CC");
+                if (!filters.dateFrom || !filters.dateTo) return toast.error("Date range is required");
+                if (!filters.bankAccountId) return toast.error("Bank is required");
+                if (!filters.validityDate) return toast.error("Validity Date is required");
+
+                const ccs = ccListInput.split(/[\s,]+/).map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                if (ccs.length === 0) return toast.error("No valid CCs found");
+
+                await dispatch(validateCCs({ ccs, filters })).unwrap();
+                dispatch(setStep(2));
+            } else {
+                if (!filters.campusId) return toast.error("Campus is required");
+                if (!filters.dateFrom || !filters.dateTo) return toast.error("Date range is required");
+                if (!filters.bankAccountId) return toast.error("Bank is required");
+                if (!filters.validityDate) return toast.error("Validity Date is required");
+                
+                await dispatch(fetchBulkPreview(filters)).unwrap();
+                dispatch(setStep(2));
+            }
         } else if (currentStep === 2) {
             if (selectedStudentCCs.length === 0) return toast.error("Select at least one student");
             try {
@@ -179,6 +204,46 @@ export default function BulkVoucherPage() {
             dispatch(setSelectedStudents([]));
         } else {
             dispatch(setSelectedStudents(previewStudents.map(s => s.cc)));
+        }
+    };
+
+    const [isExportingZip, setIsExportingZip] = useState<number | null>(null);
+
+    const handleDownloadZip = async (job: any) => {
+        const report = job.report || [];
+        const voucherIds = report
+            .filter((item: any) => item.status === 'SUCCESS')
+            .map((item: any) => {
+                if (item.voucher_id) return item.voucher_id;
+                // Fallback: Extract from pdf_url (e.g., .../voucher-12345-...)
+                const match = item.pdf_url?.match(/voucher-(\d+)-/);
+                return match ? parseInt(match[1]) : null;
+            })
+            .filter((id: any) => id !== null);
+
+        if (voucherIds.length === 0) {
+            toast.error("No successfully generated vouchers found in this job.");
+            return;
+        }
+
+        setIsExportingZip(job.id);
+        try {
+            const response = await api.post('/v1/vouchers/batch-export', { ids: voucherIds }, {
+                responseType: 'blob'
+            });
+            
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `vouchers_job_${job.id}.zip`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            toast.success("Batch ZIP downloaded successfully!");
+        } catch (err) {
+            toast.error("Failed to export batch ZIP.");
+        } finally {
+            setIsExportingZip(null);
         }
     };
 
@@ -240,7 +305,7 @@ export default function BulkVoucherPage() {
                         <thead>
                             <tr className="bg-zinc-50 dark:bg-zinc-900/50">
                                 <th className="px-8 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">ID & Date</th>
-                                <th className="px-8 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Scope</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Type & Scope</th>
                                 <th className="px-8 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Progress</th>
                                 <th className="px-8 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Actions</th>
                             </tr>
@@ -251,52 +316,150 @@ export default function BulkVoucherPage() {
                                     <td colSpan={4} className="px-8 py-12 text-center text-zinc-500 font-medium italic">No recent jobs found.</td>
                                 </tr>
                             ) : (
-                                history.map(job => (
-                                    <tr key={job.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/10 transition-colors">
-                                        <td className="px-8 py-6">
-                                            <p className="text-[14px] font-black text-zinc-900 dark:text-zinc-100">Job #{job.id}</p>
-                                            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">{new Date(job.created_at).toLocaleString()}</p>
-                                        </td>
-                                        <td className="px-8 py-6">
-                                            <p className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100">{job.campuses?.campus_name}</p>
-                                            <p className="text-[11px] font-medium text-zinc-500">{new Date(job.fee_date_from).toLocaleDateString()} - {new Date(job.fee_date_to).toLocaleDateString()}</p>
-                                        </td>
-                                        <td className="px-8 py-6">
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex-1 min-w-[100px] h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-primary" style={{ width: `${Math.round(((job.success_count + job.skip_count + job.fail_count) / job.total_count) * 100)}%` }} />
-                                                </div>
-                                                <span className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">{job.success_count}/{job.total_count}</span>
-                                            </div>
-                                            <div className="flex gap-2 mt-2">
-                                                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${job.status === 'DONE' ? 'bg-emerald-50 text-emerald-600' : job.status === 'FAILED' ? 'bg-rose-50 text-rose-600' : 'bg-primary/10 text-primary'}`}>
-                                                    {job.status}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-6">
-                                            <div className="flex items-center gap-2">
-                                                {job.merged_pdf_url && (
-                                                    <a 
-                                                        href={job.merged_pdf_url}
-                                                        target="_blank"
-                                                        className="h-9 px-4 bg-emerald-500 text-white rounded-xl flex items-center gap-2 text-[11px] font-black hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/10"
-                                                    >
-                                                        <Download className="h-3.5 w-3.5" />
-                                                        MERGED PDF
-                                                    </a>
-                                                )}
-                                                <button 
-                                                    onClick={() => handleDownloadUrls(job)}
-                                                    className="h-9 px-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl flex items-center gap-2 text-[11px] font-black hover:bg-zinc-50 transition-all"
-                                                >
-                                                    <ExternalLink className="h-3.5 w-3.5" />
-                                                    URLS CSV
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
+                                history.map(job => {
+                                    const isExpanded = expandedJobId === job.id;
+                                    const report = (job.report as any[]) || [];
+                                    const filteredReport = report.filter(item => {
+                                        const matchesSearch = item.student_name?.toLowerCase().includes(reportSearch.toLowerCase()) || 
+                                                           item.cc?.toString().includes(reportSearch);
+                                        const matchesStatus = reportStatusFilter === "all" || item.status?.toLowerCase() === reportStatusFilter;
+                                        return matchesSearch && matchesStatus;
+                                    });
+
+                                    return (
+                                        <>
+                                            <tr key={job.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/10 transition-colors group cursor-pointer" onClick={() => setExpandedJobId(isExpanded ? null : job.id)}>
+                                                <td className="px-8 py-6">
+                                                    <div className="flex items-center gap-3">
+                                                        <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                                                        <div>
+                                                            <p className="text-[14px] font-black text-zinc-900 dark:text-zinc-100">Job #{job.id}</p>
+                                                            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">{new Date(job.created_at).toLocaleString()}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${job.job_type === 'BATCH' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'}`}>
+                                                            {job.job_type || 'BULK'}
+                                                        </span>
+                                                        <p className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100">{job.campuses?.campus_name || "Multiple/CC List"}</p>
+                                                    </div>
+                                                    <p className="text-[11px] font-medium text-zinc-500">{new Date(job.fee_date_from).toLocaleDateString()} - {new Date(job.fee_date_to).toLocaleDateString()}</p>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="flex-1 min-w-[100px] h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                            <div className="h-full bg-primary" style={{ width: `${Math.round(((job.success_count + job.skip_count + job.fail_count) / job.total_count) * 100)}%` }} />
+                                                        </div>
+                                                        <span className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">{job.success_count}/{job.total_count}</span>
+                                                    </div>
+                                                    <div className="flex gap-2 mt-2">
+                                                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${job.status === 'DONE' ? 'bg-emerald-50 text-emerald-600' : job.status === 'FAILED' ? 'bg-rose-50 text-rose-600' : 'bg-primary/10 text-primary'}`}>
+                                                            {job.status}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                        {job.merged_pdf_url && (
+                                                            <a 
+                                                                href={job.merged_pdf_url}
+                                                                target="_blank"
+                                                                className="h-9 px-4 bg-emerald-500 text-white rounded-xl flex items-center gap-2 text-[11px] font-black hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/10"
+                                                            >
+                                                                <Download className="h-3.5 w-3.5" />
+                                                                MERGED PDF
+                                                            </a>
+                                                        )}
+                                                        <button 
+                                                            onClick={() => handleDownloadZip(job)}
+                                                            disabled={isExportingZip === job.id}
+                                                            className={`h-9 px-4 bg-zinc-900 text-white rounded-xl flex items-center gap-2 text-[11px] font-black hover:bg-zinc-800 transition-all shadow-lg ${isExportingZip === job.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        >
+                                                            {isExportingZip === job.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}
+                                                            ZIP BUNDLE
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleDownloadUrls(job)}
+                                                            className="h-9 px-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl flex items-center gap-2 text-[11px] font-black hover:bg-zinc-50 transition-all"
+                                                        >
+                                                            <ExternalLink className="h-3.5 w-3.5" />
+                                                            URLS CSV
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {isExpanded && (
+                                                <tr className="bg-zinc-50/50 dark:bg-zinc-900/20 animate-in fade-in slide-in-from-top-2">
+                                                    <td colSpan={4} className="px-8 py-8">
+                                                        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
+                                                            <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-4">
+                                                                <div className="relative flex-1 max-w-sm">
+                                                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                                                                    <input 
+                                                                        type="text"
+                                                                        placeholder="Search by student or CC..."
+                                                                        className="w-full h-9 pl-9 pr-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-[12px] font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                                                                        value={reportSearch}
+                                                                        onChange={(e) => setReportSearch(e.target.value)}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    />
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Filter className="h-3.5 w-3.5 text-zinc-400" />
+                                                                    <select 
+                                                                        className="h-9 px-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-[11px] font-bold outline-none"
+                                                                        value={reportStatusFilter}
+                                                                        onChange={(e) => setReportStatusFilter(e.target.value)}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        <option value="all">All Statuses</option>
+                                                                        <option value="success">Success</option>
+                                                                        <option value="skipped">Skipped</option>
+                                                                        <option value="failed">Failed</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                            <div className="max-h-[400px] overflow-y-auto">
+                                                                <table className="w-full text-left">
+                                                                    <thead className="sticky top-0 bg-zinc-50 dark:bg-zinc-800 z-10">
+                                                                        <tr>
+                                                                            <th className="px-6 py-3 text-[9px] font-black text-zinc-400 uppercase tracking-widest">CC</th>
+                                                                            <th className="px-6 py-3 text-[9px] font-black text-zinc-400 uppercase tracking-widest">Student</th>
+                                                                            <th className="px-6 py-3 text-[9px] font-black text-zinc-400 uppercase tracking-widest">Status</th>
+                                                                            <th className="px-6 py-3 text-[9px] font-black text-zinc-400 uppercase tracking-widest">Notes</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                                                                        {filteredReport.length === 0 ? (
+                                                                            <tr>
+                                                                                <td colSpan={4} className="px-6 py-8 text-center text-zinc-500 text-[12px] italic">No matching entries.</td>
+                                                                            </tr>
+                                                                        ) : (
+                                                                            filteredReport.map((item, idx) => (
+                                                                                <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50">
+                                                                                    <td className="px-6 py-3 text-[12px] font-bold text-zinc-500">#{item.cc}</td>
+                                                                                    <td className="px-6 py-3 text-[12px] font-black text-zinc-900 dark:text-zinc-100">{item.student_name}</td>
+                                                                                    <td className="px-6 py-3">
+                                                                                        <span className={`px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase ${item.status?.toLowerCase() === 'success' ? 'bg-emerald-50 text-emerald-600' : item.status?.toLowerCase() === 'skipped' || item.status?.toLowerCase() === 'already_issued' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                                                            {item.status}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td className="px-6 py-3 text-[11px] font-medium text-zinc-500">{item.reason || item.error || item.pdf_url || "—"}</td>
+                                                                                </tr>
+                                                                            ))
+                                                                        )}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
@@ -323,8 +486,37 @@ export default function BulkVoucherPage() {
                         </div>
                     </div>
 
+                    <div className="flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl">
+                        <button 
+                            onClick={() => handleFilterChange({ jobType: 'BULK' })}
+                            className={`flex-1 h-10 rounded-xl text-[11px] font-black transition-all ${filters.jobType === 'BULK' ? "bg-white dark:bg-zinc-800 text-primary shadow-sm" : "text-zinc-400 hover:text-zinc-600"}`}
+                        >
+                            BY SCOPE
+                        </button>
+                        <button 
+                            onClick={() => handleFilterChange({ jobType: 'BATCH' })}
+                            className={`flex-1 h-10 rounded-xl text-[11px] font-black transition-all ${filters.jobType === 'BATCH' ? "bg-white dark:bg-zinc-800 text-primary shadow-sm" : "text-zinc-400 hover:text-zinc-600"}`}
+                        >
+                            BY CC LIST
+                        </button>
+                    </div>
+
                     <div className="space-y-6">
-                        <div className="grid grid-cols-1 gap-6">
+                        {filters.jobType === 'BATCH' ? (
+                            <div className="animate-in fade-in slide-in-from-top-4">
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Student CC List</label>
+                                <textarea 
+                                    className="w-full h-32 px-5 py-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none resize-none"
+                                    placeholder="Enter CC numbers separated by commas, spaces, or newlines..."
+                                    value={ccListInput}
+                                    onChange={(e) => setCcListInput(e.target.value)}
+                                />
+                                <p className="text-[10px] font-medium text-zinc-400 mt-2 ml-1 italic">
+                                    Example: 1234, 5678, 9999
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 gap-6 animate-in fade-in slide-in-from-top-4">
                             <div>
                                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Campus (Required)</label>
                                 <div className="relative">
@@ -380,12 +572,13 @@ export default function BulkVoucherPage() {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                            </div>
+                        )}
 
                         <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl flex items-start gap-4">
                             <Info className="h-5 w-5 text-primary mt-1" />
                             <p className="text-[12px] font-medium text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                                Filtering by campus is mandatory. You can optionally narrow down to specific classes or sections within the selected campus.
+                                {filters.jobType === 'BATCH' ? "Enter student CCs separated by commas, spaces or newlines. Each CC will be validated before generation." : "Filtering by campus is mandatory. You can optionally narrow down to specific classes or sections within the selected campus."}
                             </p>
                         </div>
                     </div>
