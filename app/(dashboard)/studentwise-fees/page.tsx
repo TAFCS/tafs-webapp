@@ -204,7 +204,7 @@ function StudentwiseFeeEditor() {
     } | null>(null);
 
     const fetchProjections = useCallback(async (sid: number, year: string) => {
-        setProjections(prev => ({ ...(prev || { prevTuitionTotal: 0, prevAnnualTotal: 0, newTuitionMonthly: 0, newAnnualMonthly: 0 }), isLoading: true }));
+        setProjections(prev => ({ ...(prev || { prevTuitionAvg: 0, prevAnnualTotal: 0, newTuitionMonthly: 0, newAnnualMonthly: 0 }), isLoading: true }));
         try {
             const parts = year.split('-');
             if (parts.length !== 2) return;
@@ -461,21 +461,28 @@ function StudentwiseFeeEditor() {
                     if (prevYearStr && studentId) {
                         const { data: prevData } = await api.get(`/v1/student-fees/student/${studentId}/schedule`, { params: { academic_year: prevYearStr } });
                         const prevFees = prevData?.data?.fees || [];
-                            if (tuitionRows.length > 0) {
-                                const tTotalClean = tuitionRows.reduce((a: number, b: any) => {
-                                    const total = parseFloat(b.amount || "0");
-                                    const inst = parseFloat(b.installment_amount || "0");
-                                    return a + (total - inst);
-                                }, 0);
-                                suggestedTuition = Math.round((tTotalClean / tuitionRows.length) * 1.10);
-                            }
-                            if (annualRows.length > 0) {
-                                const aTotal = annualRows.reduce((a: number, b: any) => {
-                                    const inst = parseFloat(b.installment_amount || "0");
-                                    return a + (inst > 0 ? inst : parseFloat(b.amount || "0"));
-                                }, 0);
-                                suggestedAnnual = Math.round(aTotal * 1.10); // 10% increase
-                            }
+                        
+                        const tuitionRows = prevFees.filter((f: any) => f.fee_type_id === 1);
+                        const annualRows = prevFees.filter((f: any) => 
+                            f.fee_type_id === 4 || 
+                            (f.installment_amount && f.installment_id && f.student_fee_installments?.fee_type_id === 4)
+                        );
+
+                        if (tuitionRows.length > 0) {
+                            const tTotalClean = tuitionRows.reduce((a: number, b: any) => {
+                                const total = parseFloat(b.amount || "0");
+                                const inst = parseFloat(b.installment_amount || "0");
+                                return a + (total - inst);
+                            }, 0);
+                            suggestedTuition = Math.round((tTotalClean / tuitionRows.length) * 1.10);
+                        }
+                        if (annualRows.length > 0) {
+                            const aTotal = annualRows.reduce((a: number, b: any) => {
+                                const inst = parseFloat(b.installment_amount || "0");
+                                return a + (inst > 0 ? inst : parseFloat(b.amount || "0"));
+                            }, 0);
+                            suggestedAnnual = Math.round(aTotal * 1.10); // 10% increase
+                        }
                     }
                 } catch (e) { console.error("Suggestion fetch failed", e); }
 
