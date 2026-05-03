@@ -353,6 +353,187 @@ function SchoolsSection({ studentCc, initial }: { studentCc: number; initial: an
     );
 }
 
+const A_LEVEL_SUBJECTS_GROUP_A = [
+    { name: "BIOLOGY", code: "9700" },
+    { name: "CHEMISTRY", code: "9701" },
+    { name: "PHYSICS", code: "9702" },
+    { name: "MATHEMATICS", code: "9709" },
+    { name: "URDU", code: "9686" },
+    { name: "COMPUTER SCIENCE", code: "9618" },
+    { name: "SOCIOLOGY", code: "9699" },
+];
+
+const A_LEVEL_SUBJECTS_GROUP_B = [
+    { name: "ACCOUNTING", code: "9706" },
+    { name: "BUSINESS", code: "9707" },
+    { name: "ECONOMICS", code: "9708" },
+    { name: "MATHEMATICS", code: "9709" },
+    { name: "URDU", code: "9686" },
+    { name: "COMPUTER SCIENCE", code: "9618" },
+    { name: "SOCIOLOGY", code: "9699" },
+];
+
+function ALevelDetailsSection({ studentCc, initial }: { studentCc: number; initial: any }) {
+    const [local, setLocal] = useState(initial || {
+        preferred_subjects_group_a: [],
+        preferred_subjects_group_b: [],
+        olevel_result_counts: { "A*": 0, A: 0, B: 0, C: 0, D: 0, E: 0, U: 0 },
+        olevel_subjects_details: []
+    });
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+
+    const set = (k: string, v: any) => setLocal((p: any) => ({ ...p, [k]: v }));
+
+    const isDirty = JSON.stringify(local) !== JSON.stringify(initial || {
+        preferred_subjects_group_a: [],
+        preferred_subjects_group_b: [],
+        olevel_result_counts: { "A*": 0, A: 0, B: 0, C: 0, D: 0, E: 0, U: 0 },
+        olevel_subjects_details: []
+    });
+
+    const save = async () => {
+        setSaving(true);
+        try {
+            await api.post(`/v1/staff-editing/students/${studentCc}/alevel-details`, local);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch {
+            alert("Failed to save A-Level details");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const addSubject = () => {
+        set("olevel_subjects_details", [...(local.olevel_subjects_details || []), { subject: "", subjectCode: "", mockGrade: "", caieGrade: "" }]);
+    };
+
+    const removeSubject = (index: number) => {
+        const next = [...(local.olevel_subjects_details || [])];
+        next.splice(index, 1);
+        set("olevel_subjects_details", next);
+    };
+
+    const updateSubject = (index: number, k: string, v: string) => {
+        const next = [...(local.olevel_subjects_details || [])];
+        next[index] = { ...next[index], [k]: v };
+        set("olevel_subjects_details", next);
+    };
+
+    const togglePref = (group: 'preferred_subjects_group_a' | 'preferred_subjects_group_b', code: string) => {
+        const current = local[group] || [];
+        const next = current.includes(code) 
+            ? current.filter((c: string) => c !== code)
+            : [...current, code];
+        set(group, next);
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">A-Level Academic Data</span>
+                <RowSaveBtn onSave={save} isSaving={saving} saved={saved} isDirty={isDirty} />
+            </div>
+
+            <div className="bg-white border border-zinc-100 rounded-2xl p-4 space-y-6">
+                {/* Mock Results */}
+                <div>
+                    <div className="flex items-center justify-between mb-3">
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">O-Level / O3 Mock Results</label>
+                        <button onClick={addSubject} className="flex items-center gap-1 px-2 h-6 text-[10px] font-bold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-all">
+                            <Plus className="h-3 w-3" /> Add Subject
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                        {(local.olevel_subjects_details || []).map((sub: any, i: number) => (
+                            <div key={i} className="flex gap-2 items-center bg-zinc-50/50 p-2 rounded-xl border border-zinc-100">
+                                <div className="flex-[2]">
+                                    <Input value={sub.subject} onChange={v => updateSubject(i, "subject", v)} placeholder="Subject" />
+                                </div>
+                                <div className="flex-1">
+                                    <Input value={sub.subjectCode || sub.mockGrade} onChange={v => updateSubject(i, sub.subjectCode !== undefined ? "subjectCode" : "mockGrade", v)} placeholder="Code / Mock" />
+                                </div>
+                                <div className="flex-1">
+                                    <Input value={sub.mockGrade !== undefined && sub.subjectCode !== undefined ? sub.mockGrade : sub.caieGrade} onChange={v => updateSubject(i, sub.mockGrade !== undefined && sub.subjectCode !== undefined ? "mockGrade" : "caieGrade", v)} placeholder="Grade / CAIE" />
+                                </div>
+                                <button onClick={() => removeSubject(i)} className="text-zinc-300 hover:text-rose-500 transition-colors p-1">
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ))}
+                        {(!local.olevel_subjects_details || local.olevel_subjects_details.length === 0) && (
+                            <div className="col-span-full py-4 text-center border border-dashed border-zinc-200 rounded-xl">
+                                <p className="text-[11px] text-zinc-400 font-medium italic">No results recorded</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Grade Counts */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-zinc-50">
+                    <div>
+                        <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">O-Level Grade Summary</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {Object.entries(local.olevel_result_counts || {}).map(([grade, count]) => (
+                                <div key={grade}>
+                                    <label className="block text-[9px] font-black text-zinc-400 mb-1">{grade}</label>
+                                    <input 
+                                        type="number" 
+                                        value={count as number} 
+                                        onChange={e => set("olevel_result_counts", { ...local.olevel_result_counts, [grade]: parseInt(e.target.value) || 0 })}
+                                        className="w-full h-8 px-2 text-[12px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-lg outline-none focus:border-primary transition-all"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">Subject Preferences</label>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-[9px] font-black text-zinc-400 mb-2">Group A (Compulsory)</label>
+                                <div className="flex flex-wrap gap-1">
+                                    {A_LEVEL_SUBJECTS_GROUP_A.map((s) => {
+                                        const isSelected = (local.preferred_subjects_group_a || []).includes(s.code);
+                                        return (
+                                            <button 
+                                                key={s.code} 
+                                                onClick={() => togglePref('preferred_subjects_group_a', s.code)}
+                                                className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-all ${isSelected ? "bg-zinc-800 text-white border-zinc-800" : "bg-zinc-100 text-zinc-400 border-zinc-200 hover:border-zinc-300"}`}
+                                            >
+                                                {s.name} ({s.code})
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[9px] font-black text-zinc-400 mb-2">Group B (Electives)</label>
+                                <div className="flex flex-wrap gap-1">
+                                    {A_LEVEL_SUBJECTS_GROUP_B.map((s) => {
+                                        const isSelected = (local.preferred_subjects_group_b || []).includes(s.code);
+                                        return (
+                                            <button 
+                                                key={s.code} 
+                                                onClick={() => togglePref('preferred_subjects_group_b', s.code)}
+                                                className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-all ${isSelected ? "bg-indigo-600 text-white border-indigo-600" : "bg-indigo-50/50 text-indigo-400 border-indigo-100 hover:border-indigo-200"}`}
+                                            >
+                                                {s.name} ({s.code})
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Main Export ───────────────────────────────────────────────────
 export function AcademicTab({ student, onReload }: { student: any; onReload: () => void }) {
     const [studentYear, setStudentYear] = useState(student.academic_year || "");
@@ -381,6 +562,10 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
         finally { setSavingGeneral(false); }
     };
 
+    const isALevel = student.academic_system === "A-Level" || 
+                     student.admissions?.some((a: any) => a.academic_system === "A-Level") ||
+                     !!student.alevel_details;
+
     return (
         <div className="space-y-6">
             <div className={`bg-zinc-50 border rounded-2xl p-4 space-y-3 transition-all ${isGeneralDirty ? "border-amber-200 ring-1 ring-amber-100" : "border-zinc-100"}`}>
@@ -397,6 +582,13 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
                     </Field>
                 </div>
             </div>
+
+            {isALevel && (
+                <>
+                    <div className="border-t border-zinc-100" />
+                    <ALevelDetailsSection studentCc={student.cc} initial={student.alevel_details} />
+                </>
+            )}
 
             <div className="border-t border-zinc-100" />
             <ActivitiesSection studentCc={student.cc} initial={student.activities || []} />

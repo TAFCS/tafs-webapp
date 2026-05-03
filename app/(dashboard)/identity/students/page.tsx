@@ -27,6 +27,8 @@ interface StudentCore {
     enrollment_status: "SOFT_ADMISSION" | "ENROLLED" | "EXPELLED" | "GRADUATED";
     class_id: number;
     photograph_url: string | null;
+    academic_system?: string | null;
+    requested_grade?: string | null;
     primary_guardian_name?: string | null;
     guardian_relationship?: string | null;
 }
@@ -102,9 +104,18 @@ function StudentCard({ student, onClick }: { student: Student; onClick: () => vo
                                 <Building2 className="h-2.5 w-2.5 text-zinc-400" />{c.campus_name}
                             </span>
                         )}
-                        {c.class_description && (
+                        {c.class_description ? (
                             <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
                                 <BookOpen className="h-2.5 w-2.5 text-zinc-400" />{c.class_description}
+                            </span>
+                        ) : c.requested_grade ? (
+                            <span className="flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-100 text-blue-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                                <BookOpen className="h-2.5 w-2.5 text-blue-400" />{c.requested_grade}
+                            </span>
+                        ) : null}
+                        {c.academic_system === 'A-Level' && (
+                            <span className="flex items-center gap-1 text-[10px] bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                                <BookOpen className="h-2.5 w-2.5 text-indigo-400" />A-LEVEL
                             </span>
                         )}
                     </div>

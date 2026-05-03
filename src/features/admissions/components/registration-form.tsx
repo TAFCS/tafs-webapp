@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X, Plus, GraduationCap, BookOpen, ShieldCheck, Star, Award, BookText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/src/store/store";
@@ -55,6 +55,26 @@ const FIELD_TO_NA_CHECKBOX: Record<string, string> = {
     emergencyContactName: 'isEmergencyContactNameNA',
 };
 
+const A_LEVEL_SUBJECTS_GROUP_A = [
+    { name: "BIOLOGY", code: "9700" },
+    { name: "CHEMISTRY", code: "9701" },
+    { name: "PHYSICS", code: "9702" },
+    { name: "MATHEMATICS", code: "9709" },
+    { name: "URDU", code: "9686" },
+    { name: "COMPUTER SCIENCE", code: "9618" },
+    { name: "SOCIOLOGY", code: "9699" },
+];
+
+const A_LEVEL_SUBJECTS_GROUP_B = [
+    { name: "ACCOUNTING", code: "9706" },
+    { name: "BUSINESS", code: "9707" },
+    { name: "ECONOMICS", code: "9708" },
+    { name: "MATHEMATICS", code: "9709" },
+    { name: "URDU", code: "9686" },
+    { name: "COMPUTER SCIENCE", code: "9618" },
+    { name: "SOCIOLOGY", code: "9699" },
+];
+
 const INITIAL_FORM_DATA = {
     campusId: "",
     candidateName: "", fatherName: "", motherName: "",
@@ -97,6 +117,11 @@ const INITIAL_FORM_DATA = {
     fatherAdditionalPhones: [] as Array<{ id: string; label: string; number: string }>,
     motherAdditionalPhones: [] as Array<{ id: string; label: string; number: string }>,
     emergencyAdditionalPhones: [] as Array<{ id: string; label: string; number: string }>,
+    // A-Level Fields
+    preferredALevelSubjectsGroupA: [] as string[],
+    preferredALevelSubjectsGroupB: [] as string[],
+    oLevelResultCounts: { astar: "", a: "", b: "", c: "", d: "", e: "" },
+    oLevelSubjectsDetails: [{ id: Date.now(), subject: "", mockGrade: "", caieGrade: "" }],
 };
 
 import { memo } from "react";
@@ -534,6 +559,51 @@ export function RegistrationForm() {
         }));
     };
 
+    const handleALevelSubjectToggle = (group: 'A' | 'B', subjectCode: string) => {
+        const field = group === 'A' ? 'preferredALevelSubjectsGroupA' : 'preferredALevelSubjectsGroupB';
+        setFormData(prev => {
+            const current = (prev as any)[field] || [];
+            if (current.includes(subjectCode)) {
+                return { ...prev, [field]: current.filter((c: string) => c !== subjectCode) };
+            } else {
+                return { ...prev, [field]: [...current, subjectCode] };
+            }
+        });
+    };
+
+    const handleOLevelResultChange = (grade: string, value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            oLevelResultCounts: {
+                ...prev.oLevelResultCounts,
+                [grade]: value.replace(/\D/g, "")
+            }
+        }));
+    };
+
+    const handleOLevelSubjectChange = (id: number, field: string, value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            oLevelSubjectsDetails: prev.oLevelSubjectsDetails.map(s =>
+                s.id === id ? { ...s, [field]: value.toUpperCase() } : s
+            )
+        }));
+    };
+
+    const addOLevelSubject = () => {
+        setFormData(prev => ({
+            ...prev,
+            oLevelSubjectsDetails: [...prev.oLevelSubjectsDetails, { id: Date.now(), subject: "", mockGrade: "", caieGrade: "" }]
+        }));
+    };
+
+    const removeOLevelSubject = (id: number) => {
+        setFormData(prev => ({
+            ...prev,
+            oLevelSubjectsDetails: prev.oLevelSubjectsDetails.filter(s => s.id !== id)
+        }));
+    };
+
     const removePreviousSchool = (id: number) => {
         if (formData.previousSchools.length > 1) {
             setFormData(prev => ({
@@ -749,7 +819,8 @@ export function RegistrationForm() {
         const motherFullName = formData.motherName.trim() || 'N/A';
 
         // Map admissionSystem to enum
-        const academicSystem = formData.admissionSystem === 'cambridge' ? 'Cambridge' : 'Secondary';
+        const academicSystem = formData.admissionSystem === 'cambridge' ? 'Cambridge' : 
+                              formData.admissionSystem === 'alevel' ? 'A-Level' : 'Secondary';
 
         const payload = {
             full_name: fullName,
@@ -831,6 +902,12 @@ export function RegistrationForm() {
                 discipline: formData.isDisciplineNA ? null : sanitizeValue(formData.discipline),
                 campus_id: formData.campusId ? parseInt(formData.campusId) : undefined,
             },
+            alevel_details: academicSystem === 'A-Level' ? {
+                preferred_subjects_group_a: formData.preferredALevelSubjectsGroupA,
+                preferred_subjects_group_b: formData.preferredALevelSubjectsGroupB,
+                olevel_result_counts: formData.oLevelResultCounts,
+                olevel_subjects_details: formData.oLevelSubjectsDetails.map(({ id, ...rest }) => rest)
+            } : undefined,
             flags: formData.flags
                 .filter(f => f.description.trim())
                 .map(f => ({
@@ -1313,43 +1390,312 @@ export function RegistrationForm() {
                                             )}
                                         </div>
                                     </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                                </div>                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
                                     {/* O-Level Block */}
-                                    <div className={`border-2 rounded-xl p-5 ${formData.admissionSystem === "cambridge" ? 'border-primary/50 bg-primary/5' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950'}`}>
-                                        <div className="flex items-center mb-4">
-                                            <input type="radio" name="admissionSystem" value="cambridge" id="sys-cambridge-reg" checked={formData.admissionSystem === "cambridge"} onChange={handleInputChange} className="h-4 w-4 text-primary focus:ring-primary border-zinc-300 dark:border-zinc-700 cursor-pointer" />
-                                            <label htmlFor="sys-cambridge-reg" className="ml-2 block font-semibold text-primary cursor-pointer">Cambridge GCE O&apos; Level System</label>
+                                    <div 
+                                        onClick={() => handleInputChange({ target: { name: 'admissionSystem', value: 'cambridge' } } as any)}
+                                        className={`group relative overflow-hidden border-2 rounded-2xl p-5 cursor-pointer transition-all duration-500 hover:shadow-xl hover:-translate-y-1 ${formData.admissionSystem === "cambridge" ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 grayscale hover:grayscale-0 opacity-70 hover:opacity-100'}`}
+                                    >
+                                        <div className="flex items-center justify-between mb-6">
+                                            <div className={`p-3 rounded-xl transition-colors duration-500 ${formData.admissionSystem === "cambridge" ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 group-hover:bg-primary/10 group-hover:text-primary'}`}>
+                                                <GraduationCap className="h-6 w-6" />
+                                            </div>
+                                            <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${formData.admissionSystem === "cambridge" ? 'border-primary bg-primary' : 'border-zinc-300 dark:border-zinc-700'}`}>
+                                                {formData.admissionSystem === "cambridge" && <div className="h-2 w-2 rounded-full bg-white animate-in zoom-in duration-300" />}
+                                            </div>
                                         </div>
-                                        <div className={`grid grid-cols-2 gap-y-2 gap-x-4 pl-6 ${formData.admissionSystem !== 'cambridge' ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        <h4 className={`text-sm font-black uppercase tracking-tight mb-4 transition-colors duration-500 ${formData.admissionSystem === "cambridge" ? 'text-primary' : 'text-zinc-600 dark:text-zinc-400 group-hover:text-primary'}`}>Cambridge GCE O&apos; Level System</h4>
+                                        <div className={`grid grid-cols-1 gap-y-1 transition-all duration-500 ${formData.admissionSystem !== 'cambridge' ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-[600px] opacity-100'}`}>
                                             {['Pre-Nursery', 'Nursery', 'K.G.', 'JR-I', 'JR-II', 'JR-III', 'JR-IV', 'JR-V', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III'].map(cls => (
-                                                <div key={cls} className="flex items-center gap-2">
-                                                    <input type="radio" name="admissionLevel" value={cls} id={`cls-cam-${cls}`} checked={formData.admissionLevel === cls && formData.admissionSystem === "cambridge"} onChange={handleInputChange} className="h-3.5 w-3.5 text-primary focus:ring-primary border-zinc-300 dark:border-zinc-700 cursor-pointer" />
-                                                    <label htmlFor={`cls-cam-${cls}`} className="text-sm text-zinc-700 dark:text-zinc-300 cursor-pointer">{cls}</label>
+                                                <div 
+                                                    key={cls} 
+                                                    onClick={(e) => { e.stopPropagation(); handleInputChange({ target: { name: 'admissionLevel', value: cls } } as any); }}
+                                                    className={`flex items-center gap-3 p-1.5 rounded-lg transition-all hover:bg-primary/10 cursor-pointer group/item ${formData.admissionLevel === cls && formData.admissionSystem === "cambridge" ? 'bg-primary/10 translate-x-1' : ''}`}
+                                                >
+                                                    <div className={`h-3 w-3 rounded-full border transition-all ${formData.admissionLevel === cls && formData.admissionSystem === "cambridge" ? 'border-primary bg-primary' : 'border-zinc-300 dark:border-zinc-700'}`} />
+                                                    <label className={`text-xs font-bold transition-colors cursor-pointer ${formData.admissionLevel === cls && formData.admissionSystem === "cambridge" ? 'text-primary' : 'text-zinc-500 dark:text-zinc-400 group-hover/item:text-primary'}`}>{cls}</label>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
 
                                     {/* Secondary Block */}
-                                    <div className={`border-2 rounded-xl p-5 ${formData.admissionSystem === "secondary" ? 'border-secondary/50 bg-secondary/5' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950'}`}>
-                                        <div className="flex items-center mb-4">
-                                            <input type="radio" name="admissionSystem" value="secondary" id="sys-secondary-reg" checked={formData.admissionSystem === "secondary"} onChange={handleInputChange} className="h-4 w-4 text-secondary focus:ring-secondary border-zinc-300 dark:border-zinc-700 cursor-pointer" />
-                                            <label htmlFor="sys-secondary-reg" className="ml-2 block font-semibold text-secondary cursor-pointer">Secondary System of Studies</label>
+                                    <div 
+                                        onClick={() => handleInputChange({ target: { name: 'admissionSystem', value: 'secondary' } } as any)}
+                                        className={`group relative overflow-hidden border-2 rounded-2xl p-5 cursor-pointer transition-all duration-500 hover:shadow-xl hover:-translate-y-1 ${formData.admissionSystem === "secondary" ? 'border-secondary bg-secondary/5 ring-4 ring-secondary/10' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 grayscale hover:grayscale-0 opacity-70 hover:opacity-100'}`}
+                                    >
+                                        <div className="flex items-center justify-between mb-6">
+                                            <div className={`p-3 rounded-xl transition-colors duration-500 ${formData.admissionSystem === "secondary" ? 'bg-secondary text-white shadow-lg shadow-secondary/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 group-hover:bg-secondary/10 group-hover:text-secondary'}`}>
+                                                <BookOpen className="h-6 w-6" />
+                                            </div>
+                                            <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${formData.admissionSystem === "secondary" ? 'border-secondary bg-secondary' : 'border-zinc-300 dark:border-zinc-700'}`}>
+                                                {formData.admissionSystem === "secondary" && <div className="h-2 w-2 rounded-full bg-white animate-in zoom-in duration-300" />}
+                                            </div>
                                         </div>
-                                        <div className={`grid grid-cols-2 gap-y-2 gap-x-4 pl-6 ${formData.admissionSystem !== 'secondary' ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        <h4 className={`text-sm font-black uppercase tracking-tight mb-4 transition-colors duration-500 ${formData.admissionSystem === "secondary" ? 'text-secondary' : 'text-zinc-600 dark:text-zinc-400 group-hover:text-secondary'}`}>Secondary System of Studies</h4>
+                                        <div className={`grid grid-cols-1 gap-y-1 transition-all duration-500 ${formData.admissionSystem !== 'secondary' ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-[600px] opacity-100'}`}>
                                             {['VI', 'VII', 'VIII', 'IX', 'X'].map(cls => (
-                                                <div key={cls} className="flex items-center gap-2">
-                                                    <input type="radio" name="admissionLevel" value={cls} id={`cls-sec-${cls}`} checked={formData.admissionLevel === cls && formData.admissionSystem === "secondary"} onChange={handleInputChange} className="h-3.5 w-3.5 text-secondary focus:ring-secondary border-zinc-300 dark:border-zinc-700 cursor-pointer" />
-                                                    <label htmlFor={`cls-sec-${cls}`} className="text-sm text-zinc-700 dark:text-zinc-300 cursor-pointer">{cls}</label>
+                                                <div 
+                                                    key={cls} 
+                                                    onClick={(e) => { e.stopPropagation(); handleInputChange({ target: { name: 'admissionLevel', value: cls } } as any); }}
+                                                    className={`flex items-center gap-3 p-1.5 rounded-lg transition-all hover:bg-secondary/10 cursor-pointer group/item ${formData.admissionLevel === cls && formData.admissionSystem === "secondary" ? 'bg-secondary/10 translate-x-1' : ''}`}
+                                                >
+                                                    <div className={`h-3 w-3 rounded-full border transition-all ${formData.admissionLevel === cls && formData.admissionSystem === "secondary" ? 'border-secondary bg-secondary' : 'border-zinc-300 dark:border-zinc-700'}`} />
+                                                    <label className={`text-xs font-bold transition-colors cursor-pointer ${formData.admissionLevel === cls && formData.admissionSystem === "secondary" ? 'text-secondary' : 'text-zinc-500 dark:text-zinc-400 group-hover/item:text-secondary'}`}>{cls}</label>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
 
+                                    {/* A-Level Block */}
+                                    <div 
+                                        onClick={() => handleInputChange({ target: { name: 'admissionSystem', value: 'alevel' } } as any)}
+                                        className={`group relative overflow-hidden border-2 rounded-2xl p-5 cursor-pointer transition-all duration-500 hover:shadow-xl hover:-translate-y-1 ${formData.admissionSystem === "alevel" ? 'border-amber-500 bg-amber-500/5 ring-4 ring-amber-500/10' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 grayscale hover:grayscale-0 opacity-70 hover:opacity-100'}`}
+                                    >
+                                        <div className="flex items-center justify-between mb-6">
+                                            <div className={`p-3 rounded-xl transition-colors duration-500 ${formData.admissionSystem === "alevel" ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 group-hover:bg-amber-500/10 group-hover:text-amber-500'}`}>
+                                                <ShieldCheck className="h-6 w-6" />
+                                            </div>
+                                            <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${formData.admissionSystem === "alevel" ? 'border-amber-500 bg-amber-500' : 'border-zinc-300 dark:border-zinc-700'}`}>
+                                                {formData.admissionSystem === "alevel" && <div className="h-2 w-2 rounded-full bg-white animate-in zoom-in duration-300" />}
+                                            </div>
+                                        </div>
+                                        <h4 className={`text-sm font-black uppercase tracking-tight mb-4 transition-colors duration-500 ${formData.admissionSystem === "alevel" ? 'text-amber-600' : 'text-zinc-600 dark:text-zinc-400 group-hover:text-amber-600'}`}>Cambridge GCE A&apos; Level System</h4>
+                                        <div className={`grid grid-cols-1 gap-y-1 transition-all duration-500 ${formData.admissionSystem !== 'alevel' ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-[600px] opacity-100'}`}>
+                                            {['AS Level', 'A2 Level'].map(cls => (
+                                                <div 
+                                                    key={cls} 
+                                                    onClick={(e) => { e.stopPropagation(); handleInputChange({ target: { name: 'admissionLevel', value: cls } } as any); }}
+                                                    className={`flex items-center gap-3 p-1.5 rounded-lg transition-all hover:bg-amber-500/10 cursor-pointer group/item ${formData.admissionLevel === cls && formData.admissionSystem === "alevel" ? 'bg-amber-500/10 translate-x-1' : ''}`}
+                                                >
+                                                    <div className={`h-3 w-3 rounded-full border transition-all ${formData.admissionLevel === cls && formData.admissionSystem === "alevel" ? 'border-amber-500 bg-amber-500' : 'border-zinc-300 dark:border-zinc-700'}`} />
+                                                    <label className={`text-xs font-bold transition-colors cursor-pointer ${formData.admissionLevel === cls && formData.admissionSystem === "alevel" ? 'text-amber-600' : 'text-zinc-500 dark:text-zinc-400 group-hover/item:text-amber-600'}`}>{cls}</label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* A-Level Detailed Sections */}
+                                    {formData.admissionSystem === "alevel" && (
+                                        <div className="md:col-span-3 space-y-10 animate-in slide-in-from-top-6 duration-700 mt-8">
+                                            {/* 1b. Subjects Required */}
+                                            <div className="relative group/section">
+                                                <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-3xl blur-xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-700" />
+                                                <div className="relative bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
+                                                    <div className="flex items-center gap-4 mb-10">
+                                                        <div className="h-10 w-1 bg-amber-500 rounded-full" />
+                                                        <h4 className="text-lg font-black uppercase tracking-tight text-zinc-800 dark:text-zinc-100">Subjects Required for A level Studies</h4>
+                                                    </div>
+                                                    
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                                        {/* Group A */}
+                                                        <div>
+                                                            <div className="flex items-center gap-3 mb-6 px-2">
+                                                                <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                                                                <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Group A Subjects</p>
+                                                            </div>
+                                                            <div className="grid grid-cols-1 gap-2">
+                                                                {A_LEVEL_SUBJECTS_GROUP_A.map(sub => {
+                                                                    const isSelected = formData.preferredALevelSubjectsGroupA.includes(sub.code);
+                                                                    return (
+                                                                        <label 
+                                                                            key={sub.code} 
+                                                                            className={`flex items-center justify-between p-3.5 rounded-2xl transition-all duration-300 cursor-pointer border-2 ${isSelected ? 'border-amber-500 bg-amber-500/5 shadow-sm' : 'border-zinc-100 dark:border-zinc-900 hover:border-zinc-200 dark:hover:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/50'}`}
+                                                                        >
+                                                                            <div className="flex items-center gap-4">
+                                                                                <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-amber-500 border-amber-500' : 'border-zinc-300 dark:border-zinc-700'}`}>
+                                                                                    {isSelected && <CheckCircle className="h-3.5 w-3.5 text-white" />}
+                                                                                </div>
+                                                                                <input 
+                                                                                    type="checkbox" 
+                                                                                    className="hidden"
+                                                                                    checked={isSelected}
+                                                                                    onChange={() => handleALevelSubjectToggle('A', sub.code)}
+                                                                                />
+                                                                                <span className={`text-xs font-black transition-colors ${isSelected ? 'text-amber-600' : 'text-zinc-600 dark:text-zinc-400'}`}>{sub.name}</span>
+                                                                            </div>
+                                                                            <span className={`text-[10px] font-mono font-bold ${isSelected ? 'text-amber-400' : 'text-zinc-400'}`}>{sub.code}</span>
+                                                                        </label>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                        {/* Group B */}
+                                                        <div>
+                                                            <div className="flex items-center gap-3 mb-6 px-2">
+                                                                <Award className="h-4 w-4 text-amber-500 fill-amber-500" />
+                                                                <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Group B Subjects</p>
+                                                            </div>
+                                                            <div className="grid grid-cols-1 gap-2">
+                                                                {A_LEVEL_SUBJECTS_GROUP_B.map(sub => {
+                                                                    const isSelected = formData.preferredALevelSubjectsGroupB.includes(sub.code);
+                                                                    return (
+                                                                        <label 
+                                                                            key={sub.code} 
+                                                                            className={`flex items-center justify-between p-3.5 rounded-2xl transition-all duration-300 cursor-pointer border-2 ${isSelected ? 'border-amber-500 bg-amber-500/5 shadow-sm' : 'border-zinc-100 dark:border-zinc-900 hover:border-zinc-200 dark:hover:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/50'}`}
+                                                                        >
+                                                                            <div className="flex items-center gap-4">
+                                                                                <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-amber-500 border-amber-500' : 'border-zinc-300 dark:border-zinc-700'}`}>
+                                                                                    {isSelected && <CheckCircle className="h-3.5 w-3.5 text-white" />}
+                                                                                </div>
+                                                                                <input 
+                                                                                    type="checkbox" 
+                                                                                    className="hidden"
+                                                                                    checked={isSelected}
+                                                                                    onChange={() => handleALevelSubjectToggle('B', sub.code)}
+                                                                                />
+                                                                                <span className={`text-xs font-black transition-colors ${isSelected ? 'text-amber-600' : 'text-zinc-600 dark:text-zinc-400'}`}>{sub.name}</span>
+                                                                            </div>
+                                                                            <span className={`text-[10px] font-mono font-bold ${isSelected ? 'text-amber-400' : 'text-zinc-400'}`}>{sub.code}</span>
+                                                                        </label>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* 1c. Academic Background */}
+                                            <div className="relative group/section">
+                                                <div className="absolute -inset-1 bg-gradient-to-r from-zinc-500/10 to-primary/10 rounded-3xl blur-xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-700" />
+                                                <div className="relative bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-sm">
+                                                    <div className="flex items-center gap-4 mb-10">
+                                                        <div className="h-10 w-1 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
+                                                        <h4 className="text-lg font-black uppercase tracking-tight text-zinc-800 dark:text-zinc-100">Academic Background</h4>
+                                                    </div>
+
+                                                    <div className="mb-12">
+                                                        <div className="flex items-center gap-2 mb-6 px-1">
+                                                            <BookText className="h-4 w-4 text-zinc-400" />
+                                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                                {formData.admissionLevel === 'AS Level' ? 'MOCK EXAMINATIONS RESULT' : 'GCE O LEVEL RESULT SUMMARY'}
+                                                            </p>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
+                                                            {[
+                                                                { id: 'astar', label: 'A*s', color: 'from-amber-400 to-orange-500' },
+                                                                { id: 'a', label: 'As', color: 'from-emerald-400 to-teal-600' },
+                                                                { id: 'b', label: 'Bs', color: 'from-blue-400 to-indigo-600' },
+                                                                { id: 'c', label: 'Cs', color: 'from-zinc-400 to-zinc-600' },
+                                                                { id: 'd', label: 'Ds', color: 'from-zinc-300 to-zinc-500' },
+                                                                { id: 'e', label: 'Es', color: 'from-zinc-200 to-zinc-400' },
+                                                            ].map(item => {
+                                                                const val = (formData.oLevelResultCounts as any)[item.id];
+                                                                const hasValue = val && val !== "0" && val !== "";
+                                                                return (
+                                                                    <div key={item.id} className="relative group/grade">
+                                                                        {hasValue && <div className={`absolute -inset-0.5 bg-gradient-to-br ${item.color} rounded-2xl blur opacity-20 group-hover/grade:opacity-40 transition-opacity`} />}
+                                                                        <div className={`relative bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-2xl border-2 transition-all duration-300 ${hasValue ? 'border-zinc-200 dark:border-zinc-800' : 'border-transparent'}`}>
+                                                                            <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 text-center">{item.label}</label>
+                                                                            <input 
+                                                                                type="text" 
+                                                                                value={val || ""}
+                                                                                onChange={(e) => handleOLevelResultChange(item.id, e.target.value)}
+                                                                                placeholder="0"
+                                                                                className={`w-full px-1 py-1 bg-white dark:bg-zinc-950 border-2 rounded-xl text-base font-black text-center outline-none transition-all ${hasValue ? 'border-primary/20 text-primary' : 'border-zinc-100 dark:border-zinc-800 text-zinc-400'}`} 
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-6">
+                                                        <div className="flex items-center justify-between px-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <Star className="h-4 w-4 text-zinc-400" />
+                                                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                                    {formData.admissionLevel === 'AS Level' ? 'GRADES IN MOCK EXAMINATIONS FOR SUBJECTS OF CHOICE AT O LEVEL' : 'SUBJECTS STUDIED AT O LEVEL'}
+                                                                </p>
+                                                            </div>
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={addOLevelSubject}
+                                                                className="group flex items-center gap-2 px-5 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-zinc-200 dark:shadow-none"
+                                                            >
+                                                                <Plus className="h-3.5 w-3.5 group-hover:rotate-90 transition-transform duration-300" />
+                                                                Add Subject
+                                                            </button>
+                                                        </div>
+                                                        <div className="overflow-hidden border border-zinc-100 dark:border-zinc-900 rounded-3xl bg-zinc-50/50 dark:bg-zinc-900/30">
+                                                            <table className="w-full text-left border-collapse">
+                                                                <thead>
+                                                                    <tr className="bg-zinc-100/50 dark:bg-zinc-900/50 border-b border-zinc-200/50 dark:border-zinc-800/50">
+                                                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                                                                            {formData.admissionLevel === 'AS Level' ? 'SUBJECTS' : 'Subject Name'}
+                                                                        </th>
+                                                                        {formData.admissionLevel === 'AS Level' ? (
+                                                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center border-l border-zinc-200/50 dark:border-zinc-800/50">Subject Codes</th>
+                                                                        ) : (
+                                                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center border-l border-zinc-200/50 dark:border-zinc-800/50">Mock Grade</th>
+                                                                        )}
+                                                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center border-l border-zinc-200/50 dark:border-zinc-800/50">
+                                                                            {formData.admissionLevel === 'AS Level' ? 'GRADES' : 'CAIE Result'}
+                                                                        </th>
+                                                                        <th className="w-14"></th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody className="divide-y divide-zinc-200/30 dark:divide-zinc-800/30">
+                                                                    {formData.oLevelSubjectsDetails.map((row) => {
+                                                                        // Check if this is an AS Level view to change labels/structure
+                                                                        const isASLevel = formData.admissionLevel === 'AS Level';
+                                                                        
+                                                                        return (
+                                                                            <tr key={row.id} className="group/row transition-colors hover:bg-white dark:hover:bg-zinc-900/50">
+                                                                                <td className="px-3 py-2">
+                                                                                    <input 
+                                                                                        type="text" 
+                                                                                        value={row.subject} 
+                                                                                        onChange={(e) => handleOLevelSubjectChange(row.id, 'subject', e.target.value)}
+                                                                                        placeholder={isASLevel ? "SUBJECT NAME" : "E.G. PHYSICS"}
+                                                                                        className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                                                                    />
+                                                                                </td>
+                                                                                <td className="px-3 py-2 border-l border-zinc-200/30 dark:border-zinc-800/30">
+                                                                                    <input 
+                                                                                        type="text" 
+                                                                                        value={isASLevel ? (row.subjectCode || "") : row.mockGrade} 
+                                                                                        onChange={(e) => handleOLevelSubjectChange(row.id, isASLevel ? 'subjectCode' : 'mockGrade', e.target.value)}
+                                                                                        placeholder={isASLevel ? "CODE" : "A"}
+                                                                                        className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent text-center outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                                                                    />
+                                                                                </td>
+                                                                                <td className="px-3 py-2 border-l border-zinc-200/30 dark:border-zinc-800/30">
+                                                                                    <input 
+                                                                                        type="text" 
+                                                                                        value={isASLevel ? row.mockGrade : row.caieGrade} 
+                                                                                        onChange={(e) => handleOLevelSubjectChange(row.id, isASLevel ? 'mockGrade' : 'caieGrade', e.target.value)}
+                                                                                        placeholder={isASLevel ? "GRADE" : "A*"}
+                                                                                        className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent text-center outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                                                                    />
+                                                                                </td>
+                                                                                <td className="px-3 py-2 text-center">
+                                                                                    <button 
+                                                                                        type="button" 
+                                                                                        onClick={() => removeOLevelSubject(row.id)}
+                                                                                        disabled={formData.oLevelSubjectsDetails.length === 1}
+                                                                                        className="p-2.5 text-zinc-300 hover:text-red-500 disabled:opacity-0 transition-all hover:scale-110 active:scale-95"
+                                                                                    >
+                                                                                        <X className="h-5 w-5" />
+                                                                                    </button>
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+
                                     {/* Discipline Dropdown (Conditional) */}
-                                    {formData.admissionLevel && (['VI', 'VII', 'VIII', 'IX', 'X', 'O-I', 'O-II', 'O-III'].includes(formData.admissionLevel)) && (
+                                    {formData.admissionLevel && (['VI', 'VII', 'VIII', 'IX', 'X', 'O-I', 'O-II', 'O-III', 'SR-I', 'SR-II', 'SR-III'].includes(formData.admissionLevel)) && (
                                         <div className="md:col-span-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 animate-in slide-in-from-top-2 duration-300">
                                             <div className="flex flex-col md:flex-row md:items-center gap-4">
                                                 <div className="flex-shrink-0 flex items-center justify-between w-full md:w-auto gap-4">
