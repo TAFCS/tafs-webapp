@@ -194,7 +194,6 @@ function PartiallyPaidModal({
         setSubmitting(true);
         const loadingToast = toast.loading("Splitting voucher…");
         try {
-            // POST dates as JSON — backend generates both PDFs server-side
             const { data: splitRes } = await api.post(`/v1/vouchers/${voucher.id}/split-partially-paid`, {
                 issue_date: issueDate,
                 due_date: dueDate,
@@ -204,7 +203,6 @@ function PartiallyPaidModal({
             toast.dismiss(loadingToast);
             toast.success(`Voucher split — Paid #${splitRes.data?.paid_voucher_id}, Balance #${splitRes.data?.unpaid_voucher_id}`);
 
-            // Auto-download the paid PDF from the server-generated URL
             if (splitRes.data?.paid_pdf_url) {
                 const link = document.createElement('a');
                 link.href = splitRes.data.paid_pdf_url;
@@ -392,13 +390,26 @@ function PartiallyPaidModal({
 
 // ─── Voucher Row ─────────────────────────────────────────────────────────────
 
-function VoucherRow({ voucher, index, sections, onRefresh }: { voucher: VoucherItem; index: number; sections: any[]; onRefresh: () => void }) {
+function VoucherRow({ 
+    voucher, 
+    index, 
+    sections, 
+    onRefresh,
+    isSelected,
+    onToggleSelect
+}: { 
+    voucher: VoucherItem; 
+    index: number; 
+    sections: any[]; 
+    onRefresh: () => void;
+    isSelected: boolean;
+    onToggleSelect: () => void;
+}) {
     const status = getStatusConfig(voucher.status);
     const [isDownloading, setIsDownloading] = useState(false);
     const [showPartialModal, setShowPartialModal] = useState(false);
     const user = useAppSelector(s => s.auth.user);
 
-    // ── UNPAID / OVERDUE: serve existing pdf_url directly ─────────────────
     const handleUnpaidDownload = () => {
         const pdfUrl = typeof voucher.pdf_url === "string" ? voucher.pdf_url.trim() : "";
         if (pdfUrl) {
@@ -415,8 +426,6 @@ function VoucherRow({ voucher, index, sections, onRefresh }: { voucher: VoucherI
         toast.error("No PDF available for this voucher.");
     };
 
-    // ── PAID: always regenerate server-side with paid_stamp — pdf_url may still point at an
-    //    older unpaid/uploaded PDF without the stamp; opening it directly would show no PAID watermark.
     const handlePaidDownload = async () => {
         setIsDownloading(true);
         const loadingToast = toast.loading("Generating PAID PDF…");
@@ -467,7 +476,15 @@ function VoucherRow({ voucher, index, sections, onRefresh }: { voucher: VoucherI
 
     return (
         <>
-        <tr className="group border-b border-zinc-100 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
+        <tr className={`group border-b border-zinc-100 dark:border-zinc-800/60 transition-colors ${isSelected ? "bg-primary/[0.03] dark:bg-primary/10" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"}`}>
+            <td className="px-5 py-3.5 text-center">
+                <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={onToggleSelect}
+                    className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
+                />
+            </td>
             <td className="px-5 py-3.5 text-center">
                 <span className="text-[11px] font-mono text-zinc-400">{voucher.id}</span>
             </td>
@@ -633,6 +650,8 @@ export default function VouchersPage() {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [showFilters, setShowFilters] = useState(true);
+    const [selectedVoucherIds, setSelectedVoucherIds] = useState<number[]>([]);
+    const [isExporting, setIsExporting] = useState(false);
 
     // Load reference data
     useEffect(() => {
@@ -687,16 +706,57 @@ export default function VouchersPage() {
 
     const handleRefresh = () => {
         dispatch(fetchVouchers(activeFiltersApplied));
+        setSelectedVoucherIds([]);
         toast.success("Vouchers refreshed");
     };
 
+    const toggleSelectAll = () => {
+        if (selectedVoucherIds.length === paginatedVouchers.length) {
+            setSelectedVoucherIds([]);
+        } else {
+            setSelectedVoucherIds(paginatedVouchers.map(v => v.id));
+        }
+    };
+
+    const toggleSelect = (id: number) => {
+        setSelectedVoucherIds(prev =>
+            prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]
+        );
+    };
+
+    const handleBatchExport = async (type: 'zip' | 'merge') => {
+        if (selectedVoucherIds.length === 0) return;
+        setIsExporting(true);
+        const loadingToast = toast.loading(`Preparing ${type === 'zip' ? 'ZIP' : 'Merged PDF'}…`);
+        try {
+            const endpoint = type === 'zip' ? '/v1/vouchers/batch-export' : '/v1/vouchers/batch-merge';
+            const { data: buffer } = await api.post(endpoint, { ids: selectedVoucherIds }, { responseType: 'blob' });
+            
+            const url = window.URL.createObjectURL(new Blob([buffer]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', type === 'zip' ? 'vouchers_batch.zip' : 'vouchers_merged.pdf');
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            
+            toast.dismiss(loadingToast);
+            toast.success("Export complete!");
+        } catch (err: any) {
+            toast.dismiss(loadingToast);
+            toast.error("Failed to export vouchers.");
+            console.error(err);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     // Pagination
-    const totalPages = Math.ceil(vouchers.length / pageSize);
-    const paginatedVouchers = vouchers.slice((page - 1) * pageSize, page * pageSize);
+    const paginatedVouchers = vouchers;
 
     const activeFilterCount = Object.keys(activeFiltersApplied).length;
 
-    // Stat cards (Using accurate overall stats from backend pagination meta)
+    // Stat cards
     const stats = {
         total: pagination.total,
         paid: pagination.paid || 0,
@@ -1052,6 +1112,14 @@ export default function VouchersPage() {
                         <table className="w-full border-collapse">
                             <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800">
                                 <tr>
+                                    <th className="w-10 px-5 py-3.5 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={paginatedVouchers.length > 0 && selectedVoucherIds.length === paginatedVouchers.length}
+                                            onChange={toggleSelectAll}
+                                            className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
+                                        />
+                                    </th>
                                     {["ID", "Student", "Campus", "Class", "Section", "Issue Date", "Due Date", "Validity", "Original", "Net", "Status", "Bank", "Actions"].map(h => (
                                         <th key={h} className="px-5 py-3.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">
                                             {h}
@@ -1060,8 +1128,16 @@ export default function VouchersPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {vouchers.map((v, i) => (
-                                    <VoucherRow key={v.id} voucher={v} index={(page - 1) * pageSize + i} sections={sections} onRefresh={handleRefresh} />
+                                {paginatedVouchers.map((v, i) => (
+                                    <VoucherRow 
+                                        key={v.id} 
+                                        voucher={v} 
+                                        index={(page - 1) * pageSize + i} 
+                                        sections={sections} 
+                                        onRefresh={handleRefresh}
+                                        isSelected={selectedVoucherIds.includes(v.id)}
+                                        onToggleSelect={() => toggleSelect(v.id)}
+                                    />
                                 ))}
                             </tbody>
                         </table>
@@ -1112,6 +1188,49 @@ export default function VouchersPage() {
                     </div>
                 )}
             </div>
+
+            {/* ── Batch Actions Bar ───────────────────────────────────────── */}
+            {selectedVoucherIds.length > 0 && (
+                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 px-8 py-5 bg-zinc-900 dark:bg-white rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] z-[60] animate-in slide-in-from-bottom-12 duration-500 min-w-[500px]">
+                    <div className="flex items-center gap-4 pr-6 border-r border-white/10 dark:border-zinc-200">
+                        <div className="h-10 w-10 bg-primary/20 rounded-2xl flex items-center justify-center text-primary">
+                            <Receipt className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-0.5">Selection Active</p>
+                            <p className="text-sm font-black text-white dark:text-zinc-900 tracking-tight">
+                                {selectedVoucherIds.length} Vouchers Selected
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-1 items-center gap-3">
+                        <button
+                            onClick={() => handleBatchExport('zip')}
+                            disabled={isExporting}
+                            className="flex-1 h-12 flex items-center justify-center gap-2.5 px-6 bg-zinc-800 dark:bg-zinc-100 hover:bg-zinc-700 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            <Download className="h-4 w-4" />
+                            ZIP Export
+                        </button>
+                        <button
+                            onClick={() => handleBatchExport('merge')}
+                            disabled={isExporting}
+                            className="flex-1 h-12 flex items-center justify-center gap-2.5 px-6 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            <FileText className="h-4 w-4" />
+                            Merged PDF
+                        </button>
+                    </div>
+
+                    <button
+                        onClick={() => setSelectedVoucherIds([])}
+                        className="p-3 text-zinc-400 hover:text-white dark:hover:text-zinc-900 transition-colors"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
