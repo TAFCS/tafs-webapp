@@ -196,7 +196,7 @@ function StudentwiseFeeEditor() {
 
     // Projection / Stats State
     const [projections, setProjections] = useState<{
-        prevTuitionTotal: number;
+        prevTuitionAvg: number;
         prevAnnualTotal: number;
         newTuitionMonthly: number;
         newAnnualMonthly: number;
@@ -222,22 +222,25 @@ function StudentwiseFeeEditor() {
                 (f.installment_amount && f.installment_id && f.student_fee_installments?.fee_type_id === 4)
             );
 
-            const tuitionTotal = tuitionRows.reduce((a: number, b: any) => a + parseFloat(b.amount || "0"), 0);
+            const tuitionTotalClean = tuitionRows.reduce((a: number, b: any) => {
+                const total = parseFloat(b.amount || "0");
+                const inst = parseFloat(b.installment_amount || "0");
+                return a + (total - inst);
+            }, 0);
             
             // For annual total, we sum up the installment portions OR the full amount if it was standalone
             const annualTotal = annualRows.reduce((a: number, b: any) => {
                 const installmentPart = parseFloat(b.installment_amount || "0");
                 const fullAmount = parseFloat(b.amount || "0");
-                // If it's a tuition row with annual installment, take just the installment. 
-                // If it's a standalone annual row, take the full amount.
                 return a + (installmentPart > 0 ? installmentPart : fullAmount);
             }, 0);
 
-            const newTuitionMonthly = (tuitionRows.length > 0 ? tuitionTotal / tuitionRows.length : 0) * 1.10;
-            const newAnnualMonthly = (annualTotal * 1.12) / 12;
+            const prevTuitionAvg = tuitionRows.length > 0 ? tuitionTotalClean / tuitionRows.length : 0;
+            const newTuitionMonthly = prevTuitionAvg * 1.10;
+            const newAnnualMonthly = (annualTotal * 1.10) / 12;
 
             setProjections({
-                prevTuitionTotal: tuitionTotal,
+                prevTuitionAvg: Math.round(prevTuitionAvg),
                 prevAnnualTotal: annualTotal,
                 newTuitionMonthly: Math.round(newTuitionMonthly),
                 newAnnualMonthly: Math.round(newAnnualMonthly),
@@ -343,7 +346,7 @@ function StudentwiseFeeEditor() {
                         const classForFetch = isGrad
                             ? (fullStudent.graduated_from_class_id ?? null)
                             : (fullStudent.class_id ?? null);
-                        if (classForFetch) setSelectedClassId(classForFetch);
+                        if (classForFetch !== null) setSelectedClassId(classForFetch);
                         if (fullStudent.section_id) setSelectedSectionId(fullStudent.section_id);
                         setSkipSearch(true);
                         setSearchQuery(`${fullStudent.student_full_name || fullStudent.full_name} (${fullStudent.cc_number || fullStudent.cc})`);
@@ -449,7 +452,7 @@ function StudentwiseFeeEditor() {
             let finalRows: SpreadsheetRow[] = [];
 
             if (is_template) {
-                // Determine previous year suggestions (10% Tuition, 12% Annual Fee)
+                // Determine previous year suggestions (10% Tuition, 10% Annual Fee)
                 let suggestedTuition: number | null = null;
                 let suggestedAnnual: number | null = null;
 
@@ -458,13 +461,13 @@ function StudentwiseFeeEditor() {
                     if (prevYearStr && studentId) {
                         const { data: prevData } = await api.get(`/v1/student-fees/student/${studentId}/schedule`, { params: { academic_year: prevYearStr } });
                         const prevFees = prevData?.data?.fees || [];
-                        if (prevFees.length > 0) {
-                            const tuitionRows = prevFees.filter((f: any) => f.fee_type_id === 1);
-                            const annualRows = prevFees.filter((f: any) => f.fee_type_id === 4 || (f.installment_amount && f.installment_id && f.student_fee_installments?.fee_type_id === 4));
-
                             if (tuitionRows.length > 0) {
-                                const tTotal = tuitionRows.reduce((a: number, b: any) => a + parseFloat(b.amount || "0"), 0);
-                                suggestedTuition = Math.round((tTotal / 12) * 1.10);
+                                const tTotalClean = tuitionRows.reduce((a: number, b: any) => {
+                                    const total = parseFloat(b.amount || "0");
+                                    const inst = parseFloat(b.installment_amount || "0");
+                                    return a + (total - inst);
+                                }, 0);
+                                suggestedTuition = Math.round((tTotalClean / tuitionRows.length) * 1.10);
                             }
                             if (annualRows.length > 0) {
                                 const aTotal = annualRows.reduce((a: number, b: any) => {
@@ -473,7 +476,6 @@ function StudentwiseFeeEditor() {
                                 }, 0);
                                 suggestedAnnual = Math.round(aTotal * 1.10); // 10% increase
                             }
-                        }
                     }
                 } catch (e) { console.error("Suggestion fetch failed", e); }
 
@@ -573,7 +575,7 @@ function StudentwiseFeeEditor() {
                 const classForFetch = isGrad
                     ? (fullStudent.graduated_from_class_id ?? null)
                     : (fullStudent.class_id ?? null);
-                setSelectedClassId(classForFetch ? classForFetch : "");
+                setSelectedClassId(classForFetch !== null ? classForFetch : "");
                 setSelectedSectionId(fullStudent.section_id || "");
                 const ccStr = `${fullStudent.cc_number || fullStudent.cc}`;
                 setStudentId(ccStr);
@@ -1312,13 +1314,13 @@ function StudentwiseFeeEditor() {
                         <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-6 w-full">
                             <div className="space-y-1">
                                 <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Base Tuition (Avg)</p>
-                                <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">PKR {Math.round(projections.prevTuitionTotal / 12 || 0).toLocaleString()}</p>
+                                <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">PKR {(projections.prevTuitionAvg || 0).toLocaleString()}</p>
                                 <p className="text-[10px] font-black text-emerald-500 uppercase">+10% Inc. Requested</p>
                             </div>
                             <div className="space-y-1">
                                 <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Annual Fee (Total)</p>
                                 <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">PKR {projections.prevAnnualTotal.toLocaleString()}</p>
-                                <p className="text-[10px] font-black text-emerald-500 uppercase">+12% Inc. Requested</p>
+                                <p className="text-[10px] font-black text-emerald-500 uppercase">+10% Inc. Requested</p>
                             </div>
                             <div className="h-full w-px bg-zinc-100 dark:bg-zinc-800 hidden lg:block mx-auto" />
                             <div className="space-y-2 col-span-2 lg:col-span-1 bg-zinc-50 dark:bg-zinc-900 p-4 rounded-3xl border border-zinc-100 dark:border-zinc-800">

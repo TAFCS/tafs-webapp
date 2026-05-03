@@ -491,13 +491,13 @@ export default function BulkVoucherPage() {
                             onClick={() => handleFilterChange({ jobType: 'BULK' })}
                             className={`flex-1 h-10 rounded-xl text-[11px] font-black transition-all ${filters.jobType === 'BULK' ? "bg-white dark:bg-zinc-800 text-primary shadow-sm" : "text-zinc-400 hover:text-zinc-600"}`}
                         >
-                            BY SCOPE
+                            BULK GENERATION
                         </button>
                         <button 
                             onClick={() => handleFilterChange({ jobType: 'BATCH' })}
                             className={`flex-1 h-10 rounded-xl text-[11px] font-black transition-all ${filters.jobType === 'BATCH' ? "bg-white dark:bg-zinc-800 text-primary shadow-sm" : "text-zinc-400 hover:text-zinc-600"}`}
                         >
-                            BY CC LIST
+                            BATCH GENERATION
                         </button>
                     </div>
 
@@ -578,7 +578,7 @@ export default function BulkVoucherPage() {
                         <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl flex items-start gap-4">
                             <Info className="h-5 w-5 text-primary mt-1" />
                             <p className="text-[12px] font-medium text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                                {filters.jobType === 'BATCH' ? "Enter student CCs separated by commas, spaces or newlines. Each CC will be validated before generation." : "Filtering by campus is mandatory. You can optionally narrow down to specific classes or sections within the selected campus."}
+                                {filters.jobType === 'BATCH' ? "Enter student CCs separated by commas, spaces or newlines. This mode allows generating vouchers for a specific list of students regardless of their class/campus." : "Filtering by campus is mandatory. You can optionally narrow down to specific classes or sections within the selected campus."}
                             </p>
                         </div>
                     </div>
