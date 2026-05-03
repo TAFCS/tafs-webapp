@@ -300,10 +300,10 @@ export function RegistrationForm() {
             const formatted = formatCNIC(value);
             setFormData(prev => ({ ...prev, [name]: formatted }));
             
-            // Auto-fetch if 13+ digits are reached (local) or any input (foreign)
-            const digits = value.replace(/\D/g, "");
+            // Auto-fetch if 13 digits are reached (local) or any input (foreign)
+            const digits = formatted.replace(/\D/g, "");
             if (digits.length === 13 || isForeign) {
-                fetchGuardianData(name === "fatherCnic" ? "father" : "mother", value);
+                fetchGuardianData(name === "fatherCnic" ? "father" : "mother", formatted);
             }
             return;
         }
@@ -458,6 +458,7 @@ export function RegistrationForm() {
 
     const fetchGuardianData = async (type: "father" | "mother", cnic: string) => {
         if (!cnic || (cnic.length < 15 && !cnic.includes('-'))) return;
+        if (fetchingCnic) return; // Prevent concurrent fetches
 
         setFetchingCnic(type);
         try {
@@ -1188,7 +1189,7 @@ export function RegistrationForm() {
                                             </div>
                                         </div>
                                         <div className="relative">
-                                            <input type="text" name="fatherCnic" value={formData.fatherCnic || ""} onChange={handleInputChange} onBlur={(e) => !formData.isFatherCnicForeign && fetchGuardianData("father", e.target.value)} placeholder={formData.isFatherCnicForeign ? "PASSPORT / ID #" : "XXXXX-XXXXXXX-X"} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
+                                            <input type="text" name="fatherCnic" value={formData.fatherCnic || ""} onChange={handleInputChange} placeholder={formData.isFatherCnicForeign ? "PASSPORT / ID #" : "XXXXX-XXXXXXX-X"} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
                                             {fetchingCnic === "father" && (
                                                 <div className="absolute right-3 top-2.5">
                                                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
@@ -1207,7 +1208,7 @@ export function RegistrationForm() {
                                             </div>
                                         </div>
                                         <div className="relative">
-                                            <input type="text" name="motherCnic" value={formData.motherCnic || ""} onChange={handleInputChange} onBlur={(e) => !formData.isMotherCnicForeign && fetchGuardianData("mother", e.target.value)} placeholder={formData.isMotherCnicForeign ? "PASSPORT / ID #" : "XXXXX-XXXXXXX-X"} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
+                                            <input type="text" name="motherCnic" value={formData.motherCnic || ""} onChange={handleInputChange} placeholder={formData.isMotherCnicForeign ? "PASSPORT / ID #" : "XXXXX-XXXXXXX-X"} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none mb-3" />
                                             {fetchingCnic === "mother" && (
                                                 <div className="absolute right-3 top-2.5">
                                                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
