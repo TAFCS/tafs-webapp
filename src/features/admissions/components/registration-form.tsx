@@ -896,7 +896,7 @@ export function RegistrationForm() {
                 }
                 : undefined,
             admission: {
-                academic_system: academicSystem,
+                academic_system: academicSystem.charAt(0).toUpperCase() + academicSystem.slice(1),
                 requested_grade: GRADE_NAME_TO_CODE[formData.admissionLevel] || formData.admissionLevel || 'N/A',
                 academic_year: academicYear,
                 discipline: formData.isDisciplineNA ? null : sanitizeValue(formData.discipline),
@@ -1476,7 +1476,7 @@ export function RegistrationForm() {
                                     </div>
 
                                     {/* A-Level Detailed Sections */}
-                                    {formData.admissionSystem === "alevel" && (
+                                    {formData.admissionSystem === "alevel" && (formData.admissionLevel === "AS Level" || formData.admissionLevel === "A2 Level") && (
                                         <div className="md:col-span-3 space-y-10 animate-in slide-in-from-top-6 duration-700 mt-8">
                                             {/* 1b. Subjects Required */}
                                             <div className="relative group/section">
