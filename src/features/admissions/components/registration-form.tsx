@@ -121,7 +121,7 @@ const INITIAL_FORM_DATA = {
     preferredALevelSubjectsGroupA: [] as string[],
     preferredALevelSubjectsGroupB: [] as string[],
     oLevelResultCounts: { astar: "", a: "", b: "", c: "", d: "", e: "" },
-    oLevelSubjectsDetails: [{ id: Date.now(), subject: "", mockGrade: "", caieGrade: "" }],
+    oLevelSubjectsDetails: [{ id: Date.now(), subject: "", subjectCode: "", mockGrade: "", caieGrade: "" }],
 };
 
 import { memo } from "react";
@@ -593,7 +593,7 @@ export function RegistrationForm() {
     const addOLevelSubject = () => {
         setFormData(prev => ({
             ...prev,
-            oLevelSubjectsDetails: [...prev.oLevelSubjectsDetails, { id: Date.now(), subject: "", mockGrade: "", caieGrade: "" }]
+            oLevelSubjectsDetails: [...prev.oLevelSubjectsDetails, { id: Date.now(), subject: "", subjectCode: "", mockGrade: "", caieGrade: "" }]
         }));
     };
 
