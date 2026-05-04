@@ -95,7 +95,6 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'Single Voucher Issuance', href: '/fee-challan', icon: Printer, permission: 'finance.vouchers.view' },
                 { name: 'Bulk Voucher Issuance', href: '/bulk-voucher', icon: FilePlus2, permission: 'finance.vouchers.generate_bulk' },
                 { name: 'Bulk Delete Vouchers', href: '/bulk-delete', icon: Trash2, permission: 'finance.vouchers.delete' },
-                { name: 'Batch Issue Vouchers', href: '/batch-issue', icon: Layers, permission: 'finance.vouchers.generate_bulk' },
                 { name: 'Vouchers', href: '/vouchers', icon: FileText, permission: 'finance.vouchers.view' },
                 { name: 'Payment History', href: '/payment-history', icon: History, permission: 'finance.vouchers.view' },
                 { name: 'Receive Deposit', href: '/vouchers/deposit', icon: HandCoins, permission: 'finance.deposits.record' },

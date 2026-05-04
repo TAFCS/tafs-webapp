@@ -31,6 +31,9 @@ export interface BulkStudent {
     class_name: string;
     section_name: string;
     is_already_issued?: boolean;
+    has_any_fees?: boolean;
+    is_ready?: boolean;
+    status?: string;
 }
 
 export interface BulkVoucherState {
@@ -68,7 +71,7 @@ export const fetchBulkPreview = createAsyncThunk(
             const response = await api.post(
                 '/v1/bulk-voucher-jobs/preview',
                 {
-                    campus_id: parseInt(filters.campusId),
+                    campus_id: filters.campusId ? parseInt(filters.campusId) : undefined,
                     class_id: filters.classId ? parseInt(filters.classId) : undefined,
                     section_id: filters.sectionId ? parseInt(filters.sectionId) : undefined,
                     fee_date_from: filters.dateFrom,
@@ -101,7 +104,7 @@ export const startBulkJob = createAsyncThunk(
             const response = await api.post(
                 '/v1/bulk-voucher-jobs',
                 {
-                    campus_id: parseInt(filters.campusId),
+                    campus_id: filters.campusId ? parseInt(filters.campusId) : undefined,
                     class_id: filters.classId ? parseInt(filters.classId) : undefined,
                     section_id: filters.sectionId ? parseInt(filters.sectionId) : undefined,
                     fee_date_from: filters.dateFrom,
@@ -186,6 +189,9 @@ export const validateCCs = createAsyncThunk(
             const response = await api.post(
                 '/v1/bulk-voucher-jobs/preview',
                 {
+                    campus_id: filters.campusId ? parseInt(filters.campusId) : undefined,
+                    class_id: filters.classId ? parseInt(filters.classId) : undefined,
+                    section_id: filters.sectionId ? parseInt(filters.sectionId) : undefined,
                     student_ccs: ccs,
                     fee_date_from: filters.dateFrom,
                     fee_date_to: filters.dateTo,
@@ -299,7 +305,10 @@ const bulkVoucherSlice = createSlice({
             .addCase(validateCCs.fulfilled, (state, action) => {
                 state.isFetchingPreview = false;
                 state.previewStudents = action.payload;
-                state.selectedStudentCCs = action.payload.map((s) => s.cc);
+                // Auto-select students who are ready
+                state.selectedStudentCCs = action.payload
+                    .filter(s => s.is_ready)
+                    .map((s) => s.cc);
             })
             .addCase(validateCCs.rejected, (state, action) => {
                 state.isFetchingPreview = false;

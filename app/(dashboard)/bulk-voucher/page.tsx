@@ -84,6 +84,84 @@ export default function BulkVoucherPage() {
     const [reportStatusFilter, setReportStatusFilter] = useState("all");
     const [ccListInput, setCcListInput] = useState("");
 
+    // ── Student ID Resolution ──────────────────────────────────────────────────
+    const [resolvedIds, setResolvedIds] = useState<Map<number, { cc: number; full_name: string; gr_number?: string | null } | "not_found" | "loading">>(new Map());
+    const [isResolvingIds, setIsResolvingIds] = useState(false);
+    const resolveAbortRef = useRef<AbortController | null>(null);
+    const resolveDebouncerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const parsedStudentCcs = useMemo(() => {
+        return ccListInput
+            .split(/[\s,]+/)
+            .map((x) => x.trim())
+            .filter(Boolean)
+            .map((x) => Number(x))
+            .filter((n) => Number.isInteger(n) && n > 0);
+    }, [ccListInput]);
+
+    useEffect(() => {
+        if (resolveDebouncerRef.current) clearTimeout(resolveDebouncerRef.current);
+        if (parsedStudentCcs.length === 0) {
+            setResolvedIds(new Map());
+            setIsResolvingIds(false);
+            return;
+        }
+
+        setIsResolvingIds(true);
+        // Only set 'loading' for IDs that aren't already resolved or were not found
+        const newResolvedMap = new Map(resolvedIds);
+        parsedStudentCcs.forEach(id => {
+            if (!newResolvedMap.has(id)) {
+                newResolvedMap.set(id, "loading");
+            }
+        });
+        setResolvedIds(newResolvedMap);
+
+        resolveDebouncerRef.current = setTimeout(async () => {
+            if (resolveAbortRef.current) resolveAbortRef.current.abort();
+            const ctrl = new AbortController();
+            resolveAbortRef.current = ctrl;
+
+            // Only fetch for IDs that are in 'loading' state
+            const idsToFetch = parsedStudentCcs.filter(id => resolvedIds.get(id) === "loading" || !resolvedIds.has(id));
+            
+            if (idsToFetch.length === 0) {
+                setIsResolvingIds(false);
+                return;
+            }
+
+            const results = await Promise.allSettled(
+                idsToFetch.map((id) =>
+                    api.get<{ data: { cc: number; full_name: string; gr_number?: string | null }[] }>(
+                        `/v1/students/search-simple`,
+                        { params: { q: String(id) }, signal: ctrl.signal }
+                    ).then((res) => {
+                        const match = res.data?.data?.find?.((s: { cc: number }) => s.cc === id);
+                        return { id, student: match ?? null };
+                    }).catch(() => ({ id, student: null }))
+                )
+            );
+
+            if (ctrl.signal.aborted) return;
+
+            setResolvedIds(prev => {
+                const updated = new Map(prev);
+                results.forEach(res => {
+                    if (res.status === "fulfilled") {
+                        const { id, student } = res.value;
+                        updated.set(id, student ? { cc: student.cc, full_name: student.full_name, gr_number: student.gr_number } : "not_found");
+                    }
+                });
+                return updated;
+            });
+            setIsResolvingIds(false);
+        }, 600);
+
+        return () => {
+            if (resolveDebouncerRef.current) clearTimeout(resolveDebouncerRef.current);
+        };
+    }, [ccListInput, parsedStudentCcs]);
+
     useEffect(() => {
         if (isHistoryView) {
             dispatch(fetchBulkHistory(filters.campusId || undefined));
@@ -502,23 +580,11 @@ export default function BulkVoucherPage() {
                     </div>
 
                     <div className="space-y-6">
-                        {filters.jobType === 'BATCH' ? (
-                            <div className="animate-in fade-in slide-in-from-top-4">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Student CC List</label>
-                                <textarea 
-                                    className="w-full h-32 px-5 py-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none resize-none"
-                                    placeholder="Enter CC numbers separated by commas, spaces, or newlines..."
-                                    value={ccListInput}
-                                    onChange={(e) => setCcListInput(e.target.value)}
-                                />
-                                <p className="text-[10px] font-medium text-zinc-400 mt-2 ml-1 italic">
-                                    Example: 1234, 5678, 9999
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 gap-6 animate-in fade-in slide-in-from-top-4">
+                        <div className="grid grid-cols-1 gap-6 animate-in fade-in slide-in-from-top-4">
                             <div>
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Campus (Required)</label>
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">
+                                    Campus {filters.jobType === 'BULK' ? '(Required)' : '(Optional with CC List)'}
+                                </label>
                                 <div className="relative">
                                     <select 
                                         className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none"
@@ -534,7 +600,6 @@ export default function BulkVoucherPage() {
                                     </div>
                                 </div>
                             </div>
-
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -572,6 +637,37 @@ export default function BulkVoucherPage() {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        {filters.jobType === 'BATCH' && (
+                            <div className="animate-in fade-in slide-in-from-top-4 pt-4 border-t border-zinc-100 dark:border-zinc-900">
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Student CC List</label>
+                                <textarea 
+                                    className="w-full h-32 px-5 py-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none resize-none"
+                                    placeholder="Enter CC numbers separated by commas, spaces, or newlines..."
+                                    value={ccListInput}
+                                    onChange={(e) => setCcListInput(e.target.value)}
+                                />
+                                
+                                {/* CC Chips Resolution UX */}
+                                {parsedStudentCcs.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-4 animate-in fade-in slide-in-from-top-1">
+                                        {parsedStudentCcs.map(cc => {
+                                            const res = resolvedIds.get(cc);
+                                            return (
+                                                <div key={cc} className={`px-3 py-1.5 rounded-full border text-[10px] font-black flex items-center gap-2 transition-all ${res === 'loading' ? 'bg-zinc-50 border-zinc-200 text-zinc-400 animate-pulse' : res === 'not_found' ? 'bg-rose-50 border-rose-200 text-rose-600' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}>
+                                                    <span>CC {cc}</span>
+                                                    {typeof res === 'object' && <span className="opacity-70 truncate max-w-[120px]">{res.full_name}</span>}
+                                                    {res === 'not_found' && <span className="opacity-70">Not Found</span>}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                <p className="text-[10px] font-medium text-zinc-400 mt-2 ml-1 italic">
+                                    Example: 1234, 5678, 9999
+                                </p>
                             </div>
                         )}
 
@@ -708,6 +804,19 @@ export default function BulkVoucherPage() {
                         </button>
                     </div>
 
+                    <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                        <div>
+                            <p className="text-[13px] font-black text-zinc-900 dark:text-zinc-100">Skip Issued</p>
+                            <p className="text-[11px] font-medium text-zinc-500">Deduplicate already issued</p>
+                        </div>
+                        <button 
+                            onClick={() => handleFilterChange({ skipAlreadyIssued: !filters.skipAlreadyIssued })}
+                            className={`h-6 w-11 rounded-full transition-all relative ${filters.skipAlreadyIssued ? "bg-primary" : "bg-zinc-300 dark:bg-zinc-700"}`}
+                        >
+                            <div className={`h-4 w-4 bg-white rounded-full absolute top-1 transition-all ${filters.skipAlreadyIssued ? "left-6" : "left-1"}`} />
+                        </button>
+                    </div>
+
                     {filters.applyLateFee && (
                         <div className="flex items-center gap-4 animate-in zoom-in duration-300">
                             <div className="flex-1">
@@ -778,7 +887,12 @@ export default function BulkVoucherPage() {
                                     <td className="px-8 py-4">
                                         <div>
                                             <p className="text-[14px] font-black text-zinc-900 dark:text-zinc-100">{student.student_full_name}</p>
-                                            <p className="text-[11px] font-bold text-primary">CC: {student.cc} • GR: {student.gr_number}</p>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <p className="text-[11px] font-bold text-primary">CC: {student.cc} • GR: {student.gr_number}</p>
+                                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${student.status === 'ENROLLED' ? 'bg-emerald-50 text-emerald-600' : 'bg-zinc-100 text-zinc-500'}`}>
+                                                    {student.status}
+                                                </span>
+                                            </div>
                                         </div>
                                     </td>
                                     <td className="px-8 py-4">
@@ -787,15 +901,20 @@ export default function BulkVoucherPage() {
                                         </span>
                                     </td>
                                     <td className="px-8 py-4 text-right">
-                                        {student.is_already_issued ? (
+                                        {student.is_ready ? (
+                                            <div className="flex items-center justify-end gap-2 text-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1.5 rounded-xl border border-emerald-100 dark:border-emerald-900 w-fit ml-auto">
+                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                                <span className="text-[10px] font-black uppercase tracking-wider">READY</span>
+                                            </div>
+                                        ) : student.is_already_issued ? (
                                             <div className="flex items-center justify-end gap-2 text-rose-500 bg-rose-50 dark:bg-rose-950/30 px-3 py-1.5 rounded-xl border border-rose-100 dark:border-rose-900 w-fit ml-auto">
                                                 <AlertCircle className="h-3.5 w-3.5" />
                                                 <span className="text-[10px] font-black uppercase tracking-wider">ISSUED</span>
                                             </div>
                                         ) : (
-                                            <div className="flex items-center justify-end gap-2 text-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1.5 rounded-xl border border-emerald-100 dark:border-emerald-900 w-fit ml-auto">
-                                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                                <span className="text-[10px] font-black uppercase tracking-wider">READY</span>
+                                            <div className="flex items-center justify-end gap-2 text-zinc-500 bg-zinc-50 dark:bg-zinc-950/30 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 w-fit ml-auto">
+                                                <AlertCircle className="h-3.5 w-3.5" />
+                                                <span className="text-[10px] font-black uppercase tracking-wider">NO FEES</span>
                                             </div>
                                         )}
                                     </td>
