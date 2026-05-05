@@ -194,17 +194,14 @@ function StudentwiseFeeEditor() {
 
     const [studentId, setStudentId] = useState("");
 
-    // Projection / Stats State
     const [projections, setProjections] = useState<{
-        prevTuitionAvg: number;
-        prevAnnualTotal: number;
         newTuitionMonthly: number;
         newAnnualMonthly: number;
         isLoading: boolean;
     } | null>(null);
 
     const fetchProjections = useCallback(async (sid: number, year: string) => {
-        setProjections(prev => ({ ...(prev || { prevTuitionAvg: 0, prevAnnualTotal: 0, newTuitionMonthly: 0, newAnnualMonthly: 0 }), isLoading: true }));
+        setProjections(prev => ({ ...(prev || { newTuitionMonthly: 0, newAnnualMonthly: 0 }), isLoading: true }));
         try {
             const parts = year.split('-');
             if (parts.length !== 2) return;
@@ -213,35 +210,30 @@ function StudentwiseFeeEditor() {
             const { data } = await api.get(`/v1/student-fees/student/${sid}/schedule`, { params: { academic_year: prevYear } });
             const prevFees = data?.data?.fees || [];
 
-            // Tuition = Fee Type 1
-            const tuitionRows = prevFees.filter((f: any) => f.fee_type_id === 1);
-            
-            // Annual = Fee Type 4 (either primary or through installment tracking)
-            const annualRows = prevFees.filter((f: any) => 
-                f.fee_type_id === 4 || 
-                (f.installment_amount && f.installment_id && f.student_fee_installments?.fee_type_id === 4)
-            );
+            let tuitionSum = 0;
+            let annualSum = 0;
 
-            const tuitionTotalClean = tuitionRows.reduce((a: number, b: any) => {
-                const total = parseFloat(b.amount || "0");
-                const inst = parseFloat(b.installment_amount || "0");
-                return a + (total - inst);
-            }, 0);
-            
-            // For annual total, we sum up the installment portions OR the full amount if it was standalone
-            const annualTotal = annualRows.reduce((a: number, b: any) => {
-                const installmentPart = parseFloat(b.installment_amount || "0");
-                const fullAmount = parseFloat(b.amount || "0");
-                return a + (installmentPart > 0 ? installmentPart : fullAmount);
-            }, 0);
+            prevFees.forEach((f: any) => {
+                const amt = parseFloat(f.amount || "0");
+                const instAmt = parseFloat(f.installment_amount || "0");
+                const instType = f.student_fee_installments?.fee_type_id;
 
-            const prevTuitionAvg = tuitionRows.length > 0 ? tuitionTotalClean / tuitionRows.length : 0;
-            const newTuitionMonthly = prevTuitionAvg * 1.10;
-            const newAnnualMonthly = (annualTotal * 1.10) / 12;
+                if (f.fee_type_id === 1) {
+                    if (instType === 4) {
+                        tuitionSum += (amt - instAmt);
+                        annualSum += instAmt;
+                    } else {
+                        tuitionSum += amt;
+                    }
+                } else if (f.fee_type_id === 4) {
+                    annualSum += amt;
+                }
+            });
+
+            const newTuitionMonthly = (tuitionSum * 1.1) / 12;
+            const newAnnualMonthly = (annualSum * 1.1) / 12;
 
             setProjections({
-                prevTuitionAvg: Math.round(prevTuitionAvg),
-                prevAnnualTotal: annualTotal,
                 newTuitionMonthly: Math.round(newTuitionMonthly),
                 newAnnualMonthly: Math.round(newAnnualMonthly),
                 isLoading: false
@@ -1438,21 +1430,21 @@ function StudentwiseFeeEditor() {
 
                         <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-6 w-full">
                             <div className="space-y-1">
-                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Base Tuition (Avg)</p>
-                                <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">PKR {(projections.prevTuitionAvg || 0).toLocaleString()}</p>
-                                <p className="text-[10px] font-black text-emerald-500 uppercase">+10% Inc. Requested</p>
+                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Suggested Tuition</p>
+                                <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">PKR {projections.newTuitionMonthly.toLocaleString()}</p>
+                                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">+10% Applied (/12)</p>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Annual Fee (Total)</p>
-                                <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">PKR {projections.prevAnnualTotal.toLocaleString()}</p>
-                                <p className="text-[10px] font-black text-emerald-500 uppercase">+10% Inc. Requested</p>
+                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Suggested Annual</p>
+                                <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">PKR {projections.newAnnualMonthly.toLocaleString()}</p>
+                                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">+10% Applied (/12)</p>
                             </div>
                             <div className="h-full w-px bg-zinc-100 dark:bg-zinc-800 hidden lg:block mx-auto" />
                             <div className="space-y-2 col-span-2 lg:col-span-1 bg-zinc-50 dark:bg-zinc-900 p-4 rounded-3xl border border-zinc-100 dark:border-zinc-800">
-                                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Proposed Monthly Total</p>
+                                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Total Monthly Projection</p>
                                 <p className="text-2xl font-black text-primary">PKR {(projections.newTuitionMonthly + projections.newAnnualMonthly).toLocaleString()}</p>
                                 <p className="text-[10px] font-bold text-zinc-400 leading-tight">
-                                    {projections.newTuitionMonthly.toLocaleString()} (Tuition) + {projections.newAnnualMonthly.toLocaleString()} (Annual split)
+                                    Includes 10% increment on both Tuition & Annual embeddings.
                                 </p>
                             </div>
                         </div>
