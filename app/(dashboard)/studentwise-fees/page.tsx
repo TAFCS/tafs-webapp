@@ -332,10 +332,6 @@ function StudentwiseFeeEditor() {
     }, [rows, activeCell]);
 
     const user = useAppSelector((s) => s.auth.user);
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
     const selectedClass = useMemo(() => {
         if (selectedClassId === "") return null;
         return classes.find(c => c.id === selectedClassId);
