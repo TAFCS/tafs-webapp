@@ -95,9 +95,39 @@ function sortMonths(months: unknown): string[] {
     return [...arr].sort((a, b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b));
 }
 
-function sortSpreadsheetRows(rows: SpreadsheetRow[]): SpreadsheetRow[] {
-    // Sequence value logic: Aug=0, Sep=1 ... Dec=4, Jan=5 ... July=11
-    const getSeq = (m: number) => (m >= 8 ? m - 8 : m + 4);
+// Sort months for April-March academic calendar (starts April, ends March)
+// Returns months in order starting from April for April-March classes
+function sortMonthsForAprilMarch(months: unknown): string[] {
+    const sorted = sortMonths(months);
+    if (sorted.length === 0) return [];
+
+    // April-March order: Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec, Jan, Feb, Mar
+    const APRIL_MARCH_ORDER = ["April", "May", "June", "July", "August", "September", "October", "November", "December", "January", "February", "March"];
+
+    return sorted.sort((a, b) => APRIL_MARCH_ORDER.indexOf(a) - APRIL_MARCH_ORDER.indexOf(b));
+}
+
+// Determine if a class uses April-March academic calendar (Special Term)
+// Classes 15, 16, 17, 18, 19 use April-March term (April is index 0)
+const isAprilMarchClass = (classId: number | null | undefined): boolean => {
+    if (!classId) return false;
+    return [15, 16, 17, 18, 19].includes(classId);
+};
+
+function sortSpreadsheetRows(rows: SpreadsheetRow[], classId?: number | null): SpreadsheetRow[] {
+    // Sequence value logic based on academic calendar type
+    // Standard Term (Aug-July): Aug=0, Sep=1 ... Dec=4, Jan=5 ... July=11
+    // Special Term (Apr-March): Apr=0, May=1 ... Mar=11
+    const getSeq = (m: number, useAprilMarchSequence: boolean = false) => {
+        if (useAprilMarchSequence) {
+            // April-March sequence: April=0, May=1, ..., March=11
+            return (m >= 4 ? m - 4 : m + 8);
+        }
+        // Standard Aug-July sequence
+        return (m >= 8 ? m - 8 : m + 4);
+    };
+
+    const useAprilMarchSequence = isAprilMarchClass(classId);
 
     return [...rows].sort((a, b) => {
         // 1. Sort by fee_date (Primary)
@@ -109,9 +139,9 @@ function sortSpreadsheetRows(rows: SpreadsheetRow[]): SpreadsheetRow[] {
             return 1;
         }
 
-        // 2. Fallback: target_month sequence
-        const sa = getSeq(a.target_month);
-        const sb = getSeq(b.target_month);
+        // 2. Fallback: target_month sequence using appropriate calendar
+        const sa = getSeq(a.target_month, useAprilMarchSequence);
+        const sb = getSeq(b.target_month, useAprilMarchSequence);
         if (sa !== sb) return sa - sb;
 
         // 3. Fallback: description
@@ -302,6 +332,10 @@ function StudentwiseFeeEditor() {
     }, [rows, activeCell]);
 
     const user = useAppSelector((s) => s.auth.user);
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
     const selectedClass = useMemo(() => {
         if (selectedClassId === "") return null;
         return classes.find(c => c.id === selectedClassId);
@@ -422,8 +456,11 @@ function StudentwiseFeeEditor() {
 
             if (!ccNumber) {
                 const expanded = feeRows.flatMap((fee) => {
-                    const months = sortMonths(fee.fee_types.breakup ?? []);
-                    return months.map((month) => ({
+                    // Use appropriate month ordering based on class calendar
+                    const monthOrder = isAprilMarchClass(classId)
+                        ? sortMonthsForAprilMarch(fee.fee_types.breakup ?? [])
+                        : sortMonths(fee.fee_types.breakup ?? []);
+                    return monthOrder.map((month) => ({
                         __id: Math.random().toString(36).substring(7),
                         feeId: fee.fee_id,
                         feeDescription: fee.fee_types.description,
@@ -436,7 +473,7 @@ function StudentwiseFeeEditor() {
                         fee_date: calculateInitialFeeDate(month, academicYear, fee.fee_id, fee.fee_types),
                     }));
                 });
-                setRows(sortSpreadsheetRows(expanded));
+                setRows(sortSpreadsheetRows(expanded, classId));
                 return;
             }
 
@@ -494,13 +531,16 @@ function StudentwiseFeeEditor() {
 
                 // Map from class_fee_schedule template with optional adjusted amounts
                 finalRows = (fees as any[]).flatMap((fee) => {
-                    const months = sortMonths(fee.fee_types.breakup ?? []);
-                    return months.map((month) => {
+                    // Use appropriate month ordering based on class calendar
+                    const monthOrder = isAprilMarchClass(classId)
+                        ? sortMonthsForAprilMarch(fee.fee_types.breakup ?? [])
+                        : sortMonths(fee.fee_types.breakup ?? []);
+                    return monthOrder.map((month) => {
                         let finalAmount = fee.amount;
                         if (fee.fee_id === 1 && suggestedTuition !== null) {
                             finalAmount = suggestedTuition.toString();
                         } else if (fee.fee_id === 4 && suggestedAnnual !== null) {
-                            finalAmount = Math.round(suggestedAnnual / months.length).toString();
+                            finalAmount = Math.round(suggestedAnnual / monthOrder.length).toString();
                         }
 
                         return {
@@ -545,10 +585,10 @@ function StudentwiseFeeEditor() {
             }
             if (is_template && !forceApplyTemplate) {
                 // Store but do not apply yet (wait for user confirmation)
-                setPendingTemplateRows(sortSpreadsheetRows(finalRows));
+                setPendingTemplateRows(sortSpreadsheetRows(finalRows, classId));
                 setIsTemplatePending(true);
             } else {
-                setRows(sortSpreadsheetRows(finalRows));
+                setRows(sortSpreadsheetRows(finalRows, classId));
                 setIsTemplatePending(false);
             }
             setIsTemplate(is_template);
@@ -822,12 +862,12 @@ function StudentwiseFeeEditor() {
         };
         pendingFocusId.current = newRow.__id;
         setRecentlyAddedId(newRow.__id);
-        setRows((prev) => sortSpreadsheetRows([...prev, newRow]));
+        setRows((prev) => sortSpreadsheetRows([...prev, newRow], Number(selectedClassId)));
     };
 
     const updateRow = (idx: number, field: keyof SpreadsheetRow, val: any) => {
         if (isRowLocked(rows[idx])) {
-            // Some updates might be internal or allowed (like UI state), 
+            // Some updates might be internal or allowed (like UI state),
             // but here we block all field updates for settled rows.
             toast.error("Cannot modify a paid or partially paid fee head.");
             return;
@@ -877,7 +917,7 @@ function StudentwiseFeeEditor() {
                     updated.initialMonth = val;
                     // For identity purposes, initialMonth defines the target_month
                     updated.target_month = MONTH_TO_NUM[val] ?? updated.target_month;
-                    // Seamless Independence: Changing the period label (initialMonth) 
+                    // Seamless Independence: Changing the period label (initialMonth)
                     // DOES NOT force the fee_date to change.
                 }
 
@@ -892,7 +932,7 @@ function StudentwiseFeeEditor() {
 
                 return updated;
             });
-            return sortSpreadsheetRows(next);
+            return sortSpreadsheetRows(next, Number(selectedClassId));
         });
     };
 

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { 
-    X, ChevronRight, ChevronLeft, Loader2, 
-    CreditCard, AlertCircle, CheckCircle2, 
+import {
+    X, ChevronRight, ChevronLeft, Loader2,
+    CreditCard, AlertCircle, CheckCircle2,
     ArrowRight, Info, List, Layers, Plus
 } from "lucide-react";
 import api from "@/lib/api";
@@ -28,7 +28,7 @@ interface InstallmentModalProps {
 export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId, studentName, existingFees, academicYear }: InstallmentModalProps) {
     const [step, setStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
-    
+
     // Step 1 State
     const [feeTypes, setFeeTypes] = useState<any[]>([]);
     const [selectedFeeTypeId, setSelectedFeeTypeId] = useState<number | "">(4); // Default to Annual Fee (ID 4)
@@ -60,17 +60,17 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
     const handleNextToStep3 = () => {
         const baseAmount = Math.round(totalAmount / installmentCount);
         const remainder = totalAmount - (baseAmount * installmentCount);
-        
+
         const newSchedule = Array.from({ length: installmentCount }).map((_, i) => {
             const monthIdx = i % 12;
             const targetMonthName = MONTHS[monthIdx];
             const target_month = MONTH_TO_NUM[targetMonthName];
-            
+
             // Improved Year logic to prevent absurd years like 222025
             const yearParts = (selectedYear || academicYear || "").split('-');
             const firstYearRaw = yearParts[0].trim();
             let baseYear = parseInt(firstYearRaw);
-            
+
             // Handle cases where the input might be 2-digit (e.g., '25' -> 2025)
             if (baseYear < 100) baseYear += 2000;
             if (isNaN(baseYear)) baseYear = new Date().getFullYear();
@@ -78,7 +78,7 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
             const calendarYearOffset = (target_month < 8) ? 1 : 0;
             const cycleOffset = Math.floor(i / 12);
             const finalYear = baseYear + calendarYearOffset + cycleOffset;
-            
+
             const fee_date = `${finalYear}-${target_month.toString().padStart(2, '0')}-01`;
 
             // Auto-detect merge target (usually Tuition Fee ID 1)
@@ -131,7 +131,7 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white dark:bg-zinc-950 rounded-[32px] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300 border border-white/10">
-                
+
                 {/* Header */}
                 <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
                     <div>
@@ -151,7 +151,7 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
                     {[1, 2, 3, 4].map((s) => (
                         <div key={s} className="flex items-center gap-3 flex-shrink-0">
                             <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
-                                step === s ? "bg-primary text-white shadow-lg shadow-primary/20 scale-110" : 
+                                step === s ? "bg-primary text-white shadow-lg shadow-primary/20 scale-110" :
                                 step > s ? "bg-emerald-500 text-white" : "bg-zinc-100 dark:bg-zinc-900 text-zinc-400"
                             }`}>
                                 {step > s ? <CheckCircle2 className="h-4 w-4" /> : s}
@@ -166,7 +166,7 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-10 bg-white dark:bg-zinc-950">
-                    
+
                     {step === 1 && (
                         <div className="max-w-md mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-300">
                              <div className="text-center">
@@ -178,7 +178,7 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
                             </div>
                             <div className="space-y-4">
                                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Fee Type</label>
-                                <select 
+                                <select
                                     value={selectedFeeTypeId}
                                     onChange={(e) => setSelectedFeeTypeId(Number(e.target.value))}
                                     className="w-full px-5 py-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all appearance-none cursor-pointer"
@@ -209,7 +209,7 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
                             <div className="space-y-6">
                                 <div>
                                     <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 block mb-2">Total Amount (PKR)</label>
-                                    <input 
+                                    <input
                                         type="number"
                                         value={totalAmount}
                                         onChange={(e) => setTotalAmount(Number(e.target.value))}
@@ -219,7 +219,7 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 block mb-2">Installment Count</label>
-                                    <input 
+                                    <input
                                         type="number"
                                         min="1"
                                         max="24"
@@ -230,7 +230,7 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 block mb-2">Academic Year</label>
-                                    <input 
+                                    <input
                                         type="text"
                                         value={selectedYear}
                                         onChange={(e) => setSelectedYear(e.target.value)}
@@ -266,15 +266,54 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
                                     </thead>
                                     <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
                                         {schedule.map((row, idx) => {
-                                            const matches = existingFees.filter(ef => ef.fee_date === row.fee_date && ef.dbId);
+                                            // Smart filtering: Suggest fees that share the same fee_date as the installment
+                                            const matches = existingFees.filter(ef =>
+                                                ef.fee_date === row.fee_date &&
+                                                ef.dbId &&
+                                                (ef.feeId === 1 || !row.merge_target_id) // Prioritize Tuition Fee (ID 1), but allow any if user hasn't selected merge target
+                                            );
+                                            const monthName = MONTHS[MONTHS.findIndex(m => MONTH_TO_NUM[m] === row.target_month)];
                                             return (
                                                 <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
                                                     <td className="px-6 py-4">
-                                                        <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{MONTHS[MONTHS.findIndex(m => MONTH_TO_NUM[m] === row.target_month)]}</p>
-                                                        <p className="text-[10px] font-black text-zinc-400 uppercase">Tar. Month: {row.target_month}</p>
+                                                        <div className="space-y-2">
+                                                            <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{monthName}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                <label className="text-[9px] font-black text-zinc-400 uppercase">Tar. Month:</label>
+                                                                <select
+                                                                    value={String(row.target_month)}
+                                                                    onChange={(e) => {
+                                                                        const newSch = [...schedule];
+                                                                        const newTargetMonth = Number(e.target.value);
+                                                                        newSch[idx].target_month = newTargetMonth;
+
+                                                                        // Recalculate fee_date based on new target_month
+                                                                        const yearParts = (selectedYear || academicYear || "").split('-');
+                                                                        const firstYearRaw = yearParts[0].trim();
+                                                                        let baseYear = parseInt(firstYearRaw);
+                                                                        if (baseYear < 100) baseYear += 2000;
+                                                                        if (isNaN(baseYear)) baseYear = new Date().getFullYear();
+
+                                                                        const calendarYearOffset = (newTargetMonth < 8) ? 1 : 0;
+                                                                        const cycleOffset = 0; // Assume no multi-year cycles when editing
+                                                                        const finalYear = baseYear + calendarYearOffset + cycleOffset;
+                                                                        newSch[idx].fee_date = `${finalYear}-${newTargetMonth.toString().padStart(2, '0')}-01`;
+
+                                                                        setSchedule(newSch);
+                                                                    }}
+                                                                    className="bg-zinc-50 dark:bg-zinc-900 text-[10px] font-bold px-2 py-1 rounded border border-zinc-200 dark:border-zinc-800 outline-none focus:ring-2 focus:ring-primary/50"
+                                                                >
+                                                                    {Object.entries(MONTH_TO_NUM).map(([name, num]) => (
+                                                                        <option key={num} value={String(num)}>
+                                                                            {num} - {name}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        </div>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <input 
+                                                        <input
                                                             type="date"
                                                             value={row.fee_date}
                                                             onChange={(e) => {
@@ -286,7 +325,7 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
                                                         />
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
-                                                        <input 
+                                                        <input
                                                             type="number"
                                                             value={row.amount}
                                                             onChange={(e) => {
@@ -306,17 +345,21 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
                                                                 setSchedule(newSch);
                                                             }}
                                                             className={`text-xs font-bold px-4 py-2.5 rounded-xl border transition-all appearance-none cursor-pointer ${
-                                                                row.merge_target_id 
-                                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600" 
+                                                                row.merge_target_id
+                                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600"
                                                                 : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500"
                                                             }`}
                                                         >
                                                             <option value="">+ Create New Separate Head</option>
-                                                            {matches.map(m => (
-                                                                <option key={m.dbId} value={m.dbId}>
-                                                                    Merge into: {m.feeDescription} (Total: {parseInt(m.amount).toLocaleString()})
-                                                                </option>
-                                                            ))}
+                                                            {matches.length > 0 ? (
+                                                                matches.map(m => (
+                                                                    <option key={m.dbId} value={m.dbId}>
+                                                                        Merge into: {m.feeDescription} (Total: {parseInt(m.amount).toLocaleString()})
+                                                                    </option>
+                                                                ))
+                                                            ) : (
+                                                                <option disabled>No matching fees for this date</option>
+                                                            )}
                                                         </select>
                                                     </td>
                                                 </tr>
@@ -388,7 +431,7 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
 
                 {/* Footer Controls */}
                 <div className="px-10 py-8 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex gap-4">
-                    <button 
+                    <button
                         onClick={onClose}
                         className="h-16 px-10 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-sm font-black rounded-2xl transition-all active:scale-95"
                     >
@@ -396,7 +439,7 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
                     </button>
                     <div className="flex-1 flex justify-end gap-3">
                         {step > 1 && (
-                            <button 
+                            <button
                                 onClick={() => setStep(step - 1)}
                                 className="h-16 px-10 border border-zinc-200 dark:border-zinc-800 text-sm font-black rounded-2xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all active:scale-95 flex items-center gap-2"
                             >
@@ -404,7 +447,7 @@ export default function InstallmentModal({ isOpen, onClose, onSuccess, studentId
                                 Previous
                             </button>
                         )}
-                        <button 
+                        <button
                             disabled={
                                 (step === 1 && !selectedFeeTypeId) ||
                                 (step === 2 && (totalAmount <= 0 || installmentCount <= 0)) ||
