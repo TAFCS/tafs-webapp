@@ -210,28 +210,31 @@ function StudentwiseFeeEditor() {
             const { data } = await api.get(`/v1/student-fees/student/${sid}/schedule`, { params: { academic_year: prevYear } });
             const prevFees = data?.data?.fees || [];
 
-            let tuitionSum = 0;
-            let annualSum = 0;
+            // Tuition = Fee Type 1
+            const tuitionRows = prevFees.filter((f: any) => f.fee_type_id === 1);
 
-            prevFees.forEach((f: any) => {
-                const amt = parseFloat(f.amount || "0");
-                const instAmt = parseFloat(f.installment_amount || "0");
-                const instType = f.student_fee_installments?.fee_type_id;
+            // Annual = Fee Type 4 (either primary or through installment tracking)
+            const annualRows = prevFees.filter((f: any) =>
+                f.fee_type_id === 4 ||
+                (f.installment_amount && f.installment_id && f.student_fee_installments?.fee_type_id === 4)
+            );
 
-                if (f.fee_type_id === 1) {
-                    if (instType === 4) {
-                        tuitionSum += (amt - instAmt);
-                        annualSum += instAmt;
-                    } else {
-                        tuitionSum += amt;
-                    }
-                } else if (f.fee_type_id === 4) {
-                    annualSum += amt;
-                }
-            });
+            const tuitionTotalClean = tuitionRows.reduce((a: number, b: any) => {
+                const total = parseFloat(b.amount || "0");
+                const inst = parseFloat(b.installment_amount || "0");
+                return a + (total - inst);
+            }, 0);
 
-            const newTuitionMonthly = (tuitionSum * 1.1) / 12;
-            const newAnnualMonthly = (annualSum * 1.1) / 12;
+            // For annual total, we sum up the installment portions OR the full amount if it was standalone
+            const annualTotal = annualRows.reduce((a: number, b: any) => {
+                const installmentPart = parseFloat(b.installment_amount || "0");
+                const fullAmount = parseFloat(b.amount || "0");
+                return a + (installmentPart > 0 ? installmentPart : fullAmount);
+            }, 0);
+
+            const prevTuitionAvg = tuitionRows.length > 0 ? tuitionTotalClean / tuitionRows.length : 0;
+            const newTuitionMonthly = prevTuitionAvg * 1.10;
+            const newAnnualMonthly = (annualTotal * 1.10) / 12;
 
             setProjections({
                 newTuitionMonthly: Math.round(newTuitionMonthly),
@@ -262,6 +265,7 @@ function StudentwiseFeeEditor() {
     const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
     const [isGraduated, setIsGraduated] = useState(false);
     const [graduatedFromClassId, setGraduatedFromClassId] = useState<number | null>(null);
+    const [graduatedFromClassObj, setGraduatedFromClassObj] = useState<any>(null);
     const [isComplementary, setIsComplementary] = useState(false);
     const [isFeeEndowment, setIsFeeEndowment] = useState(false);
     const [feeStartTerm, setFeeStartTerm] = useState("");
@@ -298,7 +302,6 @@ function StudentwiseFeeEditor() {
     }, [rows, activeCell]);
 
     const user = useAppSelector((s) => s.auth.user);
-    
     const selectedClass = useMemo(() => {
         if (selectedClassId === "") return null;
         return classes.find(c => c.id === selectedClassId);
@@ -306,8 +309,10 @@ function StudentwiseFeeEditor() {
 
     const graduatedFromClass = useMemo(() => {
         if (!graduatedFromClassId) return null;
-        return classes.find(c => c.id === graduatedFromClassId);
-    }, [graduatedFromClassId, classes]);
+        const found = classes.find(c => c.id === graduatedFromClassId);
+        if (found) return found;
+        return graduatedFromClassObj;
+    }, [graduatedFromClassId, classes, graduatedFromClassObj]);
 
     useEffect(() => {
         if (classes.length === 0) dispatch(fetchClasses());
@@ -339,6 +344,7 @@ function StudentwiseFeeEditor() {
                         const isGrad = fullStudent.enrollment_status === 'GRADUATED';
                         setIsGraduated(isGrad);
                         setGraduatedFromClassId(isGrad ? (fullStudent.graduated_from_class_id ?? null) : null);
+                        setGraduatedFromClassObj(isGrad ? (fullStudent.graduated_from_class ?? null) : null);
                         setIsComplementary(!!fullStudent.is_complementary);
                         setIsFeeEndowment(!!fullStudent.is_fee_endowment);
                         setFeeStartTerm(fullStudent.fee_start_term || "");
@@ -461,10 +467,10 @@ function StudentwiseFeeEditor() {
                     if (prevYearStr && studentId) {
                         const { data: prevData } = await api.get(`/v1/student-fees/student/${studentId}/schedule`, { params: { academic_year: prevYearStr } });
                         const prevFees = prevData?.data?.fees || [];
-                        
+
                         const tuitionRows = prevFees.filter((f: any) => f.fee_type_id === 1);
-                        const annualRows = prevFees.filter((f: any) => 
-                            f.fee_type_id === 4 || 
+                        const annualRows = prevFees.filter((f: any) =>
+                            f.fee_type_id === 4 ||
                             (f.installment_amount && f.installment_id && f.student_fee_installments?.fee_type_id === 4)
                         );
 
@@ -578,6 +584,7 @@ function StudentwiseFeeEditor() {
                 const isGrad = fullStudent.enrollment_status === 'GRADUATED';
                 setIsGraduated(isGrad);
                 setGraduatedFromClassId(isGrad ? (fullStudent.graduated_from_class_id ?? null) : null);
+                setGraduatedFromClassObj(isGrad ? (fullStudent.graduated_from_class ?? null) : null);
                 setIsComplementary(!!fullStudent.is_complementary);
                 setIsFeeEndowment(!!fullStudent.is_fee_endowment);
                 setFeeStartTerm(fullStudent.fee_start_term || "");
@@ -1030,34 +1037,34 @@ function StudentwiseFeeEditor() {
             </div>
 
             {/* Config Bar */}
-            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm p-4 md:p-6 lg:p-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:flex xl:items-end gap-5 animate-in slide-in-from-right-4 duration-300">
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-sm p-4 md:p-6 lg:px-8 lg:py-5">
+                <div className="flex flex-wrap items-end gap-3 animate-in slide-in-from-right-4 duration-300">
                     {/* Academic Year Select */}
-                    <div className="w-full xl:w-48">
-                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Academic Year</label>
+                    <div className="w-full sm:w-auto xl:w-32 shrink-0">
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1 ml-1">Year</label>
                         <div className="relative">
                             <select
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(e.target.value)}
-                                className="w-full h-11 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-primary appearance-none outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all cursor-pointer shadow-sm"
+                                className="w-full h-11 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[13px] font-bold text-primary appearance-none outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all cursor-pointer shadow-sm"
                             >
                                 {ACADEMIC_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                             </select>
-                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
                         </div>
                     </div>
 
                     {/* Campus Select */}
-                    <div className="w-full xl:w-64">
-                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Campus</label>
+                    <div className="w-full sm:w-auto xl:w-44 shrink-0">
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1 ml-1">Campus</label>
                         <div className="relative" ref={campusDropdownRef}>
                             <button type="button" disabled
-                                className="w-full h-11 flex items-center justify-between px-5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all cursor-not-allowed opacity-70"
+                                className="w-full h-11 flex items-center justify-between px-4 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[13px] transition-all cursor-not-allowed opacity-70"
                             >
-                                <span className={selectedCampus ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
-                                    {selectedCampus ? selectedCampus.campus_name : "Select Campus..."}
+                                <span className={selectedCampus ? "text-zinc-800 dark:text-zinc-200 font-semibold truncate mr-2" : "text-zinc-400"}>
+                                    {selectedCampus ? selectedCampus.campus_name : "Campus..."}
                                 </span>
-                                <ChevronDown className="h-4 w-4 text-zinc-300" />
+                                <ChevronDown className="h-3.5 w-3.5 text-zinc-300" />
                             </button>
                             {showCampusDropdown && (
                                 <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
@@ -1084,28 +1091,28 @@ function StudentwiseFeeEditor() {
                         </div>
                     </div>
 
-                    <div className="w-full lg:col-span-2 xl:flex-1">
-                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Class / Grade</label>
+                    <div className="w-full sm:w-auto xl:w-44 shrink-0">
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1 ml-1">Class</label>
                         <div className="relative" ref={classDropdownRef}>
                             <button type="button" disabled
-                                className={`w-full h-11 flex items-center justify-between px-5 border rounded-xl text-sm transition-all cursor-not-allowed opacity-70 ${isGraduated ? "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800" : "bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"}`}
+                                className={`w-full h-11 flex items-center justify-between px-4 border rounded-xl text-[13px] transition-all cursor-not-allowed opacity-70 ${isGraduated ? "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800" : "bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"}`}
                             >
                                 {isGraduated ? (
-                                    <span className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-semibold">
+                                    <span className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-semibold truncate mr-2">
                                         <GraduationCap className="h-3.5 w-3.5 shrink-0" />
                                         {graduatedFromClass
                                             ? `Graduated from ${graduatedFromClass.description}`
                                             : "Graduated"}
                                     </span>
                                 ) : selectedClass ? (
-                                    <span className="text-zinc-800 dark:text-zinc-200 font-semibold">{selectedClass.description}</span>
+                                    <span className="text-zinc-800 dark:text-zinc-200 font-semibold truncate mr-2">{selectedClass.description}</span>
                                 ) : (
-                                    <span className="text-zinc-400">Choose a class...</span>
+                                    <span className="text-zinc-400">Class</span>
                                 )}
-                                <div className="flex items-center gap-2">
-                                    {!isGraduated && selectedClass && <span className="text-[10px] font-bold px-2 py-0.5 bg-zinc-200 text-zinc-600 dark:text-zinc-400 rounded-md">{selectedClass.class_code}</span>}
-                                    {isGraduated && graduatedFromClass && <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300 rounded-md">{graduatedFromClass.class_code}</span>}
-                                    <ChevronDown className="h-4 w-4 text-zinc-300" />
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    {!isGraduated && selectedClass && <span className="text-[9px] font-bold px-1.5 py-0.5 bg-zinc-200 text-zinc-600 dark:text-zinc-400 rounded-md">{selectedClass.class_code}</span>}
+                                    {isGraduated && graduatedFromClass && <span className="text-[9px] font-bold px-1.5 py-0.5 bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300 rounded-md">{graduatedFromClass.class_code}</span>}
+                                    <ChevronDown className="h-3.5 w-3.5 text-zinc-300" />
                                 </div>
                             </button>
                             {showClassDropdown && (
@@ -1136,16 +1143,16 @@ function StudentwiseFeeEditor() {
                     </div>
 
                     {/* Section Select */}
-                    <div className="w-full xl:w-40">
-                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Section</label>
+                    <div className="w-full sm:w-auto xl:w-24 shrink-0">
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1 ml-1">Sec</label>
                         <div className="relative" ref={sectionDropdownRef}>
                             <button type="button" disabled
-                                className="w-full h-11 flex items-center justify-between px-5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm transition-all cursor-not-allowed opacity-70"
+                                className="w-full h-11 flex items-center justify-between px-4 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[13px] transition-all cursor-not-allowed opacity-70"
                             >
                                 <span className={selectedSection ? "text-zinc-800 dark:text-zinc-200 font-semibold" : "text-zinc-400"}>
-                                    {selectedSection ? selectedSection.description : "Section..."}
+                                    {selectedSection ? selectedSection.description : "Sec..."}
                                 </span>
-                                <ChevronDown className="h-4 w-4 text-zinc-300" />
+                                <ChevronDown className="h-3.5 w-3.5 text-zinc-300" />
                             </button>
                             {showSectionDropdown && (
                                 <div className="absolute z-50 top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
@@ -1164,16 +1171,16 @@ function StudentwiseFeeEditor() {
                         </div>
                     </div>
 
-                    <div className="w-full lg:col-span-3 xl:w-80 relative" ref={searchDropdownRef}>
-                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1.5 ml-1">Search Computer Code</label>
+                    <div className="w-full sm:w-auto xl:w-72 relative shrink-0" ref={searchDropdownRef}>
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.1em] block mb-1 ml-1">Search Student</label>
                         <div className="relative">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                             <input
                                 type="text"
-                                placeholder="e.g. 1234"
+                                placeholder="Search CC..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-11 pl-11 pr-24 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-bold transition-all shadow-sm"
+                                className="w-full h-11 pl-11 pr-20 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-bold transition-all shadow-sm"
                             />
                             {searchQuery && (
                                 <button
@@ -1185,7 +1192,7 @@ function StudentwiseFeeEditor() {
                                 </button>
                             )}
                             {isSearching && (
-                                <div className="absolute right-12 top-1/2 -translate-y-1/2">
+                                <div className="absolute right-10 top-1/2 -translate-y-1/2 pointer-events-none">
                                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
                                 </div>
                             )}
@@ -1221,21 +1228,23 @@ function StudentwiseFeeEditor() {
                                 <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} /> Refresh
                             </button>
                         )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-auto">
                         {studentId.trim() !== "" && (
-                            <div className="flex gap-3">
+                            <>
                                 <button
                                     onClick={() => setIsInstallmentModalOpen(true)}
-                                    className="inline-flex items-center gap-2 h-11 px-6 bg-zinc-900 dark:bg-zinc-100 hover:opacity-90 text-white dark:text-zinc-900 text-sm font-bold rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+                                    className="inline-flex items-center gap-2 h-11 px-4 bg-zinc-900 dark:bg-zinc-100 hover:opacity-90 text-white dark:text-zinc-900 text-xs font-bold rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
-                                    <CreditCard className="h-4 w-4" />
-                                    Create Installment
+                                    <CreditCard className="h-3.5 w-3.5" />
+                                    Installment
                                 </button>
                                 <button onClick={handleSave} disabled={isSaving || !studentId.trim()}
-                                    className="inline-flex items-center gap-2 h-11 px-8 bg-primary text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none active:scale-95"
+                                    className="inline-flex items-center gap-2 h-11 px-6 bg-primary text-white text-xs font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                                 >
-                                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Schedule"}
+                                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save Schedule"}
                                 </button>
-                            </div>
+                            </>
                         )}
                     </div>
                 </div>
@@ -1296,7 +1305,7 @@ function StudentwiseFeeEditor() {
                             <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest leading-none mb-1">Graduated Student</span>
                             <span className="text-[13px] font-bold text-indigo-900/80 dark:text-indigo-200/70 tracking-tight">
                                 {graduatedFromClass
-                                    ? <>This student has graduated from <span className="text-indigo-700 dark:text-indigo-300">{graduatedFromClass.description}</span>.</>
+                                    ? <>This student has graduated from <span className="text-indigo-700 dark:text-indigo-300 font-black">{graduatedFromClass.description}</span>.</>
                                     : "This student has graduated."}
                                 {" "}Fee records are shown below. You can view, edit, and add fees for this student.
                             </span>
@@ -1310,7 +1319,7 @@ function StudentwiseFeeEditor() {
                             <Settings2 className="h-4 w-4 text-zinc-400" />
                             <span className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Fee Configuration</span>
                         </div>
-                        
+
                         <div className="flex items-center gap-2 p-1">
                             {isComplementary ? (
                                 <div className="px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
@@ -1337,7 +1346,7 @@ function StudentwiseFeeEditor() {
                                 </div>
                             )}
 
-                            <button 
+                            <button
                                 onClick={() => setIsEditingFlags(!isEditingFlags)}
                                 className={`ml-2 h-8 w-8 rounded-xl flex items-center justify-center transition-all ${isEditingFlags ? "bg-primary text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
                             >
@@ -1348,7 +1357,7 @@ function StudentwiseFeeEditor() {
                         {isEditingFlags && (
                             <div className="w-full mt-1 p-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center gap-6 animate-in fade-in slide-in-from-top-1">
                                 <label className="flex items-center gap-3 cursor-pointer group">
-                                    <div 
+                                    <div
                                         onClick={() => setIsComplementary(!isComplementary)}
                                         className={`w-10 h-5 rounded-full relative transition-colors ${isComplementary ? "bg-emerald-500" : "bg-zinc-200"}`}
                                     >
@@ -1358,7 +1367,7 @@ function StudentwiseFeeEditor() {
                                 </label>
 
                                 <label className="flex items-center gap-3 cursor-pointer group">
-                                    <div 
+                                    <div
                                         onClick={() => setIsFeeEndowment(!isFeeEndowment)}
                                         className={`w-10 h-5 rounded-full relative transition-colors ${isFeeEndowment ? "bg-amber-500" : "bg-zinc-200"}`}
                                     >
@@ -1367,18 +1376,9 @@ function StudentwiseFeeEditor() {
                                     <span className="text-xs font-bold text-zinc-600 group-hover:text-zinc-900 transition-colors">Fee Endowment</span>
                                 </label>
 
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xs font-bold text-zinc-600">Start Term:</span>
-                                    <input 
-                                        type="text"
-                                        value={feeStartTerm}
-                                        onChange={(e) => setFeeStartTerm(e.target.value)}
-                                        placeholder="e.g. 2024-25"
-                                        className="h-8 w-32 px-3 text-xs font-bold bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:border-primary transition-all"
-                                    />
-                                </div>
 
-                                <button 
+
+                                <button
                                     disabled={patchingFlags}
                                     onClick={async () => {
                                         setPatchingFlags(true);
@@ -1388,8 +1388,9 @@ function StudentwiseFeeEditor() {
                                             await api.patch(`/v1/staff-editing/students/${ccVal}`, {
                                                 is_complementary: isComplementary,
                                                 is_fee_endowment: isFeeEndowment,
-                                                fee_start_term: feeStartTerm
+                                                fee_start_term: selectedYear
                                             });
+                                            setFeeStartTerm(selectedYear);
                                             toast.success("Student configuration updated.");
                                             setIsEditingFlags(false);
                                         } catch (err) {
@@ -1450,7 +1451,7 @@ function StudentwiseFeeEditor() {
                         </div>
 
                         <div className="flex-shrink-0">
-                            <button 
+                            <button
                                 onClick={() => setIsInstallmentModalOpen(true)}
                                 className="h-16 px-8 bg-primary hover:bg-primary/90 text-white text-sm font-black rounded-2xl shadow-2xl shadow-primary/20 transition-all active:scale-95 flex items-center gap-2 group"
                             >
@@ -1852,7 +1853,7 @@ function StudentwiseFeeEditor() {
                             )}
                         </div>
                         <div className="flex gap-2">
-                             <div className="relative">
+                            <div className="relative">
                                 <select
                                     value={bundleNameInput}
                                     onChange={(e) => setBundleNameInput(e.target.value)}

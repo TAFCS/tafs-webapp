@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Plus, Trash2, Save, Loader2, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, CheckCircle2, GraduationCap } from "lucide-react";
 import api from "@/lib/api";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -568,6 +568,23 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
 
     return (
         <div className="space-y-6">
+            {student.status === 'GRADUATED' && (
+                <div className="p-4 rounded-3xl border border-indigo-100 bg-indigo-50/30 flex items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="h-12 w-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                        <GraduationCap className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none mb-1">Graduation Status</p>
+                        <p className="text-sm font-bold text-indigo-900/80 leading-tight">
+                            {student.graduated_from_class 
+                                ? <>This student graduated from <span className="text-indigo-700 font-black">{student.graduated_from_class.description}</span>.</>
+                                : "This student has graduated from the institution."
+                            }
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <div className={`bg-zinc-50 border rounded-2xl p-4 space-y-3 transition-all ${isGeneralDirty ? "border-amber-200 ring-1 ring-amber-100" : "border-zinc-100"}`}>
                 <div className="flex items-center justify-between">
                     <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">General Information</h3>
