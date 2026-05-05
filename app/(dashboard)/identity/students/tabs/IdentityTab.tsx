@@ -3,6 +3,9 @@ import { useState } from "react";
 import { Save, Loader2, CheckCircle2, GraduationCap } from "lucide-react";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
+import { getAcademicYears } from "@/lib/fee-utils";
+
+const ACADEMIC_YEARS = getAcademicYears(1, 4);
 
 const isNA = (v: any) => v === "N/A" || v === "021-N/A";
 
@@ -249,7 +252,14 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                     <Toggle label="Fee Endowment" checked={feeConfig.is_fee_endowment} onChange={f("is_fee_endowment")} />
                 </div>
                 <Field label="Fee Start Term">
-                    <Input value={feeConfig.fee_start_term} onChange={f("fee_start_term")} placeholder="e.g. 2024-25" />
+                    <select 
+                        value={feeConfig.fee_start_term} 
+                        onChange={e => f("fee_start_term")(e.target.value)}
+                        className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 appearance-none uppercase"
+                    >
+                        <option value="">N/A</option>
+                        {ACADEMIC_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
                 </Field>
             </SectionCard>
 
