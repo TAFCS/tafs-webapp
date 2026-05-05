@@ -270,6 +270,11 @@ function StudentwiseFeeEditor() {
     const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
     const [isGraduated, setIsGraduated] = useState(false);
     const [graduatedFromClassId, setGraduatedFromClassId] = useState<number | null>(null);
+    const [isComplementary, setIsComplementary] = useState(false);
+    const [isFeeEndowment, setIsFeeEndowment] = useState(false);
+    const [feeStartTerm, setFeeStartTerm] = useState("");
+    const [isEditingFlags, setIsEditingFlags] = useState(false);
+    const [patchingFlags, setPatchingFlags] = useState(false);
 
     const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
     const tbodyRef = useRef<HTMLTableSectionElement>(null);
@@ -342,6 +347,9 @@ function StudentwiseFeeEditor() {
                         const isGrad = fullStudent.enrollment_status === 'GRADUATED';
                         setIsGraduated(isGrad);
                         setGraduatedFromClassId(isGrad ? (fullStudent.graduated_from_class_id ?? null) : null);
+                        setIsComplementary(!!fullStudent.is_complementary);
+                        setIsFeeEndowment(!!fullStudent.is_fee_endowment);
+                        setFeeStartTerm(fullStudent.fee_start_term || "");
                         if (fullStudent.campus_id) setSelectedCampusId(fullStudent.campus_id);
                         const classForFetch = isGrad
                             ? (fullStudent.graduated_from_class_id ?? null)
@@ -578,6 +586,9 @@ function StudentwiseFeeEditor() {
                 const isGrad = fullStudent.enrollment_status === 'GRADUATED';
                 setIsGraduated(isGrad);
                 setGraduatedFromClassId(isGrad ? (fullStudent.graduated_from_class_id ?? null) : null);
+                setIsComplementary(!!fullStudent.is_complementary);
+                setIsFeeEndowment(!!fullStudent.is_fee_endowment);
+                setFeeStartTerm(fullStudent.fee_start_term || "");
                 setSelectedCampusId(fullStudent.campus_id || "");
                 const classForFetch = isGrad
                     ? (fullStudent.graduated_from_class_id ?? null)
@@ -618,6 +629,10 @@ function StudentwiseFeeEditor() {
         setPendingTemplateRows([]);
         setIsGraduated(false);
         setGraduatedFromClassId(null);
+        setIsComplementary(false);
+        setIsFeeEndowment(false);
+        setFeeStartTerm("");
+        setIsEditingFlags(false);
     };
 
     // ── Keyboard navigation ───────────────────────────────────────────────
@@ -1294,6 +1309,109 @@ function StudentwiseFeeEditor() {
                                 {" "}Fee records are shown below. You can view, edit, and add fees for this student.
                             </span>
                         </div>
+                    </div>
+                )}
+
+                {studentId && (
+                    <div className="p-1 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-wrap items-center gap-2 shadow-sm">
+                        <div className="flex items-center gap-2 px-4 py-2 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                            <Settings2 className="h-4 w-4 text-zinc-400" />
+                            <span className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Fee Configuration</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 p-1">
+                            {isComplementary ? (
+                                <div className="px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    Complementary
+                                </div>
+                            ) : (
+                                <div className="px-3 py-1.5 bg-zinc-50 text-zinc-400 border border-zinc-100 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                                    Standard
+                                </div>
+                            )}
+
+                            {isFeeEndowment && (
+                                <div className="px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-100 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                                    <Layers className="h-3 w-3" />
+                                    Endowment
+                                </div>
+                            )}
+
+                            {feeStartTerm && (
+                                <div className="px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                                    <Calendar className="h-3 w-3" />
+                                    Start: {feeStartTerm}
+                                </div>
+                            )}
+
+                            <button 
+                                onClick={() => setIsEditingFlags(!isEditingFlags)}
+                                className={`ml-2 h-8 w-8 rounded-xl flex items-center justify-center transition-all ${isEditingFlags ? "bg-primary text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
+                            >
+                                <Settings2 className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
+
+                        {isEditingFlags && (
+                            <div className="w-full mt-1 p-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center gap-6 animate-in fade-in slide-in-from-top-1">
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <div 
+                                        onClick={() => setIsComplementary(!isComplementary)}
+                                        className={`w-10 h-5 rounded-full relative transition-colors ${isComplementary ? "bg-emerald-500" : "bg-zinc-200"}`}
+                                    >
+                                        <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${isComplementary ? "translate-x-5" : ""}`} />
+                                    </div>
+                                    <span className="text-xs font-bold text-zinc-600 group-hover:text-zinc-900 transition-colors">Complementary (Fee Waived)</span>
+                                </label>
+
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <div 
+                                        onClick={() => setIsFeeEndowment(!isFeeEndowment)}
+                                        className={`w-10 h-5 rounded-full relative transition-colors ${isFeeEndowment ? "bg-amber-500" : "bg-zinc-200"}`}
+                                    >
+                                        <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${isFeeEndowment ? "translate-x-5" : ""}`} />
+                                    </div>
+                                    <span className="text-xs font-bold text-zinc-600 group-hover:text-zinc-900 transition-colors">Fee Endowment</span>
+                                </label>
+
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs font-bold text-zinc-600">Start Term:</span>
+                                    <input 
+                                        type="text"
+                                        value={feeStartTerm}
+                                        onChange={(e) => setFeeStartTerm(e.target.value)}
+                                        placeholder="e.g. 2024-25"
+                                        className="h-8 w-32 px-3 text-xs font-bold bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:border-primary transition-all"
+                                    />
+                                </div>
+
+                                <button 
+                                    disabled={patchingFlags}
+                                    onClick={async () => {
+                                        setPatchingFlags(true);
+                                        try {
+                                            const numericMatch = studentId.match(/\d+$/);
+                                            const ccVal = numericMatch ? parseInt(numericMatch[0]) : 0;
+                                            await api.patch(`/v1/staff-editing/students/${ccVal}`, {
+                                                is_complementary: isComplementary,
+                                                is_fee_endowment: isFeeEndowment,
+                                                fee_start_term: feeStartTerm
+                                            });
+                                            toast.success("Student configuration updated.");
+                                            setIsEditingFlags(false);
+                                        } catch (err) {
+                                            toast.error("Failed to update student configuration.");
+                                        } finally {
+                                            setPatchingFlags(false);
+                                        }
+                                    }}
+                                    className="ml-auto h-8 px-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-50"
+                                >
+                                    {patchingFlags ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save Config"}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

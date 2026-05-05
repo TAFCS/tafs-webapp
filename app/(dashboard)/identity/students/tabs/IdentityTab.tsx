@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Save, Loader2, CheckCircle2 } from "lucide-react";
+import { Save, Loader2, CheckCircle2, GraduationCap } from "lucide-react";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
 
@@ -204,11 +204,55 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
     const [savedContact, setSavedContact] = useState(false);
     const contactIsDirty = isBaseDirty(contact, student);
 
+    // Section: Fee Config
+    const [feeConfig, setFeeConfig] = useState({
+        is_complementary: !!student.is_complementary,
+        is_fee_endowment: !!student.is_fee_endowment,
+        fee_start_term: student.fee_start_term || "",
+    });
+    const [savingFeeConfig, setSavingFeeConfig] = useState(false);
+    const [savedFeeConfig, setSavedFeeConfig] = useState(false);
+    const feeConfigIsDirty = isBaseDirty(feeConfig, student);
+
     const p = (k: keyof typeof personal) => (v: any) => setPersonal(prev => ({ ...prev, [k]: v }));
     const c = (k: keyof typeof contact) => (v: any) => setContact(prev => ({ ...prev, [k]: v }));
+    const f = (k: keyof typeof feeConfig) => (v: any) => setFeeConfig(prev => ({ ...prev, [k]: v }));
 
     return (
         <div className="space-y-4">
+            {student.status === 'GRADUATED' && (
+                <div className="p-4 rounded-3xl border border-indigo-100 bg-indigo-50/30 flex items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="h-12 w-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                        <GraduationCap className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none mb-1">Graduation Status</p>
+                        <p className="text-sm font-bold text-indigo-900/80 leading-tight">
+                            {student.graduated_from_class 
+                                ? <>This student graduated from <span className="text-indigo-700">{student.graduated_from_class.description}</span>.</>
+                                : "This student has graduated from the institution."
+                            }
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            <SectionCard 
+                title="Fee Configuration" 
+                isDirty={feeConfigIsDirty}
+                isSaving={savingFeeConfig} 
+                saved={savedFeeConfig}
+                onSave={() => patch(feeConfig, setSavingFeeConfig, setSavedFeeConfig)} 
+            >
+                <div className="flex flex-col gap-4">
+                    <Toggle label="Complementary (Fee Waived)" checked={feeConfig.is_complementary} onChange={f("is_complementary")} />
+                    <Toggle label="Fee Endowment" checked={feeConfig.is_fee_endowment} onChange={f("is_fee_endowment")} />
+                </div>
+                <Field label="Fee Start Term">
+                    <Input value={feeConfig.fee_start_term} onChange={f("fee_start_term")} placeholder="e.g. 2024-25" />
+                </Field>
+            </SectionCard>
+
             <SectionCard 
                 title="Personal Information" 
                 isDirty={personalIsDirty}
