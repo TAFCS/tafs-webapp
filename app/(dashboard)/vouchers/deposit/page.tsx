@@ -404,7 +404,9 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                 >
                                     <div>
                                         <p className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 truncate">
-                                            {h.student_fees?.fee_types?.description || "Fee Head"}
+                                            {h.description_prefix
+                                                ? `${h.description_prefix}${h.student_fees?.fee_types?.description || "Fee Head"}`
+                                                : h.student_fees?.fee_types?.description || "Fee Head"}
                                         </p>
                                         <div className="flex items-center gap-1.5 mt-0.5">
                                             <span className={`inline-flex items-center px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-md ${
