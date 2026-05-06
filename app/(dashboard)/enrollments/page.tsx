@@ -38,6 +38,7 @@ interface Candidate {
         academic_system: string;
         academic_year: string;
         application_date: string;
+        discipline?: string;
     }>;
 }
 
@@ -50,7 +51,9 @@ interface Suggestions {
     available_sections: Array<{ id: number, description: string }>;
 }
 
-const getGRPrefix = (campusName: string | undefined) => {
+const getGRPrefix = (campusName: string | undefined, academicSystem?: string) => {
+    const isALevel = academicSystem?.toLowerCase().replace(/[^a-z]/g, '') === 'alevel';
+    if (isALevel) return "A-";
     if (!campusName) return "";
     const name = campusName.toUpperCase();
     if (name.includes("KANEEZ FATIMA")) return "KF-A";
@@ -83,7 +86,10 @@ export default function EnrollmentsPage() {
     // Prefix enforcement logic for GR Number
     useEffect(() => {
         if (!selectedStudent) return;
-        const prefix = getGRPrefix(selectedStudent.campuses?.campus_name);
+        const prefix = getGRPrefix(
+            selectedStudent.campuses?.campus_name,
+            selectedStudent.student_admissions?.[0]?.academic_system
+        );
         if (prefix && finalGr && !finalGr.startsWith(prefix)) {
             // If user cleared the prefix or changed it, put it back
             setFinalGr(prefix + finalGr.replace(prefix, ""));
@@ -354,7 +360,10 @@ export default function EnrollmentsPage() {
                                                     value={finalGr}
                                                     onChange={(e) => {
                                                         const val = e.target.value.toUpperCase();
-                                                        const prefix = getGRPrefix(selectedStudent?.campuses?.campus_name);
+                                                        const prefix = getGRPrefix(
+                                                            selectedStudent?.campuses?.campus_name,
+                                                            selectedStudent?.student_admissions?.[0]?.academic_system
+                                                        );
                                                         if (prefix && val !== "" && !val.startsWith(prefix)) return;
                                                         setFinalGr(val);
                                                     }}
@@ -372,7 +381,11 @@ export default function EnrollmentsPage() {
                                         <div className="space-y-2 text-left">
                                             <div className="flex items-center justify-between ml-1">
                                                 <label className="text-xs font-black uppercase tracking-wider text-zinc-500">Assign Section</label>
-                                                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-100 dark:bg-zinc-900 px-2 py-0.5 rounded-full">Step 1</span>
+                                                {selectedStudent.student_admissions?.[0]?.academic_system?.toLowerCase().replace(/[^a-z]/g, '') === 'alevel' ? (
+                                                    <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full border border-amber-100 dark:border-amber-900/30">Discipline Rule</span>
+                                                ) : (
+                                                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-100 dark:bg-zinc-900 px-2 py-0.5 rounded-full">Step 1</span>
+                                                )}
                                             </div>
                                             <div className="relative">
                                                 <select
@@ -391,6 +404,12 @@ export default function EnrollmentsPage() {
                                                     <ChevronRight className="h-5 w-5 rotate-90" />
                                                 </div>
                                             </div>
+                                            {selectedStudent.student_admissions?.[0]?.academic_system?.toLowerCase().replace(/[^a-z]/g, '') === 'alevel' && selectedStudent.student_admissions?.[0]?.discipline && (
+                                                <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold ml-1 italic flex items-center gap-1">
+                                                    <Sparkles className="h-3 w-3" />
+                                                    Section {selectedStudent.student_admissions[0].discipline.toLowerCase() === 'science' ? 'A' : 'C'} is assigned for {selectedStudent.student_admissions[0].discipline} students.
+                                                </p>
+                                            )}
                                         </div>
 
                                         {/* House Selection - Now balanced within the selected section */}
