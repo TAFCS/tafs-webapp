@@ -41,13 +41,13 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
     const [unexpelling, setUnexpelling] = useState(false);
     const [tab, setTab] = useState<TabId>("identity");
 
-    const reload = useCallback(async () => {
+    const reload = useCallback(async (refreshBackground = false) => {
         if (!cc) return;
         setLoading(true);
         try {
             const { data } = await api.get(`/v1/staff-editing/students/${cc}`);
             setStudent(data?.data || null);
-            onUpdated?.();
+            if (refreshBackground) onUpdated?.();
         } catch { setStudent(null); }
         finally { setLoading(false); }
     }, [cc, onUpdated]);
@@ -199,10 +199,10 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                             </div>
                         ) : student ? (
                             <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                {tab === "identity" && <IdentityTab student={student} onReload={reload} />}
-                                {tab === "admissions" && <AdmissionsTab student={student} onReload={reload} classes={classes} />}
-                                {tab === "academic" && <AcademicTab student={student} onReload={reload} />}
-                                {tab === "guardians" && <GuardiansTab student={student} onReload={reload} onSwitchStudent={onSwitchStudent} />}
+                                {tab === "identity" && <IdentityTab student={student} onReload={() => reload(true)} />}
+                                {tab === "admissions" && <AdmissionsTab student={student} onReload={() => reload(true)} classes={classes} />}
+                                {tab === "academic" && <AcademicTab student={student} onReload={() => reload(true)} />}
+                                {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} />}
                                 {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
                                 {tab === "logs" && <StudentLogsTab student={student} />}
                                 {tab === "danger_zone" && <DangerZoneTab student={student} />}
