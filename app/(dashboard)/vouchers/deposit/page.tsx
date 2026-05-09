@@ -575,6 +575,8 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
     const sfTotalDeposited = heads.reduce((s, h) => s + Math.max(Number(h.student_fees?.amount ?? h.net_amount ?? 0) - Number(h.balance ?? 0), 0), 0);
     const sfTotalBalance = heads.reduce((s, h) => s + Number(h.balance ?? 0), 0);
 
+    const totalBalanceValue = voucher.total_balance !== undefined ? Number(voucher.total_balance) : sfTotalBalance;
+
     return (
         <tr className={`group border-b border-zinc-100 dark:border-zinc-800/60 transition-colors ${
             isVoid ? "opacity-60 bg-zinc-50/50 dark:bg-zinc-900/20" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
@@ -639,11 +641,11 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
                     <span className={`text-[13px] font-black tabular-nums ${
                         isVoid ? "text-zinc-400" : "text-zinc-900 dark:text-zinc-100"
                     }`}>
-                        Rs. {sfTotalBalance.toLocaleString()}
+                        Rs. {totalBalanceValue.toLocaleString()}
                     </span>
-                    {!isVoid && sfTotalDeposited > 0 && (
+                    {!isVoid && Number(voucher.total_deposited || sfTotalDeposited) > 0 && (
                         <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-tight leading-none">
-                            Paid: Rs. {sfTotalDeposited.toLocaleString()}
+                            Paid: Rs. {Number(voucher.total_deposited || sfTotalDeposited).toLocaleString()}
                         </span>
                     )}
                     {!isVoid && sfTotalBalance > 0 && sfTotalNet !== sfTotalBalance && (

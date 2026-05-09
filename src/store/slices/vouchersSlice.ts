@@ -96,6 +96,10 @@ export interface VoucherItem {
     sf_net_total?: string;
     sf_gross_total?: string;
     sf_discount_total?: string;
+    surcharge_balance?: string;
+    head_balance?: string;
+    total_balance?: string;
+    total_deposited?: string;
     students: VoucherStudent;
     campuses: VoucherCampus;
     classes: VoucherClass;
