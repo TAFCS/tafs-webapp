@@ -230,17 +230,19 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
 function StatusDropdown({ status, onAction, loading }: { status: string; onAction: (a: string) => void; loading: boolean }) {
     const [isOpen, setIsOpen] = useState(false);
     
-    const normalizedStatus = (status || "ENROLLED").toUpperCase();
+    const normalizedStatus = (status || "").toUpperCase();
     const isActive = normalizedStatus === 'ENROLLED' || normalizedStatus === 'ACTIVE';
+    const isSoft = normalizedStatus === 'SOFT_ADMISSION';
 
     const statuses = [
         { id: 'ENROLLED', label: 'Enrolled', icon: User, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100', hover: 'hover:bg-emerald-100/50' },
+        { id: 'SOFT_ADMISSION', label: 'Soft Admission', icon: User, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100', hover: 'hover:bg-blue-100/50' },
         { id: 'GRADUATED', label: 'Graduate', icon: GraduationCap, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100', hover: 'hover:bg-violet-100/50', action: 'graduate' },
         { id: 'LEFT', label: 'Mark as Left', icon: DoorOpen, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100', hover: 'hover:bg-amber-100/50', action: 'left' },
         { id: 'EXPELLED', label: 'Expel', icon: Ban, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100', hover: 'hover:bg-rose-100/50', action: 'expel' },
     ];
 
-    const currentId = isActive ? 'ENROLLED' : normalizedStatus;
+    const currentId = isActive ? 'ENROLLED' : (isSoft ? 'SOFT_ADMISSION' : normalizedStatus);
     const current = statuses.find(x => x.id === currentId) || statuses[0];
 
     return (

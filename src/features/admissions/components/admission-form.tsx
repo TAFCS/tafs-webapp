@@ -1466,7 +1466,7 @@ export function AdmissionForm() {
                         <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
                             <p className="font-semibold">Admission application submitted successfully!</p>
-                            <p className="text-emerald-700 mt-0.5">Computer Code: <span className="font-mono font-bold">{submitSuccess.cc_number}</span>. Student is now <span className="font-medium">ENROLLED</span>.</p>
+                            <p className="text-emerald-700 mt-0.5">Computer Code: <span className="font-mono font-bold">{submitSuccess.cc_number}</span>. Student record updated. <span className="font-medium">Ready for formal enrollment.</span></p>
                         </div>
                         <button
                             onClick={() => {
