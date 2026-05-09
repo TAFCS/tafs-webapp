@@ -157,7 +157,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     dueDate.setHours(0, 0, 0, 0);
     const isOverdue = today > dueDate;
     const actualLateFee = isOverdue ? remainingSurcharge : 0;
-    const finalTotal = totalBalance + actualLateFee + totalArrearSurchargeBalance;
+    const finalTotal = Number(voucher.total_balance) || (totalBalance + actualLateFee + totalArrearSurchargeBalance);
 
     const surchargeDistTotal = Object.values(surchargeDistributions).reduce((s, v) => s + (Number(v) || 0), 0);
     const distributedTotal = fillingMode === "auto"
