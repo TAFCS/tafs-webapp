@@ -59,6 +59,7 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
     }, [cc, reload]);
 
     const isExpelled = (student?.status || "").toUpperCase() === "EXPELLED";
+    const isSoft = (student?.status || "").toUpperCase() === "SOFT_ADMISSION";
 
     const handleLifecycleAction = (action: 'graduate' | 'expel' | 'left') => {
         setLifecycleModal({ open: true, action });
@@ -137,15 +138,19 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                     <div className="flex items-center gap-2">
                         {student && (
                             <div className="flex items-center bg-zinc-50 border border-zinc-100 rounded-xl p-0.5 mr-2">
-                                <button 
-                                    onClick={() => setTab("admission_order" as any)}
-                                    className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "admission_order" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "text-indigo-400 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-600 border border-indigo-100/50"}`}
-                                    title="Admission Order"
-                                >
-                                    <FileText className="h-3.5 w-3.5" />
-                                    <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Admission Order</span>
-                                </button>
-                                <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
+                                {!isSoft && (
+                                    <>
+                                        <button 
+                                            onClick={() => setTab("admission_order" as any)}
+                                            className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "admission_order" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "text-indigo-400 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-600 border border-indigo-100/50"}`}
+                                            title="Admission Order"
+                                        >
+                                            <FileText className="h-3.5 w-3.5" />
+                                            <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Admission Order</span>
+                                        </button>
+                                        <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
+                                    </>
+                                )}
                                 <button 
                                     onClick={() => setTab("danger_zone" as any)}
                                     className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "danger_zone" ? "bg-rose-600 text-white shadow-lg shadow-rose-200" : "text-rose-400 bg-rose-50 hover:bg-rose-100 hover:text-rose-600 border border-rose-100/50"}`}
