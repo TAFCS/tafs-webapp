@@ -151,7 +151,11 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const totalBalance = heads.reduce((sum, h) => sum + sfBalance(h), 0);
     const totalSurcharge = (voucher.late_fee_charge) ? Math.max(Number(voucher.total_payable_after_due ?? 0) - Number(voucher.total_payable_before_due ?? 0), 0) : 0;
     const remainingSurcharge = Math.max(totalSurcharge - Number(voucher.late_fee_deposited ?? 0), 0);
-    const isOverdue = new Date() > new Date(voucher.due_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(voucher.due_date);
+    dueDate.setHours(0, 0, 0, 0);
+    const isOverdue = today > dueDate;
     const actualLateFee = isOverdue ? remainingSurcharge : 0;
     const finalTotal = totalBalance + actualLateFee + totalArrearSurchargeBalance;
 
