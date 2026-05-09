@@ -13,7 +13,7 @@ import LogoImage from "@/public/logo.png";
 import { StudentProfileModal } from "@/src/features/students/components/student-profile-modal";
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
 
-const isNA = (v: any) => v === "N/A" || v === "021-N/A" || !v;
+const isNA = (v: any) => v === "N/A" || v === "021-N/A";
 
 const GRADE_NAME_TO_CODE: Record<string, string> = {
     'Pre-Nursery': 'PN',
@@ -473,26 +473,26 @@ export function RegistrationForm() {
                     // 1. Populate searched guardian (Father or Mother)
                     if (type === "father") {
                         updates.fatherName = guardian.full_name || prev.fatherName;
-                        updates.fatherPhone = isNA(guardian.primary_phone) ? "N/A" : (guardian.primary_phone || prev.fatherPhone);
+                        updates.fatherPhone = isNA(guardian.primary_phone) ? "" : (guardian.primary_phone || prev.fatherPhone);
                         updates.isFatherPhoneNA = isNA(guardian.primary_phone);
-                        updates.fatherEmail = isNA(guardian.email_address) ? "N/A" : (guardian.email_address || prev.fatherEmail);
+                        updates.fatherEmail = isNA(guardian.email_address) ? "" : (guardian.email_address || prev.fatherEmail);
                         updates.isFatherEmailNA = isNA(guardian.email_address);
-                        updates.fatherFax = isNA(guardian.fax_number) ? "N/A" : (guardian.fax_number || prev.fatherFax);
+                        updates.fatherFax = isNA(guardian.fax_number) ? "" : (guardian.fax_number || prev.fatherFax);
                         updates.isFatherFaxNA = isNA(guardian.fax_number);
-                        updates.fatherWhatsapp = isNA(guardian.whatsapp_number) ? "N/A" : (guardian.whatsapp_number || prev.fatherWhatsapp);
+                        updates.fatherWhatsapp = isNA(guardian.whatsapp_number) ? "" : (guardian.whatsapp_number || prev.fatherWhatsapp);
                         updates.fatherPhotoUrl = guardian.photo_url || prev.fatherPhotoUrl;
                         updates.fatherAdditionalPhones = (guardian.additional_phones || []).map((p: any) => 
                             typeof p === 'object' ? { id: Math.random().toString(), ...p } : { id: Math.random().toString(), label: 'Other', number: p }
                         );
                     } else {
                         updates.motherName = guardian.full_name || prev.motherName;
-                        updates.motherPhone = isNA(guardian.primary_phone) ? "N/A" : (guardian.primary_phone || prev.motherPhone);
+                        updates.motherPhone = isNA(guardian.primary_phone) ? "" : (guardian.primary_phone || prev.motherPhone);
                         updates.isMotherPhoneNA = isNA(guardian.primary_phone);
-                        updates.motherEmail = isNA(guardian.email_address) ? "N/A" : (guardian.email_address || prev.motherEmail);
+                        updates.motherEmail = isNA(guardian.email_address) ? "" : (guardian.email_address || prev.motherEmail);
                         updates.isMotherEmailNA = isNA(guardian.email_address);
-                        updates.motherFax = isNA(guardian.fax_number) ? "N/A" : (guardian.fax_number || prev.motherFax);
+                        updates.motherFax = isNA(guardian.fax_number) ? "" : (guardian.fax_number || prev.motherFax);
                         updates.isMotherFaxNA = isNA(guardian.fax_number);
-                        updates.motherWhatsapp = isNA(guardian.whatsapp_number) ? "N/A" : (guardian.whatsapp_number || prev.motherWhatsapp);
+                        updates.motherWhatsapp = isNA(guardian.whatsapp_number) ? "" : (guardian.whatsapp_number || prev.motherWhatsapp);
                         updates.motherPhotoUrl = guardian.photo_url || prev.motherPhotoUrl;
                         updates.motherAdditionalPhones = (guardian.additional_phones || []).map((p: any) => 
                             typeof p === 'object' ? { id: Math.random().toString(), ...p } : { id: Math.random().toString(), label: 'Other', number: p }
@@ -512,7 +512,7 @@ export function RegistrationForm() {
                             updates.city = guardian.city || prev.city;
                             updates.province = guardian.province || prev.province;
                             updates.country = guardian.country || prev.country;
-                            updates.postalCode = isNA(guardian.postal_code) ? "N/A" : (guardian.postal_code || prev.postalCode);
+                            updates.postalCode = isNA(guardian.postal_code) ? "" : (guardian.postal_code || prev.postalCode);
                             updates.isPostalCodeNA = isNA(guardian.postal_code);
                         } else if (family?.primary_address) {
                             // Fallback: Split concatenated address string by commas
@@ -523,13 +523,13 @@ export function RegistrationForm() {
                             if (parts.length > 3) updates.province = parts[3];
                             if (parts.length > 4) updates.country = parts[4];
                             if (parts.length > 5) {
-                                updates.postalCode = isNA(parts[5]) ? "N/A" : parts[5];
+                                updates.postalCode = isNA(parts[5]) ? "" : parts[5];
                                 updates.isPostalCodeNA = isNA(parts[5]);
                             }
                         }
 
                         if (family?.home_phone) {
-                            updates.homePhone = isNA(family.home_phone) ? "N/A" : family.home_phone;
+                            updates.homePhone = isNA(family.home_phone) ? "" : family.home_phone;
                             updates.isHomePhoneNA = isNA(family.home_phone);
                         }
                     }
@@ -1287,7 +1287,7 @@ export function RegistrationForm() {
                                                 <label htmlFor="na-id-marks" className="text-[10px] font-bold uppercase text-zinc-400 cursor-pointer">N/A</label>
                                             </div>
                                         </div>
-                                        <input type="text" name="identificationMarks" value={isNA(formData.identificationMarks) ? "N/A" : (formData.identificationMarks || "")} onChange={handleInputChange} disabled={formData.isIdentificationMarksNA} className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none disabled:cursor-not-allowed ${formData.isIdentificationMarksNA ? 'opacity-50 bg-zinc-50' : ''}`} />
+                                        <input type="text" name="identificationMarks" value={formData.isIdentificationMarksNA ? "N/A" : (formData.identificationMarks || "")} onChange={handleInputChange} disabled={formData.isIdentificationMarksNA} className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none disabled:cursor-not-allowed ${formData.isIdentificationMarksNA ? 'opacity-50 bg-zinc-50' : ''}`} />
                                     </div>
                                 </div>
                             </section>
@@ -1794,7 +1794,7 @@ export function RegistrationForm() {
                                             <input 
                                                 type="text" 
                                                 name="postalCode" 
-                                                value={isNA(formData.postalCode) ? "N/A" : (formData.postalCode || "")} 
+                                                value={formData.isPostalCodeNA ? "N/A" : (formData.postalCode || "")} 
                                                 onChange={handleInputChange} 
                                                 disabled={formData.isPostalCodeNA}
                                                 className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg text-sm font-medium outline-none focus:border-primary focus:ring-1 focus:ring-primary ${formData.isPostalCodeNA ? 'opacity-50 cursor-not-allowed' : ''}`} 
@@ -1822,7 +1822,7 @@ export function RegistrationForm() {
                                         </div>
                                         <div className={`flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary ${formData.isHomePhoneNA ? 'opacity-50' : ''}`}>
                                             <input type="text" name="homePhoneCountryCode" value={formData.homePhoneCountryCode || ""} onChange={handleInputChange} placeholder="021" disabled={formData.isHomePhoneNA} className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm disabled:cursor-not-allowed" />
-                                            <input type="text" name="homePhone" value={isNA(formData.homePhone) ? "N/A" : (formData.homePhone || "")} onChange={handleInputChange} disabled={formData.isHomePhoneNA} className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none disabled:cursor-not-allowed shadow-inner" />
+                                            <input type="text" name="homePhone" value={formData.isHomePhoneNA ? "N/A" : (formData.homePhone || "")} onChange={handleInputChange} disabled={formData.isHomePhoneNA} className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none disabled:cursor-not-allowed shadow-inner" />
                                         </div>
                                     </div>
                                 </div>
@@ -1848,7 +1848,7 @@ export function RegistrationForm() {
                                                 <td className="px-2 py-2">
                                                     <div className={`flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary ${formData.isCandidatePhoneNA ? 'opacity-50 bg-zinc-50' : ''}`}>
                                                         <span className="flex items-center px-2 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 whitespace-nowrap">+92</span>
-                                                        <input type="text" name="candidatePhone" value={isNA(formData.candidatePhone) ? "N/A" : (formData.candidatePhone || "")} onChange={handleInputChange} disabled={formData.isCandidatePhoneNA} placeholder="3XXXXXXXXX" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none disabled:cursor-not-allowed" />
+                                                        <input type="text" name="candidatePhone" value={formData.isCandidatePhoneNA ? "N/A" : (formData.candidatePhone || "")} onChange={handleInputChange} disabled={formData.isCandidatePhoneNA} placeholder="3XXXXXXXXX" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none disabled:cursor-not-allowed" />
                                                     </div>
                                                     <div className="flex items-center gap-1.5 mt-1 ml-1">
                                                         <input type="checkbox" name="isCandidatePhoneNA" id="na-cand-phone" checked={formData.isCandidatePhoneNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
@@ -1856,7 +1856,7 @@ export function RegistrationForm() {
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2">
-                                                    <input type="email" name="candidateEmail" value={isNA(formData.candidateEmail) ? "N/A" : (formData.candidateEmail || "")} onChange={handleInputChange} disabled={formData.isCandidateEmailNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isCandidateEmailNA ? 'opacity-50 bg-zinc-50' : ''}`} />
+                                                    <input type="email" name="candidateEmail" value={formData.isCandidateEmailNA ? "N/A" : (formData.candidateEmail || "")} onChange={handleInputChange} disabled={formData.isCandidateEmailNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isCandidateEmailNA ? 'opacity-50 bg-zinc-50' : ''}`} />
                                                     <div className="flex items-center gap-1.5 mt-1 ml-1">
                                                         <input type="checkbox" name="isCandidateEmailNA" id="na-cand-email" checked={formData.isCandidateEmailNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
                                                         <label htmlFor="na-cand-email" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Mark N/A</label>
@@ -1878,7 +1878,7 @@ export function RegistrationForm() {
                                                             ) : (
                                                                 <span className="flex items-center px-2 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 whitespace-nowrap">+92</span>
                                                             )}
-                                                            <input type="text" name="fatherPhone" value={isNA(formData.fatherPhone) ? "N/A" : (formData.fatherPhone || "")} onChange={handleInputChange} disabled={formData.isFatherPhoneNA} placeholder={formData.isFatherPhoneForeign ? "Foreign Number" : "3XXXXXXXXX"} className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none disabled:cursor-not-allowed" />
+                                                            <input type="text" name="fatherPhone" value={formData.isFatherPhoneNA ? "N/A" : (formData.fatherPhone || "")} onChange={handleInputChange} disabled={formData.isFatherPhoneNA} placeholder={formData.isFatherPhoneForeign ? "Foreign Number" : "3XXXXXXXXX"} className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none disabled:cursor-not-allowed" />
                                                         </div>
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-3">
@@ -1899,7 +1899,7 @@ export function RegistrationForm() {
                                                         {!formData.isFatherWhatsapp && !formData.isFatherPhoneNA && (
                                                             <div className="flex border border-emerald-200 rounded animate-in slide-in-from-top-1 duration-200">
                                                                 <span className="flex items-center px-2 bg-emerald-50 border-r border-emerald-200 text-xs font-semibold text-emerald-700">+92</span>
-                                                                <input type="text" name="fatherWhatsapp" value={isNA(formData.fatherWhatsapp) ? "N/A" : (formData.fatherWhatsapp || "")} onChange={handleInputChange} placeholder="WA Number" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none bg-emerald-50/30" />
+                                                                <input type="text" name="fatherWhatsapp" value={formData.isFatherPhoneNA ? "N/A" : (formData.fatherWhatsapp || "")} onChange={handleInputChange} placeholder="WA Number" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none bg-emerald-50/30" />
                                                             </div>
                                                         )}
                                                         {/* Father Additional Phones */}
@@ -1944,14 +1944,14 @@ export function RegistrationForm() {
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2">
-                                                    <input type="email" name="fatherEmail" value={isNA(formData.fatherEmail) ? "N/A" : (formData.fatherEmail || "")} onChange={handleInputChange} disabled={formData.isFatherEmailNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isFatherEmailNA ? 'opacity-50 bg-zinc-50' : ''}`} />
+                                                    <input type="email" name="fatherEmail" value={formData.isFatherEmailNA ? "N/A" : (formData.fatherEmail || "")} onChange={handleInputChange} disabled={formData.isFatherEmailNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isFatherEmailNA ? 'opacity-50 bg-zinc-50' : ''}`} />
                                                     <div className="flex items-center gap-1.5 mt-1 ml-1">
                                                         <input type="checkbox" name="isFatherEmailNA" id="na-father-email" checked={formData.isFatherEmailNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
                                                         <label htmlFor="na-father-email" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Mark N/A</label>
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2">
-                                                    <input type="text" name="fatherFax" value={isNA(formData.fatherFax) ? "N/A" : (formData.fatherFax || "")} onChange={handleInputChange} disabled={formData.isFatherFaxNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isFatherFaxNA ? 'opacity-50 bg-zinc-50' : ''}`} />
+                                                    <input type="text" name="fatherFax" value={formData.isFatherFaxNA ? "N/A" : (formData.fatherFax || "")} onChange={handleInputChange} disabled={formData.isFatherFaxNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isFatherFaxNA ? 'opacity-50 bg-zinc-50' : ''}`} />
                                                     <div className="flex items-center gap-1.5 mt-1 ml-1">
                                                         <input type="checkbox" name="isFatherFaxNA" id="na-father-fax" checked={formData.isFatherFaxNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
                                                         <label htmlFor="na-father-fax" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Mark N/A</label>
@@ -1972,7 +1972,7 @@ export function RegistrationForm() {
                                                             ) : (
                                                                 <span className="flex items-center px-2 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 whitespace-nowrap">+92</span>
                                                             )}
-                                                            <input type="text" name="motherPhone" value={isNA(formData.motherPhone) ? "N/A" : (formData.motherPhone || "")} onChange={handleInputChange} disabled={formData.isMotherPhoneNA} placeholder={formData.isMotherPhoneForeign ? "Foreign Number" : "3XXXXXXXXX"} className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none disabled:cursor-not-allowed" />
+                                                            <input type="text" name="motherPhone" value={formData.isMotherPhoneNA ? "N/A" : (formData.motherPhone || "")} onChange={handleInputChange} disabled={formData.isMotherPhoneNA} placeholder={formData.isMotherPhoneForeign ? "Foreign Number" : "3XXXXXXXXX"} className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none disabled:cursor-not-allowed" />
                                                         </div>
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-3">
@@ -1993,7 +1993,7 @@ export function RegistrationForm() {
                                                         {!formData.isMotherWhatsapp && !formData.isMotherPhoneNA && (
                                                             <div className="flex border border-emerald-200 rounded animate-in slide-in-from-top-1 duration-200">
                                                                 <span className="flex items-center px-2 bg-emerald-50 border-r border-emerald-200 text-xs font-semibold text-emerald-700">+92</span>
-                                                                <input type="text" name="motherWhatsapp" value={isNA(formData.motherWhatsapp) ? "N/A" : (formData.motherWhatsapp || "")} onChange={handleInputChange} placeholder="WA Number" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none bg-emerald-50/30" />
+                                                                <input type="text" name="motherWhatsapp" value={formData.isMotherPhoneNA ? "N/A" : (formData.motherWhatsapp || "")} onChange={handleInputChange} placeholder="WA Number" className="w-full px-2 py-1.5 border-0 rounded-r text-sm outline-none bg-emerald-50/30" />
                                                             </div>
                                                         )}
 
@@ -2039,14 +2039,14 @@ export function RegistrationForm() {
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2">
-                                                    <input type="email" name="motherEmail" value={isNA(formData.motherEmail) ? "N/A" : (formData.motherEmail || "")} onChange={handleInputChange} disabled={formData.isMotherEmailNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isMotherEmailNA ? 'opacity-50 bg-zinc-50' : ''}`} />
+                                                    <input type="email" name="motherEmail" value={formData.isMotherEmailNA ? "N/A" : (formData.motherEmail || "")} onChange={handleInputChange} disabled={formData.isMotherEmailNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isMotherEmailNA ? 'opacity-50 bg-zinc-50' : ''}`} />
                                                     <div className="flex items-center gap-1.5 mt-1 ml-1">
                                                         <input type="checkbox" name="isMotherEmailNA" id="na-mother-email" checked={formData.isMotherEmailNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
                                                         <label htmlFor="na-mother-email" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Mark N/A</label>
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2">
-                                                    <input type="text" name="motherFax" value={isNA(formData.motherFax) ? "N/A" : (formData.motherFax || "")} onChange={handleInputChange} disabled={formData.isMotherFaxNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isMotherFaxNA ? 'opacity-50 bg-zinc-50' : ''}`} />
+                                                    <input type="text" name="motherFax" value={formData.isMotherFaxNA ? "N/A" : (formData.motherFax || "")} onChange={handleInputChange} disabled={formData.isMotherFaxNA} className={`w-full px-2 py-1.5 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded text-sm outline-none disabled:cursor-not-allowed ${formData.isMotherFaxNA ? 'opacity-50 bg-zinc-50' : ''}`} />
                                                     <div className="flex items-center gap-1.5 mt-1 ml-1">
                                                         <input type="checkbox" name="isMotherFaxNA" id="na-mother-fax" checked={formData.isMotherFaxNA} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
                                                         <label htmlFor="na-mother-fax" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Mark N/A</label>
