@@ -15,6 +15,16 @@ import { StudentListItem } from "@/src/store/slices/studentsSlice";
 
 const isNA = (v: any) => v === "N/A" || v === "021-N/A";
 
+const stripPhonePrefix = (phone: string) => {
+    if (!phone || typeof phone !== 'string') return "";
+    let cleaned = phone.trim();
+    if (cleaned.startsWith("+92")) cleaned = cleaned.slice(3);
+    if (cleaned.startsWith("021-")) cleaned = cleaned.slice(4);
+    else if (cleaned.startsWith("021")) cleaned = cleaned.slice(3);
+    // Remove any remaining leading hyphen or spaces
+    return cleaned.replace(/^[\s-]+/, "");
+};
+
 const GRADE_NAME_TO_CODE: Record<string, string> = {
     'Pre-Nursery': 'PN',
     'Nursery': 'NUR',
@@ -473,26 +483,26 @@ export function RegistrationForm() {
                     // 1. Populate searched guardian (Father or Mother)
                     if (type === "father") {
                         updates.fatherName = guardian.full_name || prev.fatherName;
-                        updates.fatherPhone = isNA(guardian.primary_phone) ? "" : (guardian.primary_phone || prev.fatherPhone);
+                        updates.fatherPhone = isNA(guardian.primary_phone) ? "" : stripPhonePrefix(guardian.primary_phone || prev.fatherPhone);
                         updates.isFatherPhoneNA = isNA(guardian.primary_phone);
                         updates.fatherEmail = isNA(guardian.email_address) ? "" : (guardian.email_address || prev.fatherEmail);
                         updates.isFatherEmailNA = isNA(guardian.email_address);
                         updates.fatherFax = isNA(guardian.fax_number) ? "" : (guardian.fax_number || prev.fatherFax);
                         updates.isFatherFaxNA = isNA(guardian.fax_number);
-                        updates.fatherWhatsapp = isNA(guardian.whatsapp_number) ? "" : (guardian.whatsapp_number || prev.fatherWhatsapp);
+                        updates.fatherWhatsapp = isNA(guardian.whatsapp_number) ? "" : stripPhonePrefix(guardian.whatsapp_number || prev.fatherWhatsapp);
                         updates.fatherPhotoUrl = guardian.photo_url || prev.fatherPhotoUrl;
                         updates.fatherAdditionalPhones = (guardian.additional_phones || []).map((p: any) => 
                             typeof p === 'object' ? { id: Math.random().toString(), ...p } : { id: Math.random().toString(), label: 'Other', number: p }
                         );
                     } else {
                         updates.motherName = guardian.full_name || prev.motherName;
-                        updates.motherPhone = isNA(guardian.primary_phone) ? "" : (guardian.primary_phone || prev.motherPhone);
+                        updates.motherPhone = isNA(guardian.primary_phone) ? "" : stripPhonePrefix(guardian.primary_phone || prev.motherPhone);
                         updates.isMotherPhoneNA = isNA(guardian.primary_phone);
                         updates.motherEmail = isNA(guardian.email_address) ? "" : (guardian.email_address || prev.motherEmail);
                         updates.isMotherEmailNA = isNA(guardian.email_address);
                         updates.motherFax = isNA(guardian.fax_number) ? "" : (guardian.fax_number || prev.motherFax);
                         updates.isMotherFaxNA = isNA(guardian.fax_number);
-                        updates.motherWhatsapp = isNA(guardian.whatsapp_number) ? "" : (guardian.whatsapp_number || prev.motherWhatsapp);
+                        updates.motherWhatsapp = isNA(guardian.whatsapp_number) ? "" : stripPhonePrefix(guardian.whatsapp_number || prev.motherWhatsapp);
                         updates.motherPhotoUrl = guardian.photo_url || prev.motherPhotoUrl;
                         updates.motherAdditionalPhones = (guardian.additional_phones || []).map((p: any) => 
                             typeof p === 'object' ? { id: Math.random().toString(), ...p } : { id: Math.random().toString(), label: 'Other', number: p }
@@ -529,8 +539,15 @@ export function RegistrationForm() {
                         }
 
                         if (family?.home_phone) {
-                            updates.homePhone = isNA(family.home_phone) ? "" : family.home_phone;
-                            updates.isHomePhoneNA = isNA(family.home_phone);
+                            const hp = family.home_phone.trim();
+                            if (hp.includes("-")) {
+                                const [code, ...rest] = hp.split("-");
+                                updates.homePhoneCountryCode = code;
+                                updates.homePhone = rest.join("-");
+                            } else {
+                                updates.homePhone = stripPhonePrefix(hp);
+                            }
+                            updates.isHomePhoneNA = false;
                         }
                     }
 
