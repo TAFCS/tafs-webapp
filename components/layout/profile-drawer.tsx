@@ -84,6 +84,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'Fee Types', href: '/fee-types', icon: Tags, permission: 'fee_admin.fee_types.view' },
                 { name: 'Class Schedule', href: '/classwise-fees-schedule', icon: CalendarDays, permission: 'fee_admin.classwise_schedule.view' },
                 { name: 'Student Overrides', href: '/studentwise-fees', icon: UserCog, permission: 'fee_admin.studentwise_schedule.view' },
+                { name: 'Discount Presets', href: '/discount-presets', icon: HandCoins, permission: 'fee_admin.fee_types.view' },
             ]
         },
         {

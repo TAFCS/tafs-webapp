@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo, Suspense } from "react";
-import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info, CreditCard, ArrowRight, Layers } from "lucide-react";
+import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Minus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info, CreditCard, ArrowRight, Layers } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
@@ -57,6 +57,22 @@ interface SpreadsheetRow {
     installment_fee_type_id?: number | null;
     status?: "NOT_ISSUED" | "ISSUED" | "PARTIALLY_PAID" | "PAID";
     description_prefix?: string | null;
+}
+
+interface DiscountRow {
+    id: number;          // student_fees.id
+    title: string;       // discount_presets.title or custom
+    amount: string;
+    fee_date?: string;
+    target_month: number;
+    discount_type_id?: number | null;
+}
+
+interface DiscountPreset {
+    id: number;
+    title: string;
+    description?: string | null;
+    is_active: boolean;
 }
 
 const MONTH_ORDER = MONTHS;
@@ -268,6 +284,18 @@ function StudentwiseFeeEditor() {
     }, [studentId, selectedYear, fetchProjections]);
 
     const [rows, setRows] = useState<SpreadsheetRow[]>([]);
+    const [discountRows, setDiscountRows] = useState<DiscountRow[]>([]);
+    const [discountPresets, setDiscountPresets] = useState<DiscountPreset[]>([]);
+    const [showDiscountModal, setShowDiscountModal] = useState(false);
+    const [discountForm, setDiscountForm] = useState<{
+        discount_type_id: number | "";
+        custom_title: string;
+        amount: string;
+        fee_date: string;
+        target_month: number;
+    }>({ discount_type_id: "", custom_title: "", amount: "", fee_date: "", target_month: 8 });
+    const [isSavingDiscount, setIsSavingDiscount] = useState(false);
+    const [isDeletingDiscountId, setIsDeletingDiscountId] = useState<number | null>(null);
     const [feeToAmountMap, setFeeToAmountMap] = useState<Record<number, string>>({});
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -547,7 +575,20 @@ function StudentwiseFeeEditor() {
                 });
             } else {
                 // Map from student_fees (Strict Rule: do not pull template)
-                finalRows = (fees as any[]).map((sf) => ({
+                // Separate discount rows from regular fee rows
+                const discountFeesFromApi = (fees as any[]).filter((sf) => sf.is_discount === true);
+                const regularFees = (fees as any[]).filter((sf) => !sf.is_discount);
+
+                setDiscountRows(discountFeesFromApi.map((sf) => ({
+                    id: sf.id,
+                    title: sf.discount_presets?.title || 'Discount',
+                    amount: sf.amount?.toString() || "0",
+                    fee_date: sf.fee_date ? new Date(sf.fee_date).toISOString().split('T')[0] : undefined,
+                    target_month: sf.target_month,
+                    discount_type_id: sf.discount_type_id,
+                })));
+
+                finalRows = regularFees.map((sf) => ({
                     __id: Math.random().toString(36).substring(7),
                     dbId: sf.id,
                     feeId: sf.fee_type_id,
@@ -574,6 +615,7 @@ function StudentwiseFeeEditor() {
                 // Store but do not apply yet (wait for user confirmation)
                 setPendingTemplateRows(sortSpreadsheetRows(finalRows, termStartMonth));
                 setIsTemplatePending(true);
+                setDiscountRows([]);
             } else {
                 setRows(sortSpreadsheetRows(finalRows, termStartMonth));
                 setIsTemplatePending(false);
@@ -596,6 +638,7 @@ function StudentwiseFeeEditor() {
             setSelectedForBundling([]);
         } else {
             setRows([]);
+            setDiscountRows([]);
         }
         return () => controller.abort();
     }, [selectedClassId, selectedCampusId, studentId, selectedYear, fetchFeeSchedule]);
@@ -647,6 +690,7 @@ function StudentwiseFeeEditor() {
         setSelectedClassId("");
         setSelectedSectionId("");
         setRows([]);
+        setDiscountRows([]);
         setSearchResults([]);
         setShowSearchDropdown(false);
         setLoadError(null);
@@ -661,7 +705,76 @@ function StudentwiseFeeEditor() {
         setIsEditingFlags(false);
     };
 
-    // ── Keyboard navigation ───────────────────────────────────────────────
+    // ── Discount presets fetch ─────────────────────────────────────────────
+    useEffect(() => {
+        api.get('/v1/discount-presets', { params: { active: 'true' } })
+            .then(res => setDiscountPresets(res.data?.data || res.data || []))
+            .catch(() => {/* silently ignore */});
+    }, []);
+
+    const handleAddDiscount = async () => {
+        if (!studentId) return;
+        const numericMatch = studentId.match(/\d+$/);
+        const ccVal = numericMatch ? parseInt(numericMatch[0]) : 0;
+
+        const payload: any = {
+            student_id: ccVal,
+            amount: parseFloat(discountForm.amount),
+            academic_year: selectedYear,
+            target_month: discountForm.target_month,
+            fee_date: discountForm.fee_date || undefined,
+        };
+        if (discountForm.discount_type_id !== "") {
+            payload.discount_type_id = discountForm.discount_type_id;
+        } else if (discountForm.custom_title) {
+            payload.custom_title = discountForm.custom_title;
+        } else {
+            toast.error("Please select a discount preset or enter a custom title.");
+            return;
+        }
+        if (!payload.amount || isNaN(payload.amount) || payload.amount <= 0) {
+            toast.error("Please enter a valid discount amount.");
+            return;
+        }
+
+        setIsSavingDiscount(true);
+        try {
+            const res = await api.post('/v1/student-fees/discount', payload);
+            const created = res.data?.data || res.data;
+            setDiscountRows(prev => [...prev, {
+                id: created.id,
+                title: created.discount_presets?.title || discountForm.custom_title || 'Discount',
+                amount: created.amount?.toString() || discountForm.amount,
+                fee_date: created.fee_date ? new Date(created.fee_date).toISOString().split('T')[0] : undefined,
+                target_month: created.target_month,
+                discount_type_id: created.discount_type_id,
+            }]);
+            toast.success("Discount added.");
+            // Advance fee_date by 1 month for convenience
+            if (discountForm.fee_date) {
+                const d = new Date(discountForm.fee_date);
+                d.setMonth(d.getMonth() + 1);
+                setDiscountForm(f => ({ ...f, fee_date: d.toISOString().split('T')[0], target_month: d.getMonth() + 1 }));
+            }
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to add discount.");
+        } finally {
+            setIsSavingDiscount(false);
+        }
+    };
+
+    const handleDeleteDiscount = async (id: number) => {
+        setIsDeletingDiscountId(id);
+        try {
+            await api.delete(`/v1/student-fees/discount/${id}`);
+            setDiscountRows(prev => prev.filter(d => d.id !== id));
+            toast.success("Discount removed.");
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to remove discount.");
+        } finally {
+            setIsDeletingDiscountId(null);
+        }
+    };
     const totalRows = rows.length;
     const totalCols = COLS.length;
 
@@ -1012,7 +1125,8 @@ function StudentwiseFeeEditor() {
         }
     };
 
-    const grandTotal = rows.reduce((s, r) => s + parseFloat(r.amount || "0"), 0);
+    const grandTotal = rows.reduce((s, r) => s + parseFloat(r.amount || "0"), 0)
+        - discountRows.reduce((s, d) => s + parseFloat(d.amount || "0"), 0);
 
     // Auto-detect bundle constraints
     const selectedRowsForBundling = rows.filter(r => selectedForBundling.includes(r.__id));
@@ -1504,6 +1618,15 @@ function StudentwiseFeeEditor() {
                             <Plus className="h-3.5 w-3.5 text-primary" />
                             Add Row
                         </button>
+                        {studentId && (
+                            <button
+                                onClick={() => setShowDiscountModal(true)}
+                                className="inline-flex items-center gap-2 px-6 h-10 bg-white dark:bg-zinc-900 border border-violet-200 dark:border-violet-800 rounded-xl text-xs font-black uppercase tracking-widest text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all active:scale-95 shadow-sm"
+                            >
+                                <Minus className="h-3.5 w-3.5 text-violet-500" />
+                                Add Discount
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
@@ -1565,6 +1688,12 @@ function StudentwiseFeeEditor() {
                                     >
                                         <Plus className="h-4 w-4 text-primary" /> Add New Row
                                     </button>
+                                    <button
+                                        onClick={() => setShowDiscountModal(true)}
+                                        className="px-8 py-3 bg-white dark:bg-zinc-900 border border-violet-200 dark:border-violet-800 rounded-2xl text-xs font-black uppercase tracking-widest text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all active:scale-95 flex items-center gap-2"
+                                    >
+                                        <Minus className="h-4 w-4 text-violet-500" /> Add Discount
+                                    </button>
                                 </>
                             ) : (
                                 <>
@@ -1581,6 +1710,13 @@ function StudentwiseFeeEditor() {
                                     >
                                         <Plus className="h-3.5 w-3.5 text-primary" />
                                         Add Row
+                                    </button>
+                                    <button
+                                        onClick={() => setShowDiscountModal(true)}
+                                        className="px-6 py-2.5 bg-white dark:bg-zinc-900 border border-violet-200 dark:border-violet-800 rounded-xl text-xs font-black uppercase tracking-widest text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all active:scale-95 flex items-center gap-2"
+                                    >
+                                        <Minus className="h-3.5 w-3.5 text-violet-500" />
+                                        Add Discount
                                     </button>
                                 </>
                             )}
@@ -1835,6 +1971,15 @@ function StudentwiseFeeEditor() {
                                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Student</p>
                                 <p className="text-lg font-bold text-zinc-700 dark:text-zinc-300 truncate max-w-[200px]">{studentId || "—"}</p>
                             </div>
+                            {discountRows.length > 0 && (
+                                <>
+                                    <div className="w-px h-8 bg-zinc-200 mt-2" />
+                                    <div>
+                                        <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest mb-1">Discounts</p>
+                                        <p className="text-lg font-bold text-violet-600">- PKR {discountRows.reduce((s, d) => s + parseFloat(d.amount || "0"), 0).toLocaleString()}</p>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         <div className="text-right">
@@ -1845,6 +1990,158 @@ function StudentwiseFeeEditor() {
                                     {grandTotal.toLocaleString()}
                                 </span>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Discount Rows Section */}
+            {discountRows.length > 0 && (
+                <div className="bg-white dark:bg-zinc-950 border border-violet-200 dark:border-violet-900 rounded-[24px] shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-violet-100 dark:border-violet-900 flex items-center gap-3">
+                        <div className="h-7 w-7 bg-violet-100 dark:bg-violet-900 rounded-xl flex items-center justify-center">
+                            <Minus className="h-3.5 w-3.5 text-violet-600" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-black text-zinc-800 dark:text-zinc-200">Custom Discounts</p>
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Applied to this student's annual charges</p>
+                        </div>
+                    </div>
+                    <table className="w-full border-collapse">
+                        <thead>
+                            <tr className="bg-violet-50/50 dark:bg-violet-950/20">
+                                <th className="px-6 py-3 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest border-b border-violet-100 dark:border-violet-900">#</th>
+                                <th className="px-6 py-3 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest border-b border-violet-100 dark:border-violet-900">Discount Type</th>
+                                <th className="px-6 py-3 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest border-b border-violet-100 dark:border-violet-900">Month</th>
+                                <th className="px-6 py-3 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest border-b border-violet-100 dark:border-violet-900">Fee Date</th>
+                                <th className="px-6 py-3 text-right text-[10px] font-bold text-violet-500 uppercase tracking-widest border-b border-violet-100 dark:border-violet-900">Amount (Rs.)</th>
+                                <th className="px-6 py-3 border-b border-violet-100 dark:border-violet-900 w-16" />
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {discountRows.map((dr, idx) => {
+                                const monthName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === dr.target_month) || "—";
+                                return (
+                                    <tr key={dr.id} className="bg-violet-50/30 dark:bg-violet-950/10 hover:bg-violet-50/60 dark:hover:bg-violet-950/20 transition-colors">
+                                        <td className="px-6 py-3 text-[10px] font-mono text-zinc-400 border-b border-violet-100 dark:border-violet-900">{idx + 1}</td>
+                                        <td className="px-6 py-3 border-b border-violet-100 dark:border-violet-900">
+                                            <div className="flex items-center gap-2">
+                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300 text-[8px] font-black uppercase tracking-wider rounded">DISC</span>
+                                                <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{dr.title}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-3 text-sm text-zinc-500 border-b border-violet-100 dark:border-violet-900">{monthName}</td>
+                                        <td className="px-6 py-3 text-sm font-mono text-zinc-500 border-b border-violet-100 dark:border-violet-900">{dr.fee_date || "—"}</td>
+                                        <td className="px-6 py-3 text-right font-mono font-bold text-violet-700 dark:text-violet-400 border-b border-violet-100 dark:border-violet-900">
+                                            – {parseFloat(dr.amount).toLocaleString()}
+                                        </td>
+                                        <td className="px-6 py-3 border-b border-violet-100 dark:border-violet-900 text-center">
+                                            <button
+                                                onClick={() => handleDeleteDiscount(dr.id)}
+                                                disabled={isDeletingDiscountId === dr.id}
+                                                className="p-1.5 rounded-lg hover:bg-rose-50 text-zinc-300 hover:text-rose-500 transition-all disabled:opacity-40"
+                                            >
+                                                {isDeletingDiscountId === dr.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* Add Discount Modal */}
+            {showDiscountModal && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-md mx-4 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-zinc-100 dark:border-zinc-800">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 bg-violet-100 dark:bg-violet-900 rounded-2xl flex items-center justify-center">
+                                    <Minus className="h-4 w-4 text-violet-600" />
+                                </div>
+                                <div>
+                                    <p className="font-black text-zinc-900 dark:text-zinc-100">Add Discount</p>
+                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Custom discount for this student</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowDiscountModal(false)} className="h-8 w-8 rounded-xl flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-all">
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            {/* Preset or Custom */}
+                            <div>
+                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Discount Preset</label>
+                                <select
+                                    value={discountForm.discount_type_id}
+                                    onChange={e => setDiscountForm(f => ({ ...f, discount_type_id: e.target.value === "" ? "" : Number(e.target.value), custom_title: "" }))}
+                                    className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-violet-400/30"
+                                >
+                                    <option value="">— Custom / No Preset —</option>
+                                    {discountPresets.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                                </select>
+                            </div>
+                            {discountForm.discount_type_id === "" && (
+                                <div>
+                                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Custom Title</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Staff Sibling Discount"
+                                        value={discountForm.custom_title}
+                                        onChange={e => setDiscountForm(f => ({ ...f, custom_title: e.target.value }))}
+                                        className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-violet-400/30"
+                                    />
+                                </div>
+                            )}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Amount (Rs.)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        placeholder="0"
+                                        value={discountForm.amount}
+                                        onChange={e => setDiscountForm(f => ({ ...f, amount: e.target.value }))}
+                                        className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-mono font-medium text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-violet-400/30"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Month</label>
+                                    <select
+                                        value={discountForm.target_month}
+                                        onChange={e => setDiscountForm(f => ({ ...f, target_month: Number(e.target.value) }))}
+                                        className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-violet-400/30"
+                                    >
+                                        {MONTH_ORDER.map(m => <option key={m} value={MONTH_TO_NUM[m]}>{m}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Fee Date (Optional)</label>
+                                <input
+                                    type="date"
+                                    value={discountForm.fee_date}
+                                    onChange={e => setDiscountForm(f => ({ ...f, fee_date: e.target.value }))}
+                                    className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-mono text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-violet-400/30"
+                                />
+                            </div>
+                        </div>
+                        <div className="px-6 pb-6 flex items-center gap-3">
+                            <button
+                                onClick={handleAddDiscount}
+                                disabled={isSavingDiscount}
+                                className="flex-1 h-10 bg-violet-600 hover:bg-violet-700 text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg shadow-violet-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isSavingDiscount ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-3.5 w-3.5" /> Add Discount</>}
+                            </button>
+                            <button
+                                onClick={() => setShowDiscountModal(false)}
+                                className="h-10 px-5 bg-zinc-100 dark:bg-zinc-900 text-zinc-600 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-zinc-200 transition-all active:scale-95"
+                            >
+                                Done
+                            </button>
                         </div>
                     </div>
                 </div>
