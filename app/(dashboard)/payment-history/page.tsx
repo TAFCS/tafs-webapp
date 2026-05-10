@@ -1,16 +1,17 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { 
-    Search, 
-    Loader2, 
-    Calendar, 
-    CreditCard, 
-    TrendingUp, 
-    History, 
-    CheckCircle2, 
-    Clock, 
-    XCircle, 
+import { createPortal } from "react-dom";
+import {
+    Search,
+    Loader2,
+    Calendar,
+    CreditCard,
+    TrendingUp,
+    History,
+    CheckCircle2,
+    Clock,
+    XCircle,
     AlertCircle,
     ChevronDown,
     ChevronRight,
@@ -28,7 +29,8 @@ import {
     SearchX,
     Receipt,
     RefreshCw,
-    X
+    X,
+    Trash2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
@@ -163,6 +165,108 @@ interface PaymentHistoryResponse {
     deposits: DepositItem[];
 }
 
+// --- Clear Deposit Modal ---
+
+function ClearDepositModal({
+    isOpen,
+    voucherId,
+    depositId,
+    depositDate,
+    amount,
+    onClose,
+    onSuccess,
+}: {
+    isOpen: boolean;
+    voucherId: number;
+    depositId: number;
+    depositDate: string;
+    amount: number;
+    onClose: () => void;
+    onSuccess: () => void;
+}) {
+    const [isLoading, setIsLoading] = useState(false);
+
+    if (!isOpen) return null;
+
+    const handleClearDeposit = async () => {
+        setIsLoading(true);
+        const loadingToast = toast.loading('Clearing deposit...');
+        try {
+            await api.post(`/v1/vouchers/${voucherId}/clear-deposit`, { depositId });
+            toast.dismiss(loadingToast);
+            toast.success('Deposit cleared successfully');
+            onSuccess();
+            onClose();
+        } catch (error: any) {
+            toast.dismiss(loadingToast);
+            toast.error(error?.response?.data?.message || 'Failed to clear deposit');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 bg-rose-100 dark:bg-rose-900/20 rounded-2xl flex items-center justify-center">
+                            <AlertCircle className="h-6 w-6 text-rose-600 dark:text-rose-400" />
+                        </div>
+                        <h2 className="text-lg font-black text-zinc-900 dark:text-zinc-100">Clear Deposit?</h2>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        disabled={isLoading}
+                        className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl transition-colors disabled:opacity-50"
+                    >
+                        <X className="h-5 w-5 text-zinc-400" />
+                    </button>
+                </div>
+                <div className="p-8 space-y-4">
+                    <div className="flex items-start gap-4 p-4 bg-rose-50 dark:bg-rose-900/10 border border-rose-200 dark:border-rose-800/40 rounded-xl">
+                        <AlertCircle className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                            <p className="text-sm font-black text-rose-800 dark:text-rose-300">This is a destructive operation</p>
+                            <p className="text-xs text-rose-700 dark:text-rose-400 leading-relaxed">
+                                This will reverse the deposit allocation, reset the fee status, and restore the voucher to UNPAID status. This cannot be undone without manual intervention.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-zinc-600 dark:text-zinc-400">Deposit Date:</span>
+                            <span className="font-bold text-zinc-900 dark:text-zinc-100">{new Date(depositDate).toLocaleDateString('en-PK')}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-zinc-600 dark:text-zinc-400">Amount:</span>
+                            <span className="font-bold text-zinc-900 dark:text-zinc-100">PKR {amount.toLocaleString('en-PK')}</span>
+                        </div>
+                    </div>
+                </div>
+                <div className="px-8 py-6 border-t border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-end gap-3">
+                    <button
+                        onClick={onClose}
+                        disabled={isLoading}
+                        className="px-6 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-xl font-bold text-sm hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleClearDeposit}
+                        disabled={isLoading}
+                        className="px-6 py-2.5 bg-rose-600 text-white rounded-xl font-bold text-sm hover:bg-rose-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        {isLoading ? 'Clearing...' : 'Clear Deposit'}
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+}
+
 // --- Shared Components ---
 
 const StatCard = ({ title, value, subValues, icon: Icon, color, progress }: { title: string; value: string | number; subValues?: { label: string; value: string | number; color?: string }[]; icon: any; color: string; progress?: number }) => (
@@ -177,7 +281,7 @@ const StatCard = ({ title, value, subValues, icon: Icon, color, progress }: { ti
                 </div>
             )}
         </div>
-        
+
         <div className="space-y-1">
             <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">{title}</p>
             <p className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tabular-nums">{value}</p>
@@ -185,7 +289,7 @@ const StatCard = ({ title, value, subValues, icon: Icon, color, progress }: { ti
 
         {progress !== undefined && (
             <div className="h-1.5 w-full bg-zinc-100 dark:bg-zinc-900 rounded-full overflow-hidden">
-                <motion.div 
+                <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${progress}%` }}
                     className={`h-full ${color.replace('text-', 'bg-')}`}
@@ -271,8 +375,8 @@ function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
         <div className="relative w-full lg:w-96" ref={searchRef}>
             <div className="relative group">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
-                <input 
-                    type="text" 
+                <input
+                    type="text"
                     placeholder="Search CC, Name, GR..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -288,7 +392,7 @@ function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
 
             <AnimatePresence>
                 {open && (
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, y: 10, scale: 0.98 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 5, scale: 0.98 }}
@@ -343,6 +447,7 @@ export default function PaymentHistoryPage() {
     const [activeTab, setActiveTab] = useState<'vouchers' | 'fee_heads' | 'deposits'>('vouchers');
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [selectedStudentCc, setSelectedStudentCc] = useState<number | null>(null);
+    const [clearDepositModal, setClearDepositModal] = useState<{ voucherId: number; depositId: number; depositDate: string; amount: number } | null>(null);
 
     const toggleRow = (id: string) => {
         const next = new Set(expandedRows);
@@ -355,8 +460,8 @@ export default function PaymentHistoryPage() {
         setLoading(true);
         setSelectedStudentCc(cc);
         try {
-            const { data: response } = await api.get(`/v1/students/${cc}/payment-history`, { 
-                params: { academic_year: year || academicYear } 
+            const { data: response } = await api.get(`/v1/students/${cc}/payment-history`, {
+                params: { academic_year: year || academicYear }
             });
             setData(response.data);
             toast.success("Ledger synchronized successfully");
@@ -380,7 +485,7 @@ export default function PaymentHistoryPage() {
                     <StudentSearch onSelect={fetchHistory} />
 
                     {data?.student && (
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             className="flex-1 flex items-center gap-6 border-l border-zinc-100 dark:border-zinc-800 pl-8"
@@ -417,7 +522,7 @@ export default function PaymentHistoryPage() {
                             <div className="shrink-0 flex items-center gap-4">
                                 <div className="flex flex-col gap-1">
                                     <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Academic Year</label>
-                                    <select 
+                                    <select
                                         value={academicYear}
                                         onChange={(e) => {
                                             const newYear = e.target.value;
@@ -431,7 +536,7 @@ export default function PaymentHistoryPage() {
                                         <option value="2023-2024">2023-2024</option>
                                     </select>
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => selectedStudentCc && fetchHistory(selectedStudentCc)}
                                     className="w-12 h-12 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl hover:bg-zinc-100 transition-all"
                                     title="Refresh Data"
@@ -455,7 +560,7 @@ export default function PaymentHistoryPage() {
                     </div>
                 </div>
             ) : (
-                <motion.div 
+                <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
@@ -463,8 +568,8 @@ export default function PaymentHistoryPage() {
                 >
                     {/* Zone 2: Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <StatCard 
-                            title="Collection Strength" 
+                        <StatCard
+                            title="Collection Strength"
                             value={formatCurrency(data.stats.total_paid)}
                             progress={Math.round(data.stats.collection_rate)}
                             color="text-emerald-600"
@@ -474,8 +579,8 @@ export default function PaymentHistoryPage() {
                                 { label: 'Outstanding', value: formatCurrency(data.stats.still_outstanding), color: 'text-rose-600' }
                             ]}
                         />
-                        <StatCard 
-                            title="Voucher Behavior" 
+                        <StatCard
+                            title="Voucher Behavior"
                             value={data.stats.paid_late > 0 ? "Late Payer" : "Healthy"}
                             color={data.stats.paid_late > 0 ? "text-amber-600" : "text-emerald-600"}
                             icon={ShieldAlert}
@@ -485,19 +590,19 @@ export default function PaymentHistoryPage() {
                                 { label: 'Due', value: formatCurrency(data.stats.still_outstanding), color: 'text-rose-600' }
                             ]}
                         />
-                        <StatCard 
-                            title="Arrears & Surcharges" 
+                        <StatCard
+                            title="Arrears & Surcharges"
                             value={
                                 (data.stats.total_arrears_ever + data.vouchers
                                     .filter(v => v.status !== 'VOID')
-                                    .reduce((acc, v) => 
+                                    .reduce((acc, v) =>
                                         acc + v.heads.reduce((hAcc, h) => hAcc + (h.is_arrear ? h.balance : 0), 0)
-                                    , 0)) > 0 
+                                    , 0)) > 0
                                 ? formatCurrency(data.stats.total_arrears_ever + data.vouchers
                                     .filter(v => v.status !== 'VOID')
-                                    .reduce((acc, v) => 
+                                    .reduce((acc, v) =>
                                         acc + v.heads.reduce((hAcc, h) => hAcc + (h.is_arrear ? h.balance : 0), 0)
-                                    , 0)) 
+                                    , 0))
                                 : "None"
                             }
                             color="text-rose-600"
@@ -508,8 +613,8 @@ export default function PaymentHistoryPage() {
                                 { label: 'Old Bal.', value: formatCurrency(data.stats.total_arrears_ever) }
                             ]}
                         />
-                        <StatCard 
-                            title="Settlement Speed" 
+                        <StatCard
+                            title="Settlement Speed"
                             value={`${data.stats.avg_days_to_pay} Days Avg.`}
                             color="text-blue-600"
                             icon={Clock}
@@ -532,8 +637,8 @@ export default function PaymentHistoryPage() {
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id as any)}
                                     className={`flex items-center gap-2 px-6 py-3 rounded-[22px] text-xs font-black uppercase tracking-widest transition-all ${
-                                        activeTab === tab.id 
-                                            ? "bg-white dark:bg-zinc-800 text-primary shadow-lg shadow-zinc-200/50 dark:shadow-none" 
+                                        activeTab === tab.id
+                                            ? "bg-white dark:bg-zinc-800 text-primary shadow-lg shadow-zinc-200/50 dark:shadow-none"
                                             : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
                                     }`}
                                 >
@@ -545,7 +650,7 @@ export default function PaymentHistoryPage() {
 
                         <AnimatePresence mode="wait">
                             {activeTab === 'vouchers' && (
-                                <motion.div 
+                                <motion.div
                                     key="vouchers"
                                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                                     className="space-y-4"
@@ -566,10 +671,10 @@ export default function PaymentHistoryPage() {
                                             </thead>
                                             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
                                                 {data.vouchers.map((v) => (
-                                                    <VoucherRow 
-                                                        key={v.id} 
-                                                        voucher={v} 
-                                                        isExpanded={expandedRows.has(`v-${v.id}`)} 
+                                                    <VoucherRow
+                                                        key={v.id}
+                                                        voucher={v}
+                                                        isExpanded={expandedRows.has(`v-${v.id}`)}
                                                         onToggle={() => toggleRow(`v-${v.id}`)}
                                                         formatCurrency={formatCurrency}
                                                     />
@@ -581,7 +686,7 @@ export default function PaymentHistoryPage() {
                             )}
 
                             {activeTab === 'fee_heads' && (
-                                <motion.div 
+                                <motion.div
                                     key="fee_heads"
                                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                                     className="space-y-12 pb-10"
@@ -598,8 +703,8 @@ export default function PaymentHistoryPage() {
                                                 <div className="flex items-center gap-4">
                                                     <h3 className="text-xl font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
                                                         {new Date(2000, group.target_month - 1).toLocaleString('default', { month: 'long' })} {
-                                                            group.target_month >= 8 
-                                                            ? group.academic_year.split('-')[0] 
+                                                            group.target_month >= 8
+                                                            ? group.academic_year.split('-')[0]
                                                             : group.academic_year.split('-')[1]
                                                         }
                                                     </h3>
@@ -618,15 +723,15 @@ export default function PaymentHistoryPage() {
                                                             <span className="text-zinc-400">Collection Rate</span>
                                                         </div>
                                                         <div className="h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                                                            <motion.div 
+                                                            <motion.div
                                                                 initial={{ width: 0 }} animate={{ width: `${group.month_total_due > 0 ? (group.month_total_paid / group.month_total_due) * 100 : 0}%` }}
-                                                                className={`h-full ${group.month_balance === 0 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]'}`} 
+                                                                className={`h-full ${group.month_balance === 0 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]'}`}
                                                             />
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+
                                             <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] overflow-hidden shadow-sm">
                                                 <table className="w-full text-left border-collapse">
                                                     <thead className="bg-zinc-50 dark:bg-zinc-900/50">
@@ -642,10 +747,10 @@ export default function PaymentHistoryPage() {
                                                     </thead>
                                                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
                                                         {group.heads.map((head) => (
-                                                            <FeeHeadRow 
-                                                                key={head.id} 
-                                                                head={head} 
-                                                                isExpanded={expandedRows.has(`h-${head.id}`)} 
+                                                            <FeeHeadRow
+                                                                key={head.id}
+                                                                head={head}
+                                                                isExpanded={expandedRows.has(`h-${head.id}`)}
                                                                 onToggle={() => toggleRow(`h-${head.id}`)}
                                                                 formatCurrency={formatCurrency}
                                                             />
@@ -659,7 +764,7 @@ export default function PaymentHistoryPage() {
                             )}
 
                             {activeTab === 'deposits' && (
-                                <motion.div 
+                                <motion.div
                                     key="deposits"
                                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                                     className="space-y-4"
@@ -679,10 +784,10 @@ export default function PaymentHistoryPage() {
                                             </thead>
                                             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
                                                 {data.deposits.map((d) => (
-                                                    <DepositRow 
-                                                        key={d.id} 
-                                                        deposit={d} 
-                                                        isExpanded={expandedRows.has(`d-${d.id}`)} 
+                                                    <DepositRow
+                                                        key={d.id}
+                                                        deposit={d}
+                                                        isExpanded={expandedRows.has(`d-${d.id}`)}
                                                         onToggle={() => toggleRow(`d-${d.id}`)}
                                                         formatCurrency={formatCurrency}
                                                     />
@@ -696,6 +801,19 @@ export default function PaymentHistoryPage() {
                     </div>
                 </motion.div>
             )}
+
+            {/* Clear Deposit Modal */}
+            {clearDepositModal && (
+                <ClearDepositModal
+                    isOpen={!!clearDepositModal}
+                    voucherId={clearDepositModal.voucherId}
+                    depositId={clearDepositModal.depositId}
+                    depositDate={clearDepositModal.depositDate}
+                    amount={clearDepositModal.amount}
+                    onClose={() => setClearDepositModal(null)}
+                    onSuccess={() => selectedStudentCc && fetchHistory(selectedStudentCc)}
+                />
+            )}
         </div>
     );
 }
@@ -704,7 +822,7 @@ export default function PaymentHistoryPage() {
 
 const VoucherRow = ({ voucher, isExpanded, onToggle, formatCurrency }: { voucher: VoucherHistoryItem; isExpanded: boolean; onToggle: () => void; formatCurrency: any }) => (
     <>
-        <tr 
+        <tr
             onClick={onToggle}
             className="group hover:bg-zinc-50 dark:hover:bg-zinc-900/40 cursor-pointer transition-colors"
         >
@@ -768,7 +886,7 @@ const VoucherRow = ({ voucher, isExpanded, onToggle, formatCurrency }: { voucher
             {isExpanded && (
                 <tr>
                     <td colSpan={7} className="p-0 bg-zinc-50/50 dark:bg-zinc-900/20">
-                        <motion.div 
+                        <motion.div
                             initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                             className="overflow-hidden"
                         >
@@ -878,6 +996,7 @@ const VoucherRow = ({ voucher, isExpanded, onToggle, formatCurrency }: { voucher
                                                         <th className="px-4 py-3">Channel</th>
                                                         <th className="px-4 py-3 text-right">Applied</th>
                                                         <th className="px-4 py-3 text-right">Ref</th>
+                                                        <th className="px-4 py-3 text-center">Action</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
@@ -887,6 +1006,20 @@ const VoucherRow = ({ voucher, isExpanded, onToggle, formatCurrency }: { voucher
                                                             <td className="px-4 py-3"><SimpleBadge color="blue">{d.payment_method}</SimpleBadge></td>
                                                             <td className="px-4 py-3 text-right text-emerald-600 font-black">{formatCurrency(d.amount)}</td>
                                                             <td className="px-4 py-3 text-right font-mono text-[9px] text-zinc-400">{d.reference_number || '—'}</td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <button
+                                                                    onClick={() => setClearDepositModal({
+                                                                        voucherId: voucher.id,
+                                                                        depositId: d.deposit_id!,
+                                                                        depositDate: d.deposit_date!,
+                                                                        amount: d.amount
+                                                                    })}
+                                                                    className="p-2 hover:bg-rose-100 dark:hover:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-lg transition-colors"
+                                                                    title="Clear this deposit allocation"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </button>
+                                                            </td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -905,7 +1038,7 @@ const VoucherRow = ({ voucher, isExpanded, onToggle, formatCurrency }: { voucher
 
 const FeeHeadRow = ({ head, isExpanded, onToggle, formatCurrency }: { head: FeeHead; isExpanded: boolean; onToggle: () => void; formatCurrency: any }) => (
     <>
-        <tr 
+        <tr
             onClick={onToggle}
             className="group hover:bg-zinc-50 dark:hover:bg-zinc-900/40 cursor-pointer transition-colors"
         >
@@ -942,7 +1075,7 @@ const FeeHeadRow = ({ head, isExpanded, onToggle, formatCurrency }: { head: FeeH
             {isExpanded && (
                 <tr>
                     <td colSpan={7} className="p-0 bg-zinc-50/50 dark:bg-zinc-900/20">
-                        <motion.div 
+                        <motion.div
                             initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                             className="overflow-hidden"
                         >
@@ -999,7 +1132,7 @@ const FeeHeadRow = ({ head, isExpanded, onToggle, formatCurrency }: { head: FeeH
 
 const DepositRow = ({ deposit, isExpanded, onToggle, formatCurrency }: { deposit: DepositItem; isExpanded: boolean; onToggle: () => void; formatCurrency: any }) => (
     <>
-        <tr 
+        <tr
             onClick={onToggle}
             className="group hover:bg-zinc-50 dark:hover:bg-zinc-900/40 cursor-pointer transition-colors"
         >
@@ -1016,7 +1149,7 @@ const DepositRow = ({ deposit, isExpanded, onToggle, formatCurrency }: { deposit
             {isExpanded && (
                 <tr>
                     <td colSpan={6} className="p-0 bg-zinc-50/50 dark:bg-zinc-900/20">
-                        <motion.div 
+                        <motion.div
                             initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                             className="overflow-hidden"
                         >
