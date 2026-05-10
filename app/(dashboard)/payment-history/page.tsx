@@ -677,6 +677,7 @@ export default function PaymentHistoryPage() {
                                                         isExpanded={expandedRows.has(`v-${v.id}`)}
                                                         onToggle={() => toggleRow(`v-${v.id}`)}
                                                         formatCurrency={formatCurrency}
+                                                        setClearDepositModal={setClearDepositModal}
                                                     />
                                                 ))}
                                             </tbody>
@@ -820,7 +821,7 @@ export default function PaymentHistoryPage() {
 
 // --- Row Rendering Components ---
 
-const VoucherRow = ({ voucher, isExpanded, onToggle, formatCurrency }: { voucher: VoucherHistoryItem; isExpanded: boolean; onToggle: () => void; formatCurrency: any }) => (
+const VoucherRow = ({ voucher, isExpanded, onToggle, formatCurrency, setClearDepositModal }: { voucher: VoucherHistoryItem; isExpanded: boolean; onToggle: () => void; formatCurrency: any; setClearDepositModal: (modal: { voucherId: number; depositId: number; depositDate: string; amount: number } | null) => void }) => (
     <>
         <tr
             onClick={onToggle}
