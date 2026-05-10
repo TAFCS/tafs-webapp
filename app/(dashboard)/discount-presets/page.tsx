@@ -224,7 +224,7 @@ export default function DiscountPresetsPage() {
                                     value={form.title}
                                     onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))}
                                     placeholder="e.g. Supreme Court COVID-19 Discount"
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 uppercase"
                                 />
                             </div>
 
