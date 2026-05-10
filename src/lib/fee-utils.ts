@@ -61,6 +61,10 @@ export interface FeeItemData {
     id?: number;
     amount_before_discount: number | string;
     amount: number | string; // amount after system discount but before ad-hoc
+    is_discount?: boolean;
+    discount_type_id?: number | null;
+    discount_presets?: { title?: string | null } | null;
+    discount_title?: string | null;
     month?: number | null;
     target_month?: number | null;
     academic_year?: string | null;
@@ -131,7 +135,18 @@ export function groupFees(
     const results: any[] = [];
     const alreadyHandledIds = new Set<number>();
 
+    const isDiscountRow = (item: any): boolean => {
+        if (options.isVoucherHeads) return !!item.student_fees?.is_discount;
+        return !!item.is_discount;
+    };
+
     const getDiscount = (item: any): number => {
+        if (isDiscountRow(item)) {
+            const base = options.isVoucherHeads
+                ? Number(item.net_amount ?? item.student_fees?.amount ?? 0)
+                : Number(item.amount || item.amount_before_discount || 0);
+            return Math.abs(base);
+        }
         if (options.isVoucherHeads) {
             return Number(item.discount_amount || 0);
         }
@@ -141,6 +156,14 @@ export function groupFees(
     };
 
     const getNetAmount = (item: any): number => {
+        if (isDiscountRow(item)) {
+            if (options.isVoucherHeads) {
+                const n = Number(item.net_amount || 0);
+                return n <= 0 ? n : -Math.abs(n);
+            }
+            const base = Number(item.amount || item.amount_before_discount || 0);
+            return -Math.abs(base);
+        }
         if (options.isVoucherHeads) {
             return Number(item.net_amount || 0);
         }
@@ -162,6 +185,11 @@ export function groupFees(
         if (options.isVoucherHeads) {
             return {
                 fee_types: item.student_fees?.fee_types,
+                is_discount: item.student_fees?.is_discount,
+                discount_title:
+                    item.student_fees?.discount_presets?.title ||
+                    item.student_fees?.discount_title ||
+                    null,
                 month: item.student_fees?.month,
                 target_month: item.student_fees?.target_month,
                 academic_year: item.student_fees?.academic_year,
@@ -170,6 +198,11 @@ export function groupFees(
         }
         return {
             fee_types: item.fee_types,
+            is_discount: item.is_discount,
+            discount_title:
+                item.discount_presets?.title ||
+                item.discount_title ||
+                null,
             month: item.month,
             target_month: item.target_month,
             academic_year: item.academic_year,
@@ -379,9 +412,10 @@ export function groupFees(
     // 2. Individual fees
     items.forEach(item => {
         if (!alreadyHandledIds.has(item.id)) {
+            const discountRow = isDiscountRow(item);
             const netAmount = getNetAmount(item);
             if (netAmount <= netAmount * 0.001 && netAmount > 0) { /* edge case */ }
-            if (netAmount <= 0) return; // skip fully paid
+            if (!discountRow && netAmount <= 0) return; // skip fully paid (allow discount rows)
 
             const data = getFeeData(item);
             const headLabels: string[] = [];
@@ -390,7 +424,11 @@ export function groupFees(
                 headLabels.push("Profile Disc");
             }
 
-            let desc = data.fee_types?.description?.toUpperCase() || 'UNKNOWN FEE';
+            let desc =
+                data.fee_types?.description?.toUpperCase() ||
+                (data.is_discount
+                    ? (data.discount_title || 'DISCOUNT').toUpperCase()
+                    : 'UNKNOWN FEE');
 
             // STANDALONE INSTALLMENT CHECK
             const itm = item as any;
@@ -405,14 +443,14 @@ export function groupFees(
                 desc = `${desc} (${monthLabel.toUpperCase()})`;
             }
 
-            const isPartial = netAmount < Number(item.amount || item.amount_before_discount);
+            const isPartial = !discountRow && (netAmount < Number(item.amount || item.amount_before_discount));
             const balancePrefix = isPartial ? 'BALANCE PAYMENT OF — ' : '';
 
             results.push({
                 description: `${balancePrefix}${desc}`,
-                amount: isPartial ? netAmount : getGrossAmount(item),
+                amount: discountRow ? Math.abs(netAmount) : (isPartial ? netAmount : getGrossAmount(item)),
                 netAmount: netAmount,
-                discount: isPartial ? 0 : getDiscount(item),
+                discount: discountRow ? Math.abs(netAmount) : (isPartial ? 0 : getDiscount(item)),
                 discountLabel: isPartial ? "" : [...new Set(headLabels.filter(Boolean))].join(", "),
                 priority: data.fee_types?.priority_order ?? 999,
                 feeIds: [item.id],

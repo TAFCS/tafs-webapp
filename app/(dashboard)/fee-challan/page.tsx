@@ -835,14 +835,12 @@ export default function FeeChallanGenerator() {
                       {fee.description || "Fee item"}
                     </p>
                   </div>
-                  {/* <div className="flex items-center gap-12">
-                    <span className="text-zinc-400 font-bold font-mono">
-                      {fee.amount.toLocaleString()}
+                  <div className="flex items-center gap-3">
+                    <span className="text-zinc-400 font-bold font-mono uppercase text-[10px]">PKR</span>
+                    <span className="text-zinc-900 dark:text-zinc-100 font-black font-mono min-w-[96px] text-right tabular-nums">
+                      {Math.round(Number(fee.netAmount || fee.amount || 0)).toLocaleString()}
                     </span>
-                    <span className="text-zinc-900 dark:text-zinc-100 font-black font-mono w-24 text-right">
-                      {fee.amount.toLocaleString()}
-                    </span>
-                  </div> */}
+                  </div>
                 </div>
               ))}
             </div>
@@ -868,14 +866,12 @@ export default function FeeChallanGenerator() {
                       {fee.description || "Fee item"}
                     </p>
                   </div>
-                  {/* <div className="flex items-center gap-12">
-                    <span className="text-zinc-400 font-bold font-mono line-through">
-                      {fee.amount.toLocaleString()}
+                  <div className="flex items-center gap-3">
+                    <span className="text-emerald-500 font-bold font-mono uppercase text-[10px]">PKR</span>
+                    <span className="text-emerald-600 dark:text-emerald-500 font-black font-mono min-w-[96px] text-right tabular-nums">
+                      -{Math.abs(Math.round(Number(fee.netAmount || 0))).toLocaleString()}
                     </span>
-                    <span className="text-emerald-600 font-black font-mono w-24 text-right">
-                      {fee.netAmount.toLocaleString()}
-                    </span>
-                  </div> */}
+                  </div>
                 </div>
               ))}
             </div>
