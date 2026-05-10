@@ -31,6 +31,7 @@ interface ClassFeeRow {
     fee_id: number;
     amount: string;
     fee_types: FeeTypeInfo;
+    classes?: { term_start_month?: number };
 }
 
 interface SpreadsheetRow {
@@ -107,27 +108,10 @@ function sortMonthsForAprilMarch(months: unknown): string[] {
     return sorted.sort((a, b) => APRIL_MARCH_ORDER.indexOf(a) - APRIL_MARCH_ORDER.indexOf(b));
 }
 
-// Determine if a class uses April-March academic calendar (Special Term)
-// Classes 15, 16, 17, 18, 19 use April-March term (April is index 0)
-const isAprilMarchClass = (classId: number | null | undefined): boolean => {
-    if (!classId) return false;
-    return [15, 16, 17, 18, 19].includes(classId);
-};
-
-function sortSpreadsheetRows(rows: SpreadsheetRow[], classId?: number | null): SpreadsheetRow[] {
-    // Sequence value logic based on academic calendar type
-    // Standard Term (Aug-July): Aug=0, Sep=1 ... Dec=4, Jan=5 ... July=11
-    // Special Term (Apr-March): Apr=0, May=1 ... Mar=11
-    const getSeq = (m: number, useAprilMarchSequence: boolean = false) => {
-        if (useAprilMarchSequence) {
-            // April-March sequence: April=0, May=1, ..., March=11
-            return (m >= 4 ? m - 4 : m + 8);
-        }
-        // Standard Aug-July sequence
-        return (m >= 8 ? m - 8 : m + 4);
-    };
-
-    const useAprilMarchSequence = isAprilMarchClass(classId);
+function sortSpreadsheetRows(rows: SpreadsheetRow[], termStartMonth?: number | null): SpreadsheetRow[] {
+    // Sequence value based on term start month (8=Aug-Jul, 4=Apr-Mar)
+    const tsm = termStartMonth ?? 8;
+    const getSeq = (m: number) => (m >= tsm ? m - tsm : m + (12 - tsm));
 
     return [...rows].sort((a, b) => {
         // 1. Sort by fee_date (Primary)
@@ -140,8 +124,8 @@ function sortSpreadsheetRows(rows: SpreadsheetRow[], classId?: number | null): S
         }
 
         // 2. Fallback: target_month sequence using appropriate calendar
-        const sa = getSeq(a.target_month, useAprilMarchSequence);
-        const sb = getSeq(b.target_month, useAprilMarchSequence);
+        const sa = getSeq(a.target_month);
+        const sb = getSeq(b.target_month);
         if (sa !== sb) return sa - sb;
 
         // 3. Fallback: description
@@ -174,7 +158,7 @@ function StudentwiseFeeEditor() {
     const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
 
     // ─── Helpers ────────────────────────────────────────────────────────────
-    const calculateInitialFeeDate = useCallback((month: string, acadYear: string, feeTypeId: number, providedFt?: any) => {
+    const calculateInitialFeeDate = useCallback((month: string, acadYear: string, feeTypeId: number, providedFt?: any, termStartMonth: number = 8) => {
         const ft = providedFt || feeTypes.find(f => f.id === feeTypeId);
         if (!ft) return undefined;
 
@@ -196,7 +180,7 @@ function StudentwiseFeeEditor() {
         if (isNaN(startYearNum)) return undefined;
 
         const monthNum = MONTH_TO_NUM[month] || 8;
-        const year = monthNum >= 8 ? startYearNum : startYearNum + 1;
+        const year = monthNum >= termStartMonth ? startYearNum : startYearNum + 1;
 
         const formatted = `${year}-${monthNum.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
         return formatted;
@@ -446,6 +430,13 @@ function StudentwiseFeeEditor() {
             const { data: templateData } = await api.get("/v1/class-fee-schedule/by-class", { params, signal });
             const feeRows: ClassFeeRow[] = Array.isArray(templateData?.data) ? templateData.data : [];
 
+            // Read term_start_month from the API response (classes is included in the payload).
+            // Fall back to the Redux store, then to 8 (August = standard Aug-Jul term).
+            const termStartMonth =
+                feeRows[0]?.classes?.term_start_month ??
+                classes.find(c => c.id === classId)?.term_start_month ??
+                8;
+
             const lookup: Record<number, string> = {};
             feeRows.forEach(f => { lookup[f.fee_id] = f.amount; });
             setFeeToAmountMap(lookup);
@@ -453,7 +444,7 @@ function StudentwiseFeeEditor() {
             if (!ccNumber) {
                 const expanded = feeRows.flatMap((fee) => {
                     // Use appropriate month ordering based on class calendar
-                    const monthOrder = isAprilMarchClass(classId)
+                    const monthOrder = termStartMonth === 4
                         ? sortMonthsForAprilMarch(fee.fee_types.breakup ?? [])
                         : sortMonths(fee.fee_types.breakup ?? []);
                     return monthOrder.map((month) => ({
@@ -466,10 +457,10 @@ function StudentwiseFeeEditor() {
                         target_month: MONTH_TO_NUM[month] || 8,
                         amount: fee.amount,
                         originalAmount: fee.amount,
-                        fee_date: calculateInitialFeeDate(month, academicYear, fee.fee_id, fee.fee_types),
+                        fee_date: calculateInitialFeeDate(month, academicYear, fee.fee_id, fee.fee_types, termStartMonth),
                     }));
                 });
-                setRows(sortSpreadsheetRows(expanded, classId));
+                setRows(sortSpreadsheetRows(expanded, termStartMonth));
                 return;
             }
 
@@ -528,7 +519,7 @@ function StudentwiseFeeEditor() {
                 // Map from class_fee_schedule template with optional adjusted amounts
                 finalRows = (fees as any[]).flatMap((fee) => {
                     // Use appropriate month ordering based on class calendar
-                    const monthOrder = isAprilMarchClass(classId)
+                    const monthOrder = termStartMonth === 4
                         ? sortMonthsForAprilMarch(fee.fee_types.breakup ?? [])
                         : sortMonths(fee.fee_types.breakup ?? []);
                     return monthOrder.map((month) => {
@@ -550,7 +541,7 @@ function StudentwiseFeeEditor() {
                             target_month: MONTH_TO_NUM[month] || 8,
                             amount: finalAmount,
                             originalAmount: fee.amount,
-                            fee_date: calculateInitialFeeDate(month, academicYear, fee.fee_id, fee.fee_types),
+                            fee_date: calculateInitialFeeDate(month, academicYear, fee.fee_id, fee.fee_types, termStartMonth),
                         };
                     });
                 });
@@ -581,10 +572,10 @@ function StudentwiseFeeEditor() {
             }
             if (is_template && !forceApplyTemplate) {
                 // Store but do not apply yet (wait for user confirmation)
-                setPendingTemplateRows(sortSpreadsheetRows(finalRows, classId));
+                setPendingTemplateRows(sortSpreadsheetRows(finalRows, termStartMonth));
                 setIsTemplatePending(true);
             } else {
-                setRows(sortSpreadsheetRows(finalRows, classId));
+                setRows(sortSpreadsheetRows(finalRows, termStartMonth));
                 setIsTemplatePending(false);
             }
             setIsTemplate(is_template);
@@ -594,7 +585,7 @@ function StudentwiseFeeEditor() {
         } finally {
             if (!signal?.aborted) setIsLoading(false);
         }
-    }, [sortSpreadsheetRows, calculateInitialFeeDate]);
+    }, [classes, sortSpreadsheetRows, calculateInitialFeeDate]);
 
 
     useEffect(() => {
@@ -827,7 +818,8 @@ function StudentwiseFeeEditor() {
 
         // Pick the first month slot (in academic order) not already used as
         // target_month for this fee type — so the new row gets a unique identity.
-        const MONTH_NUM_ORDER = [8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7];
+        const tsm = selectedClass?.term_start_month ?? 8;
+        const MONTH_NUM_ORDER = Array.from({ length: 12 }, (_, i) => ((tsm - 1 + i) % 12) + 1);
         const usedTargetMonths = new Set(
             rows.filter(r => r.feeId === feeId).map(r => r.target_month)
         );
@@ -853,12 +845,12 @@ function StudentwiseFeeEditor() {
             amount: presetAmount,
             originalAmount: presetAmount,
             // Smart Defaulting: calculate initial fee date but it remains independent
-            fee_date: calculateInitialFeeDate(unusedMonthName, selectedYear, feeId),
+            fee_date: calculateInitialFeeDate(unusedMonthName, selectedYear, feeId, undefined, selectedClass?.term_start_month ?? 8),
             isNew: true,
         };
         pendingFocusId.current = newRow.__id;
         setRecentlyAddedId(newRow.__id);
-        setRows((prev) => sortSpreadsheetRows([...prev, newRow], Number(selectedClassId)));
+        setRows((prev) => sortSpreadsheetRows([...prev, newRow], selectedClass?.term_start_month ?? 8));
     };
 
     const updateRow = (idx: number, field: keyof SpreadsheetRow, val: any) => {
@@ -892,7 +884,7 @@ function StudentwiseFeeEditor() {
                         updated.originalAmount = preset;
                         // Default fee date only if none set
                         if (!updated.fee_date) {
-                            updated.fee_date = calculateInitialFeeDate(updated.month, selectedYear, val);
+                            updated.fee_date = calculateInitialFeeDate(updated.month, selectedYear, val, undefined, selectedClass?.term_start_month ?? 8);
                         }
                     }
                     // For manually-added rows, pick a fresh unused target_month
@@ -900,8 +892,9 @@ function StudentwiseFeeEditor() {
                         const usedForNewType = new Set(
                             prev.filter((x, xi) => xi !== idx && x.feeId === val).map(x => x.target_month)
                         );
-                        const MONTH_NUM_ORDER = [8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7];
-                        const unusedNum = MONTH_NUM_ORDER.find(m => !usedForNewType.has(m)) ?? 8;
+                        const tsmInner = selectedClass?.term_start_month ?? 8;
+                        const MONTH_NUM_ORDER = Array.from({ length: 12 }, (_, i) => ((tsmInner - 1 + i) % 12) + 1);
+                        const unusedNum = MONTH_NUM_ORDER.find(m => !usedForNewType.has(m)) ?? tsmInner;
                         const unusedName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === unusedNum) ?? "August";
                         updated.target_month = unusedNum;
                         updated.month = unusedName;
@@ -928,7 +921,7 @@ function StudentwiseFeeEditor() {
 
                 return updated;
             });
-            return sortSpreadsheetRows(next, Number(selectedClassId));
+            return sortSpreadsheetRows(next, selectedClass?.term_start_month ?? 8);
         });
     };
 

@@ -8,6 +8,7 @@ export interface ClassItem {
     description: string;
     class_code: string;
     academic_system: string;
+    term_start_month?: number; // 8 = Aug-Jul (default), 4 = Apr-Mar
     class_order?: number; // Numeric grade rank returned by the backend
 }
 
