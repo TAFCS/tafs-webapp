@@ -1,8 +1,9 @@
 "use client";
 
-import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe, Download } from "lucide-react";
+import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe, Download, Reply } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { format, isSameDay } from "date-fns";
+import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import api from "@/lib/api";
 import { AnnouncementSelectors } from "./AnnouncementSelectors";
 import { useSocket } from "@/context/SocketContext";
@@ -31,6 +32,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
     
     const [targetGrade, setTargetGrade] = useState<string | null>(null);
     const [targetSection, setTargetSection] = useState<string | null>(null);
+    const [replyingTo, setReplyingTo] = useState<any>(null);
 
     const mediaRecorder = useRef<MediaRecorder | null>(null);
     const audioChunks = useRef<Blob[]>([]);
@@ -70,7 +72,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
         });
     };
 
-    const uploadAndSendPending = async (caption?: string) => {
+    const uploadAndSendPending = async (caption?: string, existingMetadata?: any) => {
         const batchId = Date.now().toString();
         const filesToUpload = [...pendingFiles];
         setPendingFiles([]);
@@ -85,11 +87,13 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 if (response.data.url) {
-                    onSendMessage(response.data.url, item.type, { 
+                    const metadata = { 
                         url: response.data.url,
                         batchId,
-                        caption: i === 0 ? caption : undefined
-                    }, isAnnouncementChannel ? { grade: targetGrade, section: targetSection } : undefined);
+                        caption: i === 0 ? caption : undefined,
+                        ...existingMetadata
+                    };
+                    onSendMessage(response.data.url, item.type, metadata, isAnnouncementChannel ? { grade: targetGrade, section: targetSection } : undefined);
                 }
             } catch (err) {
                 console.error("Failed to upload pending file:", err);
@@ -174,12 +178,24 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
     };
 
     const handleSend = () => {
+        const metadata: any = {};
+        if (replyingTo) {
+            metadata.replyTo = {
+                id: replyingTo.id,
+                content: replyingTo.content,
+                senderName: replyingTo.sender_type === "ADMIN" ? "You" : (replyingTo.sender_name || "Parent"),
+                type: replyingTo.message_type
+            };
+        }
+
         if (pendingFiles.length > 0) {
-            uploadAndSendPending(input.trim());
+            uploadAndSendPending(input.trim(), metadata);
             setInput("");
+            setReplyingTo(null);
         } else if (input.trim()) {
-            onSendMessage(input.trim(), "TEXT", undefined, isAnnouncementChannel ? { grade: targetGrade, section: targetSection } : undefined);
+            onSendMessage(input.trim(), "TEXT", metadata, isAnnouncementChannel ? { grade: targetGrade, section: targetSection } : undefined);
             setInput("");
+            setReplyingTo(null);
         }
     };
 
@@ -257,7 +273,15 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
             )}
 
             {/* Messages Area */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 pr-12 flex flex-col gap-6 no-scrollbar relative">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 pr-12 flex flex-col gap-12 no-scrollbar relative">
+                {/* Background Watermark */}
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
+                    <img 
+                        src="/logo.png" 
+                        alt="Watermark" 
+                        className="w-[60%] opacity-[0.05] grayscale dark:invert"
+                    />
+                </div>
                 {isLoading && (
                     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm animate-in fade-in duration-500">
                         <Loader2 className="h-8 w-8 text-primary animate-spin" />
@@ -301,70 +325,96 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                     </div>
                                 </div>
                             )}
-                            <div className={`flex ${isMe ? "justify-end" : "justify-start"} group/msg relative animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                                <div className={`relative max-w-[75%] group flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-                                    {(isAnnouncement || !isMe) && (
-                                        <div className={`flex items-center gap-1.5 mb-1.5 px-1 ${isMe ? "justify-end" : "justify-start"}`}>
-                                            {isAnnouncement && <ShieldCheck className="h-3 w-3 text-primary" />}
-                                            <span className={`text-[10px] font-black uppercase tracking-widest ${isAnnouncement ? "text-primary" : "text-zinc-500"}`}>
-                                                {cluster.sender_name && cluster.sender_name !== "Guardian" ? cluster.sender_name : (isMe ? "TAFS Admin" : (activeConversation?.primary_guardian?.name || activeConversation?.families?.household_name || "Guardian"))}
-                                            </span>
-                                        </div>
-                                    )}
-                                    <div className="relative group/actions">
-                                        {isMe && cluster.id && cluster.status !== "sending" && (
-                                            <button onClick={() => onUnsend(cluster.id)} className="absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover/actions:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="h-4 w-4" /></button>
-                                        )}
-                                        <div className={`p-4 rounded-3xl shadow-sm relative overflow-hidden ${isMe ? (isAnnouncement ? "bg-gradient-to-br from-primary to-indigo-700 text-white rounded-tr-none" : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tr-none border border-zinc-200/50 dark:border-zinc-800") : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tl-none border border-zinc-200/50 dark:border-zinc-800 shadow-zinc-200/50"}`}>
-                                            {isGroup ? (
-                                                <div className={`grid gap-1.5 ${clusterMessages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} max-w-[400px]`}>
-                                                    {clusterMessages.map((m: any) => (
-                                                        <div key={m.id} className="relative cursor-pointer rounded-xl overflow-hidden shadow-md" onClick={() => setPreviewImage(m.media_metadata?.url || m.content)}>
-                                                            <img src={m.media_metadata?.url || m.content} className="w-full h-full object-cover min-h-[150px]" />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : firstMsg.message_type === "VOICE" ? (
-                                                <audio src={firstMsg.content.includes('digitaloceanspaces.com') ? `/api/v1/chat/media/proxy?key=${firstMsg.content.split('digitaloceanspaces.com/')[1]}` : firstMsg.content} controls className="max-w-full h-10 scale-90 origin-left" />
-                                            ) : firstMsg.message_type === "IMAGE" ? (
-                                                <div className="rounded-xl overflow-hidden cursor-pointer" onClick={() => setPreviewImage(firstMsg.content)}>
-                                                    <img src={firstMsg.media_metadata?.url || firstMsg.content} className="max-w-full max-h-[450px] object-cover" />
-                                                </div>
-                                            ) : firstMsg.message_type === "DOCUMENT" ? (
-                                                <div className="flex items-center gap-4 p-2 min-w-[240px]">
-                                                    <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                                                        <FileText className="h-6 w-6 text-primary" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-bold truncate pr-4">
-                                                            {firstMsg.media_metadata?.originalName || "Document"}
-                                                        </p>
-                                                        <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-                                                            {firstMsg.media_metadata?.mimetype?.split('/')[1] || "PDF"} • {Math.round((firstMsg.media_metadata?.sizeBytes || 0) / 1024)} KB
-                                                        </p>
-                                                    </div>
-                                                    <button 
-                                                        onClick={() => window.open(firstMsg.media_metadata?.url || firstMsg.content, '_blank')}
-                                                        className="p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all text-primary shadow-sm border border-zinc-100 dark:border-zinc-800"
-                                                    >
-                                                        <Download className="h-5 w-5" />
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{firstMsg.content}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className={`flex items-center gap-3 mt-1.5 px-2 ${isMe ? "justify-end" : "justify-start"}`}>
-                                        {isAnnouncement && (
-                                            <div className="flex items-center gap-1.5 py-0.5 px-2 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700">
-                                                <Globe className="h-2.5 w-2.5 text-zinc-500" />
-                                                <span className="text-[9px] font-black uppercase text-zinc-500">Target: {cluster.target_grade ? `${cluster.target_grade}${cluster.target_section ? `-${cluster.target_section}` : ''}` : "Everyone"}</span>
+                            <div className="relative group/swipe px-4">
+                                {/* Reply Icon Indicator (visible on swipe) */}
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/swipe:opacity-10 transition-opacity pointer-events-none">
+                                    <Reply className="h-5 w-5 text-primary ml-2" />
+                                </div>
+
+                                <motion.div 
+                                    drag="x"
+                                    dragConstraints={{ left: 0, right: 100 }}
+                                    dragSnapToOrigin
+                                    dragElastic={0.05}
+                                    transition={{ type: "spring", stiffness: 1000, damping: 50 }}
+                                    onDragEnd={(e, info) => {
+                                        if (info.offset.x > 50) {
+                                            setReplyingTo(firstMsg);
+                                        }
+                                    }}
+                                    className={`flex ${isMe ? "justify-end" : "justify-start"} group/msg relative animate-in fade-in slide-in-from-bottom-2 duration-300`}
+                                >
+                                    <div className={`relative max-w-[75%] group flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+                                        {(isAnnouncement || !isMe) && (
+                                            <div className={`flex items-center gap-1.5 mb-1.5 px-1 ${isMe ? "justify-end" : "justify-start"}`}>
+                                                {isAnnouncement && <ShieldCheck className="h-3 w-3 text-primary" />}
+                                                <span className={`text-[10px] font-black uppercase tracking-widest ${isAnnouncement ? "text-primary" : "text-zinc-500"}`}>
+                                                    {cluster.sender_name && cluster.sender_name !== "Guardian" ? cluster.sender_name : (isMe ? "TAFS Admin" : (activeConversation?.primary_guardian?.name || activeConversation?.families?.household_name || "Guardian"))}
+                                                </span>
                                             </div>
                                         )}
-                                        <span className="text-[9px] font-bold text-zinc-400">{firstMsg.status === "sending" ? <Loader2 className="h-2 w-2 animate-spin" /> : format(new Date(firstMsg.created_at), "h:mm a")}</span>
+                                        <div className="relative group/actions">
+                                            {isMe && cluster.id && cluster.status !== "sending" && (
+                                                <button onClick={() => onUnsend(cluster.id)} className="absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover/actions:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="h-4 w-4" /></button>
+                                            )}
+                                            <div className={`p-4 rounded-3xl shadow-sm relative overflow-hidden ${isMe ? (isAnnouncement ? "bg-gradient-to-br from-primary to-indigo-700 text-white rounded-tr-none" : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tr-none border border-zinc-200/50 dark:border-zinc-800") : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tl-none border border-zinc-200/50 dark:border-zinc-800 shadow-zinc-200/50"}`}>
+                                                {/* Show replied message if any */}
+                                                {firstMsg.media_metadata?.replyTo && (
+                                                    <div className="mb-3 p-3 bg-zinc-50/50 dark:bg-zinc-900/50 rounded-2xl border-l-4 border-primary/50 text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                                                        <p className="font-black text-[9px] uppercase tracking-wider text-primary mb-1">{firstMsg.media_metadata.replyTo.senderName}</p>
+                                                        <p className="truncate">{firstMsg.media_metadata.replyTo.content}</p>
+                                                    </div>
+                                                )}
+                                                {isGroup ? (
+                                                    <div className={`grid gap-1.5 ${clusterMessages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} max-w-[400px]`}>
+                                                        {clusterMessages.map((m: any) => (
+                                                            <div key={m.id} className="relative cursor-pointer rounded-xl overflow-hidden shadow-md" onClick={() => setPreviewImage(m.media_metadata?.url || m.content)}>
+                                                                <img src={m.media_metadata?.url || m.content} className="w-full h-full object-cover min-h-[150px]" />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : firstMsg.message_type === "VOICE" ? (
+                                                    <audio src={firstMsg.content.includes('digitaloceanspaces.com') ? `/api/v1/chat/media/proxy?key=${firstMsg.content.split('digitaloceanspaces.com/')[1]}` : firstMsg.content} controls className="max-w-full h-10 scale-90 origin-left" />
+                                                ) : firstMsg.message_type === "IMAGE" ? (
+                                                    <div className="rounded-xl overflow-hidden cursor-pointer" onClick={() => setPreviewImage(firstMsg.content)}>
+                                                        <img src={firstMsg.media_metadata?.url || firstMsg.content} className="max-w-full max-h-[450px] object-cover" />
+                                                    </div>
+                                                ) : firstMsg.message_type === "DOCUMENT" ? (
+                                                    <div className="flex items-center gap-4 p-2 min-w-[240px]">
+                                                        <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                                                            <FileText className="h-6 w-6 text-primary" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-bold truncate pr-4">
+                                                                {firstMsg.media_metadata?.originalName || "Document"}
+                                                            </p>
+                                                            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                                                                {firstMsg.media_metadata?.mimetype?.split('/')[1] || "PDF"} • {Math.round((firstMsg.media_metadata?.sizeBytes || 0) / 1024)} KB
+                                                            </p>
+                                                        </div>
+                                                        <button 
+                                                            onClick={() => window.open(firstMsg.media_metadata?.url || firstMsg.content, '_blank')}
+                                                            className="p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all text-primary shadow-sm border border-zinc-100 dark:border-zinc-800"
+                                                        >
+                                                            <Download className="h-5 w-5" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{firstMsg.content}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className={`flex items-center gap-3 mt-1.5 px-2 ${isMe ? "justify-end" : "justify-start"}`}>
+                                            {isAnnouncement && (
+                                                <div className="flex items-center gap-1.5 py-0.5 px-2 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700">
+                                                    <Globe className="h-2.5 w-2.5 text-zinc-500" />
+                                                    <span className="text-[9px] font-black uppercase text-zinc-500">Target: {cluster.target_grade ? `${cluster.target_grade}${cluster.target_section ? `-${cluster.target_section}` : ''}` : "Everyone"}</span>
+                                                </div>
+                                            )}
+                                            <span className="text-[9px] font-bold text-zinc-400">{firstMsg.status === "sending" ? <Loader2 className="h-2 w-2 animate-spin" /> : format(new Date(firstMsg.created_at), "h:mm a")}</span>
+                                        </div>
                                     </div>
-                                </div>
+                                </motion.div>
                             </div>
                         </div>
                     );
@@ -372,7 +422,38 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
             </div>
 
             {/* Input Area */}
-            <div className="p-6 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 shadow-lg">
+            <div className="p-6 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 shadow-lg relative">
+                {/* Reply Preview */}
+                <AnimatePresence>
+                    {replyingTo && (
+                        <motion.div 
+                            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                            className="absolute left-6 right-6 bottom-full mb-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 shadow-xl z-30"
+                        >
+                            <div className="flex items-start gap-4">
+                                <div className="h-10 w-1 bg-primary rounded-full flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-primary">
+                                            Replying to {replyingTo.sender_type === "ADMIN" ? "You" : (replyingTo.sender_name || "Parent")}
+                                        </p>
+                                        <button onClick={() => setReplyingTo(null)} className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-all">
+                                            <X className="h-3 w-3 text-zinc-500" />
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1 truncate font-medium">
+                                        {replyingTo.message_type === "IMAGE" ? "Image message" : 
+                                         replyingTo.message_type === "VOICE" ? "Voice message" : 
+                                         replyingTo.message_type === "DOCUMENT" ? "Document" : replyingTo.content}
+                                    </p>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 <input type="file" ref={imageInputRef} hidden accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) { handleFileSelect(f, "IMAGE"); e.target.value = ''; }}} />
                 <input type="file" ref={docInputRef} hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={(e) => { const f = e.target.files?.[0]; if (f) { handleFileSelect(f, "DOCUMENT"); e.target.value = ''; }}} />
 
