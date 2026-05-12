@@ -2,7 +2,7 @@
 
 import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe, Download } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import api from "@/lib/api";
 import { AnnouncementSelectors } from "./AnnouncementSelectors";
 import { useSocket } from "@/context/SocketContext";
@@ -265,77 +265,105 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                     </div>
                 )}
                 
-                {!isLoading && clusters.map((cluster) => {
+                {!isLoading && clusters.map((cluster, idx) => {
                     const isMe = cluster.sender_type === "ADMIN";
                     const isAnnouncement = cluster.is_announcement;
                     const isGroup = cluster.type === "IMAGE_GROUP";
                     const clusterMessages = isGroup ? cluster.messages : [cluster];
                     const firstMsg = clusterMessages[0];
 
+                    const msgDate = new Date(firstMsg.created_at);
+                    const prevMsg = idx > 0 ? (clusters[idx - 1].messages ? clusters[idx - 1].messages[0] : clusters[idx - 1]) : null;
+                    const prevDate = prevMsg ? new Date(prevMsg.created_at) : null;
+                    
+                    const showDateSeparator = !prevDate || !isSameDay(msgDate, prevDate);
+
+                    const formatDateHeader = (date: Date) => {
+                        const now = new Date();
+                        if (isSameDay(date, now)) return "Today";
+                        const yesterday = new Date();
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        if (isSameDay(date, yesterday)) return "Yesterday";
+                        return format(date, "MMMM d, yyyy");
+                    };
+
                     return (
-                        <div key={cluster.id} className={`flex ${isMe ? "justify-end" : "justify-start"} group/msg relative animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                            <div className={`relative max-w-[75%] group flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-                                {(isAnnouncement || !isMe) && (
-                                    <div className={`flex items-center gap-1.5 mb-1.5 px-1 ${isMe ? "justify-end" : "justify-start"}`}>
-                                        {isAnnouncement && <ShieldCheck className="h-3 w-3 text-primary" />}
-                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isAnnouncement ? "text-primary" : "text-zinc-500"}`}>
-                                            {cluster.sender_name && cluster.sender_name !== "Guardian" ? cluster.sender_name : (isMe ? "TAFS Admin" : (activeConversation?.primary_guardian?.name || activeConversation?.families?.household_name || "Guardian"))}
+                        <div key={cluster.id || idx}>
+                            {showDateSeparator && (
+                                <div className="flex justify-center my-10 relative">
+                                    <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                        <div className="w-full border-t border-zinc-200 dark:border-zinc-800/50" />
+                                    </div>
+                                    <div className="relative bg-zinc-100 dark:bg-zinc-800 px-6 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm">
+                                        <span className="text-[10px] font-black uppercase tracking-[0.1em] text-zinc-600 dark:text-zinc-400">
+                                            {formatDateHeader(msgDate)}
                                         </span>
                                     </div>
-                                )}
-
-                                <div className="relative group/actions">
-                                    {isMe && cluster.status !== "sending" && (
-                                        <button onClick={() => onUnsend(cluster.id)} className="absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover/actions:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="h-4 w-4" /></button>
-                                    )}
-                                    <div className={`p-4 rounded-3xl shadow-sm relative overflow-hidden ${isMe ? (isAnnouncement ? "bg-gradient-to-br from-primary to-indigo-700 text-white rounded-tr-none" : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tr-none border border-zinc-200/50 dark:border-zinc-800") : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tl-none border border-zinc-200/50 dark:border-zinc-800 shadow-zinc-200/50"}`}>
-                                        {isGroup ? (
-                                            <div className={`grid gap-1.5 ${clusterMessages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} max-w-[400px]`}>
-                                                {clusterMessages.map((m: any) => (
-                                                    <div key={m.id} className="relative cursor-pointer rounded-xl overflow-hidden shadow-md" onClick={() => setPreviewImage(m.media_metadata?.url || m.content)}>
-                                                        <img src={m.media_metadata?.url || m.content} className="w-full h-full object-cover min-h-[150px]" />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : firstMsg.message_type === "VOICE" ? (
-                                            <audio src={firstMsg.content.includes('digitaloceanspaces.com') ? `/api/v1/chat/media/proxy?key=${firstMsg.content.split('digitaloceanspaces.com/')[1]}` : firstMsg.content} controls className="max-w-full h-10 scale-90 origin-left" />
-                                        ) : firstMsg.message_type === "IMAGE" ? (
-                                            <div className="rounded-xl overflow-hidden cursor-pointer" onClick={() => setPreviewImage(firstMsg.content)}>
-                                                <img src={firstMsg.media_metadata?.url || firstMsg.content} className="max-w-full max-h-[450px] object-cover" />
-                                            </div>
-                                        ) : firstMsg.message_type === "DOCUMENT" ? (
-                                            <div className="flex items-center gap-4 p-2 min-w-[240px]">
-                                                <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                                                    <FileText className="h-6 w-6 text-primary" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-bold truncate pr-4">
-                                                        {firstMsg.media_metadata?.originalName || "Document"}
-                                                    </p>
-                                                    <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-                                                        {firstMsg.media_metadata?.mimetype?.split('/')[1] || "PDF"} • {Math.round((firstMsg.media_metadata?.sizeBytes || 0) / 1024)} KB
-                                                    </p>
-                                                </div>
-                                                <button 
-                                                    onClick={() => window.open(firstMsg.media_metadata?.url || firstMsg.content, '_blank')}
-                                                    className="p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all text-primary shadow-sm border border-zinc-100 dark:border-zinc-800"
-                                                >
-                                                    <Download className="h-5 w-5" />
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{firstMsg.content}</p>
-                                        )}
-                                    </div>
                                 </div>
-                                <div className={`flex items-center gap-3 mt-1.5 px-2 ${isMe ? "justify-end" : "justify-start"}`}>
-                                    {isAnnouncement && (
-                                        <div className="flex items-center gap-1.5 py-0.5 px-2 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700">
-                                            <Globe className="h-2.5 w-2.5 text-zinc-500" />
-                                            <span className="text-[9px] font-black uppercase text-zinc-500">Target: {cluster.target_grade ? `${cluster.target_grade}${cluster.target_section ? `-${cluster.target_section}` : ''}` : "Everyone"}</span>
+                            )}
+                            <div className={`flex ${isMe ? "justify-end" : "justify-start"} group/msg relative animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                                <div className={`relative max-w-[75%] group flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+                                    {(isAnnouncement || !isMe) && (
+                                        <div className={`flex items-center gap-1.5 mb-1.5 px-1 ${isMe ? "justify-end" : "justify-start"}`}>
+                                            {isAnnouncement && <ShieldCheck className="h-3 w-3 text-primary" />}
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${isAnnouncement ? "text-primary" : "text-zinc-500"}`}>
+                                                {cluster.sender_name && cluster.sender_name !== "Guardian" ? cluster.sender_name : (isMe ? "TAFS Admin" : (activeConversation?.primary_guardian?.name || activeConversation?.families?.household_name || "Guardian"))}
+                                            </span>
                                         </div>
                                     )}
-                                    <span className="text-[9px] font-bold text-zinc-400">{firstMsg.status === "sending" ? <Loader2 className="h-2 w-2 animate-spin" /> : format(new Date(firstMsg.created_at), "h:mm a")}</span>
+                                    <div className="relative group/actions">
+                                        {isMe && cluster.id && cluster.status !== "sending" && (
+                                            <button onClick={() => onUnsend(cluster.id)} className="absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover/actions:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="h-4 w-4" /></button>
+                                        )}
+                                        <div className={`p-4 rounded-3xl shadow-sm relative overflow-hidden ${isMe ? (isAnnouncement ? "bg-gradient-to-br from-primary to-indigo-700 text-white rounded-tr-none" : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tr-none border border-zinc-200/50 dark:border-zinc-800") : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tl-none border border-zinc-200/50 dark:border-zinc-800 shadow-zinc-200/50"}`}>
+                                            {isGroup ? (
+                                                <div className={`grid gap-1.5 ${clusterMessages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} max-w-[400px]`}>
+                                                    {clusterMessages.map((m: any) => (
+                                                        <div key={m.id} className="relative cursor-pointer rounded-xl overflow-hidden shadow-md" onClick={() => setPreviewImage(m.media_metadata?.url || m.content)}>
+                                                            <img src={m.media_metadata?.url || m.content} className="w-full h-full object-cover min-h-[150px]" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : firstMsg.message_type === "VOICE" ? (
+                                                <audio src={firstMsg.content.includes('digitaloceanspaces.com') ? `/api/v1/chat/media/proxy?key=${firstMsg.content.split('digitaloceanspaces.com/')[1]}` : firstMsg.content} controls className="max-w-full h-10 scale-90 origin-left" />
+                                            ) : firstMsg.message_type === "IMAGE" ? (
+                                                <div className="rounded-xl overflow-hidden cursor-pointer" onClick={() => setPreviewImage(firstMsg.content)}>
+                                                    <img src={firstMsg.media_metadata?.url || firstMsg.content} className="max-w-full max-h-[450px] object-cover" />
+                                                </div>
+                                            ) : firstMsg.message_type === "DOCUMENT" ? (
+                                                <div className="flex items-center gap-4 p-2 min-w-[240px]">
+                                                    <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                                                        <FileText className="h-6 w-6 text-primary" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-bold truncate pr-4">
+                                                            {firstMsg.media_metadata?.originalName || "Document"}
+                                                        </p>
+                                                        <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                                                            {firstMsg.media_metadata?.mimetype?.split('/')[1] || "PDF"} • {Math.round((firstMsg.media_metadata?.sizeBytes || 0) / 1024)} KB
+                                                        </p>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => window.open(firstMsg.media_metadata?.url || firstMsg.content, '_blank')}
+                                                        className="p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all text-primary shadow-sm border border-zinc-100 dark:border-zinc-800"
+                                                    >
+                                                        <Download className="h-5 w-5" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{firstMsg.content}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className={`flex items-center gap-3 mt-1.5 px-2 ${isMe ? "justify-end" : "justify-start"}`}>
+                                        {isAnnouncement && (
+                                            <div className="flex items-center gap-1.5 py-0.5 px-2 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700">
+                                                <Globe className="h-2.5 w-2.5 text-zinc-500" />
+                                                <span className="text-[9px] font-black uppercase text-zinc-500">Target: {cluster.target_grade ? `${cluster.target_grade}${cluster.target_section ? `-${cluster.target_section}` : ''}` : "Everyone"}</span>
+                                            </div>
+                                        )}
+                                        <span className="text-[9px] font-bold text-zinc-400">{firstMsg.status === "sending" ? <Loader2 className="h-2 w-2 animate-spin" /> : format(new Date(firstMsg.created_at), "h:mm a")}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
