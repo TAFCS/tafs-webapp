@@ -15,10 +15,11 @@ interface ChatWindowProps {
     onSendMessage: (content: string, type: "TEXT" | "IMAGE" | "VOICE" | "DOCUMENT", mediaMetadata?: any, announcementTarget?: { grade: string | null, section: string | null }) => void;
     onUnsend: (messageId: string) => void;
     isConnected: boolean;
+    isParentOnline?: boolean;
     isLoading?: boolean;
 }
 
-export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessage, onUnsend, isConnected, isLoading }: ChatWindowProps) => {
+export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessage, onUnsend, isConnected, isParentOnline, isLoading }: ChatWindowProps) => {
     const { socket } = useSocket();
     const [input, setInput] = useState("");
     const [isRecording, setIsRecording] = useState(false);
@@ -254,17 +255,35 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                             {isAnnouncementChannel ? "Official Announcements" : activeConversation?.primary_guardian?.name || activeConversation?.families?.household_name || "Family Chat"}
                         </h3>
                         <div className="flex items-center gap-2 mt-0.5">
-                            <div className={`h-1.5 w-1.5 rounded-full ${isConnected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-red-500"} animate-pulse`} />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{isConnected ? "Live Connection" : "Offline"}</span>
+                            {!isAnnouncementChannel && (
+                                <>
+                                    <div className={`h-1.5 w-1.5 rounded-full ${isParentOnline ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse" : "bg-zinc-400"}`} />
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isParentOnline ? "text-green-600 dark:text-green-400" : "text-zinc-500"}`}>
+                                        {isParentOnline ? "Online Now" : "Offline"}
+                                    </span>
+                                </>
+                            )}
+                            {isAnnouncementChannel && (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Official Channel</span>
+                            )}
                         </div>
                     </div>
                 </div>
-                {!isAnnouncementChannel && (
-                    <button onClick={fetchFamilyStudents} disabled={isLoadingStudents} className="p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-primary flex items-center gap-2">
-                        {isLoadingStudents ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
-                        <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Family Info</span>
-                    </button>
-                )}
+                <div className="flex items-center gap-6">
+                    <div className="hidden lg:flex flex-col items-end">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">System Link</span>
+                            <div className={`h-1.5 w-1.5 rounded-full ${isConnected ? "bg-blue-500" : "bg-red-500"} shadow-sm`} />
+                        </div>
+                        <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-tighter mt-0.5">{isConnected ? "Verified" : "Sync Error"}</p>
+                    </div>
+                    {!isAnnouncementChannel && (
+                        <button onClick={fetchFamilyStudents} disabled={isLoadingStudents} className="p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-primary flex items-center gap-2">
+                            {isLoadingStudents ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
+                            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Family Info</span>
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Announcement Selectors */}

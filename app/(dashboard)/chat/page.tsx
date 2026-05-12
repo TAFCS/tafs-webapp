@@ -12,6 +12,7 @@ export default function ChatHubPage() {
     const [conversations, setConversations] = useState<any[]>([]);
     const [messages, setMessages] = useState<any[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [onlineFamilyIds, setOnlineFamilyIds] = useState<Set<number>>(new Set());
 
     const fetchInbox = async () => {
         try {
@@ -64,11 +65,38 @@ export default function ChatHubPage() {
             console.log("[ChatHub] Reconnected! Syncing state...");
             fetchInbox();
             fetchHistory();
+            socket.emit("getOnlineStatus", (res: any) => {
+                if (res?.onlineFamilyIds) {
+                    setOnlineFamilyIds(new Set(res.onlineFamilyIds));
+                }
+            });
+        };
+
+        const handleStatusChanged = (data: { familyId: number, status: 'ONLINE' | 'OFFLINE' }) => {
+            setOnlineFamilyIds(prev => {
+                const next = new Set(prev);
+                if (data.status === 'ONLINE') {
+                    next.add(data.familyId);
+                } else {
+                    next.delete(data.familyId);
+                }
+                return next;
+            });
         };
 
         socket.on("connect", handleReconnect);
+        socket.on("userStatusChanged", handleStatusChanged);
+        
+        // Initial fetch
+        socket.emit("getOnlineStatus", (res: any) => {
+            if (res?.onlineFamilyIds) {
+                setOnlineFamilyIds(new Set(res.onlineFamilyIds));
+            }
+        });
+
         return () => {
             socket.off("connect", handleReconnect);
+            socket.off("userStatusChanged", handleStatusChanged);
         };
     }, [socket, selectedFamilyId]);
 
@@ -203,6 +231,7 @@ export default function ChatHubPage() {
                 onSendMessage={sendMessage} 
                 onUnsend={unsendMessage}
                 isConnected={isConnected}
+                isParentOnline={selectedFamilyId !== null && onlineFamilyIds.has(selectedFamilyId)}
                 isLoading={isLoadingHistory}
             />
         </div>
