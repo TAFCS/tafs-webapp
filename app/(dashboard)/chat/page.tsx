@@ -11,12 +11,13 @@ export default function ChatHubPage() {
     const [selectedFamilyId, setSelectedFamilyId] = useState<number | null>(null);
     const [conversations, setConversations] = useState<any[]>([]);
     const [messages, setMessages] = useState<any[]>([]);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
     useEffect(() => {
         // Fetch inbox
         const fetchInbox = async () => {
             try {
-                const res = await api.get("/v1/chat/inbox");
+                const res = await api.get("v1/chat/inbox");
                 if (Array.isArray(res.data)) {
                     setConversations(res.data);
                 } else if (res.data?.data && Array.isArray(res.data.data)) {
@@ -36,12 +37,13 @@ export default function ChatHubPage() {
     }, []);
 
     useEffect(() => {
-        if (!selectedFamilyId) return;
+        if (selectedFamilyId === null) return;
 
         // Fetch history
         const fetchHistory = async () => {
+            setIsLoadingHistory(true);
             try {
-                const res = await api.get(`/v1/chat/history/admin/${selectedFamilyId}`);
+                const res = await api.get(`v1/chat/history/admin/${selectedFamilyId}`);
                 const data = res.data;
                 const history = Array.isArray(data) ? data : (data.data || []);
                 setMessages([...history].reverse());
@@ -52,6 +54,8 @@ export default function ChatHubPage() {
                 }
             } catch (err) {
                 console.error("Failed to fetch history:", err);
+            } finally {
+                setIsLoadingHistory(false);
             }
         };
 
@@ -63,10 +67,12 @@ export default function ChatHubPage() {
 
         const handleReceiveMessage = (data: any) => {
             const { message, conversation } = data;
+            const ANNOUNCEMENT_CONV_ID = '00000000-0000-0000-0000-000000000000';
             
             // Update inbox snippet
             setConversations(prev => {
                 if (!Array.isArray(prev)) return [];
+                if (conversation.id === ANNOUNCEMENT_CONV_ID) return prev; // Don't add announcement to DM list
                 const exists = prev.some(c => c.id === conversation.id);
                 if (exists) {
                     return prev.map(c => c.id === conversation.id ? conversation : c);
@@ -74,10 +80,12 @@ export default function ChatHubPage() {
                 return [conversation, ...prev];
             });
 
-            // Update active message list if it belongs to current family
-            if (conversation.family_id === selectedFamilyId) {
+            // Update active message list
+            const isForSelectedAnnouncement = selectedFamilyId === 0 && conversation.id === ANNOUNCEMENT_CONV_ID;
+            const isForSelectedFamily = selectedFamilyId !== null && selectedFamilyId !== 0 && conversation.family_id === selectedFamilyId;
+
+            if (isForSelectedAnnouncement || isForSelectedFamily) {
                 setMessages(prev => {
-                    // 1. If it's a message from ADMIN, check if we have an optimistic version of it
                     if (message.sender_type === "ADMIN") {
                         const optimisticIndex = prev.findIndex(m => 
                             m.status === "sending" && 
@@ -90,12 +98,13 @@ export default function ChatHubPage() {
                         }
                     }
 
-                    // 2. Avoid duplicates by real ID
                     if (prev.some(m => m.id === message.id)) return prev;
-                    
                     return [...prev, message];
                 });
-                socket.emit("markAsRead", { familyId: selectedFamilyId, role: "ADMIN" });
+
+                if (isForSelectedFamily && socket) {
+                    socket.emit("markAsRead", { familyId: selectedFamilyId, role: "ADMIN" });
+                }
             }
         };
 
@@ -114,46 +123,50 @@ export default function ChatHubPage() {
         };
     }, [socket, selectedFamilyId]);
 
-    const sendMessage = (content: string, type: string, mediaMetadata?: any) => {
-        if (!socket || !selectedFamilyId) {
+    const sendMessage = (content: string, type: string, mediaMetadata?: any, announcementTarget?: { grade: string | null, section: string | null }) => {
+        if (!socket || selectedFamilyId === null) {
             console.warn("[ChatHub] Cannot send message: socket or familyId missing", { hasSocket: !!socket, selectedFamilyId });
             return;
         }
 
         const tempId = `temp-${Date.now()}`;
+        const isAnnouncement = selectedFamilyId === 0;
+
         const optimisticMessage = {
             id: tempId,
             content: content,
             sender_type: "ADMIN",
+            sender_name: isAnnouncement ? "TAFS Support" : "TAFS Admin",
             message_type: type,
             media_metadata: mediaMetadata,
             created_at: new Date().toISOString(),
-            status: "sending"
+            status: "sending",
+            is_announcement: isAnnouncement,
+            target_grade: announcementTarget?.grade,
+            target_section: announcementTarget?.section
         };
 
         setMessages(prev => [...prev, optimisticMessage]);
 
-        console.log("[ChatHub] Emitting sendMessage:", { 
-            familyId: selectedFamilyId, 
-            type: type,
-            contentLength: content?.length,
-            mediaMetadata
-        });
-
-        socket.emit("sendMessage", {
+        const eventName = isAnnouncement ? "sendAnnouncement" : "sendMessage";
+        const payload = isAnnouncement ? {
+            messageType: type,
+            content: content,
+            mediaMetadata: mediaMetadata,
+            targetGrade: announcementTarget?.grade,
+            targetSection: announcementTarget?.section
+        } : {
             familyId: selectedFamilyId,
             senderType: "ADMIN",
             messageType: type,
             content: content,
             mediaMetadata: mediaMetadata,
-        }, (response: any) => {
-            // Replace optimistic message with real one, but ONLY if it's not already there
+        };
+
+        socket.emit(eventName, payload, (response: any) => {
             setMessages(prev => {
                 const alreadyExists = prev.some(m => m.id === response.id);
-                if (alreadyExists) {
-                    // Just remove the temp one
-                    return prev.filter(m => m.id !== tempId);
-                }
+                if (alreadyExists) return prev.filter(m => m.id !== tempId);
                 return prev.map(m => m.id === tempId ? { ...response, status: "sent" } : m);
             });
         });
@@ -177,6 +190,7 @@ export default function ChatHubPage() {
                 onSendMessage={sendMessage} 
                 onUnsend={unsendMessage}
                 isConnected={isConnected}
+                isLoading={isLoadingHistory}
             />
         </div>
     );
