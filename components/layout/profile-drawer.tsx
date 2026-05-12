@@ -6,7 +6,8 @@ import {
     Tags, CalendarDays, FilePlus2, HandCoins, Printer,
     FileText, History,
     Layers,
-    Trash2
+    Trash2,
+    MessageSquare
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -74,6 +75,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'Student Directory', href: '/identity/students', icon: Users, permission: 'students.directory.view' },
                 { name: 'Families', href: '/families', icon: Contact, permission: 'students.families.view' },
                 { name: 'Parent Change Requests', href: '/parent-change-requests', icon: ShieldCheck, permission: 'students.families.view' },
+                { name: 'Chat Hub', href: '/chat', icon: MessageSquare, permission: 'students.directory.view' },
             ]
         },
         {
