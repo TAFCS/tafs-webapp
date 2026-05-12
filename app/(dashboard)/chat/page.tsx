@@ -152,12 +152,20 @@ export default function ChatHubPage() {
             }
         };
 
+        const handleMessagesRead = (data: { familyId: number, by: 'GUARDIAN' | 'ADMIN' }) => {
+            if (data.by === 'GUARDIAN' && selectedFamilyId === data.familyId) {
+                setMessages(prev => prev.map(m => ({ ...m, is_read: true })));
+            }
+        };
+
         socket.on("receiveMessage", handleReceiveMessage);
         socket.on("messageDeleted", handleMessageDeleted);
+        socket.on("messagesRead", handleMessagesRead);
 
         return () => {
             socket.off("receiveMessage", handleReceiveMessage);
             socket.off("messageDeleted", handleMessageDeleted);
+            socket.off("messagesRead", handleMessagesRead);
         };
     }, [socket, selectedFamilyId]);
 

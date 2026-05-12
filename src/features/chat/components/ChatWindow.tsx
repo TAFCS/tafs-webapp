@@ -1,6 +1,6 @@
 "use client";
 
-import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe, Download, Reply, WifiOff, RefreshCcw } from "lucide-react";
+import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe, Download, Reply, WifiOff, RefreshCcw, Check, CheckCheck } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { format, isSameDay } from "date-fns";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
@@ -450,17 +450,30 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                                 ) : (
                                                     <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{firstMsg.content}</p>
                                                 )}
+                                                
+                                                {/* Status inside bubble */}
+                                                <div className={`flex items-center gap-1.5 mt-1 justify-end select-none`}>
+                                                    <span className={`text-[9px] font-bold ${isMe ? "text-white/60" : "text-zinc-400"}`}>
+                                                        {firstMsg.status === "sending" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : format(new Date(firstMsg.created_at), "h:mm a")}
+                                                    </span>
+                                                    {isMe && firstMsg.status !== "sending" && (
+                                                        firstMsg.is_read ? (
+                                                            <CheckCheck className="h-3 w-3 text-blue-300" />
+                                                        ) : (
+                                                            <Check className="h-3 w-3 text-white/50" />
+                                                        )
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className={`flex items-center gap-3 mt-1.5 px-2 ${isMe ? "justify-end" : "justify-start"}`}>
-                                            {isAnnouncement && (
-                                                <div className="flex items-center gap-1.5 py-0.5 px-2 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700">
+                                        {isAnnouncement && (
+                                            <div className="mt-1.5 px-2">
+                                                <div className="flex items-center gap-1.5 py-0.5 px-2 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700 w-fit">
                                                     <Globe className="h-2.5 w-2.5 text-zinc-500" />
                                                     <span className="text-[9px] font-black uppercase text-zinc-500">Target: {cluster.target_grade ? `${cluster.target_grade}${cluster.target_section ? `-${cluster.target_section}` : ''}` : "Everyone"}</span>
                                                 </div>
-                                            )}
-                                            <span className={`text-[9px] font-bold ${isMe ? "text-white/60" : "text-zinc-400"}`}>{firstMsg.status === "sending" ? <Loader2 className="h-2 w-2 animate-spin" /> : format(new Date(firstMsg.created_at), "h:mm a")}</span>
-                                        </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </motion.div>
                             </div>
