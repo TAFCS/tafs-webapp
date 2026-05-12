@@ -648,9 +648,9 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
                             Paid: Rs. {Number(voucher.total_deposited || sfTotalDeposited).toLocaleString()}
                         </span>
                     )}
-                    {!isVoid && sfTotalBalance > 0 && sfTotalNet !== sfTotalBalance && (
+                    {!isVoid && sfTotalBalance > 0 && Number(voucher.total_deposited || sfTotalDeposited) > 0 && (
                         <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tight leading-none">
-                            Total: Rs. {sfTotalNet.toLocaleString()}
+                            Total: Rs. {(totalBalanceValue + Number(voucher.total_deposited || sfTotalDeposited)).toLocaleString()}
                         </span>
                     )}
                 </div>
