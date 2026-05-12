@@ -15,6 +15,10 @@ import toast from "react-hot-toast";
 
 
 
+// ─── Dev flags ───────────────────────────────────────────────────────────────
+// Set to false before going to production.
+const DEV_ALLOW_VOID_DEPOSITS = true;
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS = [
@@ -66,8 +70,8 @@ interface DepositModalProps {
 }
 
 function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
-    // Guard: do not allow deposit on a VOID voucher
-    if (voucher.status === "VOID") {
+    // Guard: do not allow deposit on a VOID voucher (bypassed in dev mode)
+    if (!DEV_ALLOW_VOID_DEPOSITS && voucher.status === "VOID") {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm animate-in fade-in duration-200">
                 <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
@@ -658,14 +662,25 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
             <td className="px-5 py-3.5">
                 <div className="flex items-center gap-2">
                     {isVoid ? (
-                        <button
-                            onClick={() => onDeposit(voucher)}
-                            className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800/60 text-zinc-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-zinc-200 dark:border-zinc-700 cursor-not-allowed"
-                            title="This voucher has been superseded. Its unpaid heads are included in a newer voucher."
-                        >
-                            <Ban className="h-3.5 w-3.5" />
-                            Voided
-                        </button>
+                        DEV_ALLOW_VOID_DEPOSITS ? (
+                            <button
+                                onClick={() => onDeposit(voucher)}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-amber-500/20 hover:bg-amber-500/20 transition-all active:scale-95"
+                                title="[DEV] Depositing against a voided voucher"
+                            >
+                                <Wallet className="h-3.5 w-3.5" />
+                                Deposit (Void)
+                            </button>
+                        ) : (
+                            <button
+                                className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800/60 text-zinc-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-zinc-200 dark:border-zinc-700 cursor-not-allowed"
+                                title="This voucher has been superseded. Its unpaid heads are included in a newer voucher."
+                                disabled
+                            >
+                                <Ban className="h-3.5 w-3.5" />
+                                Voided
+                            </button>
+                        )
                     ) : voucher.status !== "PAID" ? (
                         <button
                             onClick={() => onDeposit(voucher)}
