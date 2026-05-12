@@ -1,7 +1,7 @@
 "use client";
 
 import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import api from "@/lib/api";
 import { AnnouncementSelectors } from "./AnnouncementSelectors";
@@ -9,6 +9,7 @@ import { useSocket } from "@/context/SocketContext";
 
 interface ChatWindowProps {
     familyId: number | null;
+    activeConversation?: any;
     messages: any[];
     onSendMessage: (content: string, type: "TEXT" | "IMAGE" | "VOICE" | "DOCUMENT", mediaMetadata?: any, announcementTarget?: { grade: string | null, section: string | null }) => void;
     onUnsend: (messageId: string) => void;
@@ -16,7 +17,7 @@ interface ChatWindowProps {
     isLoading?: boolean;
 }
 
-export const ChatWindow = ({ familyId, messages, onSendMessage, onUnsend, isConnected, isLoading }: ChatWindowProps) => {
+export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessage, onUnsend, isConnected, isLoading }: ChatWindowProps) => {
     const { socket } = useSocket();
     const [input, setInput] = useState("");
     const [isRecording, setIsRecording] = useState(false);
@@ -24,8 +25,10 @@ export const ChatWindow = ({ familyId, messages, onSendMessage, onUnsend, isConn
     const [pendingFiles, setPendingFiles] = useState<{ file: File, preview: string, type: "IMAGE" | "DOCUMENT" }[]>([]);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [showStudentDetails, setShowStudentDetails] = useState(false);
+    const [familyStudents, setFamilyStudents] = useState<any[]>([]);
+    const [isLoadingStudents, setIsLoadingStudents] = useState(false);
     
-    // Announcement state
     const [targetGrade, setTargetGrade] = useState<string | null>(null);
     const [targetSection, setTargetSection] = useState<string | null>(null);
 
@@ -38,6 +41,20 @@ export const ChatWindow = ({ familyId, messages, onSendMessage, onUnsend, isConn
     const docInputRef = useRef<HTMLInputElement>(null);
 
     const isAnnouncementChannel = familyId === 0;
+
+    const fetchFamilyStudents = async () => {
+        if (!familyId || familyId === 0) return;
+        setIsLoadingStudents(true);
+        try {
+            const res = await api.get(`v1/chat/family/${familyId}/students`);
+            setFamilyStudents(res.data);
+            setShowStudentDetails(true);
+        } catch (err) {
+            console.error("Failed to fetch family students:", err);
+        } finally {
+            setIsLoadingStudents(false);
+        }
+    };
 
     const handleFileSelect = (file: File, type: "IMAGE" | "DOCUMENT") => {
         const preview = URL.createObjectURL(file);
@@ -95,7 +112,6 @@ export const ChatWindow = ({ familyId, messages, onSendMessage, onUnsend, isConn
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(false);
-        
         const files = Array.from(e.dataTransfer.files);
         files.forEach(file => {
             const type = file.type.startsWith('image/') ? 'IMAGE' : 'DOCUMENT';
@@ -116,41 +132,31 @@ export const ChatWindow = ({ familyId, messages, onSendMessage, onUnsend, isConn
             mediaRecorder.current = new MediaRecorder(stream, { mimeType });
             audioChunks.current = [];
             shouldSend.current = true;
-
-            mediaRecorder.current.ondataavailable = (event) => {
-                audioChunks.current.push(event.data);
-            };
-
+            mediaRecorder.current.ondataavailable = (e) => audioChunks.current.push(e.data);
             mediaRecorder.current.onstop = async () => {
                 if (!shouldSend.current) {
                     audioChunks.current = [];
-                    stream.getTracks().forEach(track => track.stop());
+                    stream.getTracks().forEach(t => t.stop());
                     return;
                 }
-
                 const audioBlob = new Blob(audioChunks.current, { type: mimeType });
                 const extension = mimeType.includes('mp4') ? 'm4a' : 'webm';
+                const file = new File([audioBlob], `recording.${extension}`, { type: mimeType });
                 const formData = new FormData();
-                formData.append('file', audioBlob, `voice-note.${extension}`);
-
+                formData.append('file', file);
                 try {
-                    const response = await api.post('/v1/chat/media', formData);
+                    const response = await api.post('/v1/chat/media', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
                     if (response.data.url) {
-                        onSendMessage(response.data.url, "VOICE", undefined, isAnnouncementChannel ? { grade: targetGrade, section: targetSection } : undefined);
+                        onSendMessage(response.data.url, "VOICE", { duration: recordingTime }, isAnnouncementChannel ? { grade: targetGrade, section: targetSection } : undefined);
                     }
-                } catch (err) {
-                    console.error("Failed to upload voice note:", err);
-                }
-                stream.getTracks().forEach(track => track.stop());
+                } catch (err) { console.error("Voice upload failed:", err); }
+                stream.getTracks().forEach(t => t.stop());
             };
-
             mediaRecorder.current.start();
             setIsRecording(true);
             setRecordingTime(0);
             timerRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
-        } catch (err) {
-            console.error("Microphone access error:", err);
-        }
+        } catch (err) { console.error("Mic access denied:", err); }
     };
 
     const stopRecording = () => {
@@ -177,6 +183,30 @@ export const ChatWindow = ({ familyId, messages, onSendMessage, onUnsend, isConn
         }
     };
 
+    const clusters = useMemo(() => {
+        const results: any[] = [];
+        for (let i = 0; i < messages.length; i++) {
+            const msg = messages[i];
+            if (msg.message_type === "IMAGE") {
+                const group = [msg];
+                while (
+                    i + 1 < messages.length && 
+                    messages[i + 1].message_type === "IMAGE" && 
+                    messages[i + 1].sender_type === msg.sender_type &&
+                    messages[i + 1].media_metadata?.batchId === msg.media_metadata?.batchId &&
+                    msg.media_metadata?.batchId !== undefined
+                ) {
+                    group.push(messages[i+1]);
+                    i++;
+                }
+                results.push({ type: "IMAGE_GROUP", messages: group, sender_type: msg.sender_type, id: msg.id, created_at: msg.created_at, is_announcement: msg.is_announcement, sender_name: msg.sender_name, target_grade: msg.target_grade, target_section: msg.target_section });
+            } else {
+                results.push(msg);
+            }
+        }
+        return results;
+    }, [messages]);
+
     if (familyId === null) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950/50">
@@ -190,51 +220,35 @@ export const ChatWindow = ({ familyId, messages, onSendMessage, onUnsend, isConn
     }
 
     return (
-        <div 
-            className="flex-1 flex flex-col min-h-0 relative bg-zinc-50 dark:bg-zinc-900/10"
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-        >
-            {isDragging && (
-                <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary z-50 flex items-center justify-center backdrop-blur-md rounded-2xl m-4">
-                    <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 scale-110">
-                        <div className="p-4 bg-primary/10 rounded-2xl">
-                            <Send className="h-10 w-10 text-primary" />
-                        </div>
-                        <div className="text-center">
-                            <p className="font-black text-zinc-900 dark:text-zinc-100 text-lg">Drop to Send</p>
-                            <p className="text-xs text-zinc-500 mt-1">Images or Documents</p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
+        <div className="flex-1 flex flex-col min-h-0 relative bg-zinc-50 dark:bg-zinc-900/10" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
             {/* Header */}
-            <div className="h-20 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl flex items-center justify-between px-8 flex-shrink-0 sticky top-0 z-30 shadow-sm">
+            <div className="h-20 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-8 z-20 shadow-sm">
                 <div className="flex items-center gap-4">
-                    <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:scale-105 ${
-                        isAnnouncementChannel ? "bg-gradient-to-br from-primary to-blue-700 shadow-primary/20" : "bg-zinc-100 dark:bg-zinc-800"
-                    }`}>
-                        {isAnnouncementChannel ? <Megaphone className="h-6 w-6 text-white" /> : <User className="h-6 w-6 text-zinc-500" />}
+                    <div className={`h-12 w-12 rounded-2xl flex items-center justify-center overflow-hidden shadow-inner ${isAnnouncementChannel ? "bg-primary" : "bg-zinc-100 dark:bg-zinc-900"}`}>
+                        {isAnnouncementChannel ? (
+                            <Megaphone className="h-6 w-6 text-white" />
+                        ) : activeConversation?.primary_guardian?.photo_url ? (
+                            <img src={activeConversation.primary_guardian.photo_url} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                            <User className="h-6 w-6 text-zinc-500" />
+                        )}
                     </div>
                     <div>
                         <h3 className="font-black text-sm tracking-tight text-zinc-900 dark:text-zinc-100">
-                            {isAnnouncementChannel ? "Official Announcements" : "Family Chat"}
+                            {isAnnouncementChannel ? "Official Announcements" : activeConversation?.primary_guardian?.name || "Family Chat"}
                         </h3>
                         <div className="flex items-center gap-2 mt-0.5">
                             <div className={`h-1.5 w-1.5 rounded-full ${isConnected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-red-500"} animate-pulse`} />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-                                {isConnected ? "Live Connection" : "Offline"}
-                            </span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{isConnected ? "Live Connection" : "Offline"}</span>
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button className="p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">
-                        <MoreVertical className="h-5 w-5" />
+                {!isAnnouncementChannel && (
+                    <button onClick={fetchFamilyStudents} disabled={isLoadingStudents} className="p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-primary flex items-center gap-2">
+                        {isLoadingStudents ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
+                        <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Family Info</span>
                     </button>
-                </div>
+                )}
             </div>
 
             {/* Announcement Selectors */}
@@ -244,165 +258,82 @@ export const ChatWindow = ({ familyId, messages, onSendMessage, onUnsend, isConn
 
             {/* Messages Area */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 pr-12 flex flex-col gap-6 no-scrollbar relative">
-                {isLoading ? (
+                {isLoading && (
                     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm animate-in fade-in duration-500">
-                        <div className="relative">
-                            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center animate-pulse">
-                                <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                            </div>
-                            <div className="absolute -inset-4 bg-primary/5 rounded-full blur-2xl animate-pulse" />
-                        </div>
-                        <p className="mt-4 text-xs font-black uppercase tracking-widest text-zinc-500 animate-pulse">
-                            Synchronizing history...
-                        </p>
+                        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                        <p className="mt-4 text-xs font-black uppercase tracking-widest text-zinc-500">Synchronizing history...</p>
                     </div>
-                ) : (
-                    (() => {
-                        const clusters: any[] = [];
-                    for (let i = 0; i < messages.length; i++) {
-                        const msg = messages[i];
-                        if (msg.message_type === "IMAGE") {
-                            const group = [msg];
-                            while (
-                                i + 1 < messages.length && 
-                                messages[i + 1].message_type === "IMAGE" && 
-                                messages[i + 1].sender_type === msg.sender_type &&
-                                messages[i + 1].media_metadata?.batchId === msg.media_metadata?.batchId &&
-                                msg.media_metadata?.batchId !== undefined
-                            ) {
-                                group.push(messages[i+1]);
-                                i++;
-                            }
-                            clusters.push({ type: "IMAGE_GROUP", messages: group, sender_type: msg.sender_type, id: msg.id, created_at: msg.created_at, is_announcement: msg.is_announcement, sender_name: msg.sender_name, target_grade: msg.target_grade, target_section: msg.target_section });
-                        } else {
-                            clusters.push(msg);
-                        }
-                    }
+                )}
+                
+                {!isLoading && clusters.map((cluster) => {
+                    const isMe = cluster.sender_type === "ADMIN";
+                    const isAnnouncement = cluster.is_announcement;
+                    const isGroup = cluster.type === "IMAGE_GROUP";
+                    const clusterMessages = isGroup ? cluster.messages : [cluster];
+                    const firstMsg = clusterMessages[0];
 
-                    return clusters.map((cluster) => {
-                        const isMe = cluster.sender_type === "ADMIN";
-                        const isAnnouncement = cluster.is_announcement;
-                        const isGroup = cluster.type === "IMAGE_GROUP";
-                        const messages = isGroup ? cluster.messages : [cluster];
-                        const firstMsg = messages[0];
-
-                        return (
-                            <div key={cluster.id} className={`flex ${isMe ? "justify-end" : "justify-start"} group/msg relative animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                                <div className={`relative max-w-[75%] group flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-                                    {/* Sender Name / System Label */}
-                                    {(isAnnouncement || !isMe) && (
-                                        <div className={`flex items-center gap-1.5 mb-1.5 px-1 ${isMe ? "justify-end" : "justify-start"}`}>
-                                            {isAnnouncement && <ShieldCheck className="h-3 w-3 text-primary fill-primary/10" />}
-                                            <span className={`text-[10px] font-black uppercase tracking-widest ${isAnnouncement ? "text-primary" : "text-zinc-500"}`}>
-                                                {cluster.sender_name || (isMe ? "TAFS Admin" : "Guardian")}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    <div className="relative group/actions">
-                                        {/* Unsend button */}
-                                        {isMe && cluster.status !== "sending" && (
-                                            <div className="absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover/actions:opacity-100 transition-all duration-200">
-                                                <button 
-                                                    onClick={() => onUnsend(cluster.id)}
-                                                    className="p-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl text-red-500 hover:bg-red-50 transition-colors"
-                                                    title="Unsend"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
-                                            </div>
-                                        )}
-
-                                        <div className={`p-4 rounded-3xl shadow-sm relative overflow-hidden ${
-                                            isMe 
-                                                ? (isAnnouncement 
-                                                    ? "bg-gradient-to-br from-primary via-blue-600 to-indigo-700 text-white rounded-tr-none shadow-primary/20" 
-                                                    : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tr-none border border-zinc-200/50 dark:border-zinc-800")
-                                                : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tl-none border border-zinc-200/50 dark:border-zinc-800 shadow-zinc-200/50"
-                                        }`}>
-                                            {isGroup ? (
-                                                <div className={`grid gap-1.5 ${messages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} max-w-[400px]`}>
-                                                    {messages.map((m: any, idx: number) => (
-                                                        <div 
-                                                            key={m.id} 
-                                                            className={`relative cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all overflow-hidden rounded-xl shadow-md ${
-                                                                messages.length === 3 && idx === 0 ? 'col-span-2' : ''
-                                                            }`}
-                                                            onClick={() => setPreviewImage(m.media_metadata?.url || m.content)}
-                                                        >
-                                                            <img src={m.media_metadata?.url || m.content} className="w-full h-full object-cover min-h-[150px] max-h-[300px]" />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : firstMsg.message_type === "VOICE" ? (
-                                                <audio src={firstMsg.content.includes('digitaloceanspaces.com') ? `/api/v1/chat/media/proxy?key=${firstMsg.content.split('digitaloceanspaces.com/')[1]}` : firstMsg.content} controls className="max-w-full h-10 scale-90 origin-left brightness-95" />
-                                            ) : firstMsg.message_type === "IMAGE" ? (
-                                                <div className="rounded-xl overflow-hidden cursor-pointer hover:opacity-95 transition-all shadow-md group/img" onClick={() => setPreviewImage(firstMsg.content)}>
-                                                    <img src={firstMsg.media_metadata?.url || firstMsg.content} className="max-w-full max-h-[450px] object-cover transition-transform group-hover/img:scale-105 duration-700" />
-                                                    {firstMsg.media_metadata?.url && firstMsg.content && firstMsg.content !== firstMsg.media_metadata.url && (
-                                                        <div className="p-4 text-sm font-medium leading-relaxed">{firstMsg.content}</div>
-                                                    )}
-                                                </div>
-                                            ) : firstMsg.message_type === "DOCUMENT" ? (
-                                                <div className="flex flex-col gap-3 min-w-[200px]">
-                                                    <a href={firstMsg.media_metadata?.url || firstMsg.content} target="_blank" className="flex items-center gap-4 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-200/50 dark:border-zinc-800 group/doc">
-                                                        <div className={`p-3 rounded-xl transition-colors ${isMe ? "bg-primary/10" : "bg-zinc-200"}`}>
-                                                            <FileText className={`h-6 w-6 ${isMe ? "text-primary" : "text-zinc-600"}`} />
-                                                        </div>
-                                                        <div className="flex flex-col min-w-0">
-                                                            <span className="text-xs font-black truncate max-w-[140px] tracking-tight">{(firstMsg.media_metadata?.originalName || "Document").substring(0, 24)}</span>
-                                                            <span className="text-[10px] font-bold opacity-60 uppercase mt-0.5">{(firstMsg.media_metadata?.sizeBytes / 1024 / 1024).toFixed(1)} MB • DOC</span>
-                                                        </div>
-                                                    </a>
-                                                    {firstMsg.media_metadata?.url && firstMsg.content && firstMsg.content !== firstMsg.media_metadata.url && (
-                                                        <p className="text-sm px-1 leading-relaxed opacity-90">{firstMsg.content}</p>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{firstMsg.content}</p>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Footer Info (Time + Target) */}
-                                    <div className={`flex items-center gap-3 mt-1.5 px-2 ${isMe ? "justify-end" : "justify-start"}`}>
-                                        {isAnnouncement && (
-                                            <div className="flex items-center gap-1.5 py-0.5 px-2 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700">
-                                                <Globe className="h-2.5 w-2.5 text-zinc-500" />
-                                                <span className="text-[9px] font-black uppercase text-zinc-500 tracking-tight">
-                                                    Target: {cluster.target_grade ? `${cluster.target_grade}${cluster.target_section ? `-${cluster.target_section}` : ''}` : "Everyone"}
-                                                </span>
-                                            </div>
-                                        )}
-                                        <span className="text-[9px] font-bold text-zinc-400">
-                                            {firstMsg.status === "sending" ? <Loader2 className="h-2 w-2 animate-spin" /> : format(new Date(firstMsg.created_at), "h:mm a")}
+                    return (
+                        <div key={cluster.id} className={`flex ${isMe ? "justify-end" : "justify-start"} group/msg relative animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                            <div className={`relative max-w-[75%] group flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+                                {(isAnnouncement || !isMe) && (
+                                    <div className={`flex items-center gap-1.5 mb-1.5 px-1 ${isMe ? "justify-end" : "justify-start"}`}>
+                                        {isAnnouncement && <ShieldCheck className="h-3 w-3 text-primary" />}
+                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isAnnouncement ? "text-primary" : "text-zinc-500"}`}>
+                                            {cluster.sender_name || (isMe ? "TAFS Admin" : "Guardian")}
                                         </span>
                                     </div>
+                                )}
+
+                                <div className="relative group/actions">
+                                    {isMe && cluster.status !== "sending" && (
+                                        <button onClick={() => onUnsend(cluster.id)} className="absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover/actions:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="h-4 w-4" /></button>
+                                    )}
+                                    <div className={`p-4 rounded-3xl shadow-sm relative overflow-hidden ${isMe ? (isAnnouncement ? "bg-gradient-to-br from-primary to-indigo-700 text-white rounded-tr-none" : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tr-none border border-zinc-200/50 dark:border-zinc-800") : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tl-none border border-zinc-200/50 dark:border-zinc-800 shadow-zinc-200/50"}`}>
+                                        {isGroup ? (
+                                            <div className={`grid gap-1.5 ${clusterMessages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} max-w-[400px]`}>
+                                                {clusterMessages.map((m: any) => (
+                                                    <div key={m.id} className="relative cursor-pointer rounded-xl overflow-hidden shadow-md" onClick={() => setPreviewImage(m.media_metadata?.url || m.content)}>
+                                                        <img src={m.media_metadata?.url || m.content} className="w-full h-full object-cover min-h-[150px]" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : firstMsg.message_type === "VOICE" ? (
+                                            <audio src={firstMsg.content.includes('digitaloceanspaces.com') ? `/api/v1/chat/media/proxy?key=${firstMsg.content.split('digitaloceanspaces.com/')[1]}` : firstMsg.content} controls className="max-w-full h-10 scale-90 origin-left" />
+                                        ) : firstMsg.message_type === "IMAGE" ? (
+                                            <div className="rounded-xl overflow-hidden cursor-pointer" onClick={() => setPreviewImage(firstMsg.content)}>
+                                                <img src={firstMsg.media_metadata?.url || firstMsg.content} className="max-w-full max-h-[450px] object-cover" />
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{firstMsg.content}</p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className={`flex items-center gap-3 mt-1.5 px-2 ${isMe ? "justify-end" : "justify-start"}`}>
+                                    {isAnnouncement && (
+                                        <div className="flex items-center gap-1.5 py-0.5 px-2 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700">
+                                            <Globe className="h-2.5 w-2.5 text-zinc-500" />
+                                            <span className="text-[9px] font-black uppercase text-zinc-500">Target: {cluster.target_grade ? `${cluster.target_grade}${cluster.target_section ? `-${cluster.target_section}` : ''}` : "Everyone"}</span>
+                                        </div>
+                                    )}
+                                    <span className="text-[9px] font-bold text-zinc-400">{firstMsg.status === "sending" ? <Loader2 className="h-2 w-2 animate-spin" /> : format(new Date(firstMsg.created_at), "h:mm a")}</span>
                                 </div>
                             </div>
-                        );
-                    });
-                })())}
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Input Area */}
-            <div className="p-6 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 shadow-[0_-10px_40px_rgba(0,0,0,0.02)]">
+            <div className="p-6 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 shadow-lg">
                 <input type="file" ref={imageInputRef} hidden accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) { handleFileSelect(f, "IMAGE"); e.target.value = ''; }}} />
                 <input type="file" ref={docInputRef} hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={(e) => { const f = e.target.files?.[0]; if (f) { handleFileSelect(f, "DOCUMENT"); e.target.value = ''; }}} />
 
                 {pendingFiles.length > 0 && (
-                    <div className="flex gap-4 mb-6 p-4 bg-zinc-50 dark:bg-zinc-900/40 rounded-3xl overflow-x-auto no-scrollbar border border-zinc-200 dark:border-zinc-800 shadow-inner">
+                    <div className="flex gap-4 mb-6 p-4 bg-zinc-50 dark:bg-zinc-900/40 rounded-3xl overflow-x-auto border border-zinc-200 dark:border-zinc-800 shadow-inner">
                         {pendingFiles.map((pf, idx) => (
                             <div key={idx} className="relative flex-shrink-0 group">
-                                {pf.type === "IMAGE" ? (
-                                    <img src={pf.preview} className="h-24 w-24 object-cover rounded-2xl shadow-lg border-2 border-white dark:border-zinc-800" />
-                                ) : (
-                                    <div className="h-24 w-24 flex flex-col items-center justify-center bg-white dark:bg-zinc-800 rounded-2xl shadow-lg border-2 border-white dark:border-zinc-800 p-2">
-                                        <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center mb-2"><FileText className="h-6 w-6 text-primary" /></div>
-                                        <span className="text-[9px] font-black text-zinc-500 truncate w-full text-center px-1">{pf.file.name}</span>
-                                    </div>
-                                )}
-                                <button onClick={() => removePendingFile(idx)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-xl hover:scale-110 active:scale-95 transition-transform"><X className="h-3 w-3" /></button>
+                                {pf.type === "IMAGE" ? <img src={pf.preview} className="h-24 w-24 object-cover rounded-2xl shadow-lg border-2 border-white dark:border-zinc-800" /> : <div className="h-24 w-24 bg-white dark:bg-zinc-800 rounded-2xl shadow-lg border-2 border-white dark:border-zinc-800 flex items-center justify-center p-2"><FileText className="h-8 w-8 text-primary" /></div>}
+                                <button onClick={() => removePendingFile(idx)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-xl transition-transform hover:scale-110"><X className="h-3 w-3" /></button>
                             </div>
                         ))}
                     </div>
@@ -412,14 +343,12 @@ export const ChatWindow = ({ familyId, messages, onSendMessage, onUnsend, isConn
                     <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-900/50 p-1.5 rounded-2xl">
                         {!isRecording && (
                             <>
-                                <button onClick={() => imageInputRef.current?.click()} className="p-2.5 hover:bg-white dark:hover:bg-zinc-800 rounded-xl transition-all shadow-none hover:shadow-sm text-zinc-400 hover:text-primary"><Image className="h-5 w-5" /></button>
-                                <button onClick={() => docInputRef.current?.click()} className="p-2.5 hover:bg-white dark:hover:bg-zinc-800 rounded-xl transition-all shadow-none hover:shadow-sm text-zinc-400 hover:text-primary"><FileText className="h-5 w-5" /></button>
-                                <button onClick={startRecording} className="p-2.5 hover:bg-white dark:hover:bg-zinc-800 rounded-xl transition-all shadow-none hover:shadow-sm text-zinc-400 hover:text-primary"><Mic className="h-5 w-5" /></button>
+                                <button onClick={() => imageInputRef.current?.click()} className="p-2.5 hover:bg-white dark:hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-primary"><Image className="h-5 w-5" /></button>
+                                <button onClick={() => docInputRef.current?.click()} className="p-2.5 hover:bg-white dark:hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-primary"><FileText className="h-5 w-5" /></button>
+                                <button onClick={startRecording} className="p-2.5 hover:bg-white dark:hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-primary"><Mic className="h-5 w-5" /></button>
                             </>
                         )}
-                        {isRecording && (
-                            <button onClick={() => { shouldSend.current = false; stopRecording(); }} className="p-2.5 hover:bg-white dark:hover:bg-zinc-800 rounded-xl text-red-500"><X className="h-5 w-5" /></button>
-                        )}
+                        {isRecording && <button onClick={() => { shouldSend.current = false; stopRecording(); }} className="p-2.5 hover:bg-white dark:hover:bg-zinc-800 rounded-xl text-red-500"><X className="h-5 w-5" /></button>}
                     </div>
 
                     {isRecording ? (
@@ -428,37 +357,54 @@ export const ChatWindow = ({ familyId, messages, onSendMessage, onUnsend, isConn
                             <span className="text-xs font-black text-red-600 dark:text-red-400 uppercase tracking-widest">Live Recording • {formatTime(recordingTime)}</span>
                         </div>
                     ) : (
-                        <div className="flex-1 relative group">
-                            <input
-                                type="text"
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                                placeholder={isAnnouncementChannel ? "Broadcast official announcement..." : "Type a message..."}
-                                className="w-full bg-zinc-100 dark:bg-zinc-900/80 border-none focus:ring-2 focus:ring-primary/30 rounded-2xl px-6 py-3.5 text-sm font-medium transition-all"
-                            />
-                        </div>
+                        <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSend()} placeholder={isAnnouncementChannel ? "Broadcast official announcement..." : "Type a message..."} className="flex-1 bg-zinc-100 dark:bg-zinc-900/80 border-none focus:ring-2 focus:ring-primary/30 rounded-2xl px-6 py-3.5 text-sm font-medium transition-all" />
                     )}
 
-                    <button 
-                        onClick={isRecording ? stopRecording : handleSend}
-                        disabled={!isRecording && !input.trim() && pendingFiles.length === 0}
-                        className={`p-3.5 rounded-2xl transition-all shadow-xl hover:scale-105 active:scale-95 disabled:scale-100 disabled:shadow-none ${
-                            isRecording 
-                                ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/20" 
-                                : "bg-primary text-white hover:bg-blue-700 shadow-primary/20 disabled:bg-zinc-200 disabled:text-zinc-400 dark:disabled:bg-zinc-800"
-                        }`}
-                    >
+                    <button onClick={isRecording ? stopRecording : handleSend} disabled={!isRecording && !input.trim() && pendingFiles.length === 0} className={`p-3.5 rounded-2xl transition-all shadow-xl hover:scale-105 active:scale-95 disabled:scale-100 disabled:shadow-none ${isRecording ? "bg-red-500 text-white" : "bg-primary text-white hover:bg-blue-700 disabled:bg-zinc-200 disabled:text-zinc-400"}`}>
                         {isRecording ? <div className="h-5 w-5 rounded-sm bg-white animate-pulse" /> : <Send className="h-5 w-5" />}
                     </button>
                 </div>
             </div>
 
-            {/* Preview Image Modal */}
+            {/* Modals */}
             {previewImage && (
-                <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-8 animate-in fade-in duration-300" onClick={() => setPreviewImage(null)}>
-                    <button className="absolute top-8 right-8 p-3 bg-white/10 hover:bg-white/20 rounded-2xl text-white transition-all"><X className="h-8 w-8" /></button>
-                    <img src={previewImage} className="max-w-full max-h-full object-contain rounded-3xl shadow-2xl animate-in zoom-in-95 duration-300" />
+                <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-8 animate-in fade-in" onClick={() => setPreviewImage(null)}>
+                    <button className="absolute top-8 right-8 p-3 bg-white/10 rounded-2xl text-white"><X className="h-8 w-8" /></button>
+                    <img src={previewImage} className="max-w-full max-h-full object-contain rounded-3xl shadow-2xl animate-in zoom-in-95" />
+                </div>
+            )}
+
+            {showStudentDetails && (
+                <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="bg-white dark:bg-zinc-950 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 border border-zinc-200 dark:border-zinc-800">
+                        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
+                            <div>
+                                <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-100 tracking-tight">Family Students</h3>
+                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">{familyStudents.length} Students Enrolled</p>
+                            </div>
+                            <button onClick={() => setShowStudentDetails(false)} className="p-2 hover:bg-white dark:hover:bg-zinc-800 rounded-xl transition-all"><X className="h-5 w-5" /></button>
+                        </div>
+                        <div className="p-6 max-h-[60vh] overflow-y-auto flex flex-col gap-4">
+                            {familyStudents.map((student) => (
+                                <div key={student.cc} className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 group hover:border-primary/30 transition-all">
+                                    <div className="h-16 w-16 rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                                        {student.photograph_url ? <img src={student.photograph_url} className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center"><User className="h-8 w-8 text-zinc-400" /></div>}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="font-black text-sm text-zinc-900 dark:text-zinc-100 truncate tracking-tight">{student.full_name}</h4>
+                                        <p className="text-[10px] font-bold text-primary uppercase mt-0.5 tracking-wider">CC: {student.cc}</p>
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            <span className="px-2 py-0.5 bg-white dark:bg-zinc-800 rounded-md text-[9px] font-black border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">{student.classes?.description} {student.sections?.description}</span>
+                                            <span className="px-2 py-0.5 bg-white dark:bg-zinc-800 rounded-md text-[9px] font-black border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">{student.campuses?.campus_name}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="p-6 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800">
+                            <button onClick={() => setShowStudentDetails(false)} className="w-full py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all shadow-sm">Close Details</button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

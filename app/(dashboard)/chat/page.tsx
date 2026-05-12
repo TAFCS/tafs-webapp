@@ -177,6 +177,8 @@ export default function ChatHubPage() {
         socket.emit("deleteMessage", { messageId, familyId: selectedFamilyId });
     };
 
+    const activeConversation = conversations.find(c => c.family_id === selectedFamilyId);
+
     return (
         <div className="h-[calc(100vh-160px)] flex bg-white dark:bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-xl">
             <ChatInbox 
@@ -186,6 +188,7 @@ export default function ChatHubPage() {
             />
             <ChatWindow 
                 familyId={selectedFamilyId} 
+                activeConversation={activeConversation}
                 messages={Array.from(new Map(messages.map(m => [m.id, m])).values())} 
                 onSendMessage={sendMessage} 
                 onUnsend={unsendMessage}

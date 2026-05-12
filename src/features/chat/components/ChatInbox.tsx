@@ -78,15 +78,19 @@ export const ChatInbox = ({ conversations, selectedId, onSelect }: ChatInboxProp
                                         : "bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                                 }`}
                             >
-                                <div className="h-12 w-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 group-hover:rotate-3 transition-transform">
-                                    <User className="h-6 w-6 text-zinc-400" />
+                                <div className="h-12 w-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 group-hover:rotate-3 transition-transform overflow-hidden">
+                                    {conv.primary_guardian?.photo_url ? (
+                                        <img src={conv.primary_guardian.photo_url} alt="" className="h-full w-full object-cover" />
+                                    ) : (
+                                        <User className="h-6 w-6 text-zinc-400" />
+                                    )}
                                 </div>
                                 <div className="flex-1 min-w-0 text-left">
                                     <div className="flex justify-between items-center mb-1">
-                                        <span className={`font-bold text-sm tracking-tight ${selectedId === conv.family_id ? "text-primary" : "text-zinc-900 dark:text-zinc-100"}`}>
-                                            {conv.families?.household_name || "Unknown Family"}
+                                        <span className={`font-bold text-sm tracking-tight truncate ${selectedId === conv.family_id ? "text-primary" : "text-zinc-900 dark:text-zinc-100"}`}>
+                                            {conv.primary_guardian?.name || conv.families?.household_name || "Unknown Family"}
                                         </span>
-                                        <span className="text-[9px] font-medium text-zinc-400">
+                                        <span className="text-[9px] font-medium text-zinc-400 flex-shrink-0 ml-2">
                                             {conv.last_message_at ? format(new Date(conv.last_message_at), "h:mm a") : ""}
                                         </span>
                                     </div>
