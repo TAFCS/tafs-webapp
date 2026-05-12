@@ -1,6 +1,6 @@
 "use client";
 
-import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe } from "lucide-react";
+import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe, Download } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import api from "@/lib/api";
@@ -235,7 +235,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                     </div>
                     <div>
                         <h3 className="font-black text-sm tracking-tight text-zinc-900 dark:text-zinc-100">
-                            {isAnnouncementChannel ? "Official Announcements" : activeConversation?.primary_guardian?.name || "Family Chat"}
+                            {isAnnouncementChannel ? "Official Announcements" : activeConversation?.primary_guardian?.name || activeConversation?.families?.household_name || "Family Chat"}
                         </h3>
                         <div className="flex items-center gap-2 mt-0.5">
                             <div className={`h-1.5 w-1.5 rounded-full ${isConnected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-red-500"} animate-pulse`} />
@@ -279,7 +279,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                     <div className={`flex items-center gap-1.5 mb-1.5 px-1 ${isMe ? "justify-end" : "justify-start"}`}>
                                         {isAnnouncement && <ShieldCheck className="h-3 w-3 text-primary" />}
                                         <span className={`text-[10px] font-black uppercase tracking-widest ${isAnnouncement ? "text-primary" : "text-zinc-500"}`}>
-                                            {cluster.sender_name || (isMe ? "TAFS Admin" : "Guardian")}
+                                            {cluster.sender_name && cluster.sender_name !== "Guardian" ? cluster.sender_name : (isMe ? "TAFS Admin" : (activeConversation?.primary_guardian?.name || activeConversation?.families?.household_name || "Guardian"))}
                                         </span>
                                     </div>
                                 )}
@@ -302,6 +302,26 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                         ) : firstMsg.message_type === "IMAGE" ? (
                                             <div className="rounded-xl overflow-hidden cursor-pointer" onClick={() => setPreviewImage(firstMsg.content)}>
                                                 <img src={firstMsg.media_metadata?.url || firstMsg.content} className="max-w-full max-h-[450px] object-cover" />
+                                            </div>
+                                        ) : firstMsg.message_type === "DOCUMENT" ? (
+                                            <div className="flex items-center gap-4 p-2 min-w-[240px]">
+                                                <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                                                    <FileText className="h-6 w-6 text-primary" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-bold truncate pr-4">
+                                                        {firstMsg.media_metadata?.originalName || "Document"}
+                                                    </p>
+                                                    <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                                                        {firstMsg.media_metadata?.mimetype?.split('/')[1] || "PDF"} • {Math.round((firstMsg.media_metadata?.sizeBytes || 0) / 1024)} KB
+                                                    </p>
+                                                </div>
+                                                <button 
+                                                    onClick={() => window.open(firstMsg.media_metadata?.url || firstMsg.content, '_blank')}
+                                                    className="p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all text-primary shadow-sm border border-zinc-100 dark:border-zinc-800"
+                                                >
+                                                    <Download className="h-5 w-5" />
+                                                </button>
                                             </div>
                                         ) : (
                                             <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{firstMsg.content}</p>
