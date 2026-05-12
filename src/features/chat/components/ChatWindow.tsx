@@ -1,6 +1,6 @@
 "use client";
 
-import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe, Download, Reply } from "lucide-react";
+import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe, Download, Reply, WifiOff, RefreshCcw } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { format, isSameDay } from "date-fns";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
@@ -274,6 +274,31 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
 
             {/* Messages Area */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 pr-12 flex flex-col gap-12 no-scrollbar relative">
+                {/* Offline Banner */}
+                <AnimatePresence>
+                    {!isConnected && (
+                        <motion.div 
+                            initial={{ opacity: 0, y: -20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            className="sticky top-0 z-30 flex items-center justify-center mb-6"
+                        >
+                            <div className="bg-red-500/10 backdrop-blur-md border border-red-500/20 px-6 py-2.5 rounded-2xl flex items-center gap-3 shadow-xl">
+                                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                                <span className="text-[11px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
+                                    Connection Lost. Reconnecting...
+                                </span>
+                                <button 
+                                    onClick={() => window.location.reload()} 
+                                    className="p-1.5 hover:bg-red-500/10 rounded-lg transition-all text-red-600 dark:text-red-400"
+                                >
+                                    <RefreshCcw className="h-3.5 w-3.5" />
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 {/* Background Watermark */}
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
                     <img 
@@ -357,12 +382,12 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                             {isMe && cluster.id && cluster.status !== "sending" && (
                                                 <button onClick={() => onUnsend(cluster.id)} className="absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover/actions:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="h-4 w-4" /></button>
                                             )}
-                                            <div className={`p-4 rounded-3xl shadow-sm relative overflow-hidden ${isMe ? (isAnnouncement ? "bg-gradient-to-br from-primary to-indigo-700 text-white rounded-tr-none" : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tr-none border border-zinc-200/50 dark:border-zinc-800") : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tl-none border border-zinc-200/50 dark:border-zinc-800 shadow-zinc-200/50"}`}>
+                                            <div className={`p-4 rounded-3xl shadow-sm relative overflow-hidden ${isMe ? "bg-primary text-white rounded-tr-none shadow-blue-200/50 dark:shadow-none" : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tl-none border border-zinc-200/50 dark:border-zinc-800 shadow-zinc-200/50"}`}>
                                                 {/* Show replied message if any */}
                                                 {firstMsg.media_metadata?.replyTo && (
-                                                    <div className="mb-3 p-3 bg-zinc-50/50 dark:bg-zinc-900/50 rounded-2xl border-l-4 border-primary/50 text-xs text-zinc-500 dark:text-zinc-400 font-medium">
-                                                        <p className="font-black text-[9px] uppercase tracking-wider text-primary mb-1">{firstMsg.media_metadata.replyTo.senderName}</p>
-                                                        <p className="truncate">{firstMsg.media_metadata.replyTo.content}</p>
+                                                    <div className={`mb-3 p-3 rounded-2xl border-l-4 text-xs font-medium ${isMe ? "bg-white/10 border-white/50 text-white/90" : "bg-zinc-50/50 dark:bg-zinc-900/50 border-primary/50 text-zinc-500 dark:text-zinc-400"}`}>
+                                                        <p className={`font-black text-[9px] uppercase tracking-wider mb-1 ${isMe ? "text-white" : "text-primary"}`}>{firstMsg.media_metadata.replyTo.senderName}</p>
+                                                        <p className={`truncate ${isMe ? "text-white/80" : ""}`}>{firstMsg.media_metadata.replyTo.content}</p>
                                                     </div>
                                                 )}
                                                 {isGroup ? (
@@ -411,7 +436,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                                     <span className="text-[9px] font-black uppercase text-zinc-500">Target: {cluster.target_grade ? `${cluster.target_grade}${cluster.target_section ? `-${cluster.target_section}` : ''}` : "Everyone"}</span>
                                                 </div>
                                             )}
-                                            <span className="text-[9px] font-bold text-zinc-400">{firstMsg.status === "sending" ? <Loader2 className="h-2 w-2 animate-spin" /> : format(new Date(firstMsg.created_at), "h:mm a")}</span>
+                                            <span className={`text-[9px] font-bold ${isMe ? "text-white/60" : "text-zinc-400"}`}>{firstMsg.status === "sending" ? <Loader2 className="h-2 w-2 animate-spin" /> : format(new Date(firstMsg.created_at), "h:mm a")}</span>
                                         </div>
                                     </div>
                                 </motion.div>
@@ -468,7 +493,17 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                     </div>
                 )}
 
-                <div className="flex items-center gap-3 max-w-6xl mx-auto">
+                <div className="flex items-center gap-3 max-w-6xl mx-auto relative">
+                    {!isConnected && (
+                        <div className="absolute inset-0 z-40 bg-white/60 dark:bg-zinc-950/60 backdrop-blur-[2px] rounded-2xl flex items-center justify-center animate-in fade-in duration-300">
+                            <div className="flex items-center gap-2 px-4 py-2 bg-zinc-900 dark:bg-zinc-100 rounded-full shadow-2xl scale-90">
+                                <WifiOff className="h-3.5 w-3.5 text-white dark:text-zinc-900" />
+                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white dark:text-zinc-900">
+                                    Offline Mode
+                                </span>
+                            </div>
+                        </div>
+                    )}
                     <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-900/50 p-1.5 rounded-2xl">
                         {!isRecording && (
                             <>

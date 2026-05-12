@@ -13,54 +13,64 @@ export default function ChatHubPage() {
     const [messages, setMessages] = useState<any[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-    useEffect(() => {
-        // Fetch inbox
-        const fetchInbox = async () => {
-            try {
-                const res = await api.get("v1/chat/inbox");
-                if (Array.isArray(res.data)) {
-                    setConversations(res.data);
-                } else if (res.data?.data && Array.isArray(res.data.data)) {
-                    // Handle wrapped responses if any
-                    setConversations(res.data.data);
-                } else {
-                    console.error("Inbox data is not an array:", res.data);
-                    setConversations([]);
-                }
-            } catch (err) {
-                console.error("Failed to fetch inbox:", err);
+    const fetchInbox = async () => {
+        try {
+            const res = await api.get("v1/chat/inbox");
+            if (Array.isArray(res.data)) {
+                setConversations(res.data);
+            } else if (res.data?.data && Array.isArray(res.data.data)) {
+                setConversations(res.data.data);
+            } else {
+                console.error("Inbox data is not an array:", res.data);
                 setConversations([]);
             }
-        };
+        } catch (err) {
+            console.error("Failed to fetch inbox:", err);
+            setConversations([]);
+        }
+    };
 
+    const fetchHistory = async () => {
+        if (selectedFamilyId === null) return;
+        setIsLoadingHistory(true);
+        try {
+            const res = await api.get(`v1/chat/history/admin/${selectedFamilyId}`);
+            const data = res.data;
+            const history = Array.isArray(data) ? data : (data.data || []);
+            setMessages([...history].reverse());
+            
+            if (socket) {
+                socket.emit("markAsRead", { familyId: selectedFamilyId, role: "ADMIN" });
+            }
+        } catch (err) {
+            console.error("Failed to fetch history:", err);
+        } finally {
+            setIsLoadingHistory(false);
+        }
+    };
+
+    useEffect(() => {
         fetchInbox();
     }, []);
 
     useEffect(() => {
-        if (selectedFamilyId === null) return;
-
-        // Fetch history
-        const fetchHistory = async () => {
-            setIsLoadingHistory(true);
-            try {
-                const res = await api.get(`v1/chat/history/admin/${selectedFamilyId}`);
-                const data = res.data;
-                const history = Array.isArray(data) ? data : (data.data || []);
-                setMessages([...history].reverse());
-                
-                // Mark as read
-                if (socket) {
-                    socket.emit("markAsRead", { familyId: selectedFamilyId, role: "ADMIN" });
-                }
-            } catch (err) {
-                console.error("Failed to fetch history:", err);
-            } finally {
-                setIsLoadingHistory(false);
-            }
-        };
-
         fetchHistory();
     }, [selectedFamilyId, socket]);
+
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleReconnect = () => {
+            console.log("[ChatHub] Reconnected! Syncing state...");
+            fetchInbox();
+            fetchHistory();
+        };
+
+        socket.on("connect", handleReconnect);
+        return () => {
+            socket.off("connect", handleReconnect);
+        };
+    }, [socket, selectedFamilyId]);
 
     useEffect(() => {
         if (!socket) return;
