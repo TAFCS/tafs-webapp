@@ -124,10 +124,12 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
         });
     };
 
+    const prevMessagesLength = useRef(messages.length);
     useEffect(() => {
-        if (scrollRef.current) {
+        if (scrollRef.current && messages.length > prevMessagesLength.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
+        prevMessagesLength.current = messages.length;
     }, [messages]);
 
     const startRecording = async () => {
@@ -139,22 +141,24 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
             shouldSend.current = true;
             mediaRecorder.current.ondataavailable = (e) => audioChunks.current.push(e.data);
             mediaRecorder.current.onstop = async () => {
-                if (!shouldSend.current) {
-                    audioChunks.current = [];
-                    stream.getTracks().forEach(t => t.stop());
-                    return;
-                }
-                const audioBlob = new Blob(audioChunks.current, { type: mimeType });
-                const extension = mimeType.includes('mp4') ? 'm4a' : 'webm';
-                const file = new File([audioBlob], `recording.${extension}`, { type: mimeType });
-                const formData = new FormData();
-                formData.append('file', file);
-                try {
-                    const response = await api.post('/v1/chat/media', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-                    if (response.data.url) {
-                        onSendMessage(response.data.url, "VOICE", { duration: recordingTime }, isAnnouncementChannel ? { grade: targetGrade, section: targetSection } : undefined);
+                const audioBlob = new Blob(audioChunks.current, { type: 'audio/mp4' });
+                const audioFile = new File([audioBlob], `voice_${Date.now()}.m4a`, { type: 'audio/mp4' });
+                
+                if (shouldSend.current) {
+                    // Send directly to avoid state race condition
+                    const formData = new FormData();
+                    formData.append('file', audioFile);
+                    try {
+                        const response = await api.post('/v1/chat/media', formData, {
+                            headers: { 'Content-Type': 'multipart/form-data' }
+                        });
+                        if (response.data.url) {
+                            onSendMessage(response.data.url, "VOICE", { url: response.data.url, duration: recordingTime }, isAnnouncementChannel ? { grade: targetGrade, section: targetSection } : undefined);
+                        }
+                    } catch (err) {
+                        console.error("Failed to upload voice note:", err);
                     }
-                } catch (err) { console.error("Voice upload failed:", err); }
+                }
                 stream.getTracks().forEach(t => t.stop());
             };
             mediaRecorder.current.start();
@@ -292,7 +296,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
             )}
 
             {/* Messages Area */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 pr-12 flex flex-col gap-12 no-scrollbar relative">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 pr-12 flex flex-col gap-4 no-scrollbar relative">
                 {/* Offline Banner */}
                 <AnimatePresence>
                     {!isConnected && (
@@ -358,7 +362,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                     return (
                         <div key={cluster.id || idx}>
                             {showDateSeparator && (
-                                <div className="flex justify-center my-10 relative">
+                                <div className="flex justify-center my-6 relative">
                                     <div className="absolute inset-0 flex items-center" aria-hidden="true">
                                         <div className="w-full border-t border-zinc-200 dark:border-zinc-800/50" />
                                     </div>
@@ -398,7 +402,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                             </div>
                                         )}
                                         <div className="relative group/actions">
-                                            {isMe && cluster.id && cluster.status !== "sending" && (
+                                            {cluster.id && cluster.status !== "sending" && (
                                                 <button onClick={() => onUnsend(cluster.id)} className="absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover/actions:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="h-4 w-4" /></button>
                                             )}
                                             <div className={`p-4 rounded-3xl shadow-sm relative overflow-hidden ${isMe ? "bg-primary text-white rounded-tr-none shadow-blue-200/50 dark:shadow-none" : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tl-none border border-zinc-200/50 dark:border-zinc-800 shadow-zinc-200/50"}`}>
