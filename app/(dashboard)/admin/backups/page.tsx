@@ -34,6 +34,7 @@ export default function BackupsPage() {
     const [backups, setBackups] = useState<Backup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isTriggering, setIsTriggering] = useState(false);
+    const [backupType, setBackupType] = useState<'sql' | 'json'>('sql');
 
     const fetchBackups = async () => {
         setIsLoading(true);
@@ -54,9 +55,10 @@ export default function BackupsPage() {
 
     const handleTriggerBackup = async () => {
         setIsTriggering(true);
-        const loadingToast = toast.loading("Generating database backup...");
+        const loadingToast = toast.loading(`Generating ${backupType.toUpperCase()} backup...`);
         try {
-            await api.post("/v1/backups/trigger");
+            // Increase timeout to 120s for database dumps
+            await api.post(`/v1/backups/trigger?type=${backupType}`, {}, { timeout: 120000 });
             toast.success("Backup generated successfully", { id: loadingToast });
             fetchBackups();
         } catch (error: any) {
@@ -127,6 +129,26 @@ export default function BackupsPage() {
         return format(date, "hh:mm a");
     };
 
+    const groupBackups = (list: Backup[]) => {
+        const groups: Record<string, { sql?: Backup; json?: Backup; lastModified: string }> = {};
+        
+        list.forEach(backup => {
+            const match = backup.fileName.match(/TAFS_(?:SQL|JSON)_(.+?)\.(?:sql|json)\.gz/);
+            const timestamp = match ? match[1] : backup.fileName;
+            const type = backup.fileName.includes("SQL") ? "sql" : "json";
+            
+            if (!groups[timestamp]) {
+                groups[timestamp] = { lastModified: backup.lastModified };
+            }
+            groups[timestamp][type] = backup;
+        });
+        
+        return Object.entries(groups)
+            .sort((a, b) => new Date(b[1].lastModified).getTime() - new Date(a[1].lastModified).getTime());
+    };
+
+    const backupGroups = groupBackups(backups);
+
     return (
         <div className="max-w-6xl mx-auto space-y-8 pb-20">
             {/* Header Section */}
@@ -146,14 +168,14 @@ export default function BackupsPage() {
                 <button
                     onClick={handleTriggerBackup}
                     disabled={isTriggering}
-                    className="flex items-center justify-center gap-2.5 px-6 py-3.5 bg-zinc-900 text-white rounded-2xl font-bold text-sm hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-zinc-200"
+                    className="flex items-center justify-center gap-2.5 px-8 py-3.5 bg-zinc-900 text-white rounded-2xl font-bold text-sm hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-zinc-200"
                 >
                     {isTriggering ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                         <RefreshCw className="h-4 w-4" />
                     )}
-                    Generate Manual Backup
+                    Generate Full Backup (SQL + JSON)
                 </button>
             </div>
 
@@ -182,7 +204,7 @@ export default function BackupsPage() {
                     <h2 className="font-black text-zinc-800 flex items-center gap-2">
                         Available Snapshots
                         <span className="px-2 py-0.5 bg-zinc-200 text-zinc-600 rounded-lg text-[10px] font-black uppercase">
-                            {backups.length} Total
+                            {backupGroups.length} Sessions
                         </span>
                     </h2>
                     <button 
@@ -200,7 +222,7 @@ export default function BackupsPage() {
                                 <div key={i} className="h-20 bg-zinc-50 rounded-2xl animate-pulse" />
                             ))}
                         </div>
-                    ) : backups.length === 0 ? (
+                    ) : backupGroups.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-24 gap-4">
                             <div className="p-6 bg-zinc-50 rounded-[32px] border border-zinc-100 shadow-inner">
                                 <Database className="h-10 w-10 text-zinc-200" />
@@ -215,41 +237,67 @@ export default function BackupsPage() {
                     ) : (
                         <div className="grid grid-cols-1 gap-2">
                             <AnimatePresence mode="popLayout">
-                                {backups.map((backup, idx) => (
+                                {backupGroups.map(([timestamp, group], idx) => (
                                     <motion.div
-                                        key={backup.key}
+                                        key={timestamp}
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: idx * 0.05 }}
-                                        className="group flex items-center justify-between p-4 bg-white hover:bg-zinc-50 border border-transparent hover:border-zinc-100 rounded-[24px] transition-all"
+                                        className="group flex flex-col md:flex-row md:items-center justify-between p-5 bg-white hover:bg-zinc-50 border border-transparent hover:border-zinc-100 rounded-[28px] transition-all gap-4"
                                     >
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-3 bg-zinc-100 group-hover:bg-primary/10 rounded-2xl transition-colors">
-                                                <FileArchive className="h-6 w-6 text-zinc-400 group-hover:text-primary transition-colors" />
+                                        <div className="flex items-center gap-5">
+                                            <div className="p-4 bg-zinc-100 group-hover:bg-primary/10 rounded-2xl transition-colors">
+                                                <FileArchive className="h-7 w-7 text-zinc-400 group-hover:text-primary transition-colors" />
                                             </div>
                                             <div>
-                                                <p className="font-bold text-zinc-800 text-sm">{backup.fileName}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-black text-zinc-800 text-base">Backup Session {timestamp.split('_')[1]}</p>
+                                                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[10px] font-black uppercase">Complete Set</span>
+                                                </div>
                                                 <div className="flex items-center gap-3 mt-1">
                                                     <span className="flex items-center gap-1 text-[11px] font-bold text-zinc-400 uppercase tracking-tight">
-                                                        <Calendar className="h-3 w-3" /> {formatPktDate(backup.lastModified)}
+                                                        <Calendar className="h-3 w-3" /> {formatPktDate(group.lastModified)}
                                                     </span>
                                                     <span className="flex items-center gap-1 text-[11px] font-bold text-zinc-400 uppercase tracking-tight">
-                                                        <Clock className="h-3 w-3" /> {formatPktTime(backup.lastModified)}
-                                                    </span>
-                                                    <span className="flex items-center gap-1 text-[11px] font-bold text-indigo-500 uppercase tracking-tight">
-                                                        <HardDrive className="h-3 w-3" /> {formatFileSize(backup.size)}
+                                                        <Clock className="h-3 w-3" /> {formatPktTime(group.lastModified)}
                                                     </span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <button
-                                            onClick={() => handleDownload(backup.key)}
-                                            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-xl font-bold text-xs hover:bg-zinc-900 hover:text-white hover:border-zinc-900 transition-all shadow-sm active:scale-[0.97]"
-                                        >
-                                            <Download className="h-3.5 w-3.5" />
-                                            Download
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            {group.sql && (
+                                                <button
+                                                    onClick={() => handleDownload(group.sql!.key)}
+                                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 text-white rounded-xl font-bold text-[11px] hover:bg-zinc-800 transition-all shadow-sm active:scale-[0.97]"
+                                                >
+                                                    <Download className="h-3 w-3" />
+                                                    DOWNLOAD SQL
+                                                    <span className="text-[9px] opacity-60 ml-1">({formatFileSize(group.sql.size)})</span>
+                                                </button>
+                                            )}
+                                            {group.json && (
+                                                <button
+                                                    onClick={() => handleDownload(group.json!.key)}
+                                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-xl font-bold text-[11px] hover:bg-zinc-50 transition-all shadow-sm active:scale-[0.97]"
+                                                >
+                                                    <Download className="h-3 w-3" />
+                                                    DOWNLOAD JSON
+                                                    <span className="text-[9px] text-zinc-400 ml-1">({formatFileSize(group.json.size)})</span>
+                                                </button>
+                                            )}
+                                            <div className="w-px h-8 bg-zinc-200 mx-2 hidden md:block" />
+                                            <button
+                                                onClick={() => {
+                                                    if (group.sql) handleDelete(group.sql.key);
+                                                    if (group.json) setTimeout(() => handleDelete(group.json!.key), 500);
+                                                }}
+                                                className="p-2.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                title="Delete all files for this session"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
                                     </motion.div>
                                 ))}
                             </AnimatePresence>
