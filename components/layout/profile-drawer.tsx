@@ -7,7 +7,8 @@ import {
     FileText, History,
     Layers,
     Trash2,
-    MessageSquare
+    MessageSquare,
+    Database
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -109,11 +110,12 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             id: 'system',
             name: 'System Administration',
             icon: Settings,
-            permissions: ['system.users.view', 'system.permissions.manage', 'system.analytics.view'],
+            permissions: ['system.users.view', 'system.permissions.manage', 'system.analytics.view', 'system.backups.view'],
             items: [
                 { name: 'User Management', href: '/system/users', icon: UserCog, permission: 'system.users.view' },
                 { name: 'Permissions', href: '/system/permissions', icon: ShieldCheck, permission: 'system.permissions.manage' },
                 { name: 'Analytics', href: '/dashboard', icon: BarChart3, permission: 'system.analytics.view' },
+                { name: 'Database Backups', href: '/admin/backups', icon: Database, permission: 'system.backups.view' },
             ]
         }
     ];
