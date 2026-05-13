@@ -118,12 +118,12 @@ export default function BackupsPage() {
     };
 
     const formatPktDate = (dateStr: string) => {
-        const date = new Date(dateStr);
+        const date = toZonedTime(new Date(dateStr), PKT_TIMEZONE);
         return format(date, "MMM dd, yyyy");
     };
 
     const formatPktTime = (dateStr: string) => {
-        const date = new Date(dateStr);
+        const date = toZonedTime(new Date(dateStr), PKT_TIMEZONE);
         return format(date, "hh:mm a");
     };
 
