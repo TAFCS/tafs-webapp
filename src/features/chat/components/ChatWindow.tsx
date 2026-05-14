@@ -30,6 +30,10 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
     const [showStudentDetails, setShowStudentDetails] = useState(false);
     const [familyStudents, setFamilyStudents] = useState<any[]>([]);
     const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+    const [showMentions, setShowMentions] = useState(false);
+    const [mentionSearch, setMentionSearch] = useState("");
+    const [activeMentions, setActiveMentions] = useState<Array<{name: string, cc: string}>>([]);
+    const [mentionIndex, setMentionIndex] = useState(0);
     
     const [targetGrade, setTargetGrade] = useState<string | null>(null);
     const [targetSection, setTargetSection] = useState<string | null>(null);
@@ -45,13 +49,13 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
 
     const isAnnouncementChannel = familyId === 0;
 
-    const fetchFamilyStudents = async () => {
+    const fetchFamilyStudents = async (showModal = true) => {
         if (!familyId || familyId === 0) return;
         setIsLoadingStudents(true);
         try {
             const res = await api.get(`v1/chat/family/${familyId}/students`);
             setFamilyStudents(res.data);
-            setShowStudentDetails(true);
+            if (showModal) setShowStudentDetails(true);
         } catch (err) {
             console.error("Failed to fetch family students:", err);
         } finally {
@@ -182,7 +186,49 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
+    const handleInputChange = (val: string) => {
+        setInput(val);
+        
+        const lastAtPos = val.lastIndexOf("@");
+        if (lastAtPos !== -1) {
+            const afterAt = val.slice(lastAtPos + 1);
+            // Check if there's a space after @, if so, stop mentioning
+            if (afterAt.includes(" ")) {
+                setShowMentions(false);
+            } else {
+                setMentionSearch(afterAt.toLowerCase());
+                setShowMentions(true);
+                setMentionIndex(0);
+                if (familyStudents.length === 0) fetchFamilyStudents(false);
+            }
+        } else {
+            setShowMentions(false);
+        }
+    };
+
+    const insertMention = (student: any) => {
+        const lastAtPos = input.lastIndexOf("@");
+        const beforeAt = input.slice(0, lastAtPos);
+        const name = student.full_name;
+        
+        const newText = beforeAt + "@" + name + " ";
+        setInput(newText);
+        setActiveMentions(prev => [...prev, { name, cc: student.cc }]);
+        setShowMentions(false);
+        setMentionSearch("");
+    };
+
     const handleSend = () => {
+        if (!input.trim() && !pendingFiles.length) return;
+
+        let contentToSend = input;
+        
+        // Translate visual @Names back to technical tags
+        activeMentions.forEach(mention => {
+            const regex = new RegExp(`@${mention.name}`, 'g');
+            contentToSend = contentToSend.replace(regex, `@[${mention.name}](student:${mention.cc})`);
+        });
+
         const metadata: any = {};
         if (replyingTo) {
             metadata.replyTo = {
@@ -194,14 +240,36 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
         }
 
         if (pendingFiles.length > 0) {
-            uploadAndSendPending(input.trim(), metadata);
+            uploadAndSendPending(contentToSend.trim(), metadata);
             setInput("");
+            setActiveMentions([]);
             setReplyingTo(null);
         } else if (input.trim()) {
-            onSendMessage(input.trim(), "TEXT", metadata, isAnnouncementChannel ? { grade: targetGrade, section: targetSection } : undefined);
+            onSendMessage(contentToSend.trim(), "TEXT", metadata, isAnnouncementChannel ? { grade: targetGrade, section: targetSection } : undefined);
             setInput("");
+            setActiveMentions([]);
             setReplyingTo(null);
         }
+    };
+
+    const filteredMentionStudents = familyStudents.filter(s => 
+        s.full_name.toLowerCase().includes(mentionSearch) || 
+        s.cc.toString().includes(mentionSearch)
+    );
+
+    const renderMessageContent = (content: string, isMe: boolean) => {
+        const parts = content.split(/(@\[.*?\]\(student:\d+\))/g);
+        return parts.map((part, i) => {
+            const match = part.match(/@\[(.*?)\]\(student:(\d+)\)/);
+            if (match) {
+                return (
+                    <span key={i} className={`inline-flex items-center px-1.5 py-0.5 rounded-md font-black text-[11px] mx-0.5 shadow-sm ${isMe ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary border border-primary/20'}`}>
+                        @{match[1]}
+                    </span>
+                );
+            }
+            return part;
+        });
     };
 
     const clusters = useMemo(() => {
@@ -448,7 +516,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{firstMsg.content}</p>
+                                                    <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{renderMessageContent(firstMsg.content, isMe)}</p>
                                                 )}
                                                 
                                                 {/* Status inside bubble */}
@@ -557,7 +625,119 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                             <span className="text-xs font-black text-red-600 dark:text-red-400 uppercase tracking-widest">Live Recording • {formatTime(recordingTime)}</span>
                         </div>
                     ) : (
-                        <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSend()} placeholder={isAnnouncementChannel ? "Broadcast official announcement..." : "Type a message..."} className="flex-1 bg-zinc-100 dark:bg-zinc-900/80 border-none focus:ring-2 focus:ring-primary/30 rounded-2xl px-6 py-3.5 text-sm font-medium transition-all" />
+                        <div className="flex-1 relative">
+                            {/* Input Highlighter Overlay */}
+                            {!isRecording && (
+                                <div 
+                                    className="absolute inset-0 px-6 py-3.5 text-sm font-medium pointer-events-none whitespace-pre-wrap break-words overflow-hidden m-0"
+                                    style={{ lineHeight: '1.25rem', fontFamily: 'inherit' }}
+                                    aria-hidden="true"
+                                >
+                                    {(() => {
+                                        // Build a dynamic regex from active mentions
+                                        if (activeMentions.length === 0) return <span>{input}</span>;
+                                        
+                                        const names = activeMentions.map(m => m.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+                                        const regex = new RegExp(`(@(?:${names}))( )`, 'g');
+                                        
+                                        return input.split(regex).map((part, i) => {
+                                            const isMention = activeMentions.some(m => "@" + m.name === part);
+                                            if (isMention) {
+                                                return (
+                                                    <span key={i} className="text-primary bg-primary/10 rounded-sm border-y border-primary/20">
+                                                        {part}
+                                                    </span>
+                                                );
+                                            }
+                                            return <span key={i} className="text-zinc-900 dark:text-zinc-100">{part}</span>;
+                                        });
+                                    })()}
+                                </div>
+                            )}
+                            <AnimatePresence>
+                                {showMentions && filteredMentionStudents.length > 0 && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        className="absolute bottom-full mb-4 left-0 w-72 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-80"
+                                    >
+                                        <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Tag Students</p>
+                                        </div>
+                                        <div className="overflow-y-auto no-scrollbar">
+                                            {filteredMentionStudents.map((student, idx) => (
+                                                <button
+                                                    key={student.cc}
+                                                    onClick={() => insertMention(student)}
+                                                    className={`w-full flex items-center gap-3 p-3 transition-all hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-left border-b border-zinc-50 dark:border-zinc-800/50 last:border-none ${idx === mentionIndex ? 'bg-primary/5 dark:bg-primary/10' : ''}`}
+                                                >
+                                                    <div className="h-10 w-10 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex-shrink-0">
+                                                        {student.photograph_url ? <img src={student.photograph_url} className="h-full w-full object-cover" /> : <User className="h-5 w-5 m-2.5 text-zinc-400" />}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-black text-zinc-900 dark:text-zinc-100 truncate">{student.full_name}</p>
+                                                        <p className="text-[9px] font-bold text-primary uppercase mt-0.5">CC: {student.cc}</p>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                            <input 
+                                type="text" 
+                                value={input} 
+                                onChange={(e) => handleInputChange(e.target.value)} 
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleSend();
+                                    
+                                    // Handle atomic backspace for names
+                                    if (e.key === "Backspace") {
+                                        const selectionStart = (e.target as HTMLInputElement).selectionStart;
+                                        if (selectionStart !== null) {
+                                            for (const mention of activeMentions) {
+                                                const tag = "@" + mention.name + " ";
+                                                const searchStr = input.slice(0, selectionStart);
+                                                if (searchStr.endsWith(tag)) {
+                                                    e.preventDefault();
+                                                    const newText = input.slice(0, selectionStart - tag.length) + input.slice(selectionStart);
+                                                    setInput(newText);
+                                                    setTimeout(() => {
+                                                        const inputEl = e.target as HTMLInputElement;
+                                                        inputEl.setSelectionRange(selectionStart - tag.length, selectionStart - tag.length);
+                                                    }, 0);
+                                                    return;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if (showMentions && filteredMentionStudents.length > 0) {
+                                        if (e.key === "ArrowDown") {
+                                            e.preventDefault();
+                                            setMentionIndex(prev => (prev + 1) % filteredMentionStudents.length);
+                                        }
+                                        if (e.key === "ArrowUp") {
+                                            e.preventDefault();
+                                            setMentionIndex(prev => (prev - 1 + filteredMentionStudents.length) % filteredMentionStudents.length);
+                                        }
+                                        if (e.key === "Tab" || e.key === "Enter") {
+                                            if (showMentions) {
+                                                e.preventDefault();
+                                                insertMention(filteredMentionStudents[mentionIndex]);
+                                            }
+                                        }
+                                        if (e.key === "Escape") {
+                                            setShowMentions(false);
+                                        }
+                                    }
+                                }} 
+                                placeholder={isAnnouncementChannel ? "Broadcast official announcement..." : "Type a message..."} 
+                                className="w-full bg-zinc-100 dark:bg-zinc-900/80 border-none focus:ring-0 rounded-2xl px-6 py-3.5 text-sm font-medium transition-all caret-primary text-transparent outline-none m-0 block" 
+                                style={{ lineHeight: '1.25rem', fontFamily: 'inherit' }}
+                            />
+                        </div>
                     )}
 
                     <button onClick={isRecording ? stopRecording : handleSend} disabled={!isRecording && !input.trim() && pendingFiles.length === 0} className={`p-3.5 rounded-2xl transition-all shadow-xl hover:scale-105 active:scale-95 disabled:scale-100 disabled:shadow-none ${isRecording ? "bg-red-500 text-white" : "bg-primary text-white hover:bg-blue-700 disabled:bg-zinc-200 disabled:text-zinc-400"}`}>
