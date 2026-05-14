@@ -350,7 +350,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                         <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-tighter mt-0.5">{isConnected ? "Verified" : "Sync Error"}</p>
                     </div>
                     {!isAnnouncementChannel && (
-                        <button onClick={fetchFamilyStudents} disabled={isLoadingStudents} className="p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-primary flex items-center gap-2">
+                        <button onClick={() => fetchFamilyStudents()} disabled={isLoadingStudents} className="p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-primary flex items-center gap-2">
                             {isLoadingStudents ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
                             <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Family Info</span>
                         </button>
