@@ -120,11 +120,17 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const [paymentMethod, setPaymentMethod] = useState<string>("cash");
     const [referenceNumber, setReferenceNumber] = useState<string>("");
 
-    const heads = [...(voucher.voucher_heads || [])].sort((a, b) => {
+    const allHeads = [...(voucher.voucher_heads || [])].sort((a, b) => {
         const dateA = new Date(a.student_fees?.fee_date || 0).getTime();
         const dateB = new Date(b.student_fees?.fee_date || 0).getTime();
         return dateA - dateB;
     });
+
+    // Discount heads have is_discount=true and net_amount<0 — separate them so they
+    // are displayed as deductions and never included in deposit distribution.
+    const isDiscountHead = (h: typeof allHeads[0]) => h.student_fees?.is_discount === true || Number(h.net_amount ?? 0) < 0;
+    const heads = allHeads.filter(h => !isDiscountHead(h));
+    const discountHeads = allHeads.filter(h => isDiscountHead(h));
 
     // Arrear surcharges from the voucher
     const arrearSurcharges = (voucher.voucher_arrear_surcharges || []).filter(s => !s.waived);
@@ -463,6 +469,41 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             );
                         })}
 
+                        {/* ── Discount Heads Section ────────────────────────── */}
+                        {discountHeads.length > 0 && (
+                            <>
+                                <div className="pt-3 pb-1 px-1">
+                                    <span className="flex items-center gap-2 text-[10px] font-black text-violet-500 uppercase tracking-[0.18em]">
+                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                        Discounts Applied
+                                    </span>
+                                </div>
+                                {discountHeads.map(h => {
+                                    const discountAmt = Math.abs(Number(h.net_amount ?? 0));
+                                    const label = h.student_fees?.discount_presets?.title ?? 'Discount';
+                                    return (
+                                        <div
+                                            key={h.id}
+                                            className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 bg-violet-50/30 dark:bg-violet-900/10 border border-violet-100/60 dark:border-violet-900/30 rounded-2xl"
+                                        >
+                                            <div>
+                                                <p className="text-[12px] font-black text-violet-600">{label}</p>
+                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-violet-100 dark:bg-violet-900/30 text-violet-600 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5">
+                                                    Discount
+                                                </span>
+                                            </div>
+                                            <span className="text-[11px] font-bold text-violet-600 tabular-nums text-right">- {discountAmt.toLocaleString()}</span>
+                                            <span className="text-[11px] font-bold text-zinc-400 tabular-nums text-right">—</span>
+                                            <span className="text-[11px] font-black text-emerald-600 tabular-nums text-right">0</span>
+                                            <div className="flex justify-end">
+                                                <span className="text-[10px] font-black text-violet-500 uppercase tracking-widest">Applied</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </>
+                        )}
+
                         {/* ── Arrear Surcharges Section ─────────────────────── */}
                         {(arrearSurcharges.length > 0 || waivedSurcharges.length > 0) && (
                             <>
@@ -573,10 +614,16 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
         ?? voucher.fee_date ?? null;
 
     // ── Amount Payable: sum of voucher_heads.balance (authoritative, already ───
-    //    normalised by backend against student_fees)
+    //    normalised by backend against student_fees).
+    //    Discount heads have net_amount<0 and balance=0 — use net_amount so they
+    //    reduce the display totals rather than inflate them.
     const heads = voucher.voucher_heads || [];
-    const sfTotalNet = heads.reduce((s, h) => s + Number(h.student_fees?.amount ?? h.net_amount ?? 0), 0);
-    const sfTotalDeposited = heads.reduce((s, h) => s + Math.max(Number(h.student_fees?.amount ?? h.net_amount ?? 0) - Number(h.balance ?? 0), 0), 0);
+    const sfTotalNet = heads.reduce((s, h) => s + Number(h.net_amount ?? h.student_fees?.amount ?? 0), 0);
+    const sfTotalDeposited = heads.reduce((s, h) => {
+        const netAmt = Number(h.net_amount ?? 0);
+        if (netAmt < 0) return s; // discount head: no deposit
+        return s + Math.max(Number(h.student_fees?.amount ?? netAmt) - Number(h.balance ?? 0), 0);
+    }, 0);
     const sfTotalBalance = heads.reduce((s, h) => s + Number(h.balance ?? 0), 0);
 
     const totalBalanceValue = voucher.total_balance !== undefined ? Number(voucher.total_balance) : sfTotalBalance;

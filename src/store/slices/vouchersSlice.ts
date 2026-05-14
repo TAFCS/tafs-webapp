@@ -55,9 +55,11 @@ export interface VoucherHead {
         target_month: number | null;
         academic_year: string | null;
         fee_date: string | null;
+        is_discount: boolean;
+        discount_presets?: { id: number; title: string } | null;
         fee_types: {
             description: string;
-        };
+        } | null;
     };
 
 }
