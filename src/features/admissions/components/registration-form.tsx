@@ -88,7 +88,7 @@ const A_LEVEL_SUBJECTS_GROUP_B = [
 const INITIAL_FORM_DATA = {
     campusId: "",
     candidateName: "", fatherName: "", motherName: "",
-    fatherCnic: "", motherCnic: "",
+    candidateCnic: "", fatherCnic: "", motherCnic: "",
     dobDay: "", dobMonth: "", dobYear: "",
     nationalityPakistani: true, nationalityOther: "",
     gender: "", religion: "", identificationMarks: "", isIdentificationMarksNA: true,
@@ -118,6 +118,7 @@ const INITIAL_FORM_DATA = {
     fatherPhotoFile: null as File | null,
     motherPhotoFile: null as File | null,
     flags: [] as Array<{ id: string; reminderDate: string; description: string }>,
+    isCandidateCnicForeign: false,
     isFatherCnicForeign: false,
     isMotherCnicForeign: false,
     isFatherPhoneForeign: false,
@@ -249,6 +250,7 @@ export function RegistrationForm() {
     }, [dispatch, classes.length, campuses.length, isClassesLoading, isCampusesLoading]);
 
     const [formData, setFormData] = useState(INITIAL_FORM_DATA);
+    const [cnicTouched, setCnicTouched] = useState(false);
 
     // Auto-calculate age from DOB
     useEffect(() => {
@@ -300,8 +302,10 @@ export function RegistrationForm() {
         const checked = (e.target as HTMLInputElement).checked;
 
         // 1. Handle CNIC formatting
-        if (name === "fatherCnic" || name === "motherCnic") {
-            const isForeign = name === "fatherCnic" ? formData.isFatherCnicForeign : formData.isMotherCnicForeign;
+        if (name === "fatherCnic" || name === "motherCnic" || name === "candidateCnic") {
+            const isForeign = name === "fatherCnic" ? formData.isFatherCnicForeign : 
+                              name === "motherCnic" ? formData.isMotherCnicForeign : 
+                              formData.isCandidateCnicForeign;
             if (isForeign) {
                 setFormData(prev => ({ ...prev, [name]: value.toUpperCase() }));
                 // No auto-fetch for foreign CNIC as it doesn't match standard format
@@ -309,6 +313,8 @@ export function RegistrationForm() {
             }
             const formatted = formatCNIC(value);
             setFormData(prev => ({ ...prev, [name]: formatted }));
+            
+            if (name === "candidateCnic") return; // Don't fetch guardian data for candidate
             
             // Auto-fetch if 13 digits are reached (local) or any input (foreign)
             const digits = formatted.replace(/\D/g, "");
@@ -740,6 +746,10 @@ export function RegistrationForm() {
     const isStep1Valid = () => {
         const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
         
+        const isCandidateCnicValid = !!formData.candidateCnic && (
+                                 formData.isCandidateCnicForeign || 
+                                 cnicRegex.test(formData.candidateCnic));
+
         const isFatherCnicValid = !formData.fatherCnic || 
                                  formData.isFatherCnicForeign || 
                                  cnicRegex.test(formData.fatherCnic);
@@ -751,6 +761,7 @@ export function RegistrationForm() {
         return (
             formData.campusId &&
             formData.candidateName.trim() &&
+            isCandidateCnicValid &&
             isFatherCnicValid &&
             isMotherCnicValid &&
             formData.dobDay && formData.dobMonth && formData.dobYear &&
@@ -763,6 +774,14 @@ export function RegistrationForm() {
         if (currentStep === 1) {
             if (!formData.campusId) {
                 setSubmitError("Please select a Campus from the sidebar before proceeding.");
+                return;
+            }
+            if (!formData.fatherPhotoFile && !formData.fatherPhotoUrl) {
+                setSubmitError("Father's photograph is required before proceeding.");
+                return;
+            }
+            if (!formData.motherPhotoFile && !formData.motherPhotoUrl) {
+                setSubmitError("Mother's photograph is required before proceeding.");
                 return;
             }
             if (!isStep1Valid()) {
@@ -785,6 +804,18 @@ export function RegistrationForm() {
         // Validation: Required fields check
         if (!formData.campusId) {
             setSubmitError("Please select a Campus before submitting.");
+            return;
+        }
+
+        if (!formData.fatherPhotoFile && !formData.fatherPhotoUrl) {
+            setSubmitError("Father's photograph is required.");
+            setIsSubmitting(false);
+            return;
+        }
+
+        if (!formData.motherPhotoFile && !formData.motherPhotoUrl) {
+            setSubmitError("Mother's photograph is required.");
+            setIsSubmitting(false);
             return;
         }
 
@@ -842,6 +873,7 @@ export function RegistrationForm() {
 
         const payload = {
             full_name: fullName,
+            cnic: sanitizeValue(formData.candidateCnic),
             dob,
             gender: formData.gender || 'Male',
             nationality: formData.nationalityPakistani ? 'Pakistani' : formData.nationalityOther || 'Pakistani',
@@ -1087,14 +1119,14 @@ export function RegistrationForm() {
                         />
                         <div className="flex gap-2">
                             <RegistrationPhotoBox 
-                                label="Father"
+                                label="Father <span class='text-rose-500'>*</span>"
                                 file={formData.fatherPhotoFile}
                                 existingUrl={formData.fatherPhotoUrl}
                                 onChange={(f) => setFormData(prev => ({ ...prev, fatherPhotoFile: f }))}
                                 className="h-20 w-1/2"
                             />
                             <RegistrationPhotoBox 
-                                label="Mother"
+                                label="Mother <span class='text-rose-500'>*</span>"
                                 file={formData.motherPhotoFile}
                                 existingUrl={formData.motherPhotoUrl}
                                 onChange={(f) => setFormData(prev => ({ ...prev, motherPhotoFile: f }))}
@@ -1196,6 +1228,32 @@ export function RegistrationForm() {
                                     <div className="md:col-span-2">
                                         <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1.5">Candidate&apos;s Full Name (In Block Letters Only)</label>
                                         <input type="text" name="candidateName" value={formData.candidateName || ""} onChange={handleInputChange} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg uppercase focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Candidate&apos;s CNIC / B-Form <span className="text-rose-500 ml-1">*</span></label>
+                                            <div className="flex items-center gap-1.5">
+                                                <input type="checkbox" name="isCandidateCnicForeign" id="candidateCnicForeign" checked={formData.isCandidateCnicForeign} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
+                                                <label htmlFor="candidateCnicForeign" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Foreign / Passport</label>
+                                            </div>
+                                        </div>
+                                        <div className="relative">
+                                            <input 
+                                                type="text" 
+                                                name="candidateCnic" 
+                                                value={formData.candidateCnic || ""} 
+                                                onChange={handleInputChange} 
+                                                onBlur={() => setCnicTouched(true)}
+                                                placeholder={formData.isCandidateCnicForeign ? "PASSPORT / ID #" : "XXXXX-XXXXXXX-X"} 
+                                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none ${cnicTouched && !formData.candidateCnic ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/20' : 'border-zinc-300 dark:border-zinc-700'}`} 
+                                            />
+                                            {cnicTouched && !formData.candidateCnic && (
+                                                <p className="text-[10px] text-rose-500 mt-1.5 font-bold uppercase tracking-wider flex items-center gap-1">
+                                                    <AlertCircle className="w-3 h-3" />
+                                                    Cannot be left blank
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
                                     <div>
                                         <div className="flex items-center justify-between mb-1.5">
