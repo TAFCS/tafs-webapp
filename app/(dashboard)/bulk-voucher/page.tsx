@@ -209,7 +209,7 @@ export default function BulkVoucherPage() {
 
     // Auto-open report when job finishes
     useEffect(() => {
-        if ((jobStatus !== 'done' && jobStatus !== 'partial_failure' && jobStatus !== 'failed') || !jobId) return;
+        if ((jobStatus !== 'done' && jobStatus !== 'failed') || !jobId) return;
         if (autoOpenedJobRef.current === jobId) return;
         autoOpenedJobRef.current = jobId;
         (async () => {
@@ -1044,20 +1044,20 @@ export default function BulkVoucherPage() {
         <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in zoom-in duration-700">
             <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[40px] p-12 text-center space-y-8 shadow-2xl">
                 <div className="relative inline-block">
-                    <div className={`h-24 w-24 rounded-[32px] flex items-center justify-center text-white shadow-xl ${jobStatus === 'done' ? "bg-emerald-500 shadow-emerald-500/20" : jobStatus === 'partial_failure' ? "bg-amber-500 shadow-amber-500/20" : jobStatus === 'failed' ? "bg-rose-500 shadow-rose-500/20" : "bg-primary shadow-primary/20 animate-pulse"}`}>
-                        {jobStatus === 'done' || jobStatus === 'partial_failure' ? <CheckCircle2 className="h-12 w-12" /> : jobStatus === 'failed' ? <X className="h-12 w-12" /> : <Layers className="h-12 w-12" />}
+                    <div className={`h-24 w-24 rounded-[32px] flex items-center justify-center text-white shadow-xl ${jobStatus === 'done' && failCount === 0 ? "bg-emerald-500 shadow-emerald-500/20" : jobStatus === 'done' ? "bg-amber-500 shadow-amber-500/20" : jobStatus === 'failed' ? "bg-rose-500 shadow-rose-500/20" : "bg-primary shadow-primary/20 animate-pulse"}`}>
+                        {jobStatus === 'done' ? <CheckCircle2 className="h-12 w-12" /> : jobStatus === 'failed' ? <X className="h-12 w-12" /> : <Layers className="h-12 w-12" />}
                     </div>
-                    {jobStatus !== 'done' && jobStatus !== 'partial_failure' && jobStatus !== 'failed' && (
+                    {jobStatus !== 'done' && jobStatus !== 'failed' && (
                         <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-[32px] animate-spin" />
                     )}
                 </div>
 
                 <div className="space-y-3">
                     <h2 className="text-2xl font-black text-zinc-900 dark:text-zinc-100">
-                        {jobStatus === 'done' ? "Bulk Generation Complete!" : jobStatus === 'partial_failure' ? "Partially Complete" : jobStatus === 'failed' ? "Job Failed" : "Generating Vouchers..."}
+                        {jobStatus === 'done' && failCount === 0 ? "Bulk Generation Complete!" : jobStatus === 'done' ? "Partially Complete" : jobStatus === 'failed' ? "Job Failed" : "Generating Vouchers..."}
                     </h2>
                     <p className="text-zinc-500 dark:text-zinc-400 font-medium max-w-sm mx-auto">
-                        {jobStatus === 'done' ? `All ${successCount} vouchers were generated successfully.` : jobStatus === 'partial_failure' ? `${successCount} vouchers generated; ${failCount} could not be processed.` : jobStatus === 'failed' ? "Something went wrong during the generation process." : `Processing ${selectedStudentCCs.length} students. This may take a few minutes.`}
+                        {jobStatus === 'done' && failCount === 0 ? `All ${successCount} vouchers were generated successfully.` : jobStatus === 'done' ? `${successCount} vouchers generated; ${failCount} could not be processed.` : jobStatus === 'failed' ? "Something went wrong during the generation process." : `Processing ${selectedStudentCCs.length} students. This may take a few minutes.`}
                     </p>
                 </div>
 
@@ -1093,7 +1093,7 @@ export default function BulkVoucherPage() {
                     </div>
                 </div>
 
-                {(jobStatus === 'done' || jobStatus === 'partial_failure') && mergedPdfUrl && (
+                {jobStatus === 'done' && mergedPdfUrl && (
                     <div className="pt-4">
                         <a
                             href={mergedPdfUrl}
@@ -1107,7 +1107,7 @@ export default function BulkVoucherPage() {
                     </div>
                 )}
 
-                {(jobStatus === 'done' || jobStatus === 'partial_failure' || jobStatus === 'failed') && (
+                {(jobStatus === 'done' || jobStatus === 'failed') && (
                     <button
                         onClick={openJobReport}
                         disabled={isFetchingReport}
@@ -1119,7 +1119,7 @@ export default function BulkVoucherPage() {
                 )}
             </div>
 
-            {(jobStatus === 'done' || jobStatus === 'partial_failure') && (
+            {jobStatus === 'done' && (
                 <div className="flex justify-center">
                     <button
                         onClick={() => { dispatch(resetBulkProcess()); setShowReportModal(false); setModalReport(null); fetchedReportCache.current = null; autoOpenedJobRef.current = null; }}
