@@ -417,6 +417,9 @@ function VoucherRow({
             link.href = pdfUrl;
             link.target = "_blank";
             link.rel = "noopener noreferrer";
+            const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : null;
+            const grNum = (voucher as any).students?.gr_number;
+            if (feeDateStr && grNum) link.download = `${feeDateStr}-${grNum}.pdf`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -438,6 +441,9 @@ function VoucherRow({
             link.href = pdfUrl;
             link.target = "_blank";
             link.rel = "noopener noreferrer";
+            const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : null;
+            const grNum = (voucher as any).students?.gr_number;
+            if (feeDateStr && grNum) link.download = `${feeDateStr}-${grNum}.pdf`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);

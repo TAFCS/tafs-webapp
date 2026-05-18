@@ -1299,7 +1299,7 @@ export default function FeeChallanGenerator() {
                                 {generatedGroupDates.has(g.fee_date) ? "Regenerate" : "Generate"}
                               </button>
                               {generatedGroupDates.has(g.fee_date) && savedGroupVoucherPdfUrls[g.fee_date] && (
-                                <a href={savedGroupVoucherPdfUrls[g.fee_date]} target="_blank" rel="noopener noreferrer" className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-emerald-600 text-white flex items-center gap-2">
+                                <a href={savedGroupVoucherPdfUrls[g.fee_date]} target="_blank" rel="noopener noreferrer" download={`${g.fee_date}-${student?.gr_number || ''}.pdf`} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-emerald-600 text-white flex items-center gap-2">
                                   <Download className="h-4 w-4" /> Download
                                 </a>
                               )}
