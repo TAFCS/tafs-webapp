@@ -207,6 +207,29 @@ export default function BulkVoucherPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [jobId]);
 
+    // Auto-open report when job finishes
+    useEffect(() => {
+        if ((jobStatus !== 'done' && jobStatus !== 'partial_failure' && jobStatus !== 'failed') || !jobId) return;
+        if (autoOpenedJobRef.current === jobId) return;
+        autoOpenedJobRef.current = jobId;
+        (async () => {
+            setIsFetchingReport(true);
+            try {
+                const { data } = await api.get(`/v1/bulk-voucher-jobs/${jobId}/status`);
+                const job = data?.data ?? data;
+                const rep = Array.isArray(job?.report) ? job.report : [];
+                fetchedReportCache.current = { jobId, report: rep };
+                setModalReport(rep);
+                setShowReportModal(true);
+            } catch {
+                // Silent — user can open manually via button
+            } finally {
+                setIsFetchingReport(false);
+            }
+        })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [jobStatus, jobId]);
+
     // Derived logic for filtered classes/sections
     const selectedCampusItem = useMemo(() => 
         campuses.find(c => c.id === parseInt(filters.campusId)), 
@@ -286,6 +309,13 @@ export default function BulkVoucherPage() {
     };
 
     const [isExportingZip, setIsExportingZip] = useState<number | null>(null);
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [modalReport, setModalReport] = useState<any[] | null>(null);
+    const [isFetchingReport, setIsFetchingReport] = useState(false);
+    const [modalFilter, setModalFilter] = useState<'all' | 'success' | 'skipped' | 'failed'>('all');
+    const [modalSearch, setModalSearch] = useState('');
+    const fetchedReportCache = useRef<{ jobId: number; report: any[] } | null>(null);
+    const autoOpenedJobRef = useRef<number | null>(null);
 
     const handleDownloadZip = async (job: any) => {
         const report = job.report || [];
@@ -354,6 +384,69 @@ export default function BulkVoucherPage() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    };
+
+    // ── Report Modal helpers ────────────────────────────────────────────────────
+
+    const getFriendlyStatus = (item: any): { label: string; cls: string } => {
+        if (item.status === 'SUCCESS') return { label: 'Voucher Generated', cls: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400' };
+        if (item.status === 'SKIPPED') return { label: 'Skipped', cls: 'bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400' };
+        return { label: 'Generation Failed', cls: 'bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-400' };
+    };
+
+    const getFriendlyNote = (item: any): string => {
+        if (item.status === 'SUCCESS') return 'Fee voucher was created and is ready for payment.';
+        if (item.status === 'SKIPPED') {
+            const r = (item.reason || '').toLowerCase();
+            if (r.includes('already fully paid') || r.includes('no voucher needed')) return 'All fees for this period are already settled — no voucher was needed.';
+            if (r.includes('already issued') || r.includes('already generated')) return 'A voucher was already issued for this student for this period.';
+            return item.reason || 'Student was skipped during generation.';
+        }
+        const err = (item.error || '').toLowerCase();
+        if (err.includes('already fully paid') || err.includes('no voucher needed')) return 'All fees for this period are already settled — no voucher was needed.';
+        if (err.includes('not found')) return 'Student or fee record not found in the system.';
+        return 'There was a problem creating this voucher. Please generate it individually from the fee portal.';
+    };
+
+    const doDownloadReportCsv = (report: any[]) => {
+        const headers = ['Student Name', 'CC', 'Status', 'Notes'];
+        const rows = report.map(item => [
+            item.student_name ?? '',
+            item.cc ?? '',
+            getFriendlyStatus(item).label,
+            getFriendlyNote(item),
+        ]);
+        const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `voucher-job-${jobId}-report.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    const openJobReport = async () => {
+        if (!jobId) return;
+        if (fetchedReportCache.current?.jobId === jobId) {
+            setModalReport(fetchedReportCache.current.report);
+            setShowReportModal(true);
+            return;
+        }
+        setIsFetchingReport(true);
+        try {
+            const { data } = await api.get(`/v1/bulk-voucher-jobs/${jobId}/status`);
+            const job = data?.data ?? data;
+            const rep = Array.isArray(job?.report) ? job.report : [];
+            fetchedReportCache.current = { jobId, report: rep };
+            setModalReport(rep);
+            setShowReportModal(true);
+        } catch {
+            toast.error('Could not load the report. Please try again.');
+        } finally {
+            setIsFetchingReport(false);
+        }
     };
 
     const renderHistory = () => (
@@ -951,20 +1044,20 @@ export default function BulkVoucherPage() {
         <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in zoom-in duration-700">
             <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[40px] p-12 text-center space-y-8 shadow-2xl">
                 <div className="relative inline-block">
-                    <div className={`h-24 w-24 rounded-[32px] flex items-center justify-center text-white shadow-xl ${jobStatus === 'done' ? "bg-emerald-500 shadow-emerald-500/20" : jobStatus === 'failed' ? "bg-rose-500 shadow-rose-500/20" : "bg-primary shadow-primary/20 animate-pulse"}`}>
-                        {jobStatus === 'done' ? <CheckCircle2 className="h-12 w-12" /> : jobStatus === 'failed' ? <X className="h-12 w-12" /> : <Layers className="h-12 w-12" />}
+                    <div className={`h-24 w-24 rounded-[32px] flex items-center justify-center text-white shadow-xl ${jobStatus === 'done' ? "bg-emerald-500 shadow-emerald-500/20" : jobStatus === 'partial_failure' ? "bg-amber-500 shadow-amber-500/20" : jobStatus === 'failed' ? "bg-rose-500 shadow-rose-500/20" : "bg-primary shadow-primary/20 animate-pulse"}`}>
+                        {jobStatus === 'done' || jobStatus === 'partial_failure' ? <CheckCircle2 className="h-12 w-12" /> : jobStatus === 'failed' ? <X className="h-12 w-12" /> : <Layers className="h-12 w-12" />}
                     </div>
-                    {jobStatus !== 'done' && jobStatus !== 'failed' && (
+                    {jobStatus !== 'done' && jobStatus !== 'partial_failure' && jobStatus !== 'failed' && (
                         <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-[32px] animate-spin" />
                     )}
                 </div>
 
                 <div className="space-y-3">
                     <h2 className="text-2xl font-black text-zinc-900 dark:text-zinc-100">
-                        {jobStatus === 'done' ? "Bulk Generation Complete!" : jobStatus === 'failed' ? "Job Failed" : "Generating Vouchers..."}
+                        {jobStatus === 'done' ? "Bulk Generation Complete!" : jobStatus === 'partial_failure' ? "Partially Complete" : jobStatus === 'failed' ? "Job Failed" : "Generating Vouchers..."}
                     </h2>
                     <p className="text-zinc-500 dark:text-zinc-400 font-medium max-w-sm mx-auto">
-                        {jobStatus === 'done' ? `Successfully generated ${successCount} vouchers for ${filters.campusId}.` : jobStatus === 'failed' ? "Something went wrong during the generation process." : `Processing ${selectedStudentCCs.length} students. This may take a few minutes.`}
+                        {jobStatus === 'done' ? `All ${successCount} vouchers were generated successfully.` : jobStatus === 'partial_failure' ? `${successCount} vouchers generated; ${failCount} could not be processed.` : jobStatus === 'failed' ? "Something went wrong during the generation process." : `Processing ${selectedStudentCCs.length} students. This may take a few minutes.`}
                     </p>
                 </div>
 
@@ -1000,9 +1093,9 @@ export default function BulkVoucherPage() {
                     </div>
                 </div>
 
-                {jobStatus === 'done' && mergedPdfUrl && (
+                {(jobStatus === 'done' || jobStatus === 'partial_failure') && mergedPdfUrl && (
                     <div className="pt-4">
-                        <a 
+                        <a
                             href={mergedPdfUrl}
                             target="_blank"
                             className="w-full h-16 bg-emerald-500 text-white rounded-3xl flex items-center justify-center gap-4 font-black hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/20 active:scale-95"
@@ -1013,12 +1106,23 @@ export default function BulkVoucherPage() {
                         <p className="text-[11px] font-bold text-zinc-400 mt-4 uppercase tracking-widest">Single file containing all generated vouchers</p>
                     </div>
                 )}
+
+                {(jobStatus === 'done' || jobStatus === 'partial_failure' || jobStatus === 'failed') && (
+                    <button
+                        onClick={openJobReport}
+                        disabled={isFetchingReport}
+                        className="w-full h-14 bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 rounded-3xl flex items-center justify-center gap-3 font-black text-[14px] hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all disabled:opacity-50"
+                    >
+                        {isFetchingReport ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />}
+                        {isFetchingReport ? 'LOADING REPORT...' : 'VIEW DETAILED REPORT'}
+                    </button>
+                )}
             </div>
-            
-            {jobStatus === 'done' && (
+
+            {(jobStatus === 'done' || jobStatus === 'partial_failure') && (
                 <div className="flex justify-center">
-                    <button 
-                        onClick={() => dispatch(resetBulkProcess())}
+                    <button
+                        onClick={() => { dispatch(resetBulkProcess()); setShowReportModal(false); setModalReport(null); fetchedReportCache.current = null; autoOpenedJobRef.current = null; }}
                         className="text-[12px] font-black text-zinc-400 hover:text-primary transition-colors flex items-center gap-2"
                     >
                         <Layers className="h-4 w-4" />
@@ -1129,6 +1233,134 @@ export default function BulkVoucherPage() {
                                     </>
                                 )}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Generation Report Modal ──────────────────────────────────── */}
+            {showReportModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowReportModal(false)}>
+                    <div className="bg-white dark:bg-zinc-950 rounded-[28px] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-zinc-200 dark:border-zinc-800" onClick={e => e.stopPropagation()}>
+
+                        {/* Header */}
+                        <div className="p-6 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between shrink-0">
+                            <div>
+                                <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100">Generation Report</h2>
+                                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">
+                                    Job #{jobId} &middot; {modalReport?.length ?? 0} students processed
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => modalReport && doDownloadReportCsv(modalReport)}
+                                    disabled={!modalReport}
+                                    className="h-9 px-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl flex items-center gap-2 text-[11px] font-black hover:opacity-80 transition-all disabled:opacity-40"
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                    DOWNLOAD CSV
+                                </button>
+                                <button
+                                    onClick={() => setShowReportModal(false)}
+                                    className="h-9 w-9 bg-zinc-100 dark:bg-zinc-900 rounded-xl flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Summary stats */}
+                        <div className="grid grid-cols-3 gap-3 p-5 border-b border-zinc-100 dark:border-zinc-900 shrink-0">
+                            <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 rounded-2xl p-3 text-center">
+                                <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Generated</p>
+                                <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{successCount}</p>
+                            </div>
+                            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900 rounded-2xl p-3 text-center">
+                                <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest">Skipped</p>
+                                <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-0.5">{skipCount}</p>
+                            </div>
+                            <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900 rounded-2xl p-3 text-center">
+                                <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest">Failed</p>
+                                <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-0.5">{failCount}</p>
+                            </div>
+                        </div>
+
+                        {/* Filter + Search */}
+                        <div className="px-5 py-3 border-b border-zinc-100 dark:border-zinc-900 flex items-center gap-3 shrink-0 flex-wrap">
+                            <div className="flex items-center bg-zinc-100 dark:bg-zinc-900 rounded-xl p-1 gap-0.5">
+                                {(['all', 'success', 'skipped', 'failed'] as const).map(f => (
+                                    <button
+                                        key={f}
+                                        onClick={() => setModalFilter(f)}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${modalFilter === f ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'}`}
+                                    >
+                                        {f === 'all' ? 'All' : f === 'success' ? 'Generated' : f === 'skipped' ? 'Skipped' : 'Failed'}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="relative flex-1 min-w-[160px]">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by name or CC..."
+                                    className="w-full h-8 pl-9 pr-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[12px] font-medium outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                                    value={modalSearch}
+                                    onChange={e => setModalSearch(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Table */}
+                        <div className="flex-1 overflow-y-auto min-h-0">
+                            {!modalReport ? (
+                                <div className="flex items-center justify-center h-32">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                </div>
+                            ) : (() => {
+                                const filtered = modalReport.filter(item => {
+                                    const matchesFilter = modalFilter === 'all'
+                                        || (modalFilter === 'success' && item.status === 'SUCCESS')
+                                        || (modalFilter === 'skipped' && item.status === 'SKIPPED')
+                                        || (modalFilter === 'failed' && item.status === 'FAILED');
+                                    const q = modalSearch.toLowerCase();
+                                    const matchesSearch = !q
+                                        || (item.student_name || '').toLowerCase().includes(q)
+                                        || String(item.cc || '').includes(q);
+                                    return matchesFilter && matchesSearch;
+                                });
+                                return (
+                                    <table className="w-full text-left">
+                                        <thead className="sticky top-0 bg-zinc-50 dark:bg-zinc-900 z-10 border-b border-zinc-100 dark:border-zinc-800">
+                                            <tr>
+                                                <th className="px-6 py-3 text-[9px] font-black text-zinc-400 uppercase tracking-widest">Student</th>
+                                                <th className="px-6 py-3 text-[9px] font-black text-zinc-400 uppercase tracking-widest w-20">CC</th>
+                                                <th className="px-6 py-3 text-[9px] font-black text-zinc-400 uppercase tracking-widest w-40">Result</th>
+                                                <th className="px-6 py-3 text-[9px] font-black text-zinc-400 uppercase tracking-widest">What happened</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                                            {filtered.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={4} className="px-6 py-12 text-center text-zinc-400 text-[12px] italic">No entries match your filter.</td>
+                                                </tr>
+                                            ) : filtered.map((item, idx) => {
+                                                const { label, cls } = getFriendlyStatus(item);
+                                                const note = getFriendlyNote(item);
+                                                return (
+                                                    <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
+                                                        <td className="px-6 py-3.5 text-[13px] font-black text-zinc-900 dark:text-zinc-100">{item.student_name || '—'}</td>
+                                                        <td className="px-6 py-3.5 text-[12px] font-bold text-zinc-400">#{item.cc}</td>
+                                                        <td className="px-6 py-3.5">
+                                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase ${cls}`}>{label}</span>
+                                                        </td>
+                                                        <td className="px-6 py-3.5 text-[12px] font-medium text-zinc-500">{note}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
