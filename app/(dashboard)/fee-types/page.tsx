@@ -411,7 +411,8 @@ export default function FeeTypesPage() {
             }
 
             await api.post("/v1/fee-types", {
-                ...newFeeType,
+                description: newFeeType.description,
+                freq: newFeeType.freq,
                 priority_order: parseInt(String(newFeeType.priority_order || 0)),
                 breakup: {
                     months,
