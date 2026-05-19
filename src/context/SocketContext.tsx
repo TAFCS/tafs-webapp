@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import api from "@/lib/api";
+import { useAuthState } from "@/context/AuthContext";
 
 interface SocketContextType {
     socket: Socket | null;
@@ -24,9 +25,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const [isConnecting, setIsConnecting] = useState(true);
     const [token, setToken] = useState<string | null>(null);
     const [isTokenLoaded, setIsTokenLoaded] = useState(false);
+    const { isAuthenticated } = useAuthState();
 
     useEffect(() => {
         const fetchToken = async () => {
+            if (!isAuthenticated) {
+                setToken(null);
+                setIsTokenLoaded(true);
+                return;
+            }
             try {
                 const res = await api.get("v1/auth/staff/me");
                 // The backend returns { data: { accessToken: "..." } }
@@ -39,7 +46,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
             }
         };
         fetchToken();
-    }, []);
+    }, [isAuthenticated]);
 
     useEffect(() => {
         if (!isTokenLoaded) return;

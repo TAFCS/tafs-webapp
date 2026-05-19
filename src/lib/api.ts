@@ -62,7 +62,9 @@ api.interceptors.response.use(
                 if (typeof window !== "undefined") {
                     // Only non-sensitive display data lives in localStorage
                     localStorage.removeItem("tafs_user");
-                    window.location.href = "/auth/login";
+                    if (window.location.pathname !== "/auth/login") {
+                        window.location.href = "/auth/login";
+                    }
                 }
                 return Promise.reject(refreshError);
             } finally {
