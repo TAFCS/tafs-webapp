@@ -8,7 +8,11 @@ import {
     Layers,
     Trash2,
     MessageSquare,
-    Database
+    Database,
+    Briefcase,
+    Clock,
+    CalendarCheck,
+    CalendarClock
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -115,6 +119,20 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'Permissions', href: '/system/permissions', icon: ShieldCheck, permission: 'system.permissions.manage' },
                 { name: 'Analytics', href: '/dashboard', icon: BarChart3, permission: 'system.analytics.view' },
                 { name: 'Database Backups', href: '/admin/backups', icon: Database, permission: 'system.backups.view' },
+            ]
+        },
+        {
+            id: 'hr',
+            name: 'HR & Attendance',
+            icon: Briefcase,
+            permissions: ['hr.employees.view', 'hr.policies.manage', 'hr.leave.apply'],
+            items: [
+                { name: 'Employee Directory', href: '/hr/employees', icon: Users, permission: 'hr.employees.view' },
+                { name: 'Departments', href: '/hr/departments', icon: Layers, permission: 'hr.employees.view' },
+                { name: 'HR Policies', href: '/hr/policies', icon: FileText, permission: 'hr.policies.manage' },
+                { name: 'Class Modes', href: '/hr/class-modes', icon: Clock, permission: 'hr.policies.manage' },
+                { name: 'Academic Calendar', href: '/hr/calendar', icon: CalendarDays, permission: 'hr.policies.manage' },
+                { name: 'My Leave', href: '/hr/leave', icon: CalendarClock, permission: 'hr.leave.apply' },
             ]
         }
     ];
