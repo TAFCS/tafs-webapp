@@ -1869,6 +1869,21 @@ function StudentwiseFeeEditor() {
                                                             </div>
                                                         </div>
                                                     )}
+                                                    {row.installment_id && (!row.installment_fee_type_id || row.installment_fee_type_id === Number(row.feeId)) && (
+                                                        <div className="flex items-center gap-1.5 p-1.5 bg-violet-50/50 border border-violet-100 rounded-lg">
+                                                            <CreditCard className="h-2.5 w-2.5 text-violet-500" />
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[8px] font-black text-violet-600 uppercase tracking-tighter">
+                                                                    Installment Plan
+                                                                </span>
+                                                                {row.installment_amount && (
+                                                                    <span className="text-[9px] font-bold text-violet-400 font-mono">
+                                                                        Rs. {parseInt(row.installment_amount).toLocaleString()} / instl.
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                     {row.bundle_id && (
                                                         <div className="flex items-center gap-1.5 p-1.5 bg-primary/5 border border-primary/10 rounded-lg group/bundle">
                                                             <Layers className="h-2.5 w-2.5 text-primary" />
