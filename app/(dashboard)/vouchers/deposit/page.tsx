@@ -5,7 +5,8 @@ import {
     Search, Loader2, AlertCircle, FileText,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Hash, SlidersHorizontal, ShieldAlert,
-    ChevronLeft, ChevronRight, Wallet, UserCircle, UserSearch, Ban, X
+    ChevronLeft, ChevronRight, Wallet, UserCircle, UserSearch, Ban, X,
+    Stamp
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -17,7 +18,7 @@ import toast from "react-hot-toast";
 
 // ─── Dev flags ───────────────────────────────────────────────────────────────
 // Set to false before going to production.
-const DEV_ALLOW_VOID_DEPOSITS = true;
+const DEV_ALLOW_VOID_DEPOSITS = false;
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -608,6 +609,35 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
 function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherItem; index: number; sections: any[]; onDeposit: (v: VoucherItem) => void }) {
     const status = getStatusConfig(voucher.status);
     const isVoid = voucher.status === "VOID";
+    const isPaid = voucher.status === "PAID";
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handlePaidDownload = async () => {
+        setIsDownloading(true);
+        const loadingToast = toast.loading("Generating PAID PDF…");
+        try {
+            const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, { paid_stamp: true });
+            const pdfUrl = pdfRes.data?.pdf_url;
+            if (!pdfUrl) throw new Error("No PDF URL returned from server.");
+            const link = document.createElement("a");
+            link.href = pdfUrl;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : null;
+            const grNum = voucher.students?.gr_number;
+            if (feeDateStr && grNum) link.download = `${feeDateStr}-${grNum}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toast.dismiss(loadingToast);
+            toast.success("PAID voucher opened in a new tab.");
+        } catch (err) {
+            toast.dismiss(loadingToast);
+            toast.error("Failed to generate paid PDF.");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     // ── Fee Date: from first head's student_fee (they share the same date) ───────
     const feeDate = voucher.voucher_heads?.find(h => h.student_fees?.fee_date)?.student_fees?.fee_date
@@ -728,7 +758,17 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
                                 Voided
                             </button>
                         )
-                    ) : voucher.status !== "PAID" ? (
+                    ) : isPaid ? (
+                        <button
+                            onClick={handlePaidDownload}
+                            disabled={isDownloading}
+                            title="Download PAID-stamped PDF"
+                            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
+                        >
+                            {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Stamp className="h-3.5 w-3.5" />}
+                            {isDownloading ? "…" : "PAID PDF"}
+                        </button>
+                    ) : (
                         <button
                             onClick={() => onDeposit(voucher)}
                             className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
@@ -736,7 +776,7 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
                             <Wallet className="h-3.5 w-3.5" />
                             Deposit
                         </button>
-                    ) : null}
+                    )}
                 </div>
             </td>
         </tr>
