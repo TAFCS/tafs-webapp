@@ -5,8 +5,7 @@ import {
     Search, Loader2, AlertCircle, FileText,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Hash, SlidersHorizontal, ShieldAlert,
-    ChevronLeft, ChevronRight, Wallet, UserCircle, UserSearch, Ban, X,
-    Download, Stamp, ShieldOff
+    ChevronLeft, ChevronRight, Wallet, UserCircle, UserSearch, Ban, X
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -18,7 +17,7 @@ import toast from "react-hot-toast";
 
 // ─── Dev flags ───────────────────────────────────────────────────────────────
 // Set to false before going to production.
-const DEV_ALLOW_VOID_DEPOSITS = false;
+const DEV_ALLOW_VOID_DEPOSITS = true;
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -120,8 +119,6 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const [surchargeDistributions, setSurchargeDistributions] = useState<Record<number, string>>({});
     const [paymentMethod, setPaymentMethod] = useState<string>("cash");
     const [referenceNumber, setReferenceNumber] = useState<string>("");
-    const [waivedConfirmId, setWaivedConfirmId] = useState<number | null>(null);
-    const [isWaiving, setIsWaiving] = useState(false);
 
     const allHeads = [...(voucher.voucher_heads || [])].sort((a, b) => {
         const dateA = new Date(a.student_fees?.fee_date || 0).getTime();
@@ -218,20 +215,6 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
             setManualLateFee("0");
         }
     }, [amount, fillingMode]);
-
-    const handleWaive = async (surchargeId: number) => {
-        setIsWaiving(true);
-        try {
-            await api.post(`/v1/vouchers/${voucher.id}/waive-arrear-surcharge`, { surcharge_id: surchargeId });
-            toast.success("Surcharge waived — voucher totals updated.");
-            onSuccess();
-        } catch (err: any) {
-            toast.error(err.response?.data?.message || "Failed to waive surcharge");
-            setWaivedConfirmId(null);
-        } finally {
-            setIsWaiving(false);
-        }
-    };
 
     const handleSave = async () => {
         if (!amount || Number(amount) <= 0) { toast.error("Please enter a valid deposit amount."); return; }
@@ -537,7 +520,6 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                     const sPaid = Number(s.amount_paid ?? 0);
                                     const sTotal = Number(s.amount);
                                     const sDistVal = Number(surchargeDistributions[s.id] || 0);
-                                    const isConfirming = waivedConfirmId === s.id;
                                     return (
                                         <div
                                             key={s.id}
@@ -547,41 +529,9 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                                 <p className="text-[12px] font-black text-rose-600">
                                                     Late Surcharge — {getSurchargeLabel(s)}
                                                 </p>
-                                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-md">
-                                                        Arrear Penalty
-                                                    </span>
-                                                    {!isConfirming ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setWaivedConfirmId(s.id)}
-                                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-[9px] font-black uppercase tracking-widest rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/30 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
-                                                        >
-                                                            <ShieldOff className="h-2.5 w-2.5" />
-                                                            Waive
-                                                        </button>
-                                                    ) : (
-                                                        <div className="flex items-center gap-1">
-                                                            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Confirm waive?</span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleWaive(s.id)}
-                                                                disabled={isWaiving}
-                                                                className="inline-flex items-center px-2 py-0.5 bg-rose-600 text-white text-[9px] font-black uppercase tracking-widest rounded-md hover:bg-rose-700 transition-colors disabled:opacity-50"
-                                                            >
-                                                                {isWaiving ? "…" : "Yes, Waive"}
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setWaivedConfirmId(null)}
-                                                                disabled={isWaiving}
-                                                                className="inline-flex items-center px-2 py-0.5 bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 text-[9px] font-black uppercase tracking-widest rounded-md hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors"
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5">
+                                                    Arrear Penalty
+                                                </span>
                                             </div>
                                             <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{sTotal.toLocaleString()}</span>
                                             <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{sPaid.toLocaleString()}</span>
@@ -658,35 +608,6 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
 function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherItem; index: number; sections: any[]; onDeposit: (v: VoucherItem) => void }) {
     const status = getStatusConfig(voucher.status);
     const isVoid = voucher.status === "VOID";
-    const isPaid = voucher.status === "PAID";
-    const [isDownloading, setIsDownloading] = useState(false);
-
-    const handlePaidDownload = async () => {
-        setIsDownloading(true);
-        const loadingToast = toast.loading("Generating PAID PDF…");
-        try {
-            const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, { paid_stamp: true });
-            const pdfUrl = pdfRes.data?.pdf_url;
-            if (!pdfUrl) throw new Error("No PDF URL returned from server.");
-            const link = document.createElement("a");
-            link.href = pdfUrl;
-            link.target = "_blank";
-            link.rel = "noopener noreferrer";
-            const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : null;
-            const grNum = voucher.students?.gr_number;
-            if (feeDateStr && grNum) link.download = `${feeDateStr}-${grNum}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            toast.dismiss(loadingToast);
-            toast.success("PAID voucher opened in a new tab.");
-        } catch (err) {
-            toast.dismiss(loadingToast);
-            toast.error("Failed to generate paid PDF.");
-        } finally {
-            setIsDownloading(false);
-        }
-    };
 
     // ── Fee Date: from first head's student_fee (they share the same date) ───────
     const feeDate = voucher.voucher_heads?.find(h => h.student_fees?.fee_date)?.student_fees?.fee_date
@@ -807,17 +728,7 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
                                 Voided
                             </button>
                         )
-                    ) : isPaid ? (
-                        <button
-                            onClick={handlePaidDownload}
-                            disabled={isDownloading}
-                            title="Download PAID-stamped PDF"
-                            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
-                        >
-                            {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Stamp className="h-3.5 w-3.5" />}
-                            {isDownloading ? "…" : "PAID PDF"}
-                        </button>
-                    ) : (
+                    ) : voucher.status !== "PAID" ? (
                         <button
                             onClick={() => onDeposit(voucher)}
                             className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
@@ -825,7 +736,7 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
                             <Wallet className="h-3.5 w-3.5" />
                             Deposit
                         </button>
-                    )}
+                    ) : null}
                 </div>
             </td>
         </tr>
