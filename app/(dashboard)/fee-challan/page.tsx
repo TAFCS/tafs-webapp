@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   Loader2,
@@ -21,8 +21,8 @@ import {
   ChevronRight,
   FileSearch,
   Info,
-  Link as LinkIcon,
   Layers,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -33,7 +33,6 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import { bankAccountsService, BankAccount } from "@/lib/bank-accounts.service";
 import {
-  groupFees,
   MONTHS,
   MONTH_TO_NUM,
   getCurrentAcademicYear,
@@ -89,38 +88,6 @@ interface StudentFee {
     bundle_name: string;
   } | null;
 }
-// Converts target_month + academic_year → "AUG 25" format
-// Falls back to parsing fee_date if target_month is missing
-function formatArrearMonthLabel(r: {
-  target_month?: number;
-  academic_year?: string;
-  fee_date?: string;
-}): string {
-  const MONTHS = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  if (r.target_month && r.academic_year) {
-    const parts = r.academic_year.split("-");
-    const year = r.target_month >= 8 ? parts[0] : parts[1] || parts[0];
-    return `${MONTHS[r.target_month - 1].toUpperCase()} ${year.slice(-2)}`;
-  }
-  if (r.fee_date) {
-    const [y, m] = r.fee_date.split("-");
-    return `${MONTHS[parseInt(m) - 1].toUpperCase()} ${y.slice(-2)}`;
-  }
-  return "";
-}
 
 export default function FeeChallanGenerator() {
   // --- Form States ---
@@ -173,7 +140,6 @@ export default function FeeChallanGenerator() {
   const [applyLateFee, setApplyLateFee] = useState(true);
   const [lateFeeAmount, setLateFeeAmount] = useState(1000);
   const [waiveSurcharge, setWaiveSurcharge] = useState(false);
-  const [showBundles, setShowBundles] = useState(true);
 
   // --- Date Range Selection ---
   const [dateFrom, setDateFrom] = useState("");
@@ -184,6 +150,20 @@ export default function FeeChallanGenerator() {
   const [isFetchingFees, setIsFetchingFees] = useState(false);
   const [voucherSaved, setVoucherSaved] = useState(false);
   const [isSavingVoucher, setIsSavingVoucher] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [previewFilename, setPreviewFilename] = useState<string>("voucher.pdf");
+
+  const [contentPreviewOpen, setContentPreviewOpen] = useState(false);
+  const [contentPreviewFees, setContentPreviewFees] = useState<StudentFee[]>([]);
+  const [contentPreviewArrears, setContentPreviewArrears] = useState<{
+    total_arrears: number;
+    arrear_fee_ids: number[];
+    total_surcharge: number;
+    rows: { student_fee_id: number; fee_type: string; fee_date: string; amount: string; amount_paid: string; outstanding: string; }[];
+  } | null>(null);
+  const [contentPreviewFeeDate, setContentPreviewFeeDate] = useState<string>('');
+  const [previewingGroupDate, setPreviewingGroupDate] = useState<string | null>(null);
 
   // Grouped fees by fee_date (from backend)
   const [feeGroupsByDate, setFeeGroupsByDate] = useState<
@@ -230,6 +210,9 @@ export default function FeeChallanGenerator() {
 
   useEffect(() => {
     setVoucherSaved(false);
+    setSavedVoucherPdfUrl(null);
+    setSavedGroupVoucherPdfUrls({});
+    setGeneratedGroupDates(new Set());
     setArrearsData(null);
     setArrearsFetchedForDate(null);
   }, [
@@ -251,6 +234,15 @@ export default function FeeChallanGenerator() {
     month,
     studentFees,
   ]);
+
+  useEffect(() => {
+    if (currentStep < 3) {
+      setSavedVoucherPdfUrl(null);
+      setSavedGroupVoucherPdfUrls({});
+      setGeneratedGroupDates(new Set());
+      setVoucherSaved(false);
+    }
+  }, [currentStep]);
 
   useEffect(() => {
     fetchBanks();
@@ -459,60 +451,6 @@ export default function FeeChallanGenerator() {
     isFetchingArrears,
   ]);
 
-  const processFeesForPdf = (rawFees: any[]) => {
-    return groupFees(
-      rawFees,
-      {},
-      {
-        groupTuitionFees: true,
-        isVoucherHeads: false,
-        ignoreBundles: !showBundles,
-      },
-    );
-  };
-
-  const processedArrearPdfFees = useMemo(() => {
-    return (arrearsData?.rows ?? []).map((r: any) => {
-      const isPartial = Number(r.amount_paid) > 0;
-      const prefix = isPartial ? "BALANCE PAYMENT OF — " : "";
-      const netAmount = Number(r.outstanding);
-      return {
-        description: r.isSurcharge
-          ? `${r.fee_type} (${formatArrearMonthLabel(r)})`
-          : `${prefix}${r.fee_type} (${formatArrearMonthLabel(r)})`,
-        amount: isPartial ? netAmount : Number(r.amount),
-        netAmount: netAmount,
-        discount: isPartial ? 0 : Number(r.amount_paid),
-        discountLabel:
-          isPartial || r.amount_paid === "0.00"
-            ? undefined
-            : `Paid: ${Number(r.amount_paid).toLocaleString()}`,
-        isArrear: !r.isSurcharge,
-        isSurcharge: !!r.isSurcharge,
-        feeDate: r.fee_date,
-        target_month: r.target_month,
-        academic_year: r.academic_year,
-      };
-    });
-  }, [arrearsData]);
-
-  const processedPdfFees = useMemo(() => {
-    return processFeesForPdf(studentFees).map((f) => ({
-      ...f,
-      isArrear: false,
-    }));
-  }, [studentFees, showBundles]);
-
-  // Combined fees for PDF = arrears first, then current
-  const allPdfFeesForDisplay = useMemo(
-    () => [...processedArrearPdfFees, ...processedPdfFees],
-    [processedArrearPdfFees, processedPdfFees],
-  );
-
-  const totalFeesAmount = useMemo(
-    () => allPdfFeesForDisplay.reduce((sum, f) => sum + (f.netAmount || 0), 0),
-    [allPdfFeesForDisplay],
-  );
   // Fetch arrears for a given fee_date (called when a group card loads or before single-voucher generation)
   const fetchArrears = async (studentCc: number, feeDate: string) => {
     setIsFetchingArrears(true);
@@ -621,6 +559,11 @@ export default function FeeChallanGenerator() {
       const genRes = await api.post(`/v1/vouchers/${voucherId}/generate-pdf`);
       const pdfUrl = genRes.data?.data?.pdf_url || null;
       setSavedVoucherPdfUrl(pdfUrl);
+      if (pdfUrl) {
+        setPreviewPdfUrl(pdfUrl);
+        setPreviewFilename(`${voucherFeeDate}-${student?.gr_number || 'unknown'}.pdf`);
+        setPreviewModalOpen(true);
+      }
 
       toast.success("Voucher generated!");
       setVoucherSaved(true);
@@ -719,11 +662,15 @@ export default function FeeChallanGenerator() {
       // Generate PDF using backend (single source of truth)
       const genRes = await api.post(`/v1/vouchers/${voucherId}/generate-pdf`);
       const groupPdfUrl = genRes.data?.data?.pdf_url || null;
-      if (groupPdfUrl)
+      if (groupPdfUrl) {
         setSavedGroupVoucherPdfUrls((prev) => ({
           ...prev,
           [group.fee_date]: groupPdfUrl,
         }));
+        setPreviewPdfUrl(groupPdfUrl);
+        setPreviewFilename(`${group.fee_date}-${student?.gr_number || ''}.pdf`);
+        setPreviewModalOpen(true);
+      }
 
       setGeneratedGroupDates((p) => new Set([...p, group.fee_date]));
       toast.success(`Generated for ${group.fee_date}`);
@@ -749,6 +696,26 @@ export default function FeeChallanGenerator() {
       if (!generatedGroupDates.has(g.fee_date))
         await handleSaveVoucherForGroup(g);
     setIsGeneratingAll(false);
+  };
+
+  const handleShowPreview = async (fees: StudentFee[], feeDate: string) => {
+    if (!student) return;
+    const arrears = await fetchArrears(student.cc, feeDate);
+    setContentPreviewFees(fees);
+    setContentPreviewArrears(arrears);
+    setContentPreviewFeeDate(feeDate);
+    setContentPreviewOpen(true);
+  };
+
+  const handleShowPreviewForGroup = async (group: { fee_date: string; fees: StudentFee[] }) => {
+    if (!student) return;
+    setPreviewingGroupDate(group.fee_date);
+    const arrears = await fetchArrears(student.cc, group.fee_date);
+    setContentPreviewFees(group.fees);
+    setContentPreviewArrears(arrears);
+    setContentPreviewFeeDate(group.fee_date);
+    setContentPreviewOpen(true);
+    setPreviewingGroupDate(null);
   };
 
   const YearPicker = () => {
@@ -805,89 +772,6 @@ export default function FeeChallanGenerator() {
             </div>
           </div>
         )}
-      </div>
-    );
-  };
-
-  const renderFeesTable = (feesList: any[], totalValue: number) => {
-    const stdFees = feesList.filter((f) => !f.discount || f.discount <= 0);
-    const discFees = feesList.filter((f) => f.discount && f.discount > 0);
-    const grossTotal = feesList.reduce((s, f) => s + f.amount, 0);
-
-    return (
-      <div className="px-8 py-6 space-y-8">
-        {stdFees.length > 0 && (
-          <div className="space-y-4">
-            <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800 pb-2">
-              Standard Fees
-            </h4>
-            <div className="space-y-4">
-              {stdFees.map((fee: any, idx: number) => (
-                <div
-                  key={`s-${idx}`}
-                  className="flex items-center justify-between text-[14px]"
-                >
-                  <div className="flex items-center gap-3">
-                    {fee.bundleId && (
-                      <LinkIcon className="h-3 w-3 text-emerald-500" />
-                    )}
-                    <p className="font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">
-                      {fee.description || "Fee item"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-zinc-400 font-bold font-mono uppercase text-[10px]">PKR</span>
-                    <span className="text-zinc-900 dark:text-zinc-100 font-black font-mono min-w-[96px] text-right tabular-nums">
-                      {Math.round(Number(fee.netAmount || fee.amount || 0)).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {discFees.length > 0 && (
-          <div className="space-y-4">
-            <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800 pb-2">
-              Discounted Fees
-            </h4>
-            <div className="space-y-4">
-              {discFees.map((fee: any, idx: number) => (
-                <div
-                  key={`d-${idx}`}
-                  className="flex items-center justify-between text-[14px]"
-                >
-                  <div className="flex items-center gap-3">
-                    {fee.bundleId && (
-                      <LinkIcon className="h-3 w-3 text-emerald-500" />
-                    )}
-                    <p className="font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-tight">
-                      {fee.description || "Fee item"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-emerald-500 font-bold font-mono uppercase text-[10px]">PKR</span>
-                    <span className="text-emerald-600 dark:text-emerald-500 font-black font-mono min-w-[96px] text-right tabular-nums">
-                      -{Math.abs(Math.round(Number(fee.netAmount || 0))).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* {discFees.length > 0 && (
-          <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center text-[12px]">
-            <span className="font-black text-zinc-500 uppercase tracking-widest">
-              Gross Details Total
-            </span>
-            <span className="text-zinc-400 font-bold font-mono line-through">
-              PKR {grossTotal.toLocaleString()}
-            </span>
-          </div>
-        )} */}
       </div>
     );
   };
@@ -1276,41 +1160,35 @@ export default function FeeChallanGenerator() {
                   </div>
 
                   <div className="space-y-8">
-                    {feeGroupsByDate.map((g, idx) => {
-                      const isEarliestGroup = idx === 0;
-                      const groupArrears = isEarliestGroup ? processedArrearPdfFees : [];
-                      const currentGroupPdfFees = processFeesForPdf(g.fees).map((f) => ({ ...f, isArrear: false }));
-                      const combinedGroupFees = [...groupArrears, ...currentGroupPdfFees];
-                      const combinedGroupTotal = combinedGroupFees.reduce((acc, f) => acc + (f.netAmount || 0), 0);
-
+                    {feeGroupsByDate.map((g) => {
                       return (
                         <div key={g.fee_date} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] overflow-hidden shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-                          <div className="p-8 border-b border-zinc-50 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/30 dark:bg-zinc-900/10">
+                          <div className="p-8 flex items-center justify-between bg-zinc-50/30 dark:bg-zinc-900/10">
                             <div className="flex items-center gap-5">
                               <Calendar className="h-6 w-6 text-zinc-400" />
                               <div>
                                 <h4 className="font-black text-lg text-zinc-900 dark:text-zinc-100">FEE DATE: {g.fee_date}</h4>
-                                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">{combinedGroupFees.length} heads • PKR {combinedGroupTotal.toLocaleString()}</p>
+                                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">{g.fees.length} fees</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-3">
+                              <button onClick={() => handleShowPreviewForGroup(g)} disabled={previewingGroupDate === g.fee_date} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-2 transition-all hover:bg-zinc-200 dark:hover:bg-zinc-700">
+                                {previewingGroupDate === g.fee_date ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />} Preview
+                              </button>
                               <button onClick={() => handleSaveVoucherForGroup(g)} disabled={generatingGroupDate === g.fee_date} className={`h-12 px-10 rounded-2xl text-[11px] uppercase font-black tracking-widest transition-all flex items-center gap-3 ${generatedGroupDates.has(g.fee_date) ? "bg-emerald-50 text-emerald-600" : "bg-zinc-900 text-white"}`}>
                                 {generatingGroupDate === g.fee_date ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
                                 {generatedGroupDates.has(g.fee_date) ? "Regenerate" : "Generate"}
                               </button>
                               {generatedGroupDates.has(g.fee_date) && savedGroupVoucherPdfUrls[g.fee_date] && (
-                                <a href={savedGroupVoucherPdfUrls[g.fee_date]} target="_blank" rel="noopener noreferrer" download={`${g.fee_date}-${student?.gr_number || ''}.pdf`} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-emerald-600 text-white flex items-center gap-2">
-                                  <Download className="h-4 w-4" /> Download
-                                </a>
+                                <>
+                                  <button onClick={() => { setPreviewPdfUrl(savedGroupVoucherPdfUrls[g.fee_date]); setPreviewFilename(`${g.fee_date}-${student?.gr_number || ''}.pdf`); setPreviewModalOpen(true); }} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                    <FileText className="h-4 w-4" /> View PDF
+                                  </button>
+                                  <a href={savedGroupVoucherPdfUrls[g.fee_date]} target="_blank" rel="noopener noreferrer" download={`${g.fee_date}-${student?.gr_number || ''}.pdf`} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-emerald-600 text-white flex items-center gap-2">
+                                    <Download className="h-4 w-4" /> Download
+                                  </a>
+                                </>
                               )}
-                            </div>
-                          </div>
-                          {renderFeesTable(combinedGroupFees, combinedGroupTotal)}
-                          <div className="px-8 py-5 bg-zinc-50/50 border-t flex items-center justify-between">
-                            <span className="text-[11px] font-black text-zinc-400 uppercase tracking-[0.2em]">Group Total</span>
-                            <div className="flex items-center gap-3">
-                              <span className="text-[13px] font-black text-zinc-500 uppercase">PKR</span>
-                              <span className="text-xl font-black text-zinc-900">{combinedGroupTotal.toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
@@ -1320,40 +1198,22 @@ export default function FeeChallanGenerator() {
                 </div>
               ) : studentFees.length > 0 ? (
                 <div className="space-y-10 w-full max-w-6xl mx-auto">
-                  <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] overflow-hidden shadow-xl">
-                    <div className="p-8 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50/30">
-                      <h3 className="text-lg font-black text-zinc-900 uppercase tracking-tight">Fee Review Listing</h3>
-                    </div>
-                    {renderFeesTable(allPdfFeesForDisplay, totalFeesAmount)}
-                    <div className="px-8 py-8 bg-zinc-900 text-white flex items-center justify-between">
-                      <span className="text-[12px] font-black uppercase tracking-[0.2em]">Total Payable</span>
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm font-black text-zinc-400">PKR</span>
-                        <span className="text-3xl font-black">{totalFeesAmount.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-6 pb-10">
+                  <div className="flex justify-end gap-4 pb-10">
+                    <button onClick={() => handleShowPreview(studentFees, dateFrom || issueDate)} disabled={isFetchingArrears} className="h-16 px-8 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 transition-all hover:-translate-y-1">
+                      {isFetchingArrears ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileSearch className="h-5 w-5" />} Preview
+                    </button>
                     <button onClick={handleSaveVoucher} disabled={isSavingVoucher} className="h-16 px-12 bg-zinc-900 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl transition-all hover:-translate-y-1">
-                      {isSavingVoucher ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} Generate Voucher
+                      {isSavingVoucher ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} Generate
                     </button>
                     {voucherSaved && savedVoucherPdfUrl && (
-                      <div className="w-full mt-8 flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-500">
-                        <div className="flex items-center justify-between bg-zinc-900 text-white px-6 py-4 rounded-t-2xl">
-                          <h3 className="font-black tracking-widest uppercase text-[12px] flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-emerald-400" />
-                            Generated Voucher Preview
-                          </h3>
-                          <a href={savedVoucherPdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 font-bold text-xs bg-emerald-950/50 px-4 py-2 rounded-lg transition-colors">
-                            <Download className="h-4 w-4" /> Download
-                          </a>
-                        </div>
-                        <iframe 
-                          src={savedVoucherPdfUrl} 
-                          className="w-full h-[600px] rounded-b-2xl border-2 border-zinc-900 shadow-2xl bg-zinc-100"
-                          title="Voucher PDF"
-                        />
-                      </div>
+                      <>
+                        <button onClick={() => { setPreviewPdfUrl(savedVoucherPdfUrl); setPreviewModalOpen(true); }} className="h-16 px-8 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 transition-all hover:-translate-y-1">
+                          <FileText className="h-5 w-5" /> View PDF
+                        </button>
+                        <a href={savedVoucherPdfUrl} download={`${dateFrom || issueDate}-${student?.gr_number || 'unknown'}.pdf`} target="_blank" rel="noopener noreferrer" className="h-16 px-8 bg-emerald-600 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 shadow-xl transition-all hover:-translate-y-1">
+                          <Download className="h-5 w-5" /> Download
+                        </a>
+                      </>
                     )}
                   </div>
                 </div>
@@ -1367,6 +1227,135 @@ export default function FeeChallanGenerator() {
           </div>
         )}
       </div>
+
+      {/* Content Preview Modal (soft-run — no PDF generated) */}
+      {contentPreviewOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setContentPreviewOpen(false)}>
+          <div className="relative w-full max-w-xl max-h-[85vh] bg-white dark:bg-zinc-950 rounded-[32px] shadow-2xl overflow-hidden flex flex-col mx-4" onClick={(e) => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50/30 dark:bg-zinc-900/10">
+              <div>
+                <h3 className="font-black text-zinc-900 dark:text-zinc-100 text-[13px] uppercase tracking-widest flex items-center gap-2">
+                  <FileSearch className="h-5 w-5 text-primary" /> Voucher Preview
+                </h3>
+                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-0.5">Not yet issued — review before generating</p>
+              </div>
+              <button onClick={() => setContentPreviewOpen(false)} className="h-10 w-10 bg-zinc-100 dark:bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Student / Meta Info */}
+            <div className="px-7 py-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/20">
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-[11px] font-bold">
+                <span className="text-zinc-700 dark:text-zinc-300 font-black">{student?.student_full_name}</span>
+                <span className="text-primary">GR {student?.gr_number}</span>
+                <span className="text-zinc-400">Fee Date: {contentPreviewFeeDate}</span>
+                <span className="text-zinc-400">Year: {academicYear}</span>
+              </div>
+            </div>
+
+            {/* Fee Lines */}
+            <div className="flex-1 overflow-y-auto p-7 space-y-6">
+
+              {/* Arrears */}
+              {(contentPreviewArrears?.rows ?? []).length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800 pb-2">Arrears</h4>
+                  {contentPreviewArrears!.rows.map((r, i) => {
+                    const isPartial = Number(r.amount_paid) > 0;
+                    const d = new Date(r.fee_date);
+                    const monthLabel = d.toLocaleString('en', { month: 'short' }).toUpperCase() + ' ' + String(d.getFullYear()).slice(-2);
+                    return (
+                      <div key={i} className="flex items-center justify-between gap-4">
+                        <span className="text-[12px] font-bold text-zinc-600 dark:text-zinc-400 flex-1">
+                          {isPartial ? 'BALANCE — ' : ''}{r.fee_type} ({monthLabel})
+                        </span>
+                        <span className="font-black text-zinc-900 dark:text-zinc-100 text-[13px] font-mono tabular-nums">
+                          PKR {Number(r.outstanding).toLocaleString()}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Current Fees */}
+              {contentPreviewFees.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800 pb-2">Current Fees</h4>
+                  {contentPreviewFees.map((f) => {
+                    const installLabel = f.installment_sequence && f.installment_total
+                      ? ` (${f.installment_sequence} of ${f.installment_total})`
+                      : f.installment_sequence && f.student_fee_installments
+                      ? ` (${f.installment_sequence} of ${f.student_fee_installments.installment_count})`
+                      : '';
+                    const discount = Math.max(0, Number(f.amount_before_discount || 0) - Number(f.amount || 0));
+                    return (
+                      <div key={f.id} className="flex items-center justify-between gap-4">
+                        <span className="text-[12px] font-bold text-zinc-600 dark:text-zinc-400 flex-1">
+                          {f.fee_types?.description || 'Fee'}{installLabel}
+                          {discount > 0 && <span className="ml-2 text-emerald-500 text-[10px]">(-{discount.toLocaleString()} disc)</span>}
+                        </span>
+                        <span className="font-black text-zinc-900 dark:text-zinc-100 text-[13px] font-mono tabular-nums">
+                          PKR {Number(f.amount).toLocaleString()}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Estimated Total */}
+              <div className="pt-2 border-t-2 border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+                <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Estimated Total</span>
+                <span className="font-black text-zinc-900 dark:text-zinc-100 text-[18px] font-mono tabular-nums">
+                  PKR {(
+                    (contentPreviewArrears?.rows ?? []).reduce((s, r) => s + Number(r.outstanding), 0) +
+                    contentPreviewFees.reduce((s, f) => s + Number(f.amount), 0)
+                  ).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* Bank Footer */}
+            <div className="px-7 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/20 flex items-center justify-between">
+              <div className="text-[11px] font-bold space-y-0.5">
+                <p className="text-zinc-700 dark:text-zinc-300 font-black">{selectedBank?.bank_name}</p>
+                <p className="text-zinc-400">{selectedBank?.account_number}</p>
+              </div>
+              <div className="text-right text-[11px] font-bold space-y-0.5">
+                <p className="text-zinc-500">Issued: {issueDate}</p>
+                <p className="text-rose-500">Due: {dueDate}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PDF Preview Modal */}
+      {previewModalOpen && previewPdfUrl && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setPreviewModalOpen(false)}>
+          <div className="relative w-full max-w-4xl h-[90vh] bg-white dark:bg-zinc-950 rounded-[32px] shadow-2xl overflow-hidden flex flex-col mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50/30 dark:bg-zinc-900/10">
+              <h3 className="font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest text-[13px] flex items-center gap-3">
+                <FileText className="h-5 w-5 text-emerald-500" />
+                Voucher Preview
+              </h3>
+              <div className="flex items-center gap-3">
+                <a href={previewPdfUrl} download={previewFilename} target="_blank" rel="noopener noreferrer" className="h-10 px-6 bg-emerald-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-700 transition-colors">
+                  <Download className="h-4 w-4" /> Download
+                </a>
+                <button onClick={() => setPreviewModalOpen(false)} className="h-10 w-10 bg-zinc-100 dark:bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            <iframe src={previewPdfUrl} className="flex-1 w-full bg-zinc-100" title="Voucher Preview" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
