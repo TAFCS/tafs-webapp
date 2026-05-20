@@ -746,9 +746,9 @@ export function RegistrationForm() {
     const isStep1Valid = () => {
         const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
         
-        const isCandidateCnicValid = !!formData.candidateCnic && (
+        const isCandidateCnicValid = !formData.candidateCnic || 
                                  formData.isCandidateCnicForeign || 
-                                 cnicRegex.test(formData.candidateCnic));
+                                 cnicRegex.test(formData.candidateCnic);
 
         const isFatherCnicValid = !formData.fatherCnic || 
                                  formData.isFatherCnicForeign || 
@@ -776,14 +776,7 @@ export function RegistrationForm() {
                 setSubmitError("Please select a Campus from the sidebar before proceeding.");
                 return;
             }
-            if (!formData.fatherPhotoFile && !formData.fatherPhotoUrl) {
-                setSubmitError("Father's photograph is required before proceeding.");
-                return;
-            }
-            if (!formData.motherPhotoFile && !formData.motherPhotoUrl) {
-                setSubmitError("Mother's photograph is required before proceeding.");
-                return;
-            }
+
             if (!isStep1Valid()) {
                 setSubmitError("Please fill in all required fields (Names, CNICs, DOB) correctly before proceeding.");
                 return;
@@ -807,17 +800,7 @@ export function RegistrationForm() {
             return;
         }
 
-        if (!formData.fatherPhotoFile && !formData.fatherPhotoUrl) {
-            setSubmitError("Father's photograph is required.");
-            setIsSubmitting(false);
-            return;
-        }
 
-        if (!formData.motherPhotoFile && !formData.motherPhotoUrl) {
-            setSubmitError("Mother's photograph is required.");
-            setIsSubmitting(false);
-            return;
-        }
 
         // Validation: Home Landline must be exactly 8 digits if provided
         if (formData.homePhone && !formData.isHomePhoneNA && formData.homePhone.length !== 8) {
@@ -1119,14 +1102,14 @@ export function RegistrationForm() {
                         />
                         <div className="flex gap-2">
                             <RegistrationPhotoBox 
-                                label="Father <span class='text-rose-500'>*</span>"
+                                label="Father"
                                 file={formData.fatherPhotoFile}
                                 existingUrl={formData.fatherPhotoUrl}
                                 onChange={(f) => setFormData(prev => ({ ...prev, fatherPhotoFile: f }))}
                                 className="h-20 w-1/2"
                             />
                             <RegistrationPhotoBox 
-                                label="Mother <span class='text-rose-500'>*</span>"
+                                label="Mother"
                                 file={formData.motherPhotoFile}
                                 existingUrl={formData.motherPhotoUrl}
                                 onChange={(f) => setFormData(prev => ({ ...prev, motherPhotoFile: f }))}
@@ -1231,7 +1214,7 @@ export function RegistrationForm() {
                                     </div>
                                     <div className="md:col-span-2">
                                         <div className="flex items-center justify-between mb-1.5">
-                                            <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Candidate&apos;s CNIC / B-Form <span className="text-rose-500 ml-1">*</span></label>
+                                            <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Candidate&apos;s CNIC / B-Form</label>
                                             <div className="flex items-center gap-1.5">
                                                 <input type="checkbox" name="isCandidateCnicForeign" id="candidateCnicForeign" checked={formData.isCandidateCnicForeign} onChange={handleInputChange} className="h-3 w-3 text-primary rounded" />
                                                 <label htmlFor="candidateCnicForeign" className="text-[9px] font-black uppercase text-zinc-400 cursor-pointer">Foreign / Passport</label>
@@ -1243,16 +1226,9 @@ export function RegistrationForm() {
                                                 name="candidateCnic" 
                                                 value={formData.candidateCnic || ""} 
                                                 onChange={handleInputChange} 
-                                                onBlur={() => setCnicTouched(true)}
                                                 placeholder={formData.isCandidateCnicForeign ? "PASSPORT / ID #" : "XXXXX-XXXXXXX-X"} 
-                                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none ${cnicTouched && !formData.candidateCnic ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/20' : 'border-zinc-300 dark:border-zinc-700'}`} 
+                                                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" 
                                             />
-                                            {cnicTouched && !formData.candidateCnic && (
-                                                <p className="text-[10px] text-rose-500 mt-1.5 font-bold uppercase tracking-wider flex items-center gap-1">
-                                                    <AlertCircle className="w-3 h-3" />
-                                                    Cannot be left blank
-                                                </p>
-                                            )}
                                         </div>
                                     </div>
                                     <div>
