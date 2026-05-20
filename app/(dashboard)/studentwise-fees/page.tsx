@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo, Suspense } from "react";
-import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Minus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info, CreditCard, ArrowRight, Layers } from "lucide-react";
+import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Minus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info, CreditCard, ArrowRight, Layers, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
@@ -73,6 +73,24 @@ interface DiscountPreset {
     title: string;
     description?: string | null;
     is_active: boolean;
+}
+
+interface InstallmentHead {
+    id: number;
+    fee_date: string | null;
+    target_month: number;
+    amount: number;
+    status: string;
+}
+
+interface InstallmentPlanData {
+    id: number;
+    fee_type_id: number;
+    fee_type_desc: string;
+    academic_year: string;
+    total_amount: number;
+    installment_count: number;
+    heads: InstallmentHead[];
 }
 
 const MONTH_ORDER = MONTHS;
@@ -286,6 +304,11 @@ function StudentwiseFeeEditor() {
     const [rows, setRows] = useState<SpreadsheetRow[]>([]);
     const [discountRows, setDiscountRows] = useState<DiscountRow[]>([]);
     const [discountPresets, setDiscountPresets] = useState<DiscountPreset[]>([]);
+    const [installmentPlans, setInstallmentPlans] = useState<InstallmentPlanData[]>([]);
+    const [editingPlan, setEditingPlan] = useState<InstallmentPlanData | null>(null);
+    const [editPlanHeads, setEditPlanHeads] = useState<{ id: number; fee_date: string; amount: string; status: string; target_month: number }[]>([]);
+    const [isSavingPlan, setIsSavingPlan] = useState(false);
+    const [isDeletingPlanId, setIsDeletingPlanId] = useState<number | null>(null);
     const [showDiscountModal, setShowDiscountModal] = useState(false);
     const [discountForm, setDiscountForm] = useState<{
         discount_type_id: number | "";
@@ -575,9 +598,17 @@ function StudentwiseFeeEditor() {
                 });
             } else {
                 // Map from student_fees (Strict Rule: do not pull template)
-                // Separate discount rows from regular fee rows
+                // Separate discount rows and standalone installment rows from regular fee rows
                 const discountFeesFromApi = (fees as any[]).filter((sf) => sf.is_discount === true);
-                const regularFees = (fees as any[]).filter((sf) => !sf.is_discount);
+                const allRegular = (fees as any[]).filter((sf) => !sf.is_discount);
+
+                // Standalone installment rows: installment plan's fee type matches this row's fee type
+                const isStandaloneInstallmentFee = (sf: any) =>
+                    sf.installment_id != null &&
+                    (!sf.student_fee_installments?.fee_types?.id ||
+                        sf.student_fee_installments.fee_types.id === sf.fee_type_id);
+
+                const regularFees = allRegular.filter((sf) => !isStandaloneInstallmentFee(sf));
 
                 setDiscountRows(discountFeesFromApi.map((sf) => ({
                     id: sf.id,
@@ -691,6 +722,7 @@ function StudentwiseFeeEditor() {
         setSelectedSectionId("");
         setRows([]);
         setDiscountRows([]);
+        setInstallmentPlans([]);
         setSearchResults([]);
         setShowSearchDropdown(false);
         setLoadError(null);
@@ -711,6 +743,26 @@ function StudentwiseFeeEditor() {
             .then(res => setDiscountPresets(res.data?.data || res.data || []))
             .catch(() => {/* silently ignore */});
     }, []);
+
+    // ── Installment plans fetch ────────────────────────────────────────────
+    const fetchInstallmentPlans = useCallback(async (cc: number, year: string) => {
+        try {
+            const { data } = await api.get(`/v1/installments/student/${cc}`, { params: { academic_year: year } });
+            setInstallmentPlans(Array.isArray(data) ? data : []);
+        } catch {
+            setInstallmentPlans([]);
+        }
+    }, []);
+
+    useEffect(() => {
+        const match = studentId.match(/\d+$/);
+        const cc = match ? parseInt(match[0]) : 0;
+        if (cc > 0) {
+            fetchInstallmentPlans(cc, selectedYear);
+        } else {
+            setInstallmentPlans([]);
+        }
+    }, [studentId, selectedYear, fetchInstallmentPlans]);
 
     const handleAddDiscount = async () => {
         if (!studentId) return;
@@ -773,6 +825,56 @@ function StudentwiseFeeEditor() {
             toast.error(err.response?.data?.message || "Failed to remove discount.");
         } finally {
             setIsDeletingDiscountId(null);
+        }
+    };
+
+    const handleOpenEditPlan = (plan: InstallmentPlanData) => {
+        setEditingPlan(plan);
+        setEditPlanHeads(plan.heads.map(h => ({
+            id: h.id,
+            fee_date: h.fee_date || '',
+            amount: h.amount.toString(),
+            status: h.status,
+            target_month: h.target_month,
+        })));
+    };
+
+    const handleSavePlanEdit = async () => {
+        if (!editingPlan) return;
+        setIsSavingPlan(true);
+        try {
+            await api.patch(`/v1/installments/${editingPlan.id}`, {
+                heads: editPlanHeads
+                    .filter(h => h.status === 'NOT_ISSUED')
+                    .map(h => ({
+                        student_fee_id: h.id,
+                        fee_date: h.fee_date || undefined,
+                        amount: parseFloat(h.amount) || undefined,
+                    })),
+            });
+            toast.success("Installment plan updated.");
+            setEditingPlan(null);
+            const match = studentId.match(/\d+$/);
+            const cc = match ? parseInt(match[0]) : 0;
+            if (cc > 0) fetchInstallmentPlans(cc, selectedYear);
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to update plan.");
+        } finally {
+            setIsSavingPlan(false);
+        }
+    };
+
+    const handleDeletePlan = async (planId: number) => {
+        if (!window.confirm("Delete this entire installment plan? All pending (not yet issued) heads will be removed. This cannot be undone.")) return;
+        setIsDeletingPlanId(planId);
+        try {
+            await api.delete(`/v1/installments/${planId}`);
+            setInstallmentPlans(prev => prev.filter(p => p.id !== planId));
+            toast.success("Installment plan deleted.");
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to delete plan.");
+        } finally {
+            setIsDeletingPlanId(null);
         }
     };
     const totalRows = rows.length;
@@ -2082,6 +2184,91 @@ function StudentwiseFeeEditor() {
                 </div>
             )}
 
+            {/* Installment Plans Section */}
+            {installmentPlans.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="h-7 w-7 bg-indigo-100 dark:bg-indigo-900 rounded-xl flex items-center justify-center">
+                            <CreditCard className="h-3.5 w-3.5 text-indigo-600" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-black text-zinc-800 dark:text-zinc-200">Installment Plans</p>
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{installmentPlans.length} plan{installmentPlans.length !== 1 ? "s" : ""} · {selectedYear}</p>
+                        </div>
+                    </div>
+                    {installmentPlans.map((plan) => {
+                        const paidCount = plan.heads.filter(h => h.status === 'PAID' || h.status === 'PARTIALLY_PAID').length;
+                        const issuedCount = plan.heads.filter(h => h.status === 'ISSUED').length;
+                        const pendingCount = plan.heads.filter(h => h.status === 'NOT_ISSUED').length;
+                        const isDeleting = isDeletingPlanId === plan.id;
+                        return (
+                            <div key={plan.id} className="bg-white dark:bg-zinc-950 border border-indigo-200 dark:border-indigo-900 rounded-[24px] shadow-sm overflow-hidden">
+                                <div className="px-6 py-4 border-b border-indigo-100 dark:border-indigo-900 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <span className="inline-flex items-center px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-[8px] font-black uppercase tracking-wider rounded-lg">INSTL</span>
+                                        <div>
+                                            <p className="text-sm font-black text-zinc-800 dark:text-zinc-200">{plan.fee_type_desc}</p>
+                                            <p className="text-[10px] font-bold text-zinc-400">
+                                                {plan.installment_count} heads · PKR {plan.total_amount.toLocaleString()} total
+                                                {paidCount > 0 && <span className="ml-2 text-emerald-600">{paidCount} paid</span>}
+                                                {issuedCount > 0 && <span className="ml-2 text-amber-600">{issuedCount} issued</span>}
+                                                {pendingCount > 0 && <span className="ml-2 text-zinc-400">{pendingCount} pending</span>}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => handleOpenEditPlan(plan)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 transition-all"
+                                        >
+                                            <Pencil className="h-3 w-3" /> Edit
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeletePlan(plan.id)}
+                                            disabled={isDeleting || paidCount > 0}
+                                            title={paidCount > 0 ? "Cannot delete: some heads are already paid" : "Delete entire plan"}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black text-rose-500 bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                        >
+                                            {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                                            Delete Plan
+                                        </button>
+                                    </div>
+                                </div>
+                                <table className="w-full border-collapse">
+                                    <thead>
+                                        <tr className="bg-indigo-50/50 dark:bg-indigo-950/20">
+                                            {["#", "Month", "Fee Date", "Amount", "Status"].map(h => (
+                                                <th key={h} className={`px-6 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest border-b border-indigo-100 dark:border-indigo-900 ${h === "Amount" ? "text-right" : "text-left"}`}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {plan.heads.map((head, idx) => {
+                                            const monthName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === head.target_month) || "—";
+                                            const isPaid = head.status === 'PAID' || head.status === 'PARTIALLY_PAID';
+                                            const isIssued = head.status === 'ISSUED';
+                                            return (
+                                                <tr key={head.id} className={`transition-colors ${isPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : isIssued ? "bg-amber-50/20 dark:bg-amber-950/10" : "bg-indigo-50/10 hover:bg-indigo-50/30 dark:bg-indigo-950/5 dark:hover:bg-indigo-950/20"}`}>
+                                                    <td className="px-6 py-3 text-[10px] font-mono text-zinc-400 border-b border-indigo-100 dark:border-indigo-900">{idx + 1}</td>
+                                                    <td className="px-6 py-3 text-sm text-zinc-600 dark:text-zinc-300 border-b border-indigo-100 dark:border-indigo-900">{monthName}</td>
+                                                    <td className="px-6 py-3 text-sm font-mono text-zinc-500 border-b border-indigo-100 dark:border-indigo-900">{head.fee_date || "—"}</td>
+                                                    <td className="px-6 py-3 text-right font-mono font-bold text-indigo-700 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-900">{head.amount.toLocaleString()}</td>
+                                                    <td className="px-6 py-3 border-b border-indigo-100 dark:border-indigo-900">
+                                                        {isPaid && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-wider rounded">Paid</span>}
+                                                        {isIssued && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase tracking-wider rounded">Issued</span>}
+                                                        {head.status === 'NOT_ISSUED' && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-zinc-100 text-zinc-500 text-[8px] font-black uppercase tracking-wider rounded">Pending</span>}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
             {/* Add Discount Modal */}
             {showDiscountModal && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
@@ -2264,11 +2451,97 @@ function StudentwiseFeeEditor() {
                 isOpen={showBulkDrawer}
                 onClose={() => setShowBulkDrawer(false)}
             />
+            {/* Edit Installment Plan Modal */}
+            {editingPlan && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-zinc-100 dark:border-zinc-800">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 bg-indigo-100 dark:bg-indigo-900 rounded-2xl flex items-center justify-center">
+                                    <Pencil className="h-4 w-4 text-indigo-600" />
+                                </div>
+                                <div>
+                                    <p className="font-black text-zinc-900 dark:text-zinc-100">Edit Installment Plan</p>
+                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{editingPlan.fee_type_desc} · PKR {editingPlan.total_amount.toLocaleString()}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setEditingPlan(null)} className="h-8 w-8 rounded-xl flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-all">
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                        {/* Body */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-3">
+                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4">Only pending (not-yet-issued) heads can be edited.</p>
+                            {editPlanHeads.map((head, idx) => {
+                                const monthName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === head.target_month) || `Month ${head.target_month}`;
+                                const isEditable = head.status === 'NOT_ISSUED';
+                                const isPaid = head.status === 'PAID' || head.status === 'PARTIALLY_PAID';
+                                const isIssued = head.status === 'ISSUED';
+                                return (
+                                    <div key={head.id} className={`p-4 rounded-2xl border ${isEditable ? "border-indigo-100 dark:border-indigo-800 bg-indigo-50/20 dark:bg-indigo-950/10" : isPaid ? "border-emerald-100 dark:border-emerald-900 bg-emerald-50/20 dark:bg-emerald-950/10" : "border-amber-100 dark:border-amber-900 bg-amber-50/20 dark:bg-amber-950/10"}`}>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">#{idx + 1} · {monthName}</span>
+                                                {isPaid && <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-wider rounded">Paid</span>}
+                                                {isIssued && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase tracking-wider rounded">Issued</span>}
+                                                {isEditable && <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-[8px] font-black uppercase tracking-wider rounded">Editable</span>}
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">Fee Date</label>
+                                                <input
+                                                    type="date"
+                                                    value={head.fee_date}
+                                                    disabled={!isEditable}
+                                                    onChange={e => setEditPlanHeads(prev => prev.map((h, i) => i === idx ? { ...h, fee_date: e.target.value } : h))}
+                                                    className={`w-full h-10 px-3 rounded-xl border text-sm font-mono outline-none transition-all ${isEditable ? "border-indigo-200 dark:border-indigo-800 focus:ring-2 focus:ring-indigo-400/30 bg-white dark:bg-zinc-900" : "border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 opacity-50 cursor-not-allowed"}`}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">Amount (Rs.)</label>
+                                                <input
+                                                    type="number"
+                                                    value={head.amount}
+                                                    disabled={!isEditable}
+                                                    onChange={e => setEditPlanHeads(prev => prev.map((h, i) => i === idx ? { ...h, amount: e.target.value } : h))}
+                                                    className={`w-full h-10 px-3 rounded-xl border text-sm font-mono outline-none transition-all ${isEditable ? "border-indigo-200 dark:border-indigo-800 focus:ring-2 focus:ring-indigo-400/30 bg-white dark:bg-zinc-900" : "border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 opacity-50 cursor-not-allowed"}`}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {/* Footer */}
+                        <div className="flex items-center justify-end gap-3 px-6 py-5 border-t border-zinc-100 dark:border-zinc-800">
+                            <button onClick={() => setEditingPlan(null)} className="h-10 px-6 rounded-2xl text-sm font-black text-zinc-600 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 transition-all">
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSavePlanEdit}
+                                disabled={isSavingPlan}
+                                className="h-10 px-8 rounded-2xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {isSavingPlan ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Modal */}
             <InstallmentModal
                 isOpen={isInstallmentModalOpen}
                 onClose={() => setIsInstallmentModalOpen(false)}
-                onSuccess={() => fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear)}
+                onSuccess={() => {
+                    fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
+                    const match = studentId.match(/\d+$/);
+                    const cc = match ? parseInt(match[0]) : 0;
+                    if (cc > 0) fetchInstallmentPlans(cc, selectedYear);
+                }}
                 studentId={Number(studentId)}
                 studentName={searchQuery.split(/\s\(/)[0] || "Student"}
                 existingFees={rows}
