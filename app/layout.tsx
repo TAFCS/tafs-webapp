@@ -18,7 +18,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TAFSync",
+  title: {
+    template: "%s — TAFSync",
+    default: "TAFSync",
+  },
   description: "The American Foundation School — Digital Transformation",
   icons: {
     icon: "/logo.png",
