@@ -12,7 +12,7 @@ import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchSections } from "@/store/slices/sectionsSlice";
 import toast from "react-hot-toast";
 import InstallmentModal from "@/components/modals/InstallmentModal";
-import { getCurrentAcademicYear, getAcademicYears, MONTHS, MONTH_TO_NUM } from "@/lib/fee-utils";
+import { getCurrentAcademicYear, getAcademicYears, MONTHS, MONTH_TO_NUM, resolveClassIdFromGrade, calculateFeeSuggestions } from "@/lib/fee-utils";
 import { BulkOperationsDrawer } from "./components/BulkOperationsDrawer";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -245,11 +245,12 @@ function StudentwiseFeeEditor() {
     const [projections, setProjections] = useState<{
         newTuitionMonthly: number;
         newAnnualMonthly: number;
+        hasPriorYear: boolean;
         isLoading: boolean;
     } | null>(null);
 
     const fetchProjections = useCallback(async (sid: number, year: string) => {
-        setProjections(prev => ({ ...(prev || { newTuitionMonthly: 0, newAnnualMonthly: 0 }), isLoading: true }));
+        setProjections(prev => ({ ...(prev || { newTuitionMonthly: 0, newAnnualMonthly: 0, hasPriorYear: false }), isLoading: true }));
         try {
             const parts = year.split('-');
             if (parts.length !== 2) return;
@@ -258,35 +259,12 @@ function StudentwiseFeeEditor() {
             const { data } = await api.get(`/v1/student-fees/student/${sid}/schedule`, { params: { academic_year: prevYear } });
             const prevFees = data?.data?.fees || [];
 
-            // Tuition = Fee Type 1
-            const tuitionRows = prevFees.filter((f: any) => f.fee_type_id === 1);
-
-            // Annual = Fee Type 4 (either primary or through installment tracking)
-            const annualRows = prevFees.filter((f: any) =>
-                f.fee_type_id === 4 ||
-                (f.installment_amount && f.installment_id && f.student_fee_installments?.fee_type_id === 4)
-            );
-
-            const tuitionTotalClean = tuitionRows.reduce((a: number, b: any) => {
-                const total = parseFloat(b.amount || "0");
-                const inst = parseFloat(b.installment_amount || "0");
-                return a + (total - inst);
-            }, 0);
-
-            // For annual total, we sum up the installment portions OR the full amount if it was standalone
-            const annualTotal = annualRows.reduce((a: number, b: any) => {
-                const installmentPart = parseFloat(b.installment_amount || "0");
-                const fullAmount = parseFloat(b.amount || "0");
-                return a + (installmentPart > 0 ? installmentPart : fullAmount);
-            }, 0);
-
-            const prevTuitionAvg = tuitionRows.length > 0 ? tuitionTotalClean / tuitionRows.length : 0;
-            const newTuitionMonthly = prevTuitionAvg * 1.10;
-            const newAnnualMonthly = (annualTotal * 1.10) / 12;
+            const suggestions = calculateFeeSuggestions(prevFees);
 
             setProjections({
-                newTuitionMonthly: Math.round(newTuitionMonthly),
-                newAnnualMonthly: Math.round(newAnnualMonthly),
+                newTuitionMonthly: suggestions.newTuitionMonthly,
+                newAnnualMonthly: suggestions.newAnnualMonthly,
+                hasPriorYear: suggestions.hasPriorYear,
                 isLoading: false
             });
         } catch (err) {
@@ -394,7 +372,6 @@ function StudentwiseFeeEditor() {
     // Read params from URL
     useEffect(() => {
         const cc = searchParams.get("ccNumber");
-        const cid = searchParams.get("classId");
 
         if (cc) {
             setStudentId(cc);
@@ -428,11 +405,21 @@ function StudentwiseFeeEditor() {
             };
             fetchProfile();
         }
-
-        if (cid && cid !== "null" && cid !== "undefined" && !isNaN(Number(cid))) {
-            setSelectedClassId(Number(cid));
-        }
     }, [searchParams]);
+
+    useEffect(() => {
+        const cid = searchParams.get("classId");
+        if (cid && cid !== "null" && cid !== "undefined") {
+            if (!isNaN(Number(cid))) {
+                setSelectedClassId(Number(cid));
+            } else if (classes.length > 0) {
+                const resolved = resolveClassIdFromGrade(classes, cid);
+                if (resolved !== "") {
+                    setSelectedClassId(resolved);
+                }
+            }
+        }
+    }, [searchParams, classes]);
 
     useEffect(() => {
         const h = (e: MouseEvent) => {
@@ -529,7 +516,11 @@ function StudentwiseFeeEditor() {
                 signal
             });
 
-            const { fees, is_template } = scheduleRes.data;
+            if (!scheduleRes || !scheduleRes.data) {
+                throw new Error("Invalid response structure from student fee schedule API.");
+            }
+            const fees = Array.isArray(scheduleRes.data.fees) ? scheduleRes.data.fees : [];
+            const is_template = !!scheduleRes.data.is_template;
             let finalRows: SpreadsheetRow[] = [];
 
             if (is_template) {
@@ -543,26 +534,10 @@ function StudentwiseFeeEditor() {
                         const { data: prevData } = await api.get(`/v1/student-fees/student/${studentId}/schedule`, { params: { academic_year: prevYearStr } });
                         const prevFees = prevData?.data?.fees || [];
 
-                        const tuitionRows = prevFees.filter((f: any) => f.fee_type_id === 1);
-                        const annualRows = prevFees.filter((f: any) =>
-                            f.fee_type_id === 4 ||
-                            (f.installment_amount && f.installment_id && f.student_fee_installments?.fee_type_id === 4)
-                        );
-
-                        if (tuitionRows.length > 0) {
-                            const tTotalClean = tuitionRows.reduce((a: number, b: any) => {
-                                const total = parseFloat(b.amount || "0");
-                                const inst = parseFloat(b.installment_amount || "0");
-                                return a + (total - inst);
-                            }, 0);
-                            suggestedTuition = Math.round((tTotalClean / tuitionRows.length) * 1.10);
-                        }
-                        if (annualRows.length > 0) {
-                            const aTotal = annualRows.reduce((a: number, b: any) => {
-                                const inst = parseFloat(b.installment_amount || "0");
-                                return a + (inst > 0 ? inst : parseFloat(b.amount || "0"));
-                            }, 0);
-                            suggestedAnnual = Math.round(aTotal * 1.10); // 10% increase
+                        const suggestions = calculateFeeSuggestions(prevFees);
+                        if (suggestions.hasPriorYear) {
+                            suggestedTuition = suggestions.newTuitionMonthly;
+                            suggestedAnnual = suggestions.newAnnualMonthly * 12;
                         }
                     }
                 } catch (e) { console.error("Suggestion fetch failed", e); }
@@ -1688,37 +1663,50 @@ function StudentwiseFeeEditor() {
                             <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mt-1">Based on Previous Academic Year</p>
                         </div>
 
-                        <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-6 w-full">
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Suggested Tuition</p>
-                                <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">PKR {projections.newTuitionMonthly.toLocaleString()}</p>
-                                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">+10% Applied (/12)</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Suggested Annual</p>
-                                <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">PKR {projections.newAnnualMonthly.toLocaleString()}</p>
-                                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">+10% Applied (/12)</p>
-                            </div>
-                            <div className="h-full w-px bg-zinc-100 dark:bg-zinc-800 hidden lg:block mx-auto" />
-                            <div className="space-y-2 col-span-2 lg:col-span-1 bg-zinc-50 dark:bg-zinc-900 p-4 rounded-3xl border border-zinc-100 dark:border-zinc-800">
-                                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Total Monthly Projection</p>
-                                <p className="text-2xl font-black text-primary">PKR {(projections.newTuitionMonthly + projections.newAnnualMonthly).toLocaleString()}</p>
-                                <p className="text-[10px] font-bold text-zinc-400 leading-tight">
-                                    Includes 10% increment on both Tuition & Annual embeddings.
+                        {projections.hasPriorYear ? (
+                            <>
+                                <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Suggested Tuition</p>
+                                        <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">PKR {projections.newTuitionMonthly.toLocaleString()}</p>
+                                        <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">+10% Applied (/12)</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Suggested Annual</p>
+                                        <p className="text-xl font-black text-zinc-900 dark:text-zinc-100">PKR {projections.newAnnualMonthly.toLocaleString()}</p>
+                                        <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">+10% Applied (/12)</p>
+                                    </div>
+                                    <div className="h-full w-px bg-zinc-100 dark:bg-zinc-800 hidden lg:block mx-auto" />
+                                    <div className="space-y-2 col-span-2 lg:col-span-1 bg-zinc-50 dark:bg-zinc-900 p-4 rounded-3xl border border-zinc-100 dark:border-zinc-800">
+                                        <p className="text-[10px] font-black text-primary uppercase tracking-widest">Total Monthly Projection</p>
+                                        <p className="text-2xl font-black text-primary">PKR {(projections.newTuitionMonthly + projections.newAnnualMonthly).toLocaleString()}</p>
+                                        <p className="text-[10px] font-bold text-zinc-400 leading-tight">
+                                            Includes 10% increment on both Tuition & Annual embeddings.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex-shrink-0">
+                                    <button
+                                        onClick={() => setIsInstallmentModalOpen(true)}
+                                        className="h-16 px-8 bg-primary hover:bg-primary/90 text-white text-sm font-black rounded-2xl shadow-2xl shadow-primary/20 transition-all active:scale-95 flex items-center gap-2 group"
+                                    >
+                                        <CreditCard className="h-5 w-5 group-hover:rotate-12 transition-transform" />
+                                        Breakdown Tool
+                                        <ArrowRight className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex-1 w-full border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 text-center">
+                                <p className="text-sm font-bold text-zinc-600 dark:text-zinc-400">
+                                    No prior year fee records found for this student.
+                                </p>
+                                <p className="text-xs text-zinc-400 mt-1">
+                                    Increment projections cannot be calculated because this student does not have any fee history from the previous academic year (e.g. newly admitted or soft admission).
                                 </p>
                             </div>
-                        </div>
-
-                        <div className="flex-shrink-0">
-                            <button
-                                onClick={() => setIsInstallmentModalOpen(true)}
-                                className="h-16 px-8 bg-primary hover:bg-primary/90 text-white text-sm font-black rounded-2xl shadow-2xl shadow-primary/20 transition-all active:scale-95 flex items-center gap-2 group"
-                            >
-                                <CreditCard className="h-5 w-5 group-hover:rotate-12 transition-transform" />
-                                Breakdown Tool
-                                <ArrowRight className="h-4 w-4" />
-                            </button>
-                        </div>
+                        )}
                     </div>
                 </div>
             )}

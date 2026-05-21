@@ -11,6 +11,7 @@ import LogoImage from "@/public/logo.png";
 import api from "@/lib/api";
 import { StudentProfileModal } from "@/src/features/students/components/student-profile-modal";
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
+import { resolveClassIdFromGrade } from "@/lib/fee-utils";
 
 export function AdmissionForm() {
     const router = useRouter();
@@ -1470,11 +1471,7 @@ export function AdmissionForm() {
                         </div>
                         <button
                             onClick={() => {
-                                const matchedClass = classes.find(c =>
-                                    c.class_code === formData.admissionClass ||
-                                    c.description === formData.admissionClass
-                                );
-                                const classId = matchedClass?.id || "";
+                                const classId = resolveClassIdFromGrade(classes, formData.admissionClass);
                                 router.push(`/studentwise-fees?ccNumber=${submitSuccess.cc_number}&classId=${classId}`);
                             }}
                             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-all shadow-md active:scale-95 whitespace-nowrap self-center"

@@ -126,7 +126,7 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                         {student ? (
                             <>
                                 <h2 className="text-[16px] font-black text-zinc-900 tracking-tight">{student.full_name}</h2>
-                                <p className="text-[11px] text-zinc-400 font-mono mt-0.5">CC {student.cc} {student.gr_number ? `· GR ${student.gr_number}` : ""}</p>
+                                <p className="text-[11px] text-zinc-400 font-mono mt-0.5">CC {student.cc} {student.gr_number ? `· GR ${student.gr_number}` : ""}{student.section_name ? ` · Sec ${student.section_name}` : ""}</p>
                             </>
                         ) : (
                             <div className="space-y-1.5">

@@ -31,6 +31,8 @@ interface StudentCore {
     requested_grade?: string | null;
     primary_guardian_name?: string | null;
     guardian_relationship?: string | null;
+    cnic?: string | null;
+    primary_guardian_cnic?: string | null;
 }
 
 interface Student {
@@ -95,8 +97,10 @@ function StudentCard({ student, onClick }: { student: Student; onClick: () => vo
                         <StatusBadge status={c.enrollment_status} />
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
-                        <span className="text-[11px] text-zinc-400 font-mono">CC {c.cc_number}</span>
-                        {c.gr_number && <span className="text-[11px] text-zinc-400 font-mono">GR {c.gr_number}</span>}
+                        <span className="text-[11px] text-zinc-400 font-mono font-bold">CC {c.cc_number}</span>
+                        {c.gr_number && <span className="text-[11px] text-zinc-400 font-mono font-bold">GR {c.gr_number}</span>}
+                        {c.cnic && <span className="text-[11px] text-zinc-400 font-mono font-bold">CNIC {c.cnic}</span>}
+                        {c.primary_guardian_cnic && <span className="text-[11px] text-zinc-400 font-mono font-bold">G.CNIC {c.primary_guardian_cnic}</span>}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                         {c.campus_name && (
@@ -113,6 +117,11 @@ function StudentCard({ student, onClick }: { student: Student; onClick: () => vo
                                 <BookOpen className="h-2.5 w-2.5 text-blue-400" />{c.requested_grade}
                             </span>
                         ) : null}
+                        {c.section_description && (
+                            <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                                <Layers className="h-2.5 w-2.5 text-zinc-400" />SEC {c.section_description}
+                            </span>
+                        )}
                         {c.academic_system === 'A-Level' && (
                             <span className="flex items-center gap-1 text-[10px] bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
                                 <BookOpen className="h-2.5 w-2.5 text-indigo-400" />A-LEVEL

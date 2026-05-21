@@ -9,6 +9,14 @@ const ACADEMIC_YEARS = getAcademicYears(1, 4);
 
 const isNA = (v: any) => v === "N/A" || v === "021-N/A";
 
+const formatCNIC = (v: string) => {
+    const digits = v.replace(/\D/g, "").slice(0, 13);
+    let out = digits;
+    if (digits.length > 5) out = digits.slice(0, 5) + "-" + digits.slice(5);
+    if (digits.length > 12) out = out.slice(0, 13) + "-" + out.slice(13);
+    return out;
+};
+
 // ── Primitives ──────────────────────────────────────────────────────────────
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
@@ -174,6 +182,7 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
     // Section: Personal
     const [personal, setPersonal] = useState({
         full_name: student.full_name || "",
+        cnic: student.cnic || "",
         dob: student.dob ? new Date(student.dob).toISOString().split("T")[0] : "",
         gender: student.gender || "",
         nationality: student.nationality || "",
@@ -220,6 +229,8 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
     const p = (k: keyof typeof personal) => (v: any) => setPersonal(prev => ({ ...prev, [k]: v }));
     const c = (k: keyof typeof contact) => (v: any) => setContact(prev => ({ ...prev, [k]: v }));
     const f = (k: keyof typeof feeConfig) => (v: any) => setFeeConfig(prev => ({ ...prev, [k]: v }));
+    const primaryGuardian = student.guardians?.find((g: any) => g.is_primary_contact);
+    const primaryGuardianCnic = primaryGuardian?.cnic || "N/A";
 
     return (
         <div className="space-y-4">
@@ -288,6 +299,14 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                 <div className="col-span-2">
                     <Field label="Full Name"><Input value={personal.full_name} onChange={p("full_name")} /></Field>
                 </div>
+                <Field label="Student CNIC">
+                    <Input value={personal.cnic} onChange={v => p("cnic")(formatCNIC(v))} placeholder="xxxxx-xxxxxxx-x" />
+                </Field>
+                <Field label="Primary Guardian CNIC">
+                    <div className="w-full h-9 px-3 flex items-center text-[13px] font-medium text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-xl uppercase font-mono">
+                        {primaryGuardianCnic}
+                    </div>
+                </Field>
                 <Field label="Date of Birth"><Input type="date" value={personal.dob} onChange={p("dob")} /></Field>
                 <Field label="Gender">
                     <select value={(personal.gender || "").toUpperCase()} onChange={e => p("gender")(e.target.value.toUpperCase())} className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 appearance-none uppercase">

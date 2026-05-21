@@ -465,4 +465,95 @@ export function groupFees(
     return results;
 }
 
+export const GRADE_NAME_TO_CODE: Record<string, string> = {
+    'Pre-Nursery': 'PN',
+    'Nursery': 'NUR',
+    'K.G.': 'KG',
+    'JR-I': 'JRI',
+    'JR-II': 'JRII',
+    'JR-III': 'JRIII',
+    'JR-IV': 'JRIV',
+    'JR-V': 'JRV',
+    'SR-I': 'SRI',
+    'SR-II': 'SRII',
+    'SR-III': 'SRIII',
+    'O-I': 'OI',
+    'O-II': 'OII',
+    'O-III': 'OIII',
+    'VI': 'VI',
+    'VII': 'VII',
+    'VIII': 'VIII',
+    'IX': 'IX',
+    'X': 'X',
+    'AS Level': 'AS',
+    'A2 Level': 'A2'
+};
+
+export function resolveClassIdFromGrade(classes: any[], gradeOrCode: string | null | undefined): number | "" {
+    if (!gradeOrCode) return "";
+    
+    // Normalize input (e.g. JR-III -> JRIII, NURSERY -> NUR)
+    const normalizedInput = gradeOrCode.replace(/[-\s]/g, '').toUpperCase();
+    
+    // Check if the input is directly a code mapped via GRADE_NAME_TO_CODE
+    const codeFromMap = GRADE_NAME_TO_CODE[gradeOrCode] || "";
+    const normalizedCodeFromMap = codeFromMap.toUpperCase();
+
+    const matched = classes.find(c => {
+        const classCode = c.class_code.toUpperCase();
+        const classDesc = c.description.toUpperCase();
+        
+        return (
+            classCode === normalizedInput ||
+            classCode === normalizedCodeFromMap ||
+            classDesc === gradeOrCode.toUpperCase() ||
+            classDesc === normalizedInput
+        );
+    });
+
+    return matched ? matched.id : "";
+}
+
+export function calculateFeeSuggestions(prevFees: any[]) {
+    if (!prevFees || prevFees.length === 0) {
+        return {
+            newTuitionMonthly: 0,
+            newAnnualMonthly: 0,
+            hasPriorYear: false
+        };
+    }
+
+    // Tuition = Fee Type 1
+    const tuitionRows = prevFees.filter((f: any) => f.fee_type_id === 1);
+
+    // Annual = Fee Type 4 (either primary or through installment tracking)
+    const annualRows = prevFees.filter((f: any) =>
+        f.fee_type_id === 4 ||
+        (f.installment_amount && f.installment_id && f.student_fee_installments?.fee_type_id === 4)
+    );
+
+    const tuitionTotalClean = tuitionRows.reduce((a: number, b: any) => {
+        const total = parseFloat(b.amount || "0");
+        const inst = parseFloat(b.installment_amount || "0");
+        return a + (total - inst);
+    }, 0);
+
+    // For annual total, we sum up the installment portions OR the full amount if it was standalone
+    const annualTotal = annualRows.reduce((a: number, b: any) => {
+        const installmentPart = parseFloat(b.installment_amount || "0");
+        const fullAmount = parseFloat(b.amount || "0");
+        return a + (installmentPart > 0 ? installmentPart : fullAmount);
+    }, 0);
+
+    const prevTuitionAvg = tuitionRows.length > 0 ? tuitionTotalClean / tuitionRows.length : 0;
+    const newTuitionMonthly = Math.round(prevTuitionAvg * 1.10);
+    const newAnnualMonthly = Math.round((annualTotal * 1.10) / 12);
+
+    return {
+        newTuitionMonthly,
+        newAnnualMonthly,
+        hasPriorYear: true
+    };
+}
+
 

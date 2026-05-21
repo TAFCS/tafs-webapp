@@ -12,6 +12,7 @@ import Image from "next/image";
 import LogoImage from "@/public/logo.png";
 import { StudentProfileModal } from "@/src/features/students/components/student-profile-modal";
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
+import { GRADE_NAME_TO_CODE, resolveClassIdFromGrade } from "@/lib/fee-utils";
 
 const isNA = (v: any) => v === "N/A" || v === "021-N/A";
 
@@ -25,29 +26,6 @@ const stripPhonePrefix = (phone: string) => {
     return cleaned.replace(/^[\s-]+/, "");
 };
 
-const GRADE_NAME_TO_CODE: Record<string, string> = {
-    'Pre-Nursery': 'PN',
-    'Nursery': 'NUR',
-    'K.G.': 'KG',
-    'JR-I': 'JRI',
-    'JR-II': 'JRII',
-    'JR-III': 'JRIII',
-    'JR-IV': 'JRIV',
-    'JR-V': 'JRV',
-    'SR-I': 'SRI',
-    'SR-II': 'SRII',
-    'SR-III': 'SRIII',
-    'O-I': 'OI',
-    'O-II': 'OII',
-    'O-III': 'OIII',
-    'VI': 'VI',
-    'VII': 'VII',
-    'VIII': 'VIII',
-    'IX': 'IX',
-    'X': 'X',
-    'AS Level': 'AS',
-    'A2 Level': 'A2'
-};
 
 const FIELD_TO_NA_CHECKBOX: Record<string, string> = {
     identificationMarks: 'isIdentificationMarksNA',
@@ -518,42 +496,72 @@ export function RegistrationForm() {
                     // 2. If a family exists, populate Address and other family fields
                     // Note: We no longer auto-populate the spouse (Mother/Father) automatically 
                     // to ensure manual CNIC verification for cases like second marriages.
+                    // EXCEPT: when searching Father CNIC, if a matching Mother record is found in family.other_guardians.Mother, we autofill it as requested.
                     if (family) {
-                        // Address Population
-                        // Prefer separate fields from guardian if they exist
-                        const gHouse = guardian.house_appt_number || guardian.house_appt_name;
-                        if (gHouse) {
-                            updates.houseNo = gHouse;
-                            updates.areaBlock = guardian.area_block || prev.areaBlock;
-                            updates.city = guardian.city || prev.city;
-                            updates.province = guardian.province || prev.province;
-                            updates.country = guardian.country || prev.country;
-                            updates.postalCode = isNA(guardian.postal_code) ? "" : (guardian.postal_code || prev.postalCode);
-                            updates.isPostalCodeNA = isNA(guardian.postal_code);
-                        } else if (family?.primary_address) {
-                            // Fallback: Split concatenated address string by commas
-                            const parts = family.primary_address.split(',').map((s: string) => s.trim());
-                            if (parts.length > 0) updates.houseNo = parts[0];
-                            if (parts.length > 1) updates.areaBlock = parts[1];
-                            if (parts.length > 2) updates.city = parts[2];
-                            if (parts.length > 3) updates.province = parts[3];
-                            if (parts.length > 4) updates.country = parts[4];
-                            if (parts.length > 5) {
-                                updates.postalCode = isNA(parts[5]) ? "" : parts[5];
-                                updates.isPostalCodeNA = isNA(parts[5]);
-                            }
+                        if (type === "father" && family.other_guardians?.Mother) {
+                            const mother = family.other_guardians.Mother;
+                            updates.motherCnic = mother.cnic || prev.motherCnic;
+                            updates.motherName = mother.full_name || prev.motherName;
+                            updates.motherPhone = isNA(mother.primary_phone) ? "" : stripPhonePrefix(mother.primary_phone || prev.motherPhone);
+                            updates.isMotherPhoneNA = isNA(mother.primary_phone);
+                            updates.motherEmail = isNA(mother.email_address) ? "" : (mother.email_address || prev.motherEmail);
+                            updates.isMotherEmailNA = isNA(mother.email_address);
+                            updates.motherFax = isNA(mother.fax_number) ? "" : (mother.fax_number || prev.motherFax);
+                            updates.isMotherFaxNA = isNA(mother.fax_number);
+                            updates.motherWhatsapp = isNA(mother.whatsapp_number) ? "" : stripPhonePrefix(mother.whatsapp_number || prev.motherWhatsapp);
+                            updates.motherPhotoUrl = mother.photo_url || prev.motherPhotoUrl;
+                            updates.motherAdditionalPhones = (mother.additional_phones || []).map((p: any) => 
+                                typeof p === 'object' ? { id: Math.random().toString(), ...p } : { id: Math.random().toString(), label: 'Other', number: p }
+                            );
                         }
+
+                        // Address Population
+                        // Merge address inputs robustly:
+                        // First, extract what we can from the guardian's direct fields.
+                        const gHouse = guardian.house_appt_number || guardian.house_appt_name || "";
+                        const gArea = guardian.area_block || "";
+                        const gCity = guardian.city || "";
+                        const gProvince = guardian.province || "";
+                        const gCountry = guardian.country || "";
+                        const gPostal = guardian.postal_code || "";
+
+                        // Second, split family primary address if available
+                        let fHouse = "", fArea = "", fCity = "", fProvince = "", fCountry = "", fPostal = "";
+                        if (family?.primary_address) {
+                            const parts = family.primary_address.split(',').map((s: string) => s.trim());
+                            if (parts.length > 0) fHouse = parts[0];
+                            if (parts.length > 1) fArea = parts[1];
+                            if (parts.length > 2) fCity = parts[2];
+                            if (parts.length > 3) fProvince = parts[3];
+                            if (parts.length > 4) fCountry = parts[4];
+                            if (parts.length > 5) fPostal = parts[5];
+                        }
+
+                        // Combine, preferring guardian specific, then family fallback, then current/default values
+                        updates.houseNo = gHouse || fHouse || prev.houseNo || "";
+                        updates.areaBlock = gArea || fArea || prev.areaBlock || "";
+                        updates.city = gCity || fCity || prev.city || "KARACHI";
+                        updates.province = gProvince || fProvince || prev.province || "SINDH";
+                        updates.country = gCountry || fCountry || prev.country || "PAKISTAN";
+                        
+                        const finalPostal = gPostal || fPostal || prev.postalCode || "";
+                        updates.postalCode = isNA(finalPostal) ? "" : finalPostal;
+                        updates.isPostalCodeNA = isNA(finalPostal) || !finalPostal;
 
                         if (family?.home_phone) {
                             const hp = family.home_phone.trim();
-                            if (hp.includes("-")) {
+                            if (isNA(hp) || hp === "021-N/A" || hp === "N/A") {
+                                updates.homePhone = "";
+                                updates.isHomePhoneNA = true;
+                            } else if (hp.includes("-")) {
                                 const [code, ...rest] = hp.split("-");
                                 updates.homePhoneCountryCode = code;
                                 updates.homePhone = rest.join("-");
+                                updates.isHomePhoneNA = false;
                             } else {
                                 updates.homePhone = stripPhonePrefix(hp);
+                                updates.isHomePhoneNA = false;
                             }
-                            updates.isHomePhoneNA = false;
                         }
                     }
 
@@ -2432,11 +2440,7 @@ export function RegistrationForm() {
                             </button>
                             <button
                                 onClick={() => {
-                                    const matchedClass = classes.find(c =>
-                                        c.class_code === formData.admissionLevel ||
-                                        c.description === formData.admissionLevel
-                                    );
-                                    const classId = matchedClass?.id || "";
+                                    const classId = resolveClassIdFromGrade(classes, formData.admissionLevel);
                                     router.push(`/studentwise-fees?ccNumber=${submitSuccess.cc_number}&classId=${classId}`);
                                 }}
                                 className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-all shadow-md active:scale-95 whitespace-nowrap self-center"

@@ -159,13 +159,7 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                 <InfoItem
                                     icon={<GraduationCap className="h-4 w-4" />}
                                     label="Grade & Section"
-                                    value={(() => {
-                                        if (student.enrollment_status === 'ENROLLED' && student.grade_and_section) return student.grade_and_section;
-                                        const val = student.grade_and_section;
-                                        if (!val) return "N/A";
-                                        const match = classes.find(c => c.class_code === val || c.description === val);
-                                        return match ? match.description : val;
-                                    })()}
+                                    value={student.grade_and_section || "N/A"}
                                 />
                                 <InfoItem icon={<Tag />} label="House" value={student.house_and_color || "N/A"} />
                             </div>
@@ -273,7 +267,7 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                                             <p className="text-[9px] text-indigo-600 font-bold mt-1 uppercase tracking-tight">S/O: {sibling.father_name.toUpperCase()}</p>
                                                         )}
                                                         <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium mt-1 uppercase tracking-tight">
-                                                            {sibling.cc_number} CC • {sibling.gr_number || 'N/A'} GR • {sibling.grade || 'N/A Grade'}
+                                                            {sibling.cc_number} CC • {sibling.gr_number || 'N/A'} GR{sibling.grade ? ` • ${sibling.grade}` : ''}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -302,6 +296,7 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 gap-y-6">
                                     <DataPoint label="Date of Birth" value={student.date_of_birth?.toString() || ""} />
                                     <DataPoint label="Computer Code" value={student.registration_number?.toString() || ""} />
+                                    <DataPoint label="Student CNIC" value={student.cnic?.toString() || ""} />
                                     <DataPoint label="Primary Guardian" value={student.primary_guardian_name?.toString() || ""} />
                                     <DataPoint label="Father's Name" value={student.father_name?.toString() || ""} />
                                     <DataPoint label="Guardian CNIC" value={student.primary_guardian_cnic?.toString() || ""} />
