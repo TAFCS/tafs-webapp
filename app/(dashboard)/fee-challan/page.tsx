@@ -1197,10 +1197,10 @@ export default function FeeChallanGenerator() {
                               </button>
                               {generatedGroupDates.has(g.fee_date) && savedGroupVoucherPdfUrls[g.fee_date] && (
                                 <>
-                                  <button onClick={() => { setPreviewPdfUrl(savedGroupVoucherPdfUrls[g.fee_date]); setPreviewFilename(`${student?.gr_number || ''}-${g.fee_date}-${savedGroupVoucherIds[g.fee_date]}.pdf`); setPreviewModalOpen(true); }} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                  <button onClick={() => { setPreviewPdfUrl(savedGroupVoucherPdfUrls[g.fee_date]); setPreviewFilename(`${g.fee_date}-${student?.gr_number || `CC${student?.cc}` || 'unknown'}-${savedGroupVoucherIds[g.fee_date]}.pdf`); setPreviewModalOpen(true); }} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
                                     <FileText className="h-4 w-4" /> View PDF
                                   </button>
-                                  <button onClick={() => downloadPdf(savedGroupVoucherPdfUrls[g.fee_date], `${student?.gr_number || ''}-${g.fee_date}-${savedGroupVoucherIds[g.fee_date]}.pdf`)} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-emerald-600 text-white flex items-center gap-2">
+                                  <button onClick={() => downloadPdf(savedGroupVoucherPdfUrls[g.fee_date], `${g.fee_date}-${student?.gr_number || `CC${student?.cc}` || 'unknown'}-${savedGroupVoucherIds[g.fee_date]}.pdf`)} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-emerald-600 text-white flex items-center gap-2">
                                     <Download className="h-4 w-4" /> Download
                                   </button>
                                 </>
@@ -1223,10 +1223,10 @@ export default function FeeChallanGenerator() {
                     </button>
                     {voucherSaved && savedVoucherPdfUrl && (
                       <>
-                        <button onClick={() => { setPreviewPdfUrl(savedVoucherPdfUrl); setPreviewFilename(`${student?.gr_number || 'unknown'}-${dateFrom || issueDate}-${savedVoucherId}.pdf`); setPreviewModalOpen(true); }} className="h-16 px-8 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 transition-all hover:-translate-y-1">
+                        <button onClick={() => { setPreviewPdfUrl(savedVoucherPdfUrl); setPreviewFilename(`${dateFrom || issueDate}-${student?.gr_number || `CC${student?.cc}` || 'unknown'}-${savedVoucherId}.pdf`); setPreviewModalOpen(true); }} className="h-16 px-8 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 transition-all hover:-translate-y-1">
                           <FileText className="h-5 w-5" /> View PDF
                         </button>
-                        <button onClick={() => downloadPdf(savedVoucherPdfUrl!, `${student?.gr_number || 'unknown'}-${dateFrom || issueDate}-${savedVoucherId}.pdf`)} className="h-16 px-8 bg-emerald-600 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 shadow-xl transition-all hover:-translate-y-1">
+                        <button onClick={() => downloadPdf(savedVoucherPdfUrl!, `${dateFrom || issueDate}-${student?.gr_number || `CC${student?.cc}` || 'unknown'}-${savedVoucherId}.pdf`)} className="h-16 px-8 bg-emerald-600 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 shadow-xl transition-all hover:-translate-y-1">
                           <Download className="h-5 w-5" /> Download
                         </button>
                       </>

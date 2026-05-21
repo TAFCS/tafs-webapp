@@ -619,18 +619,28 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
             const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, { paid_stamp: true });
             const pdfUrl = pdfRes.data?.pdf_url;
             if (!pdfUrl) throw new Error("No PDF URL returned from server.");
-            const link = document.createElement("a");
-            link.href = pdfUrl;
-            link.target = "_blank";
-            link.rel = "noopener noreferrer";
-            const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : null;
-            const grNum = voucher.students?.gr_number;
-            if (feeDateStr && grNum) link.download = `${feeDateStr}-${grNum}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+
+            const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : "unknown";
+            const grOrCc = voucher.students?.gr_number || `CC${voucher.students?.cc || voucher.id}`;
+            const filename = `${feeDateStr}-${grOrCc}-${voucher.id}-paid.pdf`;
+
+            try {
+                const res = await fetch(pdfUrl);
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = blobUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+            } catch {
+                window.open(pdfUrl, "_blank");
+            }
+
             toast.dismiss(loadingToast);
-            toast.success("PAID voucher opened in a new tab.");
+            toast.success("PAID voucher downloaded.");
         } catch (err) {
             toast.dismiss(loadingToast);
             toast.error("Failed to generate paid PDF.");

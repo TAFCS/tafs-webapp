@@ -204,13 +204,24 @@ function PartiallyPaidModal({
             toast.success(`Voucher split — Paid #${splitRes.data?.paid_voucher_id}, Balance #${splitRes.data?.unpaid_voucher_id}`);
 
             if (splitRes.data?.paid_pdf_url) {
-                const link = document.createElement('a');
-                link.href = splitRes.data.paid_pdf_url;
-                link.download = `paid-voucher-${splitRes.data?.paid_voucher_id}.pdf`;
-                link.target = '_blank';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : "unknown";
+                const grOrCc = (voucher as any).students?.gr_number || `CC${(voucher as any).students?.cc || voucher.id}`;
+                const paidId = splitRes.data?.paid_voucher_id;
+                const paidFilename = `${feeDateStr}-${grOrCc}-${paidId}-paid.pdf`;
+                try {
+                    const res = await fetch(splitRes.data.paid_pdf_url);
+                    const blob = await res.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = blobUrl;
+                    link.download = paidFilename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(blobUrl);
+                } catch {
+                    window.open(splitRes.data.paid_pdf_url, '_blank');
+                }
             }
 
             onSuccess(splitRes.data?.unpaid_voucher_id);
@@ -410,20 +421,35 @@ function VoucherRow({
     const [showPartialModal, setShowPartialModal] = useState(false);
     const user = useAppSelector(s => s.auth.user);
 
-    const handleUnpaidDownload = () => {
-        const pdfUrl = typeof voucher.pdf_url === "string" ? voucher.pdf_url.trim() : "";
-        if (pdfUrl) {
+    const buildVoucherFilename = (suffix?: string) => {
+        const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : "unknown";
+        const grOrCc = (voucher as any).students?.gr_number || `CC${(voucher as any).students?.cc || voucher.id}`;
+        const id = voucher.id;
+        return suffix ? `${feeDateStr}-${grOrCc}-${id}-${suffix}.pdf` : `${feeDateStr}-${grOrCc}-${id}.pdf`;
+    };
+
+    const downloadPdfBlob = async (url: string, filename: string) => {
+        try {
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
             const link = document.createElement("a");
-            link.href = pdfUrl;
-            link.target = "_blank";
-            link.rel = "noopener noreferrer";
-            const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : null;
-            const grNum = (voucher as any).students?.gr_number;
-            if (feeDateStr && grNum) link.download = `${feeDateStr}-${grNum}.pdf`;
+            link.href = blobUrl;
+            link.download = filename;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            toast.success("Voucher opened in a new tab.");
+            URL.revokeObjectURL(blobUrl);
+        } catch {
+            window.open(url, "_blank");
+        }
+    };
+
+    const handleUnpaidDownload = async () => {
+        const pdfUrl = typeof voucher.pdf_url === "string" ? voucher.pdf_url.trim() : "";
+        if (pdfUrl) {
+            await downloadPdfBlob(pdfUrl, buildVoucherFilename());
+            toast.success("Voucher downloaded.");
             return;
         }
         toast.error("No PDF available for this voucher.");
@@ -437,19 +463,10 @@ function VoucherRow({
             const pdfUrl = pdfRes.data?.pdf_url;
             if (!pdfUrl) throw new Error("No PDF URL returned from server.");
 
-            const link = document.createElement("a");
-            link.href = pdfUrl;
-            link.target = "_blank";
-            link.rel = "noopener noreferrer";
-            const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : null;
-            const grNum = (voucher as any).students?.gr_number;
-            if (feeDateStr && grNum) link.download = `${feeDateStr}-${grNum}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            await downloadPdfBlob(pdfUrl, buildVoucherFilename("paid"));
 
             toast.dismiss(loadingToast);
-            toast.success("PAID voucher opened in a new tab.");
+            toast.success("PAID voucher downloaded.");
         } catch (err) {
             console.error(err);
             toast.dismiss(loadingToast);
