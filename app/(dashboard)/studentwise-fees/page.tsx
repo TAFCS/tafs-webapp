@@ -286,6 +286,7 @@ function StudentwiseFeeEditor() {
     const [editingPlan, setEditingPlan] = useState<InstallmentPlanData | null>(null);
     const [editPlanHeads, setEditPlanHeads] = useState<{ id: number; fee_date: string; amount: string; status: string; target_month: number }[]>([]);
     const [isSavingPlan, setIsSavingPlan] = useState(false);
+    const [isDeletingHeadId, setIsDeletingHeadId] = useState<number | null>(null);
     const [isDeletingPlanId, setIsDeletingPlanId] = useState<number | null>(null);
     const [showDiscountModal, setShowDiscountModal] = useState(false);
     const [discountForm, setDiscountForm] = useState<{
@@ -836,6 +837,27 @@ function StudentwiseFeeEditor() {
             toast.error(err.response?.data?.message || "Failed to update plan.");
         } finally {
             setIsSavingPlan(false);
+        }
+    };
+
+    const handleDeleteHead = async (headId: number) => {
+        if (!editingPlan) return;
+        setIsDeletingHeadId(headId);
+        try {
+            await api.delete(`/v1/installments/${editingPlan.id}/heads/${headId}`);
+            const remaining = editPlanHeads.filter(h => h.id !== headId);
+            setEditPlanHeads(remaining);
+            if (remaining.length === 0) {
+                setEditingPlan(null);
+            }
+            toast.success("Installment head removed.");
+            const match = studentId.match(/\d+$/);
+            const cc = match ? parseInt(match[0]) : 0;
+            if (cc > 0) fetchInstallmentPlans(cc, selectedYear);
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to remove head.");
+        } finally {
+            setIsDeletingHeadId(null);
         }
     };
 
@@ -2475,6 +2497,16 @@ function StudentwiseFeeEditor() {
                                                 {isIssued && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase tracking-wider rounded">Issued</span>}
                                                 {isEditable && <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-[8px] font-black uppercase tracking-wider rounded">Editable</span>}
                                             </div>
+                                            {isEditable && (
+                                                <button
+                                                    onClick={() => handleDeleteHead(head.id)}
+                                                    disabled={isDeletingHeadId === head.id}
+                                                    title="Remove this installment head"
+                                                    className="h-7 w-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all disabled:opacity-50"
+                                                >
+                                                    {isDeletingHeadId === head.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                                </button>
+                                            )}
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
