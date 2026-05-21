@@ -12,7 +12,9 @@ import {
     Briefcase,
     Clock,
     CalendarCheck,
-    CalendarClock
+    CalendarClock,
+    ClipboardList,
+    ClipboardCheck
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -125,11 +127,18 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             id: 'hr',
             name: 'HR & Attendance',
             icon: Briefcase,
-            permissions: ['hr.employees.view', 'hr.policies.manage', 'hr.leave.apply'],
+            permissions: ['hr.employees.view', 'hr.policies.manage', 'hr.leave.apply', 'attendance.student.rollcall.mark', 'attendance.student.rollcall.view', 'attendance.staff.mark'],
             items: [
                 { name: 'Employee Directory', href: '/hr/employees', icon: Users, permission: 'hr.employees.view' },
                 { name: 'Departments', href: '/hr/departments', icon: Layers, permission: 'hr.employees.view' },
                 { name: 'HR Policies', href: '/hr/policies', icon: FileText, permission: 'hr.policies.manage' },
+                { name: 'Staff Register', href: '/hr/staff-register', icon: ClipboardCheck, permission: 'attendance.staff.mark' },
+                {
+                    name: 'A-Level Roll Call',
+                    href: '/hr/roll-call',
+                    icon: ClipboardList,
+                    permissions: ['attendance.student.rollcall.mark', 'attendance.student.rollcall.view'],
+                },
                 { name: 'Class Modes', href: '/hr/class-modes', icon: Clock, permission: 'hr.policies.manage' },
                 { name: 'Academic Calendar', href: '/hr/calendar', icon: CalendarDays, permission: 'hr.policies.manage' },
                 { name: 'My Leave', href: '/hr/leave', icon: CalendarClock, permission: 'hr.leave.apply' },
@@ -248,7 +257,13 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                             <div className="w-full h-px bg-gradient-to-r from-transparent via-zinc-200 dark:via-zinc-800 to-transparent my-3" />
 
                             {navModules.map(module => {
-                                const visibleItems = module.items.filter(item => hasPermission(item.permission));
+                                const visibleItems = module.items.filter((item) => {
+                                    const anyPerms = 'permissions' in item && Array.isArray((item as { permissions?: string[] }).permissions)
+                                        ? (item as { permissions: string[] }).permissions
+                                        : null;
+                                    if (anyPerms) return anyPerms.some((p) => hasPermission(p));
+                                    return hasPermission((item as { permission: string }).permission);
+                                });
                                 if (visibleItems.length === 0) return null;
 
                                 const isModuleOpen = openModules[module.id];
