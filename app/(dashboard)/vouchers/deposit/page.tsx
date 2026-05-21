@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
     Search, Loader2, AlertCircle, FileText,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Hash, SlidersHorizontal, ShieldAlert,
     ChevronLeft, ChevronRight, Wallet, UserCircle, UserSearch, Ban, X,
-    Stamp
+    Stamp, Split, Calendar
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -604,13 +605,239 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     );
 }
 
+// ─── Partially Paid Modal ────────────────────────────────────────────────────
+
+function PartiallyPaidModal({
+    voucher,
+    onClose,
+    onSuccess,
+}: {
+    voucher: VoucherItem;
+    onClose: () => void;
+    onSuccess: () => void;
+}) {
+    const heads = voucher.voucher_heads || [];
+    const paidHeads = heads.filter(h => Number(h.amount_deposited) > 0);
+    const unpaidHeads = heads.filter(h => Number(h.balance) > 0);
+
+    const [issueDate, setIssueDate] = useState(() => new Date().toISOString().split("T")[0]);
+    const [dueDate, setDueDate] = useState("");
+    const [validityDate, setValidityDate] = useState("");
+    const [submitting, setSubmitting] = useState(false);
+
+    const paidTotal = paidHeads.reduce((s, h) => s + Number(h.amount_deposited), 0);
+    const unpaidTotal = unpaidHeads.reduce((s, h) => s + Number(h.balance), 0);
+
+    const handleConfirm = async () => {
+        if (!dueDate) { toast.error("Please enter the due date for the new balance voucher."); return; }
+
+        setSubmitting(true);
+        const loadingToast = toast.loading("Splitting voucher…");
+        try {
+            const { data: splitRes } = await api.post(`/v1/vouchers/${voucher.id}/split-partially-paid`, {
+                issue_date: issueDate,
+                due_date: dueDate,
+                ...(validityDate ? { validity_date: validityDate } : {}),
+            });
+
+            toast.dismiss(loadingToast);
+            toast.success(`Voucher split — Paid #${splitRes.data?.paid_voucher_id}, Balance #${splitRes.data?.unpaid_voucher_id}`);
+
+            if (splitRes.data?.paid_pdf_url) {
+                const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : "unknown";
+                const grOrCc = voucher.students?.gr_number || `CC${voucher.students?.cc || voucher.id}`;
+                const paidId = splitRes.data?.paid_voucher_id;
+                const paidFilename = `${feeDateStr}-${grOrCc}-${paidId}-paid.pdf`;
+                try {
+                    const res = await fetch(splitRes.data.paid_pdf_url);
+                    const blob = await res.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = blobUrl;
+                    link.download = paidFilename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(blobUrl);
+                } catch {
+                    window.open(splitRes.data.paid_pdf_url, '_blank');
+                }
+            }
+
+            onSuccess();
+        } catch (err: any) {
+            toast.dismiss(loadingToast);
+            toast.error(err?.response?.data?.message || 'Failed to process partial payment split.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-800">
+                    <div className="flex items-center gap-3">
+                        <span className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                            <Split className="h-5 w-5 text-blue-500" />
+                        </span>
+                        <div>
+                            <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                                Partially Paid Voucher — VCH-{voucher.id}
+                            </h2>
+                            <p className="text-xs text-zinc-400">
+                                {voucher.students?.full_name} · CC-{voucher.students?.cc}
+                            </p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} disabled={submitting} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
+                        <X className="h-4 w-4 text-zinc-400" />
+                    </button>
+                </div>
+
+                <div className="px-6 py-5 space-y-5">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4">
+                            <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1">Already Deposited</p>
+                            <p className="text-xl font-black text-emerald-700 dark:text-emerald-300 font-mono">{paidTotal.toLocaleString()}</p>
+                            <p className="text-[10px] text-emerald-600/70 mt-1">{paidHeads.length} head{paidHeads.length !== 1 ? "s" : ""}</p>
+                        </div>
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                            <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-1">Outstanding Balance</p>
+                            <p className="text-xl font-black text-amber-700 dark:text-amber-300 font-mono">{unpaidTotal.toLocaleString()}</p>
+                            <p className="text-[10px] text-amber-600/70 mt-1">{unpaidHeads.length} head{unpaidHeads.length !== 1 ? "s" : ""} → new unpaid voucher</p>
+                        </div>
+                    </div>
+
+                    <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+                        <table className="w-full text-xs">
+                            <thead className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+                                <tr>
+                                    {["Fee Head", "Net Amount", "Deposited", "Balance", "Goes to"].map(h => (
+                                        <th key={h} className="px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {heads.map(h => {
+                                    const dep = Number(h.amount_deposited);
+                                    const bal = Number(h.balance);
+                                    const net = Number(h.net_amount);
+                                    const inPaid = dep > 0;
+                                    const inUnpaid = bal > 0;
+                                    const goesTo = inPaid && inUnpaid ? "Both" : inPaid ? "Paid PDF" : "New Unpaid";
+                                    const goesToColor = goesTo === "Both" ? "text-purple-600 dark:text-purple-400" : goesTo === "Paid PDF" ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400";
+                                    return (
+                                        <tr key={h.id} className="border-b border-zinc-100 dark:border-zinc-800/60">
+                                            <td className="px-4 py-2.5 font-medium text-zinc-700 dark:text-zinc-300 flex flex-col gap-0.5">
+                                                <span>
+                                                    {h.description_prefix ? `${h.description_prefix}` : ''}
+                                                    {h.student_fees?.fee_types?.description || `Head #${h.id}`}
+                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    {h.student_fees?.fee_date && (
+                                                        <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${
+                                                            new Date(h.student_fees.fee_date) < new Date(voucher.fee_date || 0)
+                                                                ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+                                                                : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
+                                                        }`}>
+                                                            {new Date(h.student_fees.fee_date) < new Date(voucher.fee_date || 0) ? "Arrear" : "Current"}
+                                                        </span>
+                                                    )}
+                                                    {(h.student_fees?.target_month || h.student_fees?.month) && (
+                                                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md">
+                                                            {MONTH_NAMES[h.student_fees.target_month || h.student_fees.month!] || h.student_fees.target_month || h.student_fees.month}
+                                                        </span>
+                                                    )}
+                                                    {h.is_installment && (
+                                                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-md">
+                                                            Installment
+                                                        </span>
+                                                    )}
+                                                    {h.has_installment_merged && (
+                                                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 rounded-md">
+                                                            Merged Installment
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2.5 font-mono text-zinc-600 dark:text-zinc-400">{net.toLocaleString()}</td>
+                                            <td className="px-4 py-2.5 font-mono font-bold text-emerald-600 dark:text-emerald-400">{dep.toLocaleString()}</td>
+                                            <td className="px-4 py-2.5 font-mono font-bold text-amber-600 dark:text-amber-400">{bal.toLocaleString()}</td>
+                                            <td className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-wider ${goesToColor}`}>{goesTo}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {unpaidHeads.length > 0 && (
+                        <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 space-y-4">
+                            <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                <Calendar className="h-3.5 w-3.5 text-primary" />
+                                New Unpaid Voucher Dates
+                            </p>
+                            <div className="grid grid-cols-3 gap-3">
+                                {[
+                                    { id: "pp-issue", label: "Issue Date", value: issueDate, onChange: setIssueDate, required: true },
+                                    { id: "pp-due", label: "Due Date", value: dueDate, onChange: setDueDate, required: true },
+                                    { id: "pp-validity", label: "Validity Date", value: validityDate, onChange: setValidityDate, required: false },
+                                ].map(f => (
+                                    <div key={f.id} className="flex flex-col gap-1">
+                                        <label htmlFor={f.id} className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                                            {f.label}{f.required && <span className="text-rose-500 ml-0.5">*</span>}
+                                        </label>
+                                        <input
+                                            id={f.id}
+                                            type="date"
+                                            value={f.value}
+                                            onChange={e => f.onChange(e.target.value)}
+                                            className="h-10 px-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all text-zinc-700 dark:text-zinc-300"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-1">
+                        <p className="text-[11px] text-zinc-400 max-w-xs">
+                            The original voucher stays in the system unchanged. A PAID-stamped PDF will be downloaded for the deposited amount.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={onClose}
+                                disabled={submitting}
+                                className="px-4 py-2 text-sm font-semibold border border-zinc-200 dark:border-zinc-800 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirm}
+                                disabled={submitting || unpaidHeads.length === 0}
+                                className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Split className="h-4 w-4" />}
+                                {submitting ? "Processing…" : "Confirm & Create"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── Voucher Row ─────────────────────────────────────────────────────────────
 
-function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherItem; index: number; sections: any[]; onDeposit: (v: VoucherItem) => void }) {
+function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { voucher: VoucherItem; index: number; sections: any[]; onDeposit: (v: VoucherItem) => void; onRefresh: () => void }) {
     const status = getStatusConfig(voucher.status);
     const isVoid = voucher.status === "VOID";
     const isPaid = voucher.status === "PAID";
+    const isPartiallyPaid = voucher.status === "PARTIALLY_PAID";
     const [isDownloading, setIsDownloading] = useState(false);
+    const [showPartialModal, setShowPartialModal] = useState(false);
 
     const handlePaidDownload = async () => {
         setIsDownloading(true);
@@ -669,6 +896,7 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
     const totalBalanceValue = voucher.total_balance !== undefined ? Number(voucher.total_balance) : sfTotalBalance;
 
     return (
+        <>
         <tr className={`group border-b border-zinc-100 dark:border-zinc-800/60 transition-colors ${
             isVoid ? "opacity-60 bg-zinc-50/50 dark:bg-zinc-900/20" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
         }`}>
@@ -779,17 +1007,41 @@ function VoucherRow({ voucher, index, sections, onDeposit }: { voucher: VoucherI
                             {isDownloading ? "…" : "PAID PDF"}
                         </button>
                     ) : (
-                        <button
-                            onClick={() => onDeposit(voucher)}
-                            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
-                        >
-                            <Wallet className="h-3.5 w-3.5" />
-                            Deposit
-                        </button>
+                        <>
+                            {isPartiallyPaid && (
+                                <button
+                                    onClick={() => setShowPartialModal(true)}
+                                    title="Split into paid + new unpaid voucher"
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-blue-200 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                                >
+                                    <Split className="h-3.5 w-3.5" />
+                                    Split
+                                </button>
+                            )}
+                            <button
+                                onClick={() => onDeposit(voucher)}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
+                            >
+                                <Wallet className="h-3.5 w-3.5" />
+                                Deposit
+                            </button>
+                        </>
                     )}
                 </div>
             </td>
         </tr>
+        {showPartialModal && createPortal(
+            <PartiallyPaidModal
+                voucher={voucher}
+                onClose={() => setShowPartialModal(false)}
+                onSuccess={() => {
+                    setShowPartialModal(false);
+                    onRefresh();
+                }}
+            />,
+            document.body
+        )}
+        </>
     );
 }
 
@@ -1163,6 +1415,7 @@ export default function VoucherDepositPage() {
                                         index={(page - 1) * pageSize + i}
                                         sections={sections}
                                         onDeposit={(v) => setSelectedVoucher(v)}
+                                        onRefresh={handleRefresh}
                                     />
                                 ))}
                             </tbody>
