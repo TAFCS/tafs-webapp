@@ -6,7 +6,7 @@ import {
     Search, Loader2, AlertCircle, FileText, ChevronDown, X,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Building2, GraduationCap, Users, Hash, CreditCard, SlidersHorizontal,
-    ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2
+    ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2, AlertTriangle
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -675,6 +675,8 @@ export default function VouchersPage() {
     const [showFilters, setShowFilters] = useState(true);
     const [selectedVoucherIds, setSelectedVoucherIds] = useState<number[]>([]);
     const [isExporting, setIsExporting] = useState(false);
+    const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
     // Load reference data
     useEffect(() => {
@@ -771,6 +773,30 @@ export default function VouchersPage() {
             console.error(err);
         } finally {
             setIsExporting(false);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedVoucherIds.length === 0) return;
+        setIsBulkDeleting(true);
+        const loadingToast = toast.loading(`Deleting ${selectedVoucherIds.length} vouchers…`);
+        try {
+            const { data } = await api.delete("/v1/vouchers/bulk", { data: { ids: selectedVoucherIds, force: false } });
+            toast.dismiss(loadingToast);
+            if (data.data.skipped > 0) {
+                toast.success(`${data.data.deleted} deleted, ${data.data.skipped} skipped (paid/partially paid).`, { duration: 5000 });
+            } else {
+                toast.success(`${data.data.deleted} vouchers deleted successfully.`);
+            }
+            setShowBulkDeleteModal(false);
+            setSelectedVoucherIds([]);
+            dispatch(fetchVouchers({ ...activeFiltersApplied, page, limit: pageSize }));
+        } catch (err: any) {
+            toast.dismiss(loadingToast);
+            toast.error(err.response?.data?.message || "Failed to delete vouchers.");
+            console.error(err);
+        } finally {
+            setIsBulkDeleting(false);
         }
     };
 
@@ -1222,7 +1248,7 @@ export default function VouchersPage() {
                     <div className="flex flex-1 items-center gap-3">
                         <button
                             onClick={() => handleBatchExport('zip')}
-                            disabled={isExporting}
+                            disabled={isExporting || isBulkDeleting}
                             className="flex-1 h-12 flex items-center justify-center gap-2.5 px-6 bg-zinc-800 dark:bg-zinc-100 hover:bg-zinc-700 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
                         >
                             <Download className="h-4 w-4" />
@@ -1230,11 +1256,19 @@ export default function VouchersPage() {
                         </button>
                         <button
                             onClick={() => handleBatchExport('merge')}
-                            disabled={isExporting}
+                            disabled={isExporting || isBulkDeleting}
                             className="flex-1 h-12 flex items-center justify-center gap-2.5 px-6 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-50"
                         >
                             <FileText className="h-4 w-4" />
                             Merged PDF
+                        </button>
+                        <button
+                            onClick={() => setShowBulkDeleteModal(true)}
+                            disabled={isExporting || isBulkDeleting}
+                            className="h-12 flex items-center justify-center gap-2.5 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-rose-600/20 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
                         </button>
                     </div>
 
@@ -1244,6 +1278,41 @@ export default function VouchersPage() {
                     >
                         <X className="h-5 w-5" />
                     </button>
+                </div>
+            )}
+
+            {/* ── Bulk Delete Modal ───────────────────────────────────────── */}
+            {showBulkDeleteModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in p-4">
+                    <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95">
+                        <div className="w-12 h-12 bg-rose-100 dark:bg-rose-900/20 rounded-full flex items-center justify-center mb-4 text-rose-600">
+                            <AlertTriangle className="h-6 w-6" />
+                        </div>
+                        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">Delete Vouchers?</h2>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">
+                            You've selected <span className="font-bold text-zinc-900 dark:text-zinc-100">{selectedVoucherIds.length}</span> voucher{selectedVoucherIds.length !== 1 ? "s" : ""} for deletion.
+                        </p>
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+                            Paid and partially paid vouchers will be skipped automatically. Deleted vouchers will have their fee heads reset to <code className="text-xs bg-zinc-100 dark:bg-zinc-900 px-1 py-0.5 rounded">NOT_ISSUED</code>.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setShowBulkDeleteModal(false)}
+                                disabled={isBulkDeleting}
+                                className="px-5 py-2.5 text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-xl transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleBulkDelete}
+                                disabled={isBulkDeleting}
+                                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-rose-500 hover:bg-rose-600 rounded-xl transition-colors shadow-lg shadow-rose-500/20 disabled:opacity-50"
+                            >
+                                {isBulkDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                {isBulkDeleting ? "Deleting…" : `Delete ${selectedVoucherIds.length} Vouchers`}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
