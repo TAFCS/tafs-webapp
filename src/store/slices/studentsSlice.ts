@@ -12,6 +12,8 @@ export interface StudentListItem {
   cc_number: string | null;
   class_id?: number | null;
   campus: string | null;
+  campus_id?: number | null;
+  academic_year?: string | null;
   grade_and_section: string | null;
   primary_guardian_name: string | null;
   whatsapp_number: string | null;

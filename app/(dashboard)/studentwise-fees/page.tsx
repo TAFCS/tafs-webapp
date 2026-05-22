@@ -5,6 +5,7 @@ import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw,
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
+import axios from "axios";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { fetchClasses } from "@/store/slices/classesSlice";
 import { fetchFeeTypes } from "@/store/slices/feeTypesSlice";
@@ -190,6 +191,8 @@ function StudentwiseFeeEditor() {
     const [selectedClassId, setSelectedClassId] = useState<number | "">("");
     const [selectedSectionId, setSelectedSectionId] = useState<number | "">("");
     const [selectedYear, setSelectedYear] = useState(getCurrentAcademicYear());
+    const [urlHydrationReady, setUrlHydrationReady] = useState(false);
+    const profileFetchedRef = useRef<string | null>(null);
 
     // ─── Helpers ────────────────────────────────────────────────────────────
     const calculateInitialFeeDate = useCallback((month: string, acadYear: string, feeTypeId: number, providedFt?: any, termStartMonth: number = 8) => {
@@ -275,7 +278,11 @@ function StudentwiseFeeEditor() {
 
     useEffect(() => {
         if (studentId && selectedYear) {
-            fetchProjections(Number(studentId), selectedYear);
+            const numericMatch = studentId.match(/\d+$/);
+            const ccVal = numericMatch ? parseInt(numericMatch[0]) : Number(studentId);
+            if (!isNaN(ccVal) && ccVal > 0) {
+                fetchProjections(ccVal, selectedYear);
+            }
         }
     }, [studentId, selectedYear, fetchProjections]);
 
@@ -374,43 +381,10 @@ function StudentwiseFeeEditor() {
     // Read params from URL
     useEffect(() => {
         const cc = searchParams.get("ccNumber");
-
-        if (cc) {
-            setStudentId(cc);
-            // Auto-load student profile if CC exists
-            const fetchProfile = async () => {
-                try {
-                    const numericMatch = cc.match(/\d+$/);
-                    const ccKey = numericMatch ? numericMatch[0] : cc;
-                    const { data } = await api.get(`/v1/students/${ccKey}`);
-                    const fullStudent = data?.data;
-                    if (fullStudent) {
-                        const isGrad = fullStudent.enrollment_status === 'GRADUATED';
-                        setIsGraduated(isGrad);
-                        setGraduatedFromClassId(isGrad ? (fullStudent.graduated_from_class_id ?? null) : null);
-                        setGraduatedFromClassObj(isGrad ? (fullStudent.graduated_from_class ?? null) : null);
-                        setIsComplementary(!!fullStudent.is_complementary);
-                        setIsFeeEndowment(!!fullStudent.is_fee_endowment);
-                        setFeeStartTerm(fullStudent.fee_start_term || "");
-                        if (fullStudent.campus_id) setSelectedCampusId(fullStudent.campus_id);
-                        const classForFetch = isGrad
-                            ? (fullStudent.graduated_from_class_id ?? null)
-                            : (fullStudent.class_id ?? null);
-                        if (classForFetch !== null) setSelectedClassId(classForFetch);
-                        if (fullStudent.section_id) setSelectedSectionId(fullStudent.section_id);
-                        setSkipSearch(true);
-                        setSearchQuery(`${fullStudent.student_full_name || fullStudent.full_name} (${fullStudent.cc_number || fullStudent.cc})`);
-                    }
-                } catch (e) {
-                    console.error("Auto-filling student profile failed:", e);
-                }
-            };
-            fetchProfile();
-        }
-    }, [searchParams]);
-
-    useEffect(() => {
         const cid = searchParams.get("classId");
+        const campusIdParam = searchParams.get("campusId");
+        const yearParam = searchParams.get("academicYear");
+
         if (cid && cid !== "null" && cid !== "undefined") {
             if (!isNaN(Number(cid))) {
                 setSelectedClassId(Number(cid));
@@ -420,6 +394,57 @@ function StudentwiseFeeEditor() {
                     setSelectedClassId(resolved);
                 }
             }
+        }
+
+        if (campusIdParam && campusIdParam !== "null" && campusIdParam !== "undefined") {
+            if (!isNaN(Number(campusIdParam))) {
+                setSelectedCampusId(Number(campusIdParam));
+            }
+        }
+
+        if (yearParam && yearParam !== "null" && yearParam !== "undefined") {
+            setSelectedYear(yearParam);
+        }
+
+        if (cc) {
+            if (profileFetchedRef.current !== cc) {
+                profileFetchedRef.current = cc;
+                setUrlHydrationReady(false);
+                setStudentId(cc);
+                // Auto-load student profile if CC exists
+                const fetchProfile = async () => {
+                    try {
+                        const numericMatch = cc.match(/\d+$/);
+                        const ccKey = numericMatch ? numericMatch[0] : cc;
+                        const { data } = await api.get(`/v1/students/${ccKey}`);
+                        const fullStudent = data?.data;
+                        if (fullStudent) {
+                            const isGrad = fullStudent.enrollment_status === 'GRADUATED';
+                            setIsGraduated(isGrad);
+                            setGraduatedFromClassId(isGrad ? (fullStudent.graduated_from_class_id ?? null) : null);
+                            setGraduatedFromClassObj(isGrad ? (fullStudent.graduated_from_class ?? null) : null);
+                            setIsComplementary(!!fullStudent.is_complementary);
+                            setIsFeeEndowment(!!fullStudent.is_fee_endowment);
+                            setFeeStartTerm(fullStudent.fee_start_term || "");
+                            if (fullStudent.campus_id) setSelectedCampusId(fullStudent.campus_id);
+                            const classForFetch = isGrad
+                                ? (fullStudent.graduated_from_class_id ?? null)
+                                : (fullStudent.class_id ?? null);
+                            if (classForFetch !== null) setSelectedClassId(classForFetch);
+                            if (fullStudent.section_id) setSelectedSectionId(fullStudent.section_id);
+                            setSkipSearch(true);
+                            setSearchQuery(`${fullStudent.student_full_name || fullStudent.full_name} (${fullStudent.cc_number || fullStudent.cc})`);
+                        }
+                    } catch (e) {
+                        console.error("Auto-filling student profile failed:", e);
+                    } finally {
+                        setUrlHydrationReady(true);
+                    }
+                };
+                fetchProfile();
+            }
+        } else {
+            setUrlHydrationReady(true);
         }
     }, [searchParams, classes]);
 
@@ -630,7 +655,7 @@ function StudentwiseFeeEditor() {
             }
             setIsTemplate(is_template);
         } catch (err: any) {
-            if (err.name === "AbortError") return;
+            if (axios.isCancel(err) || err.name === "AbortError" || err?.code === "ERR_CANCELED") return;
             setLoadError(err.response?.data?.message || "Failed to load fee schedule.");
         } finally {
             if (!signal?.aborted) setIsLoading(false);
@@ -640,7 +665,7 @@ function StudentwiseFeeEditor() {
 
     useEffect(() => {
         const controller = new AbortController();
-        if (selectedClassId !== "") {
+        if (urlHydrationReady && selectedClassId !== "") {
             fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear, controller.signal);
             setPendingBundles([]);
             setSelectedForBundling([]);
@@ -649,7 +674,7 @@ function StudentwiseFeeEditor() {
             setDiscountRows([]);
         }
         return () => controller.abort();
-    }, [selectedClassId, selectedCampusId, studentId, selectedYear, fetchFeeSchedule]);
+    }, [urlHydrationReady, selectedClassId, selectedCampusId, studentId, selectedYear, fetchFeeSchedule]);
 
     const handleSelectStudent = async (student: { cc: number; full_name: string; gr_number: string }) => {
         setIsSearching(true);
@@ -673,6 +698,7 @@ function StudentwiseFeeEditor() {
                 setSelectedClassId(classForFetch !== null ? classForFetch : "");
                 setSelectedSectionId(fullStudent.section_id || "");
                 const ccStr = `${fullStudent.cc_number || fullStudent.cc}`;
+                profileFetchedRef.current = ccStr;
                 setStudentId(ccStr);
 
                 setSkipSearch(true);
@@ -692,6 +718,7 @@ function StudentwiseFeeEditor() {
     };
 
     const handleClearSearch = () => {
+        profileFetchedRef.current = null;
         setSearchQuery("");
         setStudentId("");
         setSelectedCampusId("");

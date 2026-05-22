@@ -332,7 +332,7 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                         <div className="absolute top-4 right-4 z-10">
                                             <button
                                                 onClick={() => {
-                                                    router.push(`/studentwise-fees?ccNumber=${student.cc_number}&classId=${effectiveClassId}`);
+                                                    router.push(`/studentwise-fees?ccNumber=${student.cc_number}&classId=${effectiveClassId}&campusId=${student.campus_id || ""}&academicYear=${student.academic_year || ""}`);
                                                     onClose();
                                                 }}
                                                 className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-all shadow-sm group"

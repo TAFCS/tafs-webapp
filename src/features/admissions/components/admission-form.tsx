@@ -242,6 +242,8 @@ export function AdmissionForm() {
                 residential_address: rawStudent.families?.primary_address || primaryGuardian?.house_appt_name,
                 father_name: rawStudent.student_guardians?.find((sg: any) => sg.relationship === 'Father')?.guardians?.full_name,
                 class_id: rawStudent.class_id,
+                campus_id: rawStudent.campus_id,
+                academic_year: latestAdmission?.academic_year,
                 siblings: rawStudent.families?.students
                     ?.filter((s: any) => s.id !== rawStudent.id)
                     ?.map((s: any) => ({
@@ -1471,8 +1473,8 @@ export function AdmissionForm() {
                         </div>
                         <button
                             onClick={() => {
-                                const classId = resolveClassIdFromGrade(classes, formData.admissionClass);
-                                router.push(`/studentwise-fees?ccNumber=${submitSuccess.cc_number}&classId=${classId}`);
+                                const classId = submitSuccess.class_id || resolveClassIdFromGrade(classes, formData.admissionClass);
+                                router.push(`/studentwise-fees?ccNumber=${submitSuccess.cc_number}&classId=${classId || ""}&campusId=${submitSuccess.campus_id || ""}&academicYear=${submitSuccess.academic_year || ""}`);
                             }}
                             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-all shadow-md active:scale-95 whitespace-nowrap self-center"
                         >
