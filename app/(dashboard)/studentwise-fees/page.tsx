@@ -319,6 +319,7 @@ function StudentwiseFeeEditor() {
     const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
     const tbodyRef = useRef<HTMLTableSectionElement>(null);
     const pendingFocusId = useRef<string | null>(null);
+    const feeDateSortTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Bundling States
     const [selectedForBundling, setSelectedForBundling] = useState<string[]>([]);
@@ -1141,8 +1142,27 @@ function StudentwiseFeeEditor() {
 
                 return updated;
             });
+
+            if (field === "fee_date") {
+                // Don't sort immediately — defer so the row doesn't jump while the user is still typing
+                if (feeDateSortTimerRef.current) clearTimeout(feeDateSortTimerRef.current);
+                feeDateSortTimerRef.current = setTimeout(() => {
+                    setRows(prev => sortSpreadsheetRows(prev, selectedClass?.term_start_month ?? 8));
+                    feeDateSortTimerRef.current = null;
+                }, 1500);
+                return next;
+            }
+
             return sortSpreadsheetRows(next, selectedClass?.term_start_month ?? 8);
         });
+    };
+
+    const flushFeeDateSort = () => {
+        if (feeDateSortTimerRef.current) {
+            clearTimeout(feeDateSortTimerRef.current);
+            feeDateSortTimerRef.current = null;
+            setRows(prev => sortSpreadsheetRows(prev, selectedClass?.term_start_month ?? 8));
+        }
     };
 
     // ── Bundling Actions ────────────────────────────────────────────────
@@ -1972,6 +1992,7 @@ function StudentwiseFeeEditor() {
                                                     value={row.fee_date || ""}
                                                     disabled={isLocked || isInstallmentLocked}
                                                     onChange={(e) => updateRow(rIdx, "fee_date", e.target.value || undefined)}
+                                                    onBlur={flushFeeDateSort}
                                                     onFocus={() => setActiveCell({ row: rIdx, col: COL_FEE_DATE })}
                                                     className={`w-full h-10 px-3 outline-none bg-transparent text-[12px] font-mono transition-colors
                                                         ${row.fee_date ? "text-primary font-semibold" : "text-zinc-300"}
