@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Download, Loader2, ArrowLeftRight, CheckCircle2, ChevronDown, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -56,6 +56,7 @@ export default function TransferOrderForm({ student }: Props) {
     const [toClassId, setToClassId] = useState<number | ''>('');
     const [discipline, setDiscipline] = useState('');
     const [remarks, setRemarks] = useState('');
+    const [targetAcademicYear, setTargetAcademicYear] = useState('');
 
     // Execution state
     const [isExecuting, setIsExecuting] = useState(false);
@@ -64,6 +65,33 @@ export default function TransferOrderForm({ student }: Props) {
 
     // PDF Generation state
     const [isGenerating, setIsGenerating] = useState(false);
+
+    // Compute default target academic year from student
+    const academicYearOptions = useMemo(() => {
+        const baseYearStr = student.academic_year || '2024-2025';
+        const match = baseYearStr.match(/^(\d{4})-(\d{4})$/);
+        let startYear = match ? Number(match[1]) : new Date().getFullYear();
+
+        const options = [];
+        // Add current year, next year, and next few years
+        for (let i = 0; i < 4; i++) {
+            options.push(`${startYear + i}-${startYear + i + 1}`);
+        }
+        return options;
+    }, [student.academic_year]);
+
+    useEffect(() => {
+        if (student.academic_year) {
+            const rangeMatch = student.academic_year.match(/^(\d{4})-(\d{4})$/);
+            if (rangeMatch) {
+                setTargetAcademicYear(`${Number(rangeMatch[1]) + 1}-${Number(rangeMatch[2]) + 1}`);
+            } else {
+                setTargetAcademicYear(academicYearOptions[1]);
+            }
+        } else {
+            setTargetAcademicYear(academicYearOptions[1]); // Default to next year
+        }
+    }, [student.academic_year, academicYearOptions]);
 
     // Fetch classes on mount
     useEffect(() => {
@@ -96,6 +124,7 @@ export default function TransferOrderForm({ student }: Props) {
                 to_class_id: Number(toClassId),
                 discipline: discipline || undefined,
                 remarks: remarks || undefined,
+                target_academic_year: targetAcademicYear || undefined,
             });
             const updated = res.data || res;
             setUpdatedData(updated);
@@ -247,6 +276,9 @@ export default function TransferOrderForm({ student }: Props) {
                             {student.section_name && (
                                 <span className="text-xs text-zinc-400">· {student.section_name}</span>
                             )}
+                            <span className="text-xs font-bold text-zinc-500 bg-zinc-100 rounded-md px-2 py-0.5 ml-2">
+                                Term {student.academic_year || 'Unknown'}
+                            </span>
                         </div>
                         <ArrowLeftRight className="h-4 w-4 text-zinc-400 flex-shrink-0" />
                         <div className="text-xs text-zinc-400 font-medium italic">Select target below</div>
@@ -295,6 +327,28 @@ export default function TransferOrderForm({ student }: Props) {
                             )}
                         </p>
                     )}
+                </div>
+
+                {/* Target Academic Year */}
+                <div>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
+                        Target Academic Term <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            list="academic-term-options"
+                            value={targetAcademicYear}
+                            onChange={(e) => setTargetAcademicYear(e.target.value)}
+                            placeholder="e.g. 2025-2026"
+                            className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-sm text-zinc-800 dark:text-zinc-200"
+                        />
+                        <datalist id="academic-term-options">
+                            {academicYearOptions.map(year => (
+                                <option key={year} value={year}>{year}</option>
+                            ))}
+                        </datalist>
+                    </div>
                 </div>
 
                 {/* Discipline */}
