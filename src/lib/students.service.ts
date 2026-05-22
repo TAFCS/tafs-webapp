@@ -10,4 +10,8 @@ export const studentsService = {
     async unexpel(id: number): Promise<void> {
         await api.patch(`/v1/students/${id}/unexpel`);
     },
+
+    async undoLeft(id: number): Promise<void> {
+        await api.patch(`/v1/students/${id}/undo-left`);
+    },
 };

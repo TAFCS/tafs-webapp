@@ -246,6 +246,30 @@ export function StudentDataTable() {
         }
     };
 
+    const handleUndoLeftStudent = async (student: StudentListItem, rowKey: string) => {
+        const studentId = resolveStudentIdentifier(student);
+        if (!studentId) {
+            window.alert("Unable to determine this student's ID.");
+            return;
+        }
+
+        const studentName = student.student_full_name || `Student #${studentId}`;
+        const confirmed = window.confirm(`Restore ${studentName} from left status?`);
+        if (!confirmed) return;
+
+        try {
+            setUnexpellingRowKey(rowKey); // Reusing the state to disable buttons
+            setOpenActionRowKey(null);
+            await studentsService.undoLeft(studentId);
+            await dispatch(fetchStudents(buildFetchParams()));
+        } catch (error: any) {
+            const message = error?.response?.data?.message || "Failed to restore student.";
+            window.alert(message);
+        } finally {
+            setUnexpellingRowKey(null);
+        }
+    };
+
     // ─── Render ────────────────────────────────────────────────────────────
 
     return (
@@ -618,6 +642,17 @@ export function StudentDataTable() {
                                                                         disabled={unexpellingRowKey === rowKey}
                                                                         onClick={() => {
                                                                             void handleUnexpelStudent(student, rowKey);
+                                                                        }}
+                                                                    />
+                                                                )}
+                                                                {student.enrollment_status === "LEFT" && (
+                                                                    <ActionItem
+                                                                        icon={<RotateCcw />}
+                                                                        label={unexpellingRowKey === rowKey ? "Restoring..." : "Undo Left"}
+                                                                        color="text-emerald-700"
+                                                                        disabled={unexpellingRowKey === rowKey}
+                                                                        onClick={() => {
+                                                                            void handleUndoLeftStudent(student, rowKey);
                                                                         }}
                                                                     />
                                                                 )}

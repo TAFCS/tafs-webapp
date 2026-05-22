@@ -108,6 +108,25 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
         }
     };
 
+    const handleUndoLeft = async () => {
+        if (!cc || !student) return;
+
+        const confirmed = window.confirm(`Restore ${student.full_name || `student #${cc}`} from left status?`);
+        if (!confirmed) return;
+
+        setUnexpelling(true);
+        try {
+            await api.patch(`/v1/students/${cc}/undo-left`);
+            await reload();
+            onUpdated?.();
+        } catch (error: any) {
+            const message = error?.response?.data?.message || "Failed to restore student.";
+            window.alert(message);
+        } finally {
+            setUnexpelling(false);
+        }
+    };
+
     const isOpen = !!cc;
 
     return (
@@ -140,7 +159,7 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                             <div className="flex items-center bg-zinc-50 border border-zinc-100 rounded-xl p-0.5 mr-2">
                                 {!isSoft && (
                                     <>
-                                        <button 
+                                        <button
                                             onClick={() => setTab("admission_order" as any)}
                                             className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "admission_order" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "text-indigo-400 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-600 border border-indigo-100/50"}`}
                                             title="Admission Order"
@@ -151,7 +170,7 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                                         <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
                                     </>
                                 )}
-                                <button 
+                                <button
                                     onClick={() => setTab("danger_zone" as any)}
                                     className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "danger_zone" ? "bg-rose-600 text-white shadow-lg shadow-rose-200" : "text-rose-400 bg-rose-50 hover:bg-rose-100 hover:text-rose-600 border border-rose-100/50"}`}
                                     title="Danger Zone"
@@ -163,11 +182,12 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                         )}
                         {student && (
                             <div className="relative group mr-2">
-                                <StatusDropdown 
-                                    status={student.status} 
+                                <StatusDropdown
+                                    status={student.status}
                                     loading={!!actionLoading || unexpelling}
                                     onAction={(action) => {
                                         if (action === 'unexpel') handleUnexpel();
+                                        else if (action === 'undo-left') handleUndoLeft();
                                         else handleLifecycleAction(action as any);
                                     }}
                                 />
@@ -234,7 +254,7 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
 
 function StatusDropdown({ status, onAction, loading }: { status: string; onAction: (a: string) => void; loading: boolean }) {
     const [isOpen, setIsOpen] = useState(false);
-    
+
     const normalizedStatus = (status || "").toUpperCase();
     const isActive = normalizedStatus === 'ENROLLED' || normalizedStatus === 'ACTIVE';
     const isSoft = normalizedStatus === 'SOFT_ADMISSION';
@@ -285,6 +305,7 @@ function StatusDropdown({ status, onAction, loading }: { status: string; onActio
                                             setIsOpen(false);
                                             if (item.id === 'ENROLLED') {
                                                 if (normalizedStatus === 'EXPELLED') onAction('unexpel');
+                                                else if (normalizedStatus === 'LEFT') onAction('undo-left');
                                             } else if (item.action) {
                                                 onAction(item.action);
                                             }
