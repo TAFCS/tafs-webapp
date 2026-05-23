@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock3, Flag, GraduationCap, TrendingUp, UserPlus2 } from "lucide-react";
+import { Ban, Clock3, FileText, Flag, GraduationCap, TrendingUp, UserCheck, UserMinus, UserPlus2 } from "lucide-react";
 
 type ActionLog = {
   id: string;
@@ -14,24 +14,43 @@ function formatDate(value?: string | null) {
   if (!value) return "Date not available";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Date not available";
-  return date.toLocaleString();
+  // Explicitly use the browser's timezone so dates are never shown in server UTC
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  }).format(date);
 }
 
 function iconByType(type: string) {
   const normalized = type.toUpperCase();
   if (normalized === "ADMISSION" || normalized === "PROFILE_CREATED") return UserPlus2;
+  if (normalized === "ENROLLED") return UserCheck;
+  if (normalized === "SOFT_ADMISSION") return FileText;
   if (normalized === "PROMOTION") return TrendingUp;
-  if (normalized === "EXPELLED" || normalized === "UNEXPELLED") return Flag;
+  if (normalized === "EXPELLED") return Ban;
+  if (normalized === "UNEXPELLED") return Flag;
   if (normalized === "GRADUATED") return GraduationCap;
+  if (normalized === "LEFT") return UserMinus;
+  if (normalized === "UNDO_LEFT") return UserCheck;
   return Clock3;
 }
 
 function colorByType(type: string) {
   const normalized = type.toUpperCase();
-  if (normalized === "EXPELLED") return "text-rose-700 bg-rose-50 border-rose-200";
-  if (normalized === "UNEXPELLED") return "text-emerald-700 bg-emerald-50 border-emerald-200";
-  if (normalized === "PROMOTION") return "text-blue-700 bg-blue-50 border-blue-200";
-  if (normalized === "GRADUATED") return "text-violet-700 bg-violet-50 border-violet-200";
+  if (normalized === "ENROLLED")       return "text-emerald-700 bg-emerald-50 border-emerald-200";
+  if (normalized === "SOFT_ADMISSION") return "text-blue-700 bg-blue-50 border-blue-200";
+  if (normalized === "UNEXPELLED")     return "text-emerald-700 bg-emerald-50 border-emerald-200";
+  if (normalized === "UNDO_LEFT")      return "text-teal-700 bg-teal-50 border-teal-200";
+  if (normalized === "EXPELLED")       return "text-rose-700 bg-rose-50 border-rose-200";
+  if (normalized === "LEFT")           return "text-orange-700 bg-orange-50 border-orange-200";
+  if (normalized === "PROMOTION")      return "text-blue-700 bg-blue-50 border-blue-200";
+  if (normalized === "GRADUATED")      return "text-violet-700 bg-violet-50 border-violet-200";
   return "text-zinc-700 bg-zinc-50 border-zinc-200";
 }
 

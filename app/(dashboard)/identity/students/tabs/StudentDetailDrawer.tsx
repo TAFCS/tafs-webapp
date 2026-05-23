@@ -34,11 +34,12 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
     const [student, setStudent] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [lifecycleModal, setLifecycleModal] = useState<{ open: boolean; action: 'graduate' | 'expel' | 'left' }>({
+    // action is now any valid target status (or null when closed)
+    const [lifecycleModal, setLifecycleModal] = useState<{ open: boolean; targetStatus: string; label: string }>({
         open: false,
-        action: 'graduate'
+        targetStatus: '',
+        label: '',
     });
-    const [unexpelling, setUnexpelling] = useState(false);
     const [tab, setTab] = useState<TabId>("identity");
 
     const reload = useCallback(async (refreshBackground = false) => {
@@ -58,73 +59,48 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
         reload();
     }, [cc, reload]);
 
-    const isExpelled = (student?.status || "").toUpperCase() === "EXPELLED";
     const isSoft = (student?.status || "").toUpperCase() === "SOFT_ADMISSION";
 
-    const handleLifecycleAction = (action: 'graduate' | 'expel' | 'left') => {
-        setLifecycleModal({ open: true, action });
+    // Statuses that need a reason modal before applying
+    const NEEDS_MODAL = new Set(['GRADUATED', 'EXPELLED', 'LEFT']);
+
+    const handleStatusChange = (targetStatus: string) => {
+        if (!cc || !student) return;
+        if (NEEDS_MODAL.has(targetStatus)) {
+            const labelMap: Record<string, string> = {
+                GRADUATED: 'Graduate',
+                EXPELLED: 'Expel',
+                LEFT: 'Mark as Left',
+            };
+            setLifecycleModal({ open: true, targetStatus, label: labelMap[targetStatus] || targetStatus });
+        } else {
+            // Direct change — no reason needed
+            applyStatusChange(targetStatus, undefined);
+        }
     };
 
-    const confirmLifecycleAction = async (reason: string) => {
-        const { action } = lifecycleModal;
-        if (!cc || !student) return;
-
-        setActionLoading(action);
+    const applyStatusChange = async (targetStatus: string, reason: string | undefined) => {
+        if (!cc) return;
+        setActionLoading(targetStatus);
         try {
-            await api.post('/v1/students/promotion/single', {
-                student_id: cc,
-                from: { class_id: student.class_id },
-                [action]: true,
-                reason: reason.trim() || undefined
+            await api.patch(`/v1/students/${cc}/status`, {
+                status: targetStatus,
+                reason: reason?.trim() || undefined,
             });
             await reload();
             onUpdated?.();
             setLifecycleModal(prev => ({ ...prev, open: false }));
         } catch (error: any) {
-            const message = error?.response?.data?.message || `Failed to ${action} student.`;
+            const message = error?.response?.data?.message || `Failed to change student status.`;
             window.alert(message);
-            throw error; // Re-throw for modal loading state
+            throw error;
         } finally {
             setActionLoading(null);
         }
     };
 
-    const handleUnexpel = async () => {
-        if (!cc || !student) return;
-
-        const confirmed = window.confirm(`Unexpel ${student.full_name || `student #${cc}`}?`);
-        if (!confirmed) return;
-
-        setUnexpelling(true);
-        try {
-            await api.patch(`/v1/students/${cc}/unexpel`);
-            await reload();
-            onUpdated?.();
-        } catch (error: any) {
-            const message = error?.response?.data?.message || "Failed to unexpel student.";
-            window.alert(message);
-        } finally {
-            setUnexpelling(false);
-        }
-    };
-
-    const handleUndoLeft = async () => {
-        if (!cc || !student) return;
-
-        const confirmed = window.confirm(`Restore ${student.full_name || `student #${cc}`} from left status?`);
-        if (!confirmed) return;
-
-        setUnexpelling(true);
-        try {
-            await api.patch(`/v1/students/${cc}/undo-left`);
-            await reload();
-            onUpdated?.();
-        } catch (error: any) {
-            const message = error?.response?.data?.message || "Failed to restore student.";
-            window.alert(message);
-        } finally {
-            setUnexpelling(false);
-        }
+    const confirmLifecycleAction = async (reason: string) => {
+        await applyStatusChange(lifecycleModal.targetStatus, reason);
     };
 
     const isOpen = !!cc;
@@ -184,12 +160,8 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                             <div className="relative group mr-2">
                                 <StatusDropdown
                                     status={student.status}
-                                    loading={!!actionLoading || unexpelling}
-                                    onAction={(action) => {
-                                        if (action === 'unexpel') handleUnexpel();
-                                        else if (action === 'undo-left') handleUndoLeft();
-                                        else handleLifecycleAction(action as any);
-                                    }}
+                                    loading={!!actionLoading}
+                                    onAction={handleStatusChange}
                                 />
                             </div>
                         )}
@@ -245,29 +217,28 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                 isOpen={lifecycleModal.open}
                 onClose={() => setLifecycleModal(prev => ({ ...prev, open: false }))}
                 onConfirm={confirmLifecycleAction}
-                action={lifecycleModal.action}
+                action={lifecycleModal.targetStatus === 'GRADUATED' ? 'graduate' : lifecycleModal.targetStatus === 'EXPELLED' ? 'expel' : 'left'}
                 studentName={student?.full_name || ""}
             />
         </>
     );
 }
 
-function StatusDropdown({ status, onAction, loading }: { status: string; onAction: (a: string) => void; loading: boolean }) {
+function StatusDropdown({ status, onAction, loading }: { status: string; onAction: (targetStatus: string) => void; loading: boolean }) {
     const [isOpen, setIsOpen] = useState(false);
 
     const normalizedStatus = (status || "").toUpperCase();
-    const isActive = normalizedStatus === 'ENROLLED' || normalizedStatus === 'ACTIVE';
-    const isSoft = normalizedStatus === 'SOFT_ADMISSION';
 
     const statuses = [
-        { id: 'ENROLLED', label: 'Enrolled', icon: User, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100', hover: 'hover:bg-emerald-100/50' },
-        { id: 'SOFT_ADMISSION', label: 'Soft Admission', icon: User, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100', hover: 'hover:bg-blue-100/50' },
-        { id: 'GRADUATED', label: 'Graduate', icon: GraduationCap, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100', hover: 'hover:bg-violet-100/50', action: 'graduate' },
-        { id: 'LEFT', label: 'Mark as Left', icon: DoorOpen, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100', hover: 'hover:bg-amber-100/50', action: 'left' },
-        { id: 'EXPELLED', label: 'Expel', icon: Ban, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100', hover: 'hover:bg-rose-100/50', action: 'expel' },
+        { id: 'ENROLLED',       label: 'Enrolled',        icon: User,          color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100', hover: 'hover:bg-emerald-100/50' },
+        { id: 'SOFT_ADMISSION', label: 'Soft Admission',  icon: User,          color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-100',    hover: 'hover:bg-blue-100/50' },
+        { id: 'GRADUATED',      label: 'Graduate',        icon: GraduationCap, color: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-violet-100',  hover: 'hover:bg-violet-100/50' },
+        { id: 'LEFT',           label: 'Mark as Left',    icon: DoorOpen,      color: 'text-amber-600',   bg: 'bg-amber-50',   border: 'border-amber-100',   hover: 'hover:bg-amber-100/50' },
+        { id: 'EXPELLED',       label: 'Expel',           icon: Ban,           color: 'text-rose-600',    bg: 'bg-rose-50',    border: 'border-rose-100',    hover: 'hover:bg-rose-100/50' },
     ];
 
-    const currentId = isActive ? 'ENROLLED' : (isSoft ? 'SOFT_ADMISSION' : normalizedStatus);
+    // Map ACTIVE → ENROLLED for display purposes
+    const currentId = normalizedStatus === 'ACTIVE' ? 'ENROLLED' : normalizedStatus;
     const current = statuses.find(x => x.id === currentId) || statuses[0];
 
     return (
@@ -290,7 +261,7 @@ function StatusDropdown({ status, onAction, loading }: { status: string; onActio
                             initial={{ opacity: 0, y: 4, scale: 0.95 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 4, scale: 0.95 }}
-                            className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-zinc-100 py-1.5 z-20 overflow-hidden"
+                            className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-zinc-100 py-1.5 z-20 overflow-hidden"
                         >
                             <div className="px-3 py-1.5 mb-1 border-b border-zinc-50">
                                 <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Change Status</span>
@@ -303,12 +274,7 @@ function StatusDropdown({ status, onAction, loading }: { status: string; onActio
                                         disabled={isCurrent || loading}
                                         onClick={() => {
                                             setIsOpen(false);
-                                            if (item.id === 'ENROLLED') {
-                                                if (normalizedStatus === 'EXPELLED') onAction('unexpel');
-                                                else if (normalizedStatus === 'LEFT') onAction('undo-left');
-                                            } else if (item.action) {
-                                                onAction(item.action);
-                                            }
+                                            if (!isCurrent) onAction(item.id);
                                         }}
                                         className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${isCurrent ? "bg-zinc-50 opacity-50 cursor-default" : `${item.hover} group`}`}
                                     >
