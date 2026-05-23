@@ -106,6 +106,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'Vouchers', href: '/vouchers', icon: FileText, permission: 'finance.vouchers.view' },
                 { name: 'Payment History', href: '/payment-history', icon: History, permission: 'finance.vouchers.view' },
                 { name: 'Receive Deposit', href: '/vouchers/deposit', icon: HandCoins, permission: 'finance.deposits.record' },
+                { name: 'Post-dated Cheques', href: '/postdated-cheques', icon: Clock, permission: 'finance.vouchers.view' },
                 { name: 'Banks', href: '/banks', icon: Landmark, permission: 'finance.banks.view' },
             ]
         },

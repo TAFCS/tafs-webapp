@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
+import Link from "next/link";
 
 const container = {
     hidden: { opacity: 0 },
@@ -156,8 +157,50 @@ export default function DashboardPage() {
                     >
                         <Activity className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
                     </button>
-                </div>
             </div>
+        </div>
+
+            {/* Post-dated Cheques Alert Banner */}
+            {statsData?.postdated_cheques && (statsData.postdated_cheques.overdue_count > 0 || statsData.postdated_cheques.due_today_count > 0) && (
+                <motion.div 
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-6 rounded-[2rem] bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 dark:border-amber-500/10 backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm"
+                >
+                    <div className="flex items-start gap-4">
+                        <div className="p-3.5 bg-amber-500/10 rounded-2xl text-amber-500 shadow-sm">
+                            <Clock className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <h4 className="text-lg font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-outfit">Post-dated Cheques Action Required</h4>
+                            <p className="text-sm font-medium text-zinc-500 mt-1 leading-relaxed">
+                                {statsData.postdated_cheques.overdue_count > 0 && (
+                                    <span className="text-rose-500 font-bold mr-3">
+                                        {statsData.postdated_cheques.overdue_count} Overdue
+                                    </span>
+                                )}
+                                {statsData.postdated_cheques.due_today_count > 0 && (
+                                    <span className="text-amber-500 font-bold">
+                                        {statsData.postdated_cheques.due_today_count} Due Today (Rs. {Math.round(statsData.postdated_cheques.due_today_total_amount).toLocaleString()})
+                                    </span>
+                                )}
+                                {statsData.postdated_cheques.due_in_7_days_count > 0 && (
+                                    <span className="text-zinc-400 font-semibold ml-3">
+                                        · {statsData.postdated_cheques.due_in_7_days_count} upcoming in 7 days
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <Link
+                        href="/postdated-cheques"
+                        className="px-6 py-3 rounded-2xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white text-white dark:text-zinc-950 text-xs font-black uppercase tracking-widest transition-all shadow-md hover:scale-105 active:scale-95 flex items-center gap-2 w-fit shrink-0 font-sans"
+                    >
+                        Manage Cheques <ArrowUpRight className="h-4 w-4" />
+                    </Link>
+                </motion.div>
+            )}
 
             {/* Metric Summary Grid */}
             <motion.div 
