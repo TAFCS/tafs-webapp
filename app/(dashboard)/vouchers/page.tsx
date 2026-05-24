@@ -664,7 +664,7 @@ export default function VouchersPage() {
     const [sectionId, setSectionId] = useState<number | "">("");
     const [ccInput, setCcInput] = useState("");
     const [grInput, setGrInput] = useState("");
-    const [statusFilter, setStatusFilter] = useState("");
+    const [statusFilter, setStatusFilter] = useState<string[]>([]);
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [activeFiltersApplied, setActiveFiltersApplied] = useState<VoucherFilters>({});
@@ -699,7 +699,7 @@ export default function VouchersPage() {
         if (campusId !== "") f.campus_id = campusId as number;
         if (classId !== "") f.class_id = classId as number;
         if (sectionId !== "") f.section_id = sectionId as number;
-        if (statusFilter) f.status = statusFilter;
+        if (statusFilter.length > 0) f.status = statusFilter.join(",");
         if (dateFrom) f.date_from = dateFrom;
         if (dateTo) f.date_to = dateTo;
 
@@ -721,7 +721,7 @@ export default function VouchersPage() {
         setSectionId("");
         setCcInput("");
         setGrInput("");
-        setStatusFilter("");
+        setStatusFilter([]);
         setDateFrom("");
         setDateTo("");
         setActiveFiltersApplied({});
@@ -1050,22 +1050,37 @@ export default function VouchersPage() {
                                 <CheckCircle2 className="h-3 w-3" /> Status
                             </label>
                             <div className="flex gap-2 flex-wrap">
-                                {STATUS_OPTIONS.map(opt => (
-                                    <button
-                                        key={opt.value}
-                                        id={`status-filter-${opt.value || "all"}`}
-                                        type="button"
-                                        onClick={() => setStatusFilter(opt.value)}
-                                        className={`flex items-center gap-1.5 px-3.5 py-2 h-11 rounded-xl text-xs font-bold border transition-all
-                                            ${statusFilter === opt.value
-                                                ? "bg-primary text-white border-primary shadow-sm"
-                                                : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-300"
-                                            }`}
-                                    >
-                                        <opt.icon className={`h-3.5 w-3.5 ${statusFilter === opt.value ? "text-white" : opt.color}`} />
-                                        {opt.label}
-                                    </button>
-                                ))}
+                                {STATUS_OPTIONS.map(opt => {
+                                    const isSelected = opt.value === ""
+                                        ? statusFilter.length === 0
+                                        : statusFilter.includes(opt.value);
+                                    return (
+                                        <button
+                                            key={opt.value}
+                                            id={`status-filter-${opt.value || "all"}`}
+                                            type="button"
+                                            onClick={() => {
+                                                if (opt.value === "") {
+                                                    setStatusFilter([]);
+                                                } else {
+                                                    setStatusFilter(prev =>
+                                                        prev.includes(opt.value)
+                                                            ? prev.filter(v => v !== opt.value)
+                                                            : [...prev, opt.value]
+                                                    );
+                                                }
+                                            }}
+                                            className={`flex items-center gap-1.5 px-3.5 py-2 h-11 rounded-xl text-xs font-bold border transition-all
+                                                ${isSelected
+                                                    ? "bg-primary text-white border-primary shadow-sm"
+                                                    : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-300"
+                                                }`}
+                                        >
+                                            <opt.icon className={`h-3.5 w-3.5 ${isSelected ? "text-white" : opt.color}`} />
+                                            {opt.label}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
