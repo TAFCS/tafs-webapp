@@ -13,7 +13,8 @@ import {
     CalendarCheck,
     CalendarClock,
     ClipboardList,
-    ClipboardCheck
+    ClipboardCheck,
+    Bell,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -34,6 +35,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
         students: true,
         fees: true,
         finance: true,
+        communication: true,
         system: true
     });
 
@@ -108,6 +110,16 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'Receive Deposit', href: '/vouchers/deposit', icon: HandCoins, permission: 'finance.deposits.record' },
                 { name: 'Post-dated Cheques', href: '/postdated-cheques', icon: Clock, permission: 'finance.vouchers.view' },
                 { name: 'Banks', href: '/banks', icon: Landmark, permission: 'finance.banks.view' },
+            ]
+        },
+        {
+            id: 'communication',
+            name: 'Communication',
+            icon: MessageSquare,
+            permissions: ['communication.send_announcements', 'communication.view_chats'],
+            items: [
+                { name: 'Notice Board', href: '/notice-board', icon: Bell, permission: 'communication.send_announcements' },
+                { name: 'Chat', href: '/chat', icon: MessageSquare, permission: 'communication.view_chats' },
             ]
         },
         {
