@@ -155,6 +155,7 @@ export interface VoucherFilters {
     date_to?: string;
     page?: number;
     limit?: number;
+    single_fee_date?: boolean;
 }
 
 // ─── Async Thunk ─────────────────────────────────────────────────────────────
@@ -175,6 +176,7 @@ export const fetchVouchers = createAsyncThunk(
             if (filters.date_to) params.date_to = filters.date_to;
             if (filters.page) params.page = filters.page;
             if (filters.limit) params.limit = filters.limit;
+            if (filters.single_fee_date) params.single_fee_date = 'true';
 
             const response = await api.get('/v1/vouchers', { params });
             const data = response.data?.data;

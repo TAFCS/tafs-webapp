@@ -667,6 +667,7 @@ export default function VouchersPage() {
     const [statusFilter, setStatusFilter] = useState<string[]>([]);
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
+    const [singleFeeDate, setSingleFeeDate] = useState(false);
     const [activeFiltersApplied, setActiveFiltersApplied] = useState<VoucherFilters>({});
 
     // Table state
@@ -711,9 +712,10 @@ export default function VouchersPage() {
 
     const handleApplyFilters = useCallback(() => {
         const filters = buildFilters();
+        if (singleFeeDate) filters.single_fee_date = true;
         setActiveFiltersApplied(filters);
         setPage(1);
-    }, [buildFilters]);
+    }, [buildFilters, singleFeeDate]);
 
     const handleClearFilters = () => {
         setCampusId("");
@@ -724,6 +726,7 @@ export default function VouchersPage() {
         setStatusFilter([]);
         setDateFrom("");
         setDateTo("");
+        setSingleFeeDate(false);
         setActiveFiltersApplied({});
         setPage(1);
         dispatch(fetchVouchers({}));
@@ -736,10 +739,10 @@ export default function VouchersPage() {
     };
 
     const toggleSelectAll = () => {
-        if (selectedVoucherIds.length === paginatedVouchers.length) {
+        if (selectedVoucherIds.length === displayedVouchers.length) {
             setSelectedVoucherIds([]);
         } else {
-            setSelectedVoucherIds(paginatedVouchers.map(v => v.id));
+            setSelectedVoucherIds(displayedVouchers.map(v => v.id));
         }
     };
 
@@ -802,8 +805,9 @@ export default function VouchersPage() {
 
     // Pagination
     const paginatedVouchers = vouchers;
+    const displayedVouchers = paginatedVouchers;
 
-    const activeFilterCount = Object.keys(activeFiltersApplied).length;
+    const activeFilterCount = Object.keys(activeFiltersApplied).length + (singleFeeDate ? 1 : 0);
 
     // Stat cards
     const stats = {
@@ -1085,6 +1089,41 @@ export default function VouchersPage() {
                         </div>
                     </div>
 
+                    {/* Special Filters */}
+                    <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
+                        <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5">
+                            <SlidersHorizontal className="h-3 w-3" /> Special
+                        </span>
+                        <button
+                            id="filter-single-fee-date"
+                            type="button"
+                            onClick={() => {
+                                const next = !singleFeeDate;
+                                setSingleFeeDate(next);
+                                const filters = buildFilters();
+                                if (next) filters.single_fee_date = true;
+                                setActiveFiltersApplied(filters);
+                                setPage(1);
+                            }}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all
+                                ${singleFeeDate
+                                    ? "bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-200 dark:shadow-violet-900/30"
+                                    : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-300"
+                                }`}
+                        >
+                            <Calendar className={`h-3.5 w-3.5 ${singleFeeDate ? "text-white" : "text-violet-500"}`} />
+                            Single Fee Date
+                            {singleFeeDate && (
+                                <span className="ml-0.5 text-[9px] bg-white/20 px-1.5 py-0.5 rounded-md uppercase tracking-widest">
+                                    Active
+                                </span>
+                            )}
+                        </button>
+                        <p className="text-[10px] text-zinc-400">
+                            Show only vouchers where all heads share a single fee date
+                        </p>
+                    </div>
+
                     {/* Apply Button */}
                     <div className="mt-5 flex justify-end">
                         <button
@@ -1171,7 +1210,7 @@ export default function VouchersPage() {
                                     <th className="w-10 px-5 py-3.5 text-center">
                                         <input
                                             type="checkbox"
-                                            checked={paginatedVouchers.length > 0 && selectedVoucherIds.length === paginatedVouchers.length}
+                                            checked={displayedVouchers.length > 0 && selectedVoucherIds.length === displayedVouchers.length}
                                             onChange={toggleSelectAll}
                                             className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
                                         />
@@ -1184,12 +1223,12 @@ export default function VouchersPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {paginatedVouchers.map((v, i) => (
-                                    <VoucherRow 
-                                        key={v.id} 
-                                        voucher={v} 
-                                        index={(page - 1) * pageSize + i} 
-                                        sections={sections} 
+                                {displayedVouchers.map((v, i) => (
+                                    <VoucherRow
+                                        key={v.id}
+                                        voucher={v}
+                                        index={(page - 1) * pageSize + i}
+                                        sections={sections}
                                         onRefresh={handleRefresh}
                                         isSelected={selectedVoucherIds.includes(v.id)}
                                         onToggleSelect={() => toggleSelect(v.id)}
