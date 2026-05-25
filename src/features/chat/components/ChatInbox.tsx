@@ -1,5 +1,6 @@
 import { Search, User, Megaphone } from "lucide-react";
 import { format } from "date-fns";
+import { useState, useMemo } from "react";
 
 interface ChatInboxProps {
     conversations: any[];
@@ -8,6 +9,19 @@ interface ChatInboxProps {
 }
 
 export const ChatInbox = ({ conversations, selectedId, onSelect }: ChatInboxProps) => {
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const filteredConversations = useMemo(() => {
+        if (!searchQuery.trim()) return conversations;
+        const query = searchQuery.toLowerCase();
+        return conversations.filter(conv => {
+            const name = (conv.primary_guardian?.name || conv.families?.household_name || "").toLowerCase();
+            const legacyPid = (conv.families?.legacy_pid || "").toString().toLowerCase();
+            const snippet = (conv.last_message_snippet || "").toLowerCase();
+            return name.includes(query) || legacyPid.includes(query) || snippet.includes(query);
+        });
+    }, [conversations, searchQuery]);
+
     return (
         <div className="w-85 border-r border-zinc-200 dark:border-zinc-800 flex flex-col h-full bg-white dark:bg-zinc-950 overflow-hidden">
             <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/20">
@@ -19,6 +33,8 @@ export const ChatInbox = ({ conversations, selectedId, onSelect }: ChatInboxProp
                     <input
                         type="text"
                         placeholder="Search families..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-11 pr-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
                     />
                 </div>
@@ -49,7 +65,7 @@ export const ChatInbox = ({ conversations, selectedId, onSelect }: ChatInboxProp
                                 </span>
                             </div>
                             <p className={`text-xs truncate ${selectedId === 0 ? "text-white/80" : "text-zinc-500"}`}>
-                                Send to Grades & Sections
+                                Send to Grades &amp; Sections
                             </p>
                         </div>
                         {selectedId === 0 && (
@@ -59,16 +75,25 @@ export const ChatInbox = ({ conversations, selectedId, onSelect }: ChatInboxProp
                 </div>
 
                 <div className="px-3">
-                    <p className="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-2 mt-4">Direct Messages</p>
-                    {(!Array.isArray(conversations) || conversations.length === 0) ? (
+                    <p className="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-2 mt-4">
+                        Direct Messages
+                        {searchQuery && (
+                            <span className="ml-2 text-primary normal-case">
+                                — {filteredConversations.length} result{filteredConversations.length !== 1 ? "s" : ""}
+                            </span>
+                        )}
+                    </p>
+                    {(!Array.isArray(filteredConversations) || filteredConversations.length === 0) ? (
                         <div className="p-8 text-center">
                             <div className="h-12 w-12 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-3">
                                 <User className="h-6 w-6 text-zinc-300" />
                             </div>
-                            <p className="text-xs text-zinc-500 font-medium">No conversations found</p>
+                            <p className="text-xs text-zinc-500 font-medium">
+                                {searchQuery ? "No matching conversations" : "No conversations found"}
+                            </p>
                         </div>
                     ) : (
-                        conversations.map((conv) => (
+                        filteredConversations.map((conv) => (
                             <button
                                 key={conv.id}
                                 onClick={() => onSelect(conv.family_id)}

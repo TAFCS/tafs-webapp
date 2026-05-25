@@ -68,7 +68,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
             withCredentials: true,
             transports: ["websocket", "polling"],
             reconnection: true,
-            reconnectionAttempts: 5,           // ← limited, not Infinity
+            // ✅ CRITICAL FIX: Use Infinity so the socket ALWAYS reconnects after network drops,
+            // server restarts, or brief Vercel cold starts. The token-refresh path manually
+            // sets this to 0 to pause reconnects, then restores Infinity after refresh.
+            reconnectionAttempts: Infinity,
             reconnectionDelay: 2000,
             reconnectionDelayMax: 10000,
             randomizationFactor: 0.5,
@@ -98,30 +101,49 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                     const newToken = res.data?.data?.accessToken || res.data?.accessToken;
                     if (newToken) {
                         socketInstance.auth = { token: newToken };
-                        socketInstance.io.opts.reconnectionAttempts = 5;
+                        // ✅ Restore Infinity (not 5) after token refresh
+                        socketInstance.io.opts.reconnectionAttempts = Infinity;
                         socketInstance.connect();
                     }
                 } catch (refreshErr) {
                     console.warn("[SocketContext] Token refresh failed — session expired");
                     setIsConnecting(false);
+                    // Leave reconnectionAttempts at 0 — force user to re-login
+                } finally {
+                    isRefreshingRef.current = false;
                 }
             } else if (msg === "unauthorized") {
                 // Not logged in — don't keep hammering
                 socketInstance.io.opts.reconnectionAttempts = 0;
                 setIsConnecting(false);
             }
+            // For any other error (network timeout etc.), reconnectionAttempts remains
+            // Infinity so the socket keeps trying automatically.
         });
 
-        socketInstance.on("reconnect_attempt", () => {
+        socketInstance.on("reconnect_attempt", (attempt) => {
             setIsConnecting(true);
-            console.log("[SocketContext] Attempting to reconnect...");
+            console.log(`[SocketContext] Reconnect attempt #${attempt}`);
+        });
+
+        socketInstance.on("reconnect", () => {
+            console.log("[SocketContext] Reconnected successfully");
+            setIsConnected(true);
+            setIsConnecting(false);
+        });
+
+        socketInstance.on("reconnect_failed", () => {
+            // Only fires if reconnectionAttempts is finite and exhausted
+            console.error("[SocketContext] All reconnect attempts failed");
+            setIsConnected(false);
+            setIsConnecting(false);
         });
 
         socketInstance.on("disconnect", (reason) => {
             setIsConnected(false);
             console.log("[SocketContext] Disconnected:", reason);
             // NOTE: Do NOT manually call socketInstance.connect() here.
-            // socket.io's built-in reconnection handles network drops.
+            // socket.io's built-in reconnection handles network drops automatically.
             // Manually reconnecting on "io server disconnect" caused infinite loops.
         });
 
