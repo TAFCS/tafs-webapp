@@ -941,7 +941,7 @@ export default function FeeChallanGenerator() {
         {(currentStep >= 2 || student) && (
           <div
             className={`bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[40px] shadow-2xl transition-all duration-500 w-full animate-in slide-in-from-top-10 ${currentStep === 2 ? "ring-4 ring-primary/5 active-step" : "opacity-60 grayscale-[0.5] hover:grayscale-0 hover:opacity-100 cursor-pointer"}`}
-            onClick={() => { if (currentStep > 2) setCurrentStep(2); }}
+            onClick={() => { if (currentStep !== 2) setCurrentStep(2); }}
           >
             <div className="p-8 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/30 dark:bg-zinc-900/10">
               <div className="flex items-center gap-5">
