@@ -281,10 +281,11 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                 isDirty={personalIsDirty}
                 isSaving={savingPersonal} 
                 saved={savedPersonal}
-                onSave={() => patch({ 
-                    ...personal, 
-                    admission_age_years: personal.admission_age_years ? Number(personal.admission_age_years) : undefined 
-                }, setSavingPersonal, setSavedPersonal)} 
+                onSave={() => patch({
+                    ...personal,
+                    dob: personal.dob || undefined,
+                    admission_age_years: personal.admission_age_years ? Number(personal.admission_age_years) : undefined
+                }, setSavingPersonal, setSavedPersonal)}
             >
                 <div className="col-span-2 flex gap-6 pb-2 border-b border-zinc-100 mb-2">
                     <PhotoUpload 
