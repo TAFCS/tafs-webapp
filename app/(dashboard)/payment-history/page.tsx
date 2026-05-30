@@ -23,6 +23,7 @@ import {
     Wallet,
     CreditCard,
     ChevronRight,
+    Calendar,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
@@ -45,7 +46,11 @@ interface StudentProfile {
 
 interface DepositAllocation {
     amount: number;
+    type?: "FEE_HEAD" | "LATE_FEE" | "SURCHARGE";
     fee_type_description?: string;
+    fee_date?: string | null;
+    target_month?: number | null;
+    academic_year?: string | null;
     student_fee_id?: number;
     voucher_id?: number;
 }
@@ -696,26 +701,79 @@ const DepositRow = ({
                                 </h4>
 
                                 <div className="space-y-2.5">
-                                    {deposit.allocations.map((a, i) => (
-                                        <div
-                                            key={i}
-                                            className="bg-white dark:bg-zinc-950 p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 flex items-center justify-between shadow-sm"
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-1.5 h-10 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
-                                                <div>
-                                                    <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">
-                                                        {a.fee_type_description || "Fee Allocation"}
-                                                    </p>
-                                                    <p className="text-[10px] font-bold text-zinc-400 mt-0.5">
-                                                        {a.voucher_id ? `Via VCH-${a.voucher_id} • ` : ""}
-                                                        Fee ID #{a.student_fee_id}
-                                                    </p>
+                                    {deposit.allocations.map((a, i) => {
+                                        const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                                        const accentColor =
+                                            a.type === "LATE_FEE" ? "bg-rose-500" :
+                                            a.type === "SURCHARGE" ? "bg-amber-500" :
+                                            "bg-emerald-500";
+                                        const accentShadow =
+                                            a.type === "LATE_FEE" ? "shadow-[0_0_10px_rgba(244,63,94,0.3)]" :
+                                            a.type === "SURCHARGE" ? "shadow-[0_0_10px_rgba(245,158,11,0.3)]" :
+                                            "shadow-[0_0_10px_rgba(16,185,129,0.3)]";
+                                        const typeBadgeColor =
+                                            a.type === "LATE_FEE" ? "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-900/10 dark:text-rose-400 dark:border-rose-800/40" :
+                                            a.type === "SURCHARGE" ? "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-800/40" :
+                                            "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/40";
+                                        const amountColor =
+                                            a.type === "LATE_FEE" ? "text-rose-600" :
+                                            a.type === "SURCHARGE" ? "text-amber-600" :
+                                            "text-emerald-600";
+
+                                        const feeDate = a.fee_date
+                                            ? new Date(a.fee_date).toLocaleDateString("en-PK", { day: "2-digit", month: "short", year: "numeric" })
+                                            : null;
+                                        const monthLabel = a.target_month != null
+                                            ? MONTH_NAMES[(a.target_month - 1 + 12) % 12]
+                                            : null;
+
+                                        return (
+                                            <div
+                                                key={i}
+                                                className="bg-white dark:bg-zinc-950 p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 flex items-start justify-between gap-4 shadow-sm"
+                                            >
+                                                <div className="flex items-start gap-4 flex-1 min-w-0">
+                                                    <div className={`w-1.5 mt-1 h-12 ${accentColor} rounded-full ${accentShadow} shrink-0`} />
+                                                    <div className="flex-1 min-w-0 space-y-2">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">
+                                                                {a.fee_type_description || "Fee Allocation"}
+                                                            </p>
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border ${typeBadgeColor}`}>
+                                                                {a.type ?? "FEE_HEAD"}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                                            {feeDate && (
+                                                                <span className="flex items-center gap-1">
+                                                                    <Calendar className="h-3 w-3" /> Fee Date: {feeDate}
+                                                                </span>
+                                                            )}
+                                                            {monthLabel && (
+                                                                <span className="flex items-center gap-1">
+                                                                    <Hash className="h-3 w-3" /> Month: {monthLabel}
+                                                                </span>
+                                                            )}
+                                                            {a.academic_year && (
+                                                                <span className="flex items-center gap-1">
+                                                                    <GraduationCap className="h-3 w-3" /> {a.academic_year}
+                                                                </span>
+                                                            )}
+                                                            {a.voucher_id && (
+                                                                <span className="flex items-center gap-1">
+                                                                    <FileText className="h-3 w-3" /> VCH-{a.voucher_id}
+                                                                </span>
+                                                            )}
+                                                            {a.student_fee_id && (
+                                                                <span>Fee #{a.student_fee_id}</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
+                                                <span className={`text-base font-black shrink-0 ${amountColor}`}>{formatCurrency(a.amount)}</span>
                                             </div>
-                                            <span className="text-base font-black text-emerald-600">{formatCurrency(a.amount)}</span>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
 
                                 {deposit.remarks && (
