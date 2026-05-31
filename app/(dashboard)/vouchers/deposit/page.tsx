@@ -20,6 +20,8 @@ import toast from "react-hot-toast";
 // ─── Dev flags ───────────────────────────────────────────────────────────────
 // Set to false before going to production.
 const DEV_ALLOW_VOID_DEPOSITS = false;
+// Kill switch: set to true to re-enable discount rows in the voucher UI.
+const DEV_SHOW_DISCOUNTS = false;
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -576,7 +578,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         )}
 
                         {/* ── Discount Heads Section ────────────────────────── */}
-                        {discountHeads.length > 0 && (
+                        {DEV_SHOW_DISCOUNTS && discountHeads.length > 0 && (
                             <>
                                 <div className="pt-3 pb-1 px-1">
                                     <span className="flex items-center gap-2 text-[10px] font-black text-violet-500 uppercase tracking-[0.18em]">

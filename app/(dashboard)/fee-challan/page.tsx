@@ -37,6 +37,11 @@ import {
   MONTH_TO_NUM,
   getCurrentAcademicYear,
 } from "@/lib/fee-utils";
+
+// ─── Dev flags ───────────────────────────────────────────────────────────────
+// Kill switch: set to true to re-enable discount display in voucher generation.
+const DEV_SHOW_DISCOUNTS = false;
+
 // --- Types ---
 interface StudentProfile {
   cc: number;
@@ -1312,7 +1317,7 @@ export default function FeeChallanGenerator() {
                       <div key={f.id} className="flex items-center justify-between gap-4">
                         <span className="text-[12px] font-bold text-zinc-600 dark:text-zinc-400 flex-1">
                           {f.fee_types?.description || 'Fee'}{installLabel}
-                          {discount > 0 && <span className="ml-2 text-emerald-500 text-[10px]">(-{discount.toLocaleString()} disc)</span>}
+                          {DEV_SHOW_DISCOUNTS && discount > 0 && <span className="ml-2 text-emerald-500 text-[10px]">(-{discount.toLocaleString()} disc)</span>}
                         </span>
                         <span className="font-black text-zinc-900 dark:text-zinc-100 text-[13px] font-mono tabular-nums">
                           PKR {Number(f.amount).toLocaleString()}
