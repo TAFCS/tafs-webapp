@@ -69,26 +69,26 @@ const INITIAL_FORM_DATA = {
     candidateCnic: "", fatherCnic: "", motherCnic: "",
     dobDay: "", dobMonth: "", dobYear: "",
     nationalityPakistani: true, nationalityOther: "",
-    gender: "", religion: "", identificationMarks: "", isIdentificationMarksNA: true,
+    gender: "", religion: "", identificationMarks: "", isIdentificationMarksNA: false,
     birthCountry: "", birthProvince: "", birthCity: "",
     ageYears: "",
     previousSchools: [{ id: 1, name: "", location: "", classStudiedFrom: "", classStudiedTo: "", reasonForLeaving: "" }],
-    admissionSystem: "", admissionLevel: "", discipline: "", isDisciplineNA: true,
-    houseNo: "", areaBlock: "", city: "", postalCode: "", isPostalCodeNA: true, province: "", country: "", 
-    homePhoneCountryCode: "021", homePhone: "", isHomePhoneNA: true,
+    admissionSystem: "", admissionLevel: "", discipline: "", isDisciplineNA: false,
+    houseNo: "", areaBlock: "", city: "", postalCode: "", isPostalCodeNA: false, province: "", country: "", 
+    homePhoneCountryCode: "021", homePhone: "", isHomePhoneNA: false,
     homeAddress: "", fatherPrimaryPhoneCountryCode: "+92", motherPrimaryPhoneCountryCode: "+92", emergencyPrimaryPhoneCountryCode: "+92",
-    candidatePhone: "", isCandidatePhoneNA: true, 
-    candidateEmail: "", isCandidateEmailNA: true, 
-    fatherPhone: "", isFatherPhoneNA: true, 
-    fatherEmail: "", isFatherEmailNA: true, 
-    fatherFax: "", isFatherFaxNA: true,
-    motherPhone: "", isMotherPhoneNA: true,
-    motherEmail: "", isMotherEmailNA: true,
-    motherFax: "", isMotherFaxNA: true,
+    candidatePhone: "", isCandidatePhoneNA: false, 
+    candidateEmail: "", isCandidateEmailNA: false, 
+    fatherPhone: "", isFatherPhoneNA: false, 
+    fatherEmail: "", isFatherEmailNA: false, 
+    fatherFax: "", isFatherFaxNA: false,
+    motherPhone: "", isMotherPhoneNA: false,
+    motherEmail: "", isMotherEmailNA: false,
+    motherFax: "", isMotherFaxNA: false,
     isFatherWhatsapp: true, fatherWhatsapp: "",
     isMotherWhatsapp: true, motherWhatsapp: "",
     emergencyContactType: "other", // Added for selection logic
-    emergencyContactName: "", isEmergencyContactNameNA: true,
+    emergencyContactName: "", isEmergencyContactNameNA: false,
     emergencyContactPhone: "", emergencyRelationship: "",
     testDay: "", testDate: "", testTime: "", testLevel: "",
     // New: Staged files for upload
@@ -322,10 +322,10 @@ export function RegistrationForm() {
                     // Auto-tick N/A logic
                     const naCheckbox = FIELD_TO_NA_CHECKBOX[name];
                     if (naCheckbox) {
-                        if (finalValue === "" || finalValue === "N/A") {
+                        if (finalValue === "N/A") {
                             updates[naCheckbox] = true;
                             updates[name] = ""; // Keep it empty, don't show "N/A"
-                        } else {
+                        } else if (finalValue !== "") {
                             updates[naCheckbox] = false;
                         }
                     }
@@ -359,10 +359,10 @@ export function RegistrationForm() {
                 // Auto-tick N/A logic
                 const naCheckbox = FIELD_TO_NA_CHECKBOX[name];
                 if (naCheckbox) {
-                    if (filteredValue === "" || filteredValue === "N/A") {
+                    if (filteredValue === "N/A") {
                         updates[naCheckbox] = true;
                         updates[name] = ""; // Keep it empty, don't show "N/A"
-                    } else {
+                    } else if (filteredValue !== "") {
                         updates[naCheckbox] = false;
                     }
                 }
@@ -399,10 +399,10 @@ export function RegistrationForm() {
                 const updates: any = { [name]: filteredValue };
                 const naCheckbox = FIELD_TO_NA_CHECKBOX[name];
                 if (naCheckbox) {
-                    if (filteredValue === "" || filteredValue === "N/A") {
+                    if (filteredValue === "N/A") {
                         updates[naCheckbox] = true;
                         updates[name] = ""; // Keep it empty, don't show "N/A"
-                    } else {
+                    } else if (filteredValue !== "") {
                         updates[naCheckbox] = false;
                     }
                 }
@@ -438,10 +438,10 @@ export function RegistrationForm() {
             const naCheckbox = FIELD_TO_NA_CHECKBOX[name];
             if (naCheckbox && type !== 'checkbox') {
                 const val = updates[name];
-                if (val === "" || val === "N/A") {
+                if (val === "N/A") {
                     updates[naCheckbox] = true;
                     updates[name] = ""; // Keep it empty, don't show "N/A"
-                } else {
+                } else if (val !== "") {
                     updates[naCheckbox] = false;
                 }
             }
