@@ -980,6 +980,12 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                                 GR: {voucher.students.gr_number}
                             </span>
                         )}
+                        {voucher.classes?.description && (
+                            <span className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-2 py-0.5 rounded-md">
+                                {voucher.classes.description}
+                                {voucher.sections?.description ? ` - ${voucher.sections.description}` : ""}
+                            </span>
+                        )}
                     </div>
                 </div>
             </td>
