@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { Building2, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ChevronDown, ChevronRight, GraduationCap, ToggleLeft, ToggleRight, LayoutGrid, MapPin } from "lucide-react";
 import { campusesService, Campus, CampusClassInfo, SectionInfo } from "@/lib/campuses.service";
 
@@ -28,6 +29,7 @@ export default function CampusesPage() {
     // State for Delete Confirmation
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
     const [confirmRemoveClass, setConfirmRemoveClass] = useState<{ campusId: number; classId: number; className: string } | null>(null);
     const [confirmRemoveSection, setConfirmRemoveSection] = useState<{ campusId: number; classId: number; sectionId: number; sectionName: string } | null>(null);
 
@@ -137,7 +139,7 @@ export default function CampusesPage() {
     const handleDelete = async () => {
         if (deleteId === null) return;
         setIsDeleting(true);
-        setError(null);
+        setDeleteError(null);
         try {
             await campusesService.delete(deleteId);
             setSuccessMessage("Campus deleted successfully.");
@@ -145,7 +147,7 @@ export default function CampusesPage() {
             fetchCampuses();
         } catch (err: any) {
             const errMsg = err.response?.data?.message || "Failed to delete campus.";
-            setError(Array.isArray(errMsg) ? errMsg.join("; ") : errMsg);
+            setDeleteError(Array.isArray(errMsg) ? errMsg.join("; ") : errMsg);
         } finally {
             setIsDeleting(false);
         }
@@ -242,6 +244,20 @@ export default function CampusesPage() {
                         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                         Refresh
                     </button>
+                    <Link
+                        href="/campuses/class-setup"
+                        className="inline-flex items-center justify-center h-10 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl shadow-sm transition-all active:scale-95"
+                    >
+                        <GraduationCap className="h-4 w-4 mr-2 text-primary" />
+                        Class Setup
+                    </Link>
+                    <Link
+                        href="/campuses/section-setup"
+                        className="inline-flex items-center justify-center h-10 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl shadow-sm transition-all active:scale-95"
+                    >
+                        <LayoutGrid className="h-4 w-4 mr-2 text-secondary" />
+                        Section Setup
+                    </Link>
                     <button
                         onClick={() => setIsAddModalOpen(true)}
                         className="inline-flex items-center justify-center h-10 px-6 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold rounded-xl shadow-sm transition-all active:scale-95"
@@ -306,6 +322,7 @@ export default function CampusesPage() {
                                     </div>
                                     <div className="flex items-center gap-1">
                                         <button
+                                            type="button"
                                             onClick={() => setDeleteId(item.id)}
                                             className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
                                             title="Delete Campus"
@@ -637,10 +654,17 @@ export default function CampusesPage() {
                             <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-sm leading-relaxed">
                                 This action is permanent. You cannot delete a campus if it contains active student records.
                             </p>
+                            
+                            {deleteError && (
+                                <div className="mt-4 p-4 bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl text-xs font-semibold flex items-start gap-2.5 text-left">
+                                    <AlertCircle className="h-4 w-4 text-rose-500 flex-shrink-0 mt-0.5" />
+                                    <p className="flex-1">{deleteError}</p>
+                                </div>
+                            )}
                         </div>
                         <div className="p-6 bg-zinc-50 dark:bg-zinc-900 flex gap-3">
                             <button
-                                onClick={() => setDeleteId(null)}
+                                onClick={() => { setDeleteId(null); setDeleteError(null); }}
                                 className="flex-1 h-12 font-bold text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all"
                             >
                                 Nevermind
