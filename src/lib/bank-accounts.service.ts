@@ -8,6 +8,7 @@ export interface BankAccount {
     branch_code?: string;
     bank_address?: string;
     iban?: string;
+    is_default?: boolean;
 }
 
 interface ApiEnvelope<T> {

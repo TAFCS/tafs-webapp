@@ -173,6 +173,13 @@ export default function BulkVoucherPage() {
         dispatch(fetchBanks());
     }, [dispatch]);
 
+    useEffect(() => {
+        if (banks.length > 0 && !filters.bankAccountId) {
+            const defaultBank = banks.find(b => b.is_default) || banks[0];
+            handleFilterChange({ bankAccountId: defaultBank.id.toString() });
+        }
+    }, [banks, filters.bankAccountId]);
+
     // ── Polling ────────────────────────────────────────────────────────────
     const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 

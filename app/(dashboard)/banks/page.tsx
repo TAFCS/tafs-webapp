@@ -36,7 +36,8 @@ export default function BanksManagement() {
         account_number: "",
         branch_code: "",
         bank_address: "",
-        iban: ""
+        iban: "",
+        is_default: false
     });
 
     useEffect(() => {
@@ -68,7 +69,8 @@ export default function BanksManagement() {
             account_number: "",
             branch_code: "",
             bank_address: "",
-            iban: ""
+            iban: "",
+            is_default: false
         });
         setShowModal(true);
     };
@@ -81,7 +83,8 @@ export default function BanksManagement() {
             account_number: bank.account_number,
             branch_code: bank.branch_code || "",
             bank_address: bank.bank_address || "",
-            iban: bank.iban || ""
+            iban: bank.iban || "",
+            is_default: bank.is_default || false
         });
         setShowModal(true);
     };
@@ -108,14 +111,23 @@ export default function BanksManagement() {
     };
 
     const handleDelete = async (id: number) => {
-        if (confirm("Are you sure you want to remove this bank account?")) {
+        const bank = banks.find(b => b.id === id);
+        if (!bank) return;
+        
+        const expectedPhrase = `delete ${bank.bank_name}`;
+        const userInput = prompt(`Are you sure you want to permanently delete this bank account?\n\nTo confirm, please type exactly:\n"${expectedPhrase}"`);
+        
+        if (userInput === expectedPhrase) {
             try {
                 await bankAccountsService.delete(id);
                 setBanks(banks.filter(b => b.id !== id));
-                toast.success("Bank removed.");
-            } catch (err) {
-                toast.error("Failed to delete bank.");
+                toast.success("Bank removed successfully.");
+            } catch (err: any) {
+                const msg = err.response?.data?.message || "Failed to delete bank. Ensure it has no active vouchers or jobs referencing it.";
+                toast.error(msg);
             }
+        } else if (userInput !== null) {
+            toast.error("Incorrect confirmation text. Deletion canceled.");
         }
     };
 
@@ -165,9 +177,16 @@ export default function BanksManagement() {
                         className="group relative bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] p-8 hover:border-zinc-300 dark:border-zinc-700 hover:shadow-2xl hover:shadow-zinc-200/50 transition-all duration-500 overflow-hidden"
                     >
                         {/* Status Badge */}
-                        <div className="absolute top-6 right-6 flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 animate-in fade-in zoom-in duration-300">
-                            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Active</span>
+                        <div className="absolute top-6 right-6 flex items-center gap-2">
+                            {bank.is_default && (
+                                <span className="px-3 py-1 bg-zinc-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-md shadow-zinc-900/10">
+                                    Default
+                                </span>
+                            )}
+                            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 animate-in fade-in zoom-in duration-300">
+                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Active</span>
+                            </div>
                         </div>
 
                         {/* Bank Identity */}
@@ -349,6 +368,21 @@ export default function BanksManagement() {
                                             onChange={(e) => setFormData({ ...formData, bank_address: e.target.value })}
                                             className="w-full h-14 px-6 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-zinc-100 transition-all"
                                         />
+                                    </div>
+                                    <div className="md:col-span-2 flex items-center gap-3.5 p-5 bg-zinc-50 dark:bg-zinc-900 rounded-[20px] border border-zinc-100 dark:border-zinc-800/60">
+                                        <input
+                                            id="is_default"
+                                            type="checkbox"
+                                            checked={formData.is_default}
+                                            onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
+                                            className="h-5 w-5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-100 cursor-pointer"
+                                        />
+                                        <label htmlFor="is_default" className="text-xs font-bold text-zinc-750 dark:text-zinc-350 cursor-pointer select-none">
+                                            Set as Default Collection Bank
+                                            <span className="block text-[10px] text-zinc-400 font-medium normal-case tracking-normal mt-0.5">
+                                                All new challans will default to this bank account unless manually overridden.
+                                            </span>
+                                        </label>
                                     </div>
                                 </div>
 
