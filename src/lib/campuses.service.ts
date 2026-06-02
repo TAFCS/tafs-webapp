@@ -26,12 +26,15 @@ export interface Campus {
     campus_code: string;
     campus_name: string;
     address?: string;
+    campus_prefix?: string | null;
     offered_classes?: OfferedClass[];
 }
 
 export interface CreateCampusPayload {
     campus_code: string;
     campus_name: string;
+    address?: string;
+    campus_prefix?: string;
 }
 
 export type UpdateCampusPayload = Partial<CreateCampusPayload>;

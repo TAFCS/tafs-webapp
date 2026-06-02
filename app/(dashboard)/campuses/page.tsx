@@ -23,7 +23,7 @@ export default function CampusesPage() {
     // State for Add Modal
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
-    const [newCampus, setNewCampus] = useState({ campus_code: "", campus_name: "", address: "" });
+    const [newCampus, setNewCampus] = useState({ campus_code: "", campus_name: "", address: "", campus_prefix: "" });
 
     // State for Delete Confirmation
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -82,14 +82,16 @@ export default function CampusesPage() {
             const isModified = !original ||
                 original.campus_code !== updated.campus_code ||
                 original.campus_name !== updated.campus_name ||
-                original.address !== updated.address;
+                original.address !== updated.address ||
+                original.campus_prefix !== updated.campus_prefix;
 
             if (isModified) {
                 return {
                     id: updated.id > 0 ? updated.id : undefined,
                     campus_code: updated.campus_code,
                     campus_name: updated.campus_name,
-                    address: updated.address
+                    address: updated.address,
+                    campus_prefix: updated.campus_prefix
                 };
             }
             return null;
@@ -122,7 +124,7 @@ export default function CampusesPage() {
             await campusesService.create(newCampus);
             setSuccessMessage("Campus added successfully.");
             setIsAddModalOpen(false);
-            setNewCampus({ campus_code: "", campus_name: "", address: "" });
+            setNewCampus({ campus_code: "", campus_name: "", address: "", campus_prefix: "" });
             fetchCampuses();
         } catch (err: any) {
             const errMsg = err.response?.data?.message || "Failed to add campus.";
@@ -214,8 +216,8 @@ export default function CampusesPage() {
         }
     };
 
-    const hasChanges = JSON.stringify(campuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name, address: c.address }))) !==
-        JSON.stringify(originalCampuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name, address: c.address })));
+    const hasChanges = JSON.stringify(campuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name, address: c.address, prefix: c.campus_prefix }))) !==
+        JSON.stringify(originalCampuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name, address: c.address, prefix: c.campus_prefix })));
 
     const activeCampus = campuses.find(c => c.id === configCampusId);
 
@@ -314,14 +316,25 @@ export default function CampusesPage() {
                                 </div>
 
                                 <div className="space-y-1">
-                                    <input
-                                        type="text"
-                                        value={item.campus_code}
-                                        maxLength={10}
-                                        onChange={(e) => handleChange(item.id, 'campus_code', e.target.value.toUpperCase())}
-                                        className="text-xs font-mono font-bold tracking-widest text-primary/70 bg-transparent border-none p-0 focus:ring-0 uppercase mb-1"
-                                        placeholder="CODE"
-                                    />
+                                    <div className="flex gap-2 items-center mb-1">
+                                        <input
+                                            type="text"
+                                            value={item.campus_code}
+                                            maxLength={10}
+                                            onChange={(e) => handleChange(item.id, 'campus_code', e.target.value.toUpperCase())}
+                                            className="text-xs font-mono font-bold tracking-widest text-primary/70 bg-transparent border-none p-0 focus:ring-0 uppercase w-20"
+                                            placeholder="CODE"
+                                        />
+                                        <span className="text-zinc-300">|</span>
+                                        <input
+                                            type="text"
+                                            value={item.campus_prefix || ""}
+                                            maxLength={10}
+                                            onChange={(e) => handleChange(item.id, 'campus_prefix', e.target.value)}
+                                            className="text-xs font-mono font-bold tracking-widest text-zinc-500 bg-transparent border-none p-0 focus:ring-0 placeholder:text-zinc-300 w-24"
+                                            placeholder="PREFIX"
+                                        />
+                                    </div>
                                     <input
                                         type="text"
                                         value={item.campus_name}
@@ -559,6 +572,16 @@ export default function CampusesPage() {
                                             value={newCampus.campus_code}
                                             onChange={(e) => setNewCampus({ ...newCampus, campus_code: e.target.value.toUpperCase() })}
                                             className="w-full h-12 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono uppercase focus:border-primary"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Campus Prefix (for student GR numbers)</label>
+                                        <input
+                                            maxLength={10}
+                                            value={newCampus.campus_prefix}
+                                            onChange={(e) => setNewCampus({ ...newCampus, campus_prefix: e.target.value })}
+                                            className="w-full h-12 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary"
+                                            placeholder="e.g. KF-A"
                                         />
                                     </div>
                                     <div className="space-y-2">
