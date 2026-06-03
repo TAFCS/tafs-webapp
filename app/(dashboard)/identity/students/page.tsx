@@ -12,6 +12,204 @@ import Image from "next/image";
 import { StudentDetailDrawer } from "./tabs/StudentDetailDrawer";
 import toast from "react-hot-toast";
 
+// ── Column Configuration for Excel Export ──────────────────────────────────
+interface ColumnOption {
+    key: string;
+    label: string;
+}
+
+const STUDENT_COLUMNS: ColumnOption[] = [
+    { key: "student_name", label: "Student Name" },
+    { key: "cc", label: "CC" },
+    { key: "gr", label: "GR" },
+    { key: "cnic", label: "Student CNIC" },
+    { key: "dob", label: "Date of Birth" },
+    { key: "gender", label: "Gender" },
+    { key: "branch", label: "Branch" },
+    { key: "class", label: "Class" },
+    { key: "section", label: "Section" },
+    { key: "house", label: "House" },
+    { key: "status", label: "Status" },
+    { key: "academic_year", label: "Academic Year" },
+    { key: "is_complementary", label: "Is Complementary" },
+    { key: "is_fee_endowment", label: "Is Fee Endowment" },
+    { key: "fee_start_term", label: "Fee Start Term" },
+    { key: "residential_address", label: "Residential Address" },
+    { key: "sibling_count", label: "Sibling Count" },
+    { key: "primary_phone", label: "Primary Phone" },
+    { key: "whatsapp_number", label: "WhatsApp Number" },
+];
+
+const PARENT_COLUMNS: ColumnOption[] = [
+    { key: "father_name", label: "Father Name" },
+    { key: "father_cnic", label: "Father CNIC" },
+    { key: "father_phone", label: "Father Phone/WhatsApp" },
+    { key: "mother_name", label: "Mother Name" },
+    { key: "mother_cnic", label: "Mother CNIC" },
+    { key: "mother_phone", label: "Mother Phone/WhatsApp" },
+    { key: "emergency_contact_name", label: "Emergency Contact Name" },
+    { key: "emergency_contact_phone", label: "Emergency Contact Phone" },
+];
+
+const STANDARD_COLUMNS = ["student_name", "father_name", "mother_name", "cc", "gr", "branch", "class", "section", "gender", "cnic", "academic_year", "dob", "status"];
+
+interface ExportColumnModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onExport: (selectedKeys: string[]) => void;
+    isExporting: boolean;
+}
+
+function ExportColumnModal({ isOpen, onClose, onExport, isExporting }: ExportColumnModalProps) {
+    const [selected, setSelected] = useState<string[]>(STANDARD_COLUMNS);
+
+    if (!isOpen) return null;
+
+    const handleToggle = (key: string) => {
+        setSelected(prev =>
+            prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+        );
+    };
+
+    const handleToggleCategory = (keys: string[], allSelected: boolean) => {
+        if (allSelected) {
+            setSelected(prev => prev.filter(k => !keys.includes(k)));
+        } else {
+            setSelected(prev => [...new Set([...prev, ...keys])]);
+        }
+    };
+
+    const studentKeys = STUDENT_COLUMNS.map(c => c.key);
+    const parentKeys = PARENT_COLUMNS.map(c => c.key);
+
+    const allStudentSelected = studentKeys.every(k => selected.includes(k));
+    const allParentSelected = parentKeys.every(k => selected.includes(k));
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl border border-zinc-100 flex flex-col animate-slide-in">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+                    <div>
+                        <h3 className="font-extrabold text-[16px] text-zinc-900">Customize Export Columns</h3>
+                        <p className="text-[11px] text-zinc-400 font-semibold uppercase tracking-wider mt-0.5">Select fields to include in your Excel report</p>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 hover:bg-zinc-50 rounded-xl text-zinc-400 hover:text-zinc-600 transition-colors">
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {/* Presets */}
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => setSelected([...new Set([...studentKeys, ...parentKeys])])}
+                            className="px-3 py-1.5 text-[11px] font-bold text-zinc-700 bg-zinc-50 border border-zinc-200 rounded-xl hover:bg-zinc-100 transition-colors"
+                        >
+                            Select All
+                        </button>
+                        <button
+                            onClick={() => setSelected(STANDARD_COLUMNS)}
+                            className="px-3 py-1.5 text-[11px] font-bold text-primary bg-primary/5 border border-primary/20 rounded-xl hover:bg-primary/10 transition-colors"
+                        >
+                            Standard Columns
+                        </button>
+                        <button
+                            onClick={() => setSelected([])}
+                            className="px-3 py-1.5 text-[11px] font-bold text-zinc-700 bg-zinc-50 border border-zinc-200 rounded-xl hover:bg-zinc-100 transition-colors"
+                        >
+                            Deselect All
+                        </button>
+                    </div>
+
+                    {/* Student Info */}
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+                            <h4 className="text-[12px] font-extrabold text-zinc-700 uppercase tracking-wider">Student Details</h4>
+                            <label className="flex items-center gap-2 text-[11px] font-bold text-zinc-500 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={allStudentSelected}
+                                    onChange={() => handleToggleCategory(studentKeys, allStudentSelected)}
+                                    className="rounded border-zinc-300 text-primary focus:ring-primary h-4 w-4"
+                                />
+                                Toggle Category
+                            </label>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                            {STUDENT_COLUMNS.map(col => (
+                                <label key={col.key} className="flex items-start gap-2.5 p-2 rounded-xl hover:bg-zinc-50 border border-transparent hover:border-zinc-100 transition-all cursor-pointer select-none text-[12px] font-medium text-zinc-600">
+                                    <input
+                                        type="checkbox"
+                                        checked={selected.includes(col.key)}
+                                        onChange={() => handleToggle(col.key)}
+                                        className="rounded border-zinc-300 text-primary focus:ring-primary mt-0.5 h-4 w-4"
+                                    />
+                                    {col.label}
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Parent Info */}
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+                            <h4 className="text-[12px] font-extrabold text-zinc-700 uppercase tracking-wider">Parent / Guardian Details</h4>
+                            <label className="flex items-center gap-2 text-[11px] font-bold text-zinc-500 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={allParentSelected}
+                                    onChange={() => handleToggleCategory(parentKeys, allParentSelected)}
+                                    className="rounded border-zinc-300 text-primary focus:ring-primary h-4 w-4"
+                                />
+                                Toggle Category
+                            </label>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                            {PARENT_COLUMNS.map(col => (
+                                <label key={col.key} className="flex items-start gap-2.5 p-2 rounded-xl hover:bg-zinc-50 border border-transparent hover:border-zinc-100 transition-all cursor-pointer select-none text-[12px] font-medium text-zinc-600">
+                                    <input
+                                        type="checkbox"
+                                        checked={selected.includes(col.key)}
+                                        onChange={() => handleToggle(col.key)}
+                                        className="rounded border-zinc-300 text-primary focus:ring-primary mt-0.5 h-4 w-4"
+                                    />
+                                    {col.label}
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-between gap-3">
+                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                        {selected.length} columns selected
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={onClose}
+                            className="px-4 h-9 text-[12px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => onExport(selected)}
+                            disabled={selected.length === 0 || isExporting}
+                            className="flex items-center gap-1.5 px-5 h-9 text-[12px] font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            Export Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
 // ── Types ──────────────────────────────────────────────────────────────────
 interface StudentCore {
     cc: number;
@@ -176,6 +374,7 @@ function DirectoryContent() {
     const [auditType, setAuditType]   = useState("");
     const [photoFilter, setPhotoFilter] = useState("");
     const [page, setPage]             = useState(1);
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
     useEffect(() => {
         const cc = searchParams.get("cc");
@@ -224,7 +423,7 @@ function DirectoryContent() {
     const hasFilters = campusId || classId || sectionId || houseId || status || auditType || photoFilter;
     const clearFilters = () => { setCampusId(""); setClassId(""); setSectionId(""); setHouseId(""); setStatus(""); setAuditType(""); setPhotoFilter(""); setPage(1); };
 
-    const handleExportExcel = async () => {
+    const handleExportExcel = async (selectedColumns: string[]) => {
         setIsExporting(true);
         try {
             const params: Record<string, string | number> = {
@@ -235,7 +434,8 @@ function DirectoryContent() {
                 house_id: houseId,
                 status,
                 audit_type: auditType,
-                has_photo: photoFilter
+                has_photo: photoFilter,
+                columns: selectedColumns.join(','),
             };
             const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== "" && v !== 0));
             const response = await api.get("/v1/students/export", {
@@ -250,6 +450,7 @@ function DirectoryContent() {
             link.click();
             link.remove();
             toast.success("Excel export downloaded successfully!");
+            setIsExportModalOpen(false);
         } catch (e) {
             console.error(e);
             toast.error("Failed to export student directory.");
@@ -329,7 +530,7 @@ function DirectoryContent() {
                     <FilterSelect label="All Photos"   value={photoFilter} onChange={v => { setPhotoFilter(v); setPage(1); }} options={photoOptions} />
                     
                     <button
-                        onClick={handleExportExcel}
+                        onClick={() => setIsExportModalOpen(true)}
                         disabled={isExporting}
                         className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -428,6 +629,13 @@ function DirectoryContent() {
                 sections={sections}
                 campuses={campuses}
                 onUpdated={triggerFetch}
+            />
+
+            <ExportColumnModal
+                isOpen={isExportModalOpen}
+                onClose={() => setIsExportModalOpen(false)}
+                onExport={handleExportExcel}
+                isExporting={isExporting}
             />
         </div>
     );
