@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Home } from "lucide-react";
+import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Home, Download, Loader2 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
@@ -10,6 +10,7 @@ import { fetchCampuses } from "@/src/store/slices/campusesSlice";
 import { fetchSections } from "@/src/store/slices/sectionsSlice";
 import Image from "next/image";
 import { StudentDetailDrawer } from "./tabs/StudentDetailDrawer";
+import toast from "react-hot-toast";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface StudentCore {
@@ -162,6 +163,7 @@ function DirectoryContent() {
     const [students, setStudents]     = useState<Student[]>([]);
     const [meta, setMeta]             = useState<PaginationMeta | null>(null);
     const [isLoading, setIsLoading]   = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
     const [selectedCc, setSelectedCc] = useState<number | null>(null);
 
     // Filters
@@ -172,6 +174,7 @@ function DirectoryContent() {
     const [houseId, setHouseId]       = useState("");
     const [status, setStatus]         = useState("");
     const [auditType, setAuditType]   = useState("");
+    const [photoFilter, setPhotoFilter] = useState("");
     const [page, setPage]             = useState(1);
 
     useEffect(() => {
@@ -204,8 +207,8 @@ function DirectoryContent() {
     }, []);
 
     const triggerFetch = useCallback(() => {
-        fetchStudents({ page, search, campus_id: campusId, class_id: classId, section_id: sectionId, house_id: houseId, status, audit_type: auditType });
-    }, [page, search, campusId, classId, sectionId, houseId, status, auditType, fetchStudents]);
+        fetchStudents({ page, search, campus_id: campusId, class_id: classId, section_id: sectionId, house_id: houseId, status, audit_type: auditType, has_photo: photoFilter });
+    }, [page, search, campusId, classId, sectionId, houseId, status, auditType, photoFilter, fetchStudents]);
 
     // Debounced search
     useEffect(() => {
@@ -216,10 +219,44 @@ function DirectoryContent() {
     }, [search]);
 
     // Instant on filter/page change
-    useEffect(() => { triggerFetch(); }, [page, campusId, classId, sectionId, houseId, status, triggerFetch]);
+    useEffect(() => { triggerFetch(); }, [page, campusId, classId, sectionId, houseId, status, auditType, photoFilter, triggerFetch]);
 
-    const hasFilters = campusId || classId || sectionId || houseId || status || auditType;
-    const clearFilters = () => { setCampusId(""); setClassId(""); setSectionId(""); setHouseId(""); setStatus(""); setAuditType(""); setPage(1); };
+    const hasFilters = campusId || classId || sectionId || houseId || status || auditType || photoFilter;
+    const clearFilters = () => { setCampusId(""); setClassId(""); setSectionId(""); setHouseId(""); setStatus(""); setAuditType(""); setPhotoFilter(""); setPage(1); };
+
+    const handleExportExcel = async () => {
+        setIsExporting(true);
+        try {
+            const params = {
+                search,
+                campus_id: campusId,
+                class_id: classId,
+                section_id: sectionId,
+                house_id: houseId,
+                status,
+                audit_type: auditType,
+                has_photo: photoFilter
+            };
+            const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== "" && v !== 0));
+            const response = await api.get("/v1/students/export", {
+                params: clean,
+                responseType: "blob"
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `student-directory-${new Date().toISOString().slice(0, 10)}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            toast.success("Excel export downloaded successfully!");
+        } catch (e) {
+            console.error(e);
+            toast.error("Failed to export student directory.");
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     const campusOptions  = campuses.map((c: any) => ({ value: String(c.id), label: c.campus_name }));
     const classOptions   = classes.map((c: any) => ({ value: String(c.id), label: c.description }));
@@ -234,6 +271,10 @@ function DirectoryContent() {
         { value: "missing_guardian", label: "Missing Guardians" },
         { value: "no_family", label: "Missing Families" },
         { value: "abnormal", label: "Abnormal (All)" },
+    ];
+    const photoOptions = [
+        { value: "true", label: "Has Photo" },
+        { value: "false", label: "No Photo" },
     ];
 
     return (
@@ -285,6 +326,17 @@ function DirectoryContent() {
                     <FilterSelect label="All Classes"  value={classId}  onChange={v => { setClassId(v);  setPage(1); }} options={classOptions} />
                     <FilterSelect label="All Sections" value={sectionId} onChange={v => { setSectionId(v); setPage(1); }} options={sectionOptions} />
                     <FilterSelect label="All Statuses" value={status}   onChange={v => { setStatus(v);   setPage(1); }} options={statusOptions} />
+                    <FilterSelect label="All Photos"   value={photoFilter} onChange={v => { setPhotoFilter(v); setPage(1); }} options={photoOptions} />
+                    
+                    <button
+                        onClick={handleExportExcel}
+                        disabled={isExporting}
+                        className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                        Download Excel
+                    </button>
+
                     {hasFilters && (
                         <button onClick={clearFilters} className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors">
                             <X className="h-3 w-3" /> Clear
