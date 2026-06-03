@@ -227,7 +227,7 @@ function DirectoryContent() {
     const handleExportExcel = async () => {
         setIsExporting(true);
         try {
-            const params = {
+            const params: Record<string, string | number> = {
                 search,
                 campus_id: campusId,
                 class_id: classId,
