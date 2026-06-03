@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
-import { Camera, Loader2, CheckCircle2, AlertCircle, X } from "lucide-react";
+import { Camera, Loader2, CheckCircle2, AlertCircle, X, Eye } from "lucide-react";
 import api from "@/lib/api";
 
 interface PhotoUploadProps {
@@ -15,6 +15,7 @@ interface PhotoUploadProps {
 export function PhotoUpload({ cc, guardianId, type, currentUrl, label, onSuccess }: PhotoUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,10 +65,20 @@ export function PhotoUpload({ cc, guardianId, type, currentUrl, label, onSuccess
               alt={label} 
               className="w-full h-full object-cover" 
             />
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
               <button 
+                type="button"
+                onClick={() => setIsViewerOpen(true)}
+                className="p-1.5 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 hover:scale-105 active:scale-95 transition-all shadow-md"
+                title="View Full"
+              >
+                <Eye className="h-4 w-4" />
+              </button>
+              <button 
+                type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-all"
+                className="p-1.5 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 hover:scale-105 active:scale-95 transition-all shadow-md"
+                title="Upload Photo"
               >
                 <Camera className="h-4 w-4" />
               </button>
@@ -75,6 +86,7 @@ export function PhotoUpload({ cc, guardianId, type, currentUrl, label, onSuccess
           </>
         ) : (
           <button 
+            type="button"
             onClick={() => fileInputRef.current?.click()}
             className="flex flex-col items-center gap-1 text-zinc-400 hover:text-primary transition-colors"
           >
@@ -106,6 +118,24 @@ export function PhotoUpload({ cc, guardianId, type, currentUrl, label, onSuccess
         accept="image/*"
         onChange={handleUpload}
       />
+
+      {isViewerOpen && currentUrl && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-zoom-out" onClick={() => setIsViewerOpen(false)}>
+          <div className="relative max-w-4xl max-h-[90vh] bg-zinc-950 rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 flex flex-col" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setIsViewerOpen(false)}
+              className="absolute top-4 right-4 z-10 p-2 bg-black/60 hover:bg-black/80 text-white rounded-xl transition-all border border-zinc-800"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <img 
+              src={currentUrl.replace(/([^:])\/\//g, '$1/')} 
+              alt={label} 
+              className="max-w-full max-h-[85vh] object-contain rounded-xl cursor-default"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
