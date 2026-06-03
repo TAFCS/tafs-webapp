@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
+import { CLASS_BANDS } from "@/lib/class-bands";
 import { toast } from "react-hot-toast";
 import { useAppSelector } from "@/store/hooks";
 
@@ -33,6 +34,7 @@ interface StaffUser {
   full_name: string;
   role: string;
   campus_id: number | null;
+  allowed_class_ids?: number[];
   is_active: boolean;
   created_at: string;
   campuses: { campus_name: string } | null;
@@ -90,8 +92,10 @@ export default function UserManagementPage() {
     full_name: "",
     password: "",
     role: "RECEPTIONIST",
-    campus_id: ""
+    campus_id: "",
+    allowed_class_ids: [] as number[],
   });
+  const [selectedClassBand, setSelectedClassBand] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Permissions State
@@ -133,11 +137,16 @@ export default function UserManagementPage() {
           full_name: formData.full_name,
           role: formData.role,
           campus_id: formData.campus_id || null,
+          allowed_class_ids: formData.allowed_class_ids,
           password: formData.password || undefined // Only update if provided
         });
         toast.success("User updated successfully");
       } else {
-        await api.post("/v1/users", formData);
+        await api.post("/v1/users", {
+          ...formData,
+          campus_id: formData.campus_id || undefined,
+          allowed_class_ids: formData.allowed_class_ids,
+        });
         toast.success("User created successfully");
       }
       setIsUserDrawerOpen(false);
@@ -152,20 +161,28 @@ export default function UserManagementPage() {
   const openUserDrawer = (user: StaffUser | null = null) => {
     setSelectedUser(user);
     if (user) {
+      const ids = user.allowed_class_ids ?? [];
+      const band = CLASS_BANDS.find(
+        (b) => [...b.ids].sort((a, c) => a - c).join(",") === [...ids].sort((a, c) => a - c).join(","),
+      );
+      setSelectedClassBand(band?.label ?? (ids.length ? "custom" : ""));
       setFormData({
         username: user.username,
         full_name: user.full_name,
         password: "", // Don't show password
         role: user.role,
-        campus_id: user.campus_id ? String(user.campus_id) : ""
+        campus_id: user.campus_id ? String(user.campus_id) : "",
+        allowed_class_ids: ids,
       });
     } else {
+      setSelectedClassBand("");
       setFormData({
         username: "",
         full_name: "",
         password: "",
         role: "RECEPTIONIST",
-        campus_id: ""
+        campus_id: "",
+        allowed_class_ids: [],
       });
     }
     setIsUserDrawerOpen(true);
@@ -498,13 +515,44 @@ export default function UserManagementPage() {
                         className="w-full h-12 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 text-[13px] font-bold focus:border-primary outline-none transition-all appearance-none"
                       >
                         <option value="">ALL CAMPUSES</option>
-                        {/* Note: In a real app we'd fetch this from store or API */}
-                        <option value="1">Primary Block</option>
-                        <option value="2">Senior Girls</option>
-                        <option value="3">Senior Boys</option>
+                        <option value="1">Gulistan-e-Johar</option>
+                        <option value="2">Kaneez Fatima</option>
+                        <option value="3">North Nazimabad</option>
                       </select>
                     </div>
                   </div>
+
+                  {formData.role === "PRINCIPAL" && (
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black text-zinc-400 uppercase tracking-widest pl-1">
+                        Class band (optional — empty = whole campus)
+                      </label>
+                      <select
+                        value={selectedClassBand}
+                        onChange={(e) => {
+                          const label = e.target.value;
+                          setSelectedClassBand(label);
+                          if (!label) {
+                            setFormData({ ...formData, allowed_class_ids: [] });
+                            return;
+                          }
+                          const band = CLASS_BANDS.find((b) => b.label === label);
+                          setFormData({
+                            ...formData,
+                            allowed_class_ids: band ? [...band.ids] : [],
+                          });
+                        }}
+                        className="w-full h-12 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 text-[13px] font-bold focus:border-primary outline-none transition-all appearance-none"
+                      >
+                        <option value="">Whole campus</option>
+                        {CLASS_BANDS.map((b) => (
+                          <option key={b.label} value={b.label}>
+                            {b.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </form>
 
                 {selectedUser && (

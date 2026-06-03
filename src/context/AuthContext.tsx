@@ -38,10 +38,17 @@ export function clearSession() {
 function loadCachedUser(): StaffUser | null {
     try {
         const raw = localStorage.getItem(KEY_USER);
-        return raw ? (JSON.parse(raw) as StaffUser) : null;
+        return raw ? normalizeStaffUser(JSON.parse(raw) as StaffUser) : null;
     } catch {
         return null;
     }
+}
+
+function normalizeStaffUser(user: StaffUser): StaffUser {
+    return {
+        ...user,
+        allowedClassIds: user.allowedClassIds ?? [],
+    };
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -67,8 +74,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         authService
             .refreshStaff()
             .then(({ user }) => {
-                saveSession(user);
-                dispatch(setCredentials({ user }));
+                const normalized = normalizeStaffUser(user);
+                saveSession(normalized);
+                dispatch(setCredentials({ user: normalized }));
             })
             .catch(() => {
                 clearSession();
@@ -80,8 +88,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const login = useCallback(
         async (username: string, password: string, redirectUrl?: string | null) => {
             const { user } = await authService.loginStaff(username, password);
-            saveSession(user);
-            dispatch(setCredentials({ user }));
+            const normalized = normalizeStaffUser(user);
+            saveSession(normalized);
+            dispatch(setCredentials({ user: normalized }));
             router.push(redirectUrl || '/dashboard');
         },
         [dispatch, router]

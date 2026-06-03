@@ -279,6 +279,8 @@ export default function RollCallPage() {
             setSession(null);
           }}
           filterClass={isAsA2Class}
+          lockCampusId={user?.campusId ?? undefined}
+          allowedClassIds={user?.allowedClassIds?.length ? user.allowedClassIds : undefined}
           requireClassAndSection
         />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

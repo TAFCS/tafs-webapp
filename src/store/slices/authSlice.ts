@@ -9,6 +9,7 @@ export interface StaffUser {
   role: string;
   campusId: number | null;
   campusName: string | null;
+  allowedClassIds: number[];
   permissions: string[];
 }
 

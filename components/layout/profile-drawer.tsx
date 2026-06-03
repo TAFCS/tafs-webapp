@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 import { useAuth, useAuthState } from "@/context/AuthContext";
+import { classBandLabel } from "@/lib/class-bands";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ProfileDrawerProps {
@@ -242,6 +243,11 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                                                 {user.campusName}
                                             </span>
                                         )}
+                                        {user?.allowedClassIds?.length ? (
+                                            <span className="text-white/90 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-white/20 backdrop-blur-md rounded-md border border-white/10 shadow-sm whitespace-nowrap">
+                                                {classBandLabel(user.allowedClassIds)}
+                                            </span>
+                                        ) : null}
                                     </div>
                                 </motion.div>
                             </div>

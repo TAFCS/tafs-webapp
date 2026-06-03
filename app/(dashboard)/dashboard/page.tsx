@@ -6,11 +6,12 @@ import {
     Users, Banknote, FileText, TrendingUp, Calendar, 
     CreditCard, Clock, Activity, Loader2, Landmark,
     ArrowUpRight, ArrowDownRight, Info,
-    Target, BarChart3, PieChart, CheckCircle2
+    Target, BarChart3, PieChart, CheckCircle2, LayoutDashboard
 } from "lucide-react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { useAuthState } from "@/context/AuthContext";
 
 const container = {
     hidden: { opacity: 0 },
@@ -28,13 +29,30 @@ const item = {
 };
 
 export default function DashboardPage() {
+    const { user } = useAuthState();
     const [statsData, setStatsData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [selectedCampusId, setSelectedCampusId] = useState<string>("");
+    const canViewAnalytics =
+        user?.role === "SUPER_ADMIN" ||
+        user?.permissions?.includes("system.analytics.view");
+    const campusLocked = user?.campusId != null;
+    const [selectedCampusId, setSelectedCampusId] = useState<string>(
+        campusLocked ? String(user!.campusId) : "",
+    );
 
     useEffect(() => {
+        if (campusLocked && user?.campusId) {
+            setSelectedCampusId(String(user.campusId));
+        }
+    }, [campusLocked, user?.campusId]);
+
+    useEffect(() => {
+        if (!canViewAnalytics) {
+            setIsLoading(false);
+            return;
+        }
         fetchDashboardData(selectedCampusId);
-    }, [selectedCampusId]);
+    }, [selectedCampusId, canViewAnalytics]);
 
     const fetchDashboardData = async (campusId?: string) => {
         setIsLoading(true);
@@ -51,6 +69,18 @@ export default function DashboardPage() {
             setIsLoading(false);
         }
     };
+
+    if (!canViewAnalytics) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[60vh] text-center px-6">
+                <LayoutDashboard className="h-12 w-12 text-zinc-300 mb-4" />
+                <h2 className="text-xl font-bold text-zinc-800 dark:text-zinc-100">Welcome</h2>
+                <p className="text-zinc-500 mt-2 max-w-md">
+                    Use the menu to open the modules available for your role.
+                </p>
+            </div>
+        );
+    }
 
     if (isLoading && !statsData) {
         return (
@@ -140,7 +170,9 @@ export default function DashboardPage() {
                             onChange={(e) => setSelectedCampusId(e.target.value)}
                             className="pl-12 pr-10 py-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-bold appearance-none min-w-[260px] outline-none transition-all shadow-sm focus:ring-4 focus:ring-primary/10 hover:border-zinc-300 dark:hover:border-zinc-700"
                         >
-                            <option value="">Institution-wide Overview</option>
+                            {!campusLocked && (
+                                <option value="">Institution-wide Overview</option>
+                            )}
                             {campuses.map((c: any) => (
                                 <option key={c.id} value={c.id}>{c.campus_name}</option>
                             ))}

@@ -32,6 +32,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../store/store";
 import { fetchStudents } from "../../../store/slices/studentsSlice";
 import { studentsService } from "../../../lib/students.service";
+import { useAuthState } from "@/context/AuthContext";
 
 interface ColumnDef {
     id: keyof StudentListItem;
@@ -120,6 +121,8 @@ const campuses = [
 export function StudentDataTable() {
     const router = useRouter();
     const dispatch = useDispatch<AppDispatch>();
+    const { user } = useAuthState();
+    const campusLocked = user?.campusId != null;
     const { items, meta, isLoading, error } = useSelector((state: RootState) => state.students);
 
     const [page, setPage] = useState(1);
@@ -137,7 +140,15 @@ export function StudentDataTable() {
     const [searchQuery, setSearchQuery] = useState("");
     const debouncedSearch = useDebounce(searchQuery, 400);
 
-    const [campusIdFilter, setCampusIdFilter] = useState<number | "All">("All");
+    const [campusIdFilter, setCampusIdFilter] = useState<number | "All">(
+        campusLocked && user?.campusId ? user.campusId : "All",
+    );
+
+    useEffect(() => {
+        if (campusLocked && user?.campusId) {
+            setCampusIdFilter(user.campusId);
+        }
+    }, [campusLocked, user?.campusId]);
     const [statusFilter, setStatusFilter] = useState<EnrollmentStatus | "All">("All");
     const [gradeFilter, setGradeFilter] = useState("All");
     const [sectionFilter, setSectionFilter] = useState("All");
@@ -361,9 +372,17 @@ export function StudentDataTable() {
                             <option value="GRADUATED">Graduated</option>
                         </FilterSelect>
 
-                        <FilterSelect label="Campus" value={String(campusIdFilter)} onChange={v => { setCampusIdFilter(v === "All" ? "All" : Number(v)); setPage(1); }}>
-                            <option value="All">All Campuses</option>
-                            {campuses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        <FilterSelect
+                            label="Campus"
+                            value={String(campusIdFilter)}
+                            onChange={v => { setCampusIdFilter(v === "All" ? "All" : Number(v)); setPage(1); }}
+                            disabled={campusLocked}
+                        >
+                            {!campusLocked && <option value="All">All Campuses</option>}
+                            {(campusLocked && user?.campusId
+                                ? campuses.filter(c => c.id === user.campusId)
+                                : campuses
+                            ).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </FilterSelect>
 
                         <FilterSelect label="Grade" value={gradeFilter} onChange={v => { setGradeFilter(v); setPage(1); }}>
@@ -711,8 +730,8 @@ export function StudentDataTable() {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function FilterSelect({ label, value, onChange, children }: {
-    label: string; value: string; onChange: (v: string) => void; children: React.ReactNode;
+function FilterSelect({ label, value, onChange, children, disabled }: {
+    label: string; value: string; onChange: (v: string) => void; children: React.ReactNode; disabled?: boolean;
 }) {
     return (
         <div className="flex flex-col gap-1.5">
@@ -720,6 +739,7 @@ function FilterSelect({ label, value, onChange, children }: {
             <select
                 value={value}
                 onChange={e => onChange(e.target.value)}
+                disabled={disabled}
                 className="border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 bg-white dark:bg-zinc-950 text-sm text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             >
                 {children}

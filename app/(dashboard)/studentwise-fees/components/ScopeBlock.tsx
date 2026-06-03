@@ -15,6 +15,10 @@ interface Props {
     onChange: (v: ScopeValue) => void;
     /** When set, only matching classes appear in the class dropdown */
     filterClass?: (cls: CampusClass) => boolean;
+    /** Restrict class list to these class IDs (principal band scope) */
+    allowedClassIds?: number[];
+    /** Lock campus dropdown to this campus ID */
+    lockCampusId?: number;
     /** Require class + section selection (no "All" options) */
     requireClassAndSection?: boolean;
 }
@@ -23,15 +27,28 @@ export function ScopeBlock({
     value,
     onChange,
     filterClass,
+    allowedClassIds,
+    lockCampusId,
     requireClassAndSection = false,
 }: Props) {
-    const campuses = useAppSelector((s: any) => s.campuses.items);
+    const allCampuses = useAppSelector((s: any) => s.campuses.items);
+    const campuses = useMemo(() => {
+        if (lockCampusId != null) {
+            return allCampuses.filter((c: { id: number }) => c.id === lockCampusId);
+        }
+        return allCampuses;
+    }, [allCampuses, lockCampusId]);
 
     const selectedCampus = campuses.find((c: any) => String(c.id) === value.campusId);
     const availableClasses: CampusClass[] = useMemo(() => {
         const offered = selectedCampus?.offered_classes ?? [];
-        return filterClass ? offered.filter(filterClass) : offered;
-    }, [selectedCampus, filterClass]);
+        let list = offered;
+        if (allowedClassIds?.length) {
+            const set = new Set(allowedClassIds);
+            list = list.filter((c: CampusClass) => set.has(c.id));
+        }
+        return filterClass ? list.filter(filterClass) : list;
+    }, [selectedCampus, filterClass, allowedClassIds]);
     const selectedClass = availableClasses.find((c) => String(c.id) === value.classId);
     const availableSections: CampusClass["sections"] = selectedClass?.sections ?? [];
 
@@ -49,10 +66,11 @@ export function ScopeBlock({
                         <select
                             value={value.campusId}
                             onChange={(e) => onChange({ campusId: e.target.value, classId: "", sectionId: "" })}
-                            className={sel}
+                            disabled={lockCampusId != null}
+                            className={`${sel} disabled:opacity-60 disabled:cursor-not-allowed`}
                         >
                             <option value="">Select campus...</option>
-                            {campuses.map((c: any) => (
+                            {campuses.map((c: { id: number; campus_name: string }) => (
                                 <option key={c.id} value={c.id}>{c.campus_name}</option>
                             ))}
                         </select>
