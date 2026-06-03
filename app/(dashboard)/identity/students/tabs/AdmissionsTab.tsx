@@ -17,7 +17,7 @@ function RowSaveBtn({ onSave, isSaving, saved, isDirty }: { onSave: () => void; 
     );
 }
 
-const EMPTY_ADMISSION = { academic_system: "", requested_grade: "", academic_year: "", application_date: "", discipline: "" };
+const EMPTY_ADMISSION = { academic_system: "", academic_year: "", application_date: "", discipline: "" };
 
 const DISCIPLINES = [
     { label: "Pre-Medical", value: "Pre-Medical" },
@@ -52,13 +52,12 @@ function Select({ value, onChange, options, placeholder }: { value: string; onCh
 function Input({ value, onChange, type = "text", placeholder }: { value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) {
     return (
         <input type={type} value={value ?? ""}
-            onChange={e => onChange(e.target.value.toUpperCase())}
+            onChange={e => onChange(type === "date" ? e.target.value : e.target.value.toUpperCase())}
             placeholder={placeholder}
             className="w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all uppercase" />
     );
 }
 
-// Each row is its own component so useState is legal
 function AdmissionRow({ admission, studentCc, classes, onSaved, onDeleted, onReload }: { admission: any; studentCc: number; classes: any[]; onSaved: (a: any) => void; onDeleted: () => void; onReload: () => void }) {
     const [local, setLocal] = useState(admission);
     const [saving, setSaving] = useState(false);
@@ -66,29 +65,22 @@ function AdmissionRow({ admission, studentCc, classes, onSaved, onDeleted, onRel
     const [removing, setRemoving] = useState(false);
 
     const isDirty = (local.academic_system || "") !== (admission.academic_system || "") ||
-        (local.requested_grade || "") !== (admission.requested_grade || "") ||
         (local.academic_year || "") !== (admission.academic_year || "") ||
         (local.discipline || "") !== (admission.discipline || "") ||
         (local.application_date ? new Date(local.application_date).toISOString().split("T")[0] : "") !==
         (admission.application_date ? new Date(admission.application_date).toISOString().split("T")[0] : "");
 
     const systems = Array.from(new Set(classes.map(c => c.academic_system))).filter(Boolean).map(s => ({ label: s, value: s }));
-    const gradeOptions = classes
-        .filter(c => !local.academic_system || c.academic_system === local.academic_system)
-        .map(c => ({ label: c.description, value: c.class_code }));
-
-    const resolveGrade = (val: string) => {
-        if (!val) return "";
-        const match = classes.find(c => (c.class_code || "").toUpperCase() === val.toUpperCase() || (c.description || "").toUpperCase() === val.toUpperCase());
-        return match?.class_code || val;
-    };
 
     const set = (k: string, v: string) => setLocal((p: any) => ({ ...p, [k]: v }));
 
     const save = async () => {
         setSaving(true);
         try {
-            const { data } = await api.post(`/v1/staff-editing/students/${studentCc}/admissions`, local);
+            const { data } = await api.post(`/v1/staff-editing/students/${studentCc}/admissions`, {
+                ...local,
+                requested_grade: local.requested_grade ?? admission.requested_grade ?? "",
+            });
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
             onSaved(data?.data);
@@ -120,7 +112,6 @@ function AdmissionRow({ admission, studentCc, classes, onSaved, onDeleted, onRel
             </div>
             <div className="grid grid-cols-2 gap-3">
                 <Field label="Academic System"><Select value={local.academic_system ?? ""} onChange={v => set("academic_system", v)} options={systems} placeholder="Select System" /></Field>
-                <Field label="Grade"><Select value={resolveGrade(local.requested_grade ?? "")} onChange={v => set("requested_grade", v)} options={gradeOptions} placeholder="Select Grade" /></Field>
                 <Field label="Discipline"><Select value={local.discipline ?? ""} onChange={v => set("discipline", v)} options={DISCIPLINES} placeholder="Select Discipline (Optional)" /></Field>
                 <Field label="Admission Taken In"><Input value={local.academic_year ?? ""} onChange={v => set("academic_year", v)} placeholder="e.g. 2024-25" /></Field>
                 <Field label="Application Date"><Input type="date" value={local.application_date ? new Date(local.application_date).toISOString().split("T")[0] : ""} onChange={v => set("application_date", v)} /></Field>
@@ -175,23 +166,14 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
 
     const systems = Array.from(new Set(classes.map(c => c.academic_system))).filter(Boolean).map(s => ({ label: s, value: s }));
 
-    // Filter grade options for the new admission record form based on selected system
-    const gradeOptions = classes
-        .filter(c => !newRow?.academic_system || c.academic_system === newRow?.academic_system)
-        .map(c => ({ label: c.description, value: c.class_code }));
-
-    const resolveGrade = (val: string) => {
-        if (!val) return "";
-        const uVal = val.toUpperCase();
-        const match = classes.find(c => (c.class_code || "").toUpperCase() === uVal || (c.description || "").toUpperCase() === uVal);
-        return match?.class_code || val;
-    };
-
     const saveNew = async () => {
-        if (!newRow.requested_grade || !newRow.academic_year) return alert("Grade and Academic Year are required");
+        if (!newRow.academic_system || !newRow.academic_year) return alert("Academic System and Academic Year are required");
         setSavingNew(true);
         try {
-            const { data } = await api.post(`/v1/staff-editing/students/${student.cc}/admissions`, newRow);
+            const { data } = await api.post(`/v1/staff-editing/students/${student.cc}/admissions`, {
+                ...newRow,
+                requested_grade: "",
+            });
             setAdmissions(prev => [data?.data, ...prev]);
             setSavedNew(true);
             setTimeout(() => {
@@ -225,7 +207,10 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
 
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                    <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Admission Records</h3>
+                    <div>
+                        <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Application history</h3>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">For current class and section, use the Class Grade tab.</p>
+                    </div>
                     <button
                         onClick={() => setNewRow(newRow ? null : { ...EMPTY_ADMISSION })}
                         className={`flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold rounded-xl transition-all ${newRow ? "bg-zinc-100 text-zinc-500" : "bg-primary/10 text-primary hover:bg-primary/20"}`}
@@ -236,10 +221,9 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
 
                 {newRow && (
                     <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 space-y-3 shadow-sm">
-                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">New Admission Record</p>
+                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">New application record</p>
                         <div className="grid grid-cols-2 gap-3">
                             <Field label="Academic System"><Select value={newRow.academic_system} onChange={v => set("academic_system", v)} options={systems} placeholder="Select System" /></Field>
-                            <Field label="Grade"><Select value={resolveGrade(newRow.requested_grade)} onChange={v => set("requested_grade", v)} options={gradeOptions} placeholder="Select Grade" /></Field>
                             <Field label="Discipline"><Select value={newRow.discipline} onChange={v => set("discipline", v)} options={DISCIPLINES} placeholder="Select Discipline (Optional)" /></Field>
                             <Field label="Admission Taken In"><Input value={newRow.academic_year} onChange={v => set("academic_year", v)} placeholder="e.g. 2024-25" /></Field>
                             <Field label="Application Date"><Input type="date" value={newRow.application_date} onChange={v => set("application_date", v)} /></Field>
@@ -270,7 +254,7 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
                 ))}
 
                 {admissions.length === 0 && !newRow && (
-                    <div className="py-12 text-center text-zinc-400 text-sm">No admission records</div>
+                    <div className="py-12 text-center text-zinc-400 text-sm">No application records</div>
                 )}
             </div>
         </div>

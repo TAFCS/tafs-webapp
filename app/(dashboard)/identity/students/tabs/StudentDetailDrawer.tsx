@@ -1,10 +1,12 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, ChevronDown, GraduationCap as GraduateIcon } from "lucide-react";
+import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, ChevronDown, GraduationCap as GraduateIcon, Layers } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import { IdentityTab } from "./IdentityTab";
 import { AdmissionsTab } from "./AdmissionsTab";
+import { ClassGradeTab } from "./ClassGradeTab";
+import type { CampusItem } from "@/src/store/slices/campusesSlice";
 import { AcademicTab } from "./AcademicTab";
 import { GuardiansTab } from "./GuardiansTab";
 import { LifecycleActionModal } from "./LifecycleActionModal";
@@ -14,6 +16,7 @@ import { DangerZoneTab } from "./DangerZoneTab";
 
 const TABS = [
     { id: "identity",   label: "Identity",   icon: User },
+    { id: "class_grade", label: "Class Grade", icon: Layers },
     { id: "admissions", label: "Admissions",  icon: BookOpen },
     { id: "academic",   label: "Academic",    icon: GraduationCap },
     { id: "guardians",  label: "Guardians",   icon: Shield },
@@ -27,10 +30,12 @@ interface Props {
     onClose: () => void;
     onSwitchStudent?: (cc: number) => void;
     classes?: any[];
+    sections?: { id: number; description: string }[];
+    campuses?: CampusItem[];
     onUpdated?: () => void;
 }
 
-export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = [], onUpdated }: Props) {
+export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = [], sections = [], campuses = [], onUpdated }: Props) {
     const [student, setStudent] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -197,6 +202,15 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                         ) : student ? (
                             <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                                 {tab === "identity" && <IdentityTab student={student} onReload={() => reload(true)} />}
+                                {tab === "class_grade" && (
+                                    <ClassGradeTab
+                                        student={student}
+                                        classes={classes}
+                                        sections={sections}
+                                        campuses={campuses}
+                                        onReload={() => reload(true)}
+                                    />
+                                )}
                                 {tab === "admissions" && <AdmissionsTab student={student} onReload={() => reload(true)} classes={classes} />}
                                 {tab === "academic" && <AcademicTab student={student} onReload={() => reload(true)} />}
                                 {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} />}
