@@ -157,6 +157,7 @@ export interface VoucherFilters {
     page?: number;
     limit?: number;
     single_fee_date?: boolean;
+    multiple_fee_heads?: boolean;
 }
 
 // ─── Async Thunk ─────────────────────────────────────────────────────────────

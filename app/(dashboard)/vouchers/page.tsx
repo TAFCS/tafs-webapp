@@ -662,12 +662,19 @@ export default function VouchersPage() {
     const [campusId, setCampusId] = useState<number | "">("");
     const [classId, setClassId] = useState<number | "">("");
     const [sectionId, setSectionId] = useState<number | "">("");
-    const [ccInput, setCcInput] = useState("");
-    const [grInput, setGrInput] = useState("");
+    
+    // Simple search states
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
+    const searchDropdownRef = useRef<HTMLDivElement>(null);
+    const [selectedCc, setSelectedCc] = useState("");
     const [statusFilter, setStatusFilter] = useState<string[]>([]);
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [singleFeeDate, setSingleFeeDate] = useState(false);
+    const [multipleFeeHeads, setMultipleFeeHeads] = useState(false);
     const [activeFiltersApplied, setActiveFiltersApplied] = useState<VoucherFilters>({});
 
     // Table state
@@ -685,6 +692,49 @@ export default function VouchersPage() {
         if (classes.length === 0) dispatch(fetchClasses());
         if (sections.length === 0) dispatch(fetchSections());
     }, [dispatch]);
+
+    useEffect(() => {
+        const h = (e: MouseEvent) => {
+            if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
+                setShowSearchDropdown(false);
+            }
+        };
+        document.addEventListener("mousedown", h);
+        return () => document.removeEventListener("mousedown", h);
+    }, []);
+
+    useEffect(() => {
+        if (!searchQuery.trim()) {
+            setSearchResults([]);
+            setShowSearchDropdown(false);
+            if (selectedCc) setSelectedCc("");
+            return;
+        }
+        
+        // Don't search again if it's already selected
+        if (searchQuery.includes("CC:")) return;
+
+        setIsSearching(true);
+        const timer = setTimeout(async () => {
+            try {
+                const { data } = await api.get(`/v1/students/search-simple?q=${searchQuery}`);
+                setSearchResults(data?.data || []);
+                setShowSearchDropdown(true);
+            } catch (err) {
+                console.error("Search failed:", err);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    const handleSelectStudent = (s: any) => {
+        setSearchQuery(`${s.full_name} (CC: ${s.cc})`);
+        setSelectedCc(s.cc.toString());
+        setShowSearchDropdown(false);
+    };
 
     // Fetch vouchers on page/filter change
     useEffect(() => {
@@ -704,29 +754,31 @@ export default function VouchersPage() {
         if (dateFrom) f.date_from = dateFrom;
         if (dateTo) f.date_to = dateTo;
 
-        const ccNum = parseInt(ccInput.replace(/\D/g, ""));
+        const ccNum = parseInt(selectedCc);
         if (!isNaN(ccNum) && ccNum > 0) f.cc = ccNum;
-        if (grInput.trim()) f.gr = grInput.trim();
+        
         return f;
-    }, [campusId, classId, sectionId, statusFilter, ccInput, grInput, dateFrom, dateTo]);
+    }, [campusId, classId, sectionId, statusFilter, selectedCc, dateFrom, dateTo]);
 
     const handleApplyFilters = useCallback(() => {
         const filters = buildFilters();
         if (singleFeeDate) filters.single_fee_date = true;
+        if (multipleFeeHeads) filters.multiple_fee_heads = true;
         setActiveFiltersApplied(filters);
         setPage(1);
-    }, [buildFilters, singleFeeDate]);
+    }, [buildFilters, singleFeeDate, multipleFeeHeads]);
 
     const handleClearFilters = () => {
         setCampusId("");
         setClassId("");
         setSectionId("");
-        setCcInput("");
-        setGrInput("");
+        setSearchQuery("");
+        setSelectedCc("");
         setStatusFilter([]);
         setDateFrom("");
         setDateTo("");
         setSingleFeeDate(false);
+        setMultipleFeeHeads(false);
         setActiveFiltersApplied({});
         setPage(1);
         dispatch(fetchVouchers({}));
@@ -950,54 +1002,55 @@ export default function VouchersPage() {
                             onClear={() => setSectionId("")}
                         />
 
-                        {/* CC Number */}
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="filter-cc" className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
-                                <Hash className="h-3 w-3" /> CC Number
+                        {/* Search Student */}
+                        <div className="flex flex-col gap-1.5 md:col-span-2 xl:col-span-1" ref={searchDropdownRef}>
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                                <Search className="h-3 w-3" /> Search Student
                             </label>
                             <div className="relative">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                                 <input
-                                    id="filter-cc"
                                     type="text"
-                                    placeholder="e.g. 1001 or CC-1001"
-                                    value={ccInput}
-                                    onChange={e => setCcInput(e.target.value)}
-                                    className="w-full h-11 px-4 pr-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all placeholder:text-zinc-400"
+                                    placeholder="Search by name, CC, or GR..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full h-11 pl-11 pr-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all placeholder:text-zinc-400"
                                 />
-                                {ccInput && (
+                                {searchQuery && (
                                     <button
-                                        onClick={() => setCcInput("")}
+                                        onClick={() => { setSearchQuery(""); setSelectedCc(""); setShowSearchDropdown(false); }}
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
                                     >
                                         <X className="h-4 w-4" />
                                     </button>
                                 )}
+                                {isSearching && (
+                                    <div className="absolute right-10 top-1/2 -translate-y-1/2 pointer-events-none">
+                                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                    </div>
+                                )}
                             </div>
-                        </div>
 
-                        {/* GR Number */}
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="filter-gr" className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
-                                <CreditCard className="h-3 w-3" /> GR Number
-                            </label>
-                            <div className="relative">
-                                <input
-                                    id="filter-gr"
-                                    type="text"
-                                    placeholder="e.g. GR-2024-001"
-                                    value={grInput}
-                                    onChange={e => setGrInput(e.target.value)}
-                                    className="w-full h-11 px-4 pr-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all placeholder:text-zinc-400"
-                                />
-                                {grInput && (
-                                    <button
-                                        onClick={() => setGrInput("")}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                )}
-                            </div>
+                            {showSearchDropdown && searchResults.length > 0 && (
+                                <div className="absolute z-50 mt-16 w-full max-w-sm bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="max-h-64 overflow-y-auto p-2">
+                                        {searchResults.map((s) => (
+                                            <button
+                                                key={s.cc}
+                                                type="button"
+                                                onClick={() => handleSelectStudent(s)}
+                                                className="w-full flex items-center justify-between px-4 h-14 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all border border-transparent hover:border-zinc-100 group"
+                                            >
+                                                <div className="flex flex-col items-start text-left">
+                                                    <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">{s.full_name}</span>
+                                                    <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">GR: {s.gr_number || "N/A"}</span>
+                                                </div>
+                                                <span className="text-[11px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-3 py-1 rounded-full group-hover:bg-primary group-hover:text-white transition-all">{s.cc}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Date From */}
@@ -1098,31 +1151,34 @@ export default function VouchersPage() {
                             id="filter-single-fee-date"
                             type="button"
                             onClick={() => {
-                                const next = !singleFeeDate;
-                                setSingleFeeDate(next);
-                                const filters = buildFilters();
-                                if (next) filters.single_fee_date = true;
-                                setActiveFiltersApplied(filters);
-                                setPage(1);
+                                setSingleFeeDate(!singleFeeDate);
+                                if (!singleFeeDate) setMultipleFeeHeads(false);
                             }}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all
                                 ${singleFeeDate
-                                    ? "bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-200 dark:shadow-violet-900/30"
-                                    : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-300"
+                                    ? "bg-primary text-white border-primary shadow-sm"
+                                    : "bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
                                 }`}
                         >
-                            <Calendar className={`h-3.5 w-3.5 ${singleFeeDate ? "text-white" : "text-violet-500"}`} />
                             Single Fee Date
-                            {singleFeeDate && (
-                                <span className="ml-0.5 text-[9px] bg-white/20 px-1.5 py-0.5 rounded-md uppercase tracking-widest">
-                                    Active
-                                </span>
-                            )}
                         </button>
-                        <p className="text-[10px] text-zinc-400">
-                            Show only vouchers where all heads share a single fee date
-                        </p>
+                        <button
+                            id="filter-multiple-fee-heads"
+                            type="button"
+                            onClick={() => {
+                                setMultipleFeeHeads(!multipleFeeHeads);
+                                if (!multipleFeeHeads) setSingleFeeDate(false);
+                            }}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all
+                                ${multipleFeeHeads
+                                    ? "bg-primary text-white border-primary shadow-sm"
+                                    : "bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                                }`}
+                        >
+                            Multiple Fee Heads
+                        </button>
                     </div>
+
 
                     {/* Apply Button */}
                     <div className="mt-5 flex justify-end">

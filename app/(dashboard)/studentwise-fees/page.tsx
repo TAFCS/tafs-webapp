@@ -326,6 +326,9 @@ function StudentwiseFeeEditor() {
     const [showResetModal, setShowResetModal] = useState(false);
     const [isResetting, setIsResetting] = useState(false);
 
+    const [showTuitionModal, setShowTuitionModal] = useState(false);
+    const [tuitionAmount, setTuitionAmount] = useState("");
+
     const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
     const tbodyRef = useRef<HTMLTableSectionElement>(null);
     const pendingFocusId = useRef<string | null>(null);
@@ -978,6 +981,21 @@ function StudentwiseFeeEditor() {
         }
     };
 
+    const handleBulkUpdateTuition = () => {
+        if (!tuitionAmount || isNaN(Number(tuitionAmount))) return;
+        const newAmount = Number(tuitionAmount);
+        setRows(prev => prev.map(r => {
+            if (Number(r.feeId) === 1 && !isRowLocked(r) && !isInstallmentLockedRow(r)) {
+                return { ...r, amount: newAmount.toString(), _modified: true };
+            }
+            return r;
+        }));
+        setShowTuitionModal(false);
+        setTuitionAmount("");
+        toast.success("Tuition fees updated for unlocked rows. Don't forget to save!");
+    };
+
+
     // ── Saving ──────────────────────────────────────────────────────────
     const handleSave = async () => {
         if (!studentId.trim()) {
@@ -1567,11 +1585,11 @@ function StudentwiseFeeEditor() {
                                     {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save Schedule"}
                                 </button>
                                 <button
-                                    onClick={() => setShowResetModal(true)}
-                                    className="inline-flex items-center gap-2 h-11 px-4 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 text-xs font-bold rounded-xl hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-all active:scale-95"
+                                    onClick={() => setShowTuitionModal(true)}
+                                    className="inline-flex items-center gap-2 h-11 px-4 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-xs font-bold rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-all active:scale-95"
                                 >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                    Reset All Heads
+                                    <Pencil className="h-3.5 w-3.5" />
+                                    Bulk Update Tuition
                                 </button>
                             </>
                         )}
@@ -2626,6 +2644,63 @@ function StudentwiseFeeEditor() {
                             >
                                 {isSavingPlan ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                                 Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Bottom Admin Actions */}
+            {studentId && (
+                <div className="flex justify-end mt-8 mb-4">
+                    <button
+                        onClick={() => setShowResetModal(true)}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-rose-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all"
+                        title="Danger Zone: Reset All Fee Heads"
+                    >
+                        <Trash2 className="h-3 w-3" />
+                        Reset All Heads
+                    </button>
+                </div>
+            )}
+
+            {/* Bulk Update Tuition Modal */}
+            {showTuitionModal && (
+                <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+                    <div className="bg-white dark:bg-zinc-950 border border-emerald-200 dark:border-emerald-900 rounded-3xl shadow-2xl w-full max-w-sm animate-in zoom-in-95 duration-200">
+                        <div className="flex items-start gap-4 p-6 pb-4 border-b border-zinc-100 dark:border-zinc-800">
+                            <div className="h-10 w-10 bg-emerald-100 dark:bg-emerald-950/50 rounded-2xl flex items-center justify-center shrink-0 mt-0.5">
+                                <Pencil className="h-5 w-5 text-emerald-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-100">Update Tuition</h3>
+                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">Change all unlocked tuition fees</p>
+                            </div>
+                        </div>
+                        <div className="p-6">
+                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">New Amount (Rs.)</label>
+                            <input
+                                type="number"
+                                min="0"
+                                placeholder="Enter amount"
+                                value={tuitionAmount}
+                                onChange={e => setTuitionAmount(e.target.value)}
+                                className="w-full h-11 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-mono font-medium text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-emerald-400/30"
+                                autoFocus
+                            />
+                        </div>
+                        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-zinc-100 dark:border-zinc-800">
+                            <button
+                                onClick={() => setShowTuitionModal(false)}
+                                className="h-10 px-5 rounded-2xl text-sm font-black text-zinc-600 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleBulkUpdateTuition}
+                                disabled={!tuitionAmount}
+                                className="h-10 px-6 rounded-2xl text-sm font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-50 flex items-center gap-2"
+                            >
+                                Apply Changes
                             </button>
                         </div>
                     </div>
