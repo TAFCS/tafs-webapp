@@ -985,7 +985,7 @@ function StudentwiseFeeEditor() {
         if (!tuitionAmount || isNaN(Number(tuitionAmount))) return;
         const newAmount = Number(tuitionAmount);
         setRows(prev => prev.map(r => {
-            if (Number(r.feeId) === 1 && !isRowLocked(r) && !isInstallmentLockedRow(r)) {
+            if (Number(r.feeId) === 1 && !isRowLocked(r) && !isStandaloneInstallmentRow(r)) {
                 return { ...r, amount: newAmount.toString(), _modified: true };
             }
             return r;
