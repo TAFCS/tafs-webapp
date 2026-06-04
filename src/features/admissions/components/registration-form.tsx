@@ -230,6 +230,24 @@ export function RegistrationForm() {
     const [formData, setFormData] = useState(INITIAL_FORM_DATA);
     const [cnicTouched, setCnicTouched] = useState(false);
 
+    const selectedCampus = campuses.find(c => String(c.id) === String(formData.campusId));
+    const offeredClassNames = selectedCampus 
+        ? (selectedCampus.offered_classes || []).map(cc => cc.description.trim().toUpperCase())
+        : [];
+
+    const cambridgeClasses = ['Pre-Nursery', 'Nursery', 'K.G.', 'JR-I', 'JR-II', 'JR-III', 'JR-IV', 'JR-V', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III']
+        .filter(cls => !formData.campusId || offeredClassNames.includes(cls.trim().toUpperCase()));
+
+    const secondaryClasses = ['VI', 'VII', 'VIII', 'IX', 'X']
+        .filter(cls => !formData.campusId || offeredClassNames.includes(cls.trim().toUpperCase()));
+
+    const aLevelClasses = ['AS Level', 'A2 Level']
+        .filter(cls => !formData.campusId || offeredClassNames.includes(cls.trim().toUpperCase()));
+
+    const hasCambridge = cambridgeClasses.length > 0;
+    const hasSecondary = secondaryClasses.length > 0;
+    const hasALevel = aLevelClasses.length > 0;
+
     // Auto-calculate age from DOB
     useEffect(() => {
         const { dobDay, dobMonth, dobYear } = formData;
@@ -425,6 +443,32 @@ export function RegistrationForm() {
                 [name]: checked,
                 [lowerField]: checked ? "" : "" // Both cases lead to empty string for N/A fields
             }));
+            return;
+        }
+
+        // Intercept campusId change to clear admission system/level if no longer offered
+        if (name === "campusId") {
+            const nextCampusId = value;
+            const nextCampus = campuses.find(c => String(c.id) === String(nextCampusId));
+            const nextOfferedClassNames = nextCampus 
+                ? (nextCampus.offered_classes || []).map(cc => cc.description.trim().toUpperCase())
+                : [];
+            
+            setFormData(prev => {
+                const updates: any = { campusId: nextCampusId };
+                if (prev.admissionLevel && !nextOfferedClassNames.includes(prev.admissionLevel.trim().toUpperCase())) {
+                    updates.admissionLevel = "";
+                    const stillHasSystem = nextCampus?.offered_classes?.some(cc => {
+                        const sys = cc.academic_system.toLowerCase().replace(/[^a-z]/g, '');
+                        const prevSys = prev.admissionSystem.toLowerCase().replace(/[^a-z]/g, '');
+                        return sys === prevSys;
+                    });
+                    if (!stillHasSystem) {
+                        updates.admissionSystem = "";
+                    }
+                }
+                return { ...prev, ...updates };
+            });
             return;
         }
 
@@ -1454,88 +1498,94 @@ export function RegistrationForm() {
                                     </div>
                                 </div>                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
                                     {/* O-Level Block */}
-                                    <div 
-                                        onClick={() => handleInputChange({ target: { name: 'admissionSystem', value: 'cambridge' } } as any)}
-                                        className={`group relative overflow-hidden border-2 rounded-2xl p-5 cursor-pointer transition-all duration-500 hover:shadow-xl hover:-translate-y-1 ${formData.admissionSystem === "cambridge" ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 grayscale hover:grayscale-0 opacity-70 hover:opacity-100'}`}
-                                    >
-                                        <div className="flex items-center justify-between mb-6">
-                                            <div className={`p-3 rounded-xl transition-colors duration-500 ${formData.admissionSystem === "cambridge" ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 group-hover:bg-primary/10 group-hover:text-primary'}`}>
-                                                <GraduationCap className="h-6 w-6" />
-                                            </div>
-                                            <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${formData.admissionSystem === "cambridge" ? 'border-primary bg-primary' : 'border-zinc-300 dark:border-zinc-700'}`}>
-                                                {formData.admissionSystem === "cambridge" && <div className="h-2 w-2 rounded-full bg-white animate-in zoom-in duration-300" />}
-                                            </div>
-                                        </div>
-                                        <h4 className={`text-sm font-black uppercase tracking-tight mb-4 transition-colors duration-500 ${formData.admissionSystem === "cambridge" ? 'text-primary' : 'text-zinc-600 dark:text-zinc-400 group-hover:text-primary'}`}>Cambridge GCE O&apos; Level System</h4>
-                                        <div className={`grid grid-cols-1 gap-y-1 transition-all duration-500 ${formData.admissionSystem !== 'cambridge' ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-[600px] opacity-100'}`}>
-                                            {['Pre-Nursery', 'Nursery', 'K.G.', 'JR-I', 'JR-II', 'JR-III', 'JR-IV', 'JR-V', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III'].map(cls => (
-                                                <div 
-                                                    key={cls} 
-                                                    onClick={(e) => { e.stopPropagation(); handleInputChange({ target: { name: 'admissionLevel', value: cls } } as any); }}
-                                                    className={`flex items-center gap-3 p-1.5 rounded-lg transition-all hover:bg-primary/10 cursor-pointer group/item ${formData.admissionLevel === cls && formData.admissionSystem === "cambridge" ? 'bg-primary/10 translate-x-1' : ''}`}
-                                                >
-                                                    <div className={`h-3 w-3 rounded-full border transition-all ${formData.admissionLevel === cls && formData.admissionSystem === "cambridge" ? 'border-primary bg-primary' : 'border-zinc-300 dark:border-zinc-700'}`} />
-                                                    <label className={`text-xs font-bold transition-colors cursor-pointer ${formData.admissionLevel === cls && formData.admissionSystem === "cambridge" ? 'text-primary' : 'text-zinc-500 dark:text-zinc-400 group-hover/item:text-primary'}`}>{cls}</label>
+                                    {hasCambridge && (
+                                        <div 
+                                            onClick={() => handleInputChange({ target: { name: 'admissionSystem', value: 'cambridge' } } as any)}
+                                            className={`group relative overflow-hidden border-2 rounded-2xl p-5 cursor-pointer transition-all duration-500 hover:shadow-xl hover:-translate-y-1 ${formData.admissionSystem === "cambridge" ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 grayscale hover:grayscale-0 opacity-70 hover:opacity-100'}`}
+                                        >
+                                            <div className="flex items-center justify-between mb-6">
+                                                <div className={`p-3 rounded-xl transition-colors duration-500 ${formData.admissionSystem === "cambridge" ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 group-hover:bg-primary/10 group-hover:text-primary'}`}>
+                                                    <GraduationCap className="h-6 w-6" />
                                                 </div>
-                                            ))}
+                                                <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${formData.admissionSystem === "cambridge" ? 'border-primary bg-primary' : 'border-zinc-300 dark:border-zinc-700'}`}>
+                                                    {formData.admissionSystem === "cambridge" && <div className="h-2 w-2 rounded-full bg-white animate-in zoom-in duration-300" />}
+                                                </div>
+                                            </div>
+                                            <h4 className={`text-sm font-black uppercase tracking-tight mb-4 transition-colors duration-500 ${formData.admissionSystem === "cambridge" ? 'text-primary' : 'text-zinc-600 dark:text-zinc-400 group-hover:text-primary'}`}>Cambridge GCE O&apos; Level System</h4>
+                                            <div className={`grid grid-cols-1 gap-y-1 transition-all duration-500 ${formData.admissionSystem !== 'cambridge' ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-[600px] opacity-100'}`}>
+                                                {cambridgeClasses.map(cls => (
+                                                    <div 
+                                                        key={cls} 
+                                                        onClick={(e) => { e.stopPropagation(); handleInputChange({ target: { name: 'admissionLevel', value: cls } } as any); }}
+                                                        className={`flex items-center gap-3 p-1.5 rounded-lg transition-all hover:bg-primary/10 cursor-pointer group/item ${formData.admissionLevel === cls && formData.admissionSystem === "cambridge" ? 'bg-primary/10 translate-x-1' : ''}`}
+                                                    >
+                                                        <div className={`h-3 w-3 rounded-full border transition-all ${formData.admissionLevel === cls && formData.admissionSystem === "cambridge" ? 'border-primary bg-primary' : 'border-zinc-300 dark:border-zinc-700'}`} />
+                                                        <label className={`text-xs font-bold transition-colors cursor-pointer ${formData.admissionLevel === cls && formData.admissionSystem === "cambridge" ? 'text-primary' : 'text-zinc-500 dark:text-zinc-400 group-hover/item:text-primary'}`}>{cls}</label>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     {/* Secondary Block */}
-                                    <div 
-                                        onClick={() => handleInputChange({ target: { name: 'admissionSystem', value: 'secondary' } } as any)}
-                                        className={`group relative overflow-hidden border-2 rounded-2xl p-5 cursor-pointer transition-all duration-500 hover:shadow-xl hover:-translate-y-1 ${formData.admissionSystem === "secondary" ? 'border-secondary bg-secondary/5 ring-4 ring-secondary/10' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 grayscale hover:grayscale-0 opacity-70 hover:opacity-100'}`}
-                                    >
-                                        <div className="flex items-center justify-between mb-6">
-                                            <div className={`p-3 rounded-xl transition-colors duration-500 ${formData.admissionSystem === "secondary" ? 'bg-secondary text-white shadow-lg shadow-secondary/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 group-hover:bg-secondary/10 group-hover:text-secondary'}`}>
-                                                <BookOpen className="h-6 w-6" />
-                                            </div>
-                                            <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${formData.admissionSystem === "secondary" ? 'border-secondary bg-secondary' : 'border-zinc-300 dark:border-zinc-700'}`}>
-                                                {formData.admissionSystem === "secondary" && <div className="h-2 w-2 rounded-full bg-white animate-in zoom-in duration-300" />}
-                                            </div>
-                                        </div>
-                                        <h4 className={`text-sm font-black uppercase tracking-tight mb-4 transition-colors duration-500 ${formData.admissionSystem === "secondary" ? 'text-secondary' : 'text-zinc-600 dark:text-zinc-400 group-hover:text-secondary'}`}>Secondary System of Studies</h4>
-                                        <div className={`grid grid-cols-1 gap-y-1 transition-all duration-500 ${formData.admissionSystem !== 'secondary' ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-[600px] opacity-100'}`}>
-                                            {['VI', 'VII', 'VIII', 'IX', 'X'].map(cls => (
-                                                <div 
-                                                    key={cls} 
-                                                    onClick={(e) => { e.stopPropagation(); handleInputChange({ target: { name: 'admissionLevel', value: cls } } as any); }}
-                                                    className={`flex items-center gap-3 p-1.5 rounded-lg transition-all hover:bg-secondary/10 cursor-pointer group/item ${formData.admissionLevel === cls && formData.admissionSystem === "secondary" ? 'bg-secondary/10 translate-x-1' : ''}`}
-                                                >
-                                                    <div className={`h-3 w-3 rounded-full border transition-all ${formData.admissionLevel === cls && formData.admissionSystem === "secondary" ? 'border-secondary bg-secondary' : 'border-zinc-300 dark:border-zinc-700'}`} />
-                                                    <label className={`text-xs font-bold transition-colors cursor-pointer ${formData.admissionLevel === cls && formData.admissionSystem === "secondary" ? 'text-secondary' : 'text-zinc-500 dark:text-zinc-400 group-hover/item:text-secondary'}`}>{cls}</label>
+                                    {hasSecondary && (
+                                        <div 
+                                            onClick={() => handleInputChange({ target: { name: 'admissionSystem', value: 'secondary' } } as any)}
+                                            className={`group relative overflow-hidden border-2 rounded-2xl p-5 cursor-pointer transition-all duration-500 hover:shadow-xl hover:-translate-y-1 ${formData.admissionSystem === "secondary" ? 'border-secondary bg-secondary/5 ring-4 ring-secondary/10' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 grayscale hover:grayscale-0 opacity-70 hover:opacity-100'}`}
+                                        >
+                                            <div className="flex items-center justify-between mb-6">
+                                                <div className={`p-3 rounded-xl transition-colors duration-500 ${formData.admissionSystem === "secondary" ? 'bg-secondary text-white shadow-lg shadow-secondary/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 group-hover:bg-secondary/10 group-hover:text-secondary'}`}>
+                                                    <BookOpen className="h-6 w-6" />
                                                 </div>
-                                            ))}
+                                                <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${formData.admissionSystem === "secondary" ? 'border-secondary bg-secondary' : 'border-zinc-300 dark:border-zinc-700'}`}>
+                                                    {formData.admissionSystem === "secondary" && <div className="h-2 w-2 rounded-full bg-white animate-in zoom-in duration-300" />}
+                                                </div>
+                                            </div>
+                                            <h4 className={`text-sm font-black uppercase tracking-tight mb-4 transition-colors duration-500 ${formData.admissionSystem === "secondary" ? 'text-secondary' : 'text-zinc-600 dark:text-zinc-400 group-hover:text-secondary'}`}>Secondary System of Studies</h4>
+                                            <div className={`grid grid-cols-1 gap-y-1 transition-all duration-500 ${formData.admissionSystem !== 'secondary' ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-[600px] opacity-100'}`}>
+                                                {secondaryClasses.map(cls => (
+                                                    <div 
+                                                        key={cls} 
+                                                        onClick={(e) => { e.stopPropagation(); handleInputChange({ target: { name: 'admissionLevel', value: cls } } as any); }}
+                                                        className={`flex items-center gap-3 p-1.5 rounded-lg transition-all hover:bg-secondary/10 cursor-pointer group/item ${formData.admissionLevel === cls && formData.admissionSystem === "secondary" ? 'bg-secondary/10 translate-x-1' : ''}`}
+                                                    >
+                                                        <div className={`h-3 w-3 rounded-full border transition-all ${formData.admissionLevel === cls && formData.admissionSystem === "secondary" ? 'border-secondary bg-secondary' : 'border-zinc-300 dark:border-zinc-700'}`} />
+                                                        <label className={`text-xs font-bold transition-colors cursor-pointer ${formData.admissionLevel === cls && formData.admissionSystem === "secondary" ? 'text-secondary' : 'text-zinc-500 dark:text-zinc-400 group-hover/item:text-secondary'}`}>{cls}</label>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     {/* A-Level Block */}
-                                    <div 
-                                        onClick={() => handleInputChange({ target: { name: 'admissionSystem', value: 'alevel' } } as any)}
-                                        className={`group relative overflow-hidden border-2 rounded-2xl p-5 cursor-pointer transition-all duration-500 hover:shadow-xl hover:-translate-y-1 ${formData.admissionSystem === "alevel" ? 'border-amber-500 bg-amber-500/5 ring-4 ring-amber-500/10' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 grayscale hover:grayscale-0 opacity-70 hover:opacity-100'}`}
-                                    >
-                                        <div className="flex items-center justify-between mb-6">
-                                            <div className={`p-3 rounded-xl transition-colors duration-500 ${formData.admissionSystem === "alevel" ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 group-hover:bg-amber-500/10 group-hover:text-amber-500'}`}>
-                                                <ShieldCheck className="h-6 w-6" />
-                                            </div>
-                                            <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${formData.admissionSystem === "alevel" ? 'border-amber-500 bg-amber-500' : 'border-zinc-300 dark:border-zinc-700'}`}>
-                                                {formData.admissionSystem === "alevel" && <div className="h-2 w-2 rounded-full bg-white animate-in zoom-in duration-300" />}
-                                            </div>
-                                        </div>
-                                        <h4 className={`text-sm font-black uppercase tracking-tight mb-4 transition-colors duration-500 ${formData.admissionSystem === "alevel" ? 'text-amber-600' : 'text-zinc-600 dark:text-zinc-400 group-hover:text-amber-600'}`}>Cambridge GCE A&apos; Level System</h4>
-                                        <div className={`grid grid-cols-1 gap-y-1 transition-all duration-500 ${formData.admissionSystem !== 'alevel' ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-[600px] opacity-100'}`}>
-                                            {['AS Level', 'A2 Level'].map(cls => (
-                                                <div 
-                                                    key={cls} 
-                                                    onClick={(e) => { e.stopPropagation(); handleInputChange({ target: { name: 'admissionLevel', value: cls } } as any); }}
-                                                    className={`flex items-center gap-3 p-1.5 rounded-lg transition-all hover:bg-amber-500/10 cursor-pointer group/item ${formData.admissionLevel === cls && formData.admissionSystem === "alevel" ? 'bg-amber-500/10 translate-x-1' : ''}`}
-                                                >
-                                                    <div className={`h-3 w-3 rounded-full border transition-all ${formData.admissionLevel === cls && formData.admissionSystem === "alevel" ? 'border-amber-500 bg-amber-500' : 'border-zinc-300 dark:border-zinc-700'}`} />
-                                                    <label className={`text-xs font-bold transition-colors cursor-pointer ${formData.admissionLevel === cls && formData.admissionSystem === "alevel" ? 'text-amber-600' : 'text-zinc-500 dark:text-zinc-400 group-hover/item:text-amber-600'}`}>{cls}</label>
+                                    {hasALevel && (
+                                        <div 
+                                            onClick={() => handleInputChange({ target: { name: 'admissionSystem', value: 'alevel' } } as any)}
+                                            className={`group relative overflow-hidden border-2 rounded-2xl p-5 cursor-pointer transition-all duration-500 hover:shadow-xl hover:-translate-y-1 ${formData.admissionSystem === "alevel" ? 'border-amber-500 bg-amber-500/5 ring-4 ring-amber-500/10' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 grayscale hover:grayscale-0 opacity-70 hover:opacity-100'}`}
+                                        >
+                                            <div className="flex items-center justify-between mb-6">
+                                                <div className={`p-3 rounded-xl transition-colors duration-500 ${formData.admissionSystem === "alevel" ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 group-hover:bg-amber-500/10 group-hover:text-amber-500'}`}>
+                                                    <ShieldCheck className="h-6 w-6" />
                                                 </div>
-                                            ))}
+                                                <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${formData.admissionSystem === "alevel" ? 'border-amber-500 bg-amber-500' : 'border-zinc-300 dark:border-zinc-700'}`}>
+                                                    {formData.admissionSystem === "alevel" && <div className="h-2 w-2 rounded-full bg-white animate-in zoom-in duration-300" />}
+                                                </div>
+                                            </div>
+                                            <h4 className={`text-sm font-black uppercase tracking-tight mb-4 transition-colors duration-500 ${formData.admissionSystem === "alevel" ? 'text-amber-600' : 'text-zinc-600 dark:text-zinc-400 group-hover:text-amber-600'}`}>Cambridge GCE A&apos; Level System</h4>
+                                            <div className={`grid grid-cols-1 gap-y-1 transition-all duration-500 ${formData.admissionSystem !== 'alevel' ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-[600px] opacity-100'}`}>
+                                                {aLevelClasses.map(cls => (
+                                                    <div 
+                                                        key={cls} 
+                                                        onClick={(e) => { e.stopPropagation(); handleInputChange({ target: { name: 'admissionLevel', value: cls } } as any); }}
+                                                        className={`flex items-center gap-3 p-1.5 rounded-lg transition-all hover:bg-amber-500/10 cursor-pointer group/item ${formData.admissionLevel === cls && formData.admissionSystem === "alevel" ? 'bg-amber-500/10 translate-x-1' : ''}`}
+                                                    >
+                                                        <div className={`h-3 w-3 rounded-full border transition-all ${formData.admissionLevel === cls && formData.admissionSystem === "alevel" ? 'border-amber-500 bg-amber-500' : 'border-zinc-300 dark:border-zinc-700'}`} />
+                                                        <label className={`text-xs font-bold transition-colors cursor-pointer ${formData.admissionLevel === cls && formData.admissionSystem === "alevel" ? 'text-amber-600' : 'text-zinc-500 dark:text-zinc-400 group-hover/item:text-amber-600'}`}>{cls}</label>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     {/* A-Level Detailed Sections */}
                                     {formData.admissionSystem === "alevel" && (formData.admissionLevel === "AS Level" || formData.admissionLevel === "A2 Level") && (
