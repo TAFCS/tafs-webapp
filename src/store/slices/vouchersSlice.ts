@@ -109,6 +109,7 @@ export interface VoucherItem {
     bank_accounts: VoucherBankAccount;
     voucher_heads?: VoucherHead[];
     voucher_arrear_surcharges?: VoucherArrearSurcharge[];
+    deposit_allocations?: { id: number; amount: string | number }[];
 }
 
 export interface VouchersPagination {
