@@ -323,6 +323,9 @@ function StudentwiseFeeEditor() {
     const [isEditingFlags, setIsEditingFlags] = useState(false);
     const [patchingFlags, setPatchingFlags] = useState(false);
 
+    const [showResetModal, setShowResetModal] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
+
     const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
     const tbodyRef = useRef<HTMLTableSectionElement>(null);
     const pendingFocusId = useRef<string | null>(null);
@@ -953,6 +956,28 @@ function StudentwiseFeeEditor() {
         }
     }, [activeCell]);
 
+    // ── Reset All Heads ─────────────────────────────────────────────────
+    const handleResetAllHeads = async () => {
+        const numericMatch = studentId.match(/\d+$/);
+        const ccVal = numericMatch ? parseInt(numericMatch[0]) : 0;
+        if (!ccVal) return;
+
+        setIsResetting(true);
+        try {
+            await api.delete(`/v1/student-fees/reset/${ccVal}`);
+            toast.success("All fee heads reset. Deposits and vouchers deleted.");
+            setShowResetModal(false);
+            // Reload the fee schedule to reflect cleared statuses
+            if (selectedClassId !== "") {
+                await fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
+            }
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Reset failed. Please try again.");
+        } finally {
+            setIsResetting(false);
+        }
+    };
+
     // ── Saving ──────────────────────────────────────────────────────────
     const handleSave = async () => {
         if (!studentId.trim()) {
@@ -1540,6 +1565,13 @@ function StudentwiseFeeEditor() {
                                     className="inline-flex items-center gap-2 h-11 px-6 bg-primary text-white text-xs font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                                 >
                                     {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save Schedule"}
+                                </button>
+                                <button
+                                    onClick={() => setShowResetModal(true)}
+                                    className="inline-flex items-center gap-2 h-11 px-4 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 text-xs font-bold rounded-xl hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-all active:scale-95"
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Reset All Heads
                                 </button>
                             </>
                         )}
@@ -2594,6 +2626,71 @@ function StudentwiseFeeEditor() {
                             >
                                 {isSavingPlan ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                                 Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Reset All Heads Confirmation Modal */}
+            {showResetModal && (
+                <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+                    <div className="bg-white dark:bg-zinc-950 border border-rose-200 dark:border-rose-900 rounded-3xl shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
+                        {/* Header */}
+                        <div className="flex items-start gap-4 p-7 pb-5">
+                            <div className="h-12 w-12 bg-rose-100 dark:bg-rose-950/50 rounded-2xl flex items-center justify-center shrink-0 mt-0.5">
+                                <Trash2 className="h-6 w-6 text-rose-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-100">Reset All Fee Heads</h3>
+                                <p className="text-[11px] font-bold text-rose-500 uppercase tracking-widest mt-0.5">Destructive — cannot be undone</p>
+                            </div>
+                        </div>
+
+                        {/* Body */}
+                        <div className="px-7 pb-6 space-y-4">
+                            <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                                This will permanently perform the following actions for <span className="font-black text-zinc-900 dark:text-zinc-100">{searchQuery.split(/\s\(/)[0] || `Student CC ${studentId}`}</span>:
+                            </p>
+                            <ul className="space-y-2.5">
+                                {[
+                                    { label: "Delete all deposits", detail: "Payment records and deposit allocations will be permanently erased" },
+                                    { label: "Delete all vouchers", detail: "Voucher heads and arrear surcharge records will be removed" },
+                                    { label: "Reset all fee heads to NOT_ISSUED", detail: "Clears issue date, due date, validity date, and amount paid on every fee row" },
+                                ].map((item, i) => (
+                                    <li key={i} className="flex items-start gap-3 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900">
+                                        <div className="h-5 w-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">{i + 1}</div>
+                                        <div>
+                                            <p className="text-[12px] font-black text-rose-700 dark:text-rose-300">{item.label}</p>
+                                            <p className="text-[11px] text-rose-500 dark:text-rose-400 mt-0.5">{item.detail}</p>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                            <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 flex items-start gap-3">
+                                <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                                <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                                    The fee schedule rows themselves are preserved — only payment and voucher history is erased.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-end gap-3 px-7 py-5 border-t border-zinc-100 dark:border-zinc-800">
+                            <button
+                                onClick={() => setShowResetModal(false)}
+                                disabled={isResetting}
+                                className="h-11 px-6 rounded-2xl text-sm font-black text-zinc-600 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 transition-all disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleResetAllHeads}
+                                disabled={isResetting}
+                                className="h-11 px-8 rounded-2xl text-sm font-black text-white bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-600/20 transition-all disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                Yes, Reset Everything
                             </button>
                         </div>
                     </div>
