@@ -681,6 +681,7 @@ export default function VouchersPage() {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [showFilters, setShowFilters] = useState(true);
+    const [showExtendedFilters, setShowExtendedFilters] = useState(false);
     const [selectedVoucherIds, setSelectedVoucherIds] = useState<number[]>([]);
     const [isExporting, setIsExporting] = useState(false);
     const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
@@ -965,45 +966,9 @@ export default function VouchersPage() {
                         )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                        {/* Campus */}
-                        <FilterDropdown
-                            label="Campus"
-                            icon={Building2}
-                            value={campusId}
-                            options={campusOptions}
-                            loading={campusesLoading}
-                            placeholder="All Campuses"
-                            onSelect={v => setCampusId(v)}
-                            onClear={() => setCampusId("")}
-                        />
-
-                        {/* Class */}
-                        <FilterDropdown
-                            label="Class"
-                            icon={GraduationCap}
-                            value={classId}
-                            options={classOptions}
-                            loading={classesLoading}
-                            placeholder="All Classes"
-                            onSelect={v => setClassId(v)}
-                            onClear={() => setClassId("")}
-                        />
-
-                        {/* Section */}
-                        <FilterDropdown
-                            label="Section"
-                            icon={Users}
-                            value={sectionId}
-                            options={sectionOptions}
-                            loading={sectionsLoading}
-                            placeholder="All Sections"
-                            onSelect={v => setSectionId(v)}
-                            onClear={() => setSectionId("")}
-                        />
-
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         {/* Search Student */}
-                        <div className="flex flex-col gap-1.5 md:col-span-2 xl:col-span-1" ref={searchDropdownRef}>
+                        <div className="flex flex-col gap-1.5" ref={searchDropdownRef}>
                             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
                                 <Search className="h-3 w-3" /> Search Student
                             </label>
@@ -1053,54 +1018,6 @@ export default function VouchersPage() {
                             )}
                         </div>
 
-                        {/* Date From */}
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="filter-date-from" className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
-                                <Calendar className="h-3 w-3" /> Fee Date From
-                            </label>
-                            <div className="relative">
-                                <input
-                                    id="filter-date-from"
-                                    type="date"
-                                    value={dateFrom}
-                                    onChange={e => setDateFrom(e.target.value)}
-                                    className="w-full h-11 px-4 pr-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all text-zinc-700 dark:text-zinc-300"
-                                />
-                                {dateFrom && (
-                                    <button
-                                        onClick={() => setDateFrom("")}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Date To */}
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="filter-date-to" className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
-                                <Calendar className="h-3 w-3" /> Fee Date To
-                            </label>
-                            <div className="relative">
-                                <input
-                                    id="filter-date-to"
-                                    type="date"
-                                    value={dateTo}
-                                    onChange={e => setDateTo(e.target.value)}
-                                    className="w-full h-11 px-4 pr-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all text-zinc-700 dark:text-zinc-300"
-                                />
-                                {dateTo && (
-                                    <button
-                                        onClick={() => setDateTo("")}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
                         {/* Status */}
                         <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
@@ -1142,46 +1059,16 @@ export default function VouchersPage() {
                         </div>
                     </div>
 
-                    {/* Special Filters */}
-                    <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
-                        <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5">
-                            <SlidersHorizontal className="h-3 w-3" /> Special
-                        </span>
+                    <div className="mt-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                         <button
-                            id="filter-single-fee-date"
                             type="button"
-                            onClick={() => {
-                                setSingleFeeDate(!singleFeeDate);
-                                if (!singleFeeDate) setMultipleFeeHeads(false);
-                            }}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all
-                                ${singleFeeDate
-                                    ? "bg-primary text-white border-primary shadow-sm"
-                                    : "bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                                }`}
+                            onClick={() => setShowExtendedFilters(e => !e)}
+                            className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
                         >
-                            Single Fee Date
+                            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showExtendedFilters ? "rotate-180" : ""}`} />
+                            {showExtendedFilters ? "Hide Advanced Filters" : "Show Advanced Filters"}
                         </button>
-                        <button
-                            id="filter-multiple-fee-heads"
-                            type="button"
-                            onClick={() => {
-                                setMultipleFeeHeads(!multipleFeeHeads);
-                                if (!multipleFeeHeads) setSingleFeeDate(false);
-                            }}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all
-                                ${multipleFeeHeads
-                                    ? "bg-primary text-white border-primary shadow-sm"
-                                    : "bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                                }`}
-                        >
-                            Multiple Fee Heads
-                        </button>
-                    </div>
 
-
-                    {/* Apply Button */}
-                    <div className="mt-5 flex justify-end">
                         <button
                             id="btn-apply-filters"
                             onClick={handleApplyFilters}
@@ -1191,6 +1078,136 @@ export default function VouchersPage() {
                             Apply Filters
                         </button>
                     </div>
+
+                    {showExtendedFilters && (
+                        <div className="mt-5 pt-5 border-t border-zinc-100 dark:border-zinc-800 animate-in slide-in-from-top-4 fade-in duration-200">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                                {/* Campus */}
+                                <FilterDropdown
+                                    label="Campus"
+                                    icon={Building2}
+                                    value={campusId}
+                                    options={campusOptions}
+                                    loading={campusesLoading}
+                                    placeholder="All Campuses"
+                                    onSelect={v => setCampusId(v)}
+                                    onClear={() => setCampusId("")}
+                                />
+
+                                {/* Class */}
+                                <FilterDropdown
+                                    label="Class"
+                                    icon={GraduationCap}
+                                    value={classId}
+                                    options={classOptions}
+                                    loading={classesLoading}
+                                    placeholder="All Classes"
+                                    onSelect={v => setClassId(v)}
+                                    onClear={() => setClassId("")}
+                                />
+
+                                {/* Section */}
+                                <FilterDropdown
+                                    label="Section"
+                                    icon={Users}
+                                    value={sectionId}
+                                    options={sectionOptions}
+                                    loading={sectionsLoading}
+                                    placeholder="All Sections"
+                                    onSelect={v => setSectionId(v)}
+                                    onClear={() => setSectionId("")}
+                                />
+
+                                {/* Date From */}
+                                <div className="flex flex-col gap-1.5">
+                                    <label htmlFor="filter-date-from" className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                                        <Calendar className="h-3 w-3" /> Fee Date From
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            id="filter-date-from"
+                                            type="date"
+                                            value={dateFrom}
+                                            onChange={e => setDateFrom(e.target.value)}
+                                            className="w-full h-11 px-4 pr-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all text-zinc-700 dark:text-zinc-300"
+                                        />
+                                        {dateFrom && (
+                                            <button
+                                                onClick={() => setDateFrom("")}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Date To */}
+                                <div className="flex flex-col gap-1.5">
+                                    <label htmlFor="filter-date-to" className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                                        <Calendar className="h-3 w-3" /> Fee Date To
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            id="filter-date-to"
+                                            type="date"
+                                            value={dateTo}
+                                            onChange={e => setDateTo(e.target.value)}
+                                            className="w-full h-11 px-4 pr-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all text-zinc-700 dark:text-zinc-300"
+                                        />
+                                        {dateTo && (
+                                            <button
+                                                onClick={() => setDateTo("")}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Special Filters */}
+                            <div className="mt-5 flex items-center gap-3">
+                                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5">
+                                    <SlidersHorizontal className="h-3 w-3" /> Special
+                                </span>
+                                <button
+                                    id="filter-single-fee-date"
+                                    type="button"
+                                    onClick={() => {
+                                        setSingleFeeDate(!singleFeeDate);
+                                        if (!singleFeeDate) setMultipleFeeHeads(false);
+                                    }}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all
+                                        ${singleFeeDate
+                                            ? "bg-primary text-white border-primary shadow-sm"
+                                            : "bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                                        }`}
+                                >
+                                    Single Fee Date
+                                </button>
+                                <button
+                                    id="filter-multiple-fee-heads"
+                                    type="button"
+                                    onClick={() => {
+                                        setMultipleFeeHeads(!multipleFeeHeads);
+                                        if (!multipleFeeHeads) setSingleFeeDate(false);
+                                    }}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all
+                                        ${multipleFeeHeads
+                                            ? "bg-primary text-white border-primary shadow-sm"
+                                            : "bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                                        }`}
+                                >
+                                    Multiple Fee Heads
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+
+                    {/* Apply Button */}
                 </div>
             )}
 
