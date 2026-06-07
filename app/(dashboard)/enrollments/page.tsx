@@ -31,6 +31,7 @@ interface Candidate {
     full_name: string;
     campus_id: number;
     class_id: number;
+    not_pursuing?: boolean;
     campuses: { campus_name: string };
     classes: { description: string };
     student_admissions: Array<{
@@ -70,6 +71,7 @@ export default function EnrollmentsPage() {
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+    const [filterStatus, setFilterStatus] = useState<"active" | "not_pursuing" | "all">("active");
 
     // Modal state
     const [selectedStudent, setSelectedStudent] = useState<Candidate | null>(null);
@@ -181,10 +183,34 @@ export default function EnrollmentsPage() {
         }
     };
 
-    const filteredCandidates = candidates.filter(c =>
-        c.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.cc.toString().includes(searchTerm)
-    );
+    const handleTogglePursuit = async (cc: number, currentStatus: boolean) => {
+        try {
+            const newStatus = !currentStatus;
+            await api.patch(`/v1/enrollments/${cc}/pursuit-status`, {
+                not_pursuing: newStatus
+            });
+            
+            setCandidates(prev => prev.map(c => c.cc === cc ? { ...c, not_pursuing: newStatus } : c));
+            toast.success(newStatus ? "Candidate marked as not pursuing" : "Candidate restored to active list");
+        } catch (error) {
+            toast.error("Failed to update candidate pursuit status");
+            console.error(error);
+        }
+    };
+
+    const filteredCandidates = candidates.filter(c => {
+        const matchesSearch = c.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            c.cc.toString().includes(searchTerm);
+        
+        if (!matchesSearch) return false;
+
+        if (filterStatus === "active") {
+            return !c.not_pursuing;
+        } else if (filterStatus === "not_pursuing") {
+            return !!c.not_pursuing;
+        }
+        return true;
+    });
 
     return (
         <div className="space-y-8 max-w-6xl mx-auto">
@@ -200,8 +226,25 @@ export default function EnrollmentsPage() {
                     </p>
                 </div>
 
-                <div className="relative z-10 w-full md:w-80">
-                    <div className="relative group">
+                <div className="relative z-10 flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    {/* Status Filter */}
+                    <div className="relative">
+                        <select
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value as any)}
+                            className="w-full sm:w-48 px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-bold text-zinc-700 dark:text-zinc-300 appearance-none cursor-pointer pr-10"
+                        >
+                            <option value="active">Pending Admission</option>
+                            <option value="not_pursuing">Did Not Pursue</option>
+                            <option value="all">All Candidates</option>
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                            <ChevronRight className="h-4 w-4 rotate-90" />
+                        </div>
+                    </div>
+
+                    {/* Search Input */}
+                    <div className="relative group w-full sm:w-64">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
                         <input
                             type="text"
@@ -230,9 +273,9 @@ export default function EnrollmentsPage() {
                     <div className="h-20 w-20 rounded-full bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center text-zinc-300 mb-6 group hover:scale-110 transition-transform">
                         <Users className="h-10 w-10" />
                     </div>
-                    <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">No Pending Enrollments</h3>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">No Candidates Found</h3>
                     <p className="text-zinc-500 dark:text-zinc-400 mt-2 max-w-sm mx-auto font-medium">
-                        {searchTerm ? "No candidates match your search." : "All students with soft admission have been processed!"}
+                        {searchTerm ? "No candidates match your search." : "No candidates match the selected filter."}
                     </p>
                 </div>
             ) : (
@@ -253,9 +296,16 @@ export default function EnrollmentsPage() {
                                         <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-black text-xl group-hover:scale-110 transition-transform">
                                             {candidate.full_name.charAt(0)}
                                         </div>
-                                        <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-amber-100 dark:border-amber-900/30">
-                                            Soft Admission
-                                        </span>
+                                        <div className="flex flex-col items-end gap-1.5">
+                                            <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-amber-100 dark:border-amber-900/30">
+                                                Soft Admission
+                                            </span>
+                                            {candidate.not_pursuing && (
+                                                <span className="px-3 py-1 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-rose-100 dark:border-rose-900/30">
+                                                    Not Pursuing
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-lg group-hover:text-primary transition-colors line-clamp-1">
@@ -292,13 +342,31 @@ export default function EnrollmentsPage() {
                                 </div>
 
                                 <div className="flex bg-primary hover:bg-primary-dark transition-all">
-                                    <button
-                                        onClick={() => handleStartEnroll(candidate)}
-                                        className="flex-1 py-4 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] group-hover:gap-4 border-r border-white/10"
-                                    >
-                                        PROCEED
-                                        <ChevronRight className="h-4 w-4" />
-                                    </button>
+                                    {candidate.not_pursuing ? (
+                                        <button
+                                            onClick={() => handleTogglePursuit(candidate.cc, true)}
+                                            className="flex-1 py-4 bg-zinc-800 dark:bg-zinc-900 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] border-r border-white/10"
+                                        >
+                                            RECONSIDER ADMISSION
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={() => handleStartEnroll(candidate)}
+                                                className="flex-1 py-4 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] group-hover:gap-4 border-r border-white/10"
+                                            >
+                                                PROCEED
+                                                <ChevronRight className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleTogglePursuit(candidate.cc, false)}
+                                                className="p-4 bg-rose-600 hover:bg-rose-700 text-white transition-colors flex items-center justify-center border-r border-white/10"
+                                                title="Mark as Not Pursuing"
+                                            >
+                                                <X className="h-5 w-5" />
+                                            </button>
+                                        </>
+                                    )}
                                     <Link 
                                         href={`/enrollments/admission-order/${candidate.cc}`}
                                         className="p-4 text-white/80 hover:text-white transition-colors flex items-center justify-center"
