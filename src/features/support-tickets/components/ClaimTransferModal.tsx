@@ -30,8 +30,8 @@ export function ClaimTransferModal({
       toast.success(`Transferred to ${user.full_name}`);
       onSuccess();
       onClose();
-    } catch {
-      toast.error("Transfer failed");
+    } catch (err: unknown) {
+      toast.error(typeof err === "string" ? err : "Transfer failed");
     } finally {
       setLoading(false);
     }

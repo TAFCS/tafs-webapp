@@ -30,8 +30,8 @@ export function ForwardTicketModal({
       toast.success(`Forwarded to ${user.full_name}`);
       onSuccess();
       onClose();
-    } catch {
-      toast.error("Forward failed");
+    } catch (err: unknown) {
+      toast.error(typeof err === "string" ? err : "Forward failed");
     } finally {
       setLoading(false);
     }

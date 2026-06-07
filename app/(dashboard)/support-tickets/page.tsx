@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { AlertCircle, Loader2, RefreshCcw } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import { useSocket } from "@/context/SocketContext";
@@ -9,6 +10,7 @@ import type { AppDispatch, RootState } from "@/store/store";
 import {
   addPendingApproval,
   appendTicketMessage,
+  clearQueueError,
   fetchClosedTickets,
   fetchFinanceQueue,
   fetchMyQueue,
@@ -23,15 +25,20 @@ import {
   updateMessageReviewStatus,
   upsertQueueTicket,
 } from "@/store/slices/supportTicketsSlice";
-import { TicketQueueList } from "@/features/support-tickets/components/TicketQueueList";
+import {
+  TicketQueueList,
+  TicketThreadLoading,
+  TicketThreadPlaceholder,
+} from "@/features/support-tickets/components/TicketQueueList";
 import { TicketThread } from "@/features/support-tickets/components/TicketThread";
 import { SuperAdminApprovalQueue } from "@/features/support-tickets/components/SuperAdminApprovalQueue";
 import { canViewSupportTickets } from "@/features/support-tickets/supportTicketAccess";
+import type { PendingApproval, SupportTicket, TicketMessage } from "@/store/slices/supportTicketsSlice";
 
 export default function SupportTicketsPage() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  const { socket, isConnected, isConnecting } = useSocket();
+  const { socket, isConnected } = useSocket();
   const { user, isLoading: authLoading } = useAuthState();
   const {
     queueTab,
@@ -42,8 +49,10 @@ export default function SupportTicketsPage() {
     pendingApprovals,
     isLoadingQueue,
     isLoadingDetail,
+    isLoadingApprovals,
     isSending,
-    error,
+    queueError,
+    detailError,
   } = useSelector((s: RootState) => s.supportTickets);
 
   const selectedRef = useRef<string | null>(null);
@@ -58,6 +67,10 @@ export default function SupportTicketsPage() {
     else if (queueTab === "oversight") dispatch(fetchOversightQueue());
     else dispatch(fetchClosedTickets());
   }, [dispatch, queueTab]);
+
+  const loadDetail = useCallback(() => {
+    if (selectedTicketId) dispatch(fetchTicketDetail(selectedTicketId));
+  }, [dispatch, selectedTicketId]);
 
   useEffect(() => {
     if (!user || roleDefaultApplied.current) return;
@@ -99,13 +112,13 @@ export default function SupportTicketsPage() {
       if (user?.role === "SUPER_ADMIN") dispatch(fetchPendingApprovals());
     };
 
-    const onCreated = (payload: { ticket?: { id: string; status: string } }) => {
-      if (payload.ticket) dispatch(upsertQueueTicket(payload.ticket as any));
+    const onCreated = (payload: { ticket?: SupportTicket }) => {
+      if (payload.ticket) dispatch(upsertQueueTicket(payload.ticket));
       else resync();
     };
 
-    const onClaimed = (payload: { ticket?: { id: string } }) => {
-      if (payload.ticket) dispatch(upsertQueueTicket(payload.ticket as any));
+    const onClaimed = (payload: { ticket?: SupportTicket }) => {
+      if (payload.ticket) dispatch(upsertQueueTicket(payload.ticket));
     };
 
     const onClosed = (payload: { ticket?: { id: string } }) => {
@@ -113,7 +126,7 @@ export default function SupportTicketsPage() {
       if (selectedRef.current === payload.ticket?.id) resync();
     };
 
-    const onMessage = (payload: { ticket?: { id: string }; message?: any }) => {
+    const onMessage = (payload: { ticket?: { id: string }; message?: TicketMessage }) => {
       if (payload.ticket && payload.message) {
         dispatch(
           appendTicketMessage({
@@ -121,15 +134,15 @@ export default function SupportTicketsPage() {
             message: payload.message,
           }),
         );
-        dispatch(upsertQueueTicket(payload.ticket as any));
+        dispatch(upsertQueueTicket(payload.ticket as SupportTicket));
       }
     };
 
-    const onPendingApproval = (payload: { message?: any; ticket?: any }) => {
+    const onPendingApproval = (payload: { message?: TicketMessage; ticket?: SupportTicket }) => {
       if (payload.message && user?.role === "SUPER_ADMIN") {
         dispatch(
           addPendingApproval({
-            ...payload.message,
+            ...(payload.message as unknown as PendingApproval),
             ticket: payload.ticket,
           }),
         );
@@ -144,18 +157,22 @@ export default function SupportTicketsPage() {
       }
     };
 
-    const onReviewed = (payload: { message?: { id: string; status: string; review_comment?: string }; ticket?: any; status?: string }) => {
+    const onReviewed = (payload: {
+      message?: TicketMessage;
+      ticket?: SupportTicket;
+      status?: string;
+    }) => {
       const msg = payload.message;
       if (msg?.id) {
         dispatch(
           updateMessageReviewStatus({
             messageId: msg.id,
             status: msg.status ?? payload.status ?? "APPROVED",
-            reviewComment: msg.review_comment,
+            reviewComment: msg.review_comment ?? undefined,
           }),
         );
       }
-      if (payload.ticket && payload.status === "APPROVED") {
+      if (payload.ticket && payload.status === "APPROVED" && msg) {
         onMessage({ ticket: payload.ticket, message: msg });
       }
     };
@@ -185,8 +202,9 @@ export default function SupportTicketsPage() {
 
   if (authLoading) {
     return (
-      <div className="m-4 p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 text-center text-zinc-400">
-        Loading…
+      <div className="m-4 p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center gap-3">
+        <div className="h-10 w-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        <p className="text-zinc-500 font-bold animate-pulse">Loading…</p>
       </div>
     );
   }
@@ -206,18 +224,43 @@ export default function SupportTicketsPage() {
   const tickets = queueTab === "closed" ? closedItems : queueItems;
   const showFinanceTab = user?.role === "FINANCE_CLERK" || user?.role === "SUPER_ADMIN";
   const showOversightTab = user?.role === "SUPER_ADMIN";
+  const threadReady =
+    selectedTicket && selectedTicketId && selectedTicket.id === selectedTicketId;
 
   return (
-    <div className="h-[calc(100vh-64px)] flex flex-col">
-      {!isConnected && !isConnecting && (
-        <div className="mx-4 mt-2 px-3 py-2 rounded-lg bg-amber-100 text-amber-900 text-xs font-bold">
-          Connection lost — reconnecting…
+    <div className="h-[calc(100vh-160px)] flex flex-col shadow-xl border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+      {!isConnected && (
+        <div
+          role="alert"
+          className="mx-4 mt-2 flex items-center justify-between gap-3 bg-red-500/10 backdrop-blur-md border border-red-500/20 px-4 py-2.5 rounded-2xl"
+        >
+          <p className="text-[11px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
+            Connection lost — messages may be delayed
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:underline"
+          >
+            <RefreshCcw className="h-3.5 w-3.5" />
+            Reload
+          </button>
         </div>
       )}
-      {error && (
-        <div className="mx-4 mt-2 px-3 py-2 rounded-lg bg-red-100 text-red-800 text-xs flex justify-between items-center">
-          <span>{error}</span>
-          <button onClick={loadQueue} className="underline font-bold">
+      {queueError && (
+        <div
+          role="alert"
+          className="mx-4 mt-2 flex items-center gap-3 bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl p-4 text-sm dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400"
+        >
+          <AlertCircle className="h-5 w-5 text-rose-500 flex-shrink-0" />
+          <span className="flex-1">{queueError}</span>
+          <button
+            onClick={() => {
+              dispatch(clearQueueError());
+              loadQueue();
+            }}
+            className="underline font-bold shrink-0"
+          >
             Retry
           </button>
         </div>
@@ -225,11 +268,12 @@ export default function SupportTicketsPage() {
       {user?.role === "SUPER_ADMIN" && (
         <SuperAdminApprovalQueue
           items={pendingApprovals}
+          isLoading={isLoadingApprovals}
           onSelectTicket={(ticketId) => dispatch(setSelectedTicketId(ticketId))}
           onRefresh={() => dispatch(fetchPendingApprovals())}
         />
       )}
-      <div className="flex flex-1 min-h-0 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden m-4">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         <TicketQueueList
           tickets={tickets}
           selectedId={selectedTicketId}
@@ -243,17 +287,20 @@ export default function SupportTicketsPage() {
           showFinanceTab={showFinanceTab}
           showOversightTab={showOversightTab}
         />
-        {isLoadingDetail && !selectedTicket ? (
-          <div className="flex-1 flex items-center justify-center text-zinc-400">Loading thread…</div>
-        ) : selectedTicket ? (
+        {selectedTicketId && (isLoadingDetail || !threadReady) && !detailError ? (
+          <TicketThreadLoading />
+        ) : threadReady ? (
           <TicketThread
             ticket={selectedTicket}
             userId={user?.id}
             userRole={user?.role}
             isSending={isSending}
+            isConnected={isConnected}
+            detailError={detailError}
+            onRetryDetail={loadDetail}
             onRefresh={() => {
               loadQueue();
-              if (selectedTicketId) dispatch(fetchTicketDetail(selectedTicketId));
+              loadDetail();
             }}
             onSendMessage={async (content, mediaMetadata) => {
               if (!selectedTicketId) return;
@@ -268,10 +315,16 @@ export default function SupportTicketsPage() {
               if (user?.role === "SUPER_ADMIN") dispatch(fetchPendingApprovals());
             }}
           />
+        ) : selectedTicketId && detailError ? (
+          <TicketThread
+            ticket={{ id: selectedTicketId } as Parameters<typeof TicketThread>[0]["ticket"]}
+            detailError={detailError}
+            onRetryDetail={loadDetail}
+            onRefresh={loadDetail}
+            onSendMessage={async () => {}}
+          />
         ) : (
-          <div className="flex-1 flex items-center justify-center text-zinc-400">
-            Select a ticket to view the thread
-          </div>
+          <TicketThreadPlaceholder />
         )}
       </div>
     </div>

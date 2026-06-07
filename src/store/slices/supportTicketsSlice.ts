@@ -53,8 +53,11 @@ interface SupportTicketsState {
   pendingApprovals: PendingApproval[];
   isLoadingQueue: boolean;
   isLoadingDetail: boolean;
+  isLoadingApprovals: boolean;
   isSending: boolean;
-  error: string | null;
+  queueError: string | null;
+  detailError: string | null;
+  actionError: string | null;
   detailRequestId: string;
 }
 
@@ -67,44 +70,88 @@ const initialState: SupportTicketsState = {
   pendingApprovals: [],
   isLoadingQueue: false,
   isLoadingDetail: false,
+  isLoadingApprovals: false,
   isSending: false,
-  error: null,
+  queueError: null,
+  detailError: null,
+  actionError: null,
   detailRequestId: '',
 };
 
-export const fetchMyQueue = createAsyncThunk('supportTickets/fetchMyQueue', async () => {
-  const res = await api.get('v1/support-tickets/my-queue');
-  return res.data.items ?? res.data.data?.items ?? res.data;
-});
+function apiError(err: unknown, fallback: string): string {
+  const e = err as { response?: { data?: { message?: string } }; message?: string };
+  return e.response?.data?.message || e.message || fallback;
+}
 
-export const fetchFinanceQueue = createAsyncThunk('supportTickets/fetchFinanceQueue', async () => {
-  const res = await api.get('v1/support-tickets/finance-queue');
-  return res.data.items ?? res.data.data?.items ?? res.data;
-});
+export const fetchMyQueue = createAsyncThunk(
+  'supportTickets/fetchMyQueue',
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get('v1/support-tickets/my-queue');
+      return res.data.items ?? res.data.data?.items ?? res.data;
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Failed to load queue'));
+    }
+  },
+);
 
-export const fetchOversightQueue = createAsyncThunk('supportTickets/fetchOversightQueue', async () => {
-  const res = await api.get('v1/support-tickets/oversight');
-  return res.data.items ?? res.data.data?.items ?? res.data;
-});
+export const fetchFinanceQueue = createAsyncThunk(
+  'supportTickets/fetchFinanceQueue',
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get('v1/support-tickets/finance-queue');
+      return res.data.items ?? res.data.data?.items ?? res.data;
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Failed to load finance queue'));
+    }
+  },
+);
 
-export const fetchClosedTickets = createAsyncThunk('supportTickets/fetchClosedTickets', async () => {
-  const res = await api.get('v1/support-tickets/closed');
-  return res.data.items ?? res.data.data?.items ?? res.data;
-});
+export const fetchOversightQueue = createAsyncThunk(
+  'supportTickets/fetchOversightQueue',
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get('v1/support-tickets/oversight');
+      return res.data.items ?? res.data.data?.items ?? res.data;
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Failed to load oversight queue'));
+    }
+  },
+);
+
+export const fetchClosedTickets = createAsyncThunk(
+  'supportTickets/fetchClosedTickets',
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get('v1/support-tickets/closed');
+      return res.data.items ?? res.data.data?.items ?? res.data;
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Failed to load closed tickets'));
+    }
+  },
+);
 
 export const fetchTicketDetail = createAsyncThunk(
   'supportTickets/fetchTicketDetail',
-  async (ticketId: string) => {
-    const res = await api.get(`v1/support-tickets/${ticketId}`);
-    return res.data.data ?? res.data;
+  async (ticketId: string, { rejectWithValue }) => {
+    try {
+      const res = await api.get(`v1/support-tickets/${ticketId}`);
+      return res.data.data ?? res.data;
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Failed to load ticket'));
+    }
   },
 );
 
 export const fetchPendingApprovals = createAsyncThunk(
   'supportTickets/fetchPendingApprovals',
-  async () => {
-    const res = await api.get('v1/support-tickets/approvals/pending');
-    return res.data.data ?? res.data;
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get('v1/support-tickets/approvals/pending');
+      return res.data.data ?? res.data;
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Failed to load pending approvals'));
+    }
   },
 );
 
@@ -118,55 +165,94 @@ export const markTicketRead = createAsyncThunk(
 
 export const sendTicketMessage = createAsyncThunk(
   'supportTickets/sendTicketMessage',
-  async ({ ticketId, content, messageType = 'TEXT', mediaMetadata }: {
-    ticketId: string;
-    content: string;
-    messageType?: string;
-    mediaMetadata?: Record<string, unknown>;
-  }) => {
-    const res = await api.post(`v1/support-tickets/${ticketId}/messages`, {
-      messageType,
-      content,
-      mediaMetadata,
-    });
-    return { ticketId, message: res.data.data ?? res.data };
+  async (
+    { ticketId, content, messageType = 'TEXT', mediaMetadata }: {
+      ticketId: string;
+      content: string;
+      messageType?: string;
+      mediaMetadata?: Record<string, unknown>;
+    },
+    { rejectWithValue },
+  ) => {
+    try {
+      const res = await api.post(`v1/support-tickets/${ticketId}/messages`, {
+        messageType,
+        content,
+        mediaMetadata,
+      });
+      return { ticketId, message: res.data.data ?? res.data };
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Send failed'));
+    }
   },
 );
 
 export const reviewTicketMessage = createAsyncThunk(
   'supportTickets/reviewTicketMessage',
-  async ({ messageId, status, comment }: { messageId: string; status: 'APPROVED' | 'REJECTED'; comment?: string }) => {
-    const res = await api.patch(`v1/support-tickets/messages/${messageId}/review`, { status, comment });
-    return res.data.data ?? res.data;
+  async (
+    { messageId, status, comment }: { messageId: string; status: 'APPROVED' | 'REJECTED'; comment?: string },
+    { rejectWithValue },
+  ) => {
+    try {
+      const res = await api.patch(`v1/support-tickets/messages/${messageId}/review`, { status, comment });
+      return res.data.data ?? res.data;
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Review failed'));
+    }
   },
 );
 
-export const claimTicket = createAsyncThunk('supportTickets/claimTicket', async (ticketId: string) => {
-  const res = await api.post(`v1/support-tickets/${ticketId}/claim`);
-  return res.data.data ?? res.data;
-});
+export const claimTicket = createAsyncThunk(
+  'supportTickets/claimTicket',
+  async (ticketId: string, { rejectWithValue }) => {
+    try {
+      const res = await api.post(`v1/support-tickets/${ticketId}/claim`);
+      return res.data.data ?? res.data;
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Could not claim ticket'));
+    }
+  },
+);
 
 export const transferTicket = createAsyncThunk(
   'supportTickets/transferTicket',
-  async ({ ticketId, targetUserId }: { ticketId: string; targetUserId: string }) => {
-    const res = await api.post(`v1/support-tickets/${ticketId}/transfer`, { targetUserId });
-    return res.data.data ?? res.data;
+  async (
+    { ticketId, targetUserId }: { ticketId: string; targetUserId: string },
+    { rejectWithValue },
+  ) => {
+    try {
+      const res = await api.post(`v1/support-tickets/${ticketId}/transfer`, { targetUserId });
+      return res.data.data ?? res.data;
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Transfer failed'));
+    }
   },
 );
 
 export const forwardTicket = createAsyncThunk(
   'supportTickets/forwardTicket',
-  async ({ ticketId, targetUserId }: { ticketId: string; targetUserId: string }) => {
-    const res = await api.post(`v1/support-tickets/${ticketId}/forward`, { targetUserId });
-    return res.data.data ?? res.data;
+  async (
+    { ticketId, targetUserId }: { ticketId: string; targetUserId: string },
+    { rejectWithValue },
+  ) => {
+    try {
+      const res = await api.post(`v1/support-tickets/${ticketId}/forward`, { targetUserId });
+      return res.data.data ?? res.data;
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Forward failed'));
+    }
   },
 );
 
 export const closeTicket = createAsyncThunk(
   'supportTickets/closeTicket',
-  async ({ ticketId, comment }: { ticketId: string; comment?: string }) => {
-    const res = await api.post(`v1/support-tickets/${ticketId}/close`, { comment });
-    return res.data.data ?? res.data;
+  async ({ ticketId, note }: { ticketId: string; note?: string }, { rejectWithValue }) => {
+    try {
+      const res = await api.post(`v1/support-tickets/${ticketId}/close`, { note });
+      return res.data.data ?? res.data;
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Failed to close ticket'));
+    }
   },
 );
 
@@ -188,10 +274,17 @@ const supportTicketsSlice = createSlice({
     },
     setSelectedTicketId(state, action: PayloadAction<string | null>) {
       state.selectedTicketId = action.payload;
-      if (!action.payload) state.selectedTicket = null;
+      state.selectedTicket = null;
+      state.detailError = null;
     },
-    clearSupportTicketsError(state) {
-      state.error = null;
+    clearQueueError(state) {
+      state.queueError = null;
+    },
+    clearDetailError(state) {
+      state.detailError = null;
+    },
+    clearActionError(state) {
+      state.actionError = null;
     },
     upsertQueueTicket(state, action: PayloadAction<SupportTicket>) {
       patchQueueTicket(state, action.payload);
@@ -242,38 +335,55 @@ const supportTicketsSlice = createSlice({
     builder
       .addCase(fetchMyQueue.pending, (state) => {
         state.isLoadingQueue = true;
-        state.error = null;
+        state.queueError = null;
       })
       .addCase(fetchMyQueue.fulfilled, (state, action) => {
         state.isLoadingQueue = false;
         state.queueItems = action.payload;
       })
+      .addCase(fetchMyQueue.rejected, (state, action) => {
+        state.isLoadingQueue = false;
+        state.queueError = (action.payload as string) ?? 'Failed to load queue';
+      })
       .addCase(fetchFinanceQueue.pending, (state) => {
         state.isLoadingQueue = true;
-        state.error = null;
+        state.queueError = null;
       })
       .addCase(fetchFinanceQueue.fulfilled, (state, action) => {
         state.isLoadingQueue = false;
         state.queueItems = action.payload;
       })
+      .addCase(fetchFinanceQueue.rejected, (state, action) => {
+        state.isLoadingQueue = false;
+        state.queueError = (action.payload as string) ?? 'Failed to load finance queue';
+      })
       .addCase(fetchOversightQueue.pending, (state) => {
         state.isLoadingQueue = true;
-        state.error = null;
+        state.queueError = null;
       })
       .addCase(fetchOversightQueue.fulfilled, (state, action) => {
         state.isLoadingQueue = false;
         state.queueItems = action.payload;
       })
+      .addCase(fetchOversightQueue.rejected, (state, action) => {
+        state.isLoadingQueue = false;
+        state.queueError = (action.payload as string) ?? 'Failed to load oversight queue';
+      })
       .addCase(fetchClosedTickets.pending, (state) => {
         state.isLoadingQueue = true;
-        state.error = null;
+        state.queueError = null;
       })
       .addCase(fetchClosedTickets.fulfilled, (state, action) => {
         state.isLoadingQueue = false;
         state.closedItems = action.payload;
       })
+      .addCase(fetchClosedTickets.rejected, (state, action) => {
+        state.isLoadingQueue = false;
+        state.queueError = (action.payload as string) ?? 'Failed to load closed tickets';
+      })
       .addCase(fetchTicketDetail.pending, (state, action) => {
         state.isLoadingDetail = true;
+        state.detailError = null;
         state.detailRequestId = action.meta.requestId;
       })
       .addCase(fetchTicketDetail.fulfilled, (state, action) => {
@@ -284,16 +394,25 @@ const supportTicketsSlice = createSlice({
       .addCase(fetchTicketDetail.rejected, (state, action) => {
         if (action.meta.requestId !== state.detailRequestId) return;
         state.isLoadingDetail = false;
-        state.error = action.error.message ?? 'Failed to load ticket';
+        state.detailError = (action.payload as string) ?? 'Failed to load ticket';
+      })
+      .addCase(fetchPendingApprovals.pending, (state) => {
+        state.isLoadingApprovals = true;
       })
       .addCase(fetchPendingApprovals.fulfilled, (state, action) => {
+        state.isLoadingApprovals = false;
         state.pendingApprovals = action.payload;
+      })
+      .addCase(fetchPendingApprovals.rejected, (state, action) => {
+        state.isLoadingApprovals = false;
+        state.actionError = (action.payload as string) ?? 'Failed to load approvals';
       })
       .addCase(markTicketRead.fulfilled, (state, action) => {
         supportTicketsSlice.caseReducers.markTicketUnreadZero(state, { payload: action.payload, type: '' });
       })
       .addCase(sendTicketMessage.pending, (state) => {
         state.isSending = true;
+        state.actionError = null;
       })
       .addCase(sendTicketMessage.fulfilled, (state, action) => {
         state.isSending = false;
@@ -305,7 +424,7 @@ const supportTicketsSlice = createSlice({
       })
       .addCase(sendTicketMessage.rejected, (state, action) => {
         state.isSending = false;
-        state.error = action.error.message ?? 'Send failed';
+        state.actionError = (action.payload as string) ?? 'Send failed';
       })
       .addCase(claimTicket.fulfilled, (state, action) => {
         patchQueueTicket(state, action.payload);
@@ -331,21 +450,16 @@ const supportTicketsSlice = createSlice({
           },
           type: '',
         });
-      })
-      .addMatcher(
-        (action) => action.type.startsWith('supportTickets/fetch') && action.type.endsWith('/rejected'),
-        (state, action: any) => {
-          state.isLoadingQueue = false;
-          state.error = action.error?.message ?? 'Request failed';
-        },
-      );
+      });
   },
 });
 
 export const {
   setQueueTab,
   setSelectedTicketId,
-  clearSupportTicketsError,
+  clearQueueError,
+  clearDetailError,
+  clearActionError,
   upsertQueueTicket,
   removeOpenQueueTicket,
   appendTicketMessage,
