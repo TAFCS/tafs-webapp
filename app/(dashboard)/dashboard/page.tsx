@@ -96,52 +96,57 @@ export default function DashboardPage() {
     const trends = statsData?.trends || [];
 
     const summaryStats = [
-        { 
-            label: "Total Students", 
-            value: students.total?.toLocaleString() || "0", 
+        {
+            label: "Total Students",
+            value: students.total?.toLocaleString() || "0",
+            description: "Active enrollment, all campuses",
             icon: Users,
             color: "text-blue-600",
             bg: "bg-blue-50 dark:bg-blue-900/10"
         },
-        { 
-            label: "Fees Collected", 
-            value: `Rs. ${Math.round(financials.collected || 0).toLocaleString()}`, 
+        {
+            label: "Fees Collected",
+            value: `Rs. ${Math.round(financials.collected || 0).toLocaleString()}`,
+            description: `Cash actually received in AY ${financials.currentYear || "---"}`,
             icon: Banknote,
             color: "text-emerald-600",
             bg: "bg-emerald-50 dark:bg-emerald-900/10"
         },
-        { 
-            label: "Expected Total", 
-            value: `Rs. ${Math.round(financials.expected || 0).toLocaleString()}`, 
+        {
+            label: "Expected Total",
+            value: `Rs. ${Math.round(financials.expected || 0).toLocaleString()}`,
+            description: "Billed this year — fee heads + surcharges",
             icon: CreditCard,
             color: "text-violet-600",
             bg: "bg-violet-50 dark:bg-violet-900/10"
         },
-        { 
-            label: "Collection Rate", 
-            value: `${(financials.collectionRate || 0).toFixed(1)}%`, 
+        {
+            label: "Collection Rate",
+            value: `${(financials.collectionRate || 0).toFixed(1)}%`,
+            description: "Share of this year's billing paid to date",
             icon: TrendingUp,
             color: "text-amber-600",
             bg: "bg-amber-50 dark:bg-amber-900/10"
         },
-        { 
-            label: "Outstanding Balance", 
-            value: `Rs. ${Math.round(financials.outstanding || 0).toLocaleString()}`, 
+        {
+            label: "Outstanding Balance",
+            value: `Rs. ${Math.round(financials.outstanding || 0).toLocaleString()}`,
+            description: "This year's billing left unpaid",
             icon: Clock,
             color: "text-zinc-600",
             bg: "bg-zinc-50 dark:bg-zinc-900/10"
         },
-        { 
-            label: "Previous Arrears", 
-            value: `Rs. ${Math.round(financials.arrears || 0).toLocaleString()}`, 
+        {
+            label: "Previous Arrears",
+            value: `Rs. ${Math.round(financials.arrears || 0).toLocaleString()}`,
+            description: "Past due_date and still unpaid, today",
             icon: FileText,
             color: "text-zinc-600",
             bg: "bg-zinc-50 dark:bg-zinc-900/10"
         }
     ];
 
-    const rawMax = Math.max(...trends.map((t: any) => Math.max(t.expected, t.collected)), 100000);
-    const maxVal = Math.ceil(rawMax / 1000000) * 1000000;
+    const maxMonthly = Math.max(...trends.map((t: any) => Math.max(t.due, t.received)), 1);
 
     return (
         <div className="space-y-8 pb-10">
@@ -254,6 +259,9 @@ export default function DashboardPage() {
                         <div>
                             <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">{stat.label}</p>
                             <h3 className="text-xl font-black text-zinc-900 dark:text-zinc-50 mt-1.5 tracking-tight font-outfit">{stat.value}</h3>
+                            {stat.description && (
+                                <p className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 mt-1.5 leading-snug">{stat.description}</p>
+                            )}
                         </div>
                     </motion.div>
                 ))}
@@ -261,106 +269,108 @@ export default function DashboardPage() {
 
             {/* Performance Center */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-                {/* Collection Trend Chart */}
+                {/* Monthly Billing vs Collections */}
                 <div className="xl:col-span-9 space-y-8">
                     <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 rounded-[2.5rem] p-10 lg:p-14 shadow-2xl relative overflow-hidden shadow-zinc-200/50 dark:shadow-none">
-                        <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-16 gap-8 relative z-10">
-                            <div>
-                                <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-[0.3em] mb-2">
-                                    <BarChart3 className="h-3 w-3" /> Historical Analytics
-                                </div>
-                                <h3 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-outfit">Collection Trend</h3>
-                                <p className="text-sm text-zinc-500 font-semibold mt-1">Measuring realized intake against targets (August - July)</p>
+                        <div className="mb-10 relative z-10">
+                            <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-[0.3em] mb-2">
+                                <BarChart3 className="h-3 w-3" /> Recent Months
                             </div>
-                            
-                            <div className="flex items-center gap-6 bg-zinc-50 dark:bg-zinc-900/50 p-2 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-                                <div className="flex items-center gap-3 px-4 py-2">
-                                    <div className="w-5 h-5 rounded-lg bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700" />
-                                    <span className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Expected</span>
+                            <h3 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-outfit">Billing vs. Collections</h3>
+                            <p className="text-sm text-zinc-500 font-semibold mt-2 max-w-2xl leading-relaxed">
+                                Two independent figures, side by side for each of the last few months — what the institution invoiced, and what cash actually landed in the bank.
+                            </p>
+                        </div>
+
+                        {/* What "Billed" and "Cash In" actually mean — spelled out, not assumed */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 relative z-10">
+                            <div className="flex items-start gap-4 p-5 rounded-3xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800">
+                                <div className="w-3 h-3 rounded-full bg-zinc-400 dark:bg-zinc-600 mt-1.5 shrink-0" />
+                                <div>
+                                    <p className="text-xs font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.2em]">Billed</p>
+                                    <p className="text-[12px] text-zinc-500 dark:text-zinc-400 font-medium mt-1.5 leading-relaxed">
+                                        Fee heads and arrear surcharges invoiced <span className="font-bold text-zinc-700 dark:text-zinc-300">for</span> that month. Fixed and predictable — once a billing period closes, this number doesn't move again.
+                                    </p>
                                 </div>
-                                <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-zinc-950 rounded-xl shadow-sm border border-zinc-100 dark:border-zinc-800">
-                                    <div className="w-5 h-5 rounded-lg bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]" />
-                                    <span className="text-[11px] text-zinc-900 dark:text-zinc-100 font-black uppercase tracking-widest">Collected</span>
+                            </div>
+                            <div className="flex items-start gap-4 p-5 rounded-3xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40">
+                                <div className="w-3 h-3 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                                <div>
+                                    <p className="text-xs font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.2em]">Cash In</p>
+                                    <p className="text-[12px] text-zinc-500 dark:text-zinc-400 font-medium mt-1.5 leading-relaxed">
+                                        Actual deposits banked <span className="font-bold text-zinc-700 dark:text-zinc-300">during</span> that month — current dues, arrears, surcharges and late fees, all blended together exactly as they arrived.
+                                    </p>
                                 </div>
                             </div>
                         </div>
+                        <p className="text-[11px] font-semibold text-zinc-400 mb-10 italic">
+                            These measure two different things — invoicing vs. cash flow — so they won't always line up, and that's normal, not a problem.
+                        </p>
 
-                        {/* Chart Area */}
-                        <div className="h-[460px] relative mt-12">
-                            {/* Grid Lines */}
-                            {[0, 0.25, 0.5, 0.75, 1].map((p) => (
-                                <div key={p} className="absolute w-full border-t border-zinc-100 dark:border-zinc-900/50 flex items-center" style={{ bottom: `${p * 100}%` }}>
-                                    <span className="text-[10px] font-black text-zinc-300 dark:text-zinc-700 -mr-12 absolute -left-14 w-12 text-right">
-                                        {((maxVal * p) / 1000000).toFixed(1)}M
-                                    </span>
-                                </div>
-                            ))}
+                        {/* Monthly rows */}
+                        <div className="space-y-4 relative z-10">
+                            {trends.map((t: any, i: number) => {
+                                const isCurrentMonth = i === trends.length - 1;
+                                const duePerf = Math.min(100, (t.due / maxMonthly) * 100);
+                                const receivedPerf = Math.min(100, (t.received / maxMonthly) * 100);
+                                const isAhead = t.gap < 0;
+                                const isFlat = t.gap === 0;
 
-                            <div className="absolute inset-0 flex items-end justify-between px-6 pb-2 gap-3 lg:gap-6">
-                                {trends.map((t: any, i: number) => {
-                                    const expPerf = (t.expected / maxVal) * 100;
-                                    const collPerf = (t.collected / maxVal) * 100;
-                                    const isCurrentMonth = i === ((new Date().getMonth() + 5) % 12); 
+                                return (
+                                    <motion.div
+                                        key={t.month}
+                                        initial={{ opacity: 0, y: 12 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: i * 0.05 }}
+                                        className={`p-6 rounded-[1.75rem] border transition-all ${isCurrentMonth ? 'bg-primary/[0.04] border-primary/20 shadow-sm' : 'bg-zinc-50/60 dark:bg-zinc-900/30 border-zinc-100 dark:border-zinc-800/60'}`}
+                                    >
+                                        <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-8">
+                                            <div className="lg:w-32 shrink-0 flex items-center gap-2">
+                                                <span className={`text-base font-black tracking-tight font-outfit ${isCurrentMonth ? 'text-primary' : 'text-zinc-900 dark:text-zinc-100'}`}>{t.month}</span>
+                                                {isCurrentMonth && (
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-1 rounded-full">Now</span>
+                                                )}
+                                            </div>
 
-                                    return (
-                                        <div key={t.month} className="flex-1 flex flex-col items-center h-full relative group">
-                                            <div className="w-full h-full flex flex-col justify-end items-center relative gap-0">
-                                                
-                                                <div className="w-full h-full max-w-[40px] relative flex flex-col justify-end items-center group-hover:scale-105 transition-all duration-500 ease-out cursor-help">
-                                                    
-                                                    {/* Expected Grey Bar */}
-                                                    <motion.div 
-                                                        initial={{ height: 0 }}
-                                                        animate={{ height: `${expPerf}%` }}
-                                                        className="w-full bg-zinc-200 dark:bg-zinc-800/80 rounded-t-xl absolute bottom-0 z-0 border border-zinc-300 dark:border-zinc-700/50 transition-colors group-hover:bg-zinc-300 dark:group-hover:bg-zinc-700"
-                                                    />
-
-                                                    {/* Collected Green Bar */}
-                                                    <motion.div 
-                                                        initial={{ height: 0 }}
-                                                        animate={{ height: `${collPerf}%` }}
-                                                        className={`w-full rounded-t-xl absolute bottom-0 z-[1] transition-all duration-300 ${isCurrentMonth ? 'bg-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.2)]'}`}
-                                                    >
-                                                        <div className="w-full h-full bg-gradient-to-t from-black/5 to-transparent rounded-t-xl" />
-                                                    </motion.div>
+                                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Billed</span>
+                                                        <span className="text-sm font-black text-zinc-900 dark:text-zinc-100 font-outfit">Rs. {Math.round(t.due).toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                        <motion.div initial={{ width: 0 }} animate={{ width: `${duePerf}%` }} transition={{ duration: 0.8, ease: "circOut" }} className="h-full bg-zinc-400 dark:bg-zinc-600 rounded-full" />
+                                                    </div>
                                                 </div>
-
-                                                <div className={`mt-8 text-[11px] font-black uppercase tracking-widest transition-all ${isCurrentMonth ? 'text-primary' : 'text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200'}`}>
-                                                    {t.month}
-                                                </div>
-
-                                                {/* Lowered and simplified Tooltip Card */}
-                                                <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 bg-zinc-950 dark:bg-zinc-50 text-white dark:text-zinc-950 p-5 rounded-2xl opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 pointer-events-none z-50 shadow-2xl border border-zinc-800 dark:border-zinc-200 min-w-[200px]">
-                                                    <div className="space-y-4">
-                                                        <div className="pb-3 border-b border-zinc-800 dark:border-zinc-200 flex items-center justify-between">
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{t.month} Overview</span>
-                                                            <div className={`w-1.5 h-1.5 rounded-full ${t.shortfall === 0 ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                                        </div>
-                                                        
-                                                        <div className="space-y-3">
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="text-[10px] font-bold text-zinc-500 uppercase">Target</span>
-                                                                <span className="text-xs font-black">Rs. {Math.round(t.expected / 1000).toLocaleString()}K</span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between text-emerald-500 dark:text-emerald-600">
-                                                                <span className="text-[10px] font-bold uppercase">Actual</span>
-                                                                <span className="text-xs font-black">Rs. {Math.round(t.collected / 1000).toLocaleString()}K</span>
-                                                            </div>
-                                                        </div>
-
-                                                        {t.shortfall > 0 && (
-                                                            <div className="pt-3 border-t border-zinc-800 dark:border-zinc-200 flex items-center justify-between">
-                                                                <span className="text-[10px] font-bold text-zinc-500 uppercase">Variance</span>
-                                                                <span className="text-xs font-black text-amber-500">Rs. {Math.round(t.shortfall / 1000).toLocaleString()}K</span>
-                                                            </div>
-                                                        )}
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Cash In</span>
+                                                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-500 font-outfit">Rs. {Math.round(t.received).toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                        <motion.div initial={{ width: 0 }} animate={{ width: `${receivedPerf}%` }} transition={{ duration: 0.8, ease: "circOut" }} className="h-full bg-emerald-500 rounded-full" />
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            <div className="lg:w-44 shrink-0 lg:text-right lg:border-l lg:border-zinc-200 dark:lg:border-zinc-800 lg:pl-6">
+                                                {isFlat ? (
+                                                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">No gap</span>
+                                                ) : (
+                                                    <>
+                                                        <p className={`text-sm font-black font-outfit ${isAhead ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                                            Rs. {Math.round(Math.abs(t.gap)).toLocaleString()}
+                                                        </p>
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mt-0.5 leading-snug">
+                                                            {isAhead ? 'more cash in than billed' : 'less cash in than billed'}
+                                                        </p>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
-                                    );
-                                })}
-                            </div>
+                                    </motion.div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
@@ -422,7 +432,7 @@ export default function DashboardPage() {
                                         </div>
                                         <div>
                                             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Peak Cycle</p>
-                                            <p className="text-xl font-black text-zinc-900 dark:text-zinc-50 font-outfit">{trends.sort((a:any, b:any) => b.collected - a.collected)[0]?.month || "---"}</p>
+                                            <p className="text-xl font-black text-zinc-900 dark:text-zinc-50 font-outfit">{trends.slice().sort((a:any, b:any) => b.received - a.received)[0]?.month || "---"}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -433,15 +443,15 @@ export default function DashboardPage() {
                                             <ArrowDownRight className="h-6 w-6 text-zinc-500" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Highest Variance</p>
-                                            <p className="text-xl font-black text-zinc-900 dark:text-zinc-50 font-outfit">{trends.sort((a:any, b:any) => b.shortfall - a.shortfall)[0]?.month || "---"}</p>
+                                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Biggest Swing</p>
+                                            <p className="text-xl font-black text-zinc-900 dark:text-zinc-50 font-outfit">{trends.slice().sort((a:any, b:any) => Math.abs(b.gap) - Math.abs(a.gap))[0]?.month || "---"}</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
                             <p className="text-[11px] font-medium text-zinc-400 leading-relaxed italic border-l-2 border-zinc-200 dark:border-zinc-800 pl-5">
-                                Variance data excludes soft-enrollment projections and reflects cleared heads only.
+                                "Billed" reflects fee heads and surcharges invoiced for that period; "Cash In" reflects deposits actually banked that month — the two are independent lenses (billing vs. cash flow), so a swing isn't necessarily a problem.
                             </p>
                         </div>
                     </div>
