@@ -9,7 +9,7 @@ import { fetchClasses } from "@/src/store/slices/classesSlice";
 import { fetchCampuses } from "@/src/store/slices/campusesSlice";
 import { fetchSections } from "@/src/store/slices/sectionsSlice";
 import Image from "next/image";
-import { StudentDetailDrawer } from "./tabs/StudentDetailDrawer";
+import { StudentDetailPanel } from "./tabs/StudentDetailPanel";
 import toast from "react-hot-toast";
 
 // ── Column Configuration for Excel Export ──────────────────────────────────
@@ -546,90 +546,97 @@ function DirectoryContent() {
                 </div>
             </div>
 
-            {/* Grid */}
-            {isLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {Array.from({ length: 12 }).map((_, i) => (
-                        <div key={i} className="bg-white border border-zinc-100 rounded-2xl p-4 animate-pulse">
-                            <div className="flex items-start gap-3">
-                                <div className="h-11 w-11 rounded-full bg-zinc-100 shrink-0" />
-                                <div className="flex-1 space-y-2 pt-1">
-                                    <div className="h-3.5 bg-zinc-100 rounded w-3/4" />
-                                    <div className="h-2.5 bg-zinc-100 rounded w-1/2" />
-                                    <div className="flex gap-1.5 mt-2">
-                                        <div className="h-4 bg-zinc-100 rounded w-16" />
-                                        <div className="h-4 bg-zinc-100 rounded w-14" />
+            {/* Side-by-Side Split Panel Layout changed to modal */}
+            <div className="flex flex-col gap-6 items-start">
+                {/* Directory List (Always Full Width) */}
+                <div className="w-full space-y-6">
+                    {/* Grid */}
+                    {isLoading ? (
+                        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 animate-pulse">
+                            {Array.from({ length: 12 }).map((_, i) => (
+                                <div key={i} className="bg-white border border-zinc-100 rounded-2xl p-4">
+                                    <div className="flex items-start gap-3">
+                                        <div className="h-11 w-11 rounded-full bg-zinc-100 shrink-0" />
+                                        <div className="flex-1 space-y-2 pt-1">
+                                            <div className="h-3.5 bg-zinc-100 rounded w-3/4" />
+                                            <div className="h-2.5 bg-zinc-100 rounded w-1/2" />
+                                            <div className="flex gap-1.5 mt-2">
+                                                <div className="h-4 bg-zinc-100 rounded w-16" />
+                                                <div className="h-4 bg-zinc-100 rounded w-14" />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
+                            ))}
+                        </div>
+                    ) : students.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-32 bg-zinc-50 border border-zinc-100 rounded-2xl gap-4">
+                            <div className="p-5 bg-white rounded-2xl border border-zinc-100 shadow-sm">
+                                <Users className="h-8 w-8 text-zinc-300" />
+                            </div>
+                            <div className="text-center">
+                                <p className="font-bold text-zinc-700">No students found</p>
+                                <p className="text-sm text-zinc-400 mt-1">{search || hasFilters ? "Try adjusting your search or filters" : "No students available"}</p>
                             </div>
                         </div>
-                    ))}
-                </div>
-            ) : students.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-32 bg-zinc-50 border border-zinc-100 rounded-2xl gap-4">
-                    <div className="p-5 bg-white rounded-2xl border border-zinc-100 shadow-sm">
-                        <Users className="h-8 w-8 text-zinc-300" />
-                    </div>
-                    <div className="text-center">
-                        <p className="font-bold text-zinc-700">No students found</p>
-                        <p className="text-sm text-zinc-400 mt-1">{search || hasFilters ? "Try adjusting your search or filters" : "No students available"}</p>
-                    </div>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {students.map(s => (
-                        <StudentCard 
-                            key={s.cc} 
-                            student={s} 
-                            onClick={() => setSelectedCc(s.cc)} 
-                        />
-                    ))}
-                </div>
-            )}
+                    ) : (
+                        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {students.map(s => (
+                                <StudentCard 
+                                    key={s.cc} 
+                                    student={s} 
+                                    onClick={() => setSelectedCc(s.cc)} 
+                                />
+                            ))}
+                        </div>
+                    )}
 
-            {/* Pagination */}
-            {meta && meta.pages > 1 && (
-                <div className="flex items-center justify-between pt-2">
-                    <p className="text-[12px] text-zinc-400">
-                        Page <strong className="text-zinc-600">{meta.page}</strong> of <strong className="text-zinc-600">{meta.pages}</strong>
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
-                            disabled={!meta.hasPrev}
-                            className="h-8 w-8 flex items-center justify-center rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                        >
-                            <ChevronLeft className="h-4 w-4" />
-                        </button>
-                        {Array.from({ length: Math.min(5, meta.pages) }, (_, i) => {
-                            const p = meta.page <= 3 ? i + 1 : meta.page - 2 + i;
-                            if (p < 1 || p > meta.pages) return null;
-                            return (
-                                <button key={p} onClick={() => setPage(p)} className={`h-8 w-8 text-[12px] font-bold rounded-xl transition-all ${p === meta.page ? "bg-primary text-white shadow-sm" : "border border-zinc-200 text-zinc-500 hover:bg-zinc-50"}`}>
-                                    {p}
+                    {/* Pagination */}
+                    {meta && meta.pages > 1 && (
+                        <div className="flex items-center justify-between pt-2">
+                            <p className="text-[12px] text-zinc-400">
+                                Page <strong className="text-zinc-600">{meta.page}</strong> of <strong className="text-zinc-600">{meta.pages}</strong>
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={!meta.hasPrev}
+                                    className="h-8 w-8 flex items-center justify-center rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
                                 </button>
-                            );
-                        })}
-                        <button
-                            onClick={() => setPage(p => Math.min(meta.pages, p + 1))}
-                            disabled={!meta.hasNext}
-                            className="h-8 w-8 flex items-center justify-center rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                        >
-                            <ChevronRight className="h-4 w-4" />
-                        </button>
-                    </div>
+                                {Array.from({ length: Math.min(5, meta.pages) }, (_, i) => {
+                                    const p = meta.page <= 3 ? i + 1 : meta.page - 2 + i;
+                                    if (p < 1 || p > meta.pages) return null;
+                                    return (
+                                        <button key={p} onClick={() => setPage(p)} className={`h-8 w-8 text-[12px] font-bold rounded-xl transition-all ${p === meta.page ? "bg-primary text-white shadow-sm" : "border border-zinc-200 text-zinc-500 hover:bg-zinc-50"}`}>
+                                            {p}
+                                        </button>
+                                    );
+                                })}
+                                <button
+                                    onClick={() => setPage(p => Math.min(meta.pages, p + 1))}
+                                    disabled={!meta.hasNext}
+                                    className="h-8 w-8 flex items-center justify-center rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
 
-            <StudentDetailDrawer
-                cc={selectedCc}
-                onClose={() => setSelectedCc(null)}
-                onSwitchStudent={(newCc: number) => setSelectedCc(newCc)}
-                classes={classes}
-                sections={sections}
-                campuses={campuses}
-                onUpdated={triggerFetch}
-            />
+            {/* Modal Overlay for Student Profile details */}
+            {selectedCc && (
+                <StudentDetailPanel
+                    cc={selectedCc}
+                    onClose={() => setSelectedCc(null)}
+                    onSwitchStudent={(newCc: number) => setSelectedCc(newCc)}
+                    classes={classes}
+                    onUpdated={triggerFetch}
+                />
+            )}
 
             <ExportColumnModal
                 isOpen={isExportModalOpen}

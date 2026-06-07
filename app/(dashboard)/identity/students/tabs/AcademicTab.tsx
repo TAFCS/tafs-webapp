@@ -1,12 +1,12 @@
 "use client";
-import { useState } from "react";
-import { Plus, Trash2, Save, Loader2, CheckCircle2, GraduationCap } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Trash2, Save, Loader2, CheckCircle2, GraduationCap, Pencil, BookOpen, Heart, Activity, Languages, Milestone, X } from "lucide-react";
 import api from "@/lib/api";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">{label}</label>
+            <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">{label}</label>
             {children}
         </div>
     );
@@ -17,604 +17,340 @@ function Input({ value, onChange, placeholder, type = "text" }: { value: string;
         <input type={type} value={value ?? ""} 
             onChange={e => onChange(e.target.value.toUpperCase())} 
             placeholder={placeholder}
-            className="w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all uppercase" />
+            className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all uppercase" />
     );
 }
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
     return (
         <label className="flex items-center gap-2 cursor-pointer">
-            <div onClick={() => onChange(!checked)} className={`relative h-4 w-8 rounded-full transition-colors ${checked ? "bg-primary" : "bg-zinc-200"}`}>
-                <span className={`absolute top-0.5 left-0.5 h-3 w-3 bg-white rounded-full shadow transition-transform ${checked ? "translate-x-4" : ""}`} />
+            <div onClick={() => onChange(!checked)} className={`relative h-5 w-9 rounded-full transition-colors ${checked ? "bg-indigo-600" : "bg-zinc-200"}`}>
+                <span className={`absolute top-0.5 left-0.5 h-4 w-4 bg-white rounded-full shadow transition-transform ${checked ? "translate-x-4" : ""}`} />
             </div>
-            <span className="text-[12px] font-medium text-zinc-600">{label}</span>
+            <span className="text-[12px] font-bold text-zinc-650 uppercase">{label}</span>
         </label>
     );
 }
 
-function RowSaveBtn({ onSave, isSaving, saved, isDirty }: { onSave: () => void; isSaving: boolean; saved: boolean; isDirty: boolean }) {
-    if (!isDirty && !isSaving && !saved) return null;
-    return (
-        <button 
-            onClick={onSave} 
-            disabled={isSaving || (saved && !isDirty)} 
-            className={`flex items-center gap-1.5 px-3 h-7 text-[11px] font-bold text-white rounded-lg transition-all ${saved ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}
-        >
-            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : saved ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
-            {isSaving ? "Submitting..." : saved ? "Submitted" : "Save"}
-        </button>
-    );
-}
-
-// ── Activity Row ──────────────────────────────────────────────────
-function ActivityRow({ item, studentCc, onSaved, onDeleted }: { item: any; studentCc: number; onSaved: (a: any) => void; onDeleted: () => void }) {
-    const [local, setLocal] = useState(item);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
-    const [removing, setRemoving] = useState(false);
-    const set = (k: string, v: any) => setLocal((p: any) => ({ ...p, [k]: v }));
-
-    const isDirty = (local.activity_name || "") !== (item.activity_name || "") ||
-                    (local.grade || "") !== (item.grade || "") ||
-                    (local.honors_awards || "") !== (item.honors_awards || "") ||
-                    !!local.continue_at_tafs !== !!item.continue_at_tafs;
-
-    const save = async () => {
-        setSaving(true);
-        try { 
-            const { data } = await api.post(`/v1/staff-editing/students/${studentCc}/activities`, local); 
-            setSaved(true);
-            setTimeout(() => setSaved(false), 3000);
-            onSaved(data?.data); 
-        } finally { setSaving(false); }
-    };
-    const remove = async () => {
-        if (!confirm("Delete this activity?")) return;
-        setRemoving(true);
-        try { await api.delete(`/v1/staff-editing/activities/${local.id}`); onDeleted(); }
-        finally { setRemoving(false); }
-    };
-
-    return (
-        <div className={`bg-white border rounded-xl p-3 space-y-2 transition-all ${isDirty ? "border-amber-200 shadow-sm" : "border-zinc-100"}`}>
-            <div className="grid grid-cols-2 gap-2">
-                <Field label="Activity"><Input value={local.activity_name ?? ""} onChange={v => set("activity_name", v)} placeholder="e.g. Football" /></Field>
-                <Field label="Grade"><Input value={local.grade ?? ""} onChange={v => set("grade", v)} placeholder="A, B, C..." /></Field>
-                <div className="col-span-2"><Field label="Honours / Awards"><Input value={local.honors_awards ?? ""} onChange={v => set("honors_awards", v)} /></Field></div>
-                <Toggle label="Continue at TAFS" checked={!!local.continue_at_tafs} onChange={v => set("continue_at_tafs", v)} />
-            </div>
-            <div className="flex items-center gap-2">
-                <RowSaveBtn onSave={save} isSaving={saving} saved={saved} isDirty={isDirty} />
-                <button onClick={remove} disabled={saving || removing} className="h-7 w-7 flex items-center justify-center text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all">
-                    {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                </button>
-            </div>
-        </div>
-    );
-}
-
-// ── Language Row ──────────────────────────────────────────────────
-function LanguageRow({ item, studentCc, onSaved, onDeleted }: { item: any; studentCc: number; onSaved: (a: any) => void; onDeleted: () => void }) {
-    const [local, setLocal] = useState(item);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
-    const [removing, setRemoving] = useState(false);
-    const set = (k: string, v: any) => setLocal((p: any) => ({ ...p, [k]: v }));
-
-    const isDirty = (local.language_name || "") !== (item.language_name || "") ||
-                    !!local.can_speak !== !!item.can_speak ||
-                    !!local.can_read !== !!item.can_read ||
-                    !!local.can_write !== !!item.can_write;
-
-    const save = async () => {
-        setSaving(true);
-        try { 
-            const { data } = await api.post(`/v1/staff-editing/students/${studentCc}/languages`, local); 
-            setSaved(true);
-            setTimeout(() => setSaved(false), 3000);
-            onSaved(data?.data); 
-        } finally { setSaving(false); }
-    };
-    const remove = async () => {
-        if (!confirm("Delete this language?")) return;
-        setRemoving(true);
-        try { await api.delete(`/v1/staff-editing/languages/${local.id}`); onDeleted(); }
-        finally { setRemoving(false); }
-    };
-
-    return (
-        <div className={`bg-white border rounded-xl p-3 space-y-2 transition-all ${isDirty ? "border-amber-200 shadow-sm" : "border-zinc-100"}`}>
-            <Field label="Language"><Input value={local.language_name ?? ""} onChange={v => set("language_name", v)} placeholder="e.g. Urdu" /></Field>
-            <div className="flex gap-4">
-                <Toggle label="Speak" checked={!!local.can_speak} onChange={v => set("can_speak", v)} />
-                <Toggle label="Read"  checked={!!local.can_read}  onChange={v => set("can_read", v)} />
-                <Toggle label="Write" checked={!!local.can_write} onChange={v => set("can_write", v)} />
-            </div>
-            <div className="flex items-center gap-2">
-                <RowSaveBtn onSave={save} isSaving={saving} saved={saved} isDirty={isDirty} />
-                <button onClick={remove} disabled={saving || removing} className="h-7 w-7 flex items-center justify-center text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all">
-                    {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                </button>
-            </div>
-        </div>
-    );
-}
-
-// ── School Row ────────────────────────────────────────────────────
-function SchoolRow({ item, studentCc, onSaved, onDeleted }: { item: any; studentCc: number; onSaved: (a: any) => void; onDeleted: () => void }) {
-    const [local, setLocal] = useState(item);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
-    const [removing, setRemoving] = useState(false);
-    const set = (k: string, v: any) => setLocal((p: any) => ({ ...p, [k]: v }));
-
-    const isDirty = (local.school_name || "") !== (item.school_name || "") ||
-                    (local.location || "") !== (item.location || "") ||
-                    (local.reason_for_leaving || "") !== (item.reason_for_leaving || "") ||
-                    (local.class_studied_from || "") !== (item.class_studied_from || "") ||
-                    (local.class_studied_to || "") !== (item.class_studied_to || "");
-
-    const save = async () => {
-        setSaving(true);
-        try { 
-            const { data } = await api.post(`/v1/staff-editing/students/${studentCc}/schools`, local); 
-            setSaved(true);
-            setTimeout(() => setSaved(false), 3000);
-            onSaved(data?.data); 
-        } finally { setSaving(false); }
-    };
-    const remove = async () => {
-        if (!confirm("Delete this school?")) return;
-        setRemoving(true);
-        try { await api.delete(`/v1/staff-editing/schools/${local.id}`); onDeleted(); }
-        finally { setRemoving(false); }
-    };
-
-    return (
-        <div className={`bg-white border rounded-xl p-3 space-y-2 transition-all ${isDirty ? "border-amber-200 shadow-sm" : "border-zinc-100"}`}>
-            <div className="grid grid-cols-2 gap-2">
-                <div className="col-span-2"><Field label="School Name"><Input value={local.school_name ?? ""} onChange={v => set("school_name", v)} /></Field></div>
-                <Field label="Location"><Input value={local.location ?? ""} onChange={v => set("location", v)} /></Field>
-                <Field label="Reason for Leaving"><Input value={local.reason_for_leaving ?? ""} onChange={v => set("reason_for_leaving", v)} /></Field>
-                <Field label="Grade From"><Input value={local.class_studied_from ?? ""} onChange={v => set("class_studied_from", v)} /></Field>
-                <Field label="Grade To"><Input value={local.class_studied_to ?? ""} onChange={v => set("class_studied_to", v)} /></Field>
-            </div>
-            <div className="flex items-center gap-2">
-                <RowSaveBtn onSave={save} isSaving={saving} saved={saved} isDirty={isDirty} />
-                <button onClick={remove} disabled={saving || removing} className="h-7 w-7 flex items-center justify-center text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all">
-                    {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                </button>
-            </div>
-        </div>
-    );
-}
-
-// ── Section Wrappers ──────────────────────────────────────────────
-function ActivitiesSection({ studentCc, initial }: { studentCc: number; initial: any[] }) {
-    const [items, setItems] = useState<any[]>(initial);
-    const [newItem, setNewItem] = useState<any | null>(null);
-    const [savingNew, setSavingNew] = useState(false);
-    const [savedNew, setSavedNew] = useState(false);
-    const set = (k: string, v: any) => setNewItem((p: any) => ({ ...p, [k]: v }));
-
-    const saveNew = async () => {
-        if (!newItem.activity_name) return alert("Activity name is required");
-        setSavingNew(true);
-        try { 
-            const { data } = await api.post(`/v1/staff-editing/students/${studentCc}/activities`, newItem); 
-            setItems(p => [data?.data, ...p]); 
-            setSavedNew(true);
-            setTimeout(() => {
-                setSavedNew(false);
-                setNewItem(null);
-            }, 1500);
-            setNewItem(null);
-        } finally { setSavingNew(false); }
-    };
-
-    return (
-        <div className="space-y-2">
-            <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Activities</span>
-                <button onClick={() => setNewItem(newItem ? null : { activity_name: "", grade: "", honors_awards: "", continue_at_tafs: true })} className={`flex items-center gap-1 px-2.5 h-7 text-[11px] font-bold rounded-lg transition-all ${newItem ? "bg-zinc-100 text-zinc-500" : "bg-primary/10 text-primary hover:bg-primary/20"}`}>
-                    {newItem ? "Cancel" : <><Plus className="h-3 w-3" /> Add</>}
-                </button>
-            </div>
-            {newItem && (
-                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3 space-y-2 shadow-sm">
-                    <div className="grid grid-cols-2 gap-2">
-                        <Field label="Activity"><Input value={newItem.activity_name} onChange={v => set("activity_name", v)} /></Field>
-                        <Field label="Grade"><Input value={newItem.grade} onChange={v => set("grade", v)} /></Field>
-                        <div className="col-span-2"><Field label="Honours"><Input value={newItem.honors_awards} onChange={v => set("honors_awards", v)} /></Field></div>
-                        <Toggle label="Continue at TAFS" checked={!!newItem.continue_at_tafs} onChange={v => set("continue_at_tafs", v)} />
-                    </div>
-                    <div className="flex gap-2">
-                        <button onClick={saveNew} disabled={savingNew || savedNew} className={`flex items-center gap-1.5 px-4 h-7 text-[11px] font-bold text-white rounded-lg transition-all ${savedNew ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}>
-                            {savingNew ? <Loader2 className="h-3 w-3 animate-spin" /> : savedNew ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
-                            {savingNew ? "Submitting..." : savedNew ? "Submitted" : "Add Activity"}
-                        </button>
-                    </div>
-                </div>
-            )}
-            {items.map(item => (
-                <ActivityRow key={item.id} item={item} studentCc={studentCc}
-                    onSaved={u => setItems(p => p.map(x => x.id === u.id ? u : x))}
-                    onDeleted={() => setItems(p => p.filter(x => x.id !== item.id))} />
-            ))}
-            {items.length === 0 && !newItem && <p className="text-zinc-400 text-[12px] text-center py-4">No activities</p>}
-        </div>
-    );
-}
-
-function LanguagesSection({ studentCc, initial }: { studentCc: number; initial: any[] }) {
-    const [items, setItems] = useState<any[]>(initial);
-    const [newItem, setNewItem] = useState<any | null>(null);
-    const [savingNew, setSavingNew] = useState(false);
-    const [savedNew, setSavedNew] = useState(false);
-    const set = (k: string, v: any) => setNewItem((p: any) => ({ ...p, [k]: v }));
-
-    const saveNew = async () => {
-        if (!newItem.language_name) return alert("Language name is required");
-        setSavingNew(true);
-        try { 
-            const { data } = await api.post(`/v1/staff-editing/students/${studentCc}/languages`, newItem); 
-            setItems(p => [data?.data, ...p]); 
-            setSavedNew(true);
-            setTimeout(() => setSavedNew(false), 1500);
-            setNewItem(null);
-        } finally { setSavingNew(false); }
-    };
-
-    return (
-        <div className="space-y-2">
-            <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Languages</span>
-                <button onClick={() => setNewItem(newItem ? null : { language_name: "", can_speak: false, can_read: false, can_write: false })} className={`flex items-center gap-1 px-2.5 h-7 text-[11px] font-bold rounded-lg transition-all ${newItem ? "bg-zinc-100 text-zinc-500" : "bg-primary/10 text-primary hover:bg-primary/20"}`}>
-                    {newItem ? "Cancel" : <><Plus className="h-3 w-3" /> Add</>}
-                </button>
-            </div>
-            {newItem && (
-                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3 space-y-2 shadow-sm">
-                    <Field label="Language"><Input value={newItem.language_name} onChange={v => set("language_name", v)} /></Field>
-                    <div className="flex gap-4">
-                        <Toggle label="Speak" checked={!!newItem.can_speak} onChange={v => set("can_speak", v)} />
-                        <Toggle label="Read"  checked={!!newItem.can_read}  onChange={v => set("can_read", v)} />
-                        <Toggle label="Write" checked={!!newItem.can_write} onChange={v => set("can_write", v)} />
-                    </div>
-                    <div className="flex gap-2">
-                        <button onClick={saveNew} disabled={savingNew || savedNew} className={`flex items-center gap-1.5 px-4 h-7 text-[11px] font-bold text-white rounded-lg transition-all ${savedNew ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}>
-                            {savingNew ? <Loader2 className="h-3 w-3 animate-spin" /> : savedNew ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
-                            {savingNew ? "Submitting..." : savedNew ? "Submitted" : "Add Language"}
-                        </button>
-                    </div>
-                </div>
-            )}
-            {items.map(item => (
-                <LanguageRow key={item.id} item={item} studentCc={studentCc}
-                    onSaved={u => setItems(p => p.map(x => x.id === u.id ? u : x))}
-                    onDeleted={() => setItems(p => p.filter(x => x.id !== item.id))} />
-            ))}
-            {items.length === 0 && !newItem && <p className="text-zinc-400 text-[12px] text-center py-4">No languages</p>}
-        </div>
-    );
-}
-
-function SchoolsSection({ studentCc, initial }: { studentCc: number; initial: any[] }) {
-    const [items, setItems] = useState<any[]>(initial);
-    const [newItem, setNewItem] = useState<any | null>(null);
-    const [savingNew, setSavingNew] = useState(false);
-    const [savedNew, setSavedNew] = useState(false);
-    const set = (k: string, v: any) => setNewItem((p: any) => ({ ...p, [k]: v }));
-
-    const saveNew = async () => {
-        if (!newItem.school_name) return alert("School name is required");
-        setSavingNew(true);
-        try { 
-            const { data } = await api.post(`/v1/staff-editing/students/${studentCc}/schools`, newItem); 
-            setItems(p => [data?.data, ...p]); 
-            setSavedNew(true);
-            setTimeout(() => setSavedNew(false), 1500);
-            setNewItem(null);
-        } finally { setSavingNew(false); }
-    };
-
-    return (
-        <div className="space-y-2">
-            <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Previous Schools</span>
-                <button onClick={() => setNewItem(newItem ? null : { school_name: "", location: "", reason_for_leaving: "", class_studied_from: "", class_studied_to: "" })} className={`flex items-center gap-1 px-2.5 h-7 text-[11px] font-bold rounded-lg transition-all ${newItem ? "bg-zinc-100 text-zinc-500" : "bg-primary/10 text-primary hover:bg-primary/20"}`}>
-                    {newItem ? "Cancel" : <><Plus className="h-3 w-3" /> Add</>}
-                </button>
-            </div>
-            {newItem && (
-                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3 space-y-2 shadow-sm">
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="col-span-2"><Field label="School Name"><Input value={newItem.school_name} onChange={v => set("school_name", v)} /></Field></div>
-                        <Field label="Location"><Input value={newItem.location} onChange={v => set("location", v)} /></Field>
-                        <Field label="Reason"><Input value={newItem.reason_for_leaving} onChange={v => set("reason_for_leaving", v)} /></Field>
-                        <Field label="Grade From"><Input value={newItem.class_studied_from} onChange={v => set("class_studied_from", v)} /></Field>
-                        <Field label="Grade To"><Input value={newItem.class_studied_to} onChange={v => set("class_studied_to", v)} /></Field>
-                    </div>
-                    <div className="flex gap-2">
-                        <button onClick={saveNew} disabled={savingNew || savedNew} className={`flex items-center gap-1.5 px-4 h-7 text-[11px] font-bold text-white rounded-lg transition-all ${savedNew ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}>
-                            {savingNew ? <Loader2 className="h-3 w-3 animate-spin" /> : savedNew ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
-                            {savingNew ? "Submitting..." : savedNew ? "Submitted" : "Add School"}
-                        </button>
-                    </div>
-                </div>
-            )}
-            {items.map(item => (
-                <SchoolRow key={item.id} item={item} studentCc={studentCc}
-                    onSaved={u => setItems(p => p.map(x => x.id === u.id ? u : x))}
-                    onDeleted={() => setItems(p => p.filter(x => x.id !== item.id))} />
-            ))}
-            {items.length === 0 && !newItem && <p className="text-zinc-400 text-[12px] text-center py-4">No previous schools</p>}
-        </div>
-    );
-}
-
-const A_LEVEL_SUBJECTS_GROUP_A = [
-    { name: "BIOLOGY", code: "9700" },
-    { name: "CHEMISTRY", code: "9701" },
-    { name: "PHYSICS", code: "9702" },
-    { name: "MATHEMATICS", code: "9709" },
-    { name: "URDU", code: "9686" },
-    { name: "COMPUTER SCIENCE", code: "9618" },
-    { name: "SOCIOLOGY", code: "9699" },
-];
-
-const A_LEVEL_SUBJECTS_GROUP_B = [
-    { name: "ACCOUNTING", code: "9706" },
-    { name: "BUSINESS", code: "9707" },
-    { name: "ECONOMICS", code: "9708" },
-    { name: "MATHEMATICS", code: "9709" },
-    { name: "URDU", code: "9686" },
-    { name: "COMPUTER SCIENCE", code: "9618" },
-    { name: "SOCIOLOGY", code: "9699" },
-];
-
-function ALevelDetailsSection({ studentCc, initial }: { studentCc: number; initial: any }) {
-    const [local, setLocal] = useState(initial || {
-        preferred_subjects_group_a: [],
-        preferred_subjects_group_b: [],
-        olevel_result_counts: { "A*": 0, A: 0, B: 0, C: 0, D: 0, E: 0, U: 0 },
-        olevel_subjects_details: []
-    });
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
-
-    const set = (k: string, v: any) => setLocal((p: any) => ({ ...p, [k]: v }));
-
-    const isDirty = JSON.stringify(local) !== JSON.stringify(initial || {
-        preferred_subjects_group_a: [],
-        preferred_subjects_group_b: [],
-        olevel_result_counts: { "A*": 0, A: 0, B: 0, C: 0, D: 0, E: 0, U: 0 },
-        olevel_subjects_details: []
-    });
-
-    const save = async () => {
-        setSaving(true);
-        try {
-            await api.post(`/v1/staff-editing/students/${studentCc}/alevel-details`, local);
-            setSaved(true);
-            setTimeout(() => setSaved(false), 3000);
-        } catch {
-            alert("Failed to save A-Level details");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const addSubject = () => {
-        set("olevel_subjects_details", [...(local.olevel_subjects_details || []), { subject: "", subjectCode: "", mockGrade: "", caieGrade: "" }]);
-    };
-
-    const removeSubject = (index: number) => {
-        const next = [...(local.olevel_subjects_details || [])];
-        next.splice(index, 1);
-        set("olevel_subjects_details", next);
-    };
-
-    const updateSubject = (index: number, k: string, v: string) => {
-        const next = [...(local.olevel_subjects_details || [])];
-        next[index] = { ...next[index], [k]: v };
-        set("olevel_subjects_details", next);
-    };
-
-    const togglePref = (group: 'preferred_subjects_group_a' | 'preferred_subjects_group_b', code: string) => {
-        const current = local[group] || [];
-        const next = current.includes(code) 
-            ? current.filter((c: string) => c !== code)
-            : [...current, code];
-        set(group, next);
-    };
-
-    return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">A-Level Academic Data</span>
-                <RowSaveBtn onSave={save} isSaving={saving} saved={saved} isDirty={isDirty} />
-            </div>
-
-            <div className="bg-white border border-zinc-100 rounded-2xl p-4 space-y-6">
-                {/* Mock Results */}
-                <div>
-                    <div className="flex items-center justify-between mb-3">
-                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">O-Level / O3 Mock Results</label>
-                        <button onClick={addSubject} className="flex items-center gap-1 px-2 h-6 text-[10px] font-bold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-all">
-                            <Plus className="h-3 w-3" /> Add Subject
-                        </button>
-                    </div>
-                    <div className="grid grid-cols-1 gap-2">
-                        {(local.olevel_subjects_details || []).map((sub: any, i: number) => (
-                            <div key={i} className="flex gap-2 items-center bg-zinc-50/50 p-2 rounded-xl border border-zinc-100">
-                                <div className="flex-[2]">
-                                    <Input value={sub.subject} onChange={v => updateSubject(i, "subject", v)} placeholder="Subject" />
-                                </div>
-                                <div className="flex-1">
-                                    <Input value={sub.subjectCode || sub.mockGrade} onChange={v => updateSubject(i, sub.subjectCode !== undefined ? "subjectCode" : "mockGrade", v)} placeholder="Code / Mock" />
-                                </div>
-                                <div className="flex-1">
-                                    <Input value={sub.mockGrade !== undefined && sub.subjectCode !== undefined ? sub.mockGrade : sub.caieGrade} onChange={v => updateSubject(i, sub.mockGrade !== undefined && sub.subjectCode !== undefined ? "mockGrade" : "caieGrade", v)} placeholder="Grade / CAIE" />
-                                </div>
-                                <button onClick={() => removeSubject(i)} className="text-zinc-300 hover:text-rose-500 transition-colors p-1">
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                            </div>
-                        ))}
-                        {(!local.olevel_subjects_details || local.olevel_subjects_details.length === 0) && (
-                            <div className="col-span-full py-4 text-center border border-dashed border-zinc-200 rounded-xl">
-                                <p className="text-[11px] text-zinc-400 font-medium italic">No results recorded</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Grade Counts */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-zinc-50">
-                    <div>
-                        <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">O-Level Grade Summary</label>
-                        <div className="grid grid-cols-4 gap-2">
-                            {Object.entries(local.olevel_result_counts || {}).map(([grade, count]) => (
-                                <div key={grade}>
-                                    <label className="block text-[9px] font-black text-zinc-400 mb-1">{grade}</label>
-                                    <input 
-                                        type="number" 
-                                        value={count as number} 
-                                        onChange={e => set("olevel_result_counts", { ...local.olevel_result_counts, [grade]: parseInt(e.target.value) || 0 })}
-                                        className="w-full h-8 px-2 text-[12px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-lg outline-none focus:border-primary transition-all"
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3">Subject Preferences</label>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-[9px] font-black text-zinc-400 mb-2">Group A (Compulsory)</label>
-                                <div className="flex flex-wrap gap-1">
-                                    {A_LEVEL_SUBJECTS_GROUP_A.map((s) => {
-                                        const isSelected = (local.preferred_subjects_group_a || []).includes(s.code);
-                                        return (
-                                            <button 
-                                                key={s.code} 
-                                                onClick={() => togglePref('preferred_subjects_group_a', s.code)}
-                                                className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-all ${isSelected ? "bg-zinc-800 text-white border-zinc-800" : "bg-zinc-100 text-zinc-400 border-zinc-200 hover:border-zinc-300"}`}
-                                            >
-                                                {s.name} ({s.code})
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-[9px] font-black text-zinc-400 mb-2">Group B (Electives)</label>
-                                <div className="flex flex-wrap gap-1">
-                                    {A_LEVEL_SUBJECTS_GROUP_B.map((s) => {
-                                        const isSelected = (local.preferred_subjects_group_b || []).includes(s.code);
-                                        return (
-                                            <button 
-                                                key={s.code} 
-                                                onClick={() => togglePref('preferred_subjects_group_b', s.code)}
-                                                className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-all ${isSelected ? "bg-indigo-600 text-white border-indigo-600" : "bg-indigo-50/50 text-indigo-400 border-indigo-100 hover:border-indigo-200"}`}
-                                            >
-                                                {s.name} ({s.code})
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ── Main Export ───────────────────────────────────────────────────
 export function AcademicTab({ student, onReload }: { student: any; onReload: () => void }) {
     const [studentYear, setStudentYear] = useState(student.academic_year || "");
-    const [studentDoa, setStudentDoa] = useState(
-        student.date_of_admission
-            ? new Date(student.date_of_admission).toISOString().split("T")[0]
-            : ""
-    );
+    const [studentDoa, setStudentDoa] = useState(student.date_of_admission ? new Date(student.date_of_admission).toISOString().split("T")[0] : "");
     const [savingGeneral, setSavingGeneral] = useState(false);
     const [savedGeneral, setSavedGeneral] = useState(false);
+    const [editGeneral, setEditGeneral] = useState(false);
 
-    const isGeneralDirty =
-        studentYear !== (student.academic_year || "") ||
-        studentDoa !== (student.date_of_admission
-            ? new Date(student.date_of_admission).toISOString().split("T")[0]
-            : "");
+    // Sync state
+    useEffect(() => {
+        setStudentYear(student.academic_year || "");
+        setStudentDoa(student.date_of_admission ? new Date(student.date_of_admission).toISOString().split("T")[0] : "");
+    }, [student]);
 
-    const saveGeneral = async () => {
+    const handleSaveGeneral = async () => {
         setSavingGeneral(true);
         try {
             await api.patch(`/v1/staff-editing/students/${student.cc}`, { academic_year: studentYear, doa: studentDoa });
             setSavedGeneral(true);
-            setTimeout(() => setSavedGeneral(false), 3000);
+            setTimeout(() => setSavedGeneral(false), 2000);
+            setEditGeneral(false);
             onReload();
-        } catch { alert("Failed to update General Information"); }
-        finally { setSavingGeneral(false); }
+        } catch {
+            alert("Failed to update general information");
+        } finally {
+            setSavingGeneral(false);
+        }
     };
 
     const isALevel = student.academic_system === "A-Level" || 
                      student.admissions?.some((a: any) => a.academic_system === "A-Level") ||
                      !!student.alevel_details;
 
-    return (
-        <div className="space-y-6">
-            {student.status === 'GRADUATED' && (
-                <div className="p-4 rounded-3xl border border-indigo-100 bg-indigo-50/30 flex items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
-                    <div className="h-12 w-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-                        <GraduationCap className="h-6 w-6" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none mb-1">Graduation Status</p>
-                        <p className="text-sm font-bold text-indigo-900/80 leading-tight">
-                            {student.graduated_from_class?.description 
-                                ? <>This student graduated from <span className="text-indigo-700 font-black">{student.graduated_from_class.description}</span>.</>
-                                : student.graduated_from_class_id
-                                ? <>This student graduated from class ID <span className="text-indigo-700 font-black">{student.graduated_from_class_id}</span>.</>
-                                : "This student has graduated from the institution."
-                            }
-                        </p>
-                    </div>
-                </div>
-            )}
+    // Previous Schools timeline states
+    const [schools, setSchools] = useState<any[]>(student.previous_schools || []);
+    const [editSchools, setEditSchools] = useState(false);
+    const [newSchool, setNewSchool] = useState<any | null>(null);
 
-            <div className={`bg-zinc-50 border rounded-2xl p-4 space-y-3 transition-all ${isGeneralDirty ? "border-amber-200 ring-1 ring-amber-100" : "border-zinc-100"}`}>
-                <div className="flex items-center justify-between">
-                    <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">General Information</h3>
-                    <RowSaveBtn onSave={saveGeneral} isSaving={savingGeneral} saved={savedGeneral} isDirty={isGeneralDirty} />
+    // Activities & Languages states
+    const [activities, setActivities] = useState<any[]>(student.activities || []);
+    const [editActivities, setEditActivities] = useState(false);
+    const [newActivity, setNewActivity] = useState<any | null>(null);
+
+    const [languages, setLanguages] = useState<any[]>(student.languages || []);
+    const [editLanguages, setEditLanguages] = useState(false);
+    const [newLanguage, setNewLanguage] = useState<any | null>(null);
+
+    useEffect(() => {
+        setSchools(student.previous_schools || []);
+        setActivities(student.activities || []);
+        setLanguages(student.languages || []);
+    }, [student]);
+
+    const handleAddSchool = async () => {
+        if (!newSchool.school_name) return alert("School name is required");
+        try {
+            const { data } = await api.post(`/v1/staff-editing/students/${student.cc}/schools`, newSchool);
+            setSchools(prev => [...prev, data?.data]);
+            setNewSchool(null);
+            onReload();
+        } catch {
+            alert("Failed to add school");
+        }
+    };
+
+    const handleDeleteSchool = async (id: number) => {
+        if (!confirm("Are you sure?")) return;
+        try {
+            await api.delete(`/v1/staff-editing/schools/${id}`);
+            setSchools(prev => prev.filter(s => s.id !== id));
+            onReload();
+        } catch {
+            alert("Failed to delete school");
+        }
+    };
+
+    const handleAddActivity = async () => {
+        if (!newActivity.activity_name) return alert("Activity name is required");
+        try {
+            const { data } = await api.post(`/v1/staff-editing/students/${student.cc}/activities`, newActivity);
+            setActivities(prev => [...prev, data?.data]);
+            setNewActivity(null);
+            onReload();
+        } catch {
+            alert("Failed to add activity");
+        }
+    };
+
+    const handleDeleteActivity = async (id: number) => {
+        if (!confirm("Are you sure?")) return;
+        try {
+            await api.delete(`/v1/staff-editing/activities/${id}`);
+            setActivities(prev => prev.filter(a => a.id !== id));
+            onReload();
+        } catch {
+            alert("Failed to delete activity");
+        }
+    };
+
+    const handleAddLanguage = async () => {
+        if (!newLanguage.language_name) return alert("Language name is required");
+        try {
+            const { data } = await api.post(`/v1/staff-editing/students/${student.cc}/languages`, newLanguage);
+            setLanguages(prev => [...prev, data?.data]);
+            setNewLanguage(null);
+            onReload();
+        } catch {
+            alert("Failed to add language");
+        }
+    };
+
+    const handleDeleteLanguage = async (id: number) => {
+        if (!confirm("Are you sure?")) return;
+        try {
+            await api.delete(`/v1/staff-editing/languages/${id}`);
+            setLanguages(prev => prev.filter(l => l.id !== id));
+            onReload();
+        } catch {
+            alert("Failed to delete language");
+        }
+    };
+
+    return (
+        <div className="space-y-6 max-w-6xl mx-auto">
+            {/* 1. GENERAL ACADEMIC INFO */}
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative transition-all duration-200">
+                <div className="absolute top-6 right-6">
+                    {editGeneral ? (
+                        <div className="flex gap-2">
+                            <button onClick={() => setEditGeneral(false)} className="p-2 text-zinc-400 hover:text-zinc-655"><X className="h-4 w-4" /></button>
+                            <button onClick={handleSaveGeneral} className="px-3 h-8 text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl flex items-center gap-1">
+                                {savingGeneral ? "..." : <Save className="h-3 w-3" />} Save
+                            </button>
+                        </div>
+                    ) : (
+                        <button onClick={() => setEditGeneral(true)} className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"><Pencil className="h-4 w-4" /></button>
+                    )}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <Field label="Current Academic Year">
-                        <Input value={studentYear} onChange={setStudentYear} placeholder="e.g. 2024-25" />
-                    </Field>
-                    <Field label="Date of Admission">
-                        <Input type="date" value={studentDoa} onChange={setStudentDoa} />
-                    </Field>
-                </div>
+
+                <h3 className="text-[16px] font-extrabold text-zinc-950 dark:text-zinc-100 mb-6 tracking-tight flex items-center gap-2">
+                    <GraduationCap className="h-5 w-5 text-indigo-600 shrink-0" />
+                    <span>General Academic Info</span>
+                </h3>
+
+                {editGeneral ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Field label="Current Academic Year"><Input value={studentYear} onChange={setStudentYear} placeholder="2024-25" /></Field>
+                        <Field label="Date of Admission"><input type="date" value={studentDoa} onChange={e => setStudentDoa(e.target.value)} className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-500" /></Field>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Current Academic Year</p>
+                            <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{student.academic_year || "N/A"}</p>
+                        </div>
+                        <div>
+                            <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Date of Admission</p>
+                            <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">
+                                {student.date_of_admission ? new Date(student.date_of_admission).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }) : "N/A"}
+                            </p>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {isALevel && (
-                <>
-                    <div className="border-t border-zinc-100" />
-                    <ALevelDetailsSection studentCc={student.cc} initial={student.alevel_details} />
-                </>
-            )}
+            {/* 2. EDUCATION TIMELINE (PREVIOUS SCHOOLS) */}
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative transition-all duration-200">
+                <div className="absolute top-6 right-6">
+                    <button onClick={() => setEditSchools(!editSchools)} className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400">
+                        {editSchools ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+                    </button>
+                </div>
 
-            <div className="border-t border-zinc-100" />
-            <ActivitiesSection studentCc={student.cc} initial={student.activities || []} />
-            <div className="border-t border-zinc-100" />
-            <LanguagesSection studentCc={student.cc} initial={student.languages || []} />
-            <div className="border-t border-zinc-100" />
-            <SchoolsSection studentCc={student.cc} initial={student.previous_schools || []} />
+                <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-6 tracking-tight flex items-center gap-2">
+                    <Milestone className="h-5 w-5 text-indigo-500 shrink-0" />
+                    Education History
+                </h3>
+
+                {editSchools && (
+                    <div className="bg-zinc-50 dark:bg-zinc-800/40 border rounded-2xl p-4 mb-6 space-y-4">
+                        <h4 className="text-[12px] font-bold text-zinc-900 dark:text-zinc-100 uppercase">Add Previous School</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <Field label="School Name"><input type="text" value={newSchool?.school_name || ""} onChange={e => setNewSchool((p: any) => ({ ...p, school_name: e.target.value }))} className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none text-[13px] uppercase" /></Field>
+                            <Field label="Location"><input type="text" value={newSchool?.location || ""} onChange={e => setNewSchool((p: any) => ({ ...p, location: e.target.value }))} className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none text-[13px] uppercase" /></Field>
+                            <Field label="Grade From"><input type="text" value={newSchool?.class_studied_from || ""} onChange={e => setNewSchool((p: any) => ({ ...p, class_studied_from: e.target.value }))} className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none text-[13px] uppercase" /></Field>
+                            <Field label="Grade To"><input type="text" value={newSchool?.class_studied_to || ""} onChange={e => setNewSchool((p: any) => ({ ...p, class_studied_to: e.target.value }))} className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none text-[13px] uppercase" /></Field>
+                            <div className="col-span-2">
+                                <Field label="Reason for Leaving"><input type="text" value={newSchool?.reason_for_leaving || ""} onChange={e => setNewSchool((p: any) => ({ ...p, reason_for_leaving: e.target.value }))} className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none text-[13px] uppercase" /></Field>
+                            </div>
+                        </div>
+                        <button onClick={handleAddSchool} className="px-4 h-9 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-[11px] font-bold">Add School</button>
+                    </div>
+                )}
+
+                {schools.length > 0 ? (
+                    <div className="relative pl-6 border-l border-zinc-100 dark:border-zinc-800 ml-4 space-y-8">
+                        {schools.map(s => (
+                            <div key={s.id} className="relative group animate-in fade-in duration-300">
+                                {/* Chronological timeline dot */}
+                                <div className="absolute -left-[31px] top-1.5 h-4 w-4 bg-white dark:bg-zinc-900 border-2 border-indigo-600 rounded-full flex items-center justify-center shrink-0 z-10" />
+                                
+                                <div className="flex items-start justify-between">
+                                    <div className="space-y-1">
+                                        <h4 className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200 uppercase">{s.school_name}</h4>
+                                        <p className="text-[12px] text-zinc-500 font-bold uppercase">{s.location || "Location N/A"}</p>
+                                        <p className="text-[11px] text-zinc-400 font-semibold uppercase mt-1">
+                                            Grades: {s.class_studied_from || "?"} - {s.class_studied_to || "?"} {s.reason_for_leaving ? `· Reason: ${s.reason_for_leaving}` : ""}
+                                        </p>
+                                    </div>
+                                    {editSchools && (
+                                        <button onClick={() => handleDeleteSchool(s.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-colors border border-transparent hover:border-rose-100">
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="italic text-zinc-400 text-center py-6">No previous school history logged.</p>
+                )}
+            </div>
+
+            {/* 3. ACTIVITIES & LANGUAGES */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Activities Card */}
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative transition-all duration-200">
+                    <div className="absolute top-6 right-6">
+                        <button onClick={() => setEditActivities(!editActivities)} className="p-2 hover:bg-zinc-50 rounded-xl text-zinc-400">
+                            {editActivities ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+                        </button>
+                    </div>
+
+                    <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-6 tracking-tight flex items-center gap-2">
+                        <Activity className="h-5 w-5 text-indigo-500 shrink-0" />
+                        Activities
+                    </h3>
+
+                    {editActivities && (
+                        <div className="bg-zinc-50 dark:bg-zinc-800/40 border rounded-2xl p-4 mb-4 space-y-3">
+                            <div className="grid grid-cols-2 gap-2">
+                                <Field label="Activity Name"><input type="text" value={newActivity?.activity_name || ""} onChange={e => setNewActivity((p: any) => ({ ...p, activity_name: e.target.value }))} className="w-full h-8 px-2 text-[12px] bg-white border rounded-lg uppercase" /></Field>
+                                <Field label="Grade"><input type="text" value={newActivity?.grade || ""} onChange={e => setNewActivity((p: any) => ({ ...p, grade: e.target.value }))} className="w-full h-8 px-2 text-[12px] bg-white border rounded-lg uppercase" /></Field>
+                                <div className="col-span-2">
+                                    <Field label="Awards"><input type="text" value={newActivity?.honors_awards || ""} onChange={e => setNewActivity((p: any) => ({ ...p, honors_awards: e.target.value }))} className="w-full h-8 px-2 text-[12px] bg-white border rounded-lg uppercase" /></Field>
+                                </div>
+                            </div>
+                            <button onClick={handleAddActivity} className="px-3 h-8 bg-indigo-600 text-white rounded-lg text-[10px] font-bold">Add</button>
+                        </div>
+                    )}
+
+                    <div className="space-y-3">
+                        {activities.map(a => (
+                            <div key={a.id} className="p-3 bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-100 dark:border-zinc-800 rounded-xl flex items-center justify-between gap-3">
+                                <div>
+                                    <h4 className="font-bold text-zinc-800 dark:text-zinc-200 uppercase text-[13px]">{a.activity_name}</h4>
+                                    <p className="text-[10px] text-zinc-400 font-bold uppercase mt-0.5">Grade: {a.grade || "N/A"} {a.honors_awards ? `· Award: ${a.honors_awards}` : ""}</p>
+                                </div>
+                                {editActivities && (
+                                    <button onClick={() => handleDeleteActivity(a.id)} className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg">
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                        {activities.length === 0 && (
+                            <p className="italic text-zinc-400 text-center py-4 text-sm">No extracurricular activities logged.</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Languages Card */}
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative transition-all duration-200">
+                    <div className="absolute top-6 right-6">
+                        <button onClick={() => setEditLanguages(!editLanguages)} className="p-2 hover:bg-zinc-50 rounded-xl text-zinc-400">
+                            {editLanguages ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+                        </button>
+                    </div>
+
+                    <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-6 tracking-tight flex items-center gap-2">
+                        <Languages className="h-5 w-5 text-indigo-500 shrink-0" />
+                        Languages
+                    </h3>
+
+                    {editLanguages && (
+                        <div className="bg-zinc-50 dark:bg-zinc-800/40 border rounded-2xl p-4 mb-4 space-y-3">
+                            <Field label="Language"><input type="text" value={newLanguage?.language_name || ""} onChange={e => setNewLanguage((p: any) => ({ ...p, language_name: e.target.value }))} className="w-full h-8 px-2 text-[12px] bg-white border rounded-lg uppercase" /></Field>
+                            <div className="flex gap-4">
+                                <label className="flex items-center gap-1.5"><input type="checkbox" checked={!!newLanguage?.can_speak} onChange={e => setNewLanguage((p: any) => ({ ...p, can_speak: e.target.checked }))} /> <span className="text-[11px] font-bold text-zinc-500">Speak</span></label>
+                                <label className="flex items-center gap-1.5"><input type="checkbox" checked={!!newLanguage?.can_read} onChange={e => setNewLanguage((p: any) => ({ ...p, can_read: e.target.checked }))} /> <span className="text-[11px] font-bold text-zinc-500">Read</span></label>
+                                <label className="flex items-center gap-1.5"><input type="checkbox" checked={!!newLanguage?.can_write} onChange={e => setNewLanguage((p: any) => ({ ...p, can_write: e.target.checked }))} /> <span className="text-[11px] font-bold text-zinc-500">Write</span></label>
+                            </div>
+                            <button onClick={handleAddLanguage} className="px-3 h-8 bg-indigo-600 text-white rounded-lg text-[10px] font-bold">Add</button>
+                        </div>
+                    )}
+
+                    <div className="space-y-3">
+                        {languages.map(l => (
+                            <div key={l.id} className="p-3 bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-100 dark:border-zinc-800 rounded-xl flex items-center justify-between gap-3">
+                                <div>
+                                    <h4 className="font-bold text-zinc-800 dark:text-zinc-200 uppercase text-[13px]">{l.language_name}</h4>
+                                    <div className="flex gap-2 mt-1">
+                                        {l.can_speak && <span className="text-[9px] bg-indigo-50 border border-indigo-100 text-indigo-600 px-1.5 rounded uppercase font-black">Speak</span>}
+                                        {l.can_read && <span className="text-[9px] bg-emerald-50 border border-emerald-100 text-emerald-600 px-1.5 rounded uppercase font-black">Read</span>}
+                                        {l.can_write && <span className="text-[9px] bg-purple-50 border border-purple-100 text-purple-600 px-1.5 rounded uppercase font-black">Write</span>}
+                                    </div>
+                                </div>
+                                {editLanguages && (
+                                    <button onClick={() => handleDeleteLanguage(l.id)} className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg">
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                        {languages.length === 0 && (
+                            <p className="italic text-zinc-400 text-center py-4 text-sm">No spoken languages logged.</p>
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

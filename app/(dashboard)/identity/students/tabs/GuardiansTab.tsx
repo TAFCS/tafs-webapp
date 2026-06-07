@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2, Search, Link, X as XIcon, User, RefreshCw, MapPin, Camera, ShieldAlert } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2, Search, Link, X as XIcon, User, RefreshCw, MapPin, Camera, ShieldAlert, Pencil } from "lucide-react";
 import { ChangeFamilyModal } from "@/src/features/students/components/student-profile-modal";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
@@ -512,6 +512,8 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
         } finally { setSaving(false); }
     };
 
+    const [editAddress, setEditAddress] = useState(false);
+
     const set = (k: string, v: any) => setNewG((p: any) => ({ ...p, [k]: v }));
 
     const setAddr = (k: string, v: any) => {
@@ -529,6 +531,7 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
             setSavedAddr(true);
             setTimeout(() => setSavedAddr(false), 3000);
             setIsAddrDirty(false);
+            setEditAddress(false);
 
             // Update all local guardians to keep UI in sync
             setGuardians(prev => prev.map(g => ({ ...g, ...familyAddress })));
@@ -909,61 +912,101 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                 {/* Unified Family Address Section */}
                 {guardians.length > 0 && (
                     <div className="mt-8 pt-6 border-t border-zinc-100 animate-in fade-in slide-in-from-bottom-2 duration-700">
-                        <div className="bg-zinc-50 border border-zinc-200 rounded-3xl p-6 space-y-5">
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <h3 className="text-[11px] font-black text-zinc-900 uppercase tracking-widest">Family Mailing Address</h3>
-                                    <p className="text-[10px] text-zinc-400 font-bold uppercase">This address applies to Father, Mother, and all guardians</p>
-                                </div>
-                                <div className="flex items-center justify-between pt-2">
-                                    <div className="flex items-center gap-4">
-                                        <Toggle
-                                            label="Apply to all household members"
-                                            checked={syncToHousehold}
-                                            onChange={setSyncToHousehold}
-                                        />
-                                        {syncToHousehold && (
-                                            <span className="text-[9px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded uppercase animate-pulse">
-                                                Bulk Sync Enabled
-                                            </span>
-                                        )}
-                                    </div>
-                                    <button
-                                        onClick={saveFamilyAddress}
-                                        disabled={savingAddr || (!isAddrDirty && !savedAddr)}
-                                        className={`flex items-center gap-1.5 px-6 h-9 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all shadow-lg ${savedAddr ? "bg-emerald-500 text-white shadow-emerald-200" : "bg-primary text-white shadow-primary/20 hover:bg-primary/90 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:scale-100"}`}
-                                    >
-                                        {savingAddr ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedAddr ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
-                                        {savingAddr ? "Submitting..." : savedAddr ? "Submitted" : "Save All Addresses"}
-                                    </button>
-                                </div>
+                        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative transition-all duration-200">
+                            <div className="absolute top-6 right-6">
+                                {editAddress ? (
+                                    <button onClick={() => setEditAddress(false)} className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl"><XIcon className="h-4 w-4" /></button>
+                                ) : (
+                                    <button onClick={() => setEditAddress(true)} className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"><Pencil className="h-4 w-4" /></button>
+                                )}
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <div className="md:col-span-2 lg:col-span-2">
-                                    <Field label="House / Apartment Name and No.">
-                                        <Input value={familyAddress.house_appt_name} onChange={v => setAddr("house_appt_name", v)} />
-                                    </Field>
+                            <h3 className="text-[16px] font-extrabold text-zinc-950 dark:text-zinc-100 tracking-tight flex items-center gap-2 mb-1">
+                                <MapPin className="h-5 w-5 text-indigo-600 shrink-0" />
+                                <span>FAMILY MAILING ADDRESS</span>
+                            </h3>
+                            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-6">THIS ADDRESS APPLIES TO FATHER, MOTHER, AND ALL GUARDIANS</p>
+
+                            {editAddress ? (
+                                <div className="space-y-5 animate-in fade-in duration-200">
+                                    <div className="flex items-center justify-between flex-wrap gap-4 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                                        <div className="flex items-center gap-4 shrink-0">
+                                            <Toggle label="Apply to all household members" checked={syncToHousehold} onChange={setSyncToHousehold} />
+                                        </div>
+                                        <button 
+                                            onClick={saveFamilyAddress} 
+                                            className="flex items-center gap-1.5 px-4 h-10 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-extrabold rounded-xl shadow-sm uppercase tracking-wider"
+                                        >
+                                            {savingAddr ? "..." : "Save All Addresses"}
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <Field label="House / Apartment Name and No.">
+                                            <Input value={familyAddress.house_appt_name} onChange={v => setAddr("house_appt_name", v)} />
+                                        </Field>
+                                        <Field label="Area and Block #">
+                                            <Input value={familyAddress.area_block} onChange={v => setAddr("area_block", v)} />
+                                        </Field>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 col-span-1 md:col-span-2">
+                                            <Field label="City">
+                                                <Input value={familyAddress.city} onChange={v => setAddr("city", v)} />
+                                            </Field>
+                                            <Field label="Postal Code">
+                                                <Input value={familyAddress.postal_code} onChange={v => setAddr("postal_code", v)} />
+                                            </Field>
+                                            <Field label="Province">
+                                                <Input value={familyAddress.province} onChange={v => setAddr("province", v)} />
+                                            </Field>
+                                            <Field label="Country">
+                                                <Input value={familyAddress.country} onChange={v => setAddr("country", v)} />
+                                            </Field>
+                                        </div>
+                                        <div className="col-span-1 md:col-span-2">
+                                            <Field label="Family Home Phone #">
+                                                <PhoneInput value={familyAddress.work_phone} onChange={v => setAddr("work_phone", v)} />
+                                            </Field>
+                                        </div>
+                                    </div>
                                 </div>
-                                <Field label="Area and Block #">
-                                    <Input value={familyAddress.area_block} onChange={v => setAddr("area_block", v)} />
-                                </Field>
-                                <Field label="City">
-                                    <Input value={familyAddress.city} onChange={v => setAddr("city", v)} />
-                                </Field>
-                                <Field label="Postal Code">
-                                    <Input value={familyAddress.postal_code} onChange={v => setAddr("postal_code", v)} />
-                                </Field>
-                                <Field label="Province">
-                                    <Input value={familyAddress.province} onChange={v => setAddr("province", v)} />
-                                </Field>
-                                <Field label="Country">
-                                    <Input value={familyAddress.country} onChange={v => setAddr("country", v)} />
-                                </Field>
-                                <Field label="Family Home Phone #">
-                                    <PhoneInput value={familyAddress.work_phone} onChange={v => setAddr("work_phone", v)} />
-                                </Field>
-                            </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-y-4 gap-x-6 animate-in fade-in duration-200">
+                                    <div>
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">House / Apartment Name and No.</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{familyAddress.house_appt_name || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Area and Block #</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{familyAddress.area_block || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">City</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{familyAddress.city || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Postal Code</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{familyAddress.postal_code || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Province</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{familyAddress.province || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Country</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{familyAddress.country || "N/A"}</p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Family Home Phone #</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1 flex items-center gap-2">
+                                            {isNA(familyAddress.work_phone) ? (
+                                                <span className="px-1.5 py-0.5 text-[9px] font-black bg-indigo-600 text-white rounded-md uppercase">N/A</span>
+                                            ) : (
+                                                familyAddress.work_phone
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
