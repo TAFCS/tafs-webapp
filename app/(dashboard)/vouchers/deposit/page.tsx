@@ -866,7 +866,7 @@ function PartiallyPaidModal({
 
                     <div className="flex items-center justify-between pt-1">
                         <p className="text-[11px] text-zinc-400 max-w-xs">
-                            The original voucher stays in the system unchanged. A PAID-stamped PDF will be downloaded for the deposited amount.
+                            This voids the original voucher and replaces it with two new ones — a PAID voucher for the settled amount and an UNPAID voucher for the remaining balance. A PAID-stamped PDF will be downloaded for the settled amount.
                         </p>
                         <div className="flex gap-3">
                             <button

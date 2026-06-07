@@ -168,7 +168,16 @@ function ReverseDepositModal({
         setIsLoading(true);
         const loadingToast = toast.loading("Reversing deposit...");
         try {
-            await api.delete(`/v1/deposits/${deposit.id}`);
+            // Clear this deposit's allocations voucher-by-voucher via /clear-deposit —
+            // it recalculates each voucher from its remaining allocations (correct even
+            // when other deposits still exist against it) and properly reactivates/cleans
+            // up split artifacts, unlike the blanket-reset /v1/deposits/:id DELETE route.
+            const voucherIds = [...new Set(
+                deposit.allocations.map(a => a.voucher_id).filter((v): v is number => v != null)
+            )];
+            for (const voucherId of voucherIds) {
+                await api.post(`/v1/vouchers/${voucherId}/clear-deposit`, { depositId: deposit.id });
+            }
             toast.dismiss(loadingToast);
             toast.success("Deposit reversed and removed successfully");
             onSuccess();
@@ -209,11 +218,10 @@ function ReverseDepositModal({
                         <div className="space-y-2">
                             <p className="text-sm font-black text-rose-800 dark:text-rose-300">Destructive — cannot be undone without manual intervention</p>
                             <ul className="text-xs text-rose-700 dark:text-rose-400 leading-relaxed space-y-1 list-disc list-inside">
-                                <li>Deposit record and all allocations will be permanently deleted</li>
-                                <li>Affected voucher(s) will revert to UNPAID status</li>
-                                <li>Voucher heads will be reset to their pre-payment state</li>
-                                <li>Fee heads (including installments) will revert to ISSUED</li>
-                                <li>Issue / due / validity dates on affected records will be cleared</li>
+                                <li>This deposit's allocations will be permanently deleted and its amount removed from each affected voucher</li>
+                                <li>Affected vouchers and fee heads are recalculated from whatever payment history remains — fully reverting to UNPAID/ISSUED only if this was their only deposit</li>
+                                <li>A voucher that became fully PAID via a split will be restored and its balance counterpart cleaned up</li>
+                                <li>Issue / due / validity dates are cleared only on fee heads left with no remaining payment</li>
                             </ul>
                         </div>
                     </div>
