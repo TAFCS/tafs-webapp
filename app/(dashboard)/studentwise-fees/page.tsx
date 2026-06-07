@@ -360,6 +360,7 @@ function StudentwiseFeeEditor() {
     }, [rows, activeCell]);
 
     const user = useAppSelector((s) => s.auth.user);
+    const canResetAllHeads = user?.username === "muhammad.hassan.mirza";
     const selectedClass = useMemo(() => {
         if (selectedClassId === "") return null;
         return classes.find(c => c.id === selectedClassId);
@@ -2650,7 +2651,7 @@ function StudentwiseFeeEditor() {
                 </div>
             )}
             {/* Bottom Admin Actions */}
-            {studentId && (
+            {studentId && canResetAllHeads && (
                 <div className="flex justify-end mt-8 mb-4">
                     <button
                         onClick={() => setShowResetModal(true)}
@@ -2708,7 +2709,7 @@ function StudentwiseFeeEditor() {
             )}
 
             {/* Reset All Heads Confirmation Modal */}
-            {showResetModal && (
+            {showResetModal && canResetAllHeads && (
                 <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
                     <div className="bg-white dark:bg-zinc-950 border border-rose-200 dark:border-rose-900 rounded-3xl shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
                         {/* Header */}

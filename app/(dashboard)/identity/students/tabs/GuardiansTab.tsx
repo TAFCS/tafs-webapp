@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2, Search, Link, X as XIcon, User, RefreshCw, MapPin, Camera, ShieldAlert } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2, Search, Link, X as XIcon, User, RefreshCw, MapPin, Camera, ShieldAlert, Pencil } from "lucide-react";
 import { ChangeFamilyModal } from "@/src/features/students/components/student-profile-modal";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
@@ -91,10 +91,8 @@ const RELATIONSHIPS = ["FATHER", "MOTHER", "GUARDIAN", "UNCLE", "AUNT", "GRANDFA
 
 function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { studentCc: number; guardian: any; onSaved: (g: any) => void; onRemoved: () => void; onReload: () => void }) {
     const [local, setLocal] = useState(guardian);
-    const [savingInfo, setSavingInfo] = useState(false);
-    const [savingRel, setSavingRel] = useState(false);
-    const [savedInfo, setSavedInfo] = useState(false);
-    const [savedRel, setSavedRel] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
     const [removing, setRemoving] = useState(false);
     const [expanded, setExpanded] = useState(false);
 
@@ -116,40 +114,42 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
         !!local.is_primary_contact !== !!guardian.is_primary_contact ||
         !!local.is_emergency_contact !== !!guardian.is_emergency_contact;
 
-    const saveGuardianInfo = async () => {
-        setSavingInfo(true);
+    const handleSave = async () => {
+        if (!isInfoDirty && !isRelDirty) return;
+        setSaving(true);
         try {
-            const { data } = await api.patch(`/v1/staff-editing/guardians/${guardian.guardian_id}`, {
-                full_name: local.full_name,
-                cnic: local.cnic,
-                primary_phone: local.primary_phone,
-                whatsapp_number: local.whatsapp_number,
-                occupation: local.occupation,
-                email_address: local.email_address,
-                additional_phones: local.additional_phones || [],
-            });
-            setSavedInfo(true);
-            setTimeout(() => setSavedInfo(false), 3000);
-            onSaved(data?.data);
+            const promises = [];
+            if (isInfoDirty) {
+                promises.push(
+                    api.patch(`/v1/staff-editing/guardians/${guardian.guardian_id}`, {
+                        full_name: local.full_name,
+                        cnic: local.cnic,
+                        primary_phone: local.primary_phone,
+                        whatsapp_number: local.whatsapp_number,
+                        occupation: local.occupation,
+                        email_address: local.email_address,
+                        additional_phones: local.additional_phones || [],
+                    })
+                );
+            }
+            if (isRelDirty) {
+                promises.push(
+                    api.patch(`/v1/staff-editing/students/${studentCc}/guardians/${guardian.guardian_id}`, {
+                        relationship: local.relationship.toUpperCase(),
+                        is_primary_contact: local.is_primary_contact,
+                        is_emergency_contact: local.is_emergency_contact,
+                    })
+                );
+            }
+            await Promise.all(promises);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+            onReload();
         } catch (e) {
-            alert("Failed to update guardian information");
-        } finally { setSavingInfo(false); }
-    };
-
-    const saveRelationship = async () => {
-        setSavingRel(true);
-        try {
-            const { data } = await api.patch(`/v1/staff-editing/students/${studentCc}/guardians/${guardian.guardian_id}`, {
-                relationship: local.relationship.toUpperCase(),
-                is_primary_contact: local.is_primary_contact,
-                is_emergency_contact: local.is_emergency_contact,
-            });
-            setSavedRel(true);
-            setTimeout(() => setSavedRel(false), 3000);
-            onSaved(data?.data);
-        } catch (e) {
-            alert("Failed to update relationship");
-        } finally { setSavingRel(false); }
+            alert("Failed to save changes");
+        } finally {
+            setSaving(false);
+        }
     };
 
     const remove = async () => {
@@ -176,7 +176,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         <p className="font-bold text-[13px] text-zinc-900 truncate uppercase">{local.full_name || "UNNAMED"}</p>
-                        {(isInfoDirty || isRelDirty) && <span className="text-[8px] font-black px-1 py-0.5 bg-amber-100 text-amber-600 rounded uppercase">Dirty</span>}
+                        {(isInfoDirty || isRelDirty) && <span className="text-[8px] font-black px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded uppercase">Dirty</span>}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap mt-0.5">
                         <span className="text-[10px] font-bold text-zinc-400 uppercase">{local.relationship}</span>
@@ -200,11 +200,25 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
 
             {expanded && (
                 <div className="px-4 pb-4 border-t border-zinc-100 space-y-4 pt-4 bg-white/50">
+                    <div className="flex gap-2 pb-3 border-b border-zinc-100">
+                        <button
+                            onClick={handleSave}
+                            disabled={saving || (saved && !isInfoDirty && !isRelDirty)}
+                            className={`flex items-center gap-1.5 px-4 h-8 text-[11px] font-bold text-white rounded-xl transition-all ${saved ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}
+                        >
+                            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : saved ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
+                            {saving ? "Submitting..." : saved ? "Submitted" : "Save Changes"}
+                        </button>
+                        <button onClick={remove} disabled={removing} className="flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 disabled:opacity-50 transition-all">
+                            {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Unlink
+                        </button>
+                    </div>
+
                     {/* Relationship & Flags */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Relationship & Flags</p>
-                            {isRelDirty && !savedRel && <span className="text-[9px] font-bold text-amber-600">Unsaved changes</span>}
+                            {isRelDirty && !saved && <span className="text-[9px] font-bold text-amber-600">Unsaved changes</span>}
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div className="col-span-2">
@@ -228,20 +242,12 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                             <Toggle label="Primary Contact" checked={!!local.is_primary_contact} onChange={v => set("is_primary_contact", v)} />
                             <Toggle label="Emergency Contact" checked={!!local.is_emergency_contact} onChange={v => set("is_emergency_contact", v)} />
                         </div>
-                        <button
-                            onClick={saveRelationship}
-                            disabled={savingRel || (savedRel && !isRelDirty)}
-                            className={`flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-white rounded-xl transition-all ${savedRel ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}
-                        >
-                            {savingRel ? <Loader2 className="h-3 w-3 animate-spin" /> : savedRel ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
-                            {savingRel ? "Submitting..." : savedRel ? "Submitted" : "Save Relationship"}
-                        </button>
                     </div>
 
                     <div className="border-t border-zinc-100 pt-4 space-y-3">
                         <div className="flex items-center justify-between">
                             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Personal Information</p>
-                            {isInfoDirty && !savedInfo && <span className="text-[9px] font-bold text-amber-600">Unsaved changes</span>}
+                            {isInfoDirty && !saved && <span className="text-[9px] font-bold text-amber-600">Unsaved changes</span>}
                         </div>
 
                         <div className="pb-2 border-b border-zinc-50 mb-1">
@@ -314,23 +320,9 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                                     </div>
                                 ))}
                                 {(!local.additional_phones || local.additional_phones.length === 0) && (
-                                    <p className="text-[10px] text-zinc-400 italic py-2 text-center border border-dashed border-zinc-100 rounded-xl">No additional numbers saved.</p>
+                                    <p className="text-[10px] text-zinc-405 italic py-2 text-center border border-dashed border-zinc-100 rounded-xl">No additional numbers saved.</p>
                                 )}
                             </div>
-                        </div>
-
-                        <div className="flex gap-2 pt-1">
-                            <button
-                                onClick={saveGuardianInfo}
-                                disabled={savingInfo || (savedInfo && !isInfoDirty)}
-                                className={`flex items-center gap-1.5 px-4 h-8 text-[11px] font-bold text-white rounded-xl transition-all ${savedInfo ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}
-                            >
-                                {savingInfo ? <Loader2 className="h-3 w-3 animate-spin" /> : savedInfo ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
-                                {savingInfo ? "Submitting..." : savedInfo ? "Submitted" : "Save Info"}
-                            </button>
-                            <button onClick={remove} disabled={removing} className="flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 disabled:opacity-50 transition-all">
-                                {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Unlink
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -512,6 +504,8 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
         } finally { setSaving(false); }
     };
 
+    const [editAddress, setEditAddress] = useState(false);
+
     const set = (k: string, v: any) => setNewG((p: any) => ({ ...p, [k]: v }));
 
     const setAddr = (k: string, v: any) => {
@@ -529,6 +523,7 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
             setSavedAddr(true);
             setTimeout(() => setSavedAddr(false), 3000);
             setIsAddrDirty(false);
+            setEditAddress(false);
 
             // Update all local guardians to keep UI in sync
             setGuardians(prev => prev.map(g => ({ ...g, ...familyAddress })));
@@ -909,61 +904,101 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                 {/* Unified Family Address Section */}
                 {guardians.length > 0 && (
                     <div className="mt-8 pt-6 border-t border-zinc-100 animate-in fade-in slide-in-from-bottom-2 duration-700">
-                        <div className="bg-zinc-50 border border-zinc-200 rounded-3xl p-6 space-y-5">
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <h3 className="text-[11px] font-black text-zinc-900 uppercase tracking-widest">Family Mailing Address</h3>
-                                    <p className="text-[10px] text-zinc-400 font-bold uppercase">This address applies to Father, Mother, and all guardians</p>
-                                </div>
-                                <div className="flex items-center justify-between pt-2">
-                                    <div className="flex items-center gap-4">
-                                        <Toggle
-                                            label="Apply to all household members"
-                                            checked={syncToHousehold}
-                                            onChange={setSyncToHousehold}
-                                        />
-                                        {syncToHousehold && (
-                                            <span className="text-[9px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded uppercase animate-pulse">
-                                                Bulk Sync Enabled
-                                            </span>
-                                        )}
-                                    </div>
-                                    <button
-                                        onClick={saveFamilyAddress}
-                                        disabled={savingAddr || (!isAddrDirty && !savedAddr)}
-                                        className={`flex items-center gap-1.5 px-6 h-9 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all shadow-lg ${savedAddr ? "bg-emerald-500 text-white shadow-emerald-200" : "bg-primary text-white shadow-primary/20 hover:bg-primary/90 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:scale-100"}`}
-                                    >
-                                        {savingAddr ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedAddr ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
-                                        {savingAddr ? "Submitting..." : savedAddr ? "Submitted" : "Save All Addresses"}
-                                    </button>
-                                </div>
+                        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative transition-all duration-200">
+                            <div className="absolute top-6 right-6">
+                                {editAddress ? (
+                                    <button onClick={() => setEditAddress(false)} className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl"><XIcon className="h-4 w-4" /></button>
+                                ) : (
+                                    <button onClick={() => setEditAddress(true)} className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"><Pencil className="h-4 w-4" /></button>
+                                )}
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <div className="md:col-span-2 lg:col-span-2">
-                                    <Field label="House / Apartment Name and No.">
-                                        <Input value={familyAddress.house_appt_name} onChange={v => setAddr("house_appt_name", v)} />
-                                    </Field>
+                            <h3 className="text-[16px] font-extrabold text-zinc-950 dark:text-zinc-100 tracking-tight flex items-center gap-2 mb-1">
+                                <MapPin className="h-5 w-5 text-indigo-600 shrink-0" />
+                                <span>FAMILY MAILING ADDRESS</span>
+                            </h3>
+                            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-6">THIS ADDRESS APPLIES TO FATHER, MOTHER, AND ALL GUARDIANS</p>
+
+                            {editAddress ? (
+                                <div className="space-y-5 animate-in fade-in duration-200">
+                                    <div className="flex items-center justify-between flex-wrap gap-4 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                                        <div className="flex items-center gap-4 shrink-0">
+                                            <Toggle label="Apply to all household members" checked={syncToHousehold} onChange={setSyncToHousehold} />
+                                        </div>
+                                        <button 
+                                            onClick={saveFamilyAddress} 
+                                            className="flex items-center gap-1.5 px-4 h-10 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-extrabold rounded-xl shadow-sm uppercase tracking-wider"
+                                        >
+                                            {savingAddr ? "..." : "Save All Addresses"}
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <Field label="House / Apartment Name and No.">
+                                            <Input value={familyAddress.house_appt_name} onChange={v => setAddr("house_appt_name", v)} />
+                                        </Field>
+                                        <Field label="Area and Block #">
+                                            <Input value={familyAddress.area_block} onChange={v => setAddr("area_block", v)} />
+                                        </Field>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 col-span-1 md:col-span-2">
+                                            <Field label="City">
+                                                <Input value={familyAddress.city} onChange={v => setAddr("city", v)} />
+                                            </Field>
+                                            <Field label="Postal Code">
+                                                <Input value={familyAddress.postal_code} onChange={v => setAddr("postal_code", v)} />
+                                            </Field>
+                                            <Field label="Province">
+                                                <Input value={familyAddress.province} onChange={v => setAddr("province", v)} />
+                                            </Field>
+                                            <Field label="Country">
+                                                <Input value={familyAddress.country} onChange={v => setAddr("country", v)} />
+                                            </Field>
+                                        </div>
+                                        <div className="col-span-1 md:col-span-2">
+                                            <Field label="Family Home Phone #">
+                                                <PhoneInput value={familyAddress.work_phone} onChange={v => setAddr("work_phone", v)} />
+                                            </Field>
+                                        </div>
+                                    </div>
                                 </div>
-                                <Field label="Area and Block #">
-                                    <Input value={familyAddress.area_block} onChange={v => setAddr("area_block", v)} />
-                                </Field>
-                                <Field label="City">
-                                    <Input value={familyAddress.city} onChange={v => setAddr("city", v)} />
-                                </Field>
-                                <Field label="Postal Code">
-                                    <Input value={familyAddress.postal_code} onChange={v => setAddr("postal_code", v)} />
-                                </Field>
-                                <Field label="Province">
-                                    <Input value={familyAddress.province} onChange={v => setAddr("province", v)} />
-                                </Field>
-                                <Field label="Country">
-                                    <Input value={familyAddress.country} onChange={v => setAddr("country", v)} />
-                                </Field>
-                                <Field label="Family Home Phone #">
-                                    <PhoneInput value={familyAddress.work_phone} onChange={v => setAddr("work_phone", v)} />
-                                </Field>
-                            </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-y-4 gap-x-6 animate-in fade-in duration-200">
+                                    <div>
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">House / Apartment Name and No.</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{familyAddress.house_appt_name || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Area and Block #</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{familyAddress.area_block || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">City</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{familyAddress.city || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Postal Code</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{familyAddress.postal_code || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Province</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{familyAddress.province || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Country</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{familyAddress.country || "N/A"}</p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Family Home Phone #</p>
+                                        <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1 flex items-center gap-2">
+                                            {isNA(familyAddress.work_phone) ? (
+                                                <span className="px-1.5 py-0.5 text-[9px] font-black bg-indigo-600 text-white rounded-md uppercase">N/A</span>
+                                            ) : (
+                                                familyAddress.work_phone
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

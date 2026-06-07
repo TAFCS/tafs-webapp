@@ -1,23 +1,38 @@
 "use client";
-import { useState } from "react";
-import { Plus, Trash2, Save, Loader2, CheckCircle2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Trash2, Save, Loader2, CheckCircle2, Pencil, Calendar, BookOpen, Layers, X } from "lucide-react";
 import api from "@/lib/api";
 
-function RowSaveBtn({ onSave, isSaving, saved, isDirty }: { onSave: () => void; isSaving: boolean; saved: boolean; isDirty: boolean }) {
-    if (!isDirty && !isSaving && !saved) return null;
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-        <button
-            onClick={onSave}
-            disabled={isSaving || (saved && !isDirty)}
-            className={`flex items-center gap-1.5 px-3 h-7 text-[11px] font-bold text-white rounded-lg transition-all ${saved ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}
-        >
-            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : saved ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
-            {isSaving ? "Submitting..." : saved ? "Submitted" : "Save"}
-        </button>
+        <div>
+            <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">{label}</label>
+            {children}
+        </div>
     );
 }
 
-const EMPTY_ADMISSION = { academic_system: "", academic_year: "", application_date: "", discipline: "" };
+function Input({ value, onChange, type = "text", placeholder }: { value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) {
+    return (
+        <input type={type} value={value ?? ""}
+            onChange={e => onChange(type === "date" ? e.target.value : e.target.value.toUpperCase())}
+            placeholder={placeholder}
+            className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all uppercase" />
+    );
+}
+
+function Select({ value, onChange, options, placeholder }: { value: string; onChange: (v: string) => void; options: { label: string; value: string }[]; placeholder?: string }) {
+    return (
+        <select
+            value={value ?? ""}
+            onChange={e => onChange(e.target.value)}
+            className="w-full h-10 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all appearance-none"
+        >
+            <option value="">{placeholder || "Select"}</option>
+            {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+    );
+}
 
 const DISCIPLINES = [
     { label: "Pre-Medical", value: "Pre-Medical" },
@@ -27,142 +42,42 @@ const DISCIPLINES = [
     { label: "Humanities", value: "Humanities" },
 ];
 
-function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
-    return (
-        <div className={className}>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">{label}</label>
-            {children}
-        </div>
-    );
-}
-
-function Select({ value, onChange, options, placeholder }: { value: string; onChange: (v: string) => void; options: { label: string; value: string }[]; placeholder?: string }) {
-    return (
-        <select
-            value={value ?? ""}
-            onChange={e => onChange(e.target.value)}
-            className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all appearance-none"
-        >
-            <option value="">{placeholder || "Select"}</option>
-            {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-    );
-}
-
-function Input({ value, onChange, type = "text", placeholder }: { value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) {
-    return (
-        <input type={type} value={value ?? ""}
-            onChange={e => onChange(type === "date" ? e.target.value : e.target.value.toUpperCase())}
-            placeholder={placeholder}
-            className="w-full h-9 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all uppercase" />
-    );
-}
-
-function AdmissionRow({ admission, studentCc, classes, onSaved, onDeleted, onReload }: { admission: any; studentCc: number; classes: any[]; onSaved: (a: any) => void; onDeleted: () => void; onReload: () => void }) {
-    const [local, setLocal] = useState(admission);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
-    const [removing, setRemoving] = useState(false);
-
-    const isDirty = (local.academic_system || "") !== (admission.academic_system || "") ||
-        (local.academic_year || "") !== (admission.academic_year || "") ||
-        (local.discipline || "") !== (admission.discipline || "") ||
-        (local.application_date ? new Date(local.application_date).toISOString().split("T")[0] : "") !==
-        (admission.application_date ? new Date(admission.application_date).toISOString().split("T")[0] : "");
-
-    const systems = Array.from(new Set(classes.map(c => c.academic_system))).filter(Boolean).map(s => ({ label: s, value: s }));
-
-    const set = (k: string, v: string) => setLocal((p: any) => ({ ...p, [k]: v }));
-
-    const save = async () => {
-        setSaving(true);
-        try {
-            const { data } = await api.post(`/v1/staff-editing/students/${studentCc}/admissions`, {
-                ...local,
-                requested_grade: local.requested_grade ?? admission.requested_grade ?? "",
-            });
-            setSaved(true);
-            setTimeout(() => setSaved(false), 3000);
-            onSaved(data?.data);
-            onReload();
-        } catch (e) {
-            alert("Failed to save admission record");
-        } finally { setSaving(false); }
-    };
-
-    const remove = async () => {
-        if (!confirm("Are you sure you want to delete this admission record?")) return;
-        setRemoving(true);
-        try {
-            await api.delete(`/v1/staff-editing/admissions/${local.id}`);
-            onDeleted();
-            onReload();
-        } catch (e) {
-            alert("Failed to delete record");
-        } finally { setRemoving(false); }
-    };
-
-    return (
-        <div className={`bg-white border rounded-2xl p-4 space-y-3 transition-all ${isDirty ? "border-amber-200 shadow-sm" : "border-zinc-100"}`}>
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">RECORD #{admission.id}</span>
-                    {isDirty && !saved && <span className="text-[9px] font-bold text-amber-600 animate-pulse">Unsaved</span>}
-                </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-                <Field label="Academic System"><Select value={local.academic_system ?? ""} onChange={v => set("academic_system", v)} options={systems} placeholder="Select System" /></Field>
-                <Field label="Discipline"><Select value={local.discipline ?? ""} onChange={v => set("discipline", v)} options={DISCIPLINES} placeholder="Select Discipline (Optional)" /></Field>
-                <Field label="Admission Taken In"><Input value={local.academic_year ?? ""} onChange={v => set("academic_year", v)} placeholder="e.g. 2024-25" /></Field>
-                <Field label="Application Date"><Input type="date" value={local.application_date ? new Date(local.application_date).toISOString().split("T")[0] : ""} onChange={v => set("application_date", v)} /></Field>
-            </div>
-            <div className="flex gap-2 pt-1">
-                <button
-                    onClick={save}
-                    disabled={saving || (saved && !isDirty)}
-                    className={`flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-white rounded-xl transition-all ${saved ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}
-                >
-                    {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : saved ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
-                    {saving ? "Submitting..." : saved ? "Submitted" : "Save Changes"}
-                </button>
-                <button onClick={remove} disabled={saving || removing} className="flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 disabled:opacity-50 transition-all">
-                    {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                </button>
-            </div>
-        </div>
-    );
-}
-
 export function AdmissionsTab({ student, onReload, classes = [] }: { student: any; onReload: () => void; classes?: any[] }) {
     const [admissions, setAdmissions] = useState<any[]>(student.admissions || []);
     const [studentYear, setStudentYear] = useState(student.academic_year || "");
+    const [studentDoa, setStudentDoa] = useState(student.date_of_admission ? new Date(student.date_of_admission).toISOString().split("T")[0] : "");
     const [savingYear, setSavingYear] = useState(false);
     const [savedYear, setSavedYear] = useState(false);
-    const [studentDoa, setStudentDoa] = useState(
-        student.date_of_admission
-            ? new Date(student.date_of_admission).toISOString().split("T")[0]
-            : ""
-    );
+    const [editGeneral, setEditGeneral] = useState(false);
 
-    const isGeneralDirty =
-        studentYear !== (student.academic_year || "") ||
-        studentDoa !== (student.date_of_admission
-            ? new Date(student.date_of_admission).toISOString().split("T")[0]
-            : "");
+    const [newRow, setNewRow] = useState<any | null>(null);
+    const [savingNew, setSavingNew] = useState(false);
+    const [savedNew, setSavedNew] = useState(false);
+
+    // Edit states for existing admissions
+    const [editingAdmissionId, setEditingAdmissionId] = useState<number | null>(null);
+    const [editAdmissionState, setEditAdmissionState] = useState<any>({});
+
+    useEffect(() => {
+        setAdmissions(student.admissions || []);
+        setStudentYear(student.academic_year || "");
+        setStudentDoa(student.date_of_admission ? new Date(student.date_of_admission).toISOString().split("T")[0] : "");
+    }, [student]);
+
     const saveStudentYear = async () => {
         setSavingYear(true);
         try {
             await api.patch(`/v1/staff-editing/students/${student.cc}`, { academic_year: studentYear, doa: studentDoa });
             setSavedYear(true);
-            setTimeout(() => setSavedYear(false), 3000);
+            setTimeout(() => setSavedYear(false), 2000);
+            setEditGeneral(false);
             onReload();
-        } catch { alert("Failed to update Academic Year"); }
-        finally { setSavingYear(false); }
+        } catch { 
+            alert("Failed to update general information"); 
+        } finally { 
+            setSavingYear(false); 
+        }
     };
-
-    const [newRow, setNewRow] = useState<any | null>(null);
-    const [savingNew, setSavingNew] = useState(false);
-    const [savedNew, setSavedNew] = useState(false);
 
     const systems = Array.from(new Set(classes.map(c => c.academic_system))).filter(Boolean).map(s => ({ label: s, value: s }));
 
@@ -186,76 +101,165 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
         } finally { setSavingNew(false); }
     };
 
-    const set = (k: string, v: string) => setNewRow((p: any) => ({ ...p, [k]: v }));
+    const handleStartEditAdmission = (adm: any) => {
+        setEditingAdmissionId(adm.id);
+        setEditAdmissionState({
+            academic_system: adm.academic_system || "",
+            discipline: adm.discipline || "",
+            academic_year: adm.academic_year || "",
+            application_date: adm.application_date ? new Date(adm.application_date).toISOString().split("T")[0] : "",
+        });
+    };
+
+    const handleSaveAdmission = async (id: number) => {
+        try {
+            const { data } = await api.post(`/v1/staff-editing/students/${student.cc}/admissions`, {
+                id,
+                ...editAdmissionState,
+                requested_grade: "",
+            });
+            setAdmissions(prev => prev.map(a => a.id === id ? data.data : a));
+            setEditingAdmissionId(null);
+            onReload();
+        } catch {
+            alert("Failed to save admission record");
+        }
+    };
+
+    const handleDeleteAdmission = async (id: number) => {
+        if (!confirm("Are you sure you want to delete this admission record?")) return;
+        try {
+            await api.delete(`/v1/staff-editing/admissions/${id}`);
+            setAdmissions(prev => prev.filter(a => a.id !== id));
+            onReload();
+        } catch {
+            alert("Failed to delete record");
+        }
+    };
 
     return (
-        <div className="space-y-6">
-            <div className={`bg-zinc-50 border rounded-2xl p-4 space-y-3 transition-all ${isGeneralDirty ? "border-amber-200 ring-1 ring-amber-100" : "border-zinc-100"}`}>
-                <div className="flex items-center justify-between">
-                    <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">General Information</h3>
-                    <RowSaveBtn onSave={saveStudentYear} isSaving={savingYear} saved={savedYear} isDirty={isGeneralDirty} />
+        <div className="space-y-6 max-w-6xl mx-auto">
+            {/* 1. GENERAL INFORMATION */}
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative transition-all duration-200">
+                <div className="absolute top-6 right-6">
+                    {editGeneral ? (
+                        <div className="flex gap-2">
+                            <button onClick={() => setEditGeneral(false)} className="p-2 text-zinc-400 hover:text-zinc-600"><X className="h-4 w-4" /></button>
+                            <button onClick={saveStudentYear} className="px-3 h-8 text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl flex items-center gap-1">
+                                {savingYear ? "..." : <Save className="h-3 w-3" />} Save
+                            </button>
+                        </div>
+                    ) : (
+                        <button onClick={() => setEditGeneral(true)} className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"><Pencil className="h-4 w-4" /></button>
+                    )}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <Field label="Current Academic Year">
-                        <Input value={studentYear} onChange={setStudentYear} placeholder="e.g. 2024-25" />
-                    </Field>
-                    <Field label="Date of Admission">
-                        <Input type="date" value={studentDoa} onChange={setStudentDoa} />
-                    </Field>
-                </div>
+
+                <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-6 tracking-tight flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-indigo-500 shrink-0" />
+                    Admission Info
+                </h3>
+
+                {editGeneral ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Field label="Current Academic Year"><Input value={studentYear} onChange={setStudentYear} placeholder="e.g. 2024-25" /></Field>
+                        <Field label="Date of Admission"><input type="date" value={studentDoa} onChange={e => setStudentDoa(e.target.value)} className="w-full h-10 px-3 text-[13px] font-medium text-zinc-855 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-500" /></Field>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Current Academic Year</p>
+                            <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{student.academic_year || "N/A"}</p>
+                        </div>
+                        <div>
+                            <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Date of Admission</p>
+                            <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">
+                                {student.date_of_admission ? new Date(student.date_of_admission).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }) : "N/A"}
+                            </p>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            <div className="space-y-3">
-                <div className="flex items-center justify-between">
+            {/* 2. APPLICATION HISTORY */}
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Application history</h3>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">For current class and section, use the Class Grade tab.</p>
+                        <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">Application history</h3>
+                        <p className="text-[11px] text-zinc-400 font-semibold uppercase mt-1">Previous admission and application records</p>
                     </div>
                     <button
-                        onClick={() => setNewRow(newRow ? null : { ...EMPTY_ADMISSION })}
-                        className={`flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold rounded-xl transition-all ${newRow ? "bg-zinc-100 text-zinc-500" : "bg-primary/10 text-primary hover:bg-primary/20"}`}
+                        onClick={() => setNewRow(newRow ? null : { academic_system: "", academic_year: "", application_date: "", discipline: "" })}
+                        className={`flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold rounded-xl transition-all ${newRow ? "bg-zinc-100 text-zinc-500" : "bg-indigo-50 text-indigo-650 hover:bg-indigo-100"}`}
                     >
-                        {newRow ? "Cancel" : <><Plus className="h-3.5 w-3.5" /> Add New</>}
+                        {newRow ? "Cancel" : <><Plus className="h-3.5 w-3.5" /> Add Record</>}
                     </button>
                 </div>
 
                 {newRow && (
-                    <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 space-y-3 shadow-sm">
-                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">New application record</p>
-                        <div className="grid grid-cols-2 gap-3">
-                            <Field label="Academic System"><Select value={newRow.academic_system} onChange={v => set("academic_system", v)} options={systems} placeholder="Select System" /></Field>
-                            <Field label="Discipline"><Select value={newRow.discipline} onChange={v => set("discipline", v)} options={DISCIPLINES} placeholder="Select Discipline (Optional)" /></Field>
-                            <Field label="Admission Taken In"><Input value={newRow.academic_year} onChange={v => set("academic_year", v)} placeholder="e.g. 2024-25" /></Field>
-                            <Field label="Application Date"><Input type="date" value={newRow.application_date} onChange={v => set("application_date", v)} /></Field>
+                    <div className="bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-700 rounded-2xl p-5 mb-6 space-y-4 animate-in slide-in-from-top-4 duration-300">
+                        <h4 className="text-[12px] font-bold text-zinc-900 dark:text-zinc-100 uppercase">New Admission Record</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Field label="Academic System"><Select value={newRow.academic_system} onChange={v => setNewRow((p: any) => ({ ...p, academic_system: v }))} options={systems} placeholder="Select System" /></Field>
+                            <Field label="Discipline"><Select value={newRow.discipline} onChange={v => setNewRow((p: any) => ({ ...p, discipline: v }))} options={DISCIPLINES} placeholder="Select Discipline" /></Field>
+                            <Field label="Admission Taken In"><Input value={newRow.academic_year} onChange={v => setNewRow((p: any) => ({ ...p, academic_year: v }))} placeholder="e.g. 2024-25" /></Field>
+                            <Field label="Application Date"><input type="date" value={newRow.application_date} onChange={e => setNewRow((p: any) => ({ ...p, application_date: e.target.value }))} className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none text-[13px]" /></Field>
                         </div>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={saveNew}
-                                disabled={savingNew || savedNew}
-                                className={`flex items-center gap-1.5 px-4 h-8 text-[11px] font-bold text-white rounded-xl transition-all ${savedNew ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50 shadow-sm shadow-primary/20"}`}
-                            >
-                                {savingNew ? <Loader2 className="h-3 w-3 animate-spin" /> : savedNew ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
-                                {savingNew ? "Submitting..." : savedNew ? "Submitted" : "Add Record"}
-                            </button>
-                        </div>
+                        <button onClick={saveNew} disabled={savingNew} className="px-4 h-9 bg-indigo-600 text-white rounded-xl text-[11px] font-bold">Add Record</button>
                     </div>
                 )}
 
-                {admissions.map(a => (
-                    <AdmissionRow
-                        key={a.id}
-                        admission={a}
-                        studentCc={student.cc}
-                        classes={classes}
-                        onSaved={updated => setAdmissions(prev => prev.map(x => x.id === updated.id ? updated : x))}
-                        onDeleted={() => setAdmissions(prev => prev.filter(x => x.id !== a.id))}
-                        onReload={onReload}
-                    />
-                ))}
+                <div className="space-y-4">
+                    {admissions.map(a => (
+                        <div key={a.id} className="p-4 bg-zinc-50 dark:bg-zinc-800/25 border border-zinc-100 dark:border-zinc-800 rounded-2xl relative transition-all duration-200">
+                            <div className="absolute top-4 right-4 flex items-center gap-2">
+                                {editingAdmissionId === a.id ? (
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setEditingAdmissionId(null)} className="p-1.5 text-zinc-400"><X className="h-4 w-4" /></button>
+                                        <button onClick={() => handleSaveAdmission(a.id)} className="px-2.5 h-7 text-[10px] bg-indigo-600 text-white rounded-lg">Save</button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <button onClick={() => handleStartEditAdmission(a)} className="p-1.5 text-zinc-400 hover:text-zinc-600"><Pencil className="h-4 w-4" /></button>
+                                        <button onClick={() => handleDeleteAdmission(a.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg"><Trash2 className="h-4 w-4" /></button>
+                                    </>
+                                )}
+                            </div>
 
-                {admissions.length === 0 && !newRow && (
-                    <div className="py-12 text-center text-zinc-400 text-sm">No application records</div>
-                )}
+                            {editingAdmissionId === a.id ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-16">
+                                    <Field label="Academic System"><Select value={editAdmissionState.academic_system} onChange={v => setEditAdmissionState((p: any) => ({ ...p, academic_system: v }))} options={systems} placeholder="Select System" /></Field>
+                                    <Field label="Discipline"><Select value={editAdmissionState.discipline} onChange={v => setEditAdmissionState((p: any) => ({ ...p, discipline: v }))} options={DISCIPLINES} placeholder="Select Discipline" /></Field>
+                                    <Field label="Admission Taken In"><Input value={editAdmissionState.academic_year} onChange={v => setEditAdmissionState((p: any) => ({ ...p, academic_year: v }))} placeholder="e.g. 2024-25" /></Field>
+                                    <Field label="Application Date"><input type="date" value={editAdmissionState.application_date} onChange={e => setEditAdmissionState((p: any) => ({ ...p, application_date: e.target.value }))} className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none text-[13px]" /></Field>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-tight">Academic System</p>
+                                        <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 mt-0.5 uppercase">{a.academic_system || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-tight">Discipline</p>
+                                        <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 mt-0.5 uppercase">{a.discipline || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-tight">Admission taken in</p>
+                                        <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 mt-0.5 uppercase">{a.academic_year || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-tight">Application Date</p>
+                                        <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 mt-0.5">
+                                            {a.application_date ? new Date(a.application_date).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }) : "N/A"}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                    {admissions.length === 0 && !newRow && (
+                        <p className="italic text-zinc-400 text-center py-6">No application history records available.</p>
+                    )}
+                </div>
             </div>
         </div>
     );

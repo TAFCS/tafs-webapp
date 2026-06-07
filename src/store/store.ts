@@ -8,6 +8,7 @@ import campusesReducer from './slices/campusesSlice';
 import banksReducer from './slices/banksSlice';
 import vouchersReducer from './slices/vouchersSlice';
 import bulkVoucherReducer from './slices/bulkVoucherSlice';
+import supportTicketsReducer from './slices/supportTicketsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -20,6 +21,7 @@ export const store = configureStore({
     banks: banksReducer,
     vouchers: vouchersReducer,
     bulkVoucher: bulkVoucherReducer,
+    supportTickets: supportTicketsReducer,
   },
 });
 

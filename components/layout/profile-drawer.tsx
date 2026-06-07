@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 import { useAuth, useAuthState } from "@/context/AuthContext";
+import { canViewSupportTickets, SUPPORT_TICKETS_VIEW_PERMISSION } from "@/features/support-tickets/supportTicketAccess";
 import { classBandLabel } from "@/lib/class-bands";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -57,7 +58,11 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
         ? user.fullName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
         : "?";
 
-    const hasPermission = (perm: string) => user?.permissions?.includes(perm) || user?.role === 'SUPER_ADMIN';
+    const hasPermission = (perm: string) => {
+        if (user?.role === 'SUPER_ADMIN') return true;
+        if (perm === SUPPORT_TICKETS_VIEW_PERMISSION) return canViewSupportTickets(user);
+        return user?.permissions?.includes(perm) ?? false;
+    };
 
     const navModules = [
         {
@@ -117,10 +122,11 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             id: 'communication',
             name: 'Communication',
             icon: MessageSquare,
-            permissions: ['communication.send_announcements', 'communication.view_chats'],
+            permissions: ['communication.send_announcements', 'communication.view_chats', 'communication.support_tickets.view'],
             items: [
                 { name: 'Notice Board', href: '/notice-board', icon: Bell, permission: 'communication.send_announcements' },
-                { name: 'Chat', href: '/chat', icon: MessageSquare, permission: 'communication.view_chats' },
+                { name: 'Support Tickets', href: '/support-tickets', icon: MessageSquare, permission: 'communication.support_tickets.view' },
+                { name: 'Announcements Chat', href: '/chat', icon: MessageSquare, permission: 'communication.view_chats' },
             ]
         },
         {

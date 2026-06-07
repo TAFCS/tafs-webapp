@@ -24,7 +24,7 @@ import { toast } from "react-hot-toast";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type StaffRole = 'SUPER_ADMIN' | 'CAMPUS_ADMIN' | 'PRINCIPAL' | 'FINANCE_CLERK' | 'RECEPTIONIST' | 'TEACHER' | 'STAFF_EDITOR';
+type StaffRole = 'SUPER_ADMIN' | 'CAMPUS_ADMIN' | 'PRINCIPAL' | 'FINANCE_CLERK' | 'RECEPTIONIST' | 'TEACHER' | 'STAFF_EDITOR' | 'GENERAL_RESPONDENT';
 
 interface PermissionEntry {
   id: number;
@@ -41,6 +41,7 @@ const ROLE_CONFIG: Record<StaffRole, { label: string; icon: any; color: string; 
   RECEPTIONIST:  { label: "Receptionist",  icon: Users,       color: "sky",     desc: "Student registration and inquiries" },
   TEACHER:       { label: "Teacher",       icon: Briefcase,   color: "rose",    desc: "Attendance and academic tracking" },
   STAFF_EDITOR:  { label: "Staff Editor",  icon: Settings,    color: "slate",   desc: "Read-only access to staff details" },
+  GENERAL_RESPONDENT: { label: "General Respondent", icon: Users, color: "orange", desc: "General query triage desk" },
 };
 
 // ── Main Page ──────────────────────────────────────────────────────────────

@@ -1,7 +1,6 @@
 "use client";
-
 import { useEffect, useMemo, useState } from "react";
-import { Save, Loader2, CheckCircle2 } from "lucide-react";
+import { Save, Loader2, CheckCircle2, Pencil, X, Layers, ChevronDown } from "lucide-react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import type { CampusItem } from "@/src/store/slices/campusesSlice";
@@ -9,7 +8,7 @@ import type { CampusItem } from "@/src/store/slices/campusesSlice";
 function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
     return (
         <div className={className}>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">{label}</label>
+            <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1.5">{label}</label>
             {children}
         </div>
     );
@@ -29,19 +28,24 @@ function Select({
     disabled?: boolean;
 }) {
     return (
-        <select
-            value={value ?? ""}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            className="w-full h-9 px-3 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all appearance-none disabled:opacity-50"
-        >
-            <option value="">{placeholder || "Select"}</option>
-            {options.map((o) => (
-                <option key={o.value} value={o.value}>
-                    {o.label}
-                </option>
-            ))}
-        </select>
+        <div className="relative flex items-center w-full">
+            <select
+                value={value ?? ""}
+                onChange={(e) => onChange(e.target.value)}
+                disabled={disabled}
+                className="w-full h-10 pl-3 pr-10 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all appearance-none disabled:opacity-50"
+            >
+                <option value="">{placeholder || "Select"}</option>
+                {options.map((o) => (
+                    <option key={o.value} value={o.value}>
+                        {o.label}
+                    </option>
+                ))}
+            </select>
+            <div className="absolute right-3.5 pointer-events-none text-zinc-400 dark:text-zinc-650">
+                <ChevronDown className="h-4 w-4" />
+            </div>
+        </div>
     );
 }
 
@@ -58,6 +62,7 @@ export function ClassGradeTab({ student, classes = [], sections = [], campuses =
     const [sectionId, setSectionId] = useState(student.section_id != null ? String(student.section_id) : "");
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
 
     useEffect(() => {
         setClassId(student.class_id != null ? String(student.class_id) : "");
@@ -120,7 +125,8 @@ export function ClassGradeTab({ student, classes = [], sections = [], campuses =
             });
             setSaved(true);
             toast.success("Class and section updated.");
-            setTimeout(() => setSaved(false), 3000);
+            setTimeout(() => setSaved(false), 2000);
+            setIsEditing(false);
             onReload();
         } catch (err: any) {
             toast.error(err?.response?.data?.message || "Failed to update class and section.");
@@ -135,89 +141,106 @@ export function ClassGradeTab({ student, classes = [], sections = [], campuses =
     };
 
     return (
-        <div className="space-y-6">
-            <p className="text-[12px] text-zinc-500 leading-relaxed">
-                Current class and section come from the student record (used in the student directory).
-                The Admissions tab stores application history only.
-            </p>
-
-            <div className="bg-white border border-zinc-100 rounded-2xl p-4 space-y-3">
-                <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Current placement</h3>
-                <div className="grid grid-cols-2 gap-3 text-[13px]">
-                    <div>
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Campus</span>
-                        <p className="font-semibold text-zinc-800 mt-0.5">{student.campus_name || "—"}</p>
-                    </div>
-                    <div>
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Class</span>
-                        <p className="font-semibold text-zinc-800 mt-0.5">{student.class_name || "Not assigned"}</p>
-                    </div>
-                    <div>
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Section</span>
-                        <p className="font-semibold text-zinc-800 mt-0.5">{student.section_name || "Not assigned"}</p>
-                    </div>
-                    {student.class_code && (
-                        <div>
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Class code</span>
-                            <p className="font-mono text-zinc-600 mt-0.5">{student.class_code}</p>
-                        </div>
-                    )}
+        <div className="space-y-6 max-w-6xl mx-auto">
+            {/* Context/Helper Info */}
+            <div className="p-4 rounded-3xl border border-indigo-100 bg-indigo-50/30 flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="h-10 w-10 rounded-2xl bg-indigo-100/80 flex items-center justify-center text-indigo-600 shrink-0">
+                    <Layers className="h-5 w-5" />
+                </div>
+                <div>
+                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none mb-1.5">Placement Information Info</p>
+                    <p className="text-[12.5px] font-medium text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                        Current class and section come from the student record (used in the student directory).
+                        The Admissions tab stores application history only.
+                    </p>
                 </div>
             </div>
 
-            {!student.campus_id && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-800">
-                    This student has no campus assigned. Set campus on the Identity tab before assigning class and section.
-                </div>
-            )}
-
-            <div
-                className={`bg-zinc-50 border rounded-2xl p-4 space-y-3 transition-all ${
-                    isDirty ? "border-amber-200 ring-1 ring-amber-100" : "border-zinc-100"
-                }`}
-            >
-                <div className="flex items-center justify-between">
-                    <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Edit class &amp; section</h3>
-                    {isDirty && !saved && (
-                        <span className="text-[9px] font-bold text-amber-600 animate-pulse">Unsaved</span>
-                    )}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <Field label="Class">
-                        <Select
-                            value={classId}
-                            onChange={handleClassChange}
-                            options={classOptions}
-                            placeholder="Select class"
-                            disabled={!student.campus_id}
-                        />
-                    </Field>
-                    <Field label="Section">
-                        <Select
-                            value={sectionId}
-                            onChange={setSectionId}
-                            options={sectionOptions}
-                            placeholder={classId ? "Select section" : "Select class first"}
-                            disabled={!student.campus_id || !classId}
-                        />
-                    </Field>
-                </div>
-                <button
-                    onClick={save}
-                    disabled={saving || !canSave || (saved && !isDirty)}
-                    className={`flex items-center gap-1.5 px-4 h-8 text-[11px] font-bold text-white rounded-xl transition-all ${
-                        saved ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"
-                    }`}
-                >
-                    {saving ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : saved ? (
-                        <CheckCircle2 className="h-3 w-3" />
+            {/* CLASS & GRADE CARD */}
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative transition-all duration-200">
+                <div className="absolute top-6 right-6 flex items-center gap-2">
+                    {isEditing ? (
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => {
+                                    setIsEditing(false);
+                                    setClassId(student.class_id != null ? String(student.class_id) : "");
+                                    setSectionId(student.section_id != null ? String(student.section_id) : "");
+                                }} 
+                                className="flex items-center justify-center p-2 rounded-xl text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                            <button 
+                                onClick={save} 
+                                disabled={saving || !canSave}
+                                className="flex items-center gap-1.5 px-3.5 h-8 text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors disabled:opacity-50 shadow-sm"
+                            >
+                                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
+                                Save
+                            </button>
+                        </div>
                     ) : (
-                        <Save className="h-3 w-3" />
+                        <button 
+                            onClick={() => setIsEditing(true)}
+                            className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-600 transition-colors border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </button>
                     )}
-                    {saving ? "Saving..." : saved ? "Saved" : "Save changes"}
-                </button>
+                </div>
+
+                <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-6 tracking-tight">Placement details</h3>
+
+                {isEditing ? (
+                    <div className="space-y-6 animate-in fade-in duration-200">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Field label="Class">
+                                <Select
+                                    value={classId}
+                                    onChange={handleClassChange}
+                                    options={classOptions}
+                                    placeholder="Select class"
+                                    disabled={!student.campus_id}
+                                />
+                            </Field>
+                            <Field label="Section">
+                                <Select
+                                    value={sectionId}
+                                    onChange={setSectionId}
+                                    options={sectionOptions}
+                                    placeholder={classId ? "Select section" : "Select class first"}
+                                    disabled={!student.campus_id || !classId}
+                                />
+                            </Field>
+                        </div>
+                        
+                        {!student.campus_id && (
+                            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-800">
+                                This student has no campus assigned. Set campus on the Identity tab before assigning class and section.
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 animate-in fade-in duration-200">
+                        <div>
+                            <p className="text-[11px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-widest">Campus</p>
+                            <p className="font-bold text-[14px] text-zinc-800 dark:text-zinc-200 mt-1">{student.campus_name || "—"}</p>
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-widest">Class</p>
+                            <p className="font-bold text-[14px] text-zinc-800 dark:text-zinc-200 mt-1">{student.class_name || "Not assigned"}</p>
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-widest">Section</p>
+                            <p className="font-bold text-[14px] text-zinc-800 dark:text-zinc-200 mt-1">{student.section_name || "Not assigned"}</p>
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-widest">Class Code</p>
+                            <p className="font-mono text-[14px] text-zinc-700 dark:text-zinc-300 mt-1 uppercase">{student.class_code || "—"}</p>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
