@@ -1,8 +1,8 @@
 "use client";
 
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { FileText, Loader2, Mic, Send, X } from "lucide-react";
+import { useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -22,7 +22,29 @@ interface TicketThreadProps {
   detailError?: string | null;
   onRetryDetail?: () => void;
   onRefresh: () => void;
-  onSendMessage: (content: string, mediaMetadata?: Record<string, unknown>) => Promise<void>;
+  onSendMessage: (
+    content: string,
+    mediaMetadata?: Record<string, unknown>,
+    messageType?: string,
+  ) => Promise<void>;
+}
+
+function mediaUrl(msg: TicketMessage): string {
+  const meta = msg.media_metadata as { url?: string } | null | undefined;
+  return meta?.url ?? msg.content;
+}
+
+function voiceAudioSrc(url: string): string {
+  if (url.includes("digitaloceanspaces.com")) {
+    return `/api/v1/chat/media/proxy?key=${url.split("digitaloceanspaces.com/")[1]}`;
+  }
+  return url;
+}
+
+function inferMessageType(file: File): "IMAGE" | "VOICE" | "DOCUMENT" {
+  if (file.type.startsWith("image/")) return "IMAGE";
+  if (file.type.startsWith("audio/")) return "VOICE";
+  return "DOCUMENT";
 }
 
 function senderName(msg: TicketMessage): string {
@@ -55,6 +77,13 @@ export function TicketThread({
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectComment, setRejectComment] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+
+  const mediaRecorder = useRef<MediaRecorder | null>(null);
+  const audioChunks = useRef<Blob[]>([]);
+  const shouldSend = useRef(true);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isClosed = ticket.status === "CLOSED";
   const isFinance = ticket.category === "FINANCIAL";
@@ -134,8 +163,10 @@ export function TicketThread({
         headers: { "Content-Type": "multipart/form-data" },
       });
       const media = res.data.data ?? res.data;
-      await onSendMessage(file.name, media);
-      toast.success("Attachment sent");
+      const url = media.url as string;
+      const messageType = inferMessageType(file);
+      await onSendMessage(url, { ...media, url }, messageType);
+      toast.success(messageType === "VOICE" ? "Voice note sent" : "Attachment sent");
     } catch {
       toast.error("Upload failed");
     } finally {
@@ -143,19 +174,99 @@ export function TicketThread({
     }
   };
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "audio/webm";
+      mediaRecorder.current = new MediaRecorder(stream, { mimeType });
+      audioChunks.current = [];
+      shouldSend.current = true;
+      mediaRecorder.current.ondataavailable = (e) => audioChunks.current.push(e.data);
+      mediaRecorder.current.onstop = async () => {
+        const audioBlob = new Blob(audioChunks.current, { type: "audio/mp4" });
+        const audioFile = new File([audioBlob], `voice_${Date.now()}.m4a`, { type: "audio/mp4" });
+
+        if (shouldSend.current) {
+          setUploading(true);
+          try {
+            const form = new FormData();
+            form.append("file", audioFile);
+            const res = await api.post("v1/support-tickets/media", form, {
+              headers: { "Content-Type": "multipart/form-data" },
+            });
+            const media = res.data.data ?? res.data;
+            const url = media.url as string;
+            await onSendMessage(url, { ...media, url, duration: recordingTime }, "VOICE");
+            toast.success("Voice note sent");
+          } catch {
+            toast.error("Failed to upload voice note");
+          } finally {
+            setUploading(false);
+          }
+        }
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      mediaRecorder.current.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      timerRef.current = setInterval(() => setRecordingTime((prev) => prev + 1), 1000);
+    } catch {
+      toast.error("Microphone access denied");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder.current && isRecording) {
+      mediaRecorder.current.stop();
+      setIsRecording(false);
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+  };
+
+  const formatRecordingTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
   const renderMedia = (msg: TicketMessage) => {
-    const meta = msg.media_metadata as { url?: string; mimeType?: string } | null | undefined;
-    if (!meta?.url) return null;
+    if (msg.message_type === "TEXT") return null;
+
+    const url = mediaUrl(msg);
+    const isPlayableUrl = url.startsWith("http") || url.includes("digitaloceanspaces.com");
+
+    if (msg.message_type === "VOICE") {
+      if (!isPlayableUrl) {
+        return <p className="text-xs opacity-70 mt-2">Voice message unavailable</p>;
+      }
+      return (
+        <audio
+          src={voiceAudioSrc(url)}
+          controls
+          className="max-w-full h-10 scale-90 origin-left mt-2"
+        />
+      );
+    }
+
+    if (!isPlayableUrl) return null;
+
     if (msg.message_type === "IMAGE") {
       return (
-        <a href={meta.url} target="_blank" rel="noreferrer">
-          <img src={meta.url} alt="Attachment" className="mt-2 max-w-full rounded-lg max-h-48 object-cover" />
+        <a href={url} target="_blank" rel="noreferrer">
+          <img src={url} alt="Attachment" className="mt-2 max-w-full rounded-lg max-h-48 object-cover" />
         </a>
       );
     }
+
+    const meta = msg.media_metadata as { originalName?: string; mimetype?: string } | null | undefined;
     return (
-      <a href={meta.url} target="_blank" rel="noreferrer" className="underline text-xs mt-2 block">
-        Open attachment
+      <a href={url} target="_blank" rel="noreferrer" className="flex items-center gap-3 mt-2 min-w-[200px]">
+        <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+          <FileText className="h-5 w-5 text-primary" />
+        </div>
+        <span className="text-xs font-bold truncate underline">
+          {meta?.originalName ?? "Document"}
+        </span>
       </a>
     );
   };
@@ -266,7 +377,7 @@ export function TicketThread({
             }`}
           >
             <p className="text-[10px] font-bold opacity-80 mb-1">{senderName(msg)}</p>
-            <p>{msg.content}</p>
+            {msg.message_type === "TEXT" && <p>{msg.content}</p>}
             {renderMedia(msg)}
             <div className="flex gap-2 mt-1 text-[10px] opacity-70 flex-wrap items-center">
               <span>{format(new Date(msg.created_at), "h:mm a")}</span>
@@ -322,38 +433,81 @@ export function TicketThread({
             </div>
           )}
           <div className="flex gap-2 items-center">
-            <label className={`cursor-pointer px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-bold shrink-0 ${composerDisabled ? "opacity-50 pointer-events-none" : ""}`}>
-              {uploading ? (
-                <Loader2 className="h-4 w-4 animate-spin inline" />
-              ) : (
-                "Attach"
+            <div className="flex items-center gap-1 shrink-0">
+              {!isRecording && (
+                <>
+                  <label className={`cursor-pointer px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-bold ${composerDisabled ? "opacity-50 pointer-events-none" : ""}`}>
+                    {uploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin inline" />
+                    ) : (
+                      "Attach"
+                    )}
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*,.pdf,.doc,.docx,audio/*"
+                      disabled={composerDisabled}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleFileUpload(f);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={startRecording}
+                    disabled={composerDisabled}
+                    className="p-2 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-500 hover:text-primary disabled:opacity-50"
+                    aria-label="Record voice note"
+                  >
+                    <Mic className="h-4 w-4" />
+                  </button>
+                </>
               )}
+              {isRecording && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    shouldSend.current = false;
+                    stopRecording();
+                  }}
+                  className="p-2 border border-red-200 dark:border-red-900/50 rounded-xl text-red-500"
+                  aria-label="Cancel recording"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            {isRecording ? (
+              <div className="flex-1 flex items-center gap-3 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-xl border border-red-100 dark:border-red-900/30">
+                <div className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                <span className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">
+                  Recording • {formatRecordingTime(recordingTime)}
+                </span>
+              </div>
+            ) : (
               <input
-                type="file"
-                className="hidden"
-                accept="image/*,.pdf,.doc,.docx"
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                placeholder="Write a reply (requires Super Admin approval)..."
                 disabled={composerDisabled}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFileUpload(f);
-                  e.target.value = "";
-                }}
+                className="flex-1 px-4 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
               />
-            </label>
-            <input
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
-              placeholder="Write a reply (requires Super Admin approval)..."
-              disabled={composerDisabled}
-              className="flex-1 px-4 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
-            />
+            )}
             <button
-              onClick={handleSend}
-              disabled={composerDisabled || !reply.trim()}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-bold hover:opacity-90 disabled:opacity-40"
+              onClick={isRecording ? stopRecording : handleSend}
+              disabled={composerDisabled || (!isRecording && !reply.trim())}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold hover:opacity-90 disabled:opacity-40 ${
+                isRecording ? "bg-red-500 text-white" : "bg-primary text-white"
+              }`}
             >
-              {isSending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Send
+              {(isSending || uploading) && !isRecording && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isRecording ? (
+                <div className="h-4 w-4 rounded-sm bg-white animate-pulse" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </button>
           </div>
         </div>

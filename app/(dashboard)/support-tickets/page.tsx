@@ -302,13 +302,13 @@ export default function SupportTicketsPage() {
               loadQueue();
               loadDetail();
             }}
-            onSendMessage={async (content, mediaMetadata) => {
+            onSendMessage={async (content, mediaMetadata, messageType = "TEXT") => {
               if (!selectedTicketId) return;
               await dispatch(
                 sendTicketMessage({
                   ticketId: selectedTicketId,
                   content,
-                  messageType: mediaMetadata ? "DOCUMENT" : "TEXT",
+                  messageType,
                   mediaMetadata,
                 }),
               ).unwrap();
