@@ -4,14 +4,12 @@ import React, { useState, useEffect, ReactNode } from "react";
 import {
     Search,
     MoreVertical,
-    Filter,
-    Columns,
-    ChevronDown,
     Eye,
-    Link as LinkIcon,
-    Edit,
-    DollarSign,
-    Users
+    Users,
+    GraduationCap,
+    ChevronLeft,
+    ChevronRight,
+    X
 } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import api from "@/lib/api";
@@ -22,24 +20,6 @@ import {
     type CreateFamilyPayload,
 } from "@/lib/families.service";
 import { FamilyDetailModal } from "./family-detail-modal";
-
-// Columns Definition
-interface ColumnDef {
-    id: keyof Family;
-    label: string;
-    isDefault: boolean;
-}
-
-const COLUMNS: ColumnDef[] = [
-    { id: "id", label: "Family ID", isDefault: true },
-    { id: "household_name", label: "Household Name", isDefault: true },
-    { id: "email", label: "Email Address", isDefault: true },
-    { id: "username", label: "Username", isDefault: true },
-    { id: "created_at", label: "Created Date", isDefault: true },
-    { id: "consent_publicity", label: "Publicity Consent", isDefault: false },
-    { id: "primary_address", label: "Address", isDefault: false },
-    { id: "legacy_pid", label: "Legacy ID", isDefault: false },
-];
 
 interface FamiliesDataTableProps {
     isCreateOpen?: boolean;
@@ -61,16 +41,9 @@ export function FamiliesDataTable({
     const [error, setError] = useState<string | null>(null);
     const [page, setPage] = useState(1);
 
-    // State: Columns
-    const [visibleColumns, setVisibleColumns] = useState<Set<keyof Family>>(
-        new Set(COLUMNS.filter(c => c.isDefault).map(c => c.id))
-    );
-    const [showColumnToggles, setShowColumnToggles] = useState(false);
-
     // State: Filters
     const [searchQuery, setSearchQuery] = useState("");
     const debouncedSearch = useDebounce(searchQuery, 300);
-    const [showFilters, setShowFilters] = useState(false);
 
     // Actions Menu
     const [openActionRowId, setOpenActionRowId] = useState<number | null>(null);
@@ -183,246 +156,159 @@ export function FamiliesDataTable({
                 if (!target.closest('.action-menu-container')) {
                     setOpenActionRowId(null);
                 }
-                if (!target.closest('.columns-menu-container')) {
-                    setShowColumnToggles(false);
-                }
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const toggleColumn = (colId: keyof Family) => {
-        const next = new Set(visibleColumns);
-        if (next.has(colId)) {
-            next.delete(colId);
-        } else {
-            next.add(colId);
-        }
-        setVisibleColumns(next);
-    };
-
     return (
-        <div className="bg-white dark:bg-zinc-950 border rounded-xl shadow-sm flex flex-col w-full text-sm flex-1 min-h-0">
-
-            {/* Top Toolbar */}
-            <div className="p-4 border-b flex flex-col gap-4 lg:flex-row lg:items-center justify-between bg-zinc-50 dark:bg-zinc-900/50 rounded-t-xl">
-
-                <div className="relative w-full lg:max-w-md flex-1">
-                    <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${isLoading ? 'text-primary animate-pulse' : 'text-zinc-400'}`} />
+        <div className="space-y-6 w-full">
+            {/* Search + Filters */}
+            <div className="flex flex-wrap items-center gap-2">
+                {/* Search */}
+                <div className="relative flex-1 min-w-[260px]">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                     <input
                         type="text"
                         placeholder="Search Household, ID, Email..."
-                        className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white dark:bg-zinc-950"
+                        className="w-full h-10 pl-10 pr-10 text-[13px] font-medium bg-white dark:bg-zinc-950 border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-zinc-400"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={`flex items-center gap-2 px-3 py-2 border rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors ${showFilters ? 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700' : 'bg-white dark:bg-zinc-950'}`}
-                    >
-                        <Filter className="h-4 w-4" />
-                        <span className="font-medium">Filters</span>
-                    </button>
-
-                    <div className="relative columns-menu-container">
-                        <button
-                            onClick={() => setShowColumnToggles(!showColumnToggles)}
-                            className="flex items-center gap-2 px-3 py-2 border bg-white dark:bg-zinc-950 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors"
-                        >
-                            <Columns className="h-4 w-4" />
-                            <span className="font-medium hidden sm:inline-block">Columns</span>
-                            <ChevronDown className="h-3 w-3 opacity-50" />
+                    {searchQuery && (
+                        <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-600">
+                            <X className="h-3.5 w-3.5" />
                         </button>
-
-                        {showColumnToggles && (
-                            <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-zinc-950 border rounded-lg shadow-xl z-50 p-2 max-h-96 overflow-y-auto">
-                                <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-2 py-1 uppercase tracking-wider mb-1">Toggle Columns</div>
-                                {COLUMNS.map((col) => (
-                                    <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 rounded cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            className="rounded border-zinc-300 dark:border-zinc-700 text-primary focus:ring-primary h-4 w-4"
-                                            checked={visibleColumns.has(col.id)}
-                                            onChange={() => toggleColumn(col.id)}
-                                            disabled={col.isDefault && visibleColumns.has(col.id) && visibleColumns.size === 1}
-                                        />
-                                        <span className="text-zinc-700 dark:text-zinc-300">{col.label}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    )}
                 </div>
 
             </div>
 
-            {/* Advanced Filters Panel (Placeholder for now) */}
-            {showFilters && (
-                <div className="p-4 border-b bg-zinc-50 dark:bg-zinc-900 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Consent Status</label>
-                        <select className="border rounded-md px-3 py-1.5 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/20">
-                            <option value="All">All Families</option>
-                            <option value="Consent">Has Consent</option>
-                            <option value="NoConsent">No Consent</option>
-                        </select>
+            {/* Main Content Area */}
+            <div className={`w-full transition-opacity duration-200 ${isLoading ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
+                {error ? (
+                    <div className="py-12 text-center text-red-500">{error}</div>
+                ) : families.length === 0 && !isLoading ? (
+                    <div className="flex flex-col items-center justify-center py-32 bg-zinc-50 border border-zinc-100 rounded-2xl gap-4">
+                        <div className="p-5 bg-white rounded-2xl border border-zinc-100 shadow-sm">
+                            <Users className="h-8 w-8 text-zinc-300" />
+                        </div>
+                        <div className="text-center">
+                            <p className="font-bold text-zinc-700">No families found</p>
+                            <p className="text-sm text-zinc-400 mt-1">Try adjusting your search query</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                        {families.map((family) => {
+                            const initials = family.household_name ? family.household_name.charAt(0).toUpperCase() : "?";
+                            return (
+                                <div key={family.id} className="group bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 rounded-2xl p-4 hover:shadow-md hover:border-zinc-200 dark:hover:border-zinc-800 transition-all duration-200 flex flex-col justify-between h-full relative">
+                                    <div>
+                                        <div className="flex items-start justify-between gap-3">
+                                            {/* Avatar */}
+                                            <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 flex items-center justify-center font-bold text-sm shrink-0">
+                                                {initials}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <p className="font-bold text-zinc-900 dark:text-zinc-100 text-[14px] leading-tight truncate uppercase">{family.household_name}</p>
+                                                    <span className="text-[10px] text-zinc-400 font-mono font-bold">#{family.id}</span>
+                                                </div>
+                                                <div className="mt-1 flex flex-col gap-0.5 text-[11px] text-zinc-400 font-medium">
+                                                    {family.email ? (
+                                                        <span className="truncate">📧 {family.email}</span>
+                                                    ) : (
+                                                        <span className="text-zinc-300 italic">No email provided</span>
+                                                    )}
+                                                    {family.primary_address && <span className="truncate">📍 {family.primary_address}</span>}
+                                                    {family.legacy_pid && <span className="text-[10px] font-mono text-zinc-400">Legacy PID: {family.legacy_pid}</span>}
+                                                </div>
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div className="relative action-menu-container">
+                                                <button
+                                                    onClick={() => setOpenActionRowId(openActionRowId === family.id ? null : family.id)}
+                                                    className="h-8 w-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+                                                >
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </button>
+                                                {openActionRowId === family.id && (
+                                                    <div className="absolute right-0 top-8 mt-1 w-52 origin-top-right rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-xl z-50 overflow-hidden flex flex-col py-1">
+                                                        <div className="py-1">
+                                                            <ActionItem icon={<Eye />} label="View Family Details" onClick={() => { setDetailFamilyId(family.id); setOpenActionRowId(null); }} />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Linked Students List */}
+                                        <div className="mt-3 flex flex-wrap gap-1.5">
+                                            {family.students && family.students.length > 0 ? (
+                                                family.students.map((student) => (
+                                                    <span key={student.cc} className="inline-flex items-center gap-1 text-[10px] bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                                                        <GraduationCap className="h-2.5 w-2.5 text-zinc-400" />
+                                                        {student.full_name}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-[10px] text-zinc-400 italic">No enrolled students</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Primary Guardian Footer */}
+                                    {family.primary_guardian && (
+                                        <div className="mt-3 pt-3 border-t border-zinc-50 dark:border-zinc-900/50 flex items-center justify-between text-[11px] text-zinc-500">
+                                            <span className="truncate font-semibold">👤 {family.primary_guardian.name}</span>
+                                            {family.primary_guardian.cnic && (
+                                                <span className="text-[10px] font-mono font-bold text-zinc-400">{family.primary_guardian.cnic}</span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* Pagination */}
+            {meta && meta.pages > 1 && (
+                <div className="flex items-center justify-between pt-2">
+                    <p className="text-[12px] text-zinc-400">
+                        Page <strong className="text-zinc-600">{meta.page}</strong> of <strong className="text-zinc-600">{meta.pages}</strong>
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={!meta.hasPrev}
+                            className="h-8 w-8 flex items-center justify-center rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        {Array.from({ length: Math.min(5, meta.pages) }, (_, i) => {
+                            const p = meta.page <= 3 ? i + 1 : meta.page - 2 + i;
+                            if (p < 1 || p > meta.pages) return null;
+                            return (
+                                <button key={p} onClick={() => setPage(p)} className={`h-8 w-8 text-[12px] font-bold rounded-xl transition-all ${p === meta.page ? "bg-primary text-white shadow-sm" : "border border-zinc-200 text-zinc-500 hover:bg-zinc-50"}`}>
+                                    {p}
+                                </button>
+                            );
+                        })}
+                        <button
+                            onClick={() => setPage(p => Math.min(meta.pages, p + 1))}
+                            disabled={!meta.hasNext}
+                            className="h-8 w-8 flex items-center justify-center rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </button>
                     </div>
                 </div>
             )}
-
-            {/* Table Area */}
-            <div className={`overflow-auto flex-1 w-full min-h-0 transition-opacity duration-200 ${isLoading ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
-                <table className="w-full text-left border-collapse whitespace-nowrap">
-                    <thead>
-                        <tr className="bg-zinc-50 dark:bg-zinc-900 border-b text-zinc-500 dark:text-zinc-400 font-medium text-xs uppercase tracking-wider">
-                            {COLUMNS.map(col => {
-                                if (!visibleColumns.has(col.id)) return null;
-                                return (
-                                    <th key={col.id} className="py-3 px-4 first:pl-6">
-                                        {col.label}
-                                    </th>
-                                );
-                            })}
-                            <th className="py-3 px-4 text-right pr-6 sticky right-0 bg-zinc-50 dark:bg-zinc-900 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] z-10 w-[80px]">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100 relative">
-                        {error ? (
-                            <tr>
-                                <td colSpan={visibleColumns.size + 1} className="py-12 text-center text-red-500">
-                                    {error}
-                                </td>
-                            </tr>
-                        ) : families.length === 0 && !isLoading ? (
-                            <tr>
-                                <td colSpan={visibleColumns.size + 1} className="py-12 text-center text-zinc-500 dark:text-zinc-400">
-                                    No families found matching your criteria.
-                                </td>
-                            </tr>
-                        ) : (
-                            families.map((family) => (
-                                <tr key={family.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900/50 transition-colors group">
-                                    {COLUMNS.map(col => {
-                                        if (!visibleColumns.has(col.id)) return null;
-
-                                        let cellContent: ReactNode = family[col.id] as ReactNode;
-
-                                        if (col.id === "id") {
-                                            cellContent = (
-                                                <span className="font-mono text-zinc-400 bg-zinc-50 dark:bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-800 text-xs">#{family.id}</span>
-                                            );
-                                        }
-
-                                        if (col.id === "household_name") {
-                                            cellContent = (
-                                                <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                                                    <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
-                                                        {family.household_name.charAt(0).toUpperCase()}
-                                                    </div>
-                                                    {family.household_name}
-                                                </div>
-                                            );
-                                        }
-
-                                        if (col.id === "email") {
-                                            cellContent = family.email ? (
-                                                <span className="text-zinc-600 dark:text-zinc-400 lowercase">{family.email}</span>
-                                            ) : (
-                                                <span className="text-zinc-300 italic">No email provided</span>
-                                            );
-                                        }
-
-                                        if (col.id === "username") {
-                                            cellContent = family.username ? (
-                                                <span className="text-primary font-medium">@{family.username}</span>
-                                            ) : (
-                                                <span className="text-zinc-300">N/A</span>
-                                            );
-                                        }
-
-                                        if (col.id === "created_at") {
-                                            const date = new Date(family.created_at);
-                                            cellContent = (
-                                                <div className="flex flex-col">
-                                                    <span className="text-zinc-700 dark:text-zinc-300">{date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                                                    <span className="text-[10px] text-zinc-400">{date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                </div>
-                                            );
-                                        }
-
-                                        if (col.id === "consent_publicity") {
-                                            cellContent = (
-                                                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border ${family.consent_publicity ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800"}`}>
-                                                    {family.consent_publicity ? "Granted" : "Not Provided"}
-                                                </span>
-                                            );
-                                        }
-
-                                        return (
-                                            <td key={col.id} className="py-3 px-4 first:pl-6 text-zinc-700 dark:text-zinc-300">
-                                                {cellContent}
-                                            </td>
-                                        );
-                                    })}
-
-                                    <td className="py-3 px-4 text-right pr-6 sticky right-0 bg-white dark:bg-zinc-950 group-hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 border-l shadow-[-10px_0_15px_-5px_rgb(0,0,0,0.03)] transition-colors z-10 w-[80px]">
-                                        <div className="relative inline-block text-left action-menu-container">
-                                            <button
-                                                onClick={() => setOpenActionRowId(openActionRowId === family.id ? null : family.id)}
-                                                className="p-1.5 rounded-md hover:bg-zinc-200 text-zinc-500 dark:text-zinc-400 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                            >
-                                                <MoreVertical className="h-4 w-4" />
-                                            </button>
-
-                                            {openActionRowId === family.id && (
-                                                <div className="absolute right-0 top-8 mt-1 w-56 origin-top-right rounded-md bg-white dark:bg-zinc-950 shadow-lg ring-1 ring-black/5 focus:outline-none z-50 overflow-hidden divide-y divide-zinc-100 flex flex-col">
-                                                    <div className="py-1">
-                                                        <ActionItem icon={<Eye />} label="View Family Profile" onClick={() => { setDetailFamilyId(family.id); setOpenActionRowId(null); }} />
-                                                        <ActionItem icon={<Users />} label="View Enrolled Students" onClick={() => { setDetailFamilyId(family.id); setOpenActionRowId(null); }} />
-                                                    </div>
-                                                    <div className="py-1">
-                                                        <ActionItem icon={<DollarSign />} label="Billing & Ledger" color="text-emerald-600" />
-                                                    </div>
-                                                    <div className="py-1">
-                                                        <ActionItem icon={<Edit />} label="Update Information" />
-                                                        <ActionItem icon={<LinkIcon />} label="Manage Credentials" />
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            <div className="p-4 border-t bg-zinc-50 dark:bg-zinc-900 rounded-b-xl flex flex-col sm:flex-row gap-4 justify-between items-center text-zinc-500 dark:text-zinc-400">
-                <span>
-                    {meta
-                        ? `Showing ${(meta.page - 1) * meta.limit + 1}–${Math.min(meta.page * meta.limit, meta.total)} of ${meta.total} records`
-                        : `Showing ${families.length} records`}
-                </span>
-                <div className="flex gap-2">
-                    <button
-                        className="px-3 py-1.5 border rounded-lg bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-colors disabled:opacity-50"
-                        disabled={!meta?.hasPrev || isLoading}
-                        onClick={() => setPage(p => p - 1)}
-                    >Previous</button>
-                    <button
-                        className="px-3 py-1.5 border rounded-lg bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-colors disabled:opacity-50"
-                        disabled={!meta?.hasNext || isLoading}
-                        onClick={() => setPage(p => p + 1)}
-                    >Next</button>
-                </div>
-            </div>
 
             {/* Family Detail Modal */}
             {detailFamilyId !== null && (
@@ -473,15 +359,6 @@ export function FamiliesDataTable({
                                             onChange={e => setCreateForm(f => ({ ...f, password: e.target.value || undefined }))}
                                         />
                                     </div>
-                                    <div className="col-span-2">
-                                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Username</label>
-                                        <input
-                                            type="text"
-                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 dark:border-zinc-700 focus:ring-primary focus:border-primary text-sm"
-                                            value={createForm.username ?? ""}
-                                            onChange={e => setCreateForm(f => ({ ...f, username: e.target.value || undefined }))}
-                                        />
-                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Address</label>
@@ -491,16 +368,6 @@ export function FamiliesDataTable({
                                         value={createForm.primary_address ?? ""}
                                         onChange={e => setCreateForm(f => ({ ...f, primary_address: e.target.value || undefined }))}
                                     />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        id="consent"
-                                        type="checkbox"
-                                        className="rounded border-zinc-300 dark:border-zinc-700 h-4 w-4 text-primary"
-                                        checked={createForm.consent_publicity ?? false}
-                                        onChange={e => setCreateForm(f => ({ ...f, consent_publicity: e.target.checked }))}
-                                    />
-                                    <label htmlFor="consent" className="text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">Family consents to publicity use</label>
                                 </div>
                             </div>
                         </div>
@@ -543,7 +410,6 @@ export function FamiliesDataTable({
                     error={assignError}
                 />
             )}
-
         </div>
     );
 }

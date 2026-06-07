@@ -634,6 +634,8 @@ function DirectoryContent() {
                     onClose={() => setSelectedCc(null)}
                     onSwitchStudent={(newCc: number) => setSelectedCc(newCc)}
                     classes={classes}
+                    sections={sections}
+                    campuses={campuses}
                     onUpdated={triggerFetch}
                 />
             )}

@@ -91,10 +91,8 @@ const RELATIONSHIPS = ["FATHER", "MOTHER", "GUARDIAN", "UNCLE", "AUNT", "GRANDFA
 
 function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { studentCc: number; guardian: any; onSaved: (g: any) => void; onRemoved: () => void; onReload: () => void }) {
     const [local, setLocal] = useState(guardian);
-    const [savingInfo, setSavingInfo] = useState(false);
-    const [savingRel, setSavingRel] = useState(false);
-    const [savedInfo, setSavedInfo] = useState(false);
-    const [savedRel, setSavedRel] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
     const [removing, setRemoving] = useState(false);
     const [expanded, setExpanded] = useState(false);
 
@@ -116,40 +114,42 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
         !!local.is_primary_contact !== !!guardian.is_primary_contact ||
         !!local.is_emergency_contact !== !!guardian.is_emergency_contact;
 
-    const saveGuardianInfo = async () => {
-        setSavingInfo(true);
+    const handleSave = async () => {
+        if (!isInfoDirty && !isRelDirty) return;
+        setSaving(true);
         try {
-            const { data } = await api.patch(`/v1/staff-editing/guardians/${guardian.guardian_id}`, {
-                full_name: local.full_name,
-                cnic: local.cnic,
-                primary_phone: local.primary_phone,
-                whatsapp_number: local.whatsapp_number,
-                occupation: local.occupation,
-                email_address: local.email_address,
-                additional_phones: local.additional_phones || [],
-            });
-            setSavedInfo(true);
-            setTimeout(() => setSavedInfo(false), 3000);
-            onSaved(data?.data);
+            const promises = [];
+            if (isInfoDirty) {
+                promises.push(
+                    api.patch(`/v1/staff-editing/guardians/${guardian.guardian_id}`, {
+                        full_name: local.full_name,
+                        cnic: local.cnic,
+                        primary_phone: local.primary_phone,
+                        whatsapp_number: local.whatsapp_number,
+                        occupation: local.occupation,
+                        email_address: local.email_address,
+                        additional_phones: local.additional_phones || [],
+                    })
+                );
+            }
+            if (isRelDirty) {
+                promises.push(
+                    api.patch(`/v1/staff-editing/students/${studentCc}/guardians/${guardian.guardian_id}`, {
+                        relationship: local.relationship.toUpperCase(),
+                        is_primary_contact: local.is_primary_contact,
+                        is_emergency_contact: local.is_emergency_contact,
+                    })
+                );
+            }
+            await Promise.all(promises);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+            onReload();
         } catch (e) {
-            alert("Failed to update guardian information");
-        } finally { setSavingInfo(false); }
-    };
-
-    const saveRelationship = async () => {
-        setSavingRel(true);
-        try {
-            const { data } = await api.patch(`/v1/staff-editing/students/${studentCc}/guardians/${guardian.guardian_id}`, {
-                relationship: local.relationship.toUpperCase(),
-                is_primary_contact: local.is_primary_contact,
-                is_emergency_contact: local.is_emergency_contact,
-            });
-            setSavedRel(true);
-            setTimeout(() => setSavedRel(false), 3000);
-            onSaved(data?.data);
-        } catch (e) {
-            alert("Failed to update relationship");
-        } finally { setSavingRel(false); }
+            alert("Failed to save changes");
+        } finally {
+            setSaving(false);
+        }
     };
 
     const remove = async () => {
@@ -176,7 +176,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         <p className="font-bold text-[13px] text-zinc-900 truncate uppercase">{local.full_name || "UNNAMED"}</p>
-                        {(isInfoDirty || isRelDirty) && <span className="text-[8px] font-black px-1 py-0.5 bg-amber-100 text-amber-600 rounded uppercase">Dirty</span>}
+                        {(isInfoDirty || isRelDirty) && <span className="text-[8px] font-black px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded uppercase">Dirty</span>}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap mt-0.5">
                         <span className="text-[10px] font-bold text-zinc-400 uppercase">{local.relationship}</span>
@@ -200,11 +200,25 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
 
             {expanded && (
                 <div className="px-4 pb-4 border-t border-zinc-100 space-y-4 pt-4 bg-white/50">
+                    <div className="flex gap-2 pb-3 border-b border-zinc-100">
+                        <button
+                            onClick={handleSave}
+                            disabled={saving || (saved && !isInfoDirty && !isRelDirty)}
+                            className={`flex items-center gap-1.5 px-4 h-8 text-[11px] font-bold text-white rounded-xl transition-all ${saved ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}
+                        >
+                            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : saved ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
+                            {saving ? "Submitting..." : saved ? "Submitted" : "Save Changes"}
+                        </button>
+                        <button onClick={remove} disabled={removing} className="flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 disabled:opacity-50 transition-all">
+                            {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Unlink
+                        </button>
+                    </div>
+
                     {/* Relationship & Flags */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Relationship & Flags</p>
-                            {isRelDirty && !savedRel && <span className="text-[9px] font-bold text-amber-600">Unsaved changes</span>}
+                            {isRelDirty && !saved && <span className="text-[9px] font-bold text-amber-600">Unsaved changes</span>}
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div className="col-span-2">
@@ -228,20 +242,12 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                             <Toggle label="Primary Contact" checked={!!local.is_primary_contact} onChange={v => set("is_primary_contact", v)} />
                             <Toggle label="Emergency Contact" checked={!!local.is_emergency_contact} onChange={v => set("is_emergency_contact", v)} />
                         </div>
-                        <button
-                            onClick={saveRelationship}
-                            disabled={savingRel || (savedRel && !isRelDirty)}
-                            className={`flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-white rounded-xl transition-all ${savedRel ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}
-                        >
-                            {savingRel ? <Loader2 className="h-3 w-3 animate-spin" /> : savedRel ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
-                            {savingRel ? "Submitting..." : savedRel ? "Submitted" : "Save Relationship"}
-                        </button>
                     </div>
 
                     <div className="border-t border-zinc-100 pt-4 space-y-3">
                         <div className="flex items-center justify-between">
                             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Personal Information</p>
-                            {isInfoDirty && !savedInfo && <span className="text-[9px] font-bold text-amber-600">Unsaved changes</span>}
+                            {isInfoDirty && !saved && <span className="text-[9px] font-bold text-amber-600">Unsaved changes</span>}
                         </div>
 
                         <div className="pb-2 border-b border-zinc-50 mb-1">
@@ -314,23 +320,9 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                                     </div>
                                 ))}
                                 {(!local.additional_phones || local.additional_phones.length === 0) && (
-                                    <p className="text-[10px] text-zinc-400 italic py-2 text-center border border-dashed border-zinc-100 rounded-xl">No additional numbers saved.</p>
+                                    <p className="text-[10px] text-zinc-405 italic py-2 text-center border border-dashed border-zinc-100 rounded-xl">No additional numbers saved.</p>
                                 )}
                             </div>
-                        </div>
-
-                        <div className="flex gap-2 pt-1">
-                            <button
-                                onClick={saveGuardianInfo}
-                                disabled={savingInfo || (savedInfo && !isInfoDirty)}
-                                className={`flex items-center gap-1.5 px-4 h-8 text-[11px] font-bold text-white rounded-xl transition-all ${savedInfo ? "bg-emerald-500" : "bg-primary hover:bg-primary/90 disabled:opacity-50"}`}
-                            >
-                                {savingInfo ? <Loader2 className="h-3 w-3 animate-spin" /> : savedInfo ? <CheckCircle2 className="h-3 w-3" /> : <Save className="h-3 w-3" />}
-                                {savingInfo ? "Submitting..." : savedInfo ? "Submitted" : "Save Info"}
-                            </button>
-                            <button onClick={remove} disabled={removing} className="flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 disabled:opacity-50 transition-all">
-                                {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Unlink
-                            </button>
                         </div>
                     </div>
                 </div>

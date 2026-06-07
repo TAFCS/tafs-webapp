@@ -12,6 +12,7 @@ export interface Family {
   username: string | null;
   consent_publicity: boolean;
   student_count?: number;
+  home_phone?: string | null;
   primary_guardian?: {
     name: string;
     cnic: string | null;
@@ -44,6 +45,9 @@ export interface FamilyGuardian {
   cnic: string | null;
   occupation: string | null;
   relationship: string | null;
+  additional_phones?: any[] | null;
+  is_primary_contact?: boolean;
+  is_emergency_contact?: boolean;
 }
 
 export interface FamilyDetail extends Family {

@@ -9,27 +9,30 @@ export default function FamiliesPage() {
     const [isChangeFamilyModalOpen, setIsChangeFamilyModalOpen] = useState(false);
 
     return (
-        <div className="flex-1 h-[calc(100vh-64px)] flex flex-col p-6 overflow-hidden">
-            <div className="mb-6 flex-shrink-0 flex flex-col lg:flex-row justify-between lg:items-end gap-4">
+        <div className="space-y-6 p-6">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 border-b pb-2">Family & Household Directory</h2>
-                    <p className="text-zinc-500 dark:text-zinc-400 mt-2">Manage household connections, review sibling links, and monitor family-level financial statuses.</p>
+                    <h1 className="text-[22px] font-black tracking-tight text-zinc-900 dark:text-zinc-100">Family & Household Directory</h1>
+                    <p className="text-[13px] text-zinc-500 mt-0.5">
+                        Search and manage all household connections, parent credentials, and sibling roster links.
+                    </p>
                 </div>
 
                 {/* Global Action Buttons */}
-                <div className="flex items-center gap-2 w-full lg:w-auto mt-2 lg:mt-0">
+                <div className="flex items-center gap-2 shrink-0">
                     <button
                         onClick={() => setIsCreateFamilyModalOpen(true)}
-                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-sm font-medium"
+                        className="inline-flex items-center justify-center h-10 px-4 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all font-medium text-xs shadow-sm active:scale-95"
                     >
-                        <Users className="h-4 w-4" />
+                        <Users className="h-4 w-4 mr-2" />
                         Create New Family
                     </button>
                     <button
                         onClick={() => setIsChangeFamilyModalOpen(true)}
-                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-colors shadow-sm font-medium"
+                        className="inline-flex items-center justify-center h-10 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all font-medium text-xs shadow-sm active:scale-95"
                     >
-                        <LinkIcon className="h-4 w-4" />
+                        <LinkIcon className="h-4 w-4 mr-2" />
                         Change Student&apos;s Family
                     </button>
                 </div>
