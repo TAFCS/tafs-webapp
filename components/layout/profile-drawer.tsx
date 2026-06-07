@@ -133,6 +133,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'Permissions', href: '/system/permissions', icon: ShieldCheck, permission: 'system.permissions.manage' },
                 { name: 'Analytics', href: '/dashboard', icon: BarChart3, permission: 'system.analytics.view' },
                 { name: 'Database Backups', href: '/admin/backups', icon: Database, permission: 'system.backups.view' },
+                { name: 'Developer Settings', href: '/admin/developer', icon: Settings, permission: 'system.permissions.manage' },
             ]
         },
         {
@@ -275,6 +276,9 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
 
                             {navModules.map(module => {
                                 const visibleItems = module.items.filter((item) => {
+                                    if (item.href === '/admin/developer') {
+                                        return user?.role === 'SUPER_ADMIN';
+                                    }
                                     const anyPerms = 'permissions' in item && Array.isArray((item as { permissions?: string[] }).permissions)
                                         ? (item as { permissions: string[] }).permissions
                                         : null;
