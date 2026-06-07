@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { setCredentials, setLoading, clearCredentials } from '@/store/slices/authSlice';
+import { setCredentials, clearCredentials } from '@/store/slices/authSlice';
 import type { StaffUser } from '@/store/slices/authSlice';
 import { authService } from '@/lib/auth.service';
 
@@ -48,6 +48,7 @@ function normalizeStaffUser(user: StaffUser): StaffUser {
     return {
         ...user,
         allowedClassIds: user.allowedClassIds ?? [],
+        permissions: user.permissions ?? [],
     };
 }
 
@@ -69,6 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // One-time migration: purge legacy keys left by old auth systems
         LEGACY_KEYS.forEach((k) => localStorage.removeItem(k));
 
+        const cached = loadCachedUser();
+        if (cached) {
+            dispatch(setCredentials({ user: cached }));
+        }
+
         // Call refresh — the browser sends the httpOnly tafs_refresh cookie
         // automatically. If valid, backend rotates tokens + returns updated user.
         authService
@@ -80,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             })
             .catch(() => {
                 clearSession();
-                dispatch(setLoading(false));
+                dispatch(clearCredentials());
             });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
