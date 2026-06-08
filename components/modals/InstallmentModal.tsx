@@ -88,7 +88,10 @@ export default function InstallmentModal({
     };
 
     const mergeableHeads = useMemo(
-        () => existingFees.filter(ef => ef.dbId),
+        // Only NOT_ISSUED heads that aren't already part of another plan can be merged
+        // into — the backend snapshots voucher_heads.net_amount at issuance, so merging
+        // into an issued/paid head would silently desync the voucher from the balance.
+        () => existingFees.filter(ef => ef.dbId && ef.status === 'NOT_ISSUED' && !ef.installment_id),
         [existingFees],
     );
 
