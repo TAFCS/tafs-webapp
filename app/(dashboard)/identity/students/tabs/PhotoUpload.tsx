@@ -6,13 +6,14 @@ import api from "@/lib/api";
 interface PhotoUploadProps {
   cc?: number; // For student
   guardianId?: number; // For guardian
+  employeeId?: number; // For employee
   type?: "standard" | "blue_bg"; // For student subtypes
   currentUrl?: string;
   label: string;
   onSuccess: (url: string) => void;
 }
 
-export function PhotoUpload({ cc, guardianId, type, currentUrl, label, onSuccess }: PhotoUploadProps) {
+export function PhotoUpload({ cc, guardianId, employeeId, type, currentUrl, label, onSuccess }: PhotoUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
@@ -40,6 +41,8 @@ export function PhotoUpload({ cc, guardianId, type, currentUrl, label, onSuccess
         endpoint = `/v1/media/student/${cc}/photo/${type || "standard"}`;
       } else if (guardianId) {
         endpoint = `/v1/media/guardian/${guardianId}/photo`;
+      } else if (employeeId) {
+        endpoint = `/v1/media/employee/${employeeId}/photo`;
       }
 
       const res = await api.post(endpoint, formData, {

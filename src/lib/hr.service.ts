@@ -1,5 +1,13 @@
 import api from './api';
 
+export interface StaffType {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+}
+
 export interface EmployeeProfile {
   id: number;
   user_id: string | null;
@@ -9,6 +17,27 @@ export interface EmployeeProfile {
   department_id: number | null;
   designation_id: number | null;
   reporting_manager_id: number | null;
+  // Extended fields
+  employee_code: string | null;
+  full_name: string | null;
+  father_name: string | null;
+  mother_name: string | null;
+  date_of_birth: string | null;
+  address: string | null;
+  personal_phone: string | null;
+  personal_email: string | null;
+  job_title: string | null;
+  job_description: string | null;
+  notes: string | null;
+  reporting_time: string | null;
+  leaving_time: string | null;
+  late_relaxation_minutes: number | null;
+  monthly_pay: number | null;
+  staff_type_id: number | null;
+  campus_id: number | null;
+  days_per_week: number | null;
+  photo_url: string | null;
+  // Relations
   users?: {
     id: string;
     full_name: string;
@@ -18,6 +47,49 @@ export interface EmployeeProfile {
   } | null;
   departments?: Department | null;
   designations?: Designation | null;
+  staff_types?: StaffType | null;
+  campuses?: { id: number; campus_name: string } | null;
+  reporting_manager?: {
+    id: number;
+    full_name: string | null;
+    users?: { full_name: string } | null;
+  } | null;
+  employee_class_section_assignments?: {
+    id: number;
+    class_id: number;
+    section_id: number;
+    classes?: { description: string; class_code: string };
+    sections?: { description: string };
+  }[];
+}
+
+export interface EmployeeCreatePayload {
+  user_id?: string;
+  cnic?: string;
+  join_date?: string;
+  employment_type?: string;
+  department_id?: number;
+  designation_id?: number;
+  reporting_manager_id?: number;
+  employee_code?: string;
+  full_name?: string;
+  father_name?: string;
+  mother_name?: string;
+  date_of_birth?: string;
+  address?: string;
+  personal_phone?: string;
+  personal_email?: string;
+  job_title?: string;
+  job_description?: string;
+  notes?: string;
+  reporting_time?: string;
+  leaving_time?: string;
+  late_relaxation_minutes?: number;
+  monthly_pay?: number;
+  staff_type_id?: number;
+  campus_id?: number;
+  days_per_week?: number;
+  class_section_assignments?: { class_id: number; section_id: number }[];
 }
 
 export interface Department {
@@ -77,7 +149,7 @@ interface ApiEnvelope<T> {
 }
 
 export const hrService = {
-  // Employees API
+  // ── Employees API ──────────────────────────────────────────────────────────
   async listEmployees(): Promise<EmployeeProfile[]> {
     const { data } = await api.get<ApiEnvelope<EmployeeProfile[]>>('/v1/hr/employees');
     return data.data;
@@ -86,11 +158,11 @@ export const hrService = {
     const { data } = await api.get<ApiEnvelope<EmployeeProfile>>(`/v1/hr/employees/${id}`);
     return data.data;
   },
-  async createEmployee(payload: Partial<EmployeeProfile>): Promise<EmployeeProfile> {
+  async createEmployee(payload: EmployeeCreatePayload): Promise<EmployeeProfile> {
     const { data } = await api.post<ApiEnvelope<EmployeeProfile>>('/v1/hr/employees', payload);
     return data.data;
   },
-  async updateEmployee(id: number, payload: Partial<EmployeeProfile>): Promise<EmployeeProfile> {
+  async updateEmployee(id: number, payload: Partial<EmployeeCreatePayload>): Promise<EmployeeProfile> {
     const { data } = await api.patch<ApiEnvelope<EmployeeProfile>>(`/v1/hr/employees/${id}`, payload);
     return data.data;
   },
@@ -101,8 +173,33 @@ export const hrService = {
     const { data } = await api.get<ApiEnvelope<any[]>>('/v1/hr/employees/unlinked-users');
     return data.data;
   },
+  async getNextEmployeeCode(): Promise<{ code: string }> {
+    const { data } = await api.get<ApiEnvelope<{ code: string }>>('/v1/hr/employees/next-code');
+    return data.data;
+  },
 
-  // Departments API
+  // ── Staff Types API ────────────────────────────────────────────────────────
+  async listStaffTypes(): Promise<StaffType[]> {
+    const { data } = await api.get<ApiEnvelope<StaffType[]>>('/v1/hr/staff-types');
+    return data.data;
+  },
+  async getStaffType(id: number): Promise<StaffType> {
+    const { data } = await api.get<ApiEnvelope<StaffType>>(`/v1/hr/staff-types/${id}`);
+    return data.data;
+  },
+  async createStaffType(payload: { code: string; name: string; description?: string; is_active?: boolean }): Promise<StaffType> {
+    const { data } = await api.post<ApiEnvelope<StaffType>>('/v1/hr/staff-types', payload);
+    return data.data;
+  },
+  async updateStaffType(id: number, payload: { code?: string; name?: string; description?: string; is_active?: boolean }): Promise<StaffType> {
+    const { data } = await api.patch<ApiEnvelope<StaffType>>(`/v1/hr/staff-types/${id}`, payload);
+    return data.data;
+  },
+  async deleteStaffType(id: number): Promise<void> {
+    await api.delete(`/v1/hr/staff-types/${id}`);
+  },
+
+  // ── Departments API ────────────────────────────────────────────────────────
   async listDepartments(): Promise<Department[]> {
     const { data } = await api.get<ApiEnvelope<Department[]>>('/v1/hr/departments');
     return data.data;
@@ -119,7 +216,7 @@ export const hrService = {
     await api.delete(`/v1/hr/departments/${id}`);
   },
 
-  // Designations API
+  // ── Designations API ───────────────────────────────────────────────────────
   async createDesignation(deptId: number, payload: { title: string; description?: string }): Promise<Designation> {
     const { data } = await api.post<ApiEnvelope<Designation>>(`/v1/hr/departments/${deptId}/designations`, payload);
     return data.data;
@@ -132,7 +229,7 @@ export const hrService = {
     await api.delete(`/v1/hr/departments/${deptId}/designations/${id}`);
   },
 
-  // Policies API
+  // ── Policies API ───────────────────────────────────────────────────────────
   async listPolicies(campusId: number): Promise<PolicySet[]> {
     const { data } = await api.get<ApiEnvelope<PolicySet[]>>(`/v1/hr/policies?campusId=${campusId}`);
     return data.data;
@@ -160,7 +257,7 @@ export const hrService = {
     await api.delete(`/v1/hr/policies/${setId}/rules/${id}`);
   },
 
-  // Calendar API
+  // ── Calendar API ───────────────────────────────────────────────────────────
   async listCalendarDays(campusId: number): Promise<CalendarDay[]> {
     const { data } = await api.get<ApiEnvelope<CalendarDay[]>>(`/v1/hr/calendar?campusId=${campusId}`);
     return data.data;
@@ -177,7 +274,7 @@ export const hrService = {
     await api.delete(`/v1/hr/calendar/${id}`);
   },
 
-  // Class Attendance Modes API
+  // ── Class Attendance Modes API ─────────────────────────────────────────────
   async listClassAttendanceModes(): Promise<ClassAttendanceMode[]> {
     const { data } = await api.get<ApiEnvelope<ClassAttendanceMode[]>>('/v1/hr/class-attendance-modes');
     return data.data;

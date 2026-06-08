@@ -15,6 +15,7 @@ import {
     ClipboardList,
     ClipboardCheck,
     Bell,
+    Tag,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -150,6 +151,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             items: [
                 { name: 'Employee Directory', href: '/hr/employees', icon: Users, permission: 'hr.employees.view' },
                 { name: 'Departments', href: '/hr/departments', icon: Layers, permission: 'hr.employees.view' },
+                { name: 'Staff Types', href: '/hr/staff-types', icon: Tag, permission: 'hr.employees.view' },
                 { name: 'HR Policies', href: '/hr/policies', icon: FileText, permission: 'hr.policies.manage' },
                 { name: 'Staff Register', href: '/hr/staff-register', icon: ClipboardCheck, permission: 'attendance.staff.mark' },
                 {
