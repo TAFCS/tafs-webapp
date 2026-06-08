@@ -3,13 +3,14 @@
 import React, { useState, useEffect, ReactNode } from "react";
 import {
     Search,
-    MoreVertical,
-    Eye,
     Users,
     GraduationCap,
     ChevronLeft,
     ChevronRight,
-    X
+    X,
+    UserPlus,
+    RefreshCw,
+    AlertCircle,
 } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import api from "@/lib/api";
@@ -17,7 +18,6 @@ import {
     familiesService,
     type Family,
     type PaginationMeta,
-    type CreateFamilyPayload,
 } from "@/lib/families.service";
 import { FamilyDetailModal } from "./family-detail-modal";
 
@@ -99,26 +99,50 @@ export function FamiliesDataTable({
         fetchFamilies(page, debouncedSearch);
     }, [page, debouncedSearch, fetchFamilies]);
 
-    // ── Create family form state ──────────────────────────────────────────────
-    const [createForm, setCreateForm] = useState<CreateFamilyPayload>({ household_name: "" });
+    // ── Create family state (initializeFromStudent flow) ─────────────────────
+    const [createStudentSearch, setCreateStudentSearch] = useState("");
+    const [createStudentResults, setCreateStudentResults] = useState<StudentHit[]>([]);
+    const [createSelectedStudent, setCreateSelectedStudent] = useState<StudentHit | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
+    const debouncedCreateSearch = useDebounce(createStudentSearch, 350);
+
+    useEffect(() => {
+        if (!debouncedCreateSearch) { setCreateStudentResults([]); return; }
+        api.get('/v1/students', { params: { search: debouncedCreateSearch, limit: 8, fields: 'core,family' } })
+            .then(r => setCreateStudentResults((r.data as { data: { items: StudentHit[] } }).data?.items ?? []))
+            .catch(() => setCreateStudentResults([]));
+    }, [debouncedCreateSearch]);
 
     const handleCreateFamily = async () => {
-        if (!createForm.household_name.trim()) return;
+        if (!createSelectedStudent) return;
+        const cc = createSelectedStudent.core?.cc_number ? Number(createSelectedStudent.core.cc_number) : createSelectedStudent.id;
+        if (!cc) { setCreateError("Could not determine student CC number."); return; }
         setIsCreating(true);
         setCreateError(null);
         try {
-            await familiesService.create(createForm);
+            await familiesService.initializeFromStudent(cc);
             setIsCreateFamilyModalOpen(false);
-            setCreateForm({ household_name: "" });
+            setCreateStudentSearch("");
+            setCreateStudentResults([]);
+            setCreateSelectedStudent(null);
             fetchFamilies(page, debouncedSearch);
-        } catch {
-            setCreateError("Failed to create family. Please try again.");
+        } catch (err: any) {
+            setCreateError(err?.response?.data?.message || "Failed to create family. Please try again.");
         } finally {
             setIsCreating(false);
         }
     };
+
+    // Reset create modal state when opened
+    useEffect(() => {
+        if (isCreateOpen) {
+            setCreateStudentSearch("");
+            setCreateStudentResults([]);
+            setCreateSelectedStudent(null);
+            setCreateError(null);
+        }
+    }, [isCreateOpen]);
 
     // ── Assign child state ────────────────────────────────────────────────────
     const [assignStudentSearch, setAssignStudentSearch] = useState("");
@@ -189,7 +213,7 @@ export function FamiliesDataTable({
             <div className={`w-full transition-opacity duration-200 ${isLoading ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
                 {error ? (
                     <div className="py-12 text-center text-red-500">{error}</div>
-                ) : families.length === 0 && !isLoading ? (
+                                ) : families.length === 0 && !isLoading ? (
                     <div className="flex flex-col items-center justify-center py-32 bg-zinc-50 border border-zinc-100 rounded-2xl gap-4">
                         <div className="p-5 bg-white rounded-2xl border border-zinc-100 shadow-sm">
                             <Users className="h-8 w-8 text-zinc-300" />
@@ -204,7 +228,11 @@ export function FamiliesDataTable({
                         {families.map((family) => {
                             const initials = family.household_name ? family.household_name.charAt(0).toUpperCase() : "?";
                             return (
-                                <div key={family.id} className="group bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 rounded-2xl p-4 hover:shadow-md hover:border-zinc-200 dark:hover:border-zinc-800 transition-all duration-200 flex flex-col justify-between h-full relative">
+                                <div
+                                    key={family.id}
+                                    onClick={() => setDetailFamilyId(family.id)}
+                                    className="group bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 rounded-2xl p-4 hover:shadow-md hover:border-zinc-200 dark:hover:border-zinc-800 transition-all duration-200 flex flex-col justify-between h-full relative cursor-pointer"
+                                >
                                     <div>
                                         <div className="flex items-start justify-between gap-3">
                                             {/* Avatar */}
@@ -225,23 +253,6 @@ export function FamiliesDataTable({
                                                     {family.primary_address && <span className="truncate">📍 {family.primary_address}</span>}
                                                     {family.legacy_pid && <span className="text-[10px] font-mono text-zinc-400">Legacy PID: {family.legacy_pid}</span>}
                                                 </div>
-                                            </div>
-
-                                            {/* Actions */}
-                                            <div className="relative action-menu-container">
-                                                <button
-                                                    onClick={() => setOpenActionRowId(openActionRowId === family.id ? null : family.id)}
-                                                    className="h-8 w-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
-                                                >
-                                                    <MoreVertical className="h-4 w-4" />
-                                                </button>
-                                                {openActionRowId === family.id && (
-                                                    <div className="absolute right-0 top-8 mt-1 w-52 origin-top-right rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-xl z-50 overflow-hidden flex flex-col py-1">
-                                                        <div className="py-1">
-                                                            <ActionItem icon={<Eye />} label="View Family Details" onClick={() => { setDetailFamilyId(family.id); setOpenActionRowId(null); }} />
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
 
@@ -318,66 +329,132 @@ export function FamiliesDataTable({
                 />
             )}
 
-            {/* Create Family Modal */}
+            {/* Create Family Modal — initializeFromStudent flow */}
             {isCreateFamilyModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-white dark:bg-zinc-950 rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
-                        <div className="px-6 py-4 border-b flex justify-between items-center bg-zinc-50 dark:bg-zinc-900">
-                            <h3 className="font-semibold text-lg text-zinc-900 dark:text-zinc-100">Create New Family</h3>
-                            <button onClick={() => { setIsCreateFamilyModalOpen(false); setCreateForm({ household_name: "" }); setCreateError(null); }} className="text-zinc-400 hover:text-zinc-600 dark:text-zinc-400">✕</button>
-                        </div>
-                        <div className="p-6 flex-1 overflow-y-auto">
-                            <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">Enter details to create a new household record.</p>
-                            {createError && <p className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{createError}</p>}
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Household Name <span className="text-red-500">*</span></label>
-                                    <input
-                                        type="text"
-                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 dark:border-zinc-700 focus:ring-primary focus:border-primary text-sm"
-                                        placeholder="e.g. The Smith Family"
-                                        value={createForm.household_name}
-                                        onChange={e => setCreateForm(f => ({ ...f, household_name: e.target.value }))}
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Email</label>
-                                        <input
-                                            type="email"
-                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 dark:border-zinc-700 focus:ring-primary focus:border-primary text-sm"
-                                            value={createForm.email ?? ""}
-                                            onChange={e => setCreateForm(f => ({ ...f, email: e.target.value || undefined }))}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Password</label>
-                                        <input
-                                            type="text"
-                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 dark:border-zinc-700 focus:ring-primary focus:border-primary text-sm"
-                                            value={createForm.password ?? ""}
-                                            onChange={e => setCreateForm(f => ({ ...f, password: e.target.value || undefined }))}
-                                        />
-                                    </div>
+                    <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                        {/* Header */}
+                        <div className="px-6 py-4 border-b flex justify-between items-center bg-gradient-to-r from-violet-600 to-indigo-600">
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-xl bg-white/20 flex items-center justify-center">
+                                    <UserPlus className="h-4 w-4 text-white" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Address</label>
-                                    <textarea
-                                        rows={2}
-                                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 border-zinc-300 dark:border-zinc-700 focus:ring-primary focus:border-primary text-sm resize-none"
-                                        value={createForm.primary_address ?? ""}
-                                        onChange={e => setCreateForm(f => ({ ...f, primary_address: e.target.value || undefined }))}
-                                    />
+                                    <h3 className="font-bold text-white">Create New Family</h3>
+                                    <p className="text-[10px] text-white/70">Build a household from a student&apos;s existing guardian data</p>
                                 </div>
                             </div>
+                            <button
+                                onClick={() => { setIsCreateFamilyModalOpen(false); }}
+                                className="h-7 w-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                            >
+                                <X className="h-3.5 w-3.5 text-white" />
+                            </button>
                         </div>
+
+                        <div className="p-6 space-y-4">
+                            {/* How it works */}
+                            <div className="flex items-start gap-3 p-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900 rounded-xl">
+                                <AlertCircle className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5" />
+                                <p className="text-[11px] text-indigo-700 dark:text-indigo-300 leading-relaxed">
+                                    Search for a student by <strong>name or CC number</strong>. The system will automatically build a family household using their existing guardian records (father, mother, address, home phone).
+                                </p>
+                            </div>
+
+                            {createError && (
+                                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
+                                    <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+                                    <p className="text-xs text-red-700">{createError}</p>
+                                </div>
+                            )}
+
+                            {/* Student search */}
+                            <div>
+                                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2">Select Student <span className="text-red-500">*</span></label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                                    <input
+                                        type="text"
+                                        className="w-full pl-9 pr-4 py-2.5 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 text-sm bg-white dark:bg-zinc-900 transition-all"
+                                        placeholder="Search by name, CC number or GR..."
+                                        value={createStudentSearch}
+                                        onChange={e => { setCreateStudentSearch(e.target.value); setCreateSelectedStudent(null); }}
+                                    />
+                                </div>
+
+                                {/* Results dropdown */}
+                                {createStudentResults.length > 0 && !createSelectedStudent && (
+                                    <div className="mt-1 border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 shadow-lg max-h-52 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800">
+                                        {createStudentResults.map(s => {
+                                            const name = s.core?.full_name ?? `${s.core?.first_name ?? ''} ${s.core?.last_name ?? ''}`.trim();
+                                            const cc = s.core?.cc_number;
+                                            const currentFamily = s.family?.household_name;
+                                            return (
+                                                <button
+                                                    key={s.id}
+                                                    className="w-full text-left px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between gap-4"
+                                                    onClick={() => {
+                                                        setCreateSelectedStudent(s);
+                                                        setCreateStudentSearch(name);
+                                                        setCreateStudentResults([]);
+                                                    }}
+                                                >
+                                                    <div>
+                                                        <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase">{name}</p>
+                                                        <p className="text-[10px] text-zinc-400 font-medium mt-0.5">CC: {cc ?? '—'}</p>
+                                                    </div>
+                                                    {currentFamily ? (
+                                                        <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full shrink-0">Has family</span>
+                                                    ) : (
+                                                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full shrink-0">No family</span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Selected chip */}
+                                {createSelectedStudent && (
+                                    <div className="mt-2 flex items-center gap-2 px-3 py-2.5 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 rounded-xl">
+                                        <div className="h-6 w-6 rounded-lg bg-violet-500 flex items-center justify-center shrink-0">
+                                            <GraduationCap className="h-3.5 w-3.5 text-white" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-xs font-bold text-violet-800 dark:text-violet-200 uppercase">
+                                                {createSelectedStudent.core?.full_name ?? `${createSelectedStudent.core?.first_name} ${createSelectedStudent.core?.last_name}`}
+                                            </p>
+                                            <p className="text-[10px] text-violet-500 font-medium">CC: {createSelectedStudent.core?.cc_number ?? '—'}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => { setCreateSelectedStudent(null); setCreateStudentSearch(''); }}
+                                            className="text-violet-400 hover:text-violet-600 transition-colors"
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         <div className="px-6 py-4 border-t bg-zinc-50 dark:bg-zinc-900 flex justify-end gap-3">
-                            <button onClick={() => { setIsCreateFamilyModalOpen(false); setCreateForm({ household_name: "" }); setCreateError(null); }} className="px-4 py-2 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-950 shadow-sm transition-colors">Cancel</button>
+                            <button
+                                onClick={() => { setIsCreateFamilyModalOpen(false); }}
+                                className="px-4 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                            >
+                                Cancel
+                            </button>
                             <button
                                 onClick={handleCreateFamily}
-                                disabled={isCreating || !createForm.household_name.trim()}
-                                className="px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 font-medium shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                            >{isCreating ? "Creating..." : "Create Family"}</button>
+                                disabled={isCreating || !createSelectedStudent}
+                                className="px-5 py-2 bg-violet-600 text-white rounded-xl text-sm font-bold hover:bg-violet-700 shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {isCreating ? (
+                                    <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Creating...</>
+                                ) : (
+                                    <><UserPlus className="h-3.5 w-3.5" /> Create Family</>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -469,8 +546,9 @@ function AssignChildModal({
     const debouncedFamilyQ = useDebounce(familySearch, 350);
 
     const [studentResults, setStudentResults] = useState<StudentHit[]>([]);
-    const [familyResults, setFamilyResults] = useState<Family[]>([]);
     const [selectedFamilyName, setSelectedFamilyName] = useState("");
+    const [familyError, setFamilyError] = useState<string | null>(null);
+    const [isLoadingFamily, setIsLoadingFamily] = useState(false);
 
     useEffect(() => {
         if (!debouncedStudentQ) { setStudentResults([]); return; }
@@ -480,11 +558,30 @@ function AssignChildModal({
     }, [debouncedStudentQ]);
 
     useEffect(() => {
-        if (!debouncedFamilyQ) { setFamilyResults([]); return; }
-        familiesService.list({ search: debouncedFamilyQ, limit: 8 })
-            .then(r => setFamilyResults(r.data))
-            .catch(() => setFamilyResults([]));
-    }, [debouncedFamilyQ]);
+        const id = Number(debouncedFamilyQ.trim());
+        if (!debouncedFamilyQ.trim() || isNaN(id)) {
+            setSelectedFamilyId(null);
+            setSelectedFamilyName("");
+            setFamilyError(null);
+            return;
+        }
+
+        setIsLoadingFamily(true);
+        setFamilyError(null);
+        familiesService.getById(id)
+            .then(f => {
+                setSelectedFamilyId(f.id);
+                setSelectedFamilyName(f.household_name);
+            })
+            .catch(() => {
+                setSelectedFamilyId(null);
+                setSelectedFamilyName("");
+                setFamilyError("Family ID not found");
+            })
+            .finally(() => {
+                setIsLoadingFamily(false);
+            });
+    }, [debouncedFamilyQ, setSelectedFamilyId, setSelectedFamilyName]);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
@@ -548,34 +645,23 @@ function AssignChildModal({
                                 <input
                                     type="text"
                                     className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-1 border-emerald-300 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white dark:bg-zinc-950"
-                                    placeholder="Search target families..."
+                                    placeholder="Enter Target Family ID..."
                                     value={familySearch}
                                     onChange={e => setFamilySearch(e.target.value)}
                                 />
                             </div>
-                            {familyResults.length > 0 && (
-                                <div className="mt-1 border rounded-lg bg-white dark:bg-zinc-950 shadow-lg max-h-44 overflow-y-auto divide-y divide-zinc-100">
-                                    {familyResults.map(f => (
-                                        <button
-                                            key={f.id}
-                                            className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 flex items-center justify-between"
-                                            onClick={() => {
-                                                setSelectedFamilyId(f.id);
-                                                setSelectedFamilyName(f.household_name);
-                                                setFamilySearch("");
-                                                setFamilyResults([]);
-                                            }}
-                                        >
-                                            <span className="font-medium text-zinc-800 dark:text-zinc-200 text-xs">{f.household_name}</span>
-                                            <span className="text-zinc-400 text-[10px]">{f.email ?? "No email"}</span>
-                                        </button>
-                                    ))}
-                                </div>
+                            {isLoadingFamily && (
+                                <p className="mt-2 text-xs text-zinc-500 flex items-center gap-1.5">
+                                    <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Fetching family details...
+                                </p>
                             )}
-                            {selectedFamilyId && (
+                            {familyError && (
+                                <p className="mt-2 text-xs text-red-600">{familyError}</p>
+                            )}
+                            {selectedFamilyId && !isLoadingFamily && (
                                 <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
-                                    <span className="text-xs font-medium text-emerald-800">✔ Selected: {selectedFamilyName}</span>
-                                    <button onClick={() => { setSelectedFamilyId(null); setSelectedFamilyName(""); }} className="ml-auto text-emerald-400 hover:text-emerald-600 text-xs">✕</button>
+                                    <span className="text-xs font-medium text-emerald-800">✔ Selected: {selectedFamilyName} (ID: {selectedFamilyId})</span>
+                                    <button onClick={() => { setSelectedFamilyId(null); setSelectedFamilyName(""); setFamilySearch(""); }} className="ml-auto text-emerald-400 hover:text-emerald-600 text-xs">✕</button>
                                 </div>
                             )}
                         </div>
