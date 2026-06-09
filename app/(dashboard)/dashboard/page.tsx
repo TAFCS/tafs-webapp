@@ -94,6 +94,7 @@ export default function DashboardPage() {
     const students = statsData?.students || {};
     const campuses = statsData?.campuses || [];
     const trends = statsData?.trends || [];
+    const feedateTrends = statsData?.feedate_trends || [];
 
     const summaryStats = [
         {
@@ -147,6 +148,7 @@ export default function DashboardPage() {
     ];
 
     const maxMonthly = Math.max(...trends.map((t: any) => Math.max(t.due, t.received)), 1);
+    const maxFeedate = Math.max(...feedateTrends.map((t: any) => Math.max(t.due, t.collected)), 1);
 
     return (
         <div className="space-y-8 pb-10">
@@ -363,6 +365,111 @@ export default function DashboardPage() {
                                                         </p>
                                                         <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mt-0.5 leading-snug">
                                                             {isAhead ? 'more cash in than billed' : 'less cash in than billed'}
+                                                        </p>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Voucher Cycle Recovery */}
+                    <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 rounded-[2.5rem] p-10 lg:p-14 shadow-2xl relative overflow-hidden shadow-zinc-200/50 dark:shadow-none">
+                        <div className="mb-10 relative z-10">
+                            <div className="flex items-center gap-2 text-indigo-500 font-black text-[10px] uppercase tracking-[0.3em] mb-2">
+                                <Target className="h-3 w-3" /> Voucher Cycles
+                            </div>
+                            <h3 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-outfit">Cycle Due vs. Recovered</h3>
+                            <p className="text-sm text-zinc-500 font-semibold mt-2 max-w-2xl leading-relaxed">
+                                For each billing cycle, the total put on chits that month and how much of it has since been settled — regardless of when the cash arrived.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 relative z-10">
+                            <div className="flex items-start gap-4 p-5 rounded-3xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800">
+                                <div className="w-3 h-3 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
+                                <div>
+                                    <p className="text-xs font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.2em]">Cycle Due</p>
+                                    <p className="text-[12px] text-zinc-500 dark:text-zinc-400 font-medium mt-1.5 leading-relaxed">
+                                        Sum of all fee heads whose <span className="font-bold text-zinc-700 dark:text-zinc-300">fee_date</span> falls in that month — the full amount placed on chits during that billing cycle.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-4 p-5 rounded-3xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40">
+                                <div className="w-3 h-3 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                                <div>
+                                    <p className="text-xs font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.2em]">Recovered</p>
+                                    <p className="text-[12px] text-zinc-500 dark:text-zinc-400 font-medium mt-1.5 leading-relaxed">
+                                        How much of that cycle's heads have been <span className="font-bold text-zinc-700 dark:text-zinc-300">paid off</span> to date — cumulative, not limited to when cash arrived.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <p className="text-[11px] font-semibold text-zinc-400 mb-10 italic">
+                            Unlike the chart above, "Recovered" here tracks payment against the same specific heads that were on that cycle's chits — a direct measure of recovery per billing run.
+                        </p>
+
+                        <div className="space-y-4 relative z-10">
+                            {feedateTrends.map((t: any, i: number) => {
+                                const isCurrentMonth = i === feedateTrends.length - 1;
+                                const duePerf = Math.min(100, (t.due / maxFeedate) * 100);
+                                const recoveredPerf = Math.min(100, (t.collected / maxFeedate) * 100);
+                                const recoveryRate = t.due > 0 ? Math.round((t.collected / t.due) * 100) : null;
+                                const isFullyRecovered = t.gap === 0 && t.due > 0;
+                                const isFlat = t.due === 0;
+
+                                return (
+                                    <motion.div
+                                        key={t.month}
+                                        initial={{ opacity: 0, y: 12 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: i * 0.05 }}
+                                        className={`p-6 rounded-[1.75rem] border transition-all ${isCurrentMonth ? 'bg-indigo-500/[0.04] border-indigo-500/20 shadow-sm' : 'bg-zinc-50/60 dark:bg-zinc-900/30 border-zinc-100 dark:border-zinc-800/60'}`}
+                                    >
+                                        <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-8">
+                                            <div className="lg:w-32 shrink-0 flex items-center gap-2">
+                                                <span className={`text-base font-black tracking-tight font-outfit ${isCurrentMonth ? 'text-indigo-500' : 'text-zinc-900 dark:text-zinc-100'}`}>{t.month}</span>
+                                                {isCurrentMonth && (
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500 bg-indigo-500/10 px-2 py-1 rounded-full">Now</span>
+                                                )}
+                                            </div>
+
+                                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Cycle Due</span>
+                                                        <span className="text-sm font-black text-zinc-900 dark:text-zinc-100 font-outfit">Rs. {Math.round(t.due).toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                        <motion.div initial={{ width: 0 }} animate={{ width: `${duePerf}%` }} transition={{ duration: 0.8, ease: "circOut" }} className="h-full bg-indigo-300 dark:bg-indigo-700 rounded-full" />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Recovered</span>
+                                                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-500 font-outfit">Rs. {Math.round(t.collected).toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                        <motion.div initial={{ width: 0 }} animate={{ width: `${recoveredPerf}%` }} transition={{ duration: 0.8, ease: "circOut" }} className="h-full bg-emerald-500 rounded-full" />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="lg:w-44 shrink-0 lg:text-right lg:border-l lg:border-zinc-200 dark:lg:border-zinc-800 lg:pl-6">
+                                                {isFlat ? (
+                                                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">No chits</span>
+                                                ) : isFullyRecovered ? (
+                                                    <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Fully recovered</span>
+                                                ) : (
+                                                    <>
+                                                        <p className="text-sm font-black font-outfit text-amber-500">
+                                                            Rs. {Math.round(t.gap).toLocaleString()}
+                                                        </p>
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mt-0.5 leading-snug">
+                                                            {recoveryRate !== null ? `${recoveryRate}% recovered` : 'outstanding'}
                                                         </p>
                                                     </>
                                                 )}
