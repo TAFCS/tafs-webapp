@@ -215,7 +215,7 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                                 {tab === "academic" && <AcademicTab student={student} onReload={() => reload(true)} />}
                                 {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} />}
                                 {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
-                                {tab === "logs" && <StudentLogsTab student={student} />}
+                                {tab === "logs" && <StudentLogsTab studentId={student.cc} />}
                                 {tab === "danger_zone" && <DangerZoneTab student={student} />}
                             </div>
                         ) : (

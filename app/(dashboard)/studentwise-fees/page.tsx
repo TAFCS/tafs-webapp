@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo, Suspense } from "react";
-import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Minus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info, CreditCard, ArrowRight, Layers, Pencil } from "lucide-react";
+import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Minus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info, CreditCard, ArrowRight, Layers, Pencil, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
@@ -15,6 +15,7 @@ import toast from "react-hot-toast";
 import InstallmentModal from "@/components/modals/InstallmentModal";
 import { getCurrentAcademicYear, getAcademicYears, MONTHS, MONTH_TO_NUM, resolveClassIdFromGrade, calculateFeeSuggestions } from "@/lib/fee-utils";
 import { BulkOperationsDrawer } from "./components/BulkOperationsDrawer";
+import { FinanceAuditDrawer } from "./components/FinanceAuditDrawer";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -226,6 +227,7 @@ function StudentwiseFeeEditor() {
     const [isSearching, setIsSearching] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [showBulkDrawer, setShowBulkDrawer] = useState(false);
+    const [showAuditDrawer, setShowAuditDrawer] = useState(false);
     const [skipSearch, setSkipSearch] = useState(false);
     const [searchResults, setSearchResults] = useState<{ cc: number; full_name: string; gr_number: string }[]>([]);
     const [showSearchDropdown, setShowSearchDropdown] = useState(false);
@@ -465,6 +467,15 @@ function StudentwiseFeeEditor() {
         document.addEventListener("mousedown", h);
         return () => document.removeEventListener("mousedown", h);
     }, []);
+
+    // ESC to close audit drawer
+    useEffect(() => {
+        const handleKeyDown = (e: globalThis.KeyboardEvent) => {
+            if (e.key === "Escape" && showAuditDrawer) setShowAuditDrawer(false);
+        };
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [showAuditDrawer]);
 
     // Search effect
     useEffect(() => {
@@ -1357,6 +1368,17 @@ function StudentwiseFeeEditor() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {/* Finance Audit Log — only shown when a student is loaded */}
+                    {studentId && (
+                        <button
+                            onClick={() => setShowAuditDrawer(true)}
+                            className="group relative flex items-center gap-2 px-4 py-2 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 text-sm font-bold rounded-xl border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-950/50 transition-all active:scale-95 shadow-sm"
+                        >
+                            <ClipboardList className="h-4 w-4" />
+                            Finance Audit
+                        </button>
+                    )}
+
                     <button
                         onClick={() => setShowBulkDrawer(true)}
                         className="group flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm font-bold rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all active:scale-95 shadow-sm"
@@ -1364,8 +1386,6 @@ function StudentwiseFeeEditor() {
                         <LayoutGrid className="h-4 w-4 text-primary" />
                         Bulk Operations
                     </button>
-
-
                 </div>
             </div>
 
@@ -2529,6 +2549,14 @@ function StudentwiseFeeEditor() {
             <BulkOperationsDrawer
                 isOpen={showBulkDrawer}
                 onClose={() => setShowBulkDrawer(false)}
+            />
+
+            {/* Finance Audit Drawer */}
+            <FinanceAuditDrawer
+                isOpen={showAuditDrawer}
+                onClose={() => setShowAuditDrawer(false)}
+                studentId={studentId ? (Number(studentId.match(/\d+$/)?.[0]) || null) : null}
+                studentName={searchQuery.split(/\s\(/)[0] || ""}
             />
             {/* Edit Installment Plan Modal */}
             {editingPlan && (
