@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { 
-    Users, Banknote, FileText, TrendingUp, Calendar, 
+import {
+    Users, Banknote, FileText, TrendingUp, Calendar,
     CreditCard, Clock, Activity, Loader2, Landmark,
-    ArrowUpRight, ArrowDownRight, Info,
+    ArrowUpRight, ArrowDownRight, Info, AlertTriangle,
     Target, BarChart3, PieChart, CheckCircle2, LayoutDashboard
 } from "lucide-react";
 import api from "@/lib/api";
@@ -271,6 +271,49 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
                 {/* Monthly Billing vs Collections */}
                 <div className="xl:col-span-9 space-y-8">
+                    {/* Overdue voucher banner — institution-wide, not split by month */}
+                    {financials.overdueVoucherCount > 0 && (
+                        <div className="p-6 rounded-[2rem] bg-rose-500/5 border border-rose-500/15 relative overflow-hidden">
+                            <div className="flex items-start gap-4">
+                                <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-500 shrink-0">
+                                    <AlertTriangle className="h-5 w-5" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-black text-zinc-900 dark:text-zinc-50">
+                                        {financials.overdueVoucherCount} voucher{financials.overdueVoucherCount === 1 ? '' : 's'} unpaid and past due date
+                                    </p>
+                                    <p className="text-[12px] text-zinc-500 dark:text-zinc-400 font-medium mt-1 leading-relaxed">
+                                        Once a voucher passes its due date, the amount owed includes the Rs. 1,000 late fee.
+                                    </p>
+
+                                    {/* Breakdown: fees owed + late fee = total now due */}
+                                    <div className="mt-4 space-y-1.5 max-w-sm">
+                                        <div className="flex items-center justify-between text-[13px]">
+                                            <span className="font-semibold text-zinc-500">Fees still owed</span>
+                                            <span className="font-black text-zinc-900 dark:text-zinc-100 font-outfit">Rs. {Math.round(financials.arrears).toLocaleString()}</span>
+                                        </div>
+                                        {financials.lateFeeOutstanding > 0 && (
+                                            <div className="flex items-center justify-between text-[13px]">
+                                                <span className="font-semibold text-zinc-500">+ Late fee ({financials.overdueLateFeeVoucherCount} × Rs. 1,000)</span>
+                                                <span className="font-black text-rose-500 font-outfit">Rs. {Math.round(financials.lateFeeOutstanding).toLocaleString()}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex items-center justify-between pt-1.5 mt-1.5 border-t border-rose-500/15">
+                                            <span className="text-[10px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Total now due</span>
+                                            <span className="text-lg font-black text-rose-500 font-outfit">Rs. {Math.round(financials.totalOwedNow).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+
+                                    {financials.lateFeesCollected > 0 && (
+                                        <p className="text-[11px] font-semibold text-zinc-400 mt-4">
+                                            Rs. {Math.round(financials.lateFeesCollected).toLocaleString()} in late fees already collected this year from {financials.lateFeesCollectedCount} voucher{financials.lateFeesCollectedCount === 1 ? '' : 's'} paid after their due date.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 rounded-[2.5rem] p-10 lg:p-14 shadow-2xl relative overflow-hidden shadow-zinc-200/50 dark:shadow-none">
                         <div className="mb-10 relative z-10">
                             <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-[0.3em] mb-2">
@@ -373,12 +416,12 @@ export default function DashboardPage() {
                                                 <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Fully in</span>
                                             )}
                                         </div>
-                                        {/* Overdue indicator */}
-                                        {t.overdue > 0 && (
+                                        {/* Outstanding to date for this billing month, regardless of cash timing */}
+                                        {t.outstanding > 0 && (
                                             <div className="flex items-center gap-1.5 mt-2.5">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
-                                                <span className="text-[11px] font-bold text-rose-500">
-                                                    Rs. {Math.round(t.overdue).toLocaleString()} past due date — Rs. 1,000/month surcharge applies
+                                                <div className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600 shrink-0" />
+                                                <span className="text-[11px] font-bold text-zinc-400">
+                                                    Rs. {Math.round(t.outstanding).toLocaleString()} of this month's billing still unpaid to date
                                                 </span>
                                             </div>
                                         )}
@@ -468,15 +511,6 @@ export default function DashboardPage() {
                                                 <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Cleared</span>
                                             )}
                                         </div>
-                                        {/* Overdue indicator */}
-                                        {t.overdue > 0 && (
-                                            <div className="flex items-center gap-1.5 mt-2.5">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
-                                                <span className="text-[11px] font-bold text-rose-500">
-                                                    Rs. {Math.round(t.overdue).toLocaleString()} past due date — Rs. 1,000/month surcharge applies
-                                                </span>
-                                            </div>
-                                        )}
                                     </motion.div>
                                 );
                             })}
