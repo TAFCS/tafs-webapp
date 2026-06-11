@@ -16,6 +16,7 @@ import {
     ClipboardCheck,
     Bell,
     Tag,
+    Fingerprint,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -141,6 +142,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'Analytics', href: '/dashboard', icon: BarChart3, permission: 'system.analytics.view' },
                 { name: 'Database Backups', href: '/admin/backups', icon: Database, permission: 'system.backups.view' },
                 { name: 'Developer Settings', href: '/admin/developer', icon: Settings, permission: 'system.permissions.manage' },
+                { name: 'ZK Device Logs', href: '/attendance/zk-device-logs', icon: Fingerprint, permission: 'system.permissions.manage' },
             ]
         },
         {
@@ -284,7 +286,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
 
                             {navModules.map(module => {
                                 const visibleItems = module.items.filter((item) => {
-                                    if (item.href === '/admin/developer') {
+                                    if (item.href === '/admin/developer' || item.href === '/attendance/zk-device-logs') {
                                         return user?.role === 'SUPER_ADMIN';
                                     }
                                     const anyPerms = 'permissions' in item && Array.isArray((item as { permissions?: string[] }).permissions)
