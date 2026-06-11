@@ -67,7 +67,11 @@ export default function ParentChangeRequestsPage() {
          r.families?.household_name?.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
+    const isAccountDeletionRequest = (req: any) =>
+        req?.requested_data?.request_type === 'ACCOUNT_DELETION';
+
     const formatLabel = (key: string) => {
+        if (key === 'request_type') return 'Request Type';
         return key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     };
 
@@ -214,24 +218,31 @@ export default function ParentChangeRequestsPage() {
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <div className="flex gap-2 flex-wrap max-w-md">
-                                                {req.requested_data && Object.entries(req.requested_data)
-                                                    .filter(([key, newValue]) => {
-                                                        const currentValue = req.guardians?.[key];
-                                                        const normCurrent = (currentValue || '').trim();
-                                                        const normNew = (String(newValue) || '').trim();
-                                                        
-                                                        if (normCurrent === normNew) return false;
-                                                        if (normCurrent === '' && normNew === '+92') return false;
-                                                        return true;
-                                                    })
-                                                    .map(([key, newValue]) => (
-                                                        <span key={key} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-400 shadow-sm">
-                                                            {getFieldIcon(key)}
-                                                            {formatLabel(key)}
-                                                        </span>
-                                                    ))}
-                                            </div>
+                                            {isAccountDeletionRequest(req) ? (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900/50 text-[11px] font-black text-rose-700 dark:text-rose-300 shadow-sm uppercase tracking-wide">
+                                                    <AlertCircle className="h-3.5 w-3.5" />
+                                                    Account Deletion
+                                                </span>
+                                            ) : (
+                                                <div className="flex gap-2 flex-wrap max-w-md">
+                                                    {req.requested_data && Object.entries(req.requested_data)
+                                                        .filter(([key, newValue]) => {
+                                                            const currentValue = req.guardians?.[key];
+                                                            const normCurrent = (currentValue || '').trim();
+                                                            const normNew = (String(newValue) || '').trim();
+                                                            
+                                                            if (normCurrent === normNew) return false;
+                                                            if (normCurrent === '' && normNew === '+92') return false;
+                                                            return true;
+                                                        })
+                                                        .map(([key, newValue]) => (
+                                                            <span key={key} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-400 shadow-sm">
+                                                                {getFieldIcon(key)}
+                                                                {formatLabel(key)}
+                                                            </span>
+                                                        ))}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-8 py-6">
                                             <div className="flex flex-col">
@@ -296,7 +307,9 @@ export default function ParentChangeRequestsPage() {
                             <div className="p-8 border-b border-zinc-100 dark:border-zinc-900 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50">
                                 <div>
                                     <div className="flex items-center gap-3 mb-1">
-                                        <h3 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">Review Changes</h3>
+                                        <h3 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">
+                                            {isAccountDeletionRequest(selectedRequest) ? 'Review Account Deletion' : 'Review Changes'}
+                                        </h3>
                                         <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
                                             selectedRequest.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 
                                             selectedRequest.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 
@@ -325,6 +338,24 @@ export default function ParentChangeRequestsPage() {
                                     </div>
                                 )}
 
+                                {isAccountDeletionRequest(selectedRequest) ? (
+                                    <div className="p-8 rounded-[2rem] border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-900/20">
+                                        <div className="flex items-start gap-4">
+                                            <AlertCircle className="h-8 w-8 text-rose-500 shrink-0" />
+                                            <div>
+                                                <div className="text-lg font-black text-rose-900 dark:text-rose-200 mb-2">
+                                                    Permanent account deletion requested
+                                                </div>
+                                                <p className="text-rose-800 dark:text-rose-300 font-medium leading-relaxed">
+                                                    Approving this request will permanently delete the parent app account,
+                                                    revoke access tokens, and remove linked mobile credentials for{' '}
+                                                    <span className="font-black">{selectedRequest.guardians?.full_name}</span>.
+                                                    This action cannot be undone.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
                                 <div className="grid grid-cols-1 gap-4">
                                     {selectedRequest.requested_data && Object.entries(selectedRequest.requested_data)
                                         .filter(([key, newValue]) => {
@@ -371,6 +402,7 @@ export default function ParentChangeRequestsPage() {
                                         );
                                     })}
                                 </div>
+                                )}
                             </div>
 
                             {/* Modal Footer */}
@@ -381,17 +413,23 @@ export default function ParentChangeRequestsPage() {
                                         onClick={() => setShowRejectionModal(true)}
                                         className="px-8 py-4 rounded-2xl border-2 border-rose-200 dark:border-rose-900/50 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 font-black transition-all disabled:opacity-50 active:scale-95"
                                     >
-                                        Reject Changes
+                                        {isAccountDeletionRequest(selectedRequest) ? 'Reject Request' : 'Reject Changes'}
                                     </button>
                                     <button 
                                         disabled={isProcessing}
                                         onClick={() => handleProcess(selectedRequest.id, 'APPROVED')}
-                                        className="px-10 py-4 rounded-2xl bg-primary text-white hover:bg-primary/90 font-black shadow-xl shadow-primary/30 transition-all disabled:opacity-50 active:scale-95 flex items-center gap-3"
+                                        className={`px-10 py-4 rounded-2xl font-black shadow-xl transition-all disabled:opacity-50 active:scale-95 flex items-center gap-3 ${
+                                            isAccountDeletionRequest(selectedRequest)
+                                                ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-rose-500/30'
+                                                : 'bg-primary text-white hover:bg-primary/90 shadow-primary/30'
+                                        }`}
                                     >
                                         {isProcessing ? (
                                             <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
                                         ) : <Check className="h-5 w-5" />}
-                                        Approve & Sync Profile
+                                        {isAccountDeletionRequest(selectedRequest)
+                                            ? 'Approve & Delete Account'
+                                            : 'Approve & Sync Profile'}
                                     </button>
                                 </div>
                             ) : (
