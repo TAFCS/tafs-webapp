@@ -15,7 +15,19 @@ export interface SupportTicket {
   unread_by_staff: number;
   unread_by_parent: number;
   families?: { id: number; household_name: string };
-  students?: { cc: number; full_name: string; classes?: { description: string }; campuses?: { campus_name: string } };
+  students?: {
+    cc: number;
+    full_name: string;
+    photograph_url?: string | null;
+    photo_blue_bg_url?: string | null;
+    gr_number?: string | null;
+    primary_phone?: string | null;
+    whatsapp_number?: string | null;
+    whatsapp_country_code?: string | null;
+    classes?: { description: string };
+    sections?: { description: string };
+    campuses?: { campus_name: string };
+  };
   current_assignee?: { id: string; full_name: string; role: string };
 }
 

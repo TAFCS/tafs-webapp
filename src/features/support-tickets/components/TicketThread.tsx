@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { FileText, Loader2, Mic, Send, X } from "lucide-react";
+import { FileText, Loader2, Mic, Send, X, User, ShieldCheck, Phone } from "lucide-react";
 import { useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
@@ -80,10 +80,29 @@ export function TicketThread({
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
 
+  const [showStudentDetails, setShowStudentDetails] = useState(false);
+  const [familyStudents, setFamilyStudents] = useState<any[]>([]);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
   const shouldSend = useRef(true);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchFamilyStudents = async () => {
+    if (!ticket.family_id) return;
+    setIsLoadingStudents(true);
+    try {
+      const res = await api.get(`v1/chat/family/${ticket.family_id}/students`);
+      setFamilyStudents(res.data);
+      setShowStudentDetails(true);
+    } catch (err) {
+      console.error("Failed to fetch family students:", err);
+      toast.error("Failed to load family students");
+    } finally {
+      setIsLoadingStudents(false);
+    }
+  };
 
   const isClosed = ticket.status === "CLOSED";
   const isFinance = ticket.category === "FINANCIAL";
@@ -306,19 +325,46 @@ export function TicketThread({
             </p>
           </div>
         )}
-        <div className="flex flex-wrap gap-2 items-center justify-between">
-          <div>
-            <h2 className="font-black text-lg">{ticket.families?.household_name}</h2>
-            <p className="text-sm text-zinc-500">
-              {categoryLabel(ticket.category)} · {ticket.subtopic}
-              {ticket.students?.full_name && ` · ${ticket.students.full_name}`}
-            </p>
-            <p className="text-xs mt-1">
-              Status: <span className="font-bold">{statusLabel(ticket.status)}</span>
-              {ticket.current_assignee && <> · Assignee: {ticket.current_assignee.full_name}</>}
-            </p>
+        <div className="flex flex-wrap gap-4 items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-inner border border-zinc-200/20">
+              {(ticket.students?.photograph_url || ticket.students?.photo_blue_bg_url) ? (
+                <img
+                  src={ticket.students.photograph_url || ticket.students.photo_blue_bg_url || ""}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <User className="h-6 w-6 text-zinc-400" />
+              )}
+            </div>
+            <div>
+              <h2 className="font-black text-lg">{ticket.families?.household_name}</h2>
+              <p className="text-sm text-zinc-500">
+                {categoryLabel(ticket.category)} · {ticket.subtopic}
+                {ticket.students?.full_name && ` · ${ticket.students.full_name}`}
+              </p>
+              <p className="text-xs mt-1">
+                Status: <span className="font-bold">{statusLabel(ticket.status)}</span>
+                {ticket.current_assignee && <> · Assignee: {ticket.current_assignee.full_name}</>}
+              </p>
+            </div>
           </div>
           <div className="flex gap-2 flex-wrap">
+            {ticket.family_id && (
+              <button
+                onClick={fetchFamilyStudents}
+                disabled={isLoadingStudents}
+                className="inline-flex items-center gap-2 px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 disabled:opacity-40"
+              >
+                {isLoadingStudents ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                )}
+                Family Info
+              </button>
+            )}
             {isUnclaimedFinance && userRole === "FINANCE_CLERK" && (
               <button
                 onClick={handleClaim}
@@ -355,6 +401,65 @@ export function TicketThread({
             )}
           </div>
         </div>
+        {ticket.students && (
+          <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-zinc-50 dark:bg-zinc-900/40 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50 w-full sm:w-fit">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 flex-shrink-0 shadow-sm border border-zinc-100 dark:border-zinc-800">
+                {(ticket.students.photograph_url || ticket.students.photo_blue_bg_url) ? (
+                  <img
+                    src={ticket.students.photograph_url || ticket.students.photo_blue_bg_url || ""}
+                    alt={ticket.students.full_name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center">
+                    <User className="h-5 w-5 text-zinc-400" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                    {ticket.students.full_name}
+                  </span>
+                  <span className="px-1.5 py-0.5 bg-primary/10 text-primary rounded-md text-[9px] font-black uppercase tracking-wider">
+                    CC: {ticket.students.cc}
+                  </span>
+                  {ticket.students.gr_number && (
+                    <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-md text-[9px] font-black uppercase tracking-wider">
+                      GR: {ticket.students.gr_number}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {ticket.students.classes?.description && (
+                    <span className="px-2 py-0.5 bg-white dark:bg-zinc-800 rounded-md text-[9px] font-black border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
+                      {ticket.students.classes.description} {ticket.students.sections?.description}
+                    </span>
+                  )}
+                  {ticket.students.campuses?.campus_name && (
+                    <span className="px-2 py-0.5 bg-white dark:bg-zinc-800 rounded-md text-[9px] font-black border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
+                      {ticket.students.campuses.campus_name}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            {(ticket.students.primary_phone || ticket.students.whatsapp_number) && (
+              <div className="sm:pl-3 sm:border-l sm:border-zinc-200 dark:sm:border-zinc-800 flex gap-2 items-center text-[10px] text-zinc-500 font-semibold mt-1 sm:mt-0">
+                <Phone className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                <span>
+                  {ticket.students.primary_phone || ticket.students.whatsapp_number}
+                </span>
+                {ticket.students.whatsapp_number && ticket.students.whatsapp_number !== ticket.students.primary_phone && (
+                  <span className="px-1 py-0.2 bg-green-500/10 text-green-600 rounded text-[8px] font-black shrink-0">
+                    WA
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         <p className="mt-3 text-sm bg-zinc-100 dark:bg-zinc-800 p-3 rounded-xl">{ticket.description}</p>
       </div>
 
@@ -555,6 +660,67 @@ export function TicketThread({
                 {closeLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                 Close ticket
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showStudentDetails && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowStudentDetails(false)}
+        >
+          <div
+            className="bg-white dark:bg-zinc-950 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
+              <div>
+                <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-100 tracking-tight">Family Students</h3>
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">{familyStudents.length} Students Enrolled</p>
+              </div>
+              <button onClick={() => setShowStudentDetails(false)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-6 max-h-[60vh] overflow-y-auto flex flex-col gap-4">
+              {familyStudents.map((student) => (
+                <div key={student.cc} className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 group hover:border-primary/30 transition-all">
+                  <div className="h-16 w-16 rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                    {(student.photograph_url || student.photo_blue_bg_url) ? (
+                      <img src={student.photograph_url || student.photo_blue_bg_url} className="h-full w-full object-cover" alt="" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center"><User className="h-8 w-8 text-zinc-400" /></div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-black text-sm text-zinc-900 dark:text-zinc-100 tracking-tight">{student.full_name}</h4>
+                      <span className="px-1.5 py-0.5 bg-primary/10 text-primary rounded-md text-[9px] font-black uppercase tracking-wider">
+                        CC: {student.cc}
+                      </span>
+                      {student.gr_number && (
+                        <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-md text-[9px] font-black uppercase tracking-wider">
+                          GR: {student.gr_number}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <span className="px-2 py-0.5 bg-white dark:bg-zinc-800 rounded-md text-[9px] font-black border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">{student.classes?.description} {student.sections?.description}</span>
+                      <span className="px-2 py-0.5 bg-white dark:bg-zinc-800 rounded-md text-[9px] font-black border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">{student.campuses?.campus_name}</span>
+                    </div>
+                    {(student.primary_phone || student.whatsapp_number) && (
+                      <div className="flex gap-2 items-center text-[10px] text-zinc-500 font-semibold mt-2">
+                        <Phone className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                        <span>{student.primary_phone || student.whatsapp_number}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-6 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800">
+              <button onClick={() => setShowStudentDetails(false)} className="w-full py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all shadow-sm">Close Details</button>
             </div>
           </div>
         </div>

@@ -95,29 +95,38 @@ export function TicketQueueList({
             key={ticket.id}
             aria-selected={selectedId === ticket.id}
             onClick={() => onSelect(ticket.id)}
-            className={`w-full text-left p-4 border-b border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors ${
+            className={`w-full text-left p-4 border-b border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors flex items-start gap-4 ${
               selectedId === ticket.id ? "bg-primary/5 border-l-4 border-l-primary" : ""
             }`}
           >
-            <div className="flex justify-between items-start gap-2">
-              <span className="font-bold text-sm truncate">
-                {ticket.families?.household_name ?? `Family #${ticket.family_id}`}
-              </span>
-              {ticket.unread_by_staff > 0 && (
-                <span className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
-                  {ticket.unread_by_staff}
-                </span>
+            <div className="h-12 w-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm border border-zinc-200/20">
+              {(ticket.students?.photograph_url || ticket.students?.photo_blue_bg_url) ? (
+                <img src={ticket.students.photograph_url || ticket.students.photo_blue_bg_url || ""} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <User className="h-6 w-6 text-zinc-400" />
               )}
             </div>
-            <p className="text-xs text-zinc-500 mt-1">
-              {categoryLabel(ticket.category)} · {ticket.subtopic}
-            </p>
-            <p className="text-xs truncate mt-1 text-zinc-600 dark:text-zinc-400">
-              {ticket.last_message_snippet || ticket.description}
-            </p>
-            <p className="text-[10px] text-zinc-400 mt-2">
-              {format(new Date(ticket.last_message_at), "MMM d, h:mm a")}
-            </p>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-start gap-2">
+                <span className="font-bold text-sm truncate">
+                  {ticket.families?.household_name ?? `Family #${ticket.family_id}`}
+                </span>
+                {ticket.unread_by_staff > 0 && (
+                  <span className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
+                    {ticket.unread_by_staff}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-zinc-500 mt-1 truncate">
+                {categoryLabel(ticket.category)} · {ticket.subtopic}
+              </p>
+              <p className="text-xs truncate mt-1 text-zinc-600 dark:text-zinc-400">
+                {ticket.last_message_snippet || ticket.description}
+              </p>
+              <p className="text-[10px] text-zinc-400 mt-2">
+                {format(new Date(ticket.last_message_at), "MMM d, h:mm a")}
+              </p>
+            </div>
           </button>
         ))}
         {!isLoading && filtered.length === 0 && (
