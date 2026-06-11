@@ -11,6 +11,9 @@ import {
     UserPlus,
     RefreshCw,
     AlertCircle,
+    Eye,
+    Mail,
+    MapPin,
 } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import api from "@/lib/api";
@@ -26,6 +29,7 @@ interface FamiliesDataTableProps {
     onCloseCreate?: () => void;
     isAssignOpen?: boolean;
     onCloseAssign?: () => void;
+    refreshTrigger?: number;
 }
 
 export function FamiliesDataTable({
@@ -33,6 +37,7 @@ export function FamiliesDataTable({
     onCloseCreate,
     isAssignOpen = false,
     onCloseAssign,
+    refreshTrigger = 0,
 }: FamiliesDataTableProps = {}) {
     // ── Live data state ──────────────────────────────────────────────────────
     const [families, setFamilies] = useState<Family[]>([]);
@@ -97,7 +102,7 @@ export function FamiliesDataTable({
 
     useEffect(() => {
         fetchFamilies(page, debouncedSearch);
-    }, [page, debouncedSearch, fetchFamilies]);
+    }, [page, debouncedSearch, fetchFamilies, refreshTrigger]);
 
     // ── Create family state (initializeFromStudent flow) ─────────────────────
     const [createStudentSearch, setCreateStudentSearch] = useState("");
@@ -196,12 +201,12 @@ export function FamiliesDataTable({
                     <input
                         type="text"
                         placeholder="Search Household, ID, Email..."
-                        className="w-full h-10 pl-10 pr-10 text-[13px] font-medium bg-white dark:bg-zinc-950 border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-zinc-400"
+                        className="w-full h-11 pl-10 pr-10 text-sm font-semibold bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-zinc-400"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                     {searchQuery && (
-                        <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-600">
+                        <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-655">
                             <X className="h-3.5 w-3.5" />
                         </button>
                     )}
@@ -213,76 +218,127 @@ export function FamiliesDataTable({
             <div className={`w-full transition-opacity duration-200 ${isLoading ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
                 {error ? (
                     <div className="py-12 text-center text-red-500">{error}</div>
-                                ) : families.length === 0 && !isLoading ? (
-                    <div className="flex flex-col items-center justify-center py-32 bg-zinc-50 border border-zinc-100 rounded-2xl gap-4">
-                        <div className="p-5 bg-white rounded-2xl border border-zinc-100 shadow-sm">
-                            <Users className="h-8 w-8 text-zinc-300" />
+                ) : families.length === 0 && !isLoading ? (
+                    <div className="flex flex-col items-center justify-center py-32 bg-zinc-50 dark:bg-zinc-900/10 border border-zinc-100 dark:border-zinc-800/50 rounded-2xl gap-4">
+                        <div className="p-5 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
+                            <Users className="h-8 w-8 text-zinc-300 dark:text-zinc-700" />
                         </div>
                         <div className="text-center">
-                            <p className="font-bold text-zinc-700">No families found</p>
+                            <p className="font-bold text-zinc-700 dark:text-zinc-350">No families found</p>
                             <p className="text-sm text-zinc-400 mt-1">Try adjusting your search query</p>
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                        {families.map((family) => {
-                            const initials = family.household_name ? family.household_name.charAt(0).toUpperCase() : "?";
-                            return (
-                                <div
-                                    key={family.id}
-                                    onClick={() => setDetailFamilyId(family.id)}
-                                    className="group bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 rounded-2xl p-4 hover:shadow-md hover:border-zinc-200 dark:hover:border-zinc-800 transition-all duration-200 flex flex-col justify-between h-full relative cursor-pointer"
-                                >
-                                    <div>
-                                        <div className="flex items-start justify-between gap-3">
-                                            {/* Avatar */}
-                                            <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 flex items-center justify-center font-bold text-sm shrink-0">
-                                                {initials}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-start justify-between gap-2">
-                                                    <p className="font-bold text-zinc-900 dark:text-zinc-100 text-[14px] leading-tight truncate uppercase">{family.household_name}</p>
-                                                    <span className="text-[10px] text-zinc-400 font-mono font-bold">#{family.id}</span>
-                                                </div>
-                                                <div className="mt-1 flex flex-col gap-0.5 text-[11px] text-zinc-400 font-medium">
-                                                    {family.email ? (
-                                                        <span className="truncate">📧 {family.email}</span>
+                    <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden bg-white dark:bg-zinc-950 shadow-sm w-full">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+                                    <tr>
+                                        <th className="px-5 py-3 text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest w-20">ID</th>
+                                        <th className="px-5 py-3 text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Household</th>
+                                        <th className="px-5 py-3 text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Primary Guardian</th>
+                                        <th className="px-5 py-3 text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Contact & Address</th>
+                                        <th className="px-5 py-3 text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Linked Students</th>
+                                        <th className="px-5 py-3 text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest text-right w-24">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                                    {families.map((family) => {
+                                        const initials = family.household_name ? family.household_name.charAt(0).toUpperCase() : "?";
+                                        return (
+                                            <tr
+                                                key={family.id}
+                                                onClick={() => setDetailFamilyId(family.id)}
+                                                className="group hover:bg-zinc-50/50 dark:hover:bg-zinc-900/40 transition-colors duration-150 cursor-pointer"
+                                            >
+                                                <td className="px-5 py-4">
+                                                    <span className="text-[11px] font-mono font-bold text-zinc-400 dark:text-zinc-500">#{family.id}</span>
+                                                </td>
+                                                <td className="px-5 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0 uppercase">
+                                                            {initials}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-zinc-900 dark:text-zinc-100 text-sm leading-tight uppercase group-hover:text-primary transition-colors">
+                                                                {family.household_name}
+                                                            </p>
+                                                            {family.legacy_pid && (
+                                                                <span className="text-[10px] font-mono text-zinc-400 mt-0.5 block">
+                                                                    Legacy PID: {family.legacy_pid}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-5 py-4">
+                                                    {family.primary_guardian ? (
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">
+                                                                {family.primary_guardian.name}
+                                                            </span>
+                                                            {family.primary_guardian.cnic && (
+                                                                <span className="text-[10px] font-mono text-zinc-400">
+                                                                    CNIC: {family.primary_guardian.cnic}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     ) : (
-                                                        <span className="text-zinc-300 italic">No email provided</span>
+                                                        <span className="text-xs text-zinc-450 dark:text-zinc-500 italic">No primary guardian</span>
                                                     )}
-                                                    {family.primary_address && <span className="truncate">📍 {family.primary_address}</span>}
-                                                    {family.legacy_pid && <span className="text-[10px] font-mono text-zinc-400">Legacy PID: {family.legacy_pid}</span>}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Linked Students List */}
-                                        <div className="mt-3 flex flex-wrap gap-1.5">
-                                            {family.students && family.students.length > 0 ? (
-                                                family.students.map((student) => (
-                                                    <span key={student.cc} className="inline-flex items-center gap-1 text-[10px] bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
-                                                        <GraduationCap className="h-2.5 w-2.5 text-zinc-400" />
-                                                        {student.full_name}
-                                                    </span>
-                                                ))
-                                            ) : (
-                                                <span className="text-[10px] text-zinc-400 italic">No enrolled students</span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Primary Guardian Footer */}
-                                    {family.primary_guardian && (
-                                        <div className="mt-3 pt-3 border-t border-zinc-50 dark:border-zinc-900/50 flex items-center justify-between text-[11px] text-zinc-500">
-                                            <span className="truncate font-semibold">👤 {family.primary_guardian.name}</span>
-                                            {family.primary_guardian.cnic && (
-                                                <span className="text-[10px] font-mono font-bold text-zinc-400">{family.primary_guardian.cnic}</span>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
+                                                </td>
+                                                <td className="px-5 py-4">
+                                                    <div className="flex flex-col gap-0.5 max-w-[240px]">
+                                                        {family.email ? (
+                                                            <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate flex items-center gap-1.5">
+                                                                <Mail className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                                                                {family.email}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-zinc-300 dark:text-zinc-600 italic">No email</span>
+                                                        )}
+                                                        {family.primary_address ? (
+                                                            <span className="text-xs text-zinc-500 dark:text-zinc-450 truncate flex items-center gap-1.5 mt-0.5" title={family.primary_address}>
+                                                                <MapPin className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                                                                {family.primary_address}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-zinc-300 dark:text-zinc-600 italic">No address</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-5 py-4">
+                                                    <div className="flex flex-wrap gap-1.5 max-w-[320px]">
+                                                        {family.students && family.students.length > 0 ? (
+                                                            family.students.map((student) => (
+                                                                <span key={student.cc} className="inline-flex items-center gap-1 text-[10px] bg-zinc-50 dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-lg px-2 py-0.5 font-bold uppercase tracking-tight">
+                                                                    <GraduationCap className="h-3 w-3 text-zinc-400 dark:text-zinc-500" />
+                                                                    {student.full_name}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-[10px] text-zinc-450 dark:text-zinc-500 italic">No enrolled students</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-5 py-4 text-right">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setDetailFamilyId(family.id);
+                                                        }}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest rounded-lg border border-zinc-200 dark:border-zinc-800 transition-colors"
+                                                    >
+                                                        <Eye className="h-3.5 w-3.5" />
+                                                        Details
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
             </div>
@@ -290,14 +346,14 @@ export function FamiliesDataTable({
             {/* Pagination */}
             {meta && meta.pages > 1 && (
                 <div className="flex items-center justify-between pt-2">
-                    <p className="text-[12px] text-zinc-400">
-                        Page <strong className="text-zinc-600">{meta.page}</strong> of <strong className="text-zinc-600">{meta.pages}</strong>
+                    <p className="text-[12px] text-zinc-400 dark:text-zinc-500">
+                        Page <strong className="text-zinc-600 dark:text-zinc-400">{meta.page}</strong> of <strong className="text-zinc-600 dark:text-zinc-400">{meta.pages}</strong>
                     </p>
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => setPage(p => Math.max(1, p - 1))}
                             disabled={!meta.hasPrev}
-                            className="h-8 w-8 flex items-center justify-center rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            className="h-8 w-8 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                         >
                             <ChevronLeft className="h-4 w-4" />
                         </button>
@@ -305,7 +361,7 @@ export function FamiliesDataTable({
                             const p = meta.page <= 3 ? i + 1 : meta.page - 2 + i;
                             if (p < 1 || p > meta.pages) return null;
                             return (
-                                <button key={p} onClick={() => setPage(p)} className={`h-8 w-8 text-[12px] font-bold rounded-xl transition-all ${p === meta.page ? "bg-primary text-white shadow-sm" : "border border-zinc-200 text-zinc-500 hover:bg-zinc-50"}`}>
+                                <button key={p} onClick={() => setPage(p)} className={`h-8 w-8 text-[12px] font-bold rounded-xl transition-all ${p === meta.page ? "bg-primary text-white shadow-sm" : "border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}>
                                     {p}
                                 </button>
                             );
@@ -313,7 +369,7 @@ export function FamiliesDataTable({
                         <button
                             onClick={() => setPage(p => Math.min(meta.pages, p + 1))}
                             disabled={!meta.hasNext}
-                            className="h-8 w-8 flex items-center justify-center rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            className="h-8 w-8 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                         >
                             <ChevronRight className="h-4 w-4" />
                         </button>
