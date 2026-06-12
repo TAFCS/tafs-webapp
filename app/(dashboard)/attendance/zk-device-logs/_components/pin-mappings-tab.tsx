@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, Loader2, Pencil, Plus, Power, PowerOff, Tag, X } from "lucide-react";
+import toast from "react-hot-toast";
+import { AlertCircle, Fingerprint, Loader2, Pencil, Plus, Power, PowerOff, Tag, X } from "lucide-react";
 import {
     zkPushService,
     DeviceUserMapping,
@@ -252,6 +253,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [modalState, setModalState] = useState<{ mapping: DeviceUserMapping | null } | null>(null);
+    const [simulatingId, setSimulatingId] = useState<number | null>(null);
 
     const fetchMappings = useCallback(async () => {
         setLoading(true);
@@ -288,6 +290,29 @@ export function PinMappingsTab({ active }: { active: boolean }) {
             fetchMappings();
         } catch {
             setError("Failed to update mapping.");
+        }
+    }
+
+    async function runSimulateScan(m: DeviceUserMapping) {
+        setSimulatingId(m.id);
+        try {
+            const result = await zkPushService.simulateScan({ device_sn: m.device_sn, device_pin: m.device_pin });
+            if (!result.scan) {
+                toast.error("Scan was not recorded.");
+                return;
+            }
+            const time = new Date(result.scan.scan_time).toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                timeZone: "UTC",
+            });
+            const direction = result.scan.direction ?? "—";
+            const status = result.record?.status ?? "—";
+            toast.success(`Scan recorded — ${direction} at ${time}, status ${status}`);
+        } catch {
+            toast.error("Failed to simulate scan.");
+        } finally {
+            setSimulatingId(null);
         }
     }
 
@@ -389,6 +414,20 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                                                 >
                                                     {m.is_active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
                                                 </button>
+                                                {m.is_active && (
+                                                    <button
+                                                        onClick={() => runSimulateScan(m)}
+                                                        disabled={simulatingId === m.id}
+                                                        className="text-zinc-400 hover:text-zinc-600 disabled:opacity-50"
+                                                        title="Simulate Scan"
+                                                    >
+                                                        {simulatingId === m.id ? (
+                                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                                        ) : (
+                                                            <Fingerprint className="w-4 h-4" />
+                                                        )}
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

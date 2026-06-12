@@ -67,6 +67,31 @@ export interface UpdateDeviceMappingPayload {
     is_active?: boolean;
 }
 
+export interface SimulateScanPayload {
+    device_sn: string;
+    device_pin: string;
+    scan_time?: string;
+}
+
+export interface SimulateScanResult {
+    scan: {
+        id: number;
+        scan_time: string;
+        attendance_date: string;
+        sequence_no: number | null;
+        direction: 'IN' | 'OUT' | null;
+        is_duplicate: boolean;
+        is_live: boolean;
+        person_type: DevicePersonType | null;
+    } | null;
+    record: {
+        status: string;
+        check_in_at: string | null;
+        check_out_at: string | null;
+        last_scan_at: string | null;
+    } | null;
+}
+
 export const zkPushService = {
     getLogs: async (sn?: string): Promise<ZkPushLogsResponse> => {
         const params = sn ? { sn } : {};
@@ -98,6 +123,11 @@ export const zkPushService = {
         const params: Record<string, string> = { type };
         if (q) params.q = q;
         const res = await api.get('/v1/attendance/zk-device-mappings/search-persons', { params });
+        return res.data;
+    },
+
+    simulateScan: async (payload: SimulateScanPayload): Promise<SimulateScanResult> => {
+        const res = await api.post('/v1/attendance/zk-device-mappings/simulate-scan', payload);
         return res.data;
     },
 };

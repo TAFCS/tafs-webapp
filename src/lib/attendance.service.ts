@@ -74,6 +74,112 @@ interface ApiEnvelope<T> {
   message: string;
 }
 
+// ── Staff Attendance Dashboard ─────────────────────────────────────────────
+
+export interface SummaryCardValue {
+  count: number;
+  delta: number;
+}
+
+export interface StaffAttendanceSummary {
+  present_summary: {
+    on_time: SummaryCardValue;
+    late: SummaryCardValue;
+    early: SummaryCardValue;
+  };
+  not_present_summary: {
+    absent: SummaryCardValue;
+    no_clock_in: SummaryCardValue;
+    no_clock_out: SummaryCardValue;
+    invalid: SummaryCardValue;
+  };
+  away_summary: {
+    day_off: SummaryCardValue;
+    time_off: SummaryCardValue;
+  };
+}
+
+export interface StaffDashboardRow {
+  employee: {
+    id: number;
+    full_name: string | null;
+    employee_code: string | null;
+    job_title: string | null;
+    photo_url: string | null;
+    department: string | null;
+  };
+  check_in_at: string | null;
+  check_out_at: string | null;
+  overtime_minutes: number | null;
+  location: string | null;
+  note: string | null;
+  status: StaffAttendanceStatus | null;
+}
+
+export type TimelineSegmentType = 'WORK' | 'BREAK' | 'OVERTIME' | 'DAY_OFF';
+
+export interface TimelineSegment {
+  type: TimelineSegmentType;
+  start: string;
+  end: string;
+}
+
+export interface TimelineDay {
+  date: string;
+  status: StaffAttendanceStatus | null;
+  segments: TimelineSegment[];
+}
+
+export interface StaffTimeline {
+  employee: { id: number; full_name: string | null };
+  days: TimelineDay[];
+}
+
+// ── Student Attendance Dashboard ───────────────────────────────────────────
+
+export interface StudentAttendanceSummary {
+  present_summary: {
+    present: SummaryCardValue;
+  };
+  not_present_summary: {
+    no_clock_in: SummaryCardValue;
+    no_clock_out: SummaryCardValue;
+  };
+}
+
+export interface StudentDashboardRow {
+  student: {
+    cc: number;
+    full_name: string;
+    gr_number: string | null;
+    photo_url: string | null;
+    class: string | null;
+    section: string | null;
+  };
+  check_in_at: string | null;
+  check_out_at: string | null;
+  status: RollRecordStatus | null;
+}
+
+export type StudentTimelineSegmentType = 'WORK' | 'BREAK';
+
+export interface StudentTimelineSegment {
+  type: StudentTimelineSegmentType;
+  start: string;
+  end: string;
+}
+
+export interface StudentTimelineDay {
+  date: string;
+  status: RollRecordStatus | null;
+  segments: StudentTimelineSegment[];
+}
+
+export interface StudentTimeline {
+  student: { cc: number; full_name: string };
+  days: StudentTimelineDay[];
+}
+
 export const attendanceService = {
   async listRollSessions(params: {
     date: string;
@@ -151,6 +257,82 @@ export const attendanceService = {
     const { data } = await api.put<ApiEnvelope<StaffRegisterRow[]>>(
       '/v1/attendance/staff',
       payload,
+    );
+    return data.data;
+  },
+
+  // ── Staff Attendance Dashboard ───────────────────────────────────────────
+
+  async getStaffSummary(params: {
+    date: string;
+    campus_id?: number;
+    department_id?: number;
+  }): Promise<StaffAttendanceSummary> {
+    const { data } = await api.get<ApiEnvelope<StaffAttendanceSummary>>(
+      '/v1/attendance/staff/summary',
+      { params },
+    );
+    return data.data;
+  },
+
+  async getStaffDashboard(params: {
+    date: string;
+    campus_id?: number;
+    department_id?: number;
+  }): Promise<StaffDashboardRow[]> {
+    const { data } = await api.get<ApiEnvelope<StaffDashboardRow[]>>(
+      '/v1/attendance/staff/dashboard',
+      { params },
+    );
+    return data.data;
+  },
+
+  async getStaffTimeline(
+    employeeId: number,
+    params: { date_from: string; date_to: string },
+  ): Promise<StaffTimeline> {
+    const { data } = await api.get<ApiEnvelope<StaffTimeline>>(
+      `/v1/attendance/staff/${employeeId}/timeline`,
+      { params },
+    );
+    return data.data;
+  },
+
+  // ── Student Attendance Dashboard ─────────────────────────────────────────
+
+  async getStudentSummary(params: {
+    date: string;
+    campus_id?: number;
+    class_id?: number;
+    section_id?: number;
+  }): Promise<StudentAttendanceSummary> {
+    const { data } = await api.get<ApiEnvelope<StudentAttendanceSummary>>(
+      '/v1/attendance/students/summary',
+      { params },
+    );
+    return data.data;
+  },
+
+  async getStudentDashboard(params: {
+    date: string;
+    campus_id?: number;
+    class_id?: number;
+    section_id?: number;
+  }): Promise<StudentDashboardRow[]> {
+    const { data } = await api.get<ApiEnvelope<StudentDashboardRow[]>>(
+      '/v1/attendance/students/dashboard',
+      { params },
+    );
+    return data.data;
+  },
+
+  async getStudentTimeline(
+    studentCc: number,
+    params: { date_from: string; date_to: string },
+  ): Promise<StudentTimeline> {
+    const { data } = await api.get<ApiEnvelope<StudentTimeline>>(
+      `/v1/attendance/students/${studentCc}/timeline`,
+      { params },
     );
     return data.data;
   },

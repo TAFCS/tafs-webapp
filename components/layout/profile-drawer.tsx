@@ -156,6 +156,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'Staff Types', href: '/hr/staff-types', icon: Tag, permission: 'hr.employees.view' },
                 { name: 'HR Policies', href: '/hr/policies', icon: FileText, permission: 'hr.policies.manage' },
                 { name: 'Staff Register', href: '/hr/staff-register', icon: ClipboardCheck, permission: 'attendance.staff.mark' },
+                { name: 'Attendance Dashboard', href: '/hr/attendance-dashboard', icon: CalendarCheck, permission: 'attendance.staff.mark' },
                 {
                     name: 'A-Level Roll Call',
                     href: '/hr/roll-call',
