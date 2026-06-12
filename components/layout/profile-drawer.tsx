@@ -158,6 +158,12 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'Staff Register', href: '/hr/staff-register', icon: ClipboardCheck, permission: 'attendance.staff.mark' },
                 { name: 'Attendance Dashboard', href: '/hr/attendance-dashboard', icon: CalendarCheck, permission: 'attendance.staff.mark' },
                 {
+                    name: 'Student Attendance Dashboard',
+                    href: '/hr/student-attendance-dashboard',
+                    icon: UserCheck,
+                    permissions: ['attendance.student.rollcall.mark', 'attendance.student.rollcall.view'],
+                },
+                {
                     name: 'A-Level Roll Call',
                     href: '/hr/roll-call',
                     icon: ClipboardList,

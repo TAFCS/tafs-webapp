@@ -1,18 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
     AlertCircle,
     ArrowDown,
     ArrowUp,
     CalendarCheck,
+    ChevronRight,
     CheckCircle2,
     Fingerprint,
     Loader2,
+    Search,
+    SearchX,
     UserX,
+    X,
 } from "lucide-react";
+import api from "@/lib/api";
 import { useAppDispatch } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
@@ -98,6 +103,122 @@ function SummaryCard({ title, icon: Icon, color, bg, rows }: SummaryCardProps) {
     );
 }
 
+interface StudentSearchResult {
+    cc: number;
+    full_name: string;
+    gr_number: string | null;
+}
+
+function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
+    const [query, setQuery] = useState("");
+    const [results, setResults] = useState<StudentSearchResult[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [open, setOpen] = useState(false);
+    const searchRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (searchRef.current && !searchRef.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (!query.trim()) {
+            setResults([]);
+            setOpen(false);
+            return;
+        }
+        const timer = setTimeout(async () => {
+            setLoading(true);
+            setOpen(true);
+            try {
+                const { data } = await api.get("/v1/students/search-simple", { params: { q: query } });
+                setResults(data?.data ?? []);
+            } catch {
+                setResults([]);
+            } finally {
+                setLoading(false);
+            }
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [query]);
+
+    return (
+        <div className="relative w-full md:w-80" ref={searchRef}>
+            <div className="relative group">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 group-focus-within:text-primary transition-colors" />
+                <input
+                    type="text"
+                    placeholder="Search student by name, GR, or CC..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onFocus={() => query.trim() && setOpen(true)}
+                    className="w-full h-10 pl-10 pr-9 border rounded-xl text-sm bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+                {query && (
+                    <button
+                        onClick={() => {
+                            setQuery("");
+                            setResults([]);
+                            setOpen(false);
+                        }}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full"
+                    >
+                        <X className="h-3.5 w-3.5 text-zinc-400" />
+                    </button>
+                )}
+            </div>
+
+            <AnimatePresence>
+                {open && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                        className="absolute top-full mt-2 w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 overflow-hidden"
+                    >
+                        {loading ? (
+                            <div className="p-6 flex items-center justify-center gap-2 text-zinc-400 text-sm">
+                                <Loader2 className="h-4 w-4 animate-spin" /> Searching...
+                            </div>
+                        ) : results.length === 0 ? (
+                            <div className="p-6 flex flex-col items-center justify-center text-center gap-1.5">
+                                <SearchX className="h-6 w-6 text-zinc-200" />
+                                <p className="text-xs text-zinc-400">No students found for &quot;{query}&quot;</p>
+                            </div>
+                        ) : (
+                            <div className="p-1.5">
+                                {results.map((s) => (
+                                    <button
+                                        key={s.cc}
+                                        onClick={() => {
+                                            onSelect(s.cc);
+                                            setOpen(false);
+                                            setQuery("");
+                                        }}
+                                        className="w-full flex items-center gap-3 p-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-900 rounded-xl transition-colors text-left"
+                                    >
+                                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                                            {initials(s.full_name)}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200 truncate">{s.full_name}</p>
+                                            <p className="text-xs text-zinc-400">CC: {s.cc} · GR: {s.gr_number ?? "—"}</p>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-zinc-300" />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
 export default function StudentAttendanceDashboardPage() {
     const dispatch = useAppDispatch();
     const router = useRouter();
@@ -167,6 +288,7 @@ export default function StudentAttendanceDashboardPage() {
                     </h1>
                     <p className="text-sm text-zinc-500 mt-1">Daily student clock-in/out overview from biometric devices.</p>
                 </div>
+                <StudentSearch onSelect={(cc) => router.push(`/hr/student-attendance-dashboard/${cc}`)} />
                 {isSuperAdmin && (
                     <button
                         onClick={() => setSimulateOpen(true)}
