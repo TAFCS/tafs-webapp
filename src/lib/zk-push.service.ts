@@ -119,11 +119,14 @@ export const zkPushService = {
         return res.data;
     },
 
-    searchPersons: async (type: DevicePersonType, q?: string): Promise<PersonSearchResult[]> => {
-        const params: Record<string, string> = { type };
-        if (q) params.q = q;
-        const res = await api.get('/v1/attendance/zk-device-mappings/search-persons', { params });
-        return res.data;
+    searchStudents: async (q: string): Promise<PersonSearchResult[]> => {
+        const res = await api.get('/v1/students/search-simple', { params: { q } });
+        return res.data.data;
+    },
+
+    searchEmployees: async (q: string): Promise<PersonSearchResult[]> => {
+        const res = await api.get('/v1/hr/employees/search-simple', { params: { q } });
+        return res.data.data;
     },
 
     simulateScan: async (payload: SimulateScanPayload): Promise<SimulateScanResult> => {

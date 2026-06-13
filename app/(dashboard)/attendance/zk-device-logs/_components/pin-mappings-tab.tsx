@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { AlertCircle, Fingerprint, Loader2, Pencil, Plus, Power, PowerOff, Tag, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Fingerprint, Info, Loader2, Pencil, Plus, Power, PowerOff, Tag, X } from "lucide-react";
 import {
     zkPushService,
     DeviceUserMapping,
@@ -14,12 +14,13 @@ import { PersonPicker } from "./person-picker";
 
 interface MappingModalProps {
     mapping: DeviceUserMapping | null;
+    mappings: DeviceUserMapping[];
     prefill?: Pick<UnmappedPin, "device_sn" | "device_pin" | "suggested_name">;
     onClose: () => void;
     onSaved: () => void;
 }
 
-export function MappingModal({ mapping, prefill, onClose, onSaved }: MappingModalProps) {
+export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: MappingModalProps) {
     const isEdit = !!mapping;
     const deviceFieldsLocked = isEdit || !!prefill;
     const [deviceSn, setDeviceSn] = useState(mapping?.device_sn ?? prefill?.device_sn ?? "");
@@ -43,6 +44,46 @@ export function MappingModal({ mapping, prefill, onClose, onSaved }: MappingModa
     const [isActive, setIsActive] = useState(mapping?.is_active ?? true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [pinHint, setPinHint] = useState<{ type: 'info' | 'success' | 'warning'; message: string } | null>(null);
+
+    // PIN duplication hint — only for new mappings (deviceFieldsLocked === false)
+    useEffect(() => {
+        if (deviceFieldsLocked || !devicePin.trim()) {
+            setPinHint(null);
+            return;
+        }
+        const handle = setTimeout(() => {
+            const match = mappings.find(
+                (m) => m.device_pin === devicePin.trim() && m.device_sn !== deviceSn.trim()
+            );
+            if (!match) {
+                setPinHint({
+                    type: 'info',
+                    message: "This PIN isn't used on any other device yet. For best results, use the same PIN when adding this person on other devices too.",
+                });
+                return;
+            }
+            const matchedName = match.person_type === 'STAFF'
+                ? (match.employee_profiles?.full_name ?? 'Unknown')
+                : (match.students?.full_name ?? 'Unknown');
+            const isSamePerson =
+                (personType === 'STAFF' && selectedPerson?.id !== undefined && match.employee_id === selectedPerson.id) ||
+                (personType === 'STUDENT' && selectedPerson?.cc !== undefined && match.student_cc === selectedPerson.cc);
+            if (isSamePerson) {
+                setPinHint({
+                    type: 'success',
+                    message: `This PIN is already linked to ${matchedName} on device ${match.device_sn} — staying consistent. ✓`,
+                });
+            } else {
+                setPinHint({
+                    type: 'warning',
+                    message: `PIN ${devicePin.trim()} is already assigned to ${matchedName} on device ${match.device_sn}. Device PINs should ideally be unique across the whole school. Consider choosing a PIN that hasn't been used before.`,
+                });
+            }
+        }, 250);
+        return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [devicePin, deviceSn, deviceFieldsLocked, selectedPerson, personType]);
 
     function handlePersonTypeChange(next: DevicePersonType) {
         if (next !== personType) {
@@ -216,6 +257,22 @@ export function MappingModal({ mapping, prefill, onClose, onSaved }: MappingModa
                                 />
                                 Active
                             </label>
+                        )}
+
+                        {/* PIN duplication hint — new mapping only */}
+                        {!deviceFieldsLocked && pinHint && (
+                            <div className={`flex items-start gap-2 p-3 rounded-lg text-sm ${
+                                pinHint.type === 'info'
+                                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                                    : pinHint.type === 'success'
+                                    ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                                    : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
+                            }`}>
+                                {pinHint.type === 'info' && <Info className="w-4 h-4 shrink-0 mt-0.5" />}
+                                {pinHint.type === 'success' && <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />}
+                                {pinHint.type === 'warning' && <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />}
+                                <span>{pinHint.message}</span>
+                            </div>
                         )}
 
                         {error && (
@@ -439,7 +496,12 @@ export function PinMappingsTab({ active }: { active: boolean }) {
             </div>
 
             {modalState && (
-                <MappingModal mapping={modalState.mapping} onClose={() => setModalState(null)} onSaved={fetchMappings} />
+                <MappingModal
+                    mapping={modalState.mapping}
+                    mappings={mappings}
+                    onClose={() => setModalState(null)}
+                    onSaved={fetchMappings}
+                />
             )}
         </div>
     );

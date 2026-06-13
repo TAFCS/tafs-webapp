@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Search, X } from "lucide-react";
-import { zkPushService, DevicePersonType, PersonSearchResult } from "@/lib/zk-push.service";
+import { zkPushService, PersonSearchResult, DevicePersonType } from "@/lib/zk-push.service";
 
 interface PersonPickerProps {
     personType: DevicePersonType;
@@ -30,7 +30,9 @@ export function PersonPicker({ personType, selected, onSelect }: PersonPickerPro
         setLoading(true);
         const handle = setTimeout(async () => {
             try {
-                const data = await zkPushService.searchPersons(personType, query || undefined);
+                const data = personType === 'STAFF'
+                    ? await zkPushService.searchEmployees(query)
+                    : await zkPushService.searchStudents(query);
                 if (!cancelled) setResults(data);
             } finally {
                 if (!cancelled) setLoading(false);
