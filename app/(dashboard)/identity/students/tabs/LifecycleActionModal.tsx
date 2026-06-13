@@ -87,6 +87,7 @@ export function LifecycleActionModal({ isOpen, onClose, onConfirm, action, stude
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        onClick={(e) => e.stopPropagation()}
                         className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-zinc-200 overflow-hidden"
                     >
                         {/* Header */}
