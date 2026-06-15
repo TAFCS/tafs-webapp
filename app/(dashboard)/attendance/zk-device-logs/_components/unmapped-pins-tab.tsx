@@ -127,6 +127,7 @@ export function UnmappedPinsTab({ active }: { active: boolean }) {
             {mappingTarget && (
                 <MappingModal
                     mapping={null}
+                    mappings={[]}
                     prefill={mappingTarget}
                     onClose={() => setMappingTarget(null)}
                     onSaved={fetchPins}
