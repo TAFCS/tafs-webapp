@@ -19,7 +19,7 @@ import toast from "react-hot-toast";
 
 // ─── Dev flags ───────────────────────────────────────────────────────────────
 // Set to false before going to production.
-const DEV_ALLOW_VOID_DEPOSITS = false;
+const DEV_ALLOW_VOID_DEPOSITS = true;
 // Kill switch: set to true to re-enable discount rows in the voucher UI.
 const DEV_SHOW_DISCOUNTS = false;
 
