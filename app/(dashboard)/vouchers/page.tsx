@@ -6,7 +6,7 @@ import {
     Search, Loader2, AlertCircle, FileText, ChevronDown, X,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Building2, GraduationCap, Users, Hash, CreditCard, SlidersHorizontal,
-    ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2, AlertTriangle
+    ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2, AlertTriangle, Hourglass
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -26,6 +26,7 @@ const STATUS_OPTIONS = [
     { value: "PAID", label: "Paid", icon: CheckCircle2, color: "text-emerald-500" },
     { value: "OVERDUE", label: "Overdue", icon: XCircle, color: "text-rose-500" },
     { value: "VOID", label: "Void", icon: XCircle, color: "text-zinc-500" },
+    { value: "EXPIRED", label: "Expired", icon: Hourglass, color: "text-orange-500" },
 ];
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
@@ -54,6 +55,8 @@ function getStatusConfig(status: string | null) {
             return { label: "Overdue", classes: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800" };
         case "VOID":
             return { label: "Void", classes: "bg-zinc-50 text-zinc-500 border-zinc-200 dark:bg-zinc-800/10 dark:text-zinc-500 dark:border-zinc-800 line-through" };
+        case "EXPIRED":
+            return { label: "Expired", classes: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800" };
         default:
             return { label: "Unpaid", classes: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800" };
     }
@@ -612,7 +615,7 @@ function VoucherRow({
                         </button>
                     )}
 
-                    {(voucher.status === "UNPAID" || voucher.status === "OVERDUE" || voucher.status === "VOID") && (
+                    {(voucher.status === "UNPAID" || voucher.status === "OVERDUE" || voucher.status === "VOID" || voucher.status === "EXPIRED") && (
                         <button
                             onClick={(e) => { e.stopPropagation(); handleDelete(); }}
                             title="Delete Voucher & Reset Heads"
@@ -869,6 +872,7 @@ export default function VouchersPage() {
         unpaid: pagination.unpaid || 0,
         overdue: pagination.overdue || 0,
         void: pagination.void || 0,
+        expired: pagination.expired || 0,
     };
 
     const campusOptions: DropdownOption[] = campuses.map(c => ({ id: c.id, label: c.campus_name, sub: c.campus_code }));
@@ -920,13 +924,14 @@ export default function VouchersPage() {
             </div>
 
             {/* ── Stat Cards ───────────────────────────────────────────────── */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
                 {[
                     { label: "Total", value: stats.total, icon: FileText, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20" },
                     { label: "Paid", value: stats.paid, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
                     { label: "Unpaid", value: stats.unpaid, icon: Clock, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-900/20" },
                     { label: "Overdue", value: stats.overdue, icon: XCircle, color: "text-rose-500", bg: "bg-rose-50 dark:bg-rose-900/20" },
                     { label: "Void", value: stats.void, icon: XCircle, color: "text-zinc-500", bg: "bg-zinc-50 dark:bg-zinc-900/20" },
+                    { label: "Expired", value: stats.expired, icon: Hourglass, color: "text-orange-500", bg: "bg-orange-50 dark:bg-orange-900/20" },
                 ].map(s => (
                     <div key={s.label} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
                         <div className={`p-3 rounded-xl ${s.bg}`}>

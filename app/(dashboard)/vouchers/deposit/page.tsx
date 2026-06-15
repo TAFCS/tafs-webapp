@@ -7,7 +7,7 @@ import {
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Hash, SlidersHorizontal, ShieldAlert,
     ChevronLeft, ChevronRight, Wallet, UserCircle, UserSearch, Ban, X,
-    Stamp, Split, Calendar
+    Stamp, Split, Calendar, Hourglass
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -32,6 +32,7 @@ const STATUS_OPTIONS = [
     { value: "PAID", label: "Paid", icon: CheckCircle2, color: "text-emerald-500" },
     { value: "OVERDUE", label: "Overdue", icon: XCircle, color: "text-rose-500" },
     { value: "VOID", label: "Void", icon: Ban, color: "text-zinc-400" },
+    { value: "EXPIRED", label: "Expired", icon: Hourglass, color: "text-orange-400" },
 ];
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
@@ -60,6 +61,8 @@ function getStatusConfig(status: string | null) {
             return { label: "Overdue", classes: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800" };
         case "VOID":
             return { label: "Void", classes: "bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800/40 dark:text-zinc-500 dark:border-zinc-700" };
+        case "EXPIRED":
+            return { label: "Expired", classes: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800" };
         default:
             return { label: "Unpaid", classes: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800" };
     }
@@ -74,18 +77,25 @@ interface DepositModalProps {
 }
 
 function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
-    // Guard: do not allow deposit on a VOID voucher (bypassed in dev mode)
-    if (!DEV_ALLOW_VOID_DEPOSITS && voucher.status === "VOID") {
+    // Guard: do not allow deposit on a VOID or EXPIRED voucher (bypassed in dev mode)
+    if (!DEV_ALLOW_VOID_DEPOSITS && (voucher.status === "VOID" || voucher.status === "EXPIRED")) {
+        const isExpired = voucher.status === "EXPIRED";
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm animate-in fade-in duration-200">
                 <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
                     <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
                         <div className="flex items-center gap-4">
                             <div className="h-12 w-12 bg-zinc-200/60 dark:bg-zinc-800 rounded-2xl flex items-center justify-center">
-                                <Ban className="h-6 w-6 text-zinc-500" />
+                                {isExpired ? (
+                                    <Hourglass className="h-6 w-6 text-orange-500" />
+                                ) : (
+                                    <Ban className="h-6 w-6 text-zinc-500" />
+                                )}
                             </div>
                             <div>
-                                <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100">Voucher Voided</h2>
+                                <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100">
+                                    {isExpired ? "Voucher Expired" : "Voucher Voided"}
+                                </h2>
                                 <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Voucher #{voucher.id} • {voucher.students.full_name}</p>
                             </div>
                         </div>
@@ -97,10 +107,13 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         <div className="flex items-start gap-4 p-5 bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/40 rounded-2xl">
                             <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                             <div className="space-y-1">
-                                <p className="text-sm font-black text-amber-800 dark:text-amber-300">This voucher has been superseded</p>
+                                <p className="text-sm font-black text-amber-800 dark:text-amber-300">
+                                    {isExpired ? "This voucher's validity date has passed" : "This voucher has been superseded"}
+                                </p>
                                 <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                                    The unpaid fee heads from this voucher have been rolled into a newer voucher.
-                                    Please locate that voucher and record the deposit against it to avoid double-payment.
+                                    {isExpired
+                                        ? "This voucher can no longer be deposited. Issue a new voucher for this student and record the deposit against it instead."
+                                        : "The unpaid fee heads from this voucher have been rolled into a newer voucher. Please locate that voucher and record the deposit against it to avoid double-payment."}
                                 </p>
                             </div>
                         </div>
@@ -897,6 +910,7 @@ function PartiallyPaidModal({
 function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { voucher: VoucherItem; index: number; sections: any[]; onDeposit: (v: VoucherItem) => void; onRefresh: () => void }) {
     const status = getStatusConfig(voucher.status);
     const isVoid = voucher.status === "VOID";
+    const isExpired = voucher.status === "EXPIRED";
     const isPaid = voucher.status === "PAID";
     const isPartiallyPaid = voucher.status === "PARTIALLY_PAID";
     const [isDownloading, setIsDownloading] = useState(false);
@@ -961,7 +975,7 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
     return (
         <>
         <tr className={`group border-b border-zinc-100 dark:border-zinc-800/60 transition-colors ${
-            isVoid ? "opacity-60 bg-zinc-50/50 dark:bg-zinc-900/20" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
+            (isVoid || isExpired) ? "opacity-60 bg-zinc-50/50 dark:bg-zinc-900/20" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
         }`}>
             <td className="px-5 py-3.5 text-center">
                 <span className="text-[11px] font-mono text-zinc-400">{voucher.id}</span>

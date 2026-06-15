@@ -121,6 +121,7 @@ export interface VouchersPagination {
     unpaid?: number;
     overdue?: number;
     void?: number;
+    expired?: number;
 }
 
 export interface VouchersState {
@@ -194,7 +195,7 @@ export const fetchVouchers = createAsyncThunk(
             // Fallback for non-paginated or unexpected shapes
             return {
                 items: Array.isArray(data) ? data : [],
-                pagination: { total: Array.isArray(data) ? data.length : 0, page: 1, limit: 20, totalPages: 1, paid: 0, unpaid: 0, overdue: 0, void: 0 }
+                pagination: { total: Array.isArray(data) ? data.length : 0, page: 1, limit: 20, totalPages: 1, paid: 0, unpaid: 0, overdue: 0, void: 0, expired: 0 }
             };
         } catch (err: any) {
             return rejectWithValue(
