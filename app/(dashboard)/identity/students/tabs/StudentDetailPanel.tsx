@@ -12,6 +12,7 @@ import { AcademicTab } from "./AcademicTab";
 import { GuardiansTab } from "./GuardiansTab";
 import { LifecycleActionModal } from "./LifecycleActionModal";
 import { AdmissionOrderTab } from "./AdmissionOrderTab";
+import { TransferOrderTab } from "./TransferOrderTab";
 import { StudentLogsTab } from "./StudentLogsTab";
 import { DangerZoneTab } from "./DangerZoneTab";
 
@@ -48,7 +49,7 @@ const TABS = [
     { id: "logs",       label: "Logs",        icon: History },
 ] as const;
 
-type TabId = typeof TABS[number]["id"] | "admission_order" | "danger_zone";
+type TabId = typeof TABS[number]["id"] | "admission_order" | "transfer_order" | "danger_zone";
 
 interface Props {
     cc: number | null;
@@ -260,6 +261,19 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                         <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
                                     </>
                                 )}
+                                {student.admissions && student.admissions.length > 1 && (
+                                    <>
+                                        <button
+                                            onClick={() => setTab("transfer_order")}
+                                            className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "transfer_order" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-100" : "text-emerald-400 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-600 border border-emerald-100/50"}`}
+                                            title="Transfer Order"
+                                        >
+                                            <FileText className="h-3.5 w-3.5" />
+                                            <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Transfer Order</span>
+                                        </button>
+                                        <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
+                                    </>
+                                )}
                                 <button
                                     onClick={() => setTab("danger_zone")}
                                     className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "danger_zone" ? "bg-rose-600 text-white shadow-lg shadow-rose-200" : "text-rose-400 bg-rose-50 hover:bg-rose-100 hover:text-rose-600 border border-rose-100/50"}`}
@@ -324,6 +338,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                 {tab === "academic" && <AcademicTab student={student} onReload={() => reload(true)} />}
                                 {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} />}
                                 {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
+                                {tab === "transfer_order" && <TransferOrderTab cc={student.cc} />}
                                 {tab === "logs" && <StudentLogsTab studentId={student.cc} />}
                                 {tab === "danger_zone" && <DangerZoneTab student={student} />}
                             </div>

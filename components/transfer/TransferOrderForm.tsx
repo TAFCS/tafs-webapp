@@ -53,9 +53,10 @@ interface ClassOption {
 
 interface Props {
     student: TransferStudent;
+    alreadyTransferred?: boolean;
 }
 
-export default function TransferOrderForm({ student }: Props) {
+export default function TransferOrderForm({ student, alreadyTransferred = false }: Props) {
     // Campuses
     const [campuses, setCampuses] = useState<any[]>([]);
     const [loadingCampuses, setLoadingCampuses] = useState(true);
@@ -70,8 +71,8 @@ export default function TransferOrderForm({ student }: Props) {
 
     // Execution state
     const [isExecuting, setIsExecuting] = useState(false);
-    const [transferred, setTransferred] = useState(false);
-    const [updatedData, setUpdatedData] = useState<TransferStudent | null>(null);
+    const [transferred, setTransferred] = useState(alreadyTransferred || false);
+    const [updatedData, setUpdatedData] = useState<TransferStudent | null>(alreadyTransferred ? student : null);
 
     // PDF Generation state
     const [isGenerating, setIsGenerating] = useState(false);
@@ -150,8 +151,14 @@ export default function TransferOrderForm({ student }: Props) {
 
     // Derived: the selected class object
     const selectedClass = allClasses.find(c => c.id === toClassId);
-    const fromSystem = student.academic_system || '';
-    const toSystem = selectedClass?.academic_system || '';
+    
+    const fromSystem = alreadyTransferred 
+        ? ((student as any).admissions?.[1]?.academic_system || 'CAMBRIDGE')
+        : (student.academic_system || '');
+        
+    const toSystem = alreadyTransferred
+        ? (student.academic_system || '')
+        : (selectedClass?.academic_system || '');
 
     // Grouped classes — exclude current class to stop same-class transfer
     const groupedClasses = allClasses.reduce<Record<string, ClassOption[]>>((acc, cls) => {
@@ -240,11 +247,17 @@ export default function TransferOrderForm({ student }: Props) {
                         <div className="h-16 w-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                             <CheckCircle2 className="h-9 w-9" />
                         </div>
-                        <h2 className="text-2xl font-black tracking-tight mb-1">Transfer Complete!</h2>
+                        <h2 className="text-2xl font-black tracking-tight mb-1">
+                            {alreadyTransferred ? 'Transfer Order' : 'Transfer Complete!'}
+                        </h2>
                         <p className="text-green-100 font-medium">
-                            {student.full_name} has been moved to{' '}
-                            <span className="font-black text-white">{selectedClass?.description}</span>
-                            {' '}({toSystem})
+                            {alreadyTransferred ? (
+                                <>Official transfer document ready for <span className="font-black text-white">{student.full_name}</span></>
+                            ) : (
+                                <>{student.full_name} has been moved to{' '}
+                                <span className="font-black text-white">{selectedClass?.description}</span>
+                                {' '}({toSystem})</>
+                            )}
                         </p>
                     </div>
                 </div>
@@ -258,10 +271,16 @@ export default function TransferOrderForm({ student }: Props) {
                         {[
                             { label: 'Student', value: student.full_name },
                             { label: 'CC #', value: `${student.cc}` },
-                            { label: 'From Campus', value: student.campus_name || '—' },
-                            { label: 'To Campus', value: updatedData?.campus_name || campuses.find(c => c.id === toCampusId)?.campus_name || '—' },
-                            { label: 'From Class', value: `${fromSystem} — ${student.class_name || '—'}` },
-                            { label: 'To Class', value: `${toSystem} — ${selectedClass?.description || '—'}` },
+                            ...(alreadyTransferred ? [
+                                { label: 'From Class/System', value: (student as any).admissions?.[1]?.requested_grade ? `${(student as any).admissions?.[1]?.academic_system || ''} — ${(student as any).admissions?.[1]?.requested_grade}` : '—' },
+                                { label: 'To Class/System', value: `${student.academic_system || ''} — ${student.class_name || '—'}` },
+                                { label: 'To Campus', value: student.campus_name || '—' },
+                            ] : [
+                                { label: 'From Campus', value: student.campus_name || '—' },
+                                { label: 'To Campus', value: updatedData?.campus_name || campuses.find(c => c.id === toCampusId)?.campus_name || '—' },
+                                { label: 'From Class', value: `${fromSystem} — ${student.class_name || '—'}` },
+                                { label: 'To Class', value: `${toSystem} — ${selectedClass?.description || '—'}` },
+                            ]),
                             { label: 'Discipline', value: discipline || '—' },
                         ].map(({ label, value }) => (
                             <div key={label} className="flex items-center justify-between px-5 py-3">
@@ -269,6 +288,33 @@ export default function TransferOrderForm({ student }: Props) {
                                 <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">{value}</span>
                             </div>
                         ))}
+                    </div>
+                </div>
+
+                {/* PDF Options */}
+                <div className="bg-white dark:bg-zinc-950 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-4 shadow-sm">
+                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400">PDF Options</p>
+                    <div className="space-y-3">
+                        <div>
+                            <label className="text-[10px] font-bold text-zinc-400 uppercase mb-1 block">Discipline</label>
+                            <input
+                                type="text"
+                                value={discipline}
+                                onChange={(e) => setDiscipline(e.target.value)}
+                                placeholder="e.g. Science, Commerce, Humanities"
+                                className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl font-medium text-zinc-700 dark:text-zinc-300 outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-zinc-400 uppercase mb-1 block">Remarks</label>
+                            <textarea
+                                value={remarks}
+                                onChange={(e) => setRemarks(e.target.value)}
+                                placeholder="Enter remarks to print on the PDF..."
+                                rows={2}
+                                className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl font-medium text-zinc-700 dark:text-zinc-300 outline-none resize-none"
+                            />
+                        </div>
                     </div>
                 </div>
 

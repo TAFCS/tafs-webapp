@@ -11,6 +11,7 @@ import { AcademicTab } from "./AcademicTab";
 import { GuardiansTab } from "./GuardiansTab";
 import { LifecycleActionModal } from "./LifecycleActionModal";
 import { AdmissionOrderTab } from "./AdmissionOrderTab";
+import { TransferOrderTab } from "./TransferOrderTab";
 import { StudentLogsTab } from "./StudentLogsTab";
 import { DangerZoneTab } from "./DangerZoneTab";
 
@@ -23,7 +24,7 @@ const TABS = [
     { id: "logs",       label: "Logs",        icon: History },
 ] as const;
 
-type TabId = typeof TABS[number]["id"] | "admission_order" | "danger_zone";
+type TabId = typeof TABS[number]["id"] | "admission_order" | "transfer_order" | "danger_zone";
 
 interface Props {
     cc: number | null;
@@ -138,7 +139,7 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                     <div className="flex items-center gap-2">
                         {student && (
                             <div className="flex items-center bg-zinc-50 border border-zinc-100 rounded-xl p-0.5 mr-2">
-                                {!isSoft && (
+                                                               {!isSoft && (
                                     <>
                                         <button
                                             onClick={() => setTab("admission_order" as any)}
@@ -147,6 +148,19 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                                         >
                                             <FileText className="h-3.5 w-3.5" />
                                             <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Admission Order</span>
+                                        </button>
+                                        <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
+                                    </>
+                                )}
+                                {student.admissions && student.admissions.length > 1 && (
+                                    <>
+                                        <button
+                                            onClick={() => setTab("transfer_order" as any)}
+                                            className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "transfer_order" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-100" : "text-emerald-400 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-600 border border-emerald-100/50"}`}
+                                            title="Transfer Order"
+                                        >
+                                            <FileText className="h-3.5 w-3.5" />
+                                            <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Transfer Order</span>
                                         </button>
                                         <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
                                     </>
@@ -215,6 +229,7 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                                 {tab === "academic" && <AcademicTab student={student} onReload={() => reload(true)} />}
                                 {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} />}
                                 {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
+                                {tab === "transfer_order" && <TransferOrderTab cc={student.cc} />}
                                 {tab === "logs" && <StudentLogsTab studentId={student.cc} />}
                                 {tab === "danger_zone" && <DangerZoneTab student={student} />}
                             </div>
