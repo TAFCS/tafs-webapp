@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Save, Loader2, CheckCircle2, Pencil, X, Layers, ChevronDown } from "lucide-react";
+import { Save, Loader2, CheckCircle2, Pencil, X, Layers, ChevronDown, ArrowRightLeft } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import type { CampusItem } from "@/src/store/slices/campusesSlice";
@@ -64,6 +65,35 @@ export function ClassGradeTab({ student, classes = [], sections = [], campuses =
     const [saved, setSaved] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
+    const [transferOpen, setTransferOpen] = useState(false);
+    const [transferCampusId, setTransferCampusId] = useState("");
+    const [transferring, setTransferring] = useState(false);
+
+    const isSoftAdmission = (student.status || "").toUpperCase() === "SOFT_ADMISSION";
+
+    const handleTransferCampus = async () => {
+        if (!transferCampusId) {
+            toast.error("Please select a campus.");
+            return;
+        }
+        setTransferring(true);
+        try {
+            await api.patch(`/v1/staff-editing/students/${student.cc}`, {
+                campus_id: Number(transferCampusId),
+                class_id: null,
+                section_id: null,
+            });
+            toast.success("Campus transferred. Class has been cleared — please reassign.");
+            setTransferOpen(false);
+            setTransferCampusId("");
+            onReload();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || "Failed to transfer campus.");
+        } finally {
+            setTransferring(false);
+        }
+    };
+
     useEffect(() => {
         setClassId(student.class_id != null ? String(student.class_id) : "");
         setSectionId(student.section_id != null ? String(student.section_id) : "");
@@ -106,25 +136,30 @@ export function ClassGradeTab({ student, classes = [], sections = [], campuses =
         classId !== (student.class_id != null ? String(student.class_id) : "") ||
         sectionId !== (student.section_id != null ? String(student.section_id) : "");
 
-    const canSave = !!student.campus_id && !!classId && !!sectionId && isDirty;
+    const sectionRequired = !isSoftAdmission;
+    const canSave = !!student.campus_id && !!classId && (!sectionRequired || !!sectionId) && isDirty;
 
     const save = async () => {
         if (!student.campus_id) {
             toast.error("Assign a campus before setting class and section.");
             return;
         }
-        if (!classId || !sectionId) {
-            toast.error("Class and section are required.");
+        if (!classId) {
+            toast.error("Class is required.");
+            return;
+        }
+        if (sectionRequired && !sectionId) {
+            toast.error("Section is required.");
             return;
         }
         setSaving(true);
         try {
             await api.patch(`/v1/staff-editing/students/${student.cc}`, {
                 class_id: Number(classId),
-                section_id: Number(sectionId),
+                ...(sectionId ? { section_id: Number(sectionId) } : {}),
             });
             setSaved(true);
-            toast.success("Class and section updated.");
+            toast.success(sectionId ? "Class and section updated." : "Class updated.");
             setTimeout(() => setSaved(false), 2000);
             setIsEditing(false);
             onReload();
@@ -204,12 +239,12 @@ export function ClassGradeTab({ student, classes = [], sections = [], campuses =
                                     disabled={!student.campus_id}
                                 />
                             </Field>
-                            <Field label="Section">
+                            <Field label={isSoftAdmission ? "Section (assigned at enrollment)" : "Section"}>
                                 <Select
                                     value={sectionId}
                                     onChange={setSectionId}
                                     options={sectionOptions}
-                                    placeholder={classId ? "Select section" : "Select class first"}
+                                    placeholder={classId ? (isSoftAdmission ? "Optional — set at enrollment" : "Select section") : "Select class first"}
                                     disabled={!student.campus_id || !classId}
                                 />
                             </Field>
@@ -226,6 +261,18 @@ export function ClassGradeTab({ student, classes = [], sections = [], campuses =
                         <div>
                             <p className="text-[11px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-widest">Campus</p>
                             <p className="font-bold text-[14px] text-zinc-800 dark:text-zinc-200 mt-1">{student.campus_name || "—"}</p>
+                            {isSoftAdmission && (
+                                <button
+                                    onClick={() => {
+                                        setTransferCampusId(student.campus_id ? String(student.campus_id) : "");
+                                        setTransferOpen(true);
+                                    }}
+                                    className="mt-2 flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-indigo-600 hover:text-indigo-800 transition-colors"
+                                >
+                                    <ArrowRightLeft className="h-3 w-3" />
+                                    Transfer Campus
+                                </button>
+                            )}
                         </div>
                         <div>
                             <p className="text-[11px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-widest">Class</p>
@@ -242,6 +289,79 @@ export function ClassGradeTab({ student, classes = [], sections = [], campuses =
                     </div>
                 )}
             </div>
+
+            {/* Transfer Campus Modal */}
+            <AnimatePresence>
+                {transferOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setTransferOpen(false)}
+                            className="absolute inset-0 bg-zinc-950/40 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden"
+                        >
+                            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-indigo-50/50 dark:bg-indigo-950/20">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600">
+                                        <ArrowRightLeft className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-[15px] font-black text-zinc-900 dark:text-zinc-100 leading-tight">Transfer Campus</h3>
+                                        <p className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400">Soft Admission only</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setTransferOpen(false)}
+                                    className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors text-zinc-400 hover:text-zinc-600"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            <div className="p-6 space-y-5">
+                                <div className="rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/10 px-4 py-3 text-[12px] text-amber-800 dark:text-amber-300 font-medium leading-relaxed">
+                                    This will change the campus and clear the current class assignment. You will need to reassign the class from the Class Grade tab.
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-black text-zinc-400 uppercase tracking-wider mb-2">New Campus</label>
+                                    <Select
+                                        value={transferCampusId}
+                                        onChange={setTransferCampusId}
+                                        options={campuses.map((c) => ({ label: c.campus_name, value: String(c.id) }))}
+                                        placeholder="Select campus"
+                                    />
+                                </div>
+
+                                <div className="flex gap-3 pt-1">
+                                    <button
+                                        onClick={() => setTransferOpen(false)}
+                                        className="flex-1 px-4 py-3 rounded-2xl font-bold text-[13px] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleTransferCampus}
+                                        disabled={transferring || !transferCampusId || transferCampusId === String(student.campus_id)}
+                                        className="flex-[2] px-4 py-3 rounded-2xl font-black text-[13px] text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-sm"
+                                    >
+                                        {transferring ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
+                                        Confirm Transfer
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
