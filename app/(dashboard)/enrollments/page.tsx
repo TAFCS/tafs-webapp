@@ -345,7 +345,7 @@ export default function EnrollmentsPage() {
                                     {candidate.not_pursuing ? (
                                         <button
                                             onClick={() => handleTogglePursuit(candidate.cc, true)}
-                                            className="flex-1 py-4 bg-zinc-800 dark:bg-zinc-900 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] border-r border-white/10"
+                                            className="flex-1 py-4 bg-zinc-800 dark:bg-zinc-900 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98]"
                                         >
                                             RECONSIDER ADMISSION
                                         </button>
@@ -360,20 +360,13 @@ export default function EnrollmentsPage() {
                                             </button>
                                             <button
                                                 onClick={() => handleTogglePursuit(candidate.cc, false)}
-                                                className="p-4 bg-rose-600 hover:bg-rose-700 text-white transition-colors flex items-center justify-center border-r border-white/10"
+                                                className="p-4 bg-rose-600 hover:bg-rose-700 text-white transition-colors flex items-center justify-center"
                                                 title="Mark as Not Pursuing"
                                             >
                                                 <X className="h-5 w-5" />
                                             </button>
                                         </>
                                     )}
-                                    <Link 
-                                        href={`/enrollments/admission-order/${candidate.cc}`}
-                                        className="p-4 text-white/80 hover:text-white transition-colors flex items-center justify-center"
-                                        title="View Admission Order"
-                                    >
-                                        <FileText className="h-5 w-5" />
-                                    </Link>
                                 </div>
                             </motion.div>
                         ))}
