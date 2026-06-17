@@ -8,14 +8,12 @@ import {
   FileText,
   Flag,
   GraduationCap,
-  TrendingUp,
   UserCheck,
   UserMinus,
   UserPlus2,
   Users,
   Home,
   RefreshCw,
-  Coins
 } from "lucide-react";
 
 function formatDate(value?: string | null) {
@@ -38,12 +36,9 @@ function getIcon(log: AuditLog) {
   const entity = log.entity_type.toUpperCase();
   const action = log.action.toUpperCase();
 
-  if (entity === "VOUCHER") return FileText;
-  if (entity === "DEPOSIT") return Coins;
   if (entity === "FAMILY") return Home;
   if (entity === "GUARDIAN") return Users;
 
-  // For Student Status Changes
   if (action === "STATUS_CHANGED") {
     const newVal = (log.new_value || "").toUpperCase();
     if (newVal === "ENROLLED" || newVal === "UNDO_LEFT") return UserCheck;
@@ -64,8 +59,6 @@ function colorByType(log: AuditLog) {
   const entity = log.entity_type.toUpperCase();
   const action = log.action.toUpperCase();
 
-  if (entity === "VOUCHER") return "text-blue-700 bg-blue-50 border-blue-200";
-  if (entity === "DEPOSIT") return "text-emerald-700 bg-emerald-50 border-emerald-200";
   if (entity === "FAMILY") return "text-purple-700 bg-purple-50 border-purple-200";
   if (entity === "GUARDIAN") return "text-amber-700 bg-amber-50 border-amber-200";
 
@@ -107,7 +100,7 @@ export function StudentLogsTab({ studentId }: { studentId: number }) {
     let active = true;
     setLoading(true);
     auditLogsService
-      .list({ student_id: studentId, limit: LIMIT, offset })
+      .list({ student_id: studentId, entity_type: 'STUDENT,GUARDIAN,FAMILY', limit: LIMIT, offset })
       .then((res) => {
         if (!active) return;
         setLogs(res.data || []);
