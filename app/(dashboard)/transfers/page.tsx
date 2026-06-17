@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     ArrowLeftRight,
     Search,
@@ -38,11 +38,7 @@ export default function TransfersPage() {
     const [results, setResults] = useState<StudentResult[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
 
-    const handleSearch = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const q = searchTerm.trim();
-        if (!q) return;
-
+    const executeSearch = async (q: string) => {
         setIsSearching(true);
         setHasSearched(true);
         try {
@@ -68,6 +64,29 @@ export default function TransfersPage() {
         } finally {
             setIsSearching(false);
         }
+    };
+
+    // Auto-search effect with 400ms debounce
+    useEffect(() => {
+        const q = searchTerm.trim();
+        if (!q) {
+            setResults([]);
+            setHasSearched(false);
+            return;
+        }
+
+        const delayDebounceFn = setTimeout(() => {
+            executeSearch(q);
+        }, 400);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchTerm]);
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        const q = searchTerm.trim();
+        if (!q) return;
+        executeSearch(q);
     };
 
     const handleDirectCC = () => {
@@ -102,7 +121,11 @@ export default function TransfersPage() {
                     {/* ── SEARCH BAR ── */}
                     <form onSubmit={handleSearch} className="mt-6 flex gap-3">
                         <div className="relative flex-1 group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-red-500 transition-colors" />
+                            {isSearching ? (
+                                <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-red-500 animate-spin" />
+                            ) : (
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-red-500 transition-colors" />
+                            )}
                             <input
                                 type="text"
                                 value={searchTerm}
@@ -112,25 +135,13 @@ export default function TransfersPage() {
                             />
                         </div>
                         <button
-                            type="submit"
-                            disabled={isSearching || !searchTerm.trim()}
-                            className="px-6 py-3.5 bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white rounded-2xl font-black text-sm hover:bg-zinc-700 dark:hover:bg-zinc-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
-                        >
-                            {isSearching ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <Search className="h-4 w-4" />
-                            )}
-                            Search
-                        </button>
-                        <button
                             type="button"
                             onClick={handleDirectCC}
-                            disabled={isSearching || !searchTerm.trim()}
+                            disabled={!searchTerm.trim()}
                             className="px-6 py-3.5 bg-red-700 hover:bg-red-800 text-white rounded-2xl font-black text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-red-900/20"
                         >
-                            <FileText className="h-4 w-4" />
-                            Direct CC
+                            <ArrowLeftRight className="h-4 w-4" />
+                            Proceed
                         </button>
                     </form>
                 </div>
@@ -265,7 +276,7 @@ export default function TransfersPage() {
                                     className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl font-black text-xs transition-all shadow-md shadow-red-900/20 hover:shadow-red-900/30 group-hover:scale-[1.02] active:scale-95"
                                 >
                                     <ArrowLeftRight className="h-3.5 w-3.5" />
-                                    Transfer Order
+                                    Make Transfer Order
                                     <ChevronRight className="h-3.5 w-3.5 -mr-1" />
                                 </button>
                             </motion.div>

@@ -16,8 +16,10 @@ interface TransferStudent {
     academic_year?: string;
     campus_name?: string;
     campus_number?: string;
+    campus_id?: number;
     class_name?: string;
     section_name?: string;
+    section_id?: number;
     academic_system?: string;
     segment_head?: string;
     address?: string;
@@ -35,11 +37,17 @@ interface TransferStudent {
     photograph_url?: string | null;
 }
 
+interface SectionOption {
+    id: number;
+    description: string;
+}
+
 interface ClassOption {
     id: number;
     description: string;
     class_code: string;
     academic_system: string;
+    sections?: SectionOption[];
 }
 
 
@@ -48,12 +56,14 @@ interface Props {
 }
 
 export default function TransferOrderForm({ student }: Props) {
-    // Classes
-    const [allClasses, setAllClasses] = useState<ClassOption[]>([]);
-    const [loadingClasses, setLoadingClasses] = useState(true);
+    // Campuses
+    const [campuses, setCampuses] = useState<any[]>([]);
+    const [loadingCampuses, setLoadingCampuses] = useState(true);
 
     // Form inputs — only what the user must decide
     const [toClassId, setToClassId] = useState<number | ''>('');
+    const [toCampusId, setToCampusId] = useState<number | ''>('');
+    const [toSectionId, setToSectionId] = useState<number | ''>('');
     const [discipline, setDiscipline] = useState('');
     const [remarks, setRemarks] = useState('');
     const [targetAcademicYear, setTargetAcademicYear] = useState('');
@@ -66,15 +76,15 @@ export default function TransferOrderForm({ student }: Props) {
     // PDF Generation state
     const [isGenerating, setIsGenerating] = useState(false);
 
-    // Compute default target academic year from student
+    // Compute future target academic years (up to 15 years in the future)
     const academicYearOptions = useMemo(() => {
         const baseYearStr = student.academic_year || '2024-2025';
         const match = baseYearStr.match(/^(\d{4})-(\d{4})$/);
         let startYear = match ? Number(match[1]) : new Date().getFullYear();
 
         const options = [];
-        // Add current year, next year, and next few years
-        for (let i = 0; i < 4; i++) {
+        // Generate current academic year and 15 years of future academic terms
+        for (let i = 0; i <= 15; i++) {
             options.push(`${startYear + i}-${startYear + i + 1}`);
         }
         return options;
@@ -86,22 +96,57 @@ export default function TransferOrderForm({ student }: Props) {
             if (rangeMatch) {
                 setTargetAcademicYear(`${Number(rangeMatch[1]) + 1}-${Number(rangeMatch[2]) + 1}`);
             } else {
-                setTargetAcademicYear(academicYearOptions[1]);
+                setTargetAcademicYear(academicYearOptions[1] || academicYearOptions[0]);
             }
         } else {
-            setTargetAcademicYear(academicYearOptions[1]); // Default to next year
+            setTargetAcademicYear(academicYearOptions[1] || academicYearOptions[0]);
         }
     }, [student.academic_year, academicYearOptions]);
 
-    // Fetch classes on mount
+    // Fetch campuses on mount
     useEffect(() => {
-        api.get(`/v1/transfers/${student.cc}/classes`)
-            .then(({ data: res }) => setAllClasses(res.data || res))
-            .catch(() => toast.error('Failed to load class list'))
-            .finally(() => setLoadingClasses(false));
-    }, [student.cc]);
+        api.get('/v1/campuses')
+            .then(({ data: res }) => {
+                const list = res.data || res;
+                setCampuses(list);
+                // Initialize to current student campus if available
+                if (student.campus_id) {
+                    setToCampusId(student.campus_id);
+                } else if (student.campus_name && list.length > 0) {
+                    const matched = list.find((c: any) => c.campus_name === student.campus_name);
+                    if (matched) setToCampusId(matched.id);
+                }
+            })
+            .catch(() => toast.error('Failed to load campus list'))
+            .finally(() => setLoadingCampuses(false));
+    }, [student.campus_id, student.campus_name]);
 
+    // Compute offered classes dynamically based on selected campus
+    const allClasses = useMemo<ClassOption[]>(() => {
+        if (!toCampusId) return [];
+        const selectedCampus = campuses.find(c => c.id === toCampusId);
+        return selectedCampus ? selectedCampus.offered_classes || [] : [];
+    }, [toCampusId, campuses]);
 
+    // Compute available sections dynamically based on selected class
+    const availableSections = useMemo<SectionOption[]>(() => {
+        if (!toClassId) return [];
+        const selectedClass = allClasses.find(c => c.id === toClassId);
+        return selectedClass ? selectedClass.sections || [] : [];
+    }, [toClassId, allClasses]);
+
+    // Reset target class and section if selected campus changes
+    const handleCampusChange = (campusId: number | '') => {
+        setToCampusId(campusId);
+        setToClassId('');
+        setToSectionId('');
+    };
+
+    // Reset target section if class changes
+    const handleClassChange = (classId: number | '') => {
+        setToClassId(classId);
+        setToSectionId('');
+    };
 
     // Derived: the selected class object
     const selectedClass = allClasses.find(c => c.id === toClassId);
@@ -118,10 +163,13 @@ export default function TransferOrderForm({ student }: Props) {
     // Execute the actual transfer
     const handleExecuteTransfer = async () => {
         if (!toClassId) { toast.error('Please select a target class'); return; }
+        if (!toCampusId) { toast.error('Please select a target campus'); return; }
         setIsExecuting(true);
         try {
             const { data: res } = await api.post(`/v1/transfers/${student.cc}/execute`, {
                 to_class_id: Number(toClassId),
+                to_campus_id: Number(toCampusId),
+                to_section_id: toSectionId ? Number(toSectionId) : undefined,
                 discipline: discipline || undefined,
                 remarks: remarks || undefined,
                 target_academic_year: targetAcademicYear || undefined,
@@ -210,8 +258,10 @@ export default function TransferOrderForm({ student }: Props) {
                         {[
                             { label: 'Student', value: student.full_name },
                             { label: 'CC #', value: `${student.cc}` },
-                            { label: 'From', value: `${fromSystem} — ${student.class_name || '—'}` },
-                            { label: 'To', value: `${toSystem} — ${selectedClass?.description || '—'}` },
+                            { label: 'From Campus', value: student.campus_name || '—' },
+                            { label: 'To Campus', value: updatedData?.campus_name || campuses.find(c => c.id === toCampusId)?.campus_name || '—' },
+                            { label: 'From Class', value: `${fromSystem} — ${student.class_name || '—'}` },
+                            { label: 'To Class', value: `${toSystem} — ${selectedClass?.description || '—'}` },
                             { label: 'Discipline', value: discipline || '—' },
                         ].map(({ label, value }) => (
                             <div key={label} className="flex items-center justify-between px-5 py-3">
@@ -290,6 +340,29 @@ export default function TransferOrderForm({ student }: Props) {
             <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm p-5 space-y-4">
                 <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Transfer To</p>
 
+                {/* Target Campus Picker */}
+                <div>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
+                        Target Campus <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                        <select
+                            value={toCampusId}
+                            onChange={(e) => handleCampusChange(e.target.value === '' ? '' : Number(e.target.value))}
+                            disabled={loadingCampuses}
+                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer disabled:opacity-50"
+                        >
+                            <option value="">— Select target campus —</option>
+                            {campuses.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                    {c.campus_name} ({c.campus_code})
+                                </option>
+                            ))}
+                        </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                    </div>
+                </div>
+
                 {/* Target class picker */}
                 <div>
                     <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
@@ -299,7 +372,7 @@ export default function TransferOrderForm({ student }: Props) {
                         <select
                             value={toClassId}
                             onChange={(e) => setToClassId(e.target.value === '' ? '' : Number(e.target.value))}
-                            disabled={loadingClasses}
+                            disabled={!toCampusId}
                             className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer disabled:opacity-50"
                         >
                             <option value="">— Select target class —</option>
@@ -329,25 +402,46 @@ export default function TransferOrderForm({ student }: Props) {
                     )}
                 </div>
 
+                {/* Target Section Picker */}
+                <div>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
+                        Target Section <span className="text-zinc-350">(optional)</span>
+                    </label>
+                    <div className="relative">
+                        <select
+                            value={toSectionId}
+                            onChange={(e) => setToSectionId(e.target.value === '' ? '' : Number(e.target.value))}
+                            disabled={!toClassId}
+                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer disabled:opacity-50"
+                        >
+                            <option value="">— Select target section —</option>
+                            {availableSections.map((sec) => (
+                                <option key={sec.id} value={sec.id}>
+                                    {sec.description}
+                                </option>
+                            ))}
+                        </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                    </div>
+                </div>
+
                 {/* Target Academic Year */}
                 <div>
                     <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
                         Target Academic Term <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
-                        <input
-                            type="text"
-                            list="academic-term-options"
+                        <select
                             value={targetAcademicYear}
                             onChange={(e) => setTargetAcademicYear(e.target.value)}
-                            placeholder="e.g. 2025-2026"
-                            className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-sm text-zinc-800 dark:text-zinc-200"
-                        />
-                        <datalist id="academic-term-options">
+                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer"
+                        >
+                            <option value="">— Select target term —</option>
                             {academicYearOptions.map(year => (
                                 <option key={year} value={year}>{year}</option>
                             ))}
-                        </datalist>
+                        </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                     </div>
                 </div>
 
@@ -356,13 +450,21 @@ export default function TransferOrderForm({ student }: Props) {
                     <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
                         Discipline <span className="text-zinc-300">(optional)</span>
                     </label>
-                    <input
-                        type="text"
-                        value={discipline}
-                        onChange={(e) => setDiscipline(e.target.value)}
-                        placeholder="e.g. Science, Arts, Commerce"
-                        className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-medium text-sm"
-                    />
+                    <div className="relative">
+                        <select
+                            value={discipline}
+                            onChange={(e) => setDiscipline(e.target.value)}
+                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer"
+                        >
+                            <option value="">— Select discipline —</option>
+                            <option value="Pre-Medical">Pre-Medical</option>
+                            <option value="Pre-Engineering">Pre-Engineering</option>
+                            <option value="Pre-Commerce">Pre-Commerce</option>
+                            <option value="Computer Science">Computer Science</option>
+                            <option value="Humanities">Humanities</option>
+                        </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                    </div>
                 </div>
 
                 {/* Remarks */}
@@ -380,18 +482,18 @@ export default function TransferOrderForm({ student }: Props) {
                 </div>
             </div>
 
-            {/* Warning if no class selected */}
-            {!toClassId && (
+            {/* Warning if no class or campus selected */}
+            {(!toClassId || !toCampusId) && (
                 <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl text-amber-700 dark:text-amber-400 text-xs font-semibold">
                     <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                    Select a target class to enable the transfer
+                    {!toCampusId ? 'Select a target campus to enable the transfer' : 'Select a target class to enable the transfer'}
                 </div>
             )}
 
             {/* Primary action */}
             <button
                 onClick={handleExecuteTransfer}
-                disabled={!toClassId || isExecuting || loadingClasses}
+                disabled={!toClassId || !toCampusId || isExecuting || loadingCampuses}
                 className="group w-full flex items-center justify-center gap-3 px-8 py-5 bg-gradient-to-r from-red-700 to-red-800 text-white rounded-2xl font-black text-base shadow-xl shadow-red-900/25 hover:shadow-red-900/40 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100"
             >
                 {isExecuting ? (
