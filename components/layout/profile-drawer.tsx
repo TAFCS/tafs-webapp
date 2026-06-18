@@ -1,6 +1,6 @@
 import {
     X, LogOut, Users, UserPlus, ArrowLeftRight, LayoutDashboard,
-    School, UserCircle, Wallet, Banknote, Settings, ChevronDown,
+    School, UserCircle, Wallet, Banknote, Settings, ChevronDown, ChevronRight,
     Landmark, UserCog, BarChart3, ShieldCheck,
     LandPlot, BookOpen, LayoutGrid, TrendingUp, UserCheck, Contact,
     Tags, CalendarDays, FilePlus2, HandCoins, Printer,
@@ -35,16 +35,27 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     const { user } = useAuthState();
     const [signingOut, setSigningOut] = useState(false);
     const [openModules, setOpenModules] = useState<Record<string, boolean>>({
-        academic: true,
-        students: true,
-        fees: true,
-        finance: true,
-        communication: true,
-        system: true
+        academic: false,
+        students: false,
+        fees: false,
+        finance: false,
+        communication: false,
+        system: false,
+        hr: false
     });
 
-    const toggleModule = (module: string) => {
-        setOpenModules(prev => ({ ...prev, [module]: !prev[module] }));
+    const toggleModule = (module: string, event: React.MouseEvent<HTMLButtonElement>) => {
+        const isCurrentlyClosed = !openModules[module];
+        setOpenModules({
+            academic: false,
+            students: false,
+            fees: false,
+            finance: false,
+            communication: false,
+            system: false,
+            hr: false,
+            [module]: isCurrentlyClosed
+        });
     };
 
     const handleLogout = async () => {
@@ -207,10 +218,10 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: "-100%", opacity: 0 }}
                         transition={{ type: "spring", damping: 28, stiffness: 250, mass: 0.8 }}
-                        className="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white/80 dark:bg-zinc-950/80 backdrop-blur-2xl z-[70] border-r border-white/20 dark:border-zinc-800/50 shadow-[0_0_40px_rgba(0,0,0,0.1)] dark:shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col"
+                        className="fixed inset-y-0 left-0 w-96 max-w-[85vw] bg-white/80 dark:bg-zinc-950/80 backdrop-blur-2xl z-[70] border-r border-white/20 dark:border-zinc-800/50 shadow-[0_0_40px_rgba(0,0,0,0.1)] dark:shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col"
                     >
                         {/* Futuristic Header with Glow */}
-                        <div className="h-40 relative p-6 flex flex-col justify-end overflow-hidden flex-shrink-0">
+                        <div className="h-32 relative p-6 flex flex-col justify-end overflow-hidden flex-shrink-0">
                             {/* Animated Gradient Background */}
                             <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-purple-600/80 dark:from-primary/40 dark:via-primary/20 dark:to-purple-900/40 z-0"></div>
 
@@ -276,7 +287,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                             variants={containerVariants}
                             initial="hidden"
                             animate="show"
-                            className="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-2 custom-scrollbar"
+                            className="flex-1 py-6 px-4 flex flex-col gap-2 relative"
                         >
                             <motion.div variants={itemVariants}>
                                 <Link
@@ -305,45 +316,44 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                                 if (visibleItems.length === 0) return null;
 
                                 const isModuleOpen = openModules[module.id];
-
                                 return (
-                                    <motion.div key={module.id} variants={itemVariants} className="flex flex-col mb-1">
+                                    <motion.div key={module.id} variants={itemVariants} className="flex flex-col mb-1 relative">
                                         <button
-                                            onClick={() => toggleModule(module.id)}
+                                            onClick={(e) => toggleModule(module.id, e)}
                                             className="flex items-center justify-between px-3 py-2.5 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] hover:text-primary dark:hover:text-primary-400 transition-colors group w-full"
                                         >
                                             <div className="flex items-center">
                                                 <module.icon className="h-4 w-4 mr-2.5 opacity-50 group-hover:opacity-100 transition-opacity" />
                                                 {module.name}
                                             </div>
-                                            <ChevronDown className={`h-4 w-4 transition-transform duration-300 ease-out ${!isModuleOpen ? "-rotate-90 opacity-50" : "opacity-100"}`} />
+                                            <ChevronRight className={`h-4 w-4 transition-all duration-300 ${isModuleOpen ? "opacity-100 text-primary scale-110" : "opacity-50 group-hover:opacity-80"}`} />
                                         </button>
 
-                                        <AnimatePresence>
-                                            {isModuleOpen && (
-                                                <motion.div
-                                                    initial={{ height: 0, opacity: 0 }}
-                                                    animate={{ height: "auto", opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }}
-                                                    transition={{ duration: 0.3, ease: "easeInOut" }}
-                                                    className="overflow-hidden"
-                                                >
-                                                    <div className="flex flex-col gap-1 ml-4 pl-3 py-1 border-l-2 border-zinc-100 dark:border-zinc-800/80">
-                                                        {visibleItems.map(item => (
-                                                            <Link
-                                                                key={item.href}
-                                                                href={item.href}
-                                                                onClick={onClose}
-                                                                className="flex items-center px-3 py-2.5 rounded-xl text-zinc-600 dark:text-zinc-400 hover:text-primary hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 hover:pl-5 transition-all duration-300 group"
-                                                            >
-                                                                <item.icon className="h-4 w-4 mr-3 opacity-40 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300" />
-                                                                <span className="text-sm font-semibold tracking-tight">{item.name}</span>
-                                                            </Link>
-                                                        ))}
+                                        {isModuleOpen && (
+                                            <div className="fixed top-32 bottom-0 left-[85vw] md:left-[24rem] w-80 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-2xl border-r border-b border-white/20 dark:border-zinc-800/50 shadow-[0_0_40px_rgba(0,0,0,0.1)] dark:shadow-[0_0_40px_rgba(0,0,0,0.5)] p-6 flex flex-col gap-4 z-[65]">
+                                                <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800/80">
+                                                    <div className="flex items-center">
+                                                        <module.icon className="h-4 w-4 mr-2.5 opacity-50 text-zinc-400 dark:text-zinc-500" />
+                                                        <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">
+                                                            {module.name}
+                                                        </span>
                                                     </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
+                                                </div>
+                                                <div className="flex-1 overflow-y-auto flex flex-col gap-1">
+                                                    {visibleItems.map(item => (
+                                                        <Link
+                                                            key={item.href}
+                                                            href={item.href}
+                                                            onClick={onClose}
+                                                            className="flex items-center px-3 py-2 rounded-xl text-zinc-600 dark:text-zinc-400 hover:text-primary hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 hover:pl-5 transition-all duration-200 group"
+                                                        >
+                                                            <item.icon className="h-4 w-4 mr-3 opacity-40 group-hover:opacity-100 group-hover:scale-110 transition-all duration-200 flex-shrink-0" />
+                                                            <span className="text-sm font-semibold tracking-tight">{item.name}</span>
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </motion.div>
                                 );
                             })}
