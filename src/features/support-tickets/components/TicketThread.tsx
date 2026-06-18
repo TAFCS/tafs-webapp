@@ -506,7 +506,7 @@ export function TicketThread({
         )}
         {messages.map((msg) => {
           const ownMessage = isOwnStaffMessage(msg, userId);
-          const onRight = isSuperAdmin ? ownMessage : msg.sender_type === "STAFF";
+          const onRight = ownMessage;
           const incomingStaff =
             msg.sender_type === "STAFF" && !ownMessage;
 
@@ -539,7 +539,11 @@ export function TicketThread({
                 )
               ) : (
                 <>
-                  <span>{senderName(msg)}</span>
+                  <span>
+                    {msg.sender_type === "GUARDIAN"
+                      ? incomingLabelForSuperAdmin(msg, ticket.current_assignee_id)
+                      : senderName(msg)}
+                  </span>
                   {isSuperAdminMessage(msg) && (
                     <span className="px-1.5 py-0.5 rounded bg-amber-400/90 text-amber-950 text-[9px] uppercase tracking-wide">
                       Super Admin
