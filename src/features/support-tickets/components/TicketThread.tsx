@@ -54,6 +54,10 @@ function senderName(msg: TicketMessage): string {
   return msg.sender_user?.full_name ?? "Staff";
 }
 
+function isSuperAdminMessage(msg: TicketMessage): boolean {
+  return msg.sender_type === "STAFF" && msg.sender_user?.role === "SUPER_ADMIN";
+}
+
 export function TicketThread({
   ticket,
   userId,
@@ -110,6 +114,7 @@ export function TicketThread({
   const isAssignee = Boolean(userId && ticket.current_assignee_id === userId);
   const isSuperAdmin = userRole === "SUPER_ADMIN";
   const isReadOnlyViewer = !isClosed && !isAssignee;
+  const canCompose = !isClosed && (isAssignee || isSuperAdmin);
   const messages = [...(ticket.messages ?? [])].reverse();
   const composerDisabled = !isConnected || isSending || uploading;
 
@@ -118,7 +123,7 @@ export function TicketThread({
     try {
       await onSendMessage(reply.trim());
       setReply("");
-      toast.success("Reply submitted for approval");
+      toast.success(isSuperAdmin ? "Reply sent" : "Reply submitted for approval");
     } catch (err: unknown) {
       const e = err as { message?: string };
       toast.error(e.message ?? "Failed to send reply");
@@ -313,7 +318,7 @@ export function TicketThread({
           <div className="mb-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-sm text-amber-900 dark:text-amber-100 border border-amber-200 dark:border-amber-900/50">
             <p className="font-bold">Super Admin oversight</p>
             <p className="mt-1 text-xs opacity-90">
-              Assigned to {ticket.current_assignee?.full_name ?? "the routed role"}. Approve staff replies below.
+              Assigned to {ticket.current_assignee?.full_name ?? "the routed role"}. Approve staff replies below, or send a direct reply to the parent.
             </p>
           </div>
         )}
@@ -481,7 +486,14 @@ export function TicketThread({
                 : "bg-white dark:bg-zinc-800 border dark:border-zinc-700"
             }`}
           >
-            <p className="text-[10px] font-bold opacity-80 mb-1">{senderName(msg)}</p>
+            <p className="text-[10px] font-bold opacity-80 mb-1 flex flex-wrap items-center gap-1">
+              <span>{senderName(msg)}</span>
+              {isSuperAdminMessage(msg) && (
+                <span className="px-1.5 py-0.5 rounded bg-amber-400/90 text-amber-950 text-[9px] uppercase tracking-wide">
+                  Super Admin
+                </span>
+              )}
+            </p>
             {msg.message_type === "TEXT" && <p>{msg.content}</p>}
             {renderMedia(msg)}
             <div className="flex gap-2 mt-1 text-[10px] opacity-70 flex-wrap items-center">
@@ -530,7 +542,7 @@ export function TicketThread({
         ))}
       </div>
 
-      {!isClosed && isAssignee && (
+      {canCompose && (
         <div className="relative p-4 border-t bg-white dark:bg-zinc-950">
           {!isConnected && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-zinc-950/60 backdrop-blur-sm">
@@ -595,7 +607,11 @@ export function TicketThread({
               <input
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
-                placeholder="Write a reply (requires Super Admin approval)..."
+                placeholder={
+                  isSuperAdmin
+                    ? "Write a direct reply to the parent..."
+                    : "Write a reply (requires Super Admin approval)..."
+                }
                 disabled={composerDisabled}
                 className="flex-1 px-4 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
               />
