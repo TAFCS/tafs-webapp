@@ -83,6 +83,7 @@ interface InstallmentHead {
     target_month: number;
     amount: number;
     status: string;
+    is_merged: boolean;
 }
 
 interface InstallmentPlanData {
@@ -865,7 +866,9 @@ function StudentwiseFeeEditor() {
 
     const handleOpenEditPlan = (plan: InstallmentPlanData) => {
         setEditingPlan(plan);
-        setEditPlanHeads(plan.heads.map(h => ({
+        // Merged heads are already editable inline in the main grid above — exclude them
+        // here so the same head isn't presented for editing in two places at once.
+        setEditPlanHeads(plan.heads.filter(h => !h.is_merged).map(h => ({
             id: h.id,
             fee_date: h.fee_date || '',
             amount: h.amount.toString(),
@@ -921,12 +924,15 @@ function StudentwiseFeeEditor() {
     };
 
     const handleDeletePlan = async (planId: number) => {
-        if (!window.confirm("Delete this entire installment plan? All pending (not yet issued) heads will be removed. This cannot be undone.")) return;
+        if (!window.confirm("Delete this entire installment plan? Pending standalone heads will be removed, and any merged head will be unmerged (its balance restored). This cannot be undone.")) return;
         setIsDeletingPlanId(planId);
         try {
             await api.delete(`/v1/installments/${planId}`);
             setInstallmentPlans(prev => prev.filter(p => p.id !== planId));
             toast.success("Installment plan deleted.");
+            // Any merged head in this plan was unmerged (its amount reverted) on the backend —
+            // refetch so the main grid reflects the restored amount instead of the stale merged total.
+            await fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
         } catch (err: any) {
             toast.error(err.response?.data?.message || "Failed to delete plan.");
         } finally {
@@ -2277,7 +2283,10 @@ function StudentwiseFeeEditor() {
             )}
 
             {/* Installment Plans Section */}
-            {installmentPlans.length > 0 && (
+            {/* Merged heads already appear inline in the main fee grid above (with the
+                "Merged Installment" badge), so only plans that still have at least one
+                standalone head are listed here — otherwise the plan would show twice. */}
+            {installmentPlans.filter(plan => plan.heads.some(h => !h.is_merged)).length > 0 && (
                 <div className="space-y-4">
                     <div className="flex items-center gap-3">
                         <div className="h-7 w-7 bg-indigo-100 dark:bg-indigo-900 rounded-xl flex items-center justify-center">
@@ -2285,13 +2294,17 @@ function StudentwiseFeeEditor() {
                         </div>
                         <div>
                             <p className="text-sm font-black text-zinc-800 dark:text-zinc-200">Installment Plans</p>
-                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{installmentPlans.length} plan{installmentPlans.length !== 1 ? "s" : ""} · {selectedYear}</p>
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{installmentPlans.filter(plan => plan.heads.some(h => !h.is_merged)).length} plan{installmentPlans.length !== 1 ? "s" : ""} · {selectedYear}</p>
                         </div>
                     </div>
-                    {installmentPlans.map((plan) => {
-                        const paidCount = plan.heads.filter(h => h.status === 'PAID' || h.status === 'PARTIALLY_PAID').length;
-                        const issuedCount = plan.heads.filter(h => h.status === 'ISSUED').length;
-                        const pendingCount = plan.heads.filter(h => h.status === 'NOT_ISSUED').length;
+                    {installmentPlans.filter(plan => plan.heads.some(h => !h.is_merged)).map((plan) => {
+                        const standaloneHeads = plan.heads.filter(h => !h.is_merged);
+                        const paidCount = standaloneHeads.filter(h => h.status === 'PAID' || h.status === 'PARTIALLY_PAID').length;
+                        const issuedCount = standaloneHeads.filter(h => h.status === 'ISSUED').length;
+                        const pendingCount = standaloneHeads.filter(h => h.status === 'NOT_ISSUED').length;
+                        // Deleting the plan operates on every head (merged ones included), so the
+                        // disable check must consider the whole plan, not just the standalone rows shown here.
+                        const anyPaidInPlan = plan.heads.some(h => h.status === 'PAID' || h.status === 'PARTIALLY_PAID');
                         const isDeleting = isDeletingPlanId === plan.id;
                         return (
                             <div key={plan.id} className="bg-white dark:bg-zinc-950 border border-indigo-200 dark:border-indigo-900 rounded-[24px] shadow-sm overflow-hidden">
@@ -2301,7 +2314,7 @@ function StudentwiseFeeEditor() {
                                         <div>
                                             <p className="text-sm font-black text-zinc-800 dark:text-zinc-200">{plan.fee_type_desc}</p>
                                             <p className="text-[10px] font-bold text-zinc-400">
-                                                {plan.installment_count} heads · PKR {plan.total_amount.toLocaleString()} total
+                                                {standaloneHeads.length} heads · PKR {plan.total_amount.toLocaleString()} total
                                                 {paidCount > 0 && <span className="ml-2 text-emerald-600">{paidCount} paid</span>}
                                                 {issuedCount > 0 && <span className="ml-2 text-amber-600">{issuedCount} issued</span>}
                                                 {pendingCount > 0 && <span className="ml-2 text-zinc-400">{pendingCount} pending</span>}
@@ -2317,8 +2330,8 @@ function StudentwiseFeeEditor() {
                                         </button>
                                         <button
                                             onClick={() => handleDeletePlan(plan.id)}
-                                            disabled={isDeleting || paidCount > 0}
-                                            title={paidCount > 0 ? "Cannot delete: some heads are already paid" : "Delete entire plan"}
+                                            disabled={isDeleting || anyPaidInPlan}
+                                            title={anyPaidInPlan ? "Cannot delete: some heads are already paid" : "Delete entire plan"}
                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black text-rose-500 bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                         >
                                             {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
@@ -2335,7 +2348,7 @@ function StudentwiseFeeEditor() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {plan.heads.map((head, idx) => {
+                                        {standaloneHeads.map((head, idx) => {
                                             const monthName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === head.target_month) || "—";
                                             const isPaid = head.status === 'PAID' || head.status === 'PARTIALLY_PAID';
                                             const isIssued = head.status === 'ISSUED';
