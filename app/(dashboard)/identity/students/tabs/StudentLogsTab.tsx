@@ -14,6 +14,7 @@ import {
   Users,
   Home,
   RefreshCw,
+  ArrowLeftRight,
 } from "lucide-react";
 
 function formatDate(value?: string | null) {
@@ -36,6 +37,7 @@ function getIcon(log: AuditLog) {
   const entity = log.entity_type.toUpperCase();
   const action = log.action.toUpperCase();
 
+  if (entity === "TRANSFER") return ArrowLeftRight;
   if (entity === "FAMILY") return Home;
   if (entity === "GUARDIAN") return Users;
 
@@ -59,6 +61,7 @@ function colorByType(log: AuditLog) {
   const entity = log.entity_type.toUpperCase();
   const action = log.action.toUpperCase();
 
+  if (entity === "TRANSFER") return "text-teal-700 bg-teal-50 border-teal-200";
   if (entity === "FAMILY") return "text-purple-700 bg-purple-50 border-purple-200";
   if (entity === "GUARDIAN") return "text-amber-700 bg-amber-50 border-amber-200";
 
@@ -100,7 +103,7 @@ export function StudentLogsTab({ studentId }: { studentId: number }) {
     let active = true;
     setLoading(true);
     auditLogsService
-      .list({ student_id: studentId, entity_type: 'STUDENT,GUARDIAN,FAMILY', limit: LIMIT, offset })
+      .list({ student_id: studentId, entity_type: 'STUDENT,GUARDIAN,FAMILY,TRANSFER', limit: LIMIT, offset })
       .then((res) => {
         if (!active) return;
         setLogs(res.data || []);
