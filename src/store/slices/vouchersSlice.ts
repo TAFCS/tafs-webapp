@@ -92,6 +92,10 @@ export interface VoucherItem {
     academic_year: string | null;
     month: number | null;
     fee_date: string | null;
+    // Set when this voucher was produced by splitPartiallyPaid(); used by the
+    // SPECIAL ADMIN WORKFLOW "main-column receipt" button (see vouchers.service.ts
+    // generateMainColumnReceipt()) to decide whether that action is offered.
+    split_parent_id?: number | null;
     total_payable_before_due?: string;
     total_payable_after_due?: string;
     late_fee_deposited?: string;

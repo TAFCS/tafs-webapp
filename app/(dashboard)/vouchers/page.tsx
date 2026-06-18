@@ -479,6 +479,33 @@ function VoucherRow({
         }
     };
 
+    // SPECIAL ADMIN WORKFLOW — see VouchersService.generateMainColumnReceipt()
+    // (tafs-backend) for full context. Only offered for a PAID voucher that
+    // resulted from splitting a partially-paid voucher; the backend re-checks
+    // eligibility (every head must already be an old/arrear head) and 400s
+    // with a specific reason otherwise, which we surface via toast below.
+    const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
+    const handleMainColumnReceiptDownload = async () => {
+        setIsDownloadingReceipt(true);
+        const loadingToast = toast.loading("Generating itemized receipt…");
+        try {
+            const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-main-column-receipt`);
+            const pdfUrl = pdfRes.data?.pdf_url;
+            if (!pdfUrl) throw new Error("No PDF URL returned from server.");
+
+            await downloadPdfBlob(pdfUrl, buildVoucherFilename("main-receipt"));
+
+            toast.dismiss(loadingToast);
+            toast.success("Itemized receipt downloaded.");
+        } catch (err: any) {
+            console.error(err);
+            toast.dismiss(loadingToast);
+            toast.error(err.response?.data?.message || "Failed to generate itemized receipt.");
+        } finally {
+            setIsDownloadingReceipt(false);
+        }
+    };
+
     const handleDelete = async () => {
         if (!window.confirm(`Are you sure you want to PERMANENTLY delete Voucher #${voucher.id}? This will reset the associated fee heads to 'Not Issued'.`)) {
             return;
@@ -585,6 +612,7 @@ function VoucherRow({
                 <div className="flex items-center gap-2">
                     {/* Download / PDF button */}
                     {isPaid ? (
+                        <>
                         <button
                             onClick={handlePaidDownload}
                             disabled={isDownloading}
@@ -594,6 +622,19 @@ function VoucherRow({
                             {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Stamp className="h-3.5 w-3.5" />}
                             {isDownloading ? "…" : "PAID PDF"}
                         </button>
+                        {/* SPECIAL ADMIN WORKFLOW: only for a PAID voucher produced by a split — see generateMainColumnReceipt() on the backend. */}
+                        {voucher.split_parent_id != null && (
+                            <button
+                                onClick={handleMainColumnReceiptDownload}
+                                disabled={isDownloadingReceipt}
+                                title="Download a receipt with the old (arrear) heads shown as normal line items instead of consolidated Arrears"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors disabled:opacity-50"
+                            >
+                                {isDownloadingReceipt ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Receipt className="h-3.5 w-3.5" />}
+                                {isDownloadingReceipt ? "…" : "Itemized Receipt"}
+                            </button>
+                        )}
+                        </>
                     ) : isPartiallyPaid ? (
                         <button
                             onClick={() => setShowPartialModal(true)}

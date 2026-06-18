@@ -953,6 +953,49 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
         }
     };
 
+    // SPECIAL ADMIN WORKFLOW — see VouchersService.generateMainColumnReceipt()
+    // (tafs-backend) for full context. Only offered for a PAID voucher that
+    // resulted from splitting a partially-paid voucher; the backend re-checks
+    // eligibility (every head must already be an old/arrear head) and 400s
+    // with a specific reason otherwise, which we surface via toast below.
+    const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
+    const handleMainColumnReceiptDownload = async () => {
+        setIsDownloadingReceipt(true);
+        const loadingToast = toast.loading("Generating itemized receipt…");
+        try {
+            const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-main-column-receipt`);
+            const pdfUrl = pdfRes.data?.pdf_url;
+            if (!pdfUrl) throw new Error("No PDF URL returned from server.");
+
+            const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : "unknown";
+            const grOrCc = voucher.students?.gr_number || `CC${voucher.students?.cc || voucher.id}`;
+            const filename = `${feeDateStr}-${grOrCc}-${voucher.id}-main-receipt.pdf`;
+
+            try {
+                const res = await fetch(pdfUrl);
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = blobUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+            } catch {
+                window.open(pdfUrl, "_blank");
+            }
+
+            toast.dismiss(loadingToast);
+            toast.success("Itemized receipt downloaded.");
+        } catch (err: any) {
+            toast.dismiss(loadingToast);
+            toast.error(err.response?.data?.message || "Failed to generate itemized receipt.");
+        } finally {
+            setIsDownloadingReceipt(false);
+        }
+    };
+
     // ── Fee Date: from first head's student_fee (they share the same date) ───────
     const feeDate = voucher.voucher_heads?.find(h => h.student_fees?.fee_date)?.student_fees?.fee_date
         ?? voucher.fee_date ?? null;
@@ -1080,6 +1123,7 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                             </button>
                         )
                     ) : isPaid ? (
+                        <>
                         <button
                             onClick={handlePaidDownload}
                             disabled={isDownloading}
@@ -1089,6 +1133,19 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                             {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Stamp className="h-3.5 w-3.5" />}
                             {isDownloading ? "…" : "PAID PDF"}
                         </button>
+                        {/* SPECIAL ADMIN WORKFLOW: only for a PAID voucher produced by a split — see generateMainColumnReceipt() on the backend. */}
+                        {voucher.split_parent_id != null && (
+                            <button
+                                onClick={handleMainColumnReceiptDownload}
+                                disabled={isDownloadingReceipt}
+                                title="Download a receipt with the old (arrear) heads shown as normal line items instead of consolidated Arrears"
+                                className="flex items-center gap-2 px-3 py-1.5 bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors disabled:opacity-50"
+                            >
+                                {isDownloadingReceipt ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Receipt className="h-3.5 w-3.5" />}
+                                {isDownloadingReceipt ? "…" : "Itemized Receipt"}
+                            </button>
+                        )}
+                        </>
                     ) : (
                         <>
                             {isPartiallyPaid && (
