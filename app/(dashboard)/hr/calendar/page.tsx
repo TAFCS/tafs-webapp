@@ -13,6 +13,7 @@ export default function CalendarPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'STUDENT' | 'STAFF'>("STUDENT");
 
   // Form State
   const [showModal, setShowModal] = useState(false);
@@ -39,18 +40,18 @@ export default function CalendarPage() {
     fetchCampuses();
   }, []);
 
-  // Fetch calendar when campus selection changes
+  // Fetch calendar when campus selection or activeTab changes
   useEffect(() => {
     if (selectedCampusId !== null) {
-      fetchCalendar(selectedCampusId);
+      fetchCalendar(selectedCampusId, activeTab);
     }
-  }, [selectedCampusId]);
+  }, [selectedCampusId, activeTab]);
 
-  const fetchCalendar = async (campusId: number) => {
+  const fetchCalendar = async (campusId: number, tab: 'STUDENT' | 'STAFF') => {
     setLoading(true);
     setError(null);
     try {
-      const data = await hrService.listCalendarDays(campusId);
+      const data = await hrService.listCalendarDays(campusId, tab);
       setCalendarDays(data);
     } catch (err) {
       console.error(err);
@@ -81,10 +82,11 @@ export default function CalendarPage() {
         date: formData.date,
         day_type: formData.day_type,
         description: formData.description,
+        applies_to: activeTab,
       });
       setSuccess("Calendar day override added successfully.");
       setShowModal(false);
-      fetchCalendar(selectedCampusId);
+      fetchCalendar(selectedCampusId, activeTab);
     } catch (err: any) {
       console.error(err);
       setError(err.response?.data?.message || "Failed to add calendar day exception. Ensure the date is unique.");
@@ -100,7 +102,7 @@ export default function CalendarPage() {
     try {
       await hrService.deleteCalendarDay(id);
       setSuccess("Calendar override deleted successfully.");
-      if (selectedCampusId !== null) fetchCalendar(selectedCampusId);
+      if (selectedCampusId !== null) fetchCalendar(selectedCampusId, activeTab);
     } catch (err) {
       console.error(err);
       setError("Failed to delete calendar day.");
@@ -171,6 +173,32 @@ export default function CalendarPage() {
             Add Calendar Day
           </button>
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-1 rounded-2xl shadow-sm gap-1 self-start">
+        <button
+          onClick={() => setActiveTab("STUDENT")}
+          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+            activeTab === "STUDENT"
+              ? "bg-purple-100/60 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 shadow-sm"
+              : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+          }`}
+        >
+          <GraduationCap className="h-4 w-4" />
+          Student Calendar
+        </button>
+        <button
+          onClick={() => setActiveTab("STAFF")}
+          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+            activeTab === "STAFF"
+              ? "bg-blue-100/60 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 shadow-sm"
+              : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+          }`}
+        >
+          <Coffee className="h-4 w-4" />
+          Staff Calendar
+        </button>
       </div>
 
       {/* Notifications */}
@@ -262,9 +290,11 @@ export default function CalendarPage() {
           <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleSave}>
               <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
-                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Add Calendar Exception</h3>
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+                  Add {activeTab === "STUDENT" ? "Student" : "Staff"} Calendar Exception
+                </h3>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                  Override a standard working calendar date for the selected campus
+                  Override a standard {activeTab === "STUDENT" ? "student" : "staff"} working calendar date for the selected campus
                 </p>
               </div>
               <div className="p-6 space-y-4">

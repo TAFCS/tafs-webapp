@@ -130,6 +130,7 @@ export interface CalendarDay {
   date: string;
   day_type: string; // 'WORKDAY' | 'HOLIDAY' | 'WEEKEND'
   description: string | null;
+  applies_to: string;
 }
 
 export interface ClassAttendanceMode {
@@ -257,12 +258,12 @@ export const hrService = {
     await api.delete(`/v1/hr/policies/${setId}/rules/${id}`);
   },
 
-  // ── Calendar API ───────────────────────────────────────────────────────────
-  async listCalendarDays(campusId: number): Promise<CalendarDay[]> {
-    const { data } = await api.get<ApiEnvelope<CalendarDay[]>>(`/v1/hr/calendar?campusId=${campusId}`);
+  async listCalendarDays(campusId: number, appliesTo?: string): Promise<CalendarDay[]> {
+    const query = appliesTo ? `&appliesTo=${appliesTo}` : '';
+    const { data } = await api.get<ApiEnvelope<CalendarDay[]>>(`/v1/hr/calendar?campusId=${campusId}${query}`);
     return data.data;
   },
-  async createCalendarDay(payload: { campus_id: number; date: string; day_type: string; description?: string }): Promise<CalendarDay> {
+  async createCalendarDay(payload: { campus_id: number; date: string; day_type: string; description?: string; applies_to: string }): Promise<CalendarDay> {
     const { data } = await api.post<ApiEnvelope<CalendarDay>>('/v1/hr/calendar', payload);
     return data.data;
   },
