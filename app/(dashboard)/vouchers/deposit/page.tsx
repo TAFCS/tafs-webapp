@@ -209,12 +209,18 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
             dist[h.id] = toFill.toString();
             remaining -= toFill;
         });
-        // 2. Arrear late-payment surcharges (penalties for each arrear month)
+        // 2. Arrear late-payment surcharges (penalties for each arrear month).
+        // Surcharges are all-or-nothing — never partially paid — so only fill
+        // one if the remaining pool can cover it completely; otherwise skip it
+        // and let the leftover money flow to the next step.
         arrearSurcharges.forEach(s => {
             const sBal = getSurchargeBalance(s);
-            const toFill = Math.min(remaining, sBal);
-            sDist[s.id] = toFill.toString();
-            remaining -= toFill;
+            if (sBal > 0 && remaining >= sBal) {
+                sDist[s.id] = sBal.toString();
+                remaining -= sBal;
+            } else {
+                sDist[s.id] = "0";
+            }
         });
         // 3. Current month fee heads
         currentHeads.forEach(h => {
@@ -492,15 +498,26 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                     <span className={`text-[11px] font-black tabular-nums text-right ${sBal === 0 ? "text-emerald-600" : "text-rose-600"}`}>{sBal.toLocaleString()}</span>
                                     <div className="flex justify-end">
                                         {fillingMode === "manual" ? (
-                                            <input
-                                                type="text" inputMode="numeric" pattern="[0-9]*"
-                                                value={surchargeDistributions[s.id] || ""}
-                                                onChange={e => {
-                                                    const v = e.target.value.replace(/[^0-9]/g, '');
-                                                    setSurchargeDistributions({ ...surchargeDistributions, [s.id]: v === "" || Number(v) <= sBal ? v : sBal.toString() });
-                                                }}
-                                                className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-rose-200 dark:border-rose-900 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-rose-400 transition-all font-mono"
-                                            />
+                                            sBal > 0 ? (
+                                                // Surcharges can only be paid in full, never partially — a
+                                                // checkbox is the whole UI, there's no amount to type.
+                                                <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={sDistVal >= sBal}
+                                                        onChange={e => {
+                                                            setSurchargeDistributions({
+                                                                ...surchargeDistributions,
+                                                                [s.id]: e.target.checked ? sBal.toString() : "0",
+                                                            });
+                                                        }}
+                                                        className="h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-400 dark:bg-zinc-950"
+                                                    />
+                                                    <span className="text-[11px] font-black text-rose-600 tabular-nums">Pay full (Rs. {sBal.toLocaleString()})</span>
+                                                </label>
+                                            ) : (
+                                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Paid</span>
+                                            )
                                         ) : (
                                             <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {sDistVal.toLocaleString()}</span>
                                         )}
