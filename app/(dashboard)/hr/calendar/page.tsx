@@ -138,12 +138,16 @@ export default function CalendarPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-primary/10 rounded-2xl">
-            <CalendarDays className="h-6 w-6 text-primary" />
+          <div className={`p-2.5 rounded-2xl transition-colors duration-200 ${
+            activeTab === "STUDENT"
+              ? "bg-purple-50 text-purple-600 dark:bg-purple-950/30 dark:text-purple-400"
+              : "bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
+          }`}>
+            <CalendarDays className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Academic Calendar</h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Manage academic dates, holidays, and weekly schedules</p>
+            <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Holiday Calendar</h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Manage student and staff holidays for each campus</p>
           </div>
         </div>
 
@@ -167,37 +171,47 @@ export default function CalendarPage() {
           <button
             onClick={handleOpenCreate}
             disabled={selectedCampusId === null}
-            className="inline-flex items-center justify-center h-10 px-4 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white font-semibold rounded-xl text-xs active:scale-95 transition-all"
+            className={`inline-flex items-center justify-center h-10 px-4 text-white font-semibold rounded-xl text-xs active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none ${
+              activeTab === "STUDENT"
+                ? "bg-purple-600 hover:bg-purple-700 shadow-sm shadow-purple-500/10"
+                : "bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/10"
+            }`}
           >
             <Plus className="h-4 w-4 mr-1.5" />
-            Add Calendar Day
+            Add Holiday
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-1 rounded-2xl shadow-sm gap-1 self-start">
+      <div className="flex border-b border-zinc-200 dark:border-zinc-800 gap-6">
         <button
           onClick={() => setActiveTab("STUDENT")}
-          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+          className={`flex items-center gap-2 pb-3.5 text-sm font-bold transition-all relative ${
             activeTab === "STUDENT"
-              ? "bg-purple-100/60 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 shadow-sm"
+              ? "text-purple-600 dark:text-purple-400"
               : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
           }`}
         >
           <GraduationCap className="h-4 w-4" />
-          Student Calendar
+          Student Holidays
+          {activeTab === "STUDENT" && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600 dark:bg-purple-400 rounded-full" />
+          )}
         </button>
         <button
           onClick={() => setActiveTab("STAFF")}
-          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+          className={`flex items-center gap-2 pb-3.5 text-sm font-bold transition-all relative ${
             activeTab === "STAFF"
-              ? "bg-blue-100/60 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 shadow-sm"
+              ? "text-blue-600 dark:text-blue-400"
               : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
           }`}
         >
           <Coffee className="h-4 w-4" />
-          Staff Calendar
+          Staff Holidays
+          {activeTab === "STAFF" && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
+          )}
         </button>
       </div>
 
@@ -218,21 +232,25 @@ export default function CalendarPage() {
       {/* Main Content */}
       {loading ? (
         <div className="bg-white dark:bg-zinc-900/30 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-12 flex flex-col items-center justify-center space-y-4">
-          <Loader2 className="h-8 w-8 text-primary animate-spin" />
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm">Loading calendar overrides...</p>
+          <Loader2 className={`h-8 w-8 animate-spin ${activeTab === 'STUDENT' ? 'text-purple-500' : 'text-blue-500'}`} />
+          <p className="text-zinc-500 dark:text-zinc-400 text-sm">Loading holidays...</p>
         </div>
       ) : calendarDays.length === 0 ? (
-        <div className="bg-white dark:bg-zinc-900/30 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-12 text-center max-w-xl mx-auto">
+        <div className="bg-white dark:bg-zinc-900/30 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-12 text-center max-w-xl mx-auto shadow-sm">
           <CalendarDays className="h-12 w-12 text-zinc-400 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">No Custom Calendar Days</h3>
+          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">No Holidays Added</h3>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 mb-6">
-            There are no calendar exceptions or custom days added. Weekly schedule runs on default settings (Mon-Fri workdays, Sat-Sun weekends).
+            There are no custom holidays added to this calendar yet.
           </p>
           <button
             onClick={handleOpenCreate}
-            className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/95 transition-all"
+            className={`inline-flex items-center px-5 py-2.5 text-white rounded-xl text-sm font-semibold active:scale-95 transition-all shadow-sm ${
+              activeTab === "STUDENT"
+                ? "bg-purple-600 hover:bg-purple-700 shadow-purple-500/10"
+                : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/10"
+            }`}
           >
-            Add Exception Day
+            Add Holiday
           </button>
         </div>
       ) : (
@@ -242,8 +260,7 @@ export default function CalendarPage() {
               <thead>
                 <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
                   <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Date</th>
-                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Day Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Description</th>
+                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Holiday Name</th>
                   <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Action</th>
                 </tr>
               </thead>
@@ -258,20 +275,19 @@ export default function CalendarPage() {
                         day: "numeric",
                       })}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${getDayTypeBadge(day.day_type)}`}>
-                        {getDayTypeIcon(day.day_type)}
-                        {day.day_type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-zinc-500 dark:text-zinc-400">
-                      {day.description || "—"}
+                    <td className="px-6 py-4 text-sm text-zinc-900 dark:text-white font-semibold">
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full transition-colors duration-200 ${
+                          activeTab === "STUDENT" ? "bg-purple-500" : "bg-blue-500"
+                        }`} />
+                        <span>{day.description || "Holiday"}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => handleDelete(day.id)}
                         className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-all"
-                        title="Delete Override"
+                        title="Delete Holiday"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -291,10 +307,10 @@ export default function CalendarPage() {
             <form onSubmit={handleSave}>
               <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
                 <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
-                  Add {activeTab === "STUDENT" ? "Student" : "Staff"} Calendar Exception
+                  Add {activeTab === "STUDENT" ? "Student" : "Staff"} Holiday
                 </h3>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                  Override a standard {activeTab === "STUDENT" ? "student" : "staff"} working calendar date for the selected campus
+                  Add a holiday to the {activeTab === "STUDENT" ? "student" : "staff"} calendar for the selected campus
                 </p>
               </div>
               <div className="p-6 space-y-4">
@@ -309,23 +325,12 @@ export default function CalendarPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Day Status</label>
-                  <select
-                    className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm"
-                    value={formData.day_type}
-                    onChange={(e) => setFormData({ ...formData, day_type: e.target.value })}
-                  >
-                    <option value="WORKDAY">WORKDAY (Working Day)</option>
-                    <option value="HOLIDAY">HOLIDAY (Closed / Official Holiday)</option>
-                    <option value="WEEKEND">WEEKEND (Saturday/Sunday Off)</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Description</label>
-                  <textarea
-                    rows={2}
-                    placeholder="e.g. Eid-ul-Fitr, Parent Teacher Meeting"
-                    className="w-full p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm resize-none focus:border-primary"
+                  <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Holiday Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Eid-ul-Fitr, Summer Vacation"
+                    className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
@@ -344,7 +349,7 @@ export default function CalendarPage() {
                   disabled={saving}
                   className="px-6 h-11 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white font-semibold rounded-xl text-sm"
                 >
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Override"}
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Holiday"}
                 </button>
               </div>
             </form>
