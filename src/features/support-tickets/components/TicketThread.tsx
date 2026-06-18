@@ -58,6 +58,29 @@ function isSuperAdminMessage(msg: TicketMessage): boolean {
   return msg.sender_type === "STAFF" && msg.sender_user?.role === "SUPER_ADMIN";
 }
 
+function isOwnStaffMessage(msg: TicketMessage, userId?: string): boolean {
+  return msg.sender_type === "STAFF" && Boolean(userId && msg.sender_user?.id === userId);
+}
+
+function incomingLabelForSuperAdmin(
+  msg: TicketMessage,
+  assigneeId?: string | null,
+): string {
+  if (msg.sender_type === "GUARDIAN") {
+    const name = msg.sender_guardian?.full_name;
+    return name ? `Parent · ${name}` : "Parent";
+  }
+  const name = msg.sender_user?.full_name ?? "Staff";
+  const role = msg.sender_user?.role?.replaceAll("_", " ") ?? "Assignee";
+  if (msg.sender_user?.id === assigneeId) {
+    return `${name} · ${role}`;
+  }
+  if (isSuperAdminMessage(msg)) {
+    return `${name} · Super Admin`;
+  }
+  return `${name} · ${role}`;
+}
+
 export function TicketThread({
   ticket,
   userId,
@@ -477,34 +500,63 @@ export function TicketThread({
             </p>
           </div>
         )}
-        {messages.map((msg) => (
+        {messages.map((msg) => {
+          const ownMessage = isOwnStaffMessage(msg, userId);
+          const onRight = isSuperAdmin ? ownMessage : msg.sender_type === "STAFF";
+          const incomingStaff =
+            msg.sender_type === "STAFF" && !ownMessage;
+
+          return (
           <div
             key={msg.id}
             className={`max-w-[80%] p-3 rounded-2xl text-sm ${
-              msg.sender_type === "STAFF"
+              onRight
                 ? "ml-auto bg-primary text-white"
                 : "bg-white dark:bg-zinc-800 border dark:border-zinc-700"
             }`}
           >
-            <p className="text-[10px] font-bold opacity-80 mb-1 flex flex-wrap items-center gap-1">
-              <span>{senderName(msg)}</span>
-              {isSuperAdminMessage(msg) && (
-                <span className="px-1.5 py-0.5 rounded bg-amber-400/90 text-amber-950 text-[9px] uppercase tracking-wide">
-                  Super Admin
-                </span>
+            <p
+              className={`text-[10px] font-bold opacity-80 mb-1 flex flex-wrap items-center gap-1 ${
+                onRight ? "justify-end" : ""
+              }`}
+            >
+              {isSuperAdmin ? (
+                ownMessage ? (
+                  <>
+                    <span>{senderName(msg)}</span>
+                    {isSuperAdminMessage(msg) && (
+                      <span className="px-1.5 py-0.5 rounded bg-amber-400/90 text-amber-950 text-[9px] uppercase tracking-wide">
+                        Super Admin
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span>{incomingLabelForSuperAdmin(msg, ticket.current_assignee_id)}</span>
+                )
+              ) : (
+                <>
+                  <span>{senderName(msg)}</span>
+                  {isSuperAdminMessage(msg) && (
+                    <span className="px-1.5 py-0.5 rounded bg-amber-400/90 text-amber-950 text-[9px] uppercase tracking-wide">
+                      Super Admin
+                    </span>
+                  )}
+                </>
               )}
             </p>
             {msg.message_type === "TEXT" && <p>{msg.content}</p>}
             {renderMedia(msg)}
             <div className="flex gap-2 mt-1 text-[10px] opacity-70 flex-wrap items-center">
               <span>{format(new Date(msg.created_at), "h:mm a")}</span>
-              {msg.sender_type === "STAFF" && (
+              {msg.sender_type === "STAFF" && !(isSuperAdmin && ownMessage) && (
                 <span className="font-bold uppercase">{statusLabel(msg.status)}</span>
               )}
               {msg.review_comment && <span>Rejected: {msg.review_comment}</span>}
             </div>
-            {isSuperAdmin && msg.sender_type === "STAFF" && msg.status === "PENDING" && (
-              <div className="mt-2 pt-2 border-t border-white/20 flex flex-wrap gap-2">
+            {isSuperAdmin && incomingStaff && msg.status === "PENDING" && (
+              <div className={`mt-2 pt-2 border-t flex flex-wrap gap-2 ${
+                onRight ? "border-white/20" : "border-zinc-200 dark:border-zinc-700"
+              }`}>
                 <button
                   disabled={reviewLoading === msg.id}
                   onClick={() => reviewMessage(msg.id, "APPROVED")}
@@ -539,7 +591,8 @@ export function TicketThread({
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {canCompose && (

@@ -41,7 +41,7 @@ export interface TicketMessage {
   review_comment?: string | null;
   media_metadata?: Record<string, unknown> | null;
   created_at: string;
-  sender_user?: { full_name: string; role: string };
+  sender_user?: { id: string; full_name: string; role: string };
   sender_guardian?: { full_name: string };
 }
 
@@ -50,7 +50,7 @@ export interface PendingApproval {
   content: string;
   status: string;
   created_at: string;
-  sender_user?: { full_name: string; role: string };
+  sender_user?: { id: string; full_name: string; role: string };
   ticket?: SupportTicket & { families?: { household_name: string } };
 }
 
