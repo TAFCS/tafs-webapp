@@ -28,6 +28,10 @@ export function SuperAdminApprovalQueue({
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const review = async (messageId: string, status: "APPROVED" | "REJECTED", reviewComment?: string) => {
+    if (status === "REJECTED" && !reviewComment?.trim()) {
+      toast.error("Rejection reason is required");
+      return;
+    }
     setLoadingId(messageId);
     try {
       await dispatch(reviewTicketMessage({ messageId, status, comment: reviewComment })).unwrap();
@@ -111,7 +115,7 @@ export function SuperAdminApprovalQueue({
                   className="flex-1 h-9 px-2 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
                 <button
-                  disabled={busy}
+                  disabled={busy || !comment.trim()}
                   onClick={() => review(item.id, "REJECTED", comment)}
                   className="px-3 py-1 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-bold disabled:opacity-50"
                 >

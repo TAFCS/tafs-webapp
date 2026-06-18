@@ -187,6 +187,10 @@ export function TicketThread({
     status: "APPROVED" | "REJECTED",
     comment?: string,
   ) => {
+    if (status === "REJECTED" && !comment?.trim()) {
+      toast.error("Rejection reason is required");
+      return;
+    }
     setReviewLoading(messageId);
     try {
       await dispatch(reviewTicketMessage({ messageId, status, comment })).unwrap();
@@ -551,7 +555,11 @@ export function TicketThread({
               {msg.sender_type === "STAFF" && !(isSuperAdmin && ownMessage) && (
                 <span className="font-bold uppercase">{statusLabel(msg.status)}</span>
               )}
-              {msg.review_comment && <span>Rejected: {msg.review_comment}</span>}
+              {msg.status === "REJECTED" && msg.review_comment && (
+                <span className={ownMessage ? "font-semibold text-red-200" : "text-red-600 dark:text-red-400"}>
+                  Reason: {msg.review_comment}
+                </span>
+              )}
             </div>
             {isSuperAdmin && incomingStaff && msg.status === "PENDING" && (
               <div className={`mt-2 pt-2 border-t flex flex-wrap gap-2 ${
@@ -581,8 +589,9 @@ export function TicketThread({
                       className="flex-1 px-2 py-1 rounded-lg text-xs text-zinc-900"
                     />
                     <button
+                      disabled={reviewLoading === msg.id || !rejectComment.trim()}
                       onClick={() => reviewMessage(msg.id, "REJECTED", rejectComment)}
-                      className="px-2 py-1 bg-white text-red-600 rounded-lg text-xs font-bold"
+                      className="px-2 py-1 bg-white text-red-600 rounded-lg text-xs font-bold disabled:opacity-50"
                     >
                       Confirm
                     </button>

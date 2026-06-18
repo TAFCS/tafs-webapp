@@ -161,6 +161,7 @@ export default function SupportTicketsPage() {
       message?: TicketMessage;
       ticket?: SupportTicket;
       status?: string;
+      reviewComment?: string;
     }) => {
       const msg = payload.message;
       if (msg?.id) {
@@ -168,7 +169,7 @@ export default function SupportTicketsPage() {
           updateMessageReviewStatus({
             messageId: msg.id,
             status: msg.status ?? payload.status ?? "APPROVED",
-            reviewComment: msg.review_comment ?? undefined,
+            reviewComment: msg.review_comment ?? payload.reviewComment ?? undefined,
           }),
         );
       }
