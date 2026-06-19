@@ -1,18 +1,131 @@
 "use client";
 
-import { useAuthState } from "@/context/AuthContext";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Users, Plus, Edit2, Trash2, Loader2, AlertCircle, CheckCircle2, Briefcase, Camera } from "lucide-react";
+import {
+  Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
+  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone,
+} from "lucide-react";
 import { hrService, EmployeeProfile } from "@/lib/hr.service";
+import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
+
+function initials(name: string) {
+  return name.split(" ").filter(Boolean).map(n => n[0]).slice(0, 2).join("").toUpperCase();
+}
+
+const AVATAR_COLORS = ["bg-violet-100 text-violet-700", "bg-blue-100 text-blue-700", "bg-emerald-100 text-emerald-700", "bg-amber-100 text-amber-700"];
+
+function missingFields(emp: EmployeeProfile): string[] {
+  const missing: string[] = [];
+  if (!emp.cnic) missing.push("CNIC");
+  if (!emp.join_date) missing.push("Date of Joining");
+  if (emp.monthly_pay == null) missing.push("Monthly Pay");
+  if (!emp.photo_url) missing.push("Photo");
+  return missing;
+}
+
+function FilterSelect({ label, value, onChange, options, icon }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; icon?: React.ReactNode }) {
+  return (
+    <div className="relative">
+      {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">{icon}</div>}
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className={`h-9 pr-3 text-[12px] font-medium text-zinc-700 bg-white border border-zinc-200 rounded-xl appearance-none outline-none hover:border-zinc-300 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all ${icon ? "pl-8" : "pl-3"}`}
+      >
+        <option value="">{label}</option>
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClick: () => void }) {
+  const name = employee.full_name || employee.users?.full_name || `Profile #${employee.id}`;
+  const missing = missingFields(employee);
+  const color = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left bg-white dark:bg-zinc-900/30 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-4 hover:shadow-md hover:border-zinc-200 dark:hover:border-zinc-700 transition-all duration-200 active:scale-[0.99]"
+    >
+      <div className="flex items-start gap-3">
+        {employee.photo_url ? (
+          <img
+            src={employee.photo_url.replace(/([^:])\/\//g, "$1/")}
+            alt={name}
+            className="h-11 w-11 rounded-xl object-cover bg-zinc-100 shrink-0"
+          />
+        ) : (
+          <div className={`h-11 w-11 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${color}`}>
+            {initials(name)}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-bold text-zinc-900 dark:text-white text-[14px] leading-tight truncate">{name}</p>
+            {missing.length > 0 && (
+              <div title={`Missing: ${missing.join(", ")}`}>
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+              </div>
+            )}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            {employee.employee_code && (
+              <span className="text-[11px] text-zinc-400 font-mono font-bold">{employee.employee_code}</span>
+            )}
+            {employee.cnic && <span className="text-[11px] text-zinc-400 font-mono">{employee.cnic}</span>}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {employee.designations?.title && (
+              <span className="flex items-center gap-1 text-[10px] bg-primary/10 text-primary rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                <Briefcase className="h-2.5 w-2.5" />{employee.designations.title}
+              </span>
+            )}
+            {employee.staff_types?.name && (
+              <span className="flex items-center gap-1 text-[10px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                {employee.staff_types.name}
+              </span>
+            )}
+            {employee.campuses?.campus_name && (
+              <span className="flex items-center gap-1 text-[10px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                <Building2 className="h-2.5 w-2.5" />{employee.campuses.campus_name}
+              </span>
+            )}
+            {employee.personal_phone && (
+              <span className="flex items-center gap-1 text-[10px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-md px-1.5 py-0.5 font-bold tracking-tight">
+                <Phone className="h-2.5 w-2.5" />{employee.personal_phone}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+const AUDIT_OPTIONS = [
+  { value: "missing_cnic", label: "Missing CNIC" },
+  { value: "missing_doj", label: "Missing Date of Joining" },
+  { value: "missing_pay", label: "Missing Monthly Pay" },
+  { value: "missing_photo", label: "No Photo" },
+  { value: "incomplete", label: "Any Incomplete Field" },
+];
 
 export default function EmployeesPage() {
-  const { user } = useAuthState();
   const router = useRouter();
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [selected, setSelected] = useState<EmployeeProfile | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [campusFilter, setCampusFilter] = useState("");
+  const [staffTypeFilter, setStaffTypeFilter] = useState("");
+  const [designationFilter, setDesignationFilter] = useState("");
+  const [auditFilter, setAuditFilter] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
@@ -32,26 +145,54 @@ export default function EmployeesPage() {
     fetchData();
   }, []);
 
-  // Auto-dismiss success
   useEffect(() => {
     if (!success) return;
     const t = setTimeout(() => setSuccess(null), 4000);
     return () => clearTimeout(t);
   }, [success]);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this employee profile? This cannot be undone.")) return;
-    setError(null);
-    setSuccess(null);
-    try {
-      await hrService.deleteEmployee(id);
-      setSuccess("Employee profile deleted successfully.");
-      fetchData();
-    } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.message || "Failed to delete employee profile.");
-    }
-  };
+  const campusOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    employees.forEach(e => { if (e.campuses) map.set(String(e.campuses.id), e.campuses.campus_name); });
+    return [...map.entries()].map(([value, label]) => ({ value, label }));
+  }, [employees]);
+
+  const staffTypeOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    employees.forEach(e => { if (e.staff_types) map.set(String(e.staff_types.id), e.staff_types.name); });
+    return [...map.entries()].map(([value, label]) => ({ value, label }));
+  }, [employees]);
+
+  const designationOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    employees.forEach(e => { if (e.designations) map.set(String(e.designations.id), e.designations.title); });
+    return [...map.entries()].map(([value, label]) => ({ value, label }));
+  }, [employees]);
+
+  const hasFilters = campusFilter || staffTypeFilter || designationFilter || auditFilter;
+  const clearFilters = () => { setCampusFilter(""); setStaffTypeFilter(""); setDesignationFilter(""); setAuditFilter(""); };
+
+  const filteredEmployees = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return employees.filter(emp => {
+      if (q) {
+        const haystack = [emp.full_name, emp.employee_code, emp.cnic, emp.job_title].filter(Boolean).join(" ").toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      if (campusFilter && String(emp.campuses?.id) !== campusFilter) return false;
+      if (staffTypeFilter && String(emp.staff_types?.id) !== staffTypeFilter) return false;
+      if (designationFilter && String(emp.designations?.id) !== designationFilter) return false;
+      if (auditFilter) {
+        const missing = missingFields(emp);
+        if (auditFilter === "missing_cnic" && !missing.includes("CNIC")) return false;
+        if (auditFilter === "missing_doj" && !missing.includes("Date of Joining")) return false;
+        if (auditFilter === "missing_pay" && !missing.includes("Monthly Pay")) return false;
+        if (auditFilter === "missing_photo" && !missing.includes("Photo")) return false;
+        if (auditFilter === "incomplete" && missing.length === 0) return false;
+      }
+      return true;
+    });
+  }, [employees, search, campusFilter, staffTypeFilter, designationFilter, auditFilter]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -63,7 +204,9 @@ export default function EmployeesPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Employee Directory</h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Manage workforce records and profile configurations</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {loading ? "Manage workforce records and profile configurations" : <span><strong className="text-zinc-700 dark:text-zinc-300">{filteredEmployees.length}</strong> of {employees.length} employees</span>}
+            </p>
           </div>
         </div>
 
@@ -90,118 +233,96 @@ export default function EmployeesPage() {
         </div>
       )}
 
+      {/* Search + Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[260px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search by name, code, CNIC, or job title..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full h-10 pl-10 pr-10 text-[13px] font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-zinc-400"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-600">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <SlidersHorizontal className="h-4 w-4 text-zinc-400 shrink-0" />
+          <FilterSelect label="All Campuses" value={campusFilter} onChange={setCampusFilter} options={campusOptions} icon={<Building2 className="h-3.5 w-3.5" />} />
+          <FilterSelect label="All Staff Types" value={staffTypeFilter} onChange={setStaffTypeFilter} options={staffTypeOptions} />
+          <FilterSelect label="All Designations" value={designationFilter} onChange={setDesignationFilter} options={designationOptions} />
+          <FilterSelect
+            label="Data Audit"
+            value={auditFilter}
+            onChange={setAuditFilter}
+            options={AUDIT_OPTIONS}
+            icon={<div className={`h-2 w-2 rounded-full ${auditFilter ? "bg-amber-500 animate-pulse" : "bg-zinc-300"}`} />}
+          />
+          {hasFilters && (
+            <button onClick={clearFilters} className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors">
+              <X className="h-3 w-3" /> Clear
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Main Content */}
       {loading ? (
-        <div className="bg-white dark:bg-zinc-900/30 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-12 flex flex-col items-center justify-center space-y-4">
-          <Loader2 className="h-8 w-8 text-primary animate-spin" />
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm">Loading employee directory…</p>
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 animate-pulse">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="bg-white dark:bg-zinc-900/30 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-11 w-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 shrink-0" />
+                <div className="flex-1 space-y-2 pt-1">
+                  <div className="h-3.5 bg-zinc-100 dark:bg-zinc-800 rounded w-3/4" />
+                  <div className="h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded w-1/2" />
+                  <div className="flex gap-1.5 mt-2">
+                    <div className="h-4 bg-zinc-100 dark:bg-zinc-800 rounded w-16" />
+                    <div className="h-4 bg-zinc-100 dark:bg-zinc-800 rounded w-14" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-      ) : employees.length === 0 ? (
+      ) : filteredEmployees.length === 0 ? (
         <div className="bg-white dark:bg-zinc-900/30 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-12 text-center max-w-xl mx-auto">
           <Users className="h-12 w-12 text-zinc-400 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">No Employee Profiles</h3>
+          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+            {employees.length === 0 ? "No Employee Profiles" : "No Matches Found"}
+          </h3>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 mb-6">
-            Get started by adding employee profiles. Each employee can be linked to a staff portal account.
+            {employees.length === 0
+              ? "Get started by adding employee profiles. Each employee can be linked to a staff portal account."
+              : "Try adjusting your search or filters."}
           </p>
-          <button
-            onClick={() => router.push("/hr/employees/new")}
-            className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/95 transition-all"
-          >
-            Create First Profile
-          </button>
+          {employees.length === 0 && (
+            <button
+              onClick={() => router.push("/hr/employees/new")}
+              className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/95 transition-all"
+            >
+              Create First Profile
+            </button>
+          )}
         </div>
       ) : (
-        <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
-                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Employee</th>
-                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Code</th>
-                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Department</th>
-                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Staff Type</th>
-                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">CNIC</th>
-                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Employment</th>
-                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {employees.map((emp) => (
-                  <tr key={emp.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/20 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        {/* Avatar — photo or initials */}
-                        {emp.photo_url ? (
-                          <img
-                            src={emp.photo_url.replace(/([^:])\/\//g, "$1/")}
-                            alt={emp.full_name ?? ""}
-                            className="h-10 w-10 rounded-xl object-cover bg-zinc-100"
-                          />
-                        ) : (
-                          <div className="h-10 w-10 bg-primary/5 rounded-xl flex items-center justify-center">
-                            <Users className="h-5 w-5 text-primary" />
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-semibold text-zinc-900 dark:text-white">
-                            {emp.full_name || emp.users?.full_name || "—"}
-                          </p>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {emp.users?.email || emp.job_title || "No account linked"}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {emp.employee_code ? (
-                        <code className="text-xs font-mono font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-2 py-0.5 rounded-lg">
-                          {emp.employee_code}
-                        </code>
-                      ) : <span className="text-zinc-300 dark:text-zinc-600">—</span>}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                      {emp.departments?.name || "—"}
-                    </td>
-                    <td className="px-6 py-4">
-                      {emp.staff_types ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">
-                          {emp.staff_types.name}
-                        </span>
-                      ) : <span className="text-zinc-300 dark:text-zinc-600 text-sm">—</span>}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-mono text-zinc-600 dark:text-zinc-400">
-                      {emp.cnic || "—"}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300">
-                        {emp.employment_type || "—"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          onClick={() => router.push(`/hr/employees/${emp.id}/edit`)}
-                          className="p-1.5 text-zinc-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
-                          title="Edit Profile"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(emp.id)}
-                          className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-all"
-                          title="Delete Profile"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredEmployees.map(emp => (
+            <EmployeeCard key={emp.id} employee={emp} onClick={() => setSelected(emp)} />
+          ))}
         </div>
       )}
+
+      <EmployeeDetailPanel
+        employee={selected}
+        onClose={() => setSelected(null)}
+        onDeleted={() => { setSuccess("Employee profile deleted successfully."); fetchData(); }}
+      />
     </div>
   );
 }
