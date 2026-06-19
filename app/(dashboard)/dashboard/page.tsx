@@ -39,6 +39,7 @@ export default function DashboardPage() {
     const [selectedCampusId, setSelectedCampusId] = useState<string>(
         campusLocked ? String(user!.campusId) : "",
     );
+    const [feedateFilter, setFeedateFilter] = useState<"all" | "issued">("all");
 
     useEffect(() => {
         if (campusLocked && user?.campusId) {
@@ -321,46 +322,56 @@ export default function DashboardPage() {
                             </div>
                             <h3 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-outfit">Billing vs. Collections</h3>
                             <p className="text-sm text-zinc-500 font-semibold mt-2 max-w-2xl leading-relaxed">
-                                Two independent figures, side by side for each of the last few months — what the institution invoiced, and what cash actually landed in the bank.
+                                Every voucher actually issued (printed) that month — including any carried-forward arrears and their late surcharges — versus how much of that exact billed amount has been paid off.
                             </p>
                         </div>
 
                         {/* Legend */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10 relative z-10">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 relative z-10">
                             <div className="flex items-start gap-4 p-5 rounded-3xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800">
                                 <div className="w-3 h-3 rounded-full bg-zinc-300 dark:bg-zinc-600 mt-1.5 shrink-0" />
                                 <div>
                                     <p className="text-xs font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.2em]">Billed (denominator)</p>
                                     <p className="text-[12px] text-zinc-500 dark:text-zinc-400 font-medium mt-1.5 leading-relaxed">
-                                        Fee heads and arrear surcharges invoiced <span className="font-bold text-zinc-700 dark:text-zinc-300">for</span> that month — the full-width track.
+                                        Sum of every voucher's full payable amount, grouped by <span className="font-bold text-zinc-700 dark:text-zinc-300">issue_date</span> (when the chit was printed) — not the period it's for. Includes arrear heads carried onto that voucher, plus their arrear surcharges.
                                     </p>
                                 </div>
                             </div>
                             <div className="flex items-start gap-4 p-5 rounded-3xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40">
                                 <div className="w-3 h-3 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
                                 <div>
-                                    <p className="text-xs font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.2em]">Cash In (numerator)</p>
+                                    <p className="text-xs font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.2em]">Collected (numerator)</p>
                                     <p className="text-[12px] text-zinc-500 dark:text-zinc-400 font-medium mt-1.5 leading-relaxed">
-                                        Actual deposits banked <span className="font-bold text-zinc-700 dark:text-zinc-300">during</span> that month. The bar fill and percentage both show cash in ÷ billed.
+                                        Amount paid against <span className="font-bold text-zinc-700 dark:text-zinc-300">these exact same vouchers</span> — every fee head (regular, bundle, or installment) plus their arrear surcharges, however long ago or recently that payment happened. Not deposit timing.
                                     </p>
                                 </div>
                             </div>
                         </div>
+                        <p className="text-[11px] font-semibold text-zinc-400 mb-3 relative z-10">
+                            Because Collected is summed from the exact same heads and surcharges as Billed, it can't exceed 100% except in rare overpayment edge cases — unlike a deposit-timing figure, this is a true paid-share-of-billed number.
+                        </p>
+                        <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-500 mb-10 relative z-10">
+                            Caveat: vouchers are sometimes generated ahead of their period (e.g. June's vouchers issued in May). For now this stat counts strictly by issue_date — that voucher is "billed in May" regardless of which month it's actually for.
+                        </p>
 
                         {/* Monthly rows */}
                         <div className="space-y-5 relative z-10">
                             {trends.map((t: any, i: number) => {
                                 const isCurrentMonth = i === trends.length - 1;
-                                const cashRate = t.due > 0 ? Math.min(100, (t.received / t.due) * 100) : 0;
-                                const cashPct = Math.round(cashRate);
+                                const cashRateRaw = t.due > 0 ? (t.received / t.due) * 100 : 0;
+                                const cashPct = Math.round(cashRateRaw);
+                                const isSurplus = cashPct > 100;
+                                const barWidth = Math.min(100, cashRateRaw);
                                 const noBilling = t.due === 0;
                                 const barColor =
                                     noBilling ? 'bg-zinc-200 dark:bg-zinc-700' :
+                                    isSurplus ? 'bg-indigo-500' :
                                     cashPct >= 90 ? 'bg-emerald-500' :
                                     cashPct >= 60 ? 'bg-amber-400' :
                                     'bg-rose-400';
                                 const pctColor =
                                     noBilling ? 'text-zinc-400' :
+                                    isSurplus ? 'text-indigo-500' :
                                     cashPct >= 90 ? 'text-emerald-500' :
                                     cashPct >= 60 ? 'text-amber-500' :
                                     'text-rose-500';
@@ -386,11 +397,11 @@ export default function DashboardPage() {
                                             </span>
                                         </div>
 
-                                        {/* Single bar — fill = cash received as % of billed */}
+                                        {/* Single bar — fill = amount collected on these vouchers' heads as % of billed, capped visually at 100% even on rare overpayment months */}
                                         <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden mb-3">
                                             <motion.div
                                                 initial={{ width: 0 }}
-                                                animate={{ width: noBilling ? '100%' : `${cashRate}%` }}
+                                                animate={{ width: noBilling ? '100%' : `${barWidth}%` }}
                                                 transition={{ duration: 0.9, ease: "circOut" }}
                                                 className={`h-full rounded-full ${barColor}`}
                                             />
@@ -412,16 +423,21 @@ export default function DashboardPage() {
                                                     Rs. {Math.round(t.gap).toLocaleString()} gap
                                                 </span>
                                             )}
-                                            {!noBilling && t.gap <= 0 && (
+                                            {!noBilling && t.gap === 0 && (
                                                 <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Fully in</span>
                                             )}
+                                            {!noBilling && t.gap < 0 && (
+                                                <span className="text-[11px] font-black text-indigo-500">
+                                                    + Rs. {Math.round(Math.abs(t.gap)).toLocaleString()} more collected than billed
+                                                </span>
+                                            )}
                                         </div>
-                                        {/* Outstanding to date for this billing month, regardless of cash timing */}
-                                        {t.outstanding > 0 && (
+                                        {/* Of vouchers issued this month, how many have since exceeded their due date */}
+                                        {t.overdueCount > 0 && (
                                             <div className="flex items-center gap-1.5 mt-2.5">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600 shrink-0" />
-                                                <span className="text-[11px] font-bold text-zinc-400">
-                                                    Rs. {Math.round(t.outstanding).toLocaleString()} of this month's billing still unpaid to date
+                                                <div className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
+                                                <span className="text-[11px] font-bold text-rose-500">
+                                                    {t.overdueCount}/{t.totalIssuedCount} vouchers issued this month have exceeded their due date — Rs. {Math.round(t.lateFeeAdded).toLocaleString()} added to receivables as late fees
                                                 </span>
                                             </div>
                                         )}
@@ -431,31 +447,61 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* Voucher Cycle Recovery */}
+                    {/* Receivables by Fee Date */}
                     <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 rounded-[2.5rem] p-10 lg:p-14 shadow-2xl relative overflow-hidden shadow-zinc-200/50 dark:shadow-none">
-                        <div className="mb-10 relative z-10">
-                            <div className="flex items-center gap-2 text-indigo-500 font-black text-[10px] uppercase tracking-[0.3em] mb-2">
-                                <Target className="h-3 w-3" /> By Billing Cycle
+                        <div className="mb-10 relative z-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
+                            <div>
+                                <div className="flex items-center gap-2 text-indigo-500 font-black text-[10px] uppercase tracking-[0.3em] mb-2">
+                                    <Target className="h-3 w-3" /> By Fee Date
+                                </div>
+                                <h3 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-outfit">Receivables by Fee Date</h3>
+                                <p className="text-sm text-zinc-500 font-semibold mt-2 max-w-2xl leading-relaxed">
+                                    Every fee head with a <span className="font-bold text-zinc-700 dark:text-zinc-300">fee_date</span> in that month — a row dated 2026-06-01 is a June 2026 head, however many times it's been re-issued since. The bar shows the receivable amount recovered so far.
+                                </p>
                             </div>
-                            <h3 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-outfit">Recovery by Cycle</h3>
-                            <p className="text-sm text-zinc-500 font-semibold mt-2 max-w-2xl leading-relaxed">
-                                For each month's chits (grouped by <span className="font-bold text-zinc-700 dark:text-zinc-300">fee_date</span>), the bar shows what percentage of that cycle's total has been collected so far — the fill width is the recovery rate.
+
+                            {/* All vs. Issued Only filter */}
+                            <div className="flex items-center gap-1 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shrink-0">
+                                <button
+                                    onClick={() => setFeedateFilter("all")}
+                                    className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${feedateFilter === "all" ? "bg-white dark:bg-zinc-800 text-indigo-500 shadow-sm" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"}`}
+                                >
+                                    All
+                                </button>
+                                <button
+                                    onClick={() => setFeedateFilter("issued")}
+                                    className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${feedateFilter === "issued" ? "bg-white dark:bg-zinc-800 text-indigo-500 shadow-sm" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"}`}
+                                >
+                                    Issued Only
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800 mb-8 relative z-10">
+                            <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                                <span className="text-zinc-700 dark:text-zinc-300 font-black uppercase tracking-wider text-[10px]">Excludes:</span> arrear surcharges and due dates / late fees entirely. This is a pure fee ledger — amount receivable vs. amount_paid received against it. See "Billing vs. Collections" above for surcharges and overdue late fees.
+                                {feedateFilter === "issued" && (
+                                    <> Also excluding <span className="text-zinc-700 dark:text-zinc-300 font-black">NOT_ISSUED</span> rows — template heads still sitting in the ledger that were never actually put on a voucher.</>
+                                )}
                             </p>
                         </div>
 
                         <div className="space-y-5 relative z-10">
                             {feedateTrends.map((t: any, i: number) => {
+                                const due = feedateFilter === "issued" ? t.dueIssuedOnly : t.due;
+                                const collected = feedateFilter === "issued" ? t.collectedIssuedOnly : t.collected;
+                                const gap = feedateFilter === "issued" ? t.gapIssuedOnly : t.gap;
                                 const isCurrentMonth = i === feedateTrends.length - 1;
-                                const recoveryRate = t.due > 0 ? Math.min(100, (t.collected / t.due) * 100) : 0;
+                                const recoveryRate = due > 0 ? Math.min(100, (collected / due) * 100) : 0;
                                 const recoveryPct = Math.round(recoveryRate);
-                                const noChits = t.due === 0;
+                                const noReceivable = due === 0;
                                 const barColor =
-                                    noChits ? 'bg-zinc-200 dark:bg-zinc-700' :
+                                    noReceivable ? 'bg-zinc-200 dark:bg-zinc-700' :
                                     recoveryPct >= 90 ? 'bg-emerald-500' :
                                     recoveryPct >= 60 ? 'bg-amber-400' :
                                     'bg-rose-400';
                                 const pctColor =
-                                    noChits ? 'text-zinc-400' :
+                                    noReceivable ? 'text-zinc-400' :
                                     recoveryPct >= 90 ? 'text-emerald-500' :
                                     recoveryPct >= 60 ? 'text-amber-500' :
                                     'text-rose-500';
@@ -477,7 +523,7 @@ export default function DashboardPage() {
                                                 )}
                                             </div>
                                             <span className={`text-2xl font-black font-outfit ${pctColor}`}>
-                                                {noChits ? '—' : `${recoveryPct}%`}
+                                                {noReceivable ? '—' : `${recoveryPct}%`}
                                             </span>
                                         </div>
 
@@ -485,7 +531,7 @@ export default function DashboardPage() {
                                         <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden mb-3">
                                             <motion.div
                                                 initial={{ width: 0 }}
-                                                animate={{ width: noChits ? '100%' : `${recoveryRate}%` }}
+                                                animate={{ width: noReceivable ? '100%' : `${recoveryRate}%` }}
                                                 transition={{ duration: 0.9, ease: "circOut" }}
                                                 className={`h-full rounded-full ${barColor}`}
                                             />
@@ -494,20 +540,20 @@ export default function DashboardPage() {
                                         {/* Bottom row: amounts */}
                                         <div className="flex items-center justify-between">
                                             <span className="text-[11px] font-semibold text-zinc-400">
-                                                {noChits ? 'No chits issued' : (
+                                                {noReceivable ? 'No fee heads for this month' : (
                                                     <>
-                                                        <span className="font-black text-zinc-700 dark:text-zinc-300">Rs. {Math.round(t.collected).toLocaleString()}</span>
+                                                        <span className="font-black text-zinc-700 dark:text-zinc-300">Rs. {Math.round(collected).toLocaleString()}</span>
                                                         <span className="mx-1.5 text-zinc-300 dark:text-zinc-600">/</span>
-                                                        Rs. {Math.round(t.due).toLocaleString()} on chits
+                                                        Rs. {Math.round(due).toLocaleString()} receivable
                                                     </>
                                                 )}
                                             </span>
-                                            {!noChits && t.gap > 0 && (
+                                            {!noReceivable && gap > 0 && (
                                                 <span className="text-[11px] font-bold text-zinc-400">
-                                                    Rs. {Math.round(t.gap).toLocaleString()} left
+                                                    Rs. {Math.round(gap).toLocaleString()} left
                                                 </span>
                                             )}
-                                            {!noChits && t.gap <= 0 && (
+                                            {!noReceivable && gap <= 0 && (
                                                 <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Cleared</span>
                                             )}
                                         </div>
@@ -574,7 +620,7 @@ export default function DashboardPage() {
                                             <ArrowUpRight className="h-6 w-6 text-emerald-600" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Peak Cycle</p>
+                                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Best Recovery</p>
                                             <p className="text-xl font-black text-zinc-900 dark:text-zinc-50 font-outfit">{trends.slice().sort((a:any, b:any) => b.received - a.received)[0]?.month || "---"}</p>
                                         </div>
                                     </div>
@@ -586,7 +632,7 @@ export default function DashboardPage() {
                                             <ArrowDownRight className="h-6 w-6 text-zinc-500" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Biggest Swing</p>
+                                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Biggest Shortfall</p>
                                             <p className="text-xl font-black text-zinc-900 dark:text-zinc-50 font-outfit">{trends.slice().sort((a:any, b:any) => Math.abs(b.gap) - Math.abs(a.gap))[0]?.month || "---"}</p>
                                         </div>
                                     </div>
@@ -594,7 +640,7 @@ export default function DashboardPage() {
                             </div>
 
                             <p className="text-[11px] font-medium text-zinc-400 leading-relaxed italic border-l-2 border-zinc-200 dark:border-zinc-800 pl-5">
-                                "Billed" reflects fee heads and surcharges invoiced for that period; "Cash In" reflects deposits actually banked that month — the two are independent lenses (billing vs. cash flow), so a swing isn't necessarily a problem.
+                                "Billed" reflects every voucher issued that period; "Collected" reflects how much of those exact same vouchers' heads and surcharges has been paid off, whenever that payment happened — not deposit timing.
                             </p>
                         </div>
                     </div>
