@@ -10,6 +10,7 @@ import {
     Stamp, Split, Calendar, Hourglass
 } from "lucide-react";
 import api from "@/lib/api";
+import { buildVoucherFilename } from "@/lib/voucher-filename";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { fetchSections } from "@/store/slices/sectionsSlice";
 import { fetchVouchers, fetchVouchersByStudent, VoucherItem, clearVouchers } from "@/store/slices/vouchersSlice";
@@ -737,10 +738,13 @@ function PartiallyPaidModal({
             toast.success(`Voucher split — Paid #${splitRes.data?.paid_voucher_id}, Balance #${splitRes.data?.unpaid_voucher_id}`);
 
             if (splitRes.data?.paid_pdf_url) {
-                const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : "unknown";
-                const grOrCc = voucher.students?.gr_number || `CC${voucher.students?.cc || voucher.id}`;
-                const paidId = splitRes.data?.paid_voucher_id;
-                const paidFilename = `${feeDateStr}-${grOrCc}-${paidId}-paid.pdf`;
+                const paidFilename = buildVoucherFilename({
+                    grNumber: voucher.students?.gr_number,
+                    cc: voucher.students?.cc,
+                    feeDate: voucher.fee_date,
+                    voucherId: splitRes.data?.paid_voucher_id,
+                    suffix: "paid",
+                });
                 try {
                     const res = await fetch(splitRes.data.paid_pdf_url);
                     const blob = await res.blob();
@@ -941,9 +945,13 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
             const pdfUrl = pdfRes.data?.pdf_url;
             if (!pdfUrl) throw new Error("No PDF URL returned from server.");
 
-            const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : "unknown";
-            const grOrCc = voucher.students?.gr_number || `CC${voucher.students?.cc || voucher.id}`;
-            const filename = `${feeDateStr}-${grOrCc}-${voucher.id}-paid.pdf`;
+            const filename = buildVoucherFilename({
+                grNumber: voucher.students?.gr_number,
+                cc: voucher.students?.cc,
+                feeDate: voucher.fee_date,
+                voucherId: voucher.id,
+                suffix: "paid",
+            });
 
             try {
                 const res = await fetch(pdfUrl);
@@ -984,9 +992,13 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
             const pdfUrl = pdfRes.data?.pdf_url;
             if (!pdfUrl) throw new Error("No PDF URL returned from server.");
 
-            const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : "unknown";
-            const grOrCc = voucher.students?.gr_number || `CC${voucher.students?.cc || voucher.id}`;
-            const filename = `${feeDateStr}-${grOrCc}-${voucher.id}-main-receipt.pdf`;
+            const filename = buildVoucherFilename({
+                grNumber: voucher.students?.gr_number,
+                cc: voucher.students?.cc,
+                feeDate: voucher.fee_date,
+                voucherId: voucher.id,
+                suffix: "main-receipt",
+            });
 
             try {
                 const res = await fetch(pdfUrl);

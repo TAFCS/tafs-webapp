@@ -28,6 +28,7 @@ import Link from "next/link";
 
 import { useRef } from "react";
 import api from "@/lib/api";
+import { buildVoucherFilename } from "@/lib/voucher-filename";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
@@ -569,7 +570,12 @@ export default function FeeChallanGenerator() {
       setSavedVoucherId(voucherId);
       if (pdfUrl) {
         setPreviewPdfUrl(pdfUrl);
-        setPreviewFilename(`${student?.gr_number || 'unknown'}-${voucherFeeDate}-${voucherId}.pdf`);
+        setPreviewFilename(buildVoucherFilename({
+          grNumber: student?.gr_number,
+          cc: student?.cc,
+          feeDate: voucherFeeDate,
+          voucherId,
+        }));
         setPreviewModalOpen(true);
       }
 
@@ -674,7 +680,12 @@ export default function FeeChallanGenerator() {
         setSavedGroupVoucherPdfUrls((prev) => ({ ...prev, [group.fee_date]: groupPdfUrl }));
         setSavedGroupVoucherIds((prev) => ({ ...prev, [group.fee_date]: voucherId }));
         setPreviewPdfUrl(groupPdfUrl);
-        setPreviewFilename(`${student?.gr_number || ''}-${group.fee_date}-${voucherId}.pdf`);
+        setPreviewFilename(buildVoucherFilename({
+          grNumber: student?.gr_number,
+          cc: student?.cc,
+          feeDate: group.fee_date,
+          voucherId,
+        }));
         setPreviewModalOpen(true);
       }
 
@@ -1202,10 +1213,10 @@ export default function FeeChallanGenerator() {
                               </button>
                               {generatedGroupDates.has(g.fee_date) && savedGroupVoucherPdfUrls[g.fee_date] && (
                                 <>
-                                  <button onClick={() => { setPreviewPdfUrl(savedGroupVoucherPdfUrls[g.fee_date]); setPreviewFilename(`${g.fee_date}-${student?.gr_number || `CC${student?.cc}` || 'unknown'}-${savedGroupVoucherIds[g.fee_date]}.pdf`); setPreviewModalOpen(true); }} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                  <button onClick={() => { setPreviewPdfUrl(savedGroupVoucherPdfUrls[g.fee_date]); setPreviewFilename(buildVoucherFilename({ grNumber: student?.gr_number, cc: student?.cc, feeDate: g.fee_date, voucherId: savedGroupVoucherIds[g.fee_date] })); setPreviewModalOpen(true); }} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
                                     <FileText className="h-4 w-4" /> View PDF
                                   </button>
-                                  <button onClick={() => downloadPdf(savedGroupVoucherPdfUrls[g.fee_date], `${g.fee_date}-${student?.gr_number || `CC${student?.cc}` || 'unknown'}-${savedGroupVoucherIds[g.fee_date]}.pdf`)} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-emerald-600 text-white flex items-center gap-2">
+                                  <button onClick={() => downloadPdf(savedGroupVoucherPdfUrls[g.fee_date], buildVoucherFilename({ grNumber: student?.gr_number, cc: student?.cc, feeDate: g.fee_date, voucherId: savedGroupVoucherIds[g.fee_date] }))} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-emerald-600 text-white flex items-center gap-2">
                                     <Download className="h-4 w-4" /> Download
                                   </button>
                                 </>
@@ -1228,10 +1239,10 @@ export default function FeeChallanGenerator() {
                     </button>
                     {voucherSaved && savedVoucherPdfUrl && (
                       <>
-                        <button onClick={() => { setPreviewPdfUrl(savedVoucherPdfUrl); setPreviewFilename(`${dateFrom || issueDate}-${student?.gr_number || `CC${student?.cc}` || 'unknown'}-${savedVoucherId}.pdf`); setPreviewModalOpen(true); }} className="h-16 px-8 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 transition-all hover:-translate-y-1">
+                        <button onClick={() => { setPreviewPdfUrl(savedVoucherPdfUrl); setPreviewFilename(buildVoucherFilename({ grNumber: student?.gr_number, cc: student?.cc, feeDate: dateFrom || issueDate, voucherId: savedVoucherId! })); setPreviewModalOpen(true); }} className="h-16 px-8 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 transition-all hover:-translate-y-1">
                           <FileText className="h-5 w-5" /> View PDF
                         </button>
-                        <button onClick={() => downloadPdf(savedVoucherPdfUrl!, `${dateFrom || issueDate}-${student?.gr_number || `CC${student?.cc}` || 'unknown'}-${savedVoucherId}.pdf`)} className="h-16 px-8 bg-emerald-600 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 shadow-xl transition-all hover:-translate-y-1">
+                        <button onClick={() => downloadPdf(savedVoucherPdfUrl!, buildVoucherFilename({ grNumber: student?.gr_number, cc: student?.cc, feeDate: dateFrom || issueDate, voucherId: savedVoucherId! }))} className="h-16 px-8 bg-emerald-600 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 shadow-xl transition-all hover:-translate-y-1">
                           <Download className="h-5 w-5" /> Download
                         </button>
                       </>

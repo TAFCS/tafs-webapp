@@ -9,6 +9,7 @@ import {
     ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2, AlertTriangle, Hourglass
 } from "lucide-react";
 import api from "@/lib/api";
+import { buildVoucherFilename } from "@/lib/voucher-filename";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { fetchClasses } from "@/store/slices/classesSlice";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
@@ -424,12 +425,14 @@ function VoucherRow({
     const [showPartialModal, setShowPartialModal] = useState(false);
     const user = useAppSelector(s => s.auth.user);
 
-    const buildVoucherFilename = (suffix?: string) => {
-        const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : "unknown";
-        const grOrCc = (voucher as any).students?.gr_number || `CC${(voucher as any).students?.cc || voucher.id}`;
-        const id = voucher.id;
-        return suffix ? `${feeDateStr}-${grOrCc}-${id}-${suffix}.pdf` : `${feeDateStr}-${grOrCc}-${id}.pdf`;
-    };
+    const buildFilename = (suffix?: string) =>
+        buildVoucherFilename({
+            grNumber: (voucher as any).students?.gr_number,
+            cc: (voucher as any).students?.cc,
+            feeDate: voucher.fee_date,
+            voucherId: voucher.id,
+            suffix,
+        });
 
     const downloadPdfBlob = async (url: string, filename: string) => {
         try {
@@ -451,7 +454,7 @@ function VoucherRow({
     const handleUnpaidDownload = async () => {
         const pdfUrl = typeof voucher.pdf_url === "string" ? voucher.pdf_url.trim() : "";
         if (pdfUrl) {
-            await downloadPdfBlob(pdfUrl, buildVoucherFilename());
+            await downloadPdfBlob(pdfUrl, buildFilename());
             toast.success("Voucher downloaded.");
             return;
         }
@@ -466,7 +469,7 @@ function VoucherRow({
             const pdfUrl = pdfRes.data?.pdf_url;
             if (!pdfUrl) throw new Error("No PDF URL returned from server.");
 
-            await downloadPdfBlob(pdfUrl, buildVoucherFilename("paid"));
+            await downloadPdfBlob(pdfUrl, buildFilename("paid"));
 
             toast.dismiss(loadingToast);
             toast.success("PAID voucher downloaded.");
@@ -493,7 +496,7 @@ function VoucherRow({
             const pdfUrl = pdfRes.data?.pdf_url;
             if (!pdfUrl) throw new Error("No PDF URL returned from server.");
 
-            await downloadPdfBlob(pdfUrl, buildVoucherFilename("main-receipt"));
+            await downloadPdfBlob(pdfUrl, buildFilename("main-receipt"));
 
             toast.dismiss(loadingToast);
             toast.success("Itemized receipt downloaded.");
