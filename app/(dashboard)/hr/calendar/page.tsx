@@ -1,9 +1,42 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarDays, Plus, Trash2, Loader2, Building, AlertCircle, CheckCircle2, Calendar, Coffee, GraduationCap } from "lucide-react";
+import {
+  CalendarDays,
+  Plus,
+  Trash2,
+  Loader2,
+  Building,
+  AlertCircle,
+  CheckCircle2,
+  Calendar,
+  Coffee,
+  GraduationCap,
+  Info,
+} from "lucide-react";
 import { hrService, CalendarDay } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
+
+type ModalMode = "holiday" | "weekend-open";
+
+function isWeekendDate(dateStr: string): boolean {
+  const d = new Date(`${dateStr}T00:00:00`);
+  const day = d.getDay();
+  return day === 0 || day === 6;
+}
+
+function getDayTypeLabel(type: string): string {
+  switch (type) {
+    case "WORKDAY":
+      return "Weekend Open";
+    case "HOLIDAY":
+      return "Holiday";
+    case "WEEKEND":
+      return "Day Off";
+    default:
+      return type;
+  }
+}
 
 export default function CalendarPage() {
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -13,17 +46,16 @@ export default function CalendarPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'STUDENT' | 'STAFF'>("STUDENT");
+  const [activeTab, setActiveTab] = useState<"STUDENT" | "STAFF">("STUDENT");
 
-  // Form State
   const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState<ModalMode>("holiday");
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split("T")[0],
-    day_type: "HOLIDAY", // WORKDAY, HOLIDAY, WEEKEND
+    day_type: "HOLIDAY",
     description: "",
   });
 
-  // Fetch campuses first
   useEffect(() => {
     const fetchCampuses = async () => {
       try {
@@ -40,14 +72,13 @@ export default function CalendarPage() {
     fetchCampuses();
   }, []);
 
-  // Fetch calendar when campus selection or activeTab changes
   useEffect(() => {
     if (selectedCampusId !== null) {
       fetchCalendar(selectedCampusId, activeTab);
     }
   }, [selectedCampusId, activeTab]);
 
-  const fetchCalendar = async (campusId: number, tab: 'STUDENT' | 'STAFF') => {
+  const fetchCalendar = async (campusId: number, tab: "STUDENT" | "STAFF") => {
     setLoading(true);
     setError(null);
     try {
@@ -61,11 +92,12 @@ export default function CalendarPage() {
     }
   };
 
-  const handleOpenCreate = () => {
+  const openModal = (mode: ModalMode) => {
+    setModalMode(mode);
     setFormData({
       date: new Date().toISOString().split("T")[0],
-      day_type: "HOLIDAY",
-      description: "",
+      day_type: mode === "weekend-open" ? "WORKDAY" : "HOLIDAY",
+      description: mode === "weekend-open" ? "School Open" : "",
     });
     setShowModal(true);
   };
@@ -73,6 +105,12 @@ export default function CalendarPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedCampusId === null) return;
+
+    if (modalMode === "weekend-open" && !isWeekendDate(formData.date)) {
+      setError("Weekend open overrides can only be added for Saturdays or Sundays.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -81,22 +119,26 @@ export default function CalendarPage() {
         campus_id: selectedCampusId,
         date: formData.date,
         day_type: formData.day_type,
-        description: formData.description,
+        description: formData.description.trim() || undefined,
         applies_to: activeTab,
       });
-      setSuccess("Calendar day override added successfully.");
+      setSuccess(
+        modalMode === "weekend-open"
+          ? "Weekend marked as open for students."
+          : "Holiday added successfully.",
+      );
       setShowModal(false);
       fetchCalendar(selectedCampusId, activeTab);
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || "Failed to add calendar day exception. Ensure the date is unique.");
+      setError(err.response?.data?.message || "Failed to save calendar override. Ensure the date is unique.");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to remove this calendar day override?")) return;
+    if (!confirm("Are you sure you want to remove this calendar override?")) return;
     setError(null);
     setSuccess(null);
     try {
@@ -122,100 +164,124 @@ export default function CalendarPage() {
     }
   };
 
-  const getDayTypeIcon = (type: string) => {
-    switch (type) {
-      case "WORKDAY":
-        return <GraduationCap className="h-4 w-4 text-emerald-500" />;
-      case "HOLIDAY":
-        return <Coffee className="h-4 w-4 text-rose-500" />;
-      default:
-        return <Calendar className="h-4 w-4 text-amber-500" />;
-    }
-  };
+  const isStudentTab = activeTab === "STUDENT";
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
-          <div className={`p-2.5 rounded-2xl transition-colors duration-200 ${
-            activeTab === "STUDENT"
-              ? "bg-purple-50 text-purple-600 dark:bg-purple-950/30 dark:text-purple-400"
-              : "bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
-          }`}>
+          <div
+            className={`p-2.5 rounded-2xl transition-colors duration-200 ${
+              isStudentTab
+                ? "bg-purple-50 text-purple-600 dark:bg-purple-950/30 dark:text-purple-400"
+                : "bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
+            }`}
+          >
             <CalendarDays className="h-6 w-6" />
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Holiday Calendar</h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Manage student and staff holidays for each campus</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {isStudentTab
+                ? "Student weekends are off by default — add holidays or open a weekend"
+                : "Manage staff holidays for each campus"}
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
-          {/* Campus Selector */}
-          <div className="flex items-center space-x-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-1.5 shadow-sm">
-            <Building className="h-4 w-4 text-zinc-400" />
-            <select
-              className="bg-transparent border-none text-sm font-semibold outline-none focus:ring-0 text-zinc-800 dark:text-zinc-200"
-              value={selectedCampusId || ""}
-              onChange={(e) => setSelectedCampusId(parseInt(e.target.value, 10))}
-            >
-              {campuses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.campus_name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="flex items-center space-x-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-1.5 shadow-sm">
+          <Building className="h-4 w-4 text-zinc-400" />
+          <select
+            className="bg-transparent border-none text-sm font-semibold outline-none focus:ring-0 text-zinc-800 dark:text-zinc-200"
+            value={selectedCampusId || ""}
+            onChange={(e) => setSelectedCampusId(parseInt(e.target.value, 10))}
+          >
+            {campuses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.campus_name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between border-b border-zinc-200 dark:border-zinc-800 gap-4">
+        <div className="flex gap-6">
           <button
-            onClick={handleOpenCreate}
-            disabled={selectedCampusId === null}
-            className={`inline-flex items-center justify-center h-10 px-4 text-white font-semibold rounded-xl text-xs active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none ${
-              activeTab === "STUDENT"
-                ? "bg-purple-600 hover:bg-purple-700 shadow-sm shadow-purple-500/10"
-                : "bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/10"
+            onClick={() => setActiveTab("STUDENT")}
+            className={`flex items-center gap-2 pb-3.5 text-sm font-bold transition-all relative ${
+              isStudentTab
+                ? "text-purple-600 dark:text-purple-400"
+                : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
             }`}
           >
-            <Plus className="h-4 w-4 mr-1.5" />
-            Add Holiday
+            <GraduationCap className="h-4 w-4" />
+            Student Calendar
+            {isStudentTab && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600 dark:bg-purple-400 rounded-full" />
+            )}
           </button>
+          <button
+            onClick={() => setActiveTab("STAFF")}
+            className={`flex items-center gap-2 pb-3.5 text-sm font-bold transition-all relative ${
+              activeTab === "STAFF"
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+            }`}
+          >
+            <Coffee className="h-4 w-4" />
+            Staff Holidays
+            {activeTab === "STAFF" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
+            )}
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 pb-2">
+          {isStudentTab ? (
+            <>
+              <button
+                onClick={() => openModal("weekend-open")}
+                disabled={selectedCampusId === null}
+                className="inline-flex items-center justify-center h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none shadow-sm shadow-emerald-500/10"
+              >
+                <GraduationCap className="h-4 w-4 mr-1.5" />
+                Open Weekend
+              </button>
+              <button
+                onClick={() => openModal("holiday")}
+                disabled={selectedCampusId === null}
+                className="inline-flex items-center justify-center h-9 px-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl text-xs active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none shadow-sm shadow-purple-500/10"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Add Holiday
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => openModal("holiday")}
+              disabled={selectedCampusId === null}
+              className="inline-flex items-center justify-center h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none shadow-sm shadow-blue-500/10"
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              Add Holiday
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-zinc-200 dark:border-zinc-800 gap-6">
-        <button
-          onClick={() => setActiveTab("STUDENT")}
-          className={`flex items-center gap-2 pb-3.5 text-sm font-bold transition-all relative ${
-            activeTab === "STUDENT"
-              ? "text-purple-600 dark:text-purple-400"
-              : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-          }`}
-        >
-          <GraduationCap className="h-4 w-4" />
-          Student Holidays
-          {activeTab === "STUDENT" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600 dark:bg-purple-400 rounded-full" />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab("STAFF")}
-          className={`flex items-center gap-2 pb-3.5 text-sm font-bold transition-all relative ${
-            activeTab === "STAFF"
-              ? "text-blue-600 dark:text-blue-400"
-              : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-          }`}
-        >
-          <Coffee className="h-4 w-4" />
-          Staff Holidays
-          {activeTab === "STAFF" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
-          )}
-        </button>
-      </div>
+      {isStudentTab && (
+        <div className="flex items-start gap-3 bg-purple-50 border border-purple-100 text-purple-900 rounded-2xl p-4 text-sm dark:bg-purple-950/20 dark:border-purple-900/30 dark:text-purple-200">
+          <Info className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
+          <p className="flex-1">
+            <span className="font-semibold">Saturdays and Sundays are off by default</span> for students in the
+            parent app. Use <span className="font-semibold">Open Weekend</span> when school runs on a Saturday or
+            Sunday (make-up day). Use <span className="font-semibold">Add Holiday</span> for named days off on any
+            date.
+          </p>
+        </div>
+      )}
 
-      {/* Notifications */}
       {error && (
         <div className="flex items-center gap-3 bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl p-4 text-sm dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400">
           <AlertCircle className="h-5 w-5 text-rose-500 flex-shrink-0" />
@@ -229,29 +295,40 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Main Content */}
       {loading ? (
         <div className="bg-white dark:bg-zinc-900/30 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-12 flex flex-col items-center justify-center space-y-4">
-          <Loader2 className={`h-8 w-8 animate-spin ${activeTab === 'STUDENT' ? 'text-purple-500' : 'text-blue-500'}`} />
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm">Loading holidays...</p>
+          <Loader2 className={`h-8 w-8 animate-spin ${isStudentTab ? "text-purple-500" : "text-blue-500"}`} />
+          <p className="text-zinc-500 dark:text-zinc-400 text-sm">Loading calendar overrides...</p>
         </div>
       ) : calendarDays.length === 0 ? (
         <div className="bg-white dark:bg-zinc-900/30 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-12 text-center max-w-xl mx-auto shadow-sm">
           <CalendarDays className="h-12 w-12 text-zinc-400 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">No Holidays Added</h3>
+          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+            {isStudentTab ? "No Overrides Added" : "No Holidays Added"}
+          </h3>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 mb-6">
-            There are no custom holidays added to this calendar yet.
+            {isStudentTab
+              ? "Weekends are already off for students. Add a holiday or mark a weekend as open when needed."
+              : "There are no custom holidays added to this calendar yet."}
           </p>
-          <button
-            onClick={handleOpenCreate}
-            className={`inline-flex items-center px-5 py-2.5 text-white rounded-xl text-sm font-semibold active:scale-95 transition-all shadow-sm ${
-              activeTab === "STUDENT"
-                ? "bg-purple-600 hover:bg-purple-700 shadow-purple-500/10"
-                : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/10"
-            }`}
-          >
-            Add Holiday
-          </button>
+          <div className="flex flex-wrap justify-center gap-3">
+            {isStudentTab && (
+              <button
+                onClick={() => openModal("weekend-open")}
+                className="inline-flex items-center px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold active:scale-95 transition-all shadow-sm"
+              >
+                Open Weekend
+              </button>
+            )}
+            <button
+              onClick={() => openModal("holiday")}
+              className={`inline-flex items-center px-5 py-2.5 text-white rounded-xl text-sm font-semibold active:scale-95 transition-all shadow-sm ${
+                isStudentTab ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"
+              }`}
+            >
+              Add Holiday
+            </button>
+          </div>
         </div>
       ) : (
         <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
@@ -260,7 +337,8 @@ export default function CalendarPage() {
               <thead>
                 <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
                   <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Date</th>
-                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Holiday Name</th>
+                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Type</th>
+                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Label</th>
                   <th className="px-6 py-4 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Action</th>
                 </tr>
               </thead>
@@ -275,19 +353,19 @@ export default function CalendarPage() {
                         day: "numeric",
                       })}
                     </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${getDayTypeBadge(day.day_type)}`}>
+                        {getDayTypeLabel(day.day_type)}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 text-sm text-zinc-900 dark:text-white font-semibold">
-                      <div className="flex items-center gap-2">
-                        <span className={`h-2 w-2 rounded-full transition-colors duration-200 ${
-                          activeTab === "STUDENT" ? "bg-purple-500" : "bg-blue-500"
-                        }`} />
-                        <span>{day.description || "Holiday"}</span>
-                      </div>
+                      {day.description || (day.day_type === "WORKDAY" ? "School Open" : "Holiday")}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => handleDelete(day.id)}
                         className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-all"
-                        title="Delete Holiday"
+                        title="Delete override"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -300,17 +378,20 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Calendar Day Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleSave}>
               <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
                 <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
-                  Add {activeTab === "STUDENT" ? "Student" : "Staff"} Holiday
+                  {modalMode === "weekend-open"
+                    ? "Open Weekend (Student)"
+                    : `Add ${isStudentTab ? "Student" : "Staff"} Holiday`}
                 </h3>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                  Add a holiday to the {activeTab === "STUDENT" ? "student" : "staff"} calendar for the selected campus
+                  {modalMode === "weekend-open"
+                    ? "Mark a Saturday or Sunday as a working day for students."
+                    : `Add a named holiday to the ${isStudentTab ? "student" : "staff"} calendar.`}
                 </p>
               </div>
               <div className="p-6 space-y-4">
@@ -323,13 +404,24 @@ export default function CalendarPage() {
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   />
+                  {modalMode === "weekend-open" && formData.date && !isWeekendDate(formData.date) && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                      Pick a Saturday or Sunday — weekdays are already working days.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Holiday Name</label>
+                  <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                    {modalMode === "weekend-open" ? "Note (optional)" : "Holiday Name"}
+                  </label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. Eid-ul-Fitr, Summer Vacation"
+                    required={modalMode === "holiday"}
+                    placeholder={
+                      modalMode === "weekend-open"
+                        ? "e.g. Make-up day, Exam day"
+                        : "e.g. Eid-ul-Fitr, Summer Vacation"
+                    }
                     className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -346,10 +438,16 @@ export default function CalendarPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="px-6 h-11 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white font-semibold rounded-xl text-sm"
+                  disabled={saving || (modalMode === "weekend-open" && !isWeekendDate(formData.date))}
+                  className="px-6 h-11 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white font-semibold rounded-xl text-sm disabled:opacity-50"
                 >
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Holiday"}
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : modalMode === "weekend-open" ? (
+                    "Save Open Weekend"
+                  ) : (
+                    "Save Holiday"
+                  )}
                 </button>
               </div>
             </form>
