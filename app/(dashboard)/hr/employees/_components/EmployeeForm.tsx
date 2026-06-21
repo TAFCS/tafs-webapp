@@ -6,7 +6,7 @@ import {
   Loader2, AlertCircle, CheckCircle2, User, Briefcase, Clock, BookOpen, Link as LinkIcon,
   Plus, X, Camera, ChevronDown
 } from "lucide-react";
-import { hrService, EmployeeProfile, EmployeeCreatePayload, StaffType, Department, Designation } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, EmployeeCreatePayload, StaffType, Department, Designation, WorkScheduleDay } from "@/lib/hr.service";
 import { campusesService, Campus, OfferedClass, SectionInfo } from "@/lib/campuses.service";
 import { PhotoUpload } from "@/app/(dashboard)/identity/students/tabs/PhotoUpload";
 
@@ -68,6 +68,31 @@ const EMPTY_FORM: FormData = {
   days_per_week: "5", monthly_pay: "", user_id: "",
 };
 
+const WEEKDAY_ORDER = [
+  { dow: 1, label: "Mon" },
+  { dow: 2, label: "Tue" },
+  { dow: 3, label: "Wed" },
+  { dow: 4, label: "Thu" },
+  { dow: 5, label: "Fri" },
+  { dow: 6, label: "Sat" },
+  { dow: 0, label: "Sun" },
+];
+
+function defaultWeekSchedule(daysPerWeek: number): Record<number, boolean> {
+  const map: Record<number, boolean> = {
+    0: false, 1: true, 2: true, 3: true, 4: true, 5: true, 6: false,
+  };
+  if (daysPerWeek === 6) map[6] = true;
+  return map;
+}
+
+function buildScheduleDays(weekSchedule: Record<number, boolean>): WorkScheduleDay[] {
+  return [0, 1, 2, 3, 4, 5, 6].map((dow) => ({
+    day_of_week: dow,
+    is_working: weekSchedule[dow] ?? false,
+  }));
+}
+
 // ── Section Header Component ──────────────────────────────────────────────────
 function SectionHeader({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle: string }) {
   return (
@@ -128,6 +153,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [useCustomSchedule, setUseCustomSchedule] = useState(false);
+  const [weekSchedule, setWeekSchedule] = useState<Record<number, boolean>>(() => defaultWeekSchedule(5));
 
   // ── Load reference data ───────────────────────────────────────────────────
   const loadLookups = useCallback(async () => {
@@ -208,6 +235,20 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       monthly_pay: emp.monthly_pay != null ? String(emp.monthly_pay) : "",
       user_id: emp.user_id ?? "",
     });
+
+    try {
+      const ws = await hrService.getEmployeeWorkSchedule(id);
+      setUseCustomSchedule(ws.has_custom_schedule);
+      if (ws.has_custom_schedule && ws.days.length > 0) {
+        const map: Record<number, boolean> = {};
+        for (const d of ws.days) map[d.day_of_week] = d.is_working;
+        setWeekSchedule(map);
+      } else {
+        setWeekSchedule(defaultWeekSchedule(emp.days_per_week ?? 5));
+      }
+    } catch {
+      setWeekSchedule(defaultWeekSchedule(emp.days_per_week ?? 5));
+    }
   }, []);
 
   useEffect(() => {
@@ -335,9 +376,17 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       const payload = buildPayload();
       if (isEdit && employeeId) {
         await hrService.updateEmployee(employeeId, payload);
+        if (useCustomSchedule) {
+          await hrService.updateEmployeeWorkSchedule(employeeId, buildScheduleDays(weekSchedule));
+        } else {
+          await hrService.clearEmployeeWorkSchedule(employeeId);
+        }
         setSuccess("Employee profile updated successfully.");
       } else {
         const created = await hrService.createEmployee(payload);
+        if (useCustomSchedule) {
+          await hrService.updateEmployeeWorkSchedule(created.id, buildScheduleDays(weekSchedule));
+        }
         // Navigate to edit page with ?created=1 — photo upload becomes available immediately
         router.push(`/hr/employees/${created.id}/edit?created=1`);
         return;
@@ -772,13 +821,66 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                 <select
                   className={selectCls}
                   value={formData.days_per_week}
-                  onChange={e => setFormData(p => ({ ...p, days_per_week: e.target.value }))}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setFormData(p => ({ ...p, days_per_week: val }));
+                    if (!useCustomSchedule) {
+                      setWeekSchedule(defaultWeekSchedule(parseInt(val, 10)));
+                    }
+                  }}
+                  disabled={useCustomSchedule}
                 >
                   <option value="5">5 days (Mon–Fri)</option>
                   <option value="6">6 days (Mon–Sat)</option>
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
               </div>
+              <p className="text-[11px] text-zinc-400">
+                {useCustomSchedule ? "Using custom weekly schedule below." : "Default when no custom schedule is set."}
+              </p>
+            </div>
+            {/* Custom weekly schedule */}
+            <div className="space-y-3 sm:col-span-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useCustomSchedule}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setUseCustomSchedule(checked);
+                    if (checked) {
+                      setWeekSchedule(defaultWeekSchedule(parseInt(formData.days_per_week, 10) || 5));
+                    }
+                  }}
+                  className="rounded border-zinc-300 text-primary focus:ring-primary/30"
+                />
+                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                  Custom weekly schedule (overrides days per week)
+                </span>
+              </label>
+              {useCustomSchedule && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                  {WEEKDAY_ORDER.map(({ dow, label }) => (
+                    <button
+                      key={dow}
+                      type="button"
+                      onClick={() =>
+                        setWeekSchedule((prev) => ({ ...prev, [dow]: !prev[dow] }))
+                      }
+                      className={`px-3 py-2 rounded-xl text-xs font-semibold border transition ${
+                        weekSchedule[dow]
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300"
+                          : "bg-zinc-50 border-zinc-200 text-zinc-500 dark:bg-zinc-900 dark:border-zinc-800"
+                      }`}
+                    >
+                      {label}
+                      <span className="block text-[10px] font-normal mt-0.5 opacity-70">
+                        {weekSchedule[dow] ? "Working" : "Off"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             {/* Monthly Pay */}
             <div className="space-y-1.5 sm:col-span-2">

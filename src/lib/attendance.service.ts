@@ -1,7 +1,7 @@
 import api from './api';
 
 export type RollSessionStatus = 'DRAFT' | 'SUBMITTED' | 'SKIPPED';
-export type RollRecordStatus = 'PRESENT' | 'ABSENT';
+export type RollRecordStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED';
 export type StaffAttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'EXCUSED';
 
 export interface StaffAttendanceRecord {
@@ -24,6 +24,9 @@ export interface StaffRegisterRow {
     designations: { id: number; title: string } | null;
   };
   record: StaffAttendanceRecord | null;
+  is_working_day?: boolean;
+  day_type?: string | null;
+  day_description?: string | null;
 }
 
 export interface RollRecord {
@@ -127,6 +130,9 @@ export interface TimelineSegment {
 export interface TimelineDay {
   date: string;
   status: StaffAttendanceStatus | null;
+  is_working_day?: boolean;
+  day_type?: string | null;
+  day_description?: string | null;
   segments: TimelineSegment[];
 }
 
@@ -142,6 +148,8 @@ export interface StudentAttendanceSummary {
     present: SummaryCardValue;
   };
   not_present_summary: {
+    absent?: SummaryCardValue;
+    excused?: SummaryCardValue;
     no_clock_in: SummaryCardValue;
     no_clock_out: SummaryCardValue;
   };
@@ -159,6 +167,9 @@ export interface StudentDashboardRow {
   check_in_at: string | null;
   check_out_at: string | null;
   status: RollRecordStatus | null;
+  is_working_day?: boolean;
+  day_type?: string | null;
+  day_description?: string | null;
 }
 
 export type StudentTimelineSegmentType = 'WORK' | 'BREAK';
@@ -172,6 +183,11 @@ export interface StudentTimelineSegment {
 export interface StudentTimelineDay {
   date: string;
   status: RollRecordStatus | null;
+  is_working_day?: boolean;
+  day_type?: string | null;
+  day_description?: string | null;
+  holiday_type?: string | null;
+  holiday_description?: string | null;
   segments: StudentTimelineSegment[];
 }
 

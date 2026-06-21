@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   AlertCircle,
+  CalendarOff,
   CheckCircle2,
   ClipboardList,
   Loader2,
@@ -151,6 +152,10 @@ export default function RollCallPage() {
   const roster: RollSessionRosterEntry[] = session?.roster ?? [];
   const isLocked = session?.status === "SUBMITTED" || session?.status === "SKIPPED";
   const canEdit = canMark && session?.status === "DRAFT";
+  const isHolidaySkip =
+    session?.status === "SKIPPED" &&
+    !!session.skip_reason &&
+    session.skip_reason.startsWith("Holiday:");
 
   const setMark = (cc: number, status: RollRecordStatus) => {
     if (!canEdit) return;
@@ -268,6 +273,17 @@ export default function RollCallPage() {
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg flex gap-3">
           <CheckCircle2 className="h-5 w-5 shrink-0" />
           <span className="text-sm">{success}</span>
+        </div>
+      )}
+
+      {isHolidaySkip && (
+        <div className="p-4 bg-sky-50 border border-sky-200 text-sky-900 rounded-lg flex gap-3 items-start">
+          <CalendarOff className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-semibold">Roll call skipped — holiday / day off</p>
+            <p className="text-sky-800/80 mt-1">{session?.skip_reason?.replace(/^Holiday:\s*/, "") ?? "This date is not a working day for this class."}</p>
+            <p className="text-sky-700/70 mt-1">Attendance marking is disabled for this session.</p>
+          </div>
         </div>
       )}
 

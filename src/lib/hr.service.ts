@@ -131,6 +131,33 @@ export interface CalendarDay {
   day_type: string; // 'WORKDAY' | 'HOLIDAY' | 'WEEKEND'
   description: string | null;
   applies_to: string;
+  class_id?: number | null;
+  section_id?: number | null;
+  department_id?: number | null;
+  employee_id?: number | null;
+  classes?: { id: number; description: string; class_code: string } | null;
+  sections?: { id: number; description: string } | null;
+  departments?: { id: number; name: string } | null;
+  employee?: { id: number; full_name: string | null; employee_code: string | null } | null;
+}
+
+export interface WorkScheduleDay {
+  id?: number;
+  day_of_week: number;
+  is_working: boolean;
+}
+
+export interface EmployeeWorkSchedule {
+  employee_id: number;
+  days_per_week: number | null;
+  has_custom_schedule: boolean;
+  days: WorkScheduleDay[];
+}
+
+export interface HolidaySyncResult {
+  students: number;
+  staff: number;
+  skipped_manual: number;
 }
 
 export interface ClassAttendanceMode {
@@ -263,7 +290,17 @@ export const hrService = {
     const { data } = await api.get<ApiEnvelope<CalendarDay[]>>(`/v1/hr/calendar?campusId=${campusId}${query}`);
     return data.data;
   },
-  async createCalendarDay(payload: { campus_id: number; date: string; day_type: string; description?: string; applies_to: string }): Promise<CalendarDay> {
+  async createCalendarDay(payload: {
+    campus_id: number;
+    date: string;
+    day_type: string;
+    description?: string;
+    applies_to: string;
+    class_id?: number;
+    section_id?: number;
+    department_id?: number;
+    employee_id?: number;
+  }): Promise<CalendarDay> {
     const { data } = await api.post<ApiEnvelope<CalendarDay>>('/v1/hr/calendar', payload);
     return data.data;
   },
@@ -273,6 +310,32 @@ export const hrService = {
   },
   async deleteCalendarDay(id: number): Promise<void> {
     await api.delete(`/v1/hr/calendar/${id}`);
+  },
+
+  async syncCalendarAttendance(
+    campusId: number,
+    date: string,
+    force?: boolean,
+  ): Promise<HolidaySyncResult> {
+    const { data } = await api.post<ApiEnvelope<HolidaySyncResult>>('/v1/hr/calendar/sync-attendance', {
+      campus_id: campusId,
+      date,
+      ...(force ? { force: true } : {}),
+    });
+    return data.data;
+  },
+
+  async getEmployeeWorkSchedule(employeeId: number): Promise<EmployeeWorkSchedule> {
+    const { data } = await api.get<ApiEnvelope<EmployeeWorkSchedule>>(`/v1/hr/employees/${employeeId}/work-schedule`);
+    return data.data;
+  },
+  async updateEmployeeWorkSchedule(employeeId: number, days: WorkScheduleDay[]): Promise<EmployeeWorkSchedule> {
+    const { data } = await api.patch<ApiEnvelope<EmployeeWorkSchedule>>(`/v1/hr/employees/${employeeId}/work-schedule`, { days });
+    return data.data;
+  },
+  async clearEmployeeWorkSchedule(employeeId: number): Promise<EmployeeWorkSchedule> {
+    const { data } = await api.delete<ApiEnvelope<EmployeeWorkSchedule>>(`/v1/hr/employees/${employeeId}/work-schedule`);
+    return data.data;
   },
 
   // ── Class Attendance Modes API ─────────────────────────────────────────────

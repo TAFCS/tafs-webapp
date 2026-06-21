@@ -8,6 +8,7 @@ import {
     ArrowDown,
     ArrowUp,
     CalendarCheck,
+    CalendarOff,
     ChevronRight,
     CheckCircle2,
     Fingerprint,
@@ -47,6 +48,7 @@ const item = {
 const STATUS_BADGE: Record<RollRecordStatus, string> = {
     PRESENT: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
     ABSENT: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+    EXCUSED: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
 };
 
 function formatTime(iso: string | null): string {
@@ -278,6 +280,12 @@ export default function StudentAttendanceDashboardPage() {
     const sel =
         "h-10 px-3 border rounded-xl text-sm bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30";
 
+    const offDayRows = rows.filter((r) => r.is_working_day === false || r.status === "EXCUSED");
+    const offDayLabel =
+        offDayRows[0]?.day_description ??
+        offDayRows[0]?.day_type ??
+        "Holiday / day off";
+
     return (
         <div className="space-y-8 pb-10">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -321,6 +329,18 @@ export default function StudentAttendanceDashboardPage() {
                 </div>
             )}
 
+            {offDayRows.length > 0 && (
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 text-sky-900 dark:text-sky-200">
+                    <CalendarOff className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                        <p className="font-semibold">Non-working day — {offDayLabel}</p>
+                        <p className="text-sky-800/80 dark:text-sky-300/80 mt-1">
+                            Students are auto-marked EXCUSED. Biometric clock-ins are suppressed for this date.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {!scope.campusId ? (
                 <p className="text-sm text-zinc-500 text-center py-14">Select a campus to load the attendance dashboard.</p>
             ) : loading && !summary ? (
@@ -350,6 +370,12 @@ export default function StudentAttendanceDashboardPage() {
                                 color="text-rose-600"
                                 bg="bg-rose-50 dark:bg-rose-900/10"
                                 rows={[
+                                    ...(summary.not_present_summary.absent
+                                        ? [{ label: "Absent", ...summary.not_present_summary.absent }]
+                                        : []),
+                                    ...(summary.not_present_summary.excused
+                                        ? [{ label: "Excused", ...summary.not_present_summary.excused }]
+                                        : []),
                                     { label: "No Clock In", ...summary.not_present_summary.no_clock_in },
                                     { label: "No Clock Out", ...summary.not_present_summary.no_clock_out },
                                 ]}
@@ -389,11 +415,13 @@ export default function StudentAttendanceDashboardPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                                        {rows.map((row) => (
+                                        {rows.map((row) => {
+                                            const isOffDay = row.is_working_day === false || row.status === "EXCUSED";
+                                            return (
                                             <tr
                                                 key={row.student.cc}
                                                 onClick={() => router.push(`/hr/student-attendance-dashboard/${row.student.cc}`)}
-                                                className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
+                                                className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer ${isOffDay ? "bg-sky-50/50 dark:bg-sky-900/10" : ""}`}
                                             >
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-3">
@@ -433,7 +461,8 @@ export default function StudentAttendanceDashboardPage() {
                                                     )}
                                                 </td>
                                             </tr>
-                                        ))}
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

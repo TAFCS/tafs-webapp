@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  CalendarOff,
   CheckCircle2,
   ClipboardCheck,
   Loader2,
@@ -86,6 +87,8 @@ export default function StaffRegisterPage() {
       if (row.record) {
         nextMarks[row.employee.id] = row.record.status;
         nextNotes[row.employee.id] = row.record.notes ?? "";
+      } else if (row.is_working_day === false) {
+        nextMarks[row.employee.id] = "EXCUSED";
       }
     }
     setMarks(nextMarks);
@@ -117,6 +120,8 @@ export default function StaffRegisterPage() {
 
   const setMark = (employeeId: number, status: StaffAttendanceStatus) => {
     if (!canMark) return;
+    const row = rows.find((r) => r.employee.id === employeeId);
+    if (row?.is_working_day === false) return;
     setMarks((prev) => ({ ...prev, [employeeId]: status }));
   };
 
@@ -127,8 +132,10 @@ export default function StaffRegisterPage() {
   // Mark everyone with one status (bulk shortcut)
   const markAll = (status: StaffAttendanceStatus) => {
     if (!canMark) return;
-    const next: Record<number, StaffAttendanceStatus> = {};
-    rows.forEach((r) => (next[r.employee.id] = status));
+    const next: Record<number, StaffAttendanceStatus> = { ...marks };
+    rows.forEach((r) => {
+      if (r.is_working_day !== false) next[r.employee.id] = status;
+    });
     setMarks(next);
   };
 
@@ -141,7 +148,8 @@ export default function StaffRegisterPage() {
 
   const handleSave = async () => {
     if (!canMark || !campusId) return;
-    const records = rows.map((r) => ({
+    const workingRows = rows.filter((r) => r.is_working_day !== false);
+    const records = workingRows.map((r) => ({
       employee_id: r.employee.id,
       status: marks[r.employee.id] ?? ("ABSENT" as StaffAttendanceStatus),
       ...(notes[r.employee.id] ? { notes: notes[r.employee.id] } : {}),
@@ -179,7 +187,15 @@ export default function StaffRegisterPage() {
   const sel =
     "h-10 px-3 border rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400";
 
-  const unmarked = displayRows.filter((r) => !marks[r.employee.id]).length;
+  const unmarked = displayRows.filter(
+    (r) => r.is_working_day !== false && !marks[r.employee.id],
+  ).length;
+
+  const offDayRows = displayRows.filter((r) => r.is_working_day === false);
+  const offDayLabel =
+    offDayRows[0]?.day_description ??
+    offDayRows[0]?.day_type ??
+    "Holiday / day off";
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -216,6 +232,19 @@ export default function StaffRegisterPage() {
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg flex gap-3 items-center">
           <CheckCircle2 className="h-5 w-5 shrink-0" />
           <span className="text-sm">{success}</span>
+        </div>
+      )}
+
+      {offDayRows.length > 0 && (
+        <div className="p-4 bg-sky-50 border border-sky-200 text-sky-900 rounded-lg flex gap-3 items-start">
+          <CalendarOff className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-semibold">Non-working day — {offDayLabel}</p>
+            <p className="text-sky-800/80 mt-1">
+              {offDayRows.length} staff member{offDayRows.length > 1 ? "s are" : " is"} auto-marked EXCUSED.
+              Manual attendance marking is disabled for this date.
+            </p>
+          </div>
         </div>
       )}
 
@@ -323,9 +352,13 @@ export default function StaffRegisterPage() {
                 {displayRows.map((row) => {
                   const emp = row.employee;
                   const currentStatus = marks[emp.id];
+                  const isOffDay = row.is_working_day === false;
 
                   return (
-                    <tr key={emp.id} className="hover:bg-slate-50/60 transition">
+                    <tr
+                      key={emp.id}
+                      className={`hover:bg-slate-50/60 transition ${isOffDay ? "bg-sky-50/40" : ""}`}
+                    >
                       <td className="px-5 py-3 font-medium text-slate-800">
                         {emp.users?.full_name ?? "—"}
                       </td>
@@ -339,31 +372,37 @@ export default function StaffRegisterPage() {
                         {emp.designations?.title ?? "—"}
                       </td>
                       <td className="px-5 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {STATUS_OPTIONS.map((opt) => (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              disabled={!canMark}
-                              onClick={() => setMark(emp.id, opt.value)}
-                              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition disabled:opacity-40 ${
-                                currentStatus === opt.value
-                                  ? STATUS_STYLES[opt.value]
-                                  : INACTIVE_STYLES[opt.value]
-                              }`}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
+                        {isOffDay ? (
+                          <span className="inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-sky-100 text-sky-800">
+                            EXCUSED — {row.day_description ?? row.day_type ?? "Day off"}
+                          </span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {STATUS_OPTIONS.map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                disabled={!canMark}
+                                onClick={() => setMark(emp.id, opt.value)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition disabled:opacity-40 ${
+                                  currentStatus === opt.value
+                                    ? STATUS_STYLES[opt.value]
+                                    : INACTIVE_STYLES[opt.value]
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         <input
                           type="text"
                           value={notes[emp.id] ?? ""}
                           onChange={(e) => setNote(emp.id, e.target.value)}
-                          disabled={!canMark}
-                          placeholder="Optional note…"
+                          disabled={!canMark || isOffDay}
+                          placeholder={isOffDay ? "Auto holiday" : "Optional note…"}
                           className="w-full min-w-32 px-2 py-1 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:opacity-40"
                         />
                       </td>
