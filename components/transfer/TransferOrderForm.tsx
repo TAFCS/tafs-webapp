@@ -77,6 +77,20 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
     // PDF Generation state
     const [isGenerating, setIsGenerating] = useState(false);
 
+    // Transfer history logs state
+    const [transferHistory, setTransferHistory] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (student.cc) {
+            api.get('/v1/audit-logs', { params: { student_id: student.cc, entity_type: 'TRANSFER' } })
+                .then(({ data }) => {
+                    const logs = data?.data?.data || [];
+                    setTransferHistory(logs);
+                })
+                .catch((err) => console.error('Failed to load transfer history', err));
+        }
+    }, [student.cc, transferred]);
+
     // Compute future target academic years (up to 15 years in the future)
     const academicYearOptions = useMemo(() => {
         const baseYearStr = student.academic_year || '2024-2025';
@@ -230,6 +244,106 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
         }
     }, [student, updatedData, fromSystem, toSystem, discipline, remarks]);
 
+    const getSavedPdfUrl = useCallback((log: any) => {
+        if (!student.admissions) return null;
+        const note = log.note || "";
+        const matchTransfer = note.match(/Transferred from (.*?) to (.*?)(?:\s*\(AY|\. Remarks|$)/);
+        const toGrade = matchTransfer ? matchTransfer[2] : log.new_value || "";
+        
+        const matchAY = note.match(/\(AY\s+([^)]+)\)/);
+        const ay = matchAY ? matchAY[1] : "";
+
+        const match = student.admissions.find((adm: any) => 
+            adm.requested_grade === toGrade && 
+            (!ay || adm.academic_year === ay)
+        );
+        return match?.transfer_order_url || null;
+    }, [student.admissions]);
+
+    const handleDownloadOld = useCallback(async (log: any) => {
+        const savedUrl = getSavedPdfUrl(log);
+        if (savedUrl) {
+            const a = document.createElement('a');
+            a.href = savedUrl;
+            a.target = '_blank';
+            a.download = `transfer-order-${student.cc}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            toast.success('Downloaded saved Transfer Order PDF!');
+            return;
+        }
+
+        const note = log.note || "";
+        
+        // Parse FromClass and ToClass from note:
+        // "Transferred from [FromClass] to [ToClass]"
+        const matchTransfer = note.match(/Transferred from (.*?) to (.*?)(?:\s*\(AY|\. Remarks|$)/);
+        const fromClass = matchTransfer ? matchTransfer[1] : log.old_value || "";
+        const toClass = matchTransfer ? matchTransfer[2] : log.new_value || "";
+        
+        // Parse Academic Year from note
+        const matchAY = note.match(/\(AY\s+([^)]+)\)/);
+        const ay = matchAY ? matchAY[1] : "";
+        
+        // Parse Remarks from note
+        const matchRemarks = note.match(/\.\s*Remarks:\s*(.*)$/);
+        const remarksVal = matchRemarks ? matchRemarks[1] : "";
+
+        // Format Date of Transfer
+        const dateObj = new Date(log.changed_at);
+        const months = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+        const dateStr = `${String(dateObj.getDate()).padStart(2,'0')} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+
+        setIsGenerating(true);
+        try {
+            const { data: res } = await api.post(`/v1/transfers/${student.cc}/generate-pdf`, {
+                transfer_from: fromClass,
+                transfer_to: toClass,
+                class_name: toClass,
+                academic_year: ay,
+                remarks: remarksVal || undefined,
+                date_of_transfer: dateStr,
+            });
+
+            const pdfUrl: string = res.data?.url || res.url;
+            if (!pdfUrl) throw new Error('No URL returned from server');
+
+            // Force reload student details to retrieve updated transfer_order_url mapping
+            if (updatedData) {
+                setUpdatedData(prev => prev ? {
+                    ...prev,
+                    admissions: prev.admissions?.map((adm: any) => 
+                        adm.requested_grade === toClass && (!ay || adm.academic_year === ay)
+                            ? { ...adm, transfer_order_url: pdfUrl }
+                            : adm
+                    )
+                } : null);
+            } else {
+                student.admissions = student.admissions?.map((adm: any) => 
+                    adm.requested_grade === toClass && (!ay || adm.academic_year === ay)
+                        ? { ...adm, transfer_order_url: pdfUrl }
+                        : adm
+                );
+            }
+
+            const a = document.createElement('a');
+            a.href = pdfUrl;
+            a.target = '_blank';
+            a.download = `transfer-order-${student.cc}-${dateObj.getTime()}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            toast.success('Historical Transfer Order PDF generated and saved!');
+        } catch (err: any) {
+            console.error(err);
+            toast.error(err?.response?.data?.message || 'PDF generation failed. Please try again.');
+        } finally {
+            setIsGenerating(false);
+        }
+    }, [student]);
+
     const displayPhoto = (() => {
         if (student.photograph_url && typeof window !== 'undefined')
             return `${window.location.origin}/api/photo-proxy?url=${encodeURIComponent(student.photograph_url)}`;
@@ -330,6 +444,34 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                         <><Download className="h-5 w-5" />Download Transfer Order PDF</>
                     )}
                 </button>
+
+                {/* Transfer History */}
+                {transferHistory.length > 0 && (
+                    <div className="bg-white dark:bg-zinc-950 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-4 shadow-sm">
+                        <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Transfer History</p>
+                        <div className="space-y-3">
+                            {transferHistory.map((log: any) => (
+                                <div key={log.id} className="p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 rounded-xl flex items-center justify-between gap-4">
+                                    <div className="space-y-1 min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                            <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{log.note || 'Student Transferred'}</span>
+                                            <span className="text-[10px] text-zinc-400 shrink-0">{new Date(log.changed_at).toLocaleDateString()}</span>
+                                        </div>
+                                        <p className="text-[10px] text-zinc-400">Changed by {log.changed_by}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => handleDownloadOld(log)}
+                                        disabled={isGenerating}
+                                        className="h-8 w-8 rounded-lg flex items-center justify-center bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all shrink-0 disabled:opacity-50"
+                                        title="Download this transfer order"
+                                    >
+                                        <Download className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
@@ -553,6 +695,34 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                 The transfer will update the student's class record and create a new admission entry.
                 You can download the Transfer Order PDF after the transfer is complete.
             </p>
+
+            {/* Transfer History */}
+            {transferHistory.length > 0 && (
+                <div className="bg-white dark:bg-zinc-950 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-4 shadow-sm">
+                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Transfer History</p>
+                    <div className="space-y-3">
+                        {transferHistory.map((log: any) => (
+                            <div key={log.id} className="p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 rounded-xl flex items-center justify-between gap-4">
+                                <div className="space-y-1 min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                        <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{log.note || 'Student Transferred'}</span>
+                                        <span className="text-[10px] text-zinc-400 shrink-0">{new Date(log.changed_at).toLocaleDateString()}</span>
+                                    </div>
+                                    <p className="text-[10px] text-zinc-400">Changed by {log.changed_by}</p>
+                                </div>
+                                <button
+                                    onClick={() => handleDownloadOld(log)}
+                                    disabled={isGenerating}
+                                    className="h-8 w-8 rounded-lg flex items-center justify-center bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all shrink-0 disabled:opacity-50"
+                                    title="Download this transfer order"
+                                >
+                                    <Download className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
