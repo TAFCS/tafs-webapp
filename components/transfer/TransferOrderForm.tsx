@@ -351,6 +351,49 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
         return null;
     })();
 
+    // ── ALREADY TRANSFERRED VIEW (JUST SHOW HISTORY) ───────────────────────────
+    if (alreadyTransferred) {
+        return (
+            <div className="max-w-2xl mx-auto space-y-6 py-6">
+                <div className="bg-white dark:bg-zinc-950 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 space-y-4 shadow-sm">
+                    <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Transfer History</p>
+                            <p className="text-[11px] text-zinc-500 font-semibold uppercase mt-0.5">Click the download button next to a transfer order to save its PDF</p>
+                        </div>
+                    </div>
+                    {transferHistory.length > 0 ? (
+                        <div className="space-y-3">
+                            {transferHistory.map((log: any) => (
+                                <div key={log.id} className="p-3.5 bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800/80 rounded-2xl flex items-center justify-between gap-4 transition-all hover:border-zinc-200">
+                                    <div className="space-y-1 min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                            <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{log.note || 'Student Transferred'}</span>
+                                            <span className="text-[10px] text-zinc-400 shrink-0">{new Date(log.changed_at).toLocaleDateString()}</span>
+                                        </div>
+                                        <p className="text-[10px] text-zinc-400">Changed by {log.changed_by}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => handleDownloadOld(log)}
+                                        disabled={isGenerating}
+                                        className="h-9 w-9 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-150 transition-all shrink-0 disabled:opacity-50"
+                                        title="Download this transfer order"
+                                    >
+                                        <Download className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-12 text-zinc-400 text-xs font-medium italic border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                            No historical transfer records found for this student.
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     // ── SUCCESS STATE ──────────────────────────────────────────────────────────
     if (transferred && updatedData) {
         return (
