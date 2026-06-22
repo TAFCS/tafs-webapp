@@ -35,6 +35,7 @@ interface TransferStudent {
     day?: string;
     date?: string;
     photograph_url?: string | null;
+    admissions?: any[];
 }
 
 interface SectionOption {
