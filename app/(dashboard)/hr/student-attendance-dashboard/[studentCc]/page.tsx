@@ -41,6 +41,13 @@ function formatDateLabel(dateStr: string): string {
     });
 }
 
+const STATUS_BADGE: Record<string, string> = {
+    PRESENT: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    ABSENT: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+    EXCUSED: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+    LATE: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+};
+
 export default function StudentAttendanceTimelinePage() {
     const params = useParams<{ studentCc: string }>();
     const router = useRouter();
@@ -126,7 +133,11 @@ export default function StudentAttendanceTimelinePage() {
                         >
                             <div className="flex items-center justify-between mb-3">
                                 <span className="text-sm font-bold text-zinc-700 dark:text-zinc-200">{formatDateLabel(day.date)}</span>
-                                {day.status && <span className="text-xs font-medium text-zinc-400">{day.status}</span>}
+                                {day.status && (
+                                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[day.status] ?? "bg-zinc-100 text-zinc-500"}`}>
+                                        {day.status}
+                                    </span>
+                                )}
                             </div>
                             {day.segments.length === 0 ? (
                                 <div className="h-8 rounded-lg bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center text-xs text-zinc-400">

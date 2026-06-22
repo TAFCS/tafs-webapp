@@ -157,6 +157,8 @@ export interface EmployeeWorkSchedule {
 export interface HolidaySyncResult {
   students: number;
   staff: number;
+  cleared_students: number;
+  cleared_staff: number;
   skipped_manual: number;
 }
 

@@ -1,8 +1,20 @@
 import api from './api';
 
 export type RollSessionStatus = 'DRAFT' | 'SUBMITTED' | 'SKIPPED';
-export type RollRecordStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED';
+export type RollRecordStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED' | 'LATE';
 export type StaffAttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'EXCUSED';
+
+export interface ClassCheckInSchedule {
+  id: number;
+  class_id: number;
+  campus_id: number;
+  expected_check_in: string;
+  late_grace_minutes: number;
+  effective_from: string;
+  created_by?: string | null;
+  created_at?: string;
+  classes?: { id: number; description: string; class_code: string };
+}
 
 export interface StaffAttendanceRecord {
   id: number;
@@ -146,6 +158,7 @@ export interface StaffTimeline {
 export interface StudentAttendanceSummary {
   present_summary: {
     present: SummaryCardValue;
+    late?: SummaryCardValue;
   };
   not_present_summary: {
     absent?: SummaryCardValue;
@@ -349,6 +362,62 @@ export const attendanceService = {
     const { data } = await api.get<ApiEnvelope<StudentTimeline>>(
       `/v1/attendance/students/${studentCc}/timeline`,
       { params },
+    );
+    return data.data;
+  },
+
+  // ── Class Check-In Schedules (CRUD) ────────────────────────────────────────
+
+  async getClassCheckInSchedules(campusId: number): Promise<ClassCheckInSchedule[]> {
+    const { data } = await api.get<ApiEnvelope<ClassCheckInSchedule[]>>(
+      '/v1/hr/class-check-in-schedules',
+      { params: { campus_id: campusId } },
+    );
+    return data.data;
+  },
+
+  async createClassCheckInSchedule(payload: {
+    class_id: number;
+    campus_id: number;
+    expected_check_in: string; // "HH:MM"
+    late_grace_minutes: number;
+    effective_from: string; // "YYYY-MM-DD"
+  }): Promise<ClassCheckInSchedule> {
+    const { data } = await api.post<ApiEnvelope<ClassCheckInSchedule>>(
+      '/v1/hr/class-check-in-schedules',
+      payload,
+    );
+    return data.data;
+  },
+
+  async updateClassCheckInSchedule(
+    id: number,
+    payload: {
+      expected_check_in?: string;
+      late_grace_minutes?: number;
+      effective_from?: string;
+    },
+  ): Promise<ClassCheckInSchedule> {
+    const { data } = await api.patch<ApiEnvelope<ClassCheckInSchedule>>(
+      `/v1/hr/class-check-in-schedules/${id}`,
+      payload,
+    );
+    return data.data;
+  },
+
+  async deleteClassCheckInSchedule(id: number): Promise<void> {
+    await api.delete<ApiEnvelope<void>>(`/v1/hr/class-check-in-schedules/${id}`);
+  },
+
+  async recomputeLateStatus(payload: {
+    campus_id: number;
+    date_from: string;
+    date_to: string;
+    class_id?: number;
+  }): Promise<{ studentsRecomputed: number; staffRecomputed: number }> {
+    const { data } = await api.post<ApiEnvelope<{ studentsRecomputed: number; staffRecomputed: number }>>(
+      '/v1/attendance/recompute-late-status',
+      payload,
     );
     return data.data;
   },

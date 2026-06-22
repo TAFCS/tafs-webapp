@@ -168,6 +168,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'HR Policies', href: '/hr/policies', icon: FileText, permission: 'hr.policies.manage' },
                 { name: 'Staff Register', href: '/hr/staff-register', icon: ClipboardCheck, permission: 'attendance.staff.mark' },
                 { name: 'Attendance Dashboard', href: '/hr/attendance-dashboard', icon: CalendarCheck, permission: 'attendance.staff.mark' },
+                { name: 'Attendance Settings', href: '/hr/attendance-settings', icon: Settings, permission: 'hr.policies.manage' },
                 {
                     name: 'Student Attendance Dashboard',
                     href: '/hr/student-attendance-dashboard',

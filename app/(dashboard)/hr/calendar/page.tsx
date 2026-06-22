@@ -252,7 +252,10 @@ export default function CalendarPage() {
     try {
       const result = await hrService.syncCalendarAttendance(selectedCampusId, syncDate);
       setSuccess(
-        `Applied holiday attendance for ${syncDate}: ${result.students} students and ${result.staff} staff marked EXCUSED` +
+        `Synced attendance for ${syncDate}: ${result.students} students and ${result.staff} staff marked EXCUSED` +
+          (result.cleared_students > 0 || result.cleared_staff > 0
+            ? `; cleared ${result.cleared_students} student and ${result.cleared_staff} staff auto holiday records`
+            : "") +
           (result.skipped_manual > 0 ? ` (${result.skipped_manual} manual records skipped)` : "") +
           ".",
       );

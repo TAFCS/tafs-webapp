@@ -49,6 +49,7 @@ const STATUS_BADGE: Record<RollRecordStatus, string> = {
     PRESENT: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
     ABSENT: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
     EXCUSED: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+    LATE: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
 };
 
 function formatTime(iso: string | null): string {
@@ -362,7 +363,12 @@ export default function StudentAttendanceDashboardPage() {
                                 icon={CheckCircle2}
                                 color="text-emerald-600"
                                 bg="bg-emerald-50 dark:bg-emerald-900/10"
-                                rows={[{ label: "Present", ...summary.present_summary.present }]}
+                                rows={[
+                                    { label: "Present", ...summary.present_summary.present },
+                                    ...(summary.present_summary.late
+                                        ? [{ label: "Late", ...summary.present_summary.late }]
+                                        : []),
+                                ]}
                             />
                             <SummaryCard
                                 title="Not Present Summary"
