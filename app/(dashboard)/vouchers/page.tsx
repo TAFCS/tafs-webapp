@@ -1249,7 +1249,7 @@ export default function VouchersPage() {
                                             : "bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
                                         }`}
                                 >
-                                    Multiple Fee Heads
+                                    Multiple Fee Dates
                                 </button>
                             </div>
                         </div>
