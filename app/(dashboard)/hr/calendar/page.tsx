@@ -98,6 +98,8 @@ export default function CalendarPage() {
   const [formData, setFormData] = useState<FormState>(emptyForm());
   const [syncDate, setSyncDate] = useState(new Date().toISOString().split("T")[0]);
   const [syncing, setSyncing] = useState(false);
+  const [applyToAllCampuses, setApplyToAllCampuses] = useState(false);
+  const [syncAllCampuses, setSyncAllCampuses] = useState(false);
 
   useEffect(() => {
     const fetchCampuses = async () => {
@@ -154,6 +156,7 @@ export default function CalendarPage() {
   const openModal = (mode: ModalMode) => {
     setEditingDay(null);
     setModalMode(mode);
+    setApplyToAllCampuses(false);
     setFormData({
       ...emptyForm(),
       day_type: mode === "weekend-open" ? "WORKDAY" : "HOLIDAY",
@@ -166,6 +169,7 @@ export default function CalendarPage() {
 
   const openEdit = (day: CalendarDay) => {
     setEditingDay(day);
+    setApplyToAllCampuses(false);
     setModalMode(day.day_type === "WORKDAY" ? "weekend-open" : "holiday");
     setFormData({
       date: day.date.slice(0, 10),
@@ -181,7 +185,7 @@ export default function CalendarPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedCampusId === null) return;
+    if (!applyToAllCampuses && selectedCampusId === null) return;
 
     const isWeekendOpen =
       formData.day_type === "WORKDAY" && (modalMode === "weekend-open" || isStudentTab);
@@ -194,27 +198,55 @@ export default function CalendarPage() {
     setError(null);
     setSuccess(null);
     try {
-      const payload = {
-        campus_id: selectedCampusId,
-        date: formData.date,
-        day_type: formData.day_type,
-        description: formData.description.trim() || undefined,
-        applies_to: activeTab,
-        ...(activeTab === "STUDENT"
-          ? {
-              class_id: formData.class_id ? parseInt(formData.class_id, 10) : undefined,
-              section_id: formData.section_id ? parseInt(formData.section_id, 10) : undefined,
-            }
-          : {
-              department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
-              employee_id: formData.employee_id ? parseInt(formData.employee_id, 10) : undefined,
-            }),
-      };
-
       if (editingDay) {
+        const payload = {
+          campus_id: selectedCampusId!,
+          date: formData.date,
+          day_type: formData.day_type,
+          description: formData.description.trim() || undefined,
+          applies_to: activeTab,
+          ...(activeTab === "STUDENT"
+            ? {
+                class_id: formData.class_id ? parseInt(formData.class_id, 10) : undefined,
+                section_id: formData.section_id ? parseInt(formData.section_id, 10) : undefined,
+              }
+            : {
+                department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
+                employee_id: formData.employee_id ? parseInt(formData.employee_id, 10) : undefined,
+              }),
+        };
         await hrService.updateCalendarDay(editingDay.id, payload);
         setSuccess("Calendar entry updated. Attendance synced for that date.");
+      } else if (applyToAllCampuses) {
+        const result = await hrService.createBulkCalendarDays({
+          date: formData.date,
+          day_type: formData.day_type,
+          description: formData.description.trim() || undefined,
+          applies_to: activeTab,
+        });
+        setSuccess(
+          `Holiday added on ${result.created} of ${result.campuses_total} campuses` +
+            (result.skipped > 0 ? ` (${result.skipped} already had an entry)` : "") +
+            (result.failed > 0 ? `; ${result.failed} failed` : "") +
+            ". Attendance synced per campus.",
+        );
       } else {
+        const payload = {
+          campus_id: selectedCampusId!,
+          date: formData.date,
+          day_type: formData.day_type,
+          description: formData.description.trim() || undefined,
+          applies_to: activeTab,
+          ...(activeTab === "STUDENT"
+            ? {
+                class_id: formData.class_id ? parseInt(formData.class_id, 10) : undefined,
+                section_id: formData.section_id ? parseInt(formData.section_id, 10) : undefined,
+              }
+            : {
+                department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
+                employee_id: formData.employee_id ? parseInt(formData.employee_id, 10) : undefined,
+              }),
+        };
         await hrService.createCalendarDay(payload);
         setSuccess(
           modalMode === "weekend-open"
@@ -223,7 +255,7 @@ export default function CalendarPage() {
         );
       }
       setShowModal(false);
-      fetchCalendar(selectedCampusId, activeTab);
+      if (selectedCampusId !== null) fetchCalendar(selectedCampusId, activeTab);
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to save calendar entry.");
     } finally {
@@ -245,14 +277,18 @@ export default function CalendarPage() {
   };
 
   const handleApplyAttendance = async () => {
-    if (selectedCampusId === null) return;
+    if (!syncAllCampuses && selectedCampusId === null) return;
     setSyncing(true);
     setError(null);
     setSuccess(null);
     try {
-      const result = await hrService.syncCalendarAttendance(selectedCampusId, syncDate);
+      const result = await hrService.syncCalendarAttendance(
+        syncAllCampuses ? null : selectedCampusId,
+        syncDate,
+        { allCampuses: syncAllCampuses },
+      );
       setSuccess(
-        `Synced attendance for ${syncDate}: ${result.students} students and ${result.staff} staff marked EXCUSED` +
+        `Synced attendance for ${syncDate}${syncAllCampuses ? " (all campuses)" : ""}: ${result.students} students and ${result.staff} staff marked EXCUSED` +
           (result.cleared_students > 0 || result.cleared_staff > 0
             ? `; cleared ${result.cleared_students} student and ${result.cleared_staff} staff auto holiday records`
             : "") +
@@ -434,7 +470,17 @@ export default function CalendarPage() {
             Calendar saves auto-sync EXCUSED records. Cron also runs at midnight and ~6 AM PKT. Use this if a holiday was added late or you need to re-apply for a specific date.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <label className="flex items-center gap-2 text-xs font-semibold text-amber-900 dark:text-amber-200 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={syncAllCampuses}
+              onChange={(e) => setSyncAllCampuses(e.target.checked)}
+              className="rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+            />
+            All campuses
+          </label>
+          <div className="flex items-center gap-2">
           <input
             type="date"
             value={syncDate}
@@ -444,7 +490,7 @@ export default function CalendarPage() {
           <button
             type="button"
             onClick={handleApplyAttendance}
-            disabled={syncing || selectedCampusId === null}
+            disabled={syncing || (!syncAllCampuses && selectedCampusId === null)}
             className="inline-flex items-center h-10 px-4 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl text-xs disabled:opacity-50"
           >
             {syncing ? (
@@ -459,6 +505,7 @@ export default function CalendarPage() {
               </>
             )}
           </button>
+          </div>
         </div>
       </div>
 
@@ -599,6 +646,34 @@ export default function CalendarPage() {
                 </p>
               </div>
               <div className="p-6 space-y-4">
+                {!editingDay && (
+                  <label className="flex items-start gap-3 p-3 rounded-xl border border-purple-100 bg-purple-50/50 dark:border-purple-900/40 dark:bg-purple-950/20 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={applyToAllCampuses}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setApplyToAllCampuses(checked);
+                        if (checked) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            class_id: "",
+                            section_id: "",
+                            department_id: "",
+                            employee_id: "",
+                          }));
+                        }
+                      }}
+                      className="mt-0.5 rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                    />
+                    <span className="text-sm">
+                      <span className="font-semibold text-purple-900 dark:text-purple-200">Apply to all campuses</span>
+                      <span className="block text-xs text-purple-800/80 dark:text-purple-300/80 mt-0.5">
+                        Creates the same whole-campus entry on every campus. Class, section, and department scoping is not available for bulk add.
+                      </span>
+                    </span>
+                  </label>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-zinc-400 uppercase">Date</label>
@@ -647,7 +722,7 @@ export default function CalendarPage() {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
-                {activeTab === "STUDENT" ? (
+                {activeTab === "STUDENT" && !applyToAllCampuses ? (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs font-bold text-zinc-400 uppercase">Class (optional)</label>
@@ -683,7 +758,7 @@ export default function CalendarPage() {
                       </select>
                     </div>
                   </div>
-                ) : (
+                ) : activeTab === "STAFF" && !applyToAllCampuses ? (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs font-bold text-zinc-400 uppercase">Department (optional)</label>
@@ -711,7 +786,7 @@ export default function CalendarPage() {
                       />
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
               <div className="p-6 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-3">
                 <button
@@ -733,6 +808,8 @@ export default function CalendarPage() {
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : editingDay ? (
                     "Save Changes"
+                  ) : applyToAllCampuses ? (
+                    "Save for all campuses"
                   ) : modalMode === "weekend-open" ? (
                     "Save Open Weekend"
                   ) : (

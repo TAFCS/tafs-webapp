@@ -162,6 +162,14 @@ export interface HolidaySyncResult {
   skipped_manual: number;
 }
 
+export interface BulkCalendarCreateResult {
+  campuses_total: number;
+  created: number;
+  skipped: number;
+  failed: number;
+  errors: { campus_id: number; message: string }[];
+}
+
 export interface ClassAttendanceMode {
   id: number;
   class_id: number;
@@ -306,6 +314,15 @@ export const hrService = {
     const { data } = await api.post<ApiEnvelope<CalendarDay>>('/v1/hr/calendar', payload);
     return data.data;
   },
+  async createBulkCalendarDays(payload: {
+    date: string;
+    day_type: string;
+    description?: string;
+    applies_to: string;
+  }): Promise<BulkCalendarCreateResult> {
+    const { data } = await api.post<ApiEnvelope<BulkCalendarCreateResult>>('/v1/hr/calendar/bulk', payload);
+    return data.data;
+  },
   async updateCalendarDay(id: number, payload: Partial<CalendarDay>): Promise<CalendarDay> {
     const { data } = await api.patch<ApiEnvelope<CalendarDay>>(`/v1/hr/calendar/${id}`, payload);
     return data.data;
@@ -315,14 +332,14 @@ export const hrService = {
   },
 
   async syncCalendarAttendance(
-    campusId: number,
+    campusId: number | null,
     date: string,
-    force?: boolean,
+    options?: { force?: boolean; allCampuses?: boolean },
   ): Promise<HolidaySyncResult> {
     const { data } = await api.post<ApiEnvelope<HolidaySyncResult>>('/v1/hr/calendar/sync-attendance', {
-      campus_id: campusId,
+      ...(options?.allCampuses ? { all_campuses: true } : { campus_id: campusId }),
       date,
-      ...(force ? { force: true } : {}),
+      ...(options?.force ? { force: true } : {}),
     });
     return data.data;
   },
