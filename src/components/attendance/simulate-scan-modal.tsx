@@ -57,7 +57,20 @@ export function SimulateScanModal({ personType = "STAFF", onClose, onDone }: Sim
                 minute: "2-digit",
                 timeZone: "UTC",
             });
-            toast.success(`Scan recorded — ${result.scan.direction ?? "—"} at ${time}, status ${result.record?.status ?? "—"}`);
+            const base = `Scan recorded — ${result.scan.direction ?? "—"} at ${time}, status ${result.record?.status ?? "—"}`;
+            if (personType === "STUDENT") {
+                if (result.notified) {
+                    toast.success(`${base}. Parent notified.`);
+                } else if (result.skip_reason === "no_family_id") {
+                    toast.error(`${base}. Parent not notified — student has no linked family account.`);
+                } else if (result.skip_reason) {
+                    toast.error(`${base}. Parent not notified (${result.skip_reason.replace(/_/g, " ")}).`);
+                } else {
+                    toast.success(base);
+                }
+            } else {
+                toast.success(base);
+            }
             onDone();
             onClose();
         } catch {

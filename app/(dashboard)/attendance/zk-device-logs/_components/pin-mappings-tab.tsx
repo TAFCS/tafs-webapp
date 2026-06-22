@@ -365,7 +365,20 @@ export function PinMappingsTab({ active }: { active: boolean }) {
             });
             const direction = result.scan.direction ?? "—";
             const status = result.record?.status ?? "—";
-            toast.success(`Scan recorded — ${direction} at ${time}, status ${status}`);
+            const base = `Scan recorded — ${direction} at ${time}, status ${status}`;
+            if (m.person_type === "STUDENT") {
+                if (result.notified) {
+                    toast.success(`${base}. Parent notified.`);
+                } else if (result.skip_reason === "no_family_id") {
+                    toast.error(`${base}. Parent not notified — student has no linked family account.`);
+                } else if (result.skip_reason) {
+                    toast.error(`${base}. Parent not notified (${result.skip_reason.replace(/_/g, " ")}).`);
+                } else {
+                    toast.success(base);
+                }
+            } else {
+                toast.success(base);
+            }
         } catch {
             toast.error("Failed to simulate scan.");
         } finally {

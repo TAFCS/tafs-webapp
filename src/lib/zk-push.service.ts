@@ -90,6 +90,8 @@ export interface SimulateScanResult {
         check_out_at: string | null;
         last_scan_at: string | null;
     } | null;
+    notified?: boolean;
+    skip_reason?: 'unmapped_pin' | 'duplicate_scan' | 'not_live' | 'no_direction' | 'no_family_id' | null;
 }
 
 export const zkPushService = {
