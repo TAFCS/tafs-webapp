@@ -184,6 +184,7 @@ export const fetchVouchers = createAsyncThunk(
             if (filters.page) params.page = filters.page;
             if (filters.limit) params.limit = filters.limit;
             if (filters.single_fee_date) params.single_fee_date = 'true';
+            if (filters.multiple_fee_heads) params.multiple_fee_heads = 'true';
 
             const response = await api.get('/v1/vouchers', { params });
             const data = response.data?.data;
