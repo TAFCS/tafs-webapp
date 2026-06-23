@@ -159,10 +159,8 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
 
     const MONTH_LABELS = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const getSurchargeLabel = (s: typeof arrearSurcharges[0]) => {
-        const yr = s.arrear_year?.split('-');
         const m = s.arrear_month;
-        const yearPart = m >= 8 ? yr?.[0] : yr?.[1];
-        return `${MONTH_LABELS[m] || m} ${yearPart ? `'${String(yearPart).slice(-2)}` : s.arrear_year}`;
+        return MONTH_LABELS[m] || String(m);
     };
 
     const voucherFeeDate = voucher.fee_date ? new Date(voucher.fee_date) : null;
