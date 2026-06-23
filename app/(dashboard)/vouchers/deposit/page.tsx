@@ -214,25 +214,28 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         let remaining = depositAmt;
         const dist: Record<number, string> = {};
         const sDist: Record<number, string> = {};
-        // 1. Arrear fee heads first
-        arrearHeads.forEach(h => {
-            const hBal = sfBalance(h);
-            const toFill = Math.min(remaining, hBal);
-            dist[h.id] = toFill.toString();
-            remaining -= toFill;
-        });
-        // 2. Arrear late-payment surcharges (penalties for each arrear month).
-        // Surcharges are all-or-nothing — never partially paid — so only fill
-        // one if the remaining pool can cover it completely; otherwise skip it
-        // and let the leftover money flow to the next step.
-        arrearSurcharges.forEach(s => {
-            const sBal = getSurchargeBalance(s);
-            if (sBal > 0 && remaining >= sBal) {
-                sDist[s.id] = sBal.toString();
-                remaining -= sBal;
-            } else {
-                sDist[s.id] = "0";
-            }
+        // 1 & 2. Arrear heads and their surcharges, filled in the same order
+        // they're displayed — each arrear month's heads, then its surcharge,
+        // before moving to the next arrear month. Surcharges are all-or-nothing
+        // — never partially paid — so only fill one if the remaining pool can
+        // cover it completely; otherwise skip it and let the leftover money
+        // flow to the next step.
+        arrearGroups.forEach(group => {
+            group.heads.forEach(h => {
+                const hBal = sfBalance(h);
+                const toFill = Math.min(remaining, hBal);
+                dist[h.id] = toFill.toString();
+                remaining -= toFill;
+            });
+            group.surcharges.forEach(s => {
+                const sBal = getSurchargeBalance(s);
+                if (sBal > 0 && remaining >= sBal) {
+                    sDist[s.id] = sBal.toString();
+                    remaining -= sBal;
+                } else {
+                    sDist[s.id] = "0";
+                }
+            });
         });
         // 3. Current month fee heads
         currentHeads.forEach(h => {
