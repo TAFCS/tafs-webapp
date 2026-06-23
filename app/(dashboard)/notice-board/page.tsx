@@ -132,8 +132,10 @@ export default function NoticeBoardPage() {
     }
 
     async function togglePin(post: Post) {
-        await api.patch(`v1/admin/notice-board/${post.id}`, { is_pinned: !post.is_pinned });
-        setPosts(prev => prev.map(p => p.id === post.id ? { ...p, is_pinned: !p.is_pinned } : p));
+        const nextPinned = !post.is_pinned;
+        await api.patch(`v1/admin/notice-board/${post.id}`, { is_pinned: nextPinned });
+        setPosts(prev => prev.map(p => p.id === post.id ? { ...p, is_pinned: nextPinned } : p));
+        setSelectedPost(prev => prev && prev.id === post.id ? { ...prev, is_pinned: nextPinned } : prev);
     }
 
     async function deletePost(post: Post) {
