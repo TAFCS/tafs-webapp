@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Save, Loader2, CheckCircle2, GraduationCap, Pencil, Mail, Phone, User, Calendar, MapPin, Heart, Shield, X } from "lucide-react";
+import { Save, Loader2, CheckCircle2, GraduationCap, Pencil, Mail, Phone, User, Calendar, MapPin, Heart, Shield, X, Eye } from "lucide-react";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
 import { getAcademicYears } from "@/lib/fee-utils";
@@ -145,6 +145,7 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
     const [editBasic, setEditBasic] = useState(false);
     const [editAddress, setEditAddress] = useState(false);
     const [editMedical, setEditMedical] = useState(false);
+    const [isViewerOpen, setIsViewerOpen] = useState(false);
 
     // Section: Personal (Basic Info)
     const [personal, setPersonal] = useState({
@@ -371,13 +372,20 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                     <div className="flex flex-col md:flex-row gap-8 items-start">
                         {/* Profile Photo & Primary Details Left column */}
                         <div className="flex flex-col items-center md:items-start text-center md:text-left gap-4 w-full md:w-1/3 max-w-[240px] shrink-0">
-                            <div className="h-28 w-28 bg-zinc-50 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden flex items-center justify-center shrink-0">
+                            <div className="relative group/avatar h-28 w-28 bg-zinc-50 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden flex items-center justify-center shrink-0">
                                 {student.photograph_url ? (
-                                    <img 
-                                        src={student.photograph_url.replace(/([^:])\/\//g, '$1/')} 
-                                        alt={student.full_name} 
-                                        className="h-full w-full object-cover" 
-                                    />
+                                    <>
+                                        <img 
+                                            src={student.photograph_url.replace(/([^:])\/\//g, '$1/')} 
+                                            alt={student.full_name} 
+                                            className="h-full w-full object-cover" 
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" onClick={() => setIsViewerOpen(true)}>
+                                            <div className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 hover:scale-105 active:scale-95 transition-all shadow-md">
+                                                <Eye className="h-5 w-5" />
+                                            </div>
+                                        </div>
+                                    </>
                                 ) : (
                                     <User className="h-12 w-12 text-zinc-300" />
                                 )}
@@ -599,6 +607,24 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                     </div>
                 )}
             </div>
+
+            {isViewerOpen && student.photograph_url && (
+                <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-zoom-out" onClick={() => setIsViewerOpen(false)}>
+                    <div className="relative max-w-4xl max-h-[90vh] bg-zinc-950 rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 flex flex-col" onClick={e => e.stopPropagation()}>
+                        <button 
+                            onClick={() => setIsViewerOpen(false)}
+                            className="absolute top-4 right-4 z-10 p-2 bg-black/60 hover:bg-black/80 text-white rounded-xl transition-all border border-zinc-800"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+                        <img 
+                            src={student.photograph_url.replace(/([^:])\/\//g, '$1/')} 
+                            alt={student.full_name} 
+                            className="max-w-full max-h-[85vh] object-contain rounded-xl cursor-default"
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

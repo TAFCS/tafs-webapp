@@ -168,10 +168,10 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                                 <button
                                     onClick={() => setTab("danger_zone" as any)}
                                     className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "danger_zone" ? "bg-rose-600 text-white shadow-lg shadow-rose-200" : "text-rose-400 bg-rose-50 hover:bg-rose-100 hover:text-rose-600 border border-rose-100/50"}`}
-                                    title="Danger Zone"
+                                    title="Deletion Zone"
                                 >
                                     <ShieldAlert className="h-3.5 w-3.5" />
-                                    <span className="text-[10px] font-black uppercase tracking-tighter">Danger</span>
+                                    <span className="text-[10px] font-black uppercase tracking-tighter">Deletion</span>
                                 </button>
                             </div>
                         )}

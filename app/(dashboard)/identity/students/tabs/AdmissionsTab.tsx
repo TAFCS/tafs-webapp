@@ -3,6 +3,15 @@ import { useState, useEffect } from "react";
 import { Plus, Trash2, Save, Loader2, CheckCircle2, Pencil, Calendar, BookOpen, Layers, X } from "lucide-react";
 import api from "@/lib/api";
 
+const getAcademicYears = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let y = 2015; y <= currentYear + 15; y++) {
+        years.push(`${y}-${y + 1}`);
+    }
+    return years;
+};
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
@@ -161,7 +170,18 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
 
                 {editGeneral ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Field label="Current Academic Year"><Input value={studentYear} onChange={setStudentYear} placeholder="e.g. 2024-25" /></Field>
+                        <Field label="Current Academic Year">
+                            <select
+                                value={studentYear}
+                                onChange={e => setStudentYear(e.target.value)}
+                                className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all cursor-pointer"
+                            >
+                                <option value="">Select Academic Year</option>
+                                {getAcademicYears().map(year => (
+                                    <option key={year} value={year}>{year}</option>
+                                ))}
+                            </select>
+                        </Field>
                         <Field label="Date of Admission"><input type="date" value={studentDoa} onChange={e => setStudentDoa(e.target.value)} className="w-full h-10 px-3 text-[13px] font-medium text-zinc-855 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-500" /></Field>
                     </div>
                 ) : (
@@ -201,7 +221,18 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <Field label="Academic System"><Select value={newRow.academic_system} onChange={v => setNewRow((p: any) => ({ ...p, academic_system: v }))} options={systems} placeholder="Select System" /></Field>
                             <Field label="Discipline"><Select value={newRow.discipline} onChange={v => setNewRow((p: any) => ({ ...p, discipline: v }))} options={DISCIPLINES} placeholder="Select Discipline" /></Field>
-                            <Field label="Admission Taken In"><Input value={newRow.academic_year} onChange={v => setNewRow((p: any) => ({ ...p, academic_year: v }))} placeholder="e.g. 2024-25" /></Field>
+                            <Field label="Admission Taken In">
+                                <select
+                                    value={newRow.academic_year}
+                                    onChange={e => setNewRow((p: any) => ({ ...p, academic_year: e.target.value }))}
+                                    className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all cursor-pointer"
+                                >
+                                    <option value="">Select Academic Year</option>
+                                    {getAcademicYears().map(year => (
+                                        <option key={year} value={year}>{year}</option>
+                                    ))}
+                                </select>
+                            </Field>
                             <Field label="Application Date"><input type="date" value={newRow.application_date} onChange={e => setNewRow((p: any) => ({ ...p, application_date: e.target.value }))} className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none text-[13px]" /></Field>
                         </div>
                         <button onClick={saveNew} disabled={savingNew} className="px-4 h-9 bg-indigo-600 text-white rounded-xl text-[11px] font-bold">Add Record</button>
@@ -229,7 +260,18 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-16">
                                     <Field label="Academic System"><Select value={editAdmissionState.academic_system} onChange={v => setEditAdmissionState((p: any) => ({ ...p, academic_system: v }))} options={systems} placeholder="Select System" /></Field>
                                     <Field label="Discipline"><Select value={editAdmissionState.discipline} onChange={v => setEditAdmissionState((p: any) => ({ ...p, discipline: v }))} options={DISCIPLINES} placeholder="Select Discipline" /></Field>
-                                    <Field label="Admission Taken In"><Input value={editAdmissionState.academic_year} onChange={v => setEditAdmissionState((p: any) => ({ ...p, academic_year: v }))} placeholder="e.g. 2024-25" /></Field>
+                                    <Field label="Admission Taken In">
+                                        <select
+                                            value={editAdmissionState.academic_year}
+                                            onChange={e => setEditAdmissionState((p: any) => ({ ...p, academic_year: e.target.value }))}
+                                            className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all cursor-pointer"
+                                        >
+                                            <option value="">Select Academic Year</option>
+                                            {getAcademicYears().map(year => (
+                                                <option key={year} value={year}>{year}</option>
+                                            ))}
+                                        </select>
+                                    </Field>
                                     <Field label="Application Date"><input type="date" value={editAdmissionState.application_date} onChange={e => setEditAdmissionState((p: any) => ({ ...p, application_date: e.target.value }))} className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none text-[13px]" /></Field>
                                 </div>
                             ) : (

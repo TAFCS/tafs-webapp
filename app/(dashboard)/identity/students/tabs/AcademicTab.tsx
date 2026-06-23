@@ -32,6 +32,15 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
     );
 }
 
+const getAcademicYears = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let y = 2015; y <= currentYear + 15; y++) {
+        years.push(`${y}-${y + 1}`);
+    }
+    return years;
+};
+
 export function AcademicTab({ student, onReload }: { student: any; onReload: () => void }) {
     const [studentYear, setStudentYear] = useState(student.academic_year || "");
     const [studentDoa, setStudentDoa] = useState(student.date_of_admission ? new Date(student.date_of_admission).toISOString().split("T")[0] : "");
@@ -177,7 +186,18 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
 
                 {editGeneral ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Field label="Current Academic Year"><Input value={studentYear} onChange={setStudentYear} placeholder="2024-25" /></Field>
+                        <Field label="Current Academic Year">
+                            <select
+                                value={studentYear}
+                                onChange={e => setStudentYear(e.target.value)}
+                                className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all cursor-pointer"
+                            >
+                                <option value="">Select Academic Year</option>
+                                {getAcademicYears().map(year => (
+                                    <option key={year} value={year}>{year}</option>
+                                ))}
+                            </select>
+                        </Field>
                         <Field label="Date of Admission"><input type="date" value={studentDoa} onChange={e => setStudentDoa(e.target.value)} className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-500" /></Field>
                     </div>
                 ) : (
