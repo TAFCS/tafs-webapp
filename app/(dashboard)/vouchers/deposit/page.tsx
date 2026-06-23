@@ -733,6 +733,8 @@ function PartiallyPaidModal({
     const [issueDate, setIssueDate] = useState(() => new Date().toISOString().split("T")[0]);
     const [dueDate, setDueDate] = useState("");
     const [validityDate, setValidityDate] = useState("");
+    const [useNearestFutureFeeDate, setUseNearestFutureFeeDate] = useState(false);
+    const [balanceFeeDate, setBalanceFeeDate] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
     const paidTotal = paidHeads.reduce((s, h) => s + Number(h.amount_deposited), 0);
@@ -748,6 +750,9 @@ function PartiallyPaidModal({
                 issue_date: issueDate,
                 due_date: dueDate,
                 ...(validityDate ? { validity_date: validityDate } : {}),
+                ...(useNearestFutureFeeDate
+                    ? { use_nearest_future_fee_date: true }
+                    : (balanceFeeDate ? { balance_fee_date: balanceFeeDate } : {})),
             });
 
             toast.dismiss(loadingToast);
@@ -910,6 +915,44 @@ function PartiallyPaidModal({
                                         />
                                     </div>
                                 ))}
+                            </div>
+
+                            <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 space-y-3">
+                                <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                    <Calendar className="h-3.5 w-3.5 text-primary" />
+                                    Balance Head Fee Date
+                                </p>
+                                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={useNearestFutureFeeDate}
+                                        onChange={e => setUseNearestFutureFeeDate(e.target.checked)}
+                                        className="mt-0.5 h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-primary focus:ring-primary/30"
+                                    />
+                                    <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                                        Roll the balance onto the nearest future fee_date already on the student&apos;s schedule
+                                        <br />
+                                        <span className="text-[11px] text-zinc-400">
+                                            This is applicable when a parent is depositing an arrear fee and we need to deposit Rs. 1000 in the late payment surcharge and send the remaining Rs. 1000 to the next voucher as a balance payment.
+                                        </span>
+                                    </span>
+                                </label>
+                                <div className="flex flex-col gap-1 max-w-[200px]">
+                                    <label htmlFor="pp-balance-fee-date" className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                                        Override Fee Date
+                                    </label>
+                                    <input
+                                        id="pp-balance-fee-date"
+                                        type="date"
+                                        value={balanceFeeDate}
+                                        disabled={useNearestFutureFeeDate}
+                                        onChange={e => setBalanceFeeDate(e.target.value)}
+                                        className="h-10 px-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all text-zinc-700 dark:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    />
+                                    <p className="text-[10px] text-zinc-400">
+                                        Leave blank to keep the balance head&apos;s current fee_date unchanged (default).
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     )}
