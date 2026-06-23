@@ -139,15 +139,31 @@ const styles = StyleSheet.create({
     footer: {
         marginTop: 'auto',
     },
-    copiesToList: {
+    copiesToContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderTopWidth: 1,
+        borderTopColor: '#000000',
+        paddingTop: 6,
+        marginBottom: 10,
+        gap: 8,
+    },
+    copiesToLabel: {
         fontSize: 8,
         fontWeight: 'bold',
         fontStyle: 'italic',
-        marginBottom: 10,
-        textAlign: 'center',
-        borderTopWidth: 1,
-        borderTopColor: '#000000',
-        paddingTop: 5,
+    },
+    copyBox: {
+        borderWidth: 1,
+        borderColor: '#000000',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+    },
+    copyBoxText: {
+        fontSize: 7.5,
+        fontWeight: 'bold',
+        fontStyle: 'italic',
     },
     ccList: {
         fontSize: 8,
@@ -212,6 +228,7 @@ export interface AdmissionOrderData {
     remarks_general?: string;
     photograph_url?: string | null;
     logo_url?: string | null;
+    segment_head?: string;
 }
 
 const formatDate = (dateStr?: string) => {
@@ -384,7 +401,21 @@ export const AdmissionOrderPDF = ({ data }: { data: AdmissionOrderData }) => {
 
                     {/* Footer */}
                     <View style={styles.footer}>
-                        <Text style={styles.copiesToList}>COPIES TO : PERSONAL FILE / PARENTS / ACCOUNTS DEPARTMENT / SCHOOL LIST</Text>
+                        <View style={styles.copiesToContainer}>
+                            <Text style={styles.copiesToLabel}>COPIES TO :</Text>
+                            <View style={styles.copyBox}>
+                                <Text style={styles.copyBoxText}>PERSONAL FILE</Text>
+                            </View>
+                            <View style={styles.copyBox}>
+                                <Text style={styles.copyBoxText}>PARENTS</Text>
+                            </View>
+                            <View style={styles.copyBox}>
+                                <Text style={styles.copyBoxText}>ACCOUNTS DEPARTMENT</Text>
+                            </View>
+                            <View style={styles.copyBox}>
+                                <Text style={styles.copyBoxText}>SCHOOL LIST</Text>
+                            </View>
+                        </View>
                         <View style={styles.detailRow}>
                             <Text style={styles.detailLabel}>REMARKS (IF ANY) :</Text>
                             <Text style={styles.detailValue}>{data.remarks_general}</Text>
@@ -394,7 +425,7 @@ export const AdmissionOrderPDF = ({ data }: { data: AdmissionOrderData }) => {
                             <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>C.C.to;</Text>
                             <Text>C.E.O. & M.D.</Text>
                             <Text>Deputy Directress Admin & P - G.</Text>
-                            <Text>Segment Head - ________________</Text>
+                            <Text>Segment Head - {data.segment_head || '________________'}</Text>
                         </View>
 
                         <View style={styles.signatureSection}>

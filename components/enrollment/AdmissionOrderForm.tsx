@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Download, Loader2, AlertTriangle } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { AdmissionOrderPDF } from './AdmissionOrderPDF';
+import { useAuthState } from '@/context/AuthContext';
 
 interface Student {
   cc: number;
@@ -124,6 +125,7 @@ interface AdmissionOrderFormProps {
 }
 
 export default function AdmissionOrderForm({ student }: AdmissionOrderFormProps) {
+  const { user } = useAuthState();
   const [remarks, setRemarks] = useState('');
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
@@ -208,6 +210,7 @@ export default function AdmissionOrderForm({ student }: AdmissionOrderFormProps)
           date: student.date,
           photograph_url: resolvedPhoto,
           logo_url: logoBase64,
+          segment_head: user?.fullName || '',
         }} />
       );
 
