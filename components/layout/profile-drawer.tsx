@@ -160,7 +160,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
             id: 'hr',
             name: 'HR & Attendance',
             icon: Briefcase,
-            permissions: ['hr.employees.view', 'hr.policies.manage', 'hr.leave.apply', 'attendance.student.rollcall.mark', 'attendance.student.rollcall.view', 'attendance.staff.mark'],
+            permissions: ['hr.employees.view', 'hr.policies.manage', 'hr.leave.apply', 'hr.payroll.view', 'attendance.student.rollcall.mark', 'attendance.student.rollcall.view', 'attendance.staff.mark'],
             items: [
                 { name: 'Employee Directory', href: '/hr/employees', icon: Users, permission: 'hr.employees.view' },
                 { name: 'Departments', href: '/hr/departments', icon: Layers, permission: 'hr.employees.view' },
@@ -168,6 +168,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 { name: 'HR Policies', href: '/hr/policies', icon: FileText, permission: 'hr.policies.manage' },
                 { name: 'Staff Register', href: '/hr/staff-register', icon: ClipboardCheck, permission: 'attendance.staff.mark' },
                 { name: 'Attendance Dashboard', href: '/hr/attendance-dashboard', icon: CalendarCheck, permission: 'attendance.staff.mark' },
+                { name: 'Payroll', href: '/hr/payroll', icon: Wallet, permission: 'hr.payroll.view' },
                 { name: 'Attendance Settings', href: '/hr/attendance-settings', icon: Settings, permission: 'hr.policies.manage' },
                 {
                     name: 'Student Attendance Dashboard',

@@ -180,6 +180,74 @@ export interface ClassAttendanceMode {
   };
 }
 
+export type PayrollRunStatus = 'DRAFT' | 'FINALIZED';
+export type DayClassification = 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT' | 'EXCUSED' | 'UNRESOLVED' | 'DAY_OFF';
+
+export interface DayBreakdownEntry {
+  date: string;
+  is_working_day: boolean;
+  day_type: string | null;
+  day_description: string | null;
+  classification: DayClassification;
+  check_in_at: string | null;
+  check_out_at: string | null;
+  break_minutes: number;
+  source: 'MANUAL' | 'BIOMETRIC' | 'SYSTEM' | null;
+}
+
+export interface PayrollRunLine {
+  id: number;
+  payroll_run_id: number;
+  employee_id: number;
+  scheduled_working_days: number;
+  present_days: number;
+  late_days: number;
+  half_days: number;
+  absent_days: number;
+  excused_days: number;
+  unresolved_days: number;
+  total_break_minutes: number;
+  monthly_pay: number;
+  daily_rate: number;
+  per_minute_rate: number;
+  absence_deduction: number;
+  half_day_deduction: number;
+  break_deduction: number;
+  total_deductions: number;
+  net_pay: number;
+  daily_breakdown: DayBreakdownEntry[];
+  employee_profiles?: {
+    id: number;
+    full_name: string | null;
+    employee_code: string | null;
+    job_title: string | null;
+    photo_url: string | null;
+  };
+}
+
+export interface PayrollRun {
+  id: number;
+  campus_id: number;
+  period_start: string;
+  period_end: string;
+  status: PayrollRunStatus;
+  generated_by: string | null;
+  generated_at: string;
+  finalized_at: string | null;
+  notes: string | null;
+  campuses?: { id: number; campus_name: string };
+  payroll_run_lines?: PayrollRunLine[];
+  _count?: { payroll_run_lines: number };
+  totals?: { net_pay: number | null; total_deductions: number | null; unresolved_days: number | null };
+}
+
+export interface GeneratePayrollRunPayload {
+  campus_id: number;
+  year: number;
+  month: number;
+  notes?: string;
+}
+
 interface ApiEnvelope<T> {
   data: T;
   status: number;
@@ -365,5 +433,28 @@ export const hrService = {
   async setClassAttendanceMode(payload: { class_id: number; mode: string }): Promise<ClassAttendanceMode> {
     const { data } = await api.post<ApiEnvelope<ClassAttendanceMode>>('/v1/hr/class-attendance-modes', payload);
     return data.data;
+  },
+
+  // ── Payroll API ────────────────────────────────────────────────────────────
+  async listPayrollRuns(campusId?: number): Promise<PayrollRun[]> {
+    const { data } = await api.get<ApiEnvelope<PayrollRun[]>>('/v1/hr/payroll/runs', {
+      params: campusId ? { campus_id: campusId } : undefined,
+    });
+    return data.data;
+  },
+  async generatePayrollRun(payload: GeneratePayrollRunPayload): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>('/v1/hr/payroll/runs', payload);
+    return data.data;
+  },
+  async getPayrollRun(id: number): Promise<PayrollRun> {
+    const { data } = await api.get<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}`);
+    return data.data;
+  },
+  async finalizePayrollRun(id: number): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}/finalize`);
+    return data.data;
+  },
+  async deletePayrollRun(id: number): Promise<void> {
+    await api.delete(`/v1/hr/payroll/runs/${id}`);
   },
 };
