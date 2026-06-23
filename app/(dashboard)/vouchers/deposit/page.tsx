@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
 import {
     Search, Loader2, AlertCircle, FileText,
@@ -173,6 +173,19 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const arrearHeads = heads.filter(h => isArrearHead(h));
     const currentHeads = heads.filter(h => !isArrearHead(h));
     const arrearCount = arrearHeads.length;
+
+    // Pair each arrear head with the surcharge for its own fee_date, so the
+    // table reads ARREAR HEAD → its surcharge, ARREAR HEAD → its surcharge,
+    // ... rather than all arrear heads followed by all surcharges in bulk.
+    const dateKey = (d?: string | null) => d ? new Date(d).toISOString().split("T")[0] : null;
+    const arrearGroups: { dateKey: string | null; heads: typeof arrearHeads; surcharges: typeof arrearSurcharges }[] = [];
+    const groupFor = (key: string | null) => {
+        let group = arrearGroups.find(g => g.dateKey === key);
+        if (!group) { group = { dateKey: key, heads: [], surcharges: [] }; arrearGroups.push(group); }
+        return group;
+    };
+    arrearHeads.forEach(h => groupFor(dateKey(h.student_fees?.fee_date)).heads.push(h));
+    arrearSurcharges.forEach(s => groupFor(dateKey(s.arrear_fee_date)).surcharges.push(s));
 
     const sfNetAmt = (h: typeof heads[0]) => Number(h.student_fees?.amount ?? h.net_amount ?? 0);
     const sfBalance = (h: typeof heads[0]) => Number(h.balance ?? 0);
@@ -414,8 +427,10 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">To Deposit</span>
                         </div>
 
-                        {/* Arrear fee head rows */}
-                        {arrearHeads.map(h => {
+                        {/* Arrear fee heads, each immediately followed by its own arrear-month surcharge */}
+                        {arrearGroups.map(group => (
+                        <Fragment key={`arrear-group-${group.dateKey ?? "none"}`}>
+                        {group.heads.map(h => {
                             const hSfBal = sfBalance(h);
                             const hSfNet = sfNetAmt(h);
                             const hSfDep = sfDeposited(h);
@@ -474,9 +489,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                 </div>
                             );
                         })}
-
-                        {/* Arrear surcharges — inline between arrear and current heads */}
-                        {arrearSurcharges.map(s => {
+                        {group.surcharges.map(s => {
                             const sBal = getSurchargeBalance(s);
                             const sPaid = Number(s.amount_paid ?? 0);
                             const sTotal = Number(s.amount);
@@ -526,6 +539,8 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                 </div>
                             );
                         })}
+                        </Fragment>
+                        ))}
 
                         {/* Current month fee head rows */}
                         {currentHeads.map(h => {
