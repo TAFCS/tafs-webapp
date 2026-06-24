@@ -46,6 +46,20 @@ function formatDate(dateStr: string | null | undefined) {
     });
 }
 
+function getVoucherMonths(voucher: VoucherItem): string {
+    const months = new Set<number>();
+    (voucher.voucher_heads || []).forEach(h => {
+        const m = h.student_fees?.target_month ?? h.student_fees?.month;
+        if (m) months.add(m);
+    });
+    if (months.size === 0 && voucher.month) months.add(voucher.month);
+    if (months.size === 0) return "—";
+    return Array.from(months)
+        .sort((a, b) => a - b)
+        .map(m => MONTH_NAMES[m] || m)
+        .join(", ");
+}
+
 function getStatusConfig(status: string | null) {
     switch (status) {
         case "PAID":
@@ -68,21 +82,21 @@ function getStatusConfig(status: string | null) {
 interface DropdownOption { id: number; label: string; sub?: string; }
 
 function FilterDropdown({
-    label, icon: Icon, value, options, loading, placeholder, onSelect, onClear,
+    label, icon: Icon, value, options, loading, placeholder, onToggle, onClear,
 }: {
     label: string;
     icon: React.ElementType;
-    value: number | "";
+    value: number[];
     options: DropdownOption[];
     loading?: boolean;
     placeholder: string;
-    onSelect: (id: number) => void;
+    onToggle: (id: number) => void;
     onClear: () => void;
 }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
     const ref = useRef<HTMLDivElement>(null);
-    const selected = options.find(o => o.id === value);
+    const selected = options.filter(o => value.includes(o.id));
     const filtered = options.filter(o =>
         o.label.toLowerCase().includes(search.toLowerCase()) ||
         (o.sub && o.sub.toLowerCase().includes(search.toLowerCase()))
@@ -96,6 +110,12 @@ function FilterDropdown({
         return () => document.removeEventListener("mousedown", h);
     }, []);
 
+    const displayLabel = selected.length === 0
+        ? placeholder
+        : selected.length === 1
+            ? selected[0].label
+            : `${selected.length} selected`;
+
     return (
         <div className="flex flex-col gap-1.5" ref={ref}>
             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
@@ -107,14 +127,14 @@ function FilterDropdown({
                     id={`filter-${label.toLowerCase().replace(/\s/g, "-")}`}
                     onClick={() => { setOpen(o => !o); setSearch(""); }}
                     className={`w-full h-11 flex items-center justify-between px-4 rounded-xl text-sm transition-all border shadow-sm
-                        ${value !== "" ? "bg-primary/5 border-primary/30 text-zinc-900 dark:text-zinc-100" : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-400"}
+                        ${selected.length > 0 ? "bg-primary/5 border-primary/30 text-zinc-900 dark:text-zinc-100" : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-400"}
                         hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/10`}
                 >
                     <span className="font-semibold truncate">
-                        {selected ? selected.label : placeholder}
+                        {displayLabel}
                     </span>
                     <div className="flex items-center gap-1.5 ml-2 shrink-0">
-                        {value !== "" && (
+                        {selected.length > 0 && (
                             <span
                                 role="button"
                                 onClick={(e) => { e.stopPropagation(); onClear(); }}
@@ -146,17 +166,25 @@ function FilterDropdown({
                                 </div>
                             ) : filtered.length === 0 ? (
                                 <div className="py-6 text-center text-xs text-zinc-400">No results</div>
-                            ) : filtered.map(o => (
-                                <button
-                                    key={o.id} type="button"
-                                    onClick={() => { onSelect(o.id); setOpen(false); }}
-                                    className={`w-full flex items-center justify-between px-3.5 h-10 rounded-lg text-sm transition-all
-                                        ${value === o.id ? "bg-primary text-white font-semibold" : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}
-                                >
-                                    <span>{o.label}</span>
-                                    {o.sub && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${value === o.id ? "bg-white/20" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400"}`}>{o.sub}</span>}
-                                </button>
-                            ))}
+                            ) : filtered.map(o => {
+                                const isChecked = value.includes(o.id);
+                                return (
+                                    <button
+                                        key={o.id} type="button"
+                                        onClick={() => onToggle(o.id)}
+                                        className={`w-full flex items-center justify-between gap-2 px-3.5 h-10 rounded-lg text-sm transition-all
+                                            ${isChecked ? "bg-primary text-white font-semibold" : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}
+                                    >
+                                        <span className="flex items-center gap-2 truncate">
+                                            <span className={`h-4 w-4 rounded-md border flex items-center justify-center shrink-0 ${isChecked ? "bg-white/20 border-white/40" : "border-zinc-300 dark:border-zinc-600"}`}>
+                                                {isChecked && <CheckCircle2 className="h-3 w-3" />}
+                                            </span>
+                                            {o.label}
+                                        </span>
+                                        {o.sub && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${isChecked ? "bg-white/20" : "bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400"}`}>{o.sub}</span>}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -577,6 +605,11 @@ function VoucherRow({
                 </span>
             </td>
             <td className="px-5 py-3.5">
+                <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+                    {getVoucherMonths(voucher)}
+                </span>
+            </td>
+            <td className="px-5 py-3.5">
                 <span className="text-sm text-zinc-600 dark:text-zinc-400 font-mono">
                     {formatDate(voucher.issue_date)}
                 </span>
@@ -706,9 +739,9 @@ export default function VouchersPage() {
     const sectionsLoading = useAppSelector(s => s.sections.isLoading);
 
     // Filter state
-    const [campusId, setCampusId] = useState<number | "">("");
-    const [classId, setClassId] = useState<number | "">("");
-    const [sectionId, setSectionId] = useState<number | "">("");
+    const [campusIds, setCampusIds] = useState<number[]>([]);
+    const [classIds, setClassIds] = useState<number[]>([]);
+    const [sectionIds, setSectionIds] = useState<number[]>([]);
     
     // Simple search states
     const [searchQuery, setSearchQuery] = useState("");
@@ -795,18 +828,18 @@ export default function VouchersPage() {
 
     const buildFilters = useCallback((): VoucherFilters => {
         const f: VoucherFilters = {};
-        if (campusId !== "") f.campus_id = campusId as number;
-        if (classId !== "") f.class_id = classId as number;
-        if (sectionId !== "") f.section_id = sectionId as number;
+        if (campusIds.length > 0) f.campus_id = campusIds.join(",");
+        if (classIds.length > 0) f.class_id = classIds.join(",");
+        if (sectionIds.length > 0) f.section_id = sectionIds.join(",");
         if (statusFilter.length > 0) f.status = statusFilter.join(",");
         if (dateFrom) f.date_from = dateFrom;
         if (dateTo) f.date_to = dateTo;
 
         const ccNum = parseInt(selectedCc);
         if (!isNaN(ccNum) && ccNum > 0) f.cc = ccNum;
-        
+
         return f;
-    }, [campusId, classId, sectionId, statusFilter, selectedCc, dateFrom, dateTo]);
+    }, [campusIds, classIds, sectionIds, statusFilter, selectedCc, dateFrom, dateTo]);
 
     const handleApplyFilters = useCallback(() => {
         const filters = buildFilters();
@@ -817,9 +850,9 @@ export default function VouchersPage() {
     }, [buildFilters, singleFeeDate, multipleFeeHeads]);
 
     const handleClearFilters = () => {
-        setCampusId("");
-        setClassId("");
-        setSectionId("");
+        setCampusIds([]);
+        setClassIds([]);
+        setSectionIds([]);
         setSearchQuery("");
         setSelectedCc("");
         setStatusFilter([]);
@@ -1135,36 +1168,36 @@ export default function VouchersPage() {
                                 <FilterDropdown
                                     label="Campus"
                                     icon={Building2}
-                                    value={campusId}
+                                    value={campusIds}
                                     options={campusOptions}
                                     loading={campusesLoading}
                                     placeholder="All Campuses"
-                                    onSelect={v => setCampusId(v)}
-                                    onClear={() => setCampusId("")}
+                                    onToggle={v => setCampusIds(prev => prev.includes(v) ? prev.filter(id => id !== v) : [...prev, v])}
+                                    onClear={() => setCampusIds([])}
                                 />
 
                                 {/* Class */}
                                 <FilterDropdown
                                     label="Class"
                                     icon={GraduationCap}
-                                    value={classId}
+                                    value={classIds}
                                     options={classOptions}
                                     loading={classesLoading}
                                     placeholder="All Classes"
-                                    onSelect={v => setClassId(v)}
-                                    onClear={() => setClassId("")}
+                                    onToggle={v => setClassIds(prev => prev.includes(v) ? prev.filter(id => id !== v) : [...prev, v])}
+                                    onClear={() => setClassIds([])}
                                 />
 
                                 {/* Section */}
                                 <FilterDropdown
                                     label="Section"
                                     icon={Users}
-                                    value={sectionId}
+                                    value={sectionIds}
                                     options={sectionOptions}
                                     loading={sectionsLoading}
                                     placeholder="All Sections"
-                                    onSelect={v => setSectionId(v)}
-                                    onClear={() => setSectionId("")}
+                                    onToggle={v => setSectionIds(prev => prev.includes(v) ? prev.filter(id => id !== v) : [...prev, v])}
+                                    onClear={() => setSectionIds([])}
                                 />
 
                                 {/* Date From */}
@@ -1268,6 +1301,20 @@ export default function VouchersPage() {
                 </div>
             )}
 
+            {/* ── Single Student Deletion Order Warning ───────────────────── */}
+            {activeFiltersApplied.cc != null && (
+                <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 rounded-xl p-4 text-sm">
+                    <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <div>
+                        <p className="font-bold">Single-student view — vouchers are sorted most recent first.</p>
+                        <p className="mt-0.5 text-amber-700 dark:text-amber-400">
+                            If you need to delete a voucher for this student, delete the <span className="font-bold">topmost (most recent)</span> one first so the previous voucher can be reactivated.
+                            Never delete from the middle of the list — that breaks the reactivation chain.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* ── Table ────────────────────────────────────────────────────── */}
             <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm overflow-hidden">
 
@@ -1337,7 +1384,7 @@ export default function VouchersPage() {
                                             className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
                                         />
                                     </th>
-                                    {["ID", "Student", "Campus", "Class", "Section", "Issue Date", "Due Date", "Validity", "Original", "Net", "Status", "Bank", "Actions"].map(h => (
+                                    {["ID", "Student", "Campus", "Class", "Section", "For the Month(s) Of", "Issue Date", "Due Date", "Validity", "Original", "Net", "Status", "Bank", "Actions"].map(h => (
                                         <th key={h} className="px-5 py-3.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">
                                             {h}
                                         </th>

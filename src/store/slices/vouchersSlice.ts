@@ -150,9 +150,9 @@ const initialState: VouchersState = {
 };
 
 export interface VoucherFilters {
-    campus_id?: number;
-    class_id?: number;
-    section_id?: number;
+    campus_id?: string;
+    class_id?: string;
+    section_id?: string;
     cc?: number;
     gr?: string;
     id?: number;
