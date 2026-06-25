@@ -193,6 +193,7 @@ export interface DayBreakdownEntry {
   check_out_at: string | null;
   break_minutes: number;
   source: 'MANUAL' | 'BIOMETRIC' | 'SYSTEM' | null;
+  segments?: { type: string; start: string; end: string; isMissingOut?: boolean }[];
 }
 
 export interface PayrollRunLine {

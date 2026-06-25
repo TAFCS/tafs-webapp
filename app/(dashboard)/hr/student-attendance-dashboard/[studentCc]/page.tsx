@@ -16,8 +16,8 @@ function todayIso() {
 }
 
 const SEGMENT_STYLES: Record<StudentTimelineSegmentType, { bg: string; label: string }> = {
-    WORK: { bg: "bg-blue-500", label: "Working time" },
-    BREAK: { bg: "bg-emerald-500", label: "Break" },
+    WORK: { bg: "bg-emerald-500 dark:bg-emerald-600", label: "Clocked in" },
+    BREAK: { bg: "bg-blue-500 dark:bg-blue-600", label: "Break" },
 };
 
 function timeToPercent(value: string): number {
@@ -116,6 +116,10 @@ export default function StudentAttendanceTimelinePage() {
                         <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{SEGMENT_STYLES[key].label}</span>
                     </div>
                 ))}
+                <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-zinc-200 dark:bg-zinc-800" />
+                    <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Off time</span>
+                </div>
             </div>
 
             {loading && !timeline ? (
@@ -139,22 +143,33 @@ export default function StudentAttendanceTimelinePage() {
                                     </span>
                                 )}
                             </div>
-                            {day.segments.length === 0 ? (
-                                <div className="h-8 rounded-lg bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center text-xs text-zinc-400">
-                                    No scans
+                             {day.segments.length === 0 ? (
+                                <div className="h-8 rounded-lg bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs text-zinc-400">
+                                    No scans / Off
                                 </div>
                             ) : (
-                                <div className="relative h-8 rounded-lg bg-zinc-50 dark:bg-zinc-900 overflow-hidden">
+                                <div className="relative h-8 rounded-lg bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
                                     {day.segments.map((seg, idx) => {
                                         const left = timeToPercent(seg.start);
                                         const width = Math.max(timeToPercent(seg.end) - left, 0.5);
                                         return (
                                             <div
                                                 key={idx}
-                                                title={`${SEGMENT_STYLES[seg.type].label}: ${formatSegmentTime(seg.start)} - ${formatSegmentTime(seg.end)}`}
-                                                className={`absolute top-0 bottom-0 ${SEGMENT_STYLES[seg.type].bg}`}
+                                                className={`absolute top-0 bottom-0 ${SEGMENT_STYLES[seg.type].bg} group cursor-pointer transition-all hover:brightness-95`}
                                                 style={{ left: `${left}%`, width: `${width}%` }}
-                                            />
+                                            >
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 bg-zinc-950 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl whitespace-nowrap border border-zinc-800 transition-all pointer-events-none">
+                                                    <span className="block text-[9px] uppercase tracking-wider opacity-60 text-left">
+                                                        {seg.isMissingOut ? "Clocked In (Unresolved)" : SEGMENT_STYLES[seg.type].label}
+                                                    </span>
+                                                    {seg.isMissingOut ? (
+                                                        `Clocked in at ${formatSegmentTime(seg.start)} (No clock out)`
+                                                    ) : (
+                                                        `${formatSegmentTime(seg.start)} – ${formatSegmentTime(seg.end)}`
+                                                    )}
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-950" />
+                                                </div>
+                                            </div>
                                         );
                                     })}
                                 </div>

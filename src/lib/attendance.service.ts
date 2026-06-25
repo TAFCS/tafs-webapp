@@ -191,6 +191,7 @@ export interface StudentTimelineSegment {
   type: StudentTimelineSegmentType;
   start: string;
   end: string;
+  isMissingOut?: boolean;
 }
 
 export interface StudentTimelineDay {
@@ -281,7 +282,7 @@ export const attendanceService = {
   async bulkMarkStaff(payload: {
     date: string;
     campus_id: number;
-    records: { employee_id: number; status: StaffAttendanceStatus; notes?: string }[];
+    records: { employee_id: number; status: StaffAttendanceStatus; notes?: string; check_in_time?: string; check_out_time?: string }[];
   }): Promise<StaffRegisterRow[]> {
     const { data } = await api.put<ApiEnvelope<StaffRegisterRow[]>>(
       '/v1/attendance/staff',
