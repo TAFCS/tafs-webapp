@@ -304,12 +304,22 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated }: Pro
                         No scans / Off
                       </div>
                     ) : (
-                      <div className="relative h-8 rounded-lg bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+                      <div className="relative h-8 rounded-lg bg-zinc-200 dark:bg-zinc-800">
                         {segments.map((seg: any, idx: number) => {
                           const left = timeToPercent(seg.start);
                           const width = Math.max(timeToPercent(seg.end) - left, 0.5);
                           const segmentType = seg.type as TimelineSegmentType;
                           const segmentStyle = SEGMENT_STYLES[segmentType] || { bg: "bg-zinc-400", label: "Unknown" };
+
+                          let tooltipClass = "left-1/2 -translate-x-1/2";
+                          let arrowClass = "left-1/2 -translate-x-1/2";
+                          if (left < 15) {
+                            tooltipClass = "left-0 translate-x-0";
+                            arrowClass = "left-2 translate-x-0";
+                          } else if (left + width > 85) {
+                            tooltipClass = "right-0 translate-x-0";
+                            arrowClass = "right-2 translate-x-0";
+                          }
 
                           return (
                             <div
@@ -317,7 +327,7 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated }: Pro
                               className={`absolute top-0 bottom-0 ${segmentStyle.bg} group cursor-pointer transition-all hover:brightness-95`}
                               style={{ left: `${left}%`, width: `${width}%` }}
                             >
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 bg-zinc-950 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl whitespace-nowrap border border-zinc-800 transition-all pointer-events-none">
+                              <div className={`absolute bottom-full ${tooltipClass} mb-2 hidden group-hover:block z-50 bg-zinc-950 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl whitespace-nowrap border border-zinc-800 transition-all pointer-events-none`}>
                                 <span className="block text-[9px] uppercase tracking-wider opacity-60 text-left">
                                   {seg.isMissingOut ? "Clocked In (Unresolved)" : segmentStyle.label}
                                 </span>
@@ -326,7 +336,7 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated }: Pro
                                 ) : (
                                   `${formatSegmentTime(seg.start)} – ${formatSegmentTime(seg.end)}`
                                 )}
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-950" />
+                                <div className={`absolute top-full ${arrowClass} border-4 border-transparent border-t-zinc-950`} />
                               </div>
                             </div>
                           );

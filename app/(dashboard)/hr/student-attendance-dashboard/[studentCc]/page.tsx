@@ -148,17 +148,28 @@ export default function StudentAttendanceTimelinePage() {
                                     No scans / Off
                                 </div>
                             ) : (
-                                <div className="relative h-8 rounded-lg bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+                                <div className="relative h-8 rounded-lg bg-zinc-200 dark:bg-zinc-800">
                                     {day.segments.map((seg, idx) => {
                                         const left = timeToPercent(seg.start);
                                         const width = Math.max(timeToPercent(seg.end) - left, 0.5);
+                                        
+                                        let tooltipClass = "left-1/2 -translate-x-1/2";
+                                        let arrowClass = "left-1/2 -translate-x-1/2";
+                                        if (left < 15) {
+                                            tooltipClass = "left-0 translate-x-0";
+                                            arrowClass = "left-2 translate-x-0";
+                                        } else if (left + width > 85) {
+                                            tooltipClass = "right-0 translate-x-0";
+                                            arrowClass = "right-2 translate-x-0";
+                                        }
+
                                         return (
                                             <div
                                                 key={idx}
                                                 className={`absolute top-0 bottom-0 ${SEGMENT_STYLES[seg.type].bg} group cursor-pointer transition-all hover:brightness-95`}
                                                 style={{ left: `${left}%`, width: `${width}%` }}
                                             >
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 bg-zinc-950 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl whitespace-nowrap border border-zinc-800 transition-all pointer-events-none">
+                                                <div className={`absolute bottom-full ${tooltipClass} mb-2 hidden group-hover:block z-50 bg-zinc-950 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl whitespace-nowrap border border-zinc-800 transition-all pointer-events-none`}>
                                                     <span className="block text-[9px] uppercase tracking-wider opacity-60 text-left">
                                                         {seg.isMissingOut ? "Clocked In (Unresolved)" : SEGMENT_STYLES[seg.type].label}
                                                     </span>
@@ -167,7 +178,7 @@ export default function StudentAttendanceTimelinePage() {
                                                     ) : (
                                                         `${formatSegmentTime(seg.start)} – ${formatSegmentTime(seg.end)}`
                                                     )}
-                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-950" />
+                                                    <div className={`absolute top-full ${arrowClass} border-4 border-transparent border-t-zinc-950`} />
                                                 </div>
                                             </div>
                                         );
