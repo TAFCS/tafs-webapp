@@ -1,651 +1,117 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import {
-    Users, Banknote, FileText, TrendingUp, Calendar,
-    CreditCard, Clock, Activity, Loader2, Landmark,
-    ArrowUpRight, ArrowDownRight, Info, AlertTriangle,
-    Target, BarChart3, PieChart, CheckCircle2, LayoutDashboard
-} from "lucide-react";
-import api from "@/lib/api";
-import toast from "react-hot-toast";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useAuthState } from "@/context/AuthContext";
+import { canViewSupportTickets, SUPPORT_TICKETS_VIEW_PERMISSION } from "@/features/support-tickets/supportTicketAccess";
+import { NAV_MODULES, type NavItem } from "@/lib/nav-config";
 
 const container = {
     hidden: { opacity: 0 },
     show: {
         opacity: 1,
-        transition: {
-            staggerChildren: 0.1
-        }
+        transition: { staggerChildren: 0.08, delayChildren: 0.1 }
     }
 };
 
-const item = {
-    hidden: { y: 20, opacity: 0 },
-    show: { y: 0, opacity: 1 }
+const cardVariant = {
+    hidden: { y: 24, opacity: 0 },
+    show: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 260, damping: 22 } }
 };
 
 export default function DashboardPage() {
     const { user } = useAuthState();
-    const [statsData, setStatsData] = useState<any>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const canViewAnalytics =
-        user?.role === "SUPER_ADMIN" ||
-        user?.permissions?.includes("system.analytics.view");
-    const campusLocked = user?.campusId != null;
-    const [selectedCampusId, setSelectedCampusId] = useState<string>(
-        campusLocked ? String(user!.campusId) : "",
-    );
-    const [feedateFilter, setFeedateFilter] = useState<"all" | "issued">("all");
 
-    useEffect(() => {
-        if (campusLocked && user?.campusId) {
-            setSelectedCampusId(String(user.campusId));
-        }
-    }, [campusLocked, user?.campusId]);
-
-    useEffect(() => {
-        if (!canViewAnalytics) {
-            setIsLoading(false);
-            return;
-        }
-        fetchDashboardData(selectedCampusId);
-    }, [selectedCampusId, canViewAnalytics]);
-
-    const fetchDashboardData = async (campusId?: string) => {
-        setIsLoading(true);
-        try {
-            const url = campusId ? `/v1/analytics/dashboard?campusId=${campusId}` : "/v1/analytics/dashboard";
-            const { data } = await api.get(url);
-            if (data.status === 200) {
-                setStatsData(data.data);
-            }
-        } catch (error) {
-            console.error("Dashboard data fetch failed:", error);
-            toast.error("Failed to load dashboard statistics");
-        } finally {
-            setIsLoading(false);
-        }
+    const hasPermission = (perm: string) => {
+        if (user?.role === "SUPER_ADMIN") return true;
+        if (perm === SUPPORT_TICKETS_VIEW_PERMISSION) return canViewSupportTickets(user);
+        return user?.permissions?.includes(perm) ?? false;
     };
 
-    if (!canViewAnalytics) {
-        return (
-            <div className="flex flex-col items-center justify-center h-[60vh] text-center px-6">
-                <LayoutDashboard className="h-12 w-12 text-zinc-300 mb-4" />
-                <h2 className="text-xl font-bold text-zinc-800 dark:text-zinc-100">Welcome</h2>
-                <p className="text-zinc-500 mt-2 max-w-md">
-                    Use the menu to open the modules available for your role.
-                </p>
-            </div>
-        );
-    }
-
-    if (isLoading && !statsData) {
-        return (
-            <div className="flex items-center justify-center h-[60vh]">
-                <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
-            </div>
-        );
-    }
-
-    const financials = statsData?.financials || {};
-    const students = statsData?.students || {};
-    const campuses = statsData?.campuses || [];
-    const trends = statsData?.trends || [];
-    const feedateTrends = statsData?.feedate_trends || [];
-
-    const summaryStats = [
-        {
-            label: "Total Students",
-            value: students.total?.toLocaleString() || "0",
-            description: "Active enrollment, all campuses",
-            icon: Users,
-            color: "text-blue-600",
-            bg: "bg-blue-50 dark:bg-blue-900/10"
-        },
-        {
-            label: "Fees Collected",
-            value: `Rs. ${Math.round(financials.collected || 0).toLocaleString()}`,
-            description: `Cash actually received in AY ${financials.currentYear || "---"}`,
-            icon: Banknote,
-            color: "text-emerald-600",
-            bg: "bg-emerald-50 dark:bg-emerald-900/10"
-        },
-        {
-            label: "Expected Total",
-            value: `Rs. ${Math.round(financials.expected || 0).toLocaleString()}`,
-            description: "Billed this year — fee heads + surcharges",
-            icon: CreditCard,
-            color: "text-violet-600",
-            bg: "bg-violet-50 dark:bg-violet-900/10"
-        },
-        {
-            label: "Collection Rate",
-            value: `${(financials.collectionRate || 0).toFixed(1)}%`,
-            description: "Share of this year's billing paid to date",
-            icon: TrendingUp,
-            color: "text-amber-600",
-            bg: "bg-amber-50 dark:bg-amber-900/10"
-        },
-        {
-            label: "Outstanding Balance",
-            value: `Rs. ${Math.round(financials.outstanding || 0).toLocaleString()}`,
-            description: "This year's billing left unpaid",
-            icon: Clock,
-            color: "text-zinc-600",
-            bg: "bg-zinc-50 dark:bg-zinc-900/10"
-        },
-        {
-            label: "Previous Arrears",
-            value: `Rs. ${Math.round(financials.arrears || 0).toLocaleString()}`,
-            description: "Past due_date and still unpaid, today",
-            icon: FileText,
-            color: "text-zinc-600",
-            bg: "bg-zinc-50 dark:bg-zinc-900/10"
+    const isItemVisible = (item: NavItem) => {
+        if (item.href === "/admin/developer" || item.href === "/attendance/zk-device-logs") {
+            return user?.role === "SUPER_ADMIN";
         }
-    ];
+        if (item.permissions) return item.permissions.some(hasPermission);
+        if (item.permission) return hasPermission(item.permission);
+        return false;
+    };
 
+    const displayName = user?.fullName ?? "there";
 
     return (
-        <div className="space-y-8 pb-10">
-            {/* Header section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                    <h1 className="text-4xl font-black tracking-tight text-zinc-900 dark:text-zinc-50 font-outfit">Governance</h1>
-                    <div className="flex items-center gap-3 text-sm font-medium text-zinc-500">
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                             AY {financials.currentYear || "---"}
-                        </div>
-                        <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700" />
-                        <span className="flex items-center gap-1.5">
-                            <Activity className="h-4 w-4 text-emerald-500" /> Operational Feed
-                        </span>
-                    </div>
-                </div>
-                
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative group">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none group-focus-within:text-primary transition-colors">
-                            <Landmark className="h-4 w-4" />
-                        </div>
-                        <select
-                            value={selectedCampusId}
-                            onChange={(e) => setSelectedCampusId(e.target.value)}
-                            className="pl-12 pr-10 py-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-bold appearance-none min-w-[260px] outline-none transition-all shadow-sm focus:ring-4 focus:ring-primary/10 hover:border-zinc-300 dark:hover:border-zinc-700"
-                        >
-                            {!campusLocked && (
-                                <option value="">Institution-wide Overview</option>
-                            )}
-                            {campuses.map((c: any) => (
-                                <option key={c.id} value={c.id}>{c.campus_name}</option>
-                            ))}
-                        </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
-                             <TrendingUp className="h-4 w-4" />
-                        </div>
-                    </div>
+        <div className="space-y-10 pb-10">
+            {/* Welcome header */}
+            <motion.div
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+                className="pt-2"
+            >
+                <p className="text-sm font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-1">Welcome back</p>
+                <h1 className="text-4xl md:text-5xl font-black tracking-tight text-zinc-900 dark:text-zinc-50 font-outfit">
+                    {displayName}
+                </h1>
+                {user?.campusName && (
+                    <p className="text-sm font-semibold text-zinc-400 mt-2 flex items-center gap-2">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        {user.campusName}
+                    </p>
+                )}
+            </motion.div>
 
-                    <button 
-                        onClick={() => fetchDashboardData(selectedCampusId)}
-                        disabled={isLoading}
-                        className="h-12 w-12 flex items-center justify-center rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-500 hover:text-primary transition-all shadow-sm active:scale-95 disabled:opacity-50"
-                    >
-                        <Activity className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
-                    </button>
-            </div>
-        </div>
-
-            {/* Post-dated Cheques Alert Banner */}
-            {statsData?.postdated_cheques && (statsData.postdated_cheques.overdue_count > 0 || statsData.postdated_cheques.due_today_count > 0) && (
-                <motion.div 
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-6 rounded-[2rem] bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 dark:border-amber-500/10 backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm"
-                >
-                    <div className="flex items-start gap-4">
-                        <div className="p-3.5 bg-amber-500/10 rounded-2xl text-amber-500 shadow-sm">
-                            <Clock className="h-6 w-6" />
-                        </div>
-                        <div>
-                            <h4 className="text-lg font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-outfit">Post-dated Cheques Action Required</h4>
-                            <p className="text-sm font-medium text-zinc-500 mt-1 leading-relaxed">
-                                {statsData.postdated_cheques.overdue_count > 0 && (
-                                    <span className="text-rose-500 font-bold mr-3">
-                                        {statsData.postdated_cheques.overdue_count} Overdue
-                                    </span>
-                                )}
-                                {statsData.postdated_cheques.due_today_count > 0 && (
-                                    <span className="text-amber-500 font-bold">
-                                        {statsData.postdated_cheques.due_today_count} Due Today (Rs. {Math.round(statsData.postdated_cheques.due_today_total_amount).toLocaleString()})
-                                    </span>
-                                )}
-                                {statsData.postdated_cheques.due_in_7_days_count > 0 && (
-                                    <span className="text-zinc-400 font-semibold ml-3">
-                                        · {statsData.postdated_cheques.due_in_7_days_count} upcoming in 7 days
-                                    </span>
-                                )}
-                            </p>
-                        </div>
-                    </div>
-                    
-                    <Link
-                        href="/postdated-cheques"
-                        className="px-6 py-3 rounded-2xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white text-white dark:text-zinc-950 text-xs font-black uppercase tracking-widest transition-all shadow-md hover:scale-105 active:scale-95 flex items-center gap-2 w-fit shrink-0 font-sans"
-                    >
-                        Manage Cheques <ArrowUpRight className="h-4 w-4" />
-                    </Link>
-                </motion.div>
-            )}
-
-            {/* Metric Summary Grid */}
-            <motion.div 
+            {/* Category grid */}
+            <motion.div
                 variants={container}
                 initial="hidden"
                 animate="show"
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6"
-                key={selectedCampusId}
+                className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
             >
-                {summaryStats.map((stat, idx) => (
-                    <motion.div 
-                        key={idx}
-                        variants={item}
-                        className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[2rem] p-6 shadow-sm hover:shadow-xl transition-all relative overflow-hidden group hover:-translate-y-1"
-                    >
-                        <div className={`p-3.5 w-fit rounded-2xl ${stat.bg} ${stat.color} transition-all group-hover:scale-110 duration-500 mb-5 shadow-sm`}>
-                            <stat.icon className="h-6 w-6" />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">{stat.label}</p>
-                            <h3 className="text-xl font-black text-zinc-900 dark:text-zinc-50 mt-1.5 tracking-tight font-outfit">{stat.value}</h3>
-                            {stat.description && (
-                                <p className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 mt-1.5 leading-snug">{stat.description}</p>
-                            )}
-                        </div>
-                    </motion.div>
-                ))}
+                {NAV_MODULES.map((module) => {
+                    const visibleItems = module.items.filter(isItemVisible);
+                    if (visibleItems.length === 0) return null;
+
+                    return (
+                        <motion.div
+                            key={module.id}
+                            variants={cardVariant}
+                            className={`group relative bg-white dark:bg-zinc-950 border ${module.border} rounded-[2rem] p-7 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden`}
+                        >
+                            {/* Icon + title */}
+                            <div className="flex items-start justify-between mb-5">
+                                <div className={`p-3.5 rounded-2xl ${module.bg} ${module.color} shadow-sm transition-transform duration-300 group-hover:scale-110`}>
+                                    <module.icon className="h-6 w-6" />
+                                </div>
+                            </div>
+
+                            <h2 className="text-lg font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-outfit mb-1.5">
+                                {module.name}
+                            </h2>
+                            <p className="text-[13px] font-medium text-zinc-400 dark:text-zinc-500 leading-relaxed mb-6">
+                                {module.description}
+                            </p>
+
+                            {/* All permitted items */}
+                            <div className="space-y-1.5">
+                                {visibleItems.map((item) => (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className="flex items-center justify-between px-3 py-2.5 rounded-xl text-zinc-600 dark:text-zinc-400 hover:text-primary hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition-all duration-150 group/link"
+                                    >
+                                        <div className="flex items-center gap-2.5">
+                                            <item.icon className="h-3.5 w-3.5 opacity-50 group-hover/link:opacity-100 transition-opacity" />
+                                            <span className="text-[13px] font-semibold">{item.name}</span>
+                                        </div>
+                                        <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover/link:opacity-60 -translate-x-1 group-hover/link:translate-x-0 transition-all duration-150" />
+                                    </Link>
+                                ))}
+                            </div>
+                        </motion.div>
+                    );
+                })}
             </motion.div>
-
-            {/* Performance Center */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-                {/* Monthly Billing vs Collections */}
-                <div className="xl:col-span-9 space-y-8">
-                    {/* Overdue voucher banner — institution-wide, not split by month */}
-                    {financials.overdueVoucherCount > 0 && (
-                        <div className="p-6 rounded-[2rem] bg-rose-500/5 border border-rose-500/15 relative overflow-hidden">
-                            <div className="flex items-start gap-4">
-                                <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-500 shrink-0">
-                                    <AlertTriangle className="h-5 w-5" />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-black text-zinc-900 dark:text-zinc-50">
-                                        {financials.overdueVoucherCount} voucher{financials.overdueVoucherCount === 1 ? '' : 's'} unpaid and past due date
-                                    </p>
-                                    <p className="text-[12px] text-zinc-500 dark:text-zinc-400 font-medium mt-1 leading-relaxed">
-                                        Once a voucher passes its due date, the amount owed includes the Rs. 1,000 late fee.
-                                    </p>
-
-                                    {/* Breakdown: fees owed + late fee = total now due */}
-                                    <div className="mt-4 space-y-1.5 max-w-sm">
-                                        <div className="flex items-center justify-between text-[13px]">
-                                            <span className="font-semibold text-zinc-500">Fees still owed</span>
-                                            <span className="font-black text-zinc-900 dark:text-zinc-100 font-outfit">Rs. {Math.round(financials.arrears).toLocaleString()}</span>
-                                        </div>
-                                        {financials.lateFeeOutstanding > 0 && (
-                                            <div className="flex items-center justify-between text-[13px]">
-                                                <span className="font-semibold text-zinc-500">+ Late fee ({financials.overdueLateFeeVoucherCount} × Rs. 1,000)</span>
-                                                <span className="font-black text-rose-500 font-outfit">Rs. {Math.round(financials.lateFeeOutstanding).toLocaleString()}</span>
-                                            </div>
-                                        )}
-                                        <div className="flex items-center justify-between pt-1.5 mt-1.5 border-t border-rose-500/15">
-                                            <span className="text-[10px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Total now due</span>
-                                            <span className="text-lg font-black text-rose-500 font-outfit">Rs. {Math.round(financials.totalOwedNow).toLocaleString()}</span>
-                                        </div>
-                                    </div>
-
-                                    {financials.lateFeesCollected > 0 && (
-                                        <p className="text-[11px] font-semibold text-zinc-400 mt-4">
-                                            Rs. {Math.round(financials.lateFeesCollected).toLocaleString()} in late fees already collected this year from {financials.lateFeesCollectedCount} voucher{financials.lateFeesCollectedCount === 1 ? '' : 's'} paid after their due date.
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 rounded-[2.5rem] p-10 lg:p-14 shadow-2xl relative overflow-hidden shadow-zinc-200/50 dark:shadow-none">
-                        <div className="mb-10 relative z-10">
-                            <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-[0.3em] mb-2">
-                                <BarChart3 className="h-3 w-3" /> Recent Months
-                            </div>
-                            <h3 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-outfit">Billing vs. Collections</h3>
-                            <p className="text-sm text-zinc-500 font-semibold mt-2 max-w-2xl leading-relaxed">
-                                Every voucher actually issued (printed) that month — including any carried-forward arrears and their late surcharges — versus how much of that exact billed amount has been paid off.
-                            </p>
-                        </div>
-
-                        {/* Legend */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 relative z-10">
-                            <div className="flex items-start gap-4 p-5 rounded-3xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800">
-                                <div className="w-3 h-3 rounded-full bg-zinc-300 dark:bg-zinc-600 mt-1.5 shrink-0" />
-                                <div>
-                                    <p className="text-xs font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.2em]">Billed (denominator)</p>
-                                    <p className="text-[12px] text-zinc-500 dark:text-zinc-400 font-medium mt-1.5 leading-relaxed">
-                                        Sum of every voucher's full payable amount, grouped by <span className="font-bold text-zinc-700 dark:text-zinc-300">issue_date</span> (when the chit was printed) — not the period it's for. Includes arrear heads carried onto that voucher, plus their arrear surcharges.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-4 p-5 rounded-3xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40">
-                                <div className="w-3 h-3 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                                <div>
-                                    <p className="text-xs font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-[0.2em]">Collected (numerator)</p>
-                                    <p className="text-[12px] text-zinc-500 dark:text-zinc-400 font-medium mt-1.5 leading-relaxed">
-                                        Amount paid against <span className="font-bold text-zinc-700 dark:text-zinc-300">these exact same vouchers</span> — every fee head (regular, bundle, or installment) plus their arrear surcharges, however long ago or recently that payment happened. Not deposit timing.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <p className="text-[11px] font-semibold text-zinc-400 mb-3 relative z-10">
-                            Because Collected is summed from the exact same heads and surcharges as Billed, it can't exceed 100% except in rare overpayment edge cases — unlike a deposit-timing figure, this is a true paid-share-of-billed number.
-                        </p>
-                        <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-500 mb-10 relative z-10">
-                            Caveat: vouchers are sometimes generated ahead of their period (e.g. June's vouchers issued in May). For now this stat counts strictly by issue_date — that voucher is "billed in May" regardless of which month it's actually for.
-                        </p>
-
-                        {/* Monthly rows */}
-                        <div className="space-y-5 relative z-10">
-                            {trends.map((t: any, i: number) => {
-                                const isCurrentMonth = i === trends.length - 1;
-                                const cashRateRaw = t.due > 0 ? (t.received / t.due) * 100 : 0;
-                                const cashPct = Math.round(cashRateRaw);
-                                const isSurplus = cashPct > 100;
-                                const barWidth = Math.min(100, cashRateRaw);
-                                const noBilling = t.due === 0;
-                                const barColor =
-                                    noBilling ? 'bg-zinc-200 dark:bg-zinc-700' :
-                                    isSurplus ? 'bg-indigo-500' :
-                                    cashPct >= 90 ? 'bg-emerald-500' :
-                                    cashPct >= 60 ? 'bg-amber-400' :
-                                    'bg-rose-400';
-                                const pctColor =
-                                    noBilling ? 'text-zinc-400' :
-                                    isSurplus ? 'text-indigo-500' :
-                                    cashPct >= 90 ? 'text-emerald-500' :
-                                    cashPct >= 60 ? 'text-amber-500' :
-                                    'text-rose-500';
-
-                                return (
-                                    <motion.div
-                                        key={t.month}
-                                        initial={{ opacity: 0, y: 12 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: i * 0.05 }}
-                                        className={`p-6 rounded-[1.75rem] border transition-all ${isCurrentMonth ? 'bg-primary/[0.04] border-primary/20 shadow-sm' : 'bg-zinc-50/60 dark:bg-zinc-900/30 border-zinc-100 dark:border-zinc-800/60'}`}
-                                    >
-                                        {/* Top row: month + percentage */}
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-base font-black tracking-tight font-outfit ${isCurrentMonth ? 'text-primary' : 'text-zinc-900 dark:text-zinc-100'}`}>{t.month}</span>
-                                                {isCurrentMonth && (
-                                                    <span className="text-[9px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-1 rounded-full">Now</span>
-                                                )}
-                                            </div>
-                                            <span className={`text-2xl font-black font-outfit ${pctColor}`}>
-                                                {noBilling ? '—' : `${cashPct}%`}
-                                            </span>
-                                        </div>
-
-                                        {/* Single bar — fill = amount collected on these vouchers' heads as % of billed, capped visually at 100% even on rare overpayment months */}
-                                        <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden mb-3">
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                animate={{ width: noBilling ? '100%' : `${barWidth}%` }}
-                                                transition={{ duration: 0.9, ease: "circOut" }}
-                                                className={`h-full rounded-full ${barColor}`}
-                                            />
-                                        </div>
-
-                                        {/* Bottom row: amounts */}
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[11px] font-semibold text-zinc-400">
-                                                {noBilling ? 'Nothing billed' : (
-                                                    <>
-                                                        <span className="font-black text-zinc-700 dark:text-zinc-300">Rs. {Math.round(t.received).toLocaleString()}</span>
-                                                        <span className="mx-1.5 text-zinc-300 dark:text-zinc-600">/</span>
-                                                        Rs. {Math.round(t.due).toLocaleString()} billed
-                                                    </>
-                                                )}
-                                            </span>
-                                            {!noBilling && t.gap > 0 && (
-                                                <span className="text-[11px] font-bold text-zinc-400">
-                                                    Rs. {Math.round(t.gap).toLocaleString()} gap
-                                                </span>
-                                            )}
-                                            {!noBilling && t.gap === 0 && (
-                                                <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Fully in</span>
-                                            )}
-                                            {!noBilling && t.gap < 0 && (
-                                                <span className="text-[11px] font-black text-indigo-500">
-                                                    + Rs. {Math.round(Math.abs(t.gap)).toLocaleString()} more collected than billed
-                                                </span>
-                                            )}
-                                        </div>
-                                        {/* Of vouchers issued this month, how many have since exceeded their due date */}
-                                        {t.overdueCount > 0 && (
-                                            <div className="flex items-center gap-1.5 mt-2.5">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
-                                                <span className="text-[11px] font-bold text-rose-500">
-                                                    {t.overdueCount}/{t.totalIssuedCount} vouchers issued this month have exceeded their due date — Rs. {Math.round(t.lateFeeAdded).toLocaleString()} added to receivables as late fees
-                                                </span>
-                                            </div>
-                                        )}
-                                    </motion.div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Receivables by Fee Date */}
-                    <div className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-900 rounded-[2.5rem] p-10 lg:p-14 shadow-2xl relative overflow-hidden shadow-zinc-200/50 dark:shadow-none">
-                        <div className="mb-10 relative z-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
-                            <div>
-                                <div className="flex items-center gap-2 text-indigo-500 font-black text-[10px] uppercase tracking-[0.3em] mb-2">
-                                    <Target className="h-3 w-3" /> By Fee Date
-                                </div>
-                                <h3 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-outfit">Receivables by Fee Date</h3>
-                                <p className="text-sm text-zinc-500 font-semibold mt-2 max-w-2xl leading-relaxed">
-                                    Every fee head with a <span className="font-bold text-zinc-700 dark:text-zinc-300">fee_date</span> in that month — a row dated 2026-06-01 is a June 2026 head, however many times it's been re-issued since. The bar shows the receivable amount recovered so far.
-                                </p>
-                            </div>
-
-                            {/* All vs. Issued Only filter */}
-                            <div className="flex items-center gap-1 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shrink-0">
-                                <button
-                                    onClick={() => setFeedateFilter("all")}
-                                    className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${feedateFilter === "all" ? "bg-white dark:bg-zinc-800 text-indigo-500 shadow-sm" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"}`}
-                                >
-                                    All
-                                </button>
-                                <button
-                                    onClick={() => setFeedateFilter("issued")}
-                                    className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${feedateFilter === "issued" ? "bg-white dark:bg-zinc-800 text-indigo-500 shadow-sm" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"}`}
-                                >
-                                    Issued Only
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800 mb-8 relative z-10">
-                            <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                                <span className="text-zinc-700 dark:text-zinc-300 font-black uppercase tracking-wider text-[10px]">Excludes:</span> arrear surcharges and due dates / late fees entirely. This is a pure fee ledger — amount receivable vs. amount_paid received against it. See "Billing vs. Collections" above for surcharges and overdue late fees.
-                                {feedateFilter === "issued" && (
-                                    <> Also excluding <span className="text-zinc-700 dark:text-zinc-300 font-black">NOT_ISSUED</span> rows — template heads still sitting in the ledger that were never actually put on a voucher.</>
-                                )}
-                            </p>
-                        </div>
-
-                        <div className="space-y-5 relative z-10">
-                            {feedateTrends.map((t: any, i: number) => {
-                                const due = feedateFilter === "issued" ? t.dueIssuedOnly : t.due;
-                                const collected = feedateFilter === "issued" ? t.collectedIssuedOnly : t.collected;
-                                const gap = feedateFilter === "issued" ? t.gapIssuedOnly : t.gap;
-                                const isCurrentMonth = i === feedateTrends.length - 1;
-                                const recoveryRate = due > 0 ? Math.min(100, (collected / due) * 100) : 0;
-                                const recoveryPct = Math.round(recoveryRate);
-                                const noReceivable = due === 0;
-                                const barColor =
-                                    noReceivable ? 'bg-zinc-200 dark:bg-zinc-700' :
-                                    recoveryPct >= 90 ? 'bg-emerald-500' :
-                                    recoveryPct >= 60 ? 'bg-amber-400' :
-                                    'bg-rose-400';
-                                const pctColor =
-                                    noReceivable ? 'text-zinc-400' :
-                                    recoveryPct >= 90 ? 'text-emerald-500' :
-                                    recoveryPct >= 60 ? 'text-amber-500' :
-                                    'text-rose-500';
-
-                                return (
-                                    <motion.div
-                                        key={t.month}
-                                        initial={{ opacity: 0, y: 12 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: i * 0.05 }}
-                                        className={`p-6 rounded-[1.75rem] border transition-all ${isCurrentMonth ? 'bg-indigo-500/[0.04] border-indigo-500/20 shadow-sm' : 'bg-zinc-50/60 dark:bg-zinc-900/30 border-zinc-100 dark:border-zinc-800/60'}`}
-                                    >
-                                        {/* Top row: month + amounts */}
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-base font-black tracking-tight font-outfit ${isCurrentMonth ? 'text-indigo-500' : 'text-zinc-900 dark:text-zinc-100'}`}>{t.month}</span>
-                                                {isCurrentMonth && (
-                                                    <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500 bg-indigo-500/10 px-2 py-1 rounded-full">Now</span>
-                                                )}
-                                            </div>
-                                            <span className={`text-2xl font-black font-outfit ${pctColor}`}>
-                                                {noReceivable ? '—' : `${recoveryPct}%`}
-                                            </span>
-                                        </div>
-
-                                        {/* Single recovery bar — width = recovery % */}
-                                        <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden mb-3">
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                animate={{ width: noReceivable ? '100%' : `${recoveryRate}%` }}
-                                                transition={{ duration: 0.9, ease: "circOut" }}
-                                                className={`h-full rounded-full ${barColor}`}
-                                            />
-                                        </div>
-
-                                        {/* Bottom row: amounts */}
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[11px] font-semibold text-zinc-400">
-                                                {noReceivable ? 'No fee heads for this month' : (
-                                                    <>
-                                                        <span className="font-black text-zinc-700 dark:text-zinc-300">Rs. {Math.round(collected).toLocaleString()}</span>
-                                                        <span className="mx-1.5 text-zinc-300 dark:text-zinc-600">/</span>
-                                                        Rs. {Math.round(due).toLocaleString()} receivable
-                                                    </>
-                                                )}
-                                            </span>
-                                            {!noReceivable && gap > 0 && (
-                                                <span className="text-[11px] font-bold text-zinc-400">
-                                                    Rs. {Math.round(gap).toLocaleString()} left
-                                                </span>
-                                            )}
-                                            {!noReceivable && gap <= 0 && (
-                                                <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Cleared</span>
-                                            )}
-                                        </div>
-                                    </motion.div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Performance Analytics Sidebar */}
-                <div className="xl:col-span-3 space-y-8">
-                    {/* Enrollment Heatmap */}
-                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[2.5rem] p-9 shadow-sm pb-10">
-                        <div className="flex items-center justify-between mb-10">
-                            <div>
-                                <h3 className="font-black text-xl text-zinc-900 dark:text-zinc-50 tracking-tight font-outfit">Branch Strength</h3>
-                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Enrollment distribution</p>
-                            </div>
-                            <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
-                                <PieChart className="h-5 w-5 text-zinc-500" />
-                            </div>
-                        </div>
-                        <div className="space-y-8">
-                            {(students.branchwise || []).map((branch: any) => (
-                                <div key={branch.campus_id} className={`space-y-3 group transition-all ${selectedCampusId && parseInt(selectedCampusId) !== branch.campus_id ? 'opacity-30 blur-[0.5px]' : 'opacity-100'}`}>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-tighter">{branch.campus_name}</span>
-                                        <span className="text-base font-black text-zinc-900 dark:text-zinc-50 font-outfit">{branch.count}</span>
-                                    </div>
-                                    <div className="h-2.5 w-full bg-zinc-50 dark:bg-zinc-900 rounded-full overflow-hidden border border-zinc-100 dark:border-zinc-800/50 shadow-inner">
-                                        <motion.div 
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${(branch.count / Math.max(students.total, 1)) * 100}%` }}
-                                            transition={{ duration: 2, ease: "circOut" }}
-                                            className="h-full bg-zinc-900 dark:bg-zinc-100 relative"
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        
-                        <div className="mt-12 pt-8 border-t border-zinc-100 dark:border-zinc-900 flex items-center justify-between">
-                            <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">Aggregate Total</span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-3xl font-black text-zinc-900 dark:text-zinc-100 font-outfit">{students.total}</span>
-                                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Performance Risk Insight */}
-                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[2.5rem] p-10 relative overflow-hidden group shadow-sm">
-                        <div className="relative z-10 space-y-10">
-                            <div className="space-y-2">
-                                <h3 className="font-black text-2xl tracking-tighter text-zinc-900 dark:text-zinc-50 font-outfit">Operational Snapshot</h3>
-                                <div className="h-1 w-10 bg-emerald-500 rounded-full" />
-                            </div>
-                            
-                            <div className="space-y-10">
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950 border border-emerald-100 dark:border-emerald-900">
-                                            <ArrowUpRight className="h-6 w-6 text-emerald-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Best Recovery</p>
-                                            <p className="text-xl font-black text-zinc-900 dark:text-zinc-50 font-outfit">{trends.slice().sort((a:any, b:any) => b.received - a.received)[0]?.month || "---"}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
-                                            <ArrowDownRight className="h-6 w-6 text-zinc-500" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Biggest Shortfall</p>
-                                            <p className="text-xl font-black text-zinc-900 dark:text-zinc-50 font-outfit">{trends.slice().sort((a:any, b:any) => Math.abs(b.gap) - Math.abs(a.gap))[0]?.month || "---"}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <p className="text-[11px] font-medium text-zinc-400 leading-relaxed italic border-l-2 border-zinc-200 dark:border-zinc-800 pl-5">
-                                "Billed" reflects every voucher issued that period; "Collected" reflects how much of those exact same vouchers' heads and surcharges has been paid off, whenever that payment happened — not deposit timing.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }

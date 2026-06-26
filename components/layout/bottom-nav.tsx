@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Home, CreditCard, Building2 } from "lucide-react";
+import { LayoutDashboard, Users, Home, BarChart3, Building2 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 
 export function BottomNav() {
@@ -14,7 +14,7 @@ export function BottomNav() {
         { name: "Identity", href: "/identity", icon: Users },
         { name: "Campuses", href: "/campuses", icon: Building2 },
         { name: "Families", href: "/families", icon: Home },
-        { name: "Finance", href: "/finance", icon: CreditCard },
+        { name: "Reports", href: "/financial-reports", icon: BarChart3 },
     ];
 
     if (user?.role === "STAFF_EDITOR") {

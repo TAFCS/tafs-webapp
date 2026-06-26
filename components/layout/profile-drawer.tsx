@@ -1,29 +1,11 @@
-import {
-    X, LogOut, Users, UserPlus, ArrowLeftRight, LayoutDashboard,
-    School, UserCircle, Wallet, Banknote, Settings, ChevronDown, ChevronRight,
-    Landmark, UserCog, BarChart3, ShieldCheck,
-    LandPlot, BookOpen, LayoutGrid, TrendingUp, UserCheck, Contact,
-    Tags, CalendarDays, FilePlus2, HandCoins, Printer,
-    FileText, History,
-    Layers,
-    MessageSquare,
-    Database,
-    Briefcase,
-    Clock,
-    CalendarCheck,
-    CalendarClock,
-    ClipboardList,
-    ClipboardCheck,
-    Bell,
-    Tag,
-    Fingerprint,
-} from "lucide-react";
+import { X, LogOut, LayoutDashboard, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useAuth, useAuthState } from "@/context/AuthContext";
 import { canViewSupportTickets, SUPPORT_TICKETS_VIEW_PERMISSION } from "@/features/support-tickets/supportTicketAccess";
 import { classBandLabel } from "@/lib/class-bands";
 import { motion, AnimatePresence } from "framer-motion";
+import { NAV_MODULES, type NavItem } from "@/lib/nav-config";
 
 interface ProfileDrawerProps {
     isOpen: boolean;
@@ -34,28 +16,10 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     const { logout } = useAuth();
     const { user } = useAuthState();
     const [signingOut, setSigningOut] = useState(false);
-    const [openModules, setOpenModules] = useState<Record<string, boolean>>({
-        academic: false,
-        students: false,
-        fees: false,
-        finance: false,
-        communication: false,
-        system: false,
-        hr: false
-    });
+    const [openModule, setOpenModule] = useState<string | null>(null);
 
-    const toggleModule = (module: string, event: React.MouseEvent<HTMLButtonElement>) => {
-        const isCurrentlyClosed = !openModules[module];
-        setOpenModules({
-            academic: false,
-            students: false,
-            fees: false,
-            finance: false,
-            communication: false,
-            system: false,
-            hr: false,
-            [module]: isCurrentlyClosed
-        });
+    const toggleModule = (moduleId: string) => {
+        setOpenModule(prev => (prev === moduleId ? null : moduleId));
     };
 
     const handleLogout = async () => {
@@ -72,122 +36,19 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
         : "?";
 
     const hasPermission = (perm: string) => {
-        if (user?.role === 'SUPER_ADMIN') return true;
+        if (user?.role === "SUPER_ADMIN") return true;
         if (perm === SUPPORT_TICKETS_VIEW_PERMISSION) return canViewSupportTickets(user);
         return user?.permissions?.includes(perm) ?? false;
     };
 
-    const navModules = [
-        {
-            id: 'academic',
-            name: 'Academic Administration',
-            icon: School,
-            permissions: ['academic.campuses.view', 'academic.classes.view', 'academic.sections.view'],
-            items: [
-                { name: 'Campuses', href: '/campuses', icon: LandPlot, permission: 'academic.campuses.view' },
-                { name: 'Classes', href: '/classes', icon: BookOpen, permission: 'academic.classes.view' },
-                { name: 'Sections', href: '/sections', icon: LayoutGrid, permission: 'academic.sections.view' },
-                { name: 'Transfers', href: '/transfers', icon: ArrowLeftRight, permission: 'academic.transfers.view' },
-                { name: 'Academic Actions', href: '/bulk-promote', icon: TrendingUp, permission: 'academic.bulk_promote.execute' },
-            ]
-        },
-        {
-            id: 'students',
-            name: 'Student Management',
-            icon: UserCircle,
-            permissions: ['students.registration.view', 'students.enrollment.view', 'students.directory.view', 'students.families.view'],
-            items: [
-                { name: 'Registration', href: '/identity/register', icon: UserPlus, permission: 'students.registration.view' },
-                { name: 'Enrollments', href: '/enrollments', icon: UserCheck, permission: 'students.enrollment.view' },
-                { name: 'Student Directory', href: '/identity/students', icon: Users, permission: 'students.directory.view' },
-                { name: 'Families', href: '/families', icon: Contact, permission: 'students.families.view' },
-                { name: 'Parent Change Requests', href: '/parent-change-requests', icon: ShieldCheck, permission: 'students.families.view' },
-            ]
-        },
-        {
-            id: 'fees',
-            name: 'Fee Administration',
-            icon: Wallet,
-            permissions: ['fee_admin.fee_types.view', 'fee_admin.classwise_schedule.view', 'fee_admin.studentwise_schedule.view'],
-            items: [
-                { name: 'Fee Types', href: '/fee-types', icon: Tags, permission: 'fee_admin.fee_types.view' },
-                { name: 'Class Schedule', href: '/classwise-fees-schedule', icon: CalendarDays, permission: 'fee_admin.classwise_schedule.view' },
-                { name: 'Student Overrides', href: '/studentwise-fees', icon: UserCog, permission: 'fee_admin.studentwise_schedule.view' },
-                { name: 'Discount Presets', href: '/discount-presets', icon: HandCoins, permission: 'fee_admin.fee_types.view' },
-            ]
-        },
-        {
-            id: 'finance',
-            name: 'Finance Operations',
-            icon: Banknote,
-            permissions: ['finance.vouchers.view', 'finance.deposits.view', 'finance.banks.view'],
-            items: [
-                { name: 'Single Voucher Issuance', href: '/fee-challan', icon: Printer, permission: 'finance.vouchers.view' },
-                { name: 'Bulk Voucher Issuance', href: '/bulk-voucher', icon: FilePlus2, permission: 'finance.vouchers.generate_bulk' },
-                { name: 'Vouchers', href: '/vouchers', icon: FileText, permission: 'finance.vouchers.view' },
-                { name: 'Payment History', href: '/payment-history', icon: History, permission: 'finance.vouchers.view' },
-                { name: 'Receive Deposit', href: '/vouchers/deposit', icon: HandCoins, permission: 'finance.deposits.record' },
-                { name: 'Post-dated Cheques', href: '/postdated-cheques', icon: Clock, permission: 'finance.vouchers.view' },
-                { name: 'Banks', href: '/banks', icon: Landmark, permission: 'finance.banks.view' },
-            ]
-        },
-        {
-            id: 'communication',
-            name: 'Communication',
-            icon: MessageSquare,
-            permissions: ['communication.send_announcements', 'communication.view_chats', 'communication.support_tickets.view'],
-            items: [
-                { name: 'Notice Board', href: '/notice-board', icon: Bell, permission: 'communication.send_announcements' },
-                { name: 'Support Tickets', href: '/support-tickets', icon: MessageSquare, permission: 'communication.support_tickets.view' },
-                { name: 'Announcements Chat', href: '/chat', icon: MessageSquare, permission: 'communication.view_chats' },
-            ]
-        },
-        {
-            id: 'system',
-            name: 'System Administration',
-            icon: Settings,
-            permissions: ['system.users.view', 'system.permissions.manage', 'system.analytics.view', 'system.backups.view'],
-            items: [
-                { name: 'User Management', href: '/system/users', icon: UserCog, permission: 'system.users.view' },
-                { name: 'Permissions', href: '/system/permissions', icon: ShieldCheck, permission: 'system.permissions.manage' },
-                { name: 'Analytics', href: '/dashboard', icon: BarChart3, permission: 'system.analytics.view' },
-                { name: 'Database Backups', href: '/admin/backups', icon: Database, permission: 'system.backups.view' },
-                { name: 'Developer Settings', href: '/admin/developer', icon: Settings, permission: 'system.permissions.manage' },
-                { name: 'ZK Device Logs', href: '/attendance/zk-device-logs', icon: Fingerprint, permission: 'system.permissions.manage' },
-            ]
-        },
-        {
-            id: 'hr',
-            name: 'HR & Attendance',
-            icon: Briefcase,
-            permissions: ['hr.employees.view', 'hr.policies.manage', 'hr.leave.apply', 'hr.payroll.view', 'attendance.student.rollcall.mark', 'attendance.student.rollcall.view', 'attendance.staff.mark'],
-            items: [
-                { name: 'Employee Directory', href: '/hr/employees', icon: Users, permission: 'hr.employees.view' },
-                { name: 'Departments', href: '/hr/departments', icon: Layers, permission: 'hr.employees.view' },
-                { name: 'Staff Types', href: '/hr/staff-types', icon: Tag, permission: 'hr.employees.view' },
-                { name: 'HR Policies', href: '/hr/policies', icon: FileText, permission: 'hr.policies.manage' },
-                { name: 'Staff Register', href: '/hr/staff-register', icon: ClipboardCheck, permission: 'attendance.staff.mark' },
-                { name: 'Attendance Dashboard', href: '/hr/attendance-dashboard', icon: CalendarCheck, permission: 'attendance.staff.mark' },
-                { name: 'Payroll', href: '/hr/payroll', icon: Wallet, permission: 'hr.payroll.view' },
-                { name: 'Attendance Settings', href: '/hr/attendance-settings', icon: Settings, permission: 'hr.policies.manage' },
-                {
-                    name: 'Student Attendance Dashboard',
-                    href: '/hr/student-attendance-dashboard',
-                    icon: UserCheck,
-                    permissions: ['attendance.student.rollcall.mark', 'attendance.student.rollcall.view'],
-                },
-                {
-                    name: 'A-Level Roll Call',
-                    href: '/hr/roll-call',
-                    icon: ClipboardList,
-                    permissions: ['attendance.student.rollcall.mark', 'attendance.student.rollcall.view'],
-                },
-                { name: 'Class Modes', href: '/hr/class-modes', icon: Clock, permission: 'hr.policies.manage' },
-                { name: 'Academic Calendar', href: '/hr/calendar', icon: CalendarDays, permission: 'hr.policies.manage' },
-                { name: 'My Leave', href: '/hr/leave', icon: CalendarClock, permission: 'hr.leave.apply' },
-            ]
+    const isItemVisible = (item: NavItem) => {
+        if (item.href === "/admin/developer" || item.href === "/attendance/zk-device-logs") {
+            return user?.role === "SUPER_ADMIN";
         }
-    ];
+        if (item.permissions) return item.permissions.some(hasPermission);
+        if (item.permission) return hasPermission(item.permission);
+        return false;
+    };
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -222,23 +83,16 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         transition={{ type: "spring", damping: 28, stiffness: 250, mass: 0.8 }}
                         className="fixed inset-y-0 left-0 w-96 max-w-[85vw] bg-white/80 dark:bg-zinc-950/80 backdrop-blur-2xl z-[70] border-r border-white/20 dark:border-zinc-800/50 shadow-[0_0_40px_rgba(0,0,0,0.1)] dark:shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col"
                     >
-                        {/* Futuristic Header with Glow */}
+                        {/* Header */}
                         <div className="h-32 relative p-6 flex flex-col justify-end overflow-hidden flex-shrink-0">
-                            {/* Animated Gradient Background */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-purple-600/80 dark:from-primary/40 dark:via-primary/20 dark:to-purple-900/40 z-0"></div>
+                            <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-purple-600/80 dark:from-primary/40 dark:via-primary/20 dark:to-purple-900/40 z-0" />
+                            <div className="absolute inset-0 bg-white/10 dark:bg-black/20 backdrop-blur-md z-0" />
 
-                            {/* Glass overlay */}
-                            <div className="absolute inset-0 bg-white/10 dark:bg-black/20 backdrop-blur-md z-0"></div>
-
-                            {/* Glow Orbs */}
                             <motion.div
-                                animate={{
-                                    scale: [1, 1.2, 1],
-                                    opacity: [0.5, 0.8, 0.5]
-                                }}
+                                animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
                                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                                 className="absolute -top-10 -left-10 w-40 h-40 bg-white/20 rounded-full blur-2xl z-0"
-                            ></motion.div>
+                            />
 
                             <button
                                 onClick={onClose}
@@ -284,12 +138,12 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                             </div>
                         </div>
 
-                        {/* Navigation List */}
+                        {/* Navigation */}
                         <motion.div
                             variants={containerVariants}
                             initial="hidden"
                             animate="show"
-                            className="flex-1 py-6 px-4 flex flex-col gap-2 relative"
+                            className="flex-1 py-6 px-4 flex flex-col gap-2 relative overflow-y-auto"
                         >
                             <motion.div variants={itemVariants}>
                                 <Link
@@ -304,42 +158,32 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
 
                             <div className="w-full h-px bg-gradient-to-r from-transparent via-zinc-200 dark:via-zinc-800 to-transparent my-3" />
 
-                            {navModules.map(module => {
-                                const visibleItems = module.items.filter((item) => {
-                                    if (item.href === '/admin/developer' || item.href === '/attendance/zk-device-logs') {
-                                        return user?.role === 'SUPER_ADMIN';
-                                    }
-                                    const anyPerms = 'permissions' in item && Array.isArray((item as { permissions?: string[] }).permissions)
-                                        ? (item as { permissions: string[] }).permissions
-                                        : null;
-                                    if (anyPerms) return anyPerms.some((p) => hasPermission(p));
-                                    return hasPermission((item as { permission: string }).permission);
-                                });
+                            {NAV_MODULES.map(module => {
+                                const visibleItems = module.items.filter(isItemVisible);
                                 if (visibleItems.length === 0) return null;
 
-                                const isModuleOpen = openModules[module.id];
+                                const isOpen = openModule === module.id;
+
                                 return (
                                     <motion.div key={module.id} variants={itemVariants} className="flex flex-col mb-1 relative">
                                         <button
-                                            onClick={(e) => toggleModule(module.id, e)}
+                                            onClick={() => toggleModule(module.id)}
                                             className="flex items-center justify-between px-3 py-2.5 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] hover:text-primary dark:hover:text-primary-400 transition-colors group w-full"
                                         >
                                             <div className="flex items-center">
                                                 <module.icon className="h-4 w-4 mr-2.5 opacity-50 group-hover:opacity-100 transition-opacity" />
                                                 {module.name}
                                             </div>
-                                            <ChevronRight className={`h-4 w-4 transition-all duration-300 ${isModuleOpen ? "opacity-100 text-primary scale-110" : "opacity-50 group-hover:opacity-80"}`} />
+                                            <ChevronRight className={`h-4 w-4 transition-all duration-300 ${isOpen ? "opacity-100 text-primary scale-110" : "opacity-50 group-hover:opacity-80"}`} />
                                         </button>
 
-                                        {isModuleOpen && (
+                                        {isOpen && (
                                             <div className="fixed top-32 bottom-0 left-[85vw] md:left-[24rem] w-80 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-2xl border-r border-b border-white/20 dark:border-zinc-800/50 shadow-[0_0_40px_rgba(0,0,0,0.1)] dark:shadow-[0_0_40px_rgba(0,0,0,0.5)] p-6 flex flex-col gap-4 z-[65]">
-                                                <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800/80">
-                                                    <div className="flex items-center">
-                                                        <module.icon className="h-4 w-4 mr-2.5 opacity-50 text-zinc-400 dark:text-zinc-500" />
-                                                        <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">
-                                                            {module.name}
-                                                        </span>
-                                                    </div>
+                                                <div className="flex items-center pb-3 border-b border-zinc-100 dark:border-zinc-800/80">
+                                                    <module.icon className="h-4 w-4 mr-2.5 opacity-50 text-zinc-400 dark:text-zinc-500" />
+                                                    <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">
+                                                        {module.name}
+                                                    </span>
                                                 </div>
                                                 <div className="flex-1 overflow-y-auto flex flex-col gap-1">
                                                     {visibleItems.map(item => (
@@ -364,12 +208,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                                 <div className="w-full h-px bg-gradient-to-r from-transparent via-zinc-200 dark:via-zinc-800 to-transparent" />
                             </div>
 
-                            <motion.div variants={itemVariants} className="flex flex-col gap-2">
-                                <Link href="/settings" onClick={onClose} className="flex items-center px-4 py-3 rounded-xl text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 transition-all group border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800">
-                                    <Settings className="h-5 w-5 mr-3 opacity-60 group-hover:opacity-100 group-hover:rotate-90 transition-all duration-500" />
-                                    <span className="text-sm font-semibold tracking-tight">System Settings</span>
-                                </Link>
-
+                            <motion.div variants={itemVariants}>
                                 <button
                                     onClick={handleLogout}
                                     disabled={signingOut}
