@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@react-pdf/renderer"],
   images: {
+    // Assets are served from DigitalOcean Spaces CDN — skip Vercel image optimization.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
