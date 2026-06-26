@@ -17,7 +17,7 @@ const container = {
 
 const cardVariant = {
     hidden: { y: 24, opacity: 0 },
-    show: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 260, damping: 22 } }
+    show: { y: 0, opacity: 1, transition: { type: "spring" as const, stiffness: 260, damping: 22 } }
 };
 
 export default function DashboardPage() {
