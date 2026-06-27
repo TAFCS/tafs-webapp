@@ -137,6 +137,7 @@ export interface TimelineSegment {
   type: TimelineSegmentType;
   start: string;
   end: string;
+  isMissingOut?: boolean;
 }
 
 export interface TimelineDay {
@@ -363,6 +364,17 @@ export const attendanceService = {
     const { data } = await api.get<ApiEnvelope<StudentTimeline>>(
       `/v1/attendance/students/${studentCc}/timeline`,
       { params },
+    );
+    return data.data;
+  },
+
+  async resolveStudentAttendance(
+    studentCc: number,
+    payload: { date: string; campus_id: number; check_in_time?: string; check_out_time: string },
+  ): Promise<{ resolved: boolean; student_cc: number; date: string }> {
+    const { data } = await api.put<ApiEnvelope<{ resolved: boolean; student_cc: number; date: string }>>(
+      `/v1/attendance/students/${studentCc}/resolve`,
+      payload,
     );
     return data.data;
   },

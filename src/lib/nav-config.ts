@@ -12,6 +12,7 @@ import type { LucideIcon } from "lucide-react";
 
 export interface NavItem {
     name: string;
+    description: string;
     href: string;
     icon: LucideIcon;
     permission?: string;
@@ -34,7 +35,7 @@ export const NAV_MODULES: NavModule[] = [
     {
         id: "student",
         name: "Student & Profiling",
-        description: "Registrations, enrollments, student directory and family records.",
+        description: "Registrations, enrollments, family records and academic actions.",
         icon: UserCircle,
         color: "text-blue-600 dark:text-blue-400",
         bg: "bg-blue-50 dark:bg-blue-950/40",
@@ -45,13 +46,13 @@ export const NAV_MODULES: NavModule[] = [
             "academic.transfers.view", "academic.bulk_promote.execute",
         ],
         items: [
-            { name: "Registration", href: "/identity/register", icon: UserPlus, permission: "students.registration.view" },
-            { name: "Enrollments", href: "/enrollments", icon: UserCheck, permission: "students.enrollment.view" },
-            { name: "Student Directory", href: "/identity/students", icon: Users, permission: "students.directory.view" },
-            { name: "Families", href: "/families", icon: Contact, permission: "students.families.view" },
-            { name: "Parent Change Requests", href: "/parent-change-requests", icon: ShieldCheck, permission: "students.families.view" },
-            { name: "Transfers", href: "/transfers", icon: ArrowLeftRight, permission: "academic.transfers.view" },
-            { name: "Academic Actions", href: "/bulk-promote", icon: TrendingUp, permission: "academic.bulk_promote.execute" },
+            { name: "Registration", description: "New student intake", href: "/identity/register", icon: UserPlus, permission: "students.registration.view" },
+            { name: "Enrollments", description: "Class and section assignment", href: "/enrollments", icon: UserCheck, permission: "students.enrollment.view" },
+            { name: "Student Directory", description: "Search all students", href: "/identity/students", icon: Users, permission: "students.directory.view" },
+            { name: "Families", description: "Guardian and contact info", href: "/families", icon: Contact, permission: "students.families.view" },
+            { name: "Parent Change Requests", description: "Profile update approvals", href: "/parent-change-requests", icon: ShieldCheck, permission: "students.families.view" },
+            { name: "Transfers", description: "Inter-school movements", href: "/transfers", icon: ArrowLeftRight, permission: "academic.transfers.view" },
+            { name: "Academic Actions", description: "Bulk promotions and actions", href: "/bulk-promote", icon: TrendingUp, permission: "academic.bulk_promote.execute" },
         ],
     },
     {
@@ -67,15 +68,15 @@ export const NAV_MODULES: NavModule[] = [
             "finance.vouchers.view", "finance.deposits.view", "system.analytics.view",
         ],
         items: [
-            { name: "Financial Reports", href: "/financial-reports", icon: BarChart3, permission: "system.analytics.view" },
-            { name: "Class Fee Schedule", href: "/classwise-fees-schedule", icon: CalendarDays, permission: "fee_admin.classwise_schedule.view" },
-            { name: "Student Overrides", href: "/studentwise-fees", icon: UserCog, permission: "fee_admin.studentwise_schedule.view" },
-            { name: "Single Voucher Issuance", href: "/fee-challan", icon: Printer, permission: "finance.vouchers.view" },
-            { name: "Bulk Voucher Issuance", href: "/bulk-voucher", icon: FilePlus2, permission: "finance.vouchers.generate_bulk" },
-            { name: "Vouchers", href: "/vouchers", icon: CreditCard, permission: "finance.vouchers.view" },
-            { name: "Payment History", href: "/payment-history", icon: History, permission: "finance.vouchers.view" },
-            { name: "Receive Deposit", href: "/vouchers/deposit", icon: HandCoins, permission: "finance.deposits.record" },
-            { name: "Post-dated Cheques", href: "/postdated-cheques", icon: Clock, permission: "finance.vouchers.view" },
+            { name: "Financial Reports", description: "Analytics and collection overview", href: "/financial-reports", icon: BarChart3, permission: "system.analytics.view" },
+            { name: "Class Fee Schedule", description: "Per-class fee configuration", href: "/classwise-fees-schedule", icon: CalendarDays, permission: "fee_admin.classwise_schedule.view" },
+            { name: "Student Overrides", description: "Individual fee adjustments", href: "/studentwise-fees", icon: UserCog, permission: "fee_admin.studentwise_schedule.view" },
+            { name: "Single Voucher Issuance", description: "Print individual fee slips", href: "/fee-challan", icon: Printer, permission: "finance.vouchers.view" },
+            { name: "Bulk Voucher Issuance", description: "Generate multiple vouchers", href: "/bulk-voucher", icon: FilePlus2, permission: "finance.vouchers.generate_bulk" },
+            { name: "Vouchers", description: "All issued vouchers", href: "/vouchers", icon: CreditCard, permission: "finance.vouchers.view" },
+            { name: "Payment History", description: "Payment transaction log", href: "/payment-history", icon: History, permission: "finance.vouchers.view" },
+            { name: "Receive Deposit", description: "Record cash and cheque deposits", href: "/vouchers/deposit", icon: HandCoins, permission: "finance.deposits.record" },
+            { name: "Post-dated Cheques", description: "Cheque tracking and alerts", href: "/postdated-cheques", icon: Clock, permission: "finance.vouchers.view" },
         ],
     },
     {
@@ -88,8 +89,8 @@ export const NAV_MODULES: NavModule[] = [
         border: "border-violet-100 dark:border-violet-900/50",
         permissions: ["communication.send_announcements", SUPPORT_TICKETS_VIEW_PERMISSION],
         items: [
-            { name: "Notice Board", href: "/notice-board", icon: Bell, permission: "communication.send_announcements" },
-            { name: "Support Tickets", href: "/support-tickets", icon: MessageSquare, permission: SUPPORT_TICKETS_VIEW_PERMISSION },
+            { name: "Notice Board", description: "Broadcast announcements", href: "/notice-board", icon: Bell, permission: "communication.send_announcements" },
+            { name: "Support Tickets", description: "Issue tracking and resolution", href: "/support-tickets", icon: MessageSquare, permission: SUPPORT_TICKETS_VIEW_PERMISSION },
         ],
     },
     {
@@ -102,14 +103,14 @@ export const NAV_MODULES: NavModule[] = [
         border: "border-amber-100 dark:border-amber-900/50",
         permissions: ["hr.employees.view", "hr.policies.manage", "hr.leave.apply", "hr.payroll.view", "attendance.staff.mark"],
         items: [
-            { name: "Employee Directory", href: "/hr/employees", icon: Users, permission: "hr.employees.view" },
-            { name: "Departments", href: "/hr/departments", icon: Layers, permission: "hr.employees.view" },
-            { name: "Staff Types", href: "/hr/staff-types", icon: Tag, permission: "hr.employees.view" },
-            { name: "HR Policies", href: "/hr/policies", icon: FileText, permission: "hr.policies.manage" },
-            { name: "Staff Register", href: "/hr/staff-register", icon: ClipboardCheck, permission: "attendance.staff.mark" },
-            { name: "Payroll", href: "/hr/payroll", icon: Wallet, permission: "hr.payroll.view" },
-            { name: "My Leave", href: "/hr/leave", icon: CalendarClock, permission: "hr.leave.apply" },
-            { name: "Academic Calendar", href: "/hr/calendar", icon: CalendarDays, permission: "hr.policies.manage" },
+            { name: "Employee Directory", description: "Staff profiles and records", href: "/hr/employees", icon: Users, permission: "hr.employees.view" },
+            { name: "Departments", description: "Organisational structure", href: "/hr/departments", icon: Layers, permission: "hr.employees.view" },
+            { name: "Staff Types", description: "Employment categories", href: "/hr/staff-types", icon: Tag, permission: "hr.employees.view" },
+            { name: "HR Policies", description: "Rules and guidelines", href: "/hr/policies", icon: FileText, permission: "hr.policies.manage" },
+            { name: "Staff Register", description: "Daily staff punch-in", href: "/hr/staff-register", icon: ClipboardCheck, permission: "attendance.staff.mark" },
+            { name: "Payroll", description: "Salary processing", href: "/hr/payroll", icon: Wallet, permission: "hr.payroll.view" },
+            { name: "My Leave", description: "Leave applications", href: "/hr/leave", icon: CalendarClock, permission: "hr.leave.apply" },
+            { name: "Academic Calendar", description: "School year and events", href: "/hr/calendar", icon: CalendarDays, permission: "hr.policies.manage" },
         ],
     },
     {
@@ -125,12 +126,12 @@ export const NAV_MODULES: NavModule[] = [
             "attendance.student.rollcall.mark", "attendance.student.rollcall.view",
         ],
         items: [
-            { name: "Staff Attendance", href: "/hr/attendance-dashboard", icon: CalendarCheck, permission: "attendance.staff.mark" },
-            { name: "Attendance Settings", href: "/hr/attendance-settings", icon: Settings, permission: "hr.policies.manage" },
-            { name: "Class Modes", href: "/hr/class-modes", icon: Clock, permission: "hr.policies.manage" },
-            { name: "Student Attendance", href: "/hr/student-attendance-dashboard", icon: UserCheck, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
-            { name: "A-Level Roll Call", href: "/hr/roll-call", icon: ClipboardList, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
-            { name: "ZK Device Logs", href: "/attendance/zk-device-logs", icon: Fingerprint, permission: "system.permissions.manage" },
+            { name: "Staff Attendance", description: "Daily staff presence tracking", href: "/hr/attendance-dashboard", icon: CalendarCheck, permission: "attendance.staff.mark" },
+            { name: "Attendance Settings", description: "Rules and thresholds", href: "/hr/attendance-settings", icon: Settings, permission: "hr.policies.manage" },
+            { name: "Class Modes", description: "Online / offline configuration", href: "/hr/class-modes", icon: Clock, permission: "hr.policies.manage" },
+            { name: "Student Attendance", description: "Per-class attendance records", href: "/hr/student-attendance-dashboard", icon: UserCheck, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
+            { name: "A-Level Roll Call", description: "A-level section marking", href: "/hr/roll-call", icon: ClipboardList, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
+            { name: "ZK Device Logs", description: "Biometric device data", href: "/attendance/zk-device-logs", icon: Fingerprint, permission: "system.permissions.manage" },
         ],
     },
     {
@@ -146,12 +147,12 @@ export const NAV_MODULES: NavModule[] = [
             "fee_admin.fee_types.view", "finance.banks.view",
         ],
         items: [
-            { name: "Campuses", href: "/campuses", icon: LandPlot, permission: "academic.campuses.view" },
-            { name: "Classes", href: "/classes", icon: BookOpen, permission: "academic.classes.view" },
-            { name: "Sections", href: "/sections", icon: LayoutGrid, permission: "academic.sections.view" },
-            { name: "Fee Types", href: "/fee-types", icon: Tags, permission: "fee_admin.fee_types.view" },
-            { name: "Discount Presets", href: "/discount-presets", icon: HandCoins, permission: "fee_admin.fee_types.view" },
-            { name: "Banks", href: "/banks", icon: Landmark, permission: "finance.banks.view" },
+            { name: "Campuses", description: "Branch locations and details", href: "/campuses", icon: LandPlot, permission: "academic.campuses.view" },
+            { name: "Classes", description: "Grade and year configuration", href: "/classes", icon: BookOpen, permission: "academic.classes.view" },
+            { name: "Sections", description: "Class subdivisions", href: "/sections", icon: LayoutGrid, permission: "academic.sections.view" },
+            { name: "Fee Types", description: "Fee head definitions", href: "/fee-types", icon: Tags, permission: "fee_admin.fee_types.view" },
+            { name: "Discount Presets", description: "Standard discount templates", href: "/discount-presets", icon: HandCoins, permission: "fee_admin.fee_types.view" },
+            { name: "Banks", description: "Banking relationships", href: "/banks", icon: Landmark, permission: "finance.banks.view" },
         ],
     },
     {
@@ -164,10 +165,10 @@ export const NAV_MODULES: NavModule[] = [
         border: "border-zinc-100 dark:border-zinc-800/60",
         permissions: ["system.users.view", "system.permissions.manage", "system.backups.view"],
         items: [
-            { name: "User Management", href: "/system/users", icon: UserCog, permission: "system.users.view" },
-            { name: "Permissions", href: "/system/permissions", icon: ShieldCheck, permission: "system.permissions.manage" },
-            { name: "Database Backups", href: "/admin/backups", icon: Database, permission: "system.backups.view" },
-            { name: "Developer Settings", href: "/admin/developer", icon: Settings, permission: "system.permissions.manage" },
+            { name: "User Management", description: "Admin account control", href: "/system/users", icon: UserCog, permission: "system.users.view" },
+            { name: "Permissions", description: "Role-based access control", href: "/system/permissions", icon: ShieldCheck, permission: "system.permissions.manage" },
+            { name: "Database Backups", description: "Data backup management", href: "/admin/backups", icon: Database, permission: "system.backups.view" },
+            { name: "Developer Settings", description: "Technical configuration", href: "/admin/developer", icon: Settings, permission: "system.permissions.manage" },
         ],
     },
 ];

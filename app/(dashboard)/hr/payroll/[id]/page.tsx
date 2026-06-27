@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Wallet, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Lock,
-  Trash2, AlertTriangle, Users, Building2, Calendar,
+  Trash2, AlertTriangle, Building2, Calendar, LayoutGrid, List,
 } from "lucide-react";
 import { hrService, PayrollRun, PayrollRunLine } from "@/lib/hr.service";
 import { PayrollLineDetailModal } from "../_components/PayrollLineDetailModal";
+import { PayrollMatrixView } from "../_components/PayrollMatrixView";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -52,6 +53,8 @@ export default function PayrollRunDetailPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [finalizing, setFinalizing] = useState(false);
   const [selectedLine, setSelectedLine] = useState<PayrollRunLine | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
+  const [tab, setTab] = useState<"lines" | "matrix">("lines");
   const [deleting, setDeleting] = useState(false);
 
   const fetchRun = async () => {
@@ -230,39 +233,78 @@ export default function PayrollRunDetailPage() {
         <SummaryCard label="Total Net Pay" value={formatPkr(totalNet)} />
       </div>
 
-      {/* Employee lines table */}
-      <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
-                <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Employee</th>
-                <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Present</th>
-                <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Absent</th>
-                <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Unresolved</th>
-                <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Break (min)</th>
-                <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Daily Rate</th>
-                <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Deductions</th>
-                <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Net Pay</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {lines.map((line) => (
-                <PayrollLineRow key={line.id} line={line} onClick={() => setSelectedLine(line)} />
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* Tab switcher */}
+      <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl w-fit">
+        <button
+          onClick={() => setTab("lines")}
+          className={`flex items-center gap-1.5 h-8 px-4 rounded-xl text-sm font-semibold transition-all ${
+            tab === "lines"
+              ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 shadow-sm"
+              : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700"
+          }`}
+        >
+          <List className="h-3.5 w-3.5" /> Employee Lines
+        </button>
+        <button
+          onClick={() => setTab("matrix")}
+          className={`flex items-center gap-1.5 h-8 px-4 rounded-xl text-sm font-semibold transition-all ${
+            tab === "matrix"
+              ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 shadow-sm"
+              : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700"
+          }`}
+        >
+          <LayoutGrid className="h-3.5 w-3.5" /> Punch Card Matrix
+        </button>
       </div>
+
+      {tab === "matrix" && run && (
+        <PayrollMatrixView
+          run={run}
+          lines={lines}
+          onOpenLine={(line, date) => {
+            setSelectedLine(line);
+            setSelectedDate(date);
+          }}
+        />
+      )}
+
+      {/* Employee lines table */}
+      {tab === "lines" && (
+        <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
+                  <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Employee</th>
+                  <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Present</th>
+                  <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Absent</th>
+                  <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Unresolved</th>
+                  <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Break (min)</th>
+                  <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Daily Rate</th>
+                  <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Deductions</th>
+                  <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Net Pay</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {lines.map((line) => (
+                  <PayrollLineRow key={line.id} line={line} onClick={() => { setSelectedLine(line); setSelectedDate(undefined); }} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {selectedLine && run && (
         <PayrollLineDetailModal
           run={run}
           line={selectedLine}
-          onClose={() => setSelectedLine(null)}
+          initialDate={selectedDate}
+          onClose={() => { setSelectedLine(null); setSelectedDate(undefined); }}
           onRunUpdated={(updated) => {
             setRun(updated);
             setSelectedLine(null);
+            setSelectedDate(undefined);
             setSuccess("Payroll run regenerated with the latest attendance data.");
           }}
         />
