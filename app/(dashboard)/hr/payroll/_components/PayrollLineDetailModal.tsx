@@ -149,7 +149,8 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
       setOverrides(p => ({ ...p, [date]: status }));
       setResolvingDate(null);
     } catch (err: any) {
-      setError(err.response?.data?.message ?? "Failed to save attendance.");
+      const msg = err.response?.data?.message;
+      setError(Array.isArray(msg) ? msg.join('. ') : (msg ?? "Failed to save attendance."));
     } finally {
       setSaving(null);
     }
