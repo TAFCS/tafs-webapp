@@ -16,7 +16,7 @@ import {
   Pencil,
   RefreshCw,
 } from "lucide-react";
-import { hrService, CalendarDay, Department, STAFF_CATEGORY_OPTIONS, formatStaffCategory } from "@/lib/hr.service";
+import { hrService, CalendarDay, Department, StaffCategory, STAFF_CATEGORY_OPTIONS, formatStaffCategory } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
 import { useAuthState } from "@/context/AuthContext";
 import { useAppSelector } from "@/store/hooks";
@@ -45,6 +45,11 @@ const emptyForm = (): FormState => ({
   staff_category: "",
   employee_id: "",
 });
+
+function parseStaffCategory(value: string): StaffCategory | undefined {
+  if (!value) return undefined;
+  return STAFF_CATEGORY_OPTIONS.some((o) => o.value === value) ? (value as StaffCategory) : undefined;
+}
 
 type ModalMode = "holiday" | "weekend-open";
 
@@ -219,7 +224,7 @@ export default function CalendarPage() {
               }
             : {
                 department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
-                staff_category: formData.staff_category || undefined,
+                staff_category: parseStaffCategory(formData.staff_category),
                 employee_id: formData.employee_id ? parseInt(formData.employee_id, 10) : undefined,
               }),
         };
@@ -252,7 +257,7 @@ export default function CalendarPage() {
               }
             : {
                 department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
-                staff_category: formData.staff_category || undefined,
+                staff_category: parseStaffCategory(formData.staff_category),
                 employee_id: formData.employee_id ? parseInt(formData.employee_id, 10) : undefined,
               }),
         };
