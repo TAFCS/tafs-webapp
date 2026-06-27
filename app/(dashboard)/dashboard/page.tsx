@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -55,10 +55,9 @@ const MODULE_STATS: Record<string, { label: string; value: string; sub?: string;
     ],
 };
 
-export default function DashboardPage() {
-    const { user } = useAuthState();
-    const { activeModuleId, setActiveModule } = useNavigation();
+function ModuleParamSync() {
     const searchParams = useSearchParams();
+    const { setActiveModule } = useNavigation();
     const moduleParam = searchParams.get("module");
 
     useEffect(() => {
@@ -66,6 +65,13 @@ export default function DashboardPage() {
         const mod = NAV_MODULES.find(m => m.id === moduleParam);
         if (mod) setActiveModule(mod.id, mod.name);
     }, [moduleParam, setActiveModule]);
+
+    return null;
+}
+
+export default function DashboardPage() {
+    const { user } = useAuthState();
+    const { activeModuleId, setActiveModule } = useNavigation();
 
     const hasPermission = (perm: string) => {
         if (user?.role === "SUPER_ADMIN") return true;
@@ -95,6 +101,8 @@ export default function DashboardPage() {
     }, [activeModule?.id]);
 
     return (
+        <>
+        <Suspense fallback={null}><ModuleParamSync /></Suspense>
         <AnimatePresence mode="wait">
             {activeModule && (
                 <motion.div
@@ -174,5 +182,6 @@ export default function DashboardPage() {
                 </motion.div>
             )}
         </AnimatePresence>
+        </>
     );
 }
