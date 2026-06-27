@@ -5,7 +5,7 @@ import {
   X, Loader2, AlertTriangle, RefreshCw, Coffee,
   CheckCircle2, Clock, AlertCircle,
 } from "lucide-react";
-import { hrService, PayrollRun, PayrollRunLine, DayClassification } from "@/lib/hr.service";
+import { hrService, PayrollRun, PayrollRunLine, DayBreakdownEntry, DayClassification } from "@/lib/hr.service";
 import { attendanceService, StaffAttendanceStatus } from "@/lib/attendance.service";
 
 // ── Segment types & styles ────────────────────────────────────────────────────
@@ -74,6 +74,55 @@ function dur(start: string, end: string): string {
   return rm > 0 ? `${h}h ${rm}m` : `${h}h`;
 }
 
+function timeToIso(date: string, time: string): string {
+  return new Date(`${date}T${time}:00.000Z`).toISOString();
+}
+
+function buildPreviewSegments(
+  status: StaffAttendanceStatus,
+  checkInAt: string | null,
+  checkOutAt: string | null,
+): Seg[] {
+  if (status === "EXCUSED") {
+    return [{ type: "DAY_OFF", start: "00:00", end: "24:00" }];
+  }
+  if (status === "ABSENT") return [];
+  if (checkInAt) {
+    return [{ type: "WORK", start: checkInAt, end: checkOutAt ?? checkInAt }];
+  }
+  return [];
+}
+
+function applyManualOverridePreview(
+  day: DayBreakdownEntry,
+  status: StaffAttendanceStatus,
+  checkInTime?: string,
+  checkOutTime?: string,
+): DayBreakdownEntry {
+  const clearsPunches = status === "ABSENT" || status === "EXCUSED";
+  const checkInAt = checkInTime
+    ? timeToIso(day.date, checkInTime)
+    : clearsPunches
+      ? null
+      : day.check_in_at;
+  const checkOutAt = checkOutTime
+    ? timeToIso(day.date, checkOutTime)
+    : clearsPunches
+      ? null
+      : day.check_out_at;
+  const manualWithTimes = !!(checkInTime || checkOutTime);
+
+  return {
+    ...day,
+    classification: status as DayClassification,
+    check_in_at: checkInAt,
+    check_out_at: checkOutAt,
+    source: "MANUAL",
+    segments: buildPreviewSegments(status, checkInAt, checkOutAt),
+    break_minutes: clearsPunches || manualWithTimes ? 0 : day.break_minutes,
+  };
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Seg { type: string; start: string; end: string; isMissingOut?: boolean }
@@ -93,13 +142,19 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
   const today = new Date().toISOString().slice(0, 10);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  const [localBreakdown, setLocalBreakdown] = useState(line.daily_breakdown);
   const [resolvingDate, setResolvingDate] = useState<string | null>(null);
   const [form, setForm] = useState({ checkIn: "", checkOut: "" });
   const [saving, setSaving] = useState<string | null>(null);
-  const [overrides, setOverrides] = useState<Record<string, StaffAttendanceStatus>>({});
+  const [dirty, setDirty] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
+
+  useEffect(() => {
+    setLocalBreakdown(line.daily_breakdown);
+    setDirty(false);
+  }, [line]);
 
   useEffect(() => {
     if (!initialDate) return;
@@ -110,7 +165,6 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
   const emp = line.employee_profiles;
   const name = emp?.full_name ?? `Employee #${line.employee_id}`;
   const isFinal = run.status === "FINALIZED";
-  const dirty = Object.keys(overrides).length > 0;
 
   // ── Tooltip ──────────────────────────────────────────────────────────────────
 
@@ -123,7 +177,7 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
 
   // ── Resolve ───────────────────────────────────────────────────────────────────
 
-  const openResolve = (day: typeof line.daily_breakdown[0]) => {
+  const openResolve = (day: DayBreakdownEntry) => {
     setForm({
       checkIn:  day.check_in_at  ? new Date(day.check_in_at).toISOString().slice(11, 16)  : "",
       checkOut: day.check_out_at ? new Date(day.check_out_at).toISOString().slice(11, 16) : "",
@@ -133,20 +187,34 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
   };
 
   const doResolve = async (date: string, status: StaffAttendanceStatus) => {
+    const day = localBreakdown.find(d => d.date === date);
+    if (!day) return;
+
     setSaving(date);
     setError(null);
     try {
+      const checkInTime = form.checkIn || undefined;
+      const checkOutTime = form.checkOut || undefined;
+
       await attendanceService.bulkMarkStaff({
         date,
         campus_id: run.campus_id,
         records: [{
           employee_id: line.employee_id,
           status,
-          check_in_time:  form.checkIn  || undefined,
-          check_out_time: form.checkOut || undefined,
+          check_in_time: checkInTime,
+          check_out_time: checkOutTime,
         }],
       });
-      setOverrides(p => ({ ...p, [date]: status }));
+
+      setLocalBreakdown(prev =>
+        prev.map(d =>
+          d.date === date
+            ? applyManualOverridePreview(d, status, checkInTime, checkOutTime)
+            : d,
+        ),
+      );
+      setDirty(true);
       setResolvingDate(null);
     } catch (err: any) {
       const msg = err.response?.data?.message;
@@ -168,6 +236,11 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
         month: end.getUTCMonth() + 1,
       });
       onRunUpdated(updated);
+      const refreshedLine = updated.payroll_run_lines?.find(l => l.employee_id === line.employee_id);
+      if (refreshedLine) {
+        setLocalBreakdown(refreshedLine.daily_breakdown);
+        setDirty(false);
+      }
     } catch (err: any) {
       setError(err.response?.data?.message ?? "Failed to regenerate.");
     } finally {
@@ -273,15 +346,15 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
 
           {/* Day list */}
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-2">
-            {line.daily_breakdown.map(day => {
-              const effClass = (overrides[day.date] ?? day.classification) as DayClassification;
+            {localBreakdown.map(day => {
+              const effClass = day.classification;
               const pill = PILL[effClass];
               const isPast = day.date < today;
               const isUnresolved = effClass === "UNRESOLVED";
               const isResolving = resolvingDate === day.date;
-              const wasOverridden = !!overrides[day.date];
+              const wasOverridden = day.source === "MANUAL";
               const segs = (day.segments ?? []) as Seg[];
-              const canAct = !isFinal && day.is_working_day && isPast && !wasOverridden;
+              const canAct = !isFinal && day.is_working_day && isPast;
               const needsClock = isUnresolved && canAct;
 
               return (
@@ -346,7 +419,7 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
                       <div className="absolute inset-0 flex items-center justify-center">
                         <span className="text-[11px] text-zinc-400">
                           {day.is_working_day && day.check_in_at
-                            ? "Regenerate run to see timeline"
+                            ? "No timeline for this status"
                             : day.is_working_day
                             ? "No scans recorded"
                             : "Non-working day"}

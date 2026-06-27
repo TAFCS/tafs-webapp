@@ -359,8 +359,10 @@ export default function PayrollRunDetailPage() {
           onClose={() => { setSelectedLine(null); setSelectedDate(undefined); }}
           onRunUpdated={(updated) => {
             setRun(updated);
-            setSelectedLine(null);
-            setSelectedDate(undefined);
+            const refreshedLine = updated.payroll_run_lines?.find(
+              (l) => l.employee_id === selectedLine.employee_id,
+            );
+            if (refreshedLine) setSelectedLine(refreshedLine);
             setSuccess("Payroll run regenerated with the latest attendance data.");
           }}
         />
