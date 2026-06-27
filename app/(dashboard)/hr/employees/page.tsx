@@ -124,7 +124,7 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [selected, setSelected] = useState<EmployeeProfile | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const [search, setSearch] = useState("");
   const [campusFilter, setCampusFilter] = useState("");
@@ -316,14 +316,15 @@ export default function EmployeesPage() {
       ) : (
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredEmployees.map(emp => (
-            <EmployeeCard key={emp.id} employee={emp} onClick={() => setSelected(emp)} />
+            <EmployeeCard key={emp.id} employee={emp} onClick={() => setSelectedId(emp.id)} />
           ))}
         </div>
       )}
 
       <EmployeeDetailPanel
-        employee={selected}
-        onClose={() => setSelected(null)}
+        employeeId={selectedId}
+        onClose={() => setSelectedId(null)}
+        onUpdated={fetchData}
         onDeleted={() => { setSuccess("Employee profile deleted successfully."); fetchData(); }}
       />
     </div>
