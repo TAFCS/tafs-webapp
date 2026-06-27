@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useAuthState } from "@/context/AuthContext";
@@ -57,6 +58,14 @@ const MODULE_STATS: Record<string, { label: string; value: string; sub?: string;
 export default function DashboardPage() {
     const { user } = useAuthState();
     const { activeModuleId, setActiveModule } = useNavigation();
+    const searchParams = useSearchParams();
+    const moduleParam = searchParams.get("module");
+
+    useEffect(() => {
+        if (!moduleParam) return;
+        const mod = NAV_MODULES.find(m => m.id === moduleParam);
+        if (mod) setActiveModule(mod.id, mod.name);
+    }, [moduleParam, setActiveModule]);
 
     const hasPermission = (perm: string) => {
         if (user?.role === "SUPER_ADMIN") return true;

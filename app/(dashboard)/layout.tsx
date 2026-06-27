@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { LogOut } from "lucide-react";
 import { GlobalHeader } from "@/components/layout/global-header";
 import { useAuth, useAuthState } from "@/context/AuthContext";
@@ -28,7 +29,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     const { logout } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
-    const { activeModuleId, setActiveModule } = useNavigation();
+    const { activeModuleId } = useNavigation();
 
     useEffect(() => {
         if (user?.role === "STAFF_EDITOR" && !pathname.startsWith("/staff-editing/students")) {
@@ -55,11 +56,6 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         ? user.fullName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()
         : "?";
 
-    const handleModuleClick = (id: string, name: string) => {
-        setActiveModule(id, name);
-        router.push("/dashboard");
-    };
-
     return (
         <div className="flex h-screen bg-zinc-50 dark:bg-zinc-900 overflow-hidden selection:bg-primary/30 font-sans">
 
@@ -68,9 +64,9 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
                 {visibleModules.map(module => {
                     const isActive = module.id === highlightedId;
                     return (
-                        <button
+                        <Link
                             key={module.id}
-                            onClick={() => handleModuleClick(module.id, module.name)}
+                            href={`/dashboard?module=${module.id}`}
                             title={module.name}
                             className={`w-[60px] flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl transition-all duration-150 ${
                                 isActive
@@ -82,7 +78,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
                             <span className="text-[9px] font-bold tracking-wide leading-tight text-center">
                                 {RAIL_LABELS[module.id] ?? module.name}
                             </span>
-                        </button>
+                        </Link>
                     );
                 })}
 
