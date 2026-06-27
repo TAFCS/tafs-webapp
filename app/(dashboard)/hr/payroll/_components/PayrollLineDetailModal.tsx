@@ -100,17 +100,17 @@ function applyManualOverridePreview(
   checkOutTime?: string,
 ): DayBreakdownEntry {
   const clearsPunches = status === "ABSENT" || status === "EXCUSED";
-  const checkInAt = checkInTime
-    ? timeToIso(day.date, checkInTime)
-    : clearsPunches
-      ? null
+  const checkInAt = clearsPunches
+    ? null
+    : checkInTime
+      ? timeToIso(day.date, checkInTime)
       : day.check_in_at;
-  const checkOutAt = checkOutTime
-    ? timeToIso(day.date, checkOutTime)
-    : clearsPunches
-      ? null
+  const checkOutAt = clearsPunches
+    ? null
+    : checkOutTime
+      ? timeToIso(day.date, checkOutTime)
       : day.check_out_at;
-  const manualWithTimes = !!(checkInTime || checkOutTime);
+  const manualWithTimes = !clearsPunches && !!(checkInTime || checkOutTime);
 
   return {
     ...day,
@@ -193,8 +193,9 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
     setSaving(date);
     setError(null);
     try {
-      const checkInTime = form.checkIn || undefined;
-      const checkOutTime = form.checkOut || undefined;
+      const clearsPunches = status === "ABSENT" || status === "EXCUSED";
+      const checkInTime = clearsPunches ? undefined : (form.checkIn || undefined);
+      const checkOutTime = clearsPunches ? undefined : (form.checkOut || undefined);
 
       await attendanceService.bulkMarkStaff({
         date,
@@ -378,7 +379,10 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
                         {wasOverridden && <CheckCircle2 className="h-2.5 w-2.5" />}
                         {pill.label}
                       </span>
-                      {effClass !== "DAY_OFF" && effClass !== "UNRESOLVED" && (
+                      {effClass !== "DAY_OFF" &&
+                        effClass !== "UNRESOLVED" &&
+                        effClass !== "ABSENT" &&
+                        effClass !== "EXCUSED" && (
                         <span className="text-[11px] text-zinc-400 truncate flex items-center gap-1">
                           {fmtISO(day.check_in_at)} – {fmtISO(day.check_out_at)}
                           {day.break_minutes > 0 && (
