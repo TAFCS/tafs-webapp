@@ -8,10 +8,6 @@ import {
     ChevronLeft,
     ChevronRight,
     X,
-    UserPlus,
-    RefreshCw,
-    AlertCircle,
-    Eye,
     Mail,
     MapPin,
 } from "lucide-react";
@@ -229,116 +225,67 @@ export function FamiliesDataTable({
                         </div>
                     </div>
                 ) : (
-                    <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden bg-white dark:bg-zinc-950 shadow-sm w-full">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
-                                    <tr>
-                                        <th className="px-5 py-3 text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest w-20">ID</th>
-                                        <th className="px-5 py-3 text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Household</th>
-                                        <th className="px-5 py-3 text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Primary Guardian</th>
-                                        <th className="px-5 py-3 text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Contact & Address</th>
-                                        <th className="px-5 py-3 text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Linked Students</th>
-                                        <th className="px-5 py-3 text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest text-right w-24">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                                    {families.map((family) => {
-                                        const initials = family.household_name ? family.household_name.charAt(0).toUpperCase() : "?";
-                                        return (
-                                            <tr
-                                                key={family.id}
-                                                onClick={() => setDetailFamilyId(family.id)}
-                                                className="group hover:bg-zinc-50/50 dark:hover:bg-zinc-900/40 transition-colors duration-150 cursor-pointer"
-                                            >
-                                                <td className="px-5 py-4">
-                                                    <span className="text-[11px] font-mono font-bold text-zinc-400 dark:text-zinc-500">#{family.id}</span>
-                                                </td>
-                                                <td className="px-5 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0 uppercase">
-                                                            {initials}
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-bold text-zinc-900 dark:text-zinc-100 text-sm leading-tight uppercase group-hover:text-primary transition-colors">
-                                                                {family.household_name}
-                                                            </p>
-                                                            {family.legacy_pid && (
-                                                                <span className="text-[10px] font-mono text-zinc-400 mt-0.5 block">
-                                                                    Legacy PID: {family.legacy_pid}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-5 py-4">
-                                                    {family.primary_guardian ? (
-                                                        <div className="flex flex-col gap-0.5">
-                                                            <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                                                                {family.primary_guardian.name}
-                                                            </span>
-                                                            {family.primary_guardian.cnic && (
-                                                                <span className="text-[10px] font-mono text-zinc-400">
-                                                                    CNIC: {family.primary_guardian.cnic}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-xs text-zinc-450 dark:text-zinc-500 italic">No primary guardian</span>
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {families.map((family) => {
+                            const initials = family.household_name
+                                ? family.household_name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()
+                                : "?";
+                            const colors = ["bg-violet-100 text-violet-700", "bg-blue-100 text-blue-700", "bg-emerald-100 text-emerald-700", "bg-amber-100 text-amber-700"];
+                            const color = colors[family.household_name?.charCodeAt(0) % colors.length] ?? colors[0];
+                            return (
+                                <button
+                                    key={family.id}
+                                    onClick={() => setDetailFamilyId(family.id)}
+                                    className="w-full text-left bg-white border border-zinc-100 rounded-2xl p-4 hover:shadow-md hover:border-zinc-200 transition-all duration-200 active:scale-[0.99]"
+                                >
+                                    <div className="flex items-start gap-3">
+                                        {/* Avatar */}
+                                        <div className={`rounded-full flex items-center justify-center font-bold text-xs ring-2 ring-white shadow-sm shrink-0 ${color}`} style={{ width: 44, height: 44 }}>
+                                            {initials}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            {/* Name + ID */}
+                                            <div className="flex items-start justify-between gap-2 flex-wrap">
+                                                <p className="font-bold text-zinc-900 text-[14px] leading-tight truncate uppercase">{family.household_name}</p>
+                                                <span className="text-[10px] font-mono font-bold text-zinc-400">#{family.id}</span>
+                                            </div>
+                                            {/* Guardian */}
+                                            {family.primary_guardian && (
+                                                <p className="mt-0.5 text-[11px] text-zinc-500 font-semibold truncate">
+                                                    {family.primary_guardian.name}
+                                                    {family.primary_guardian.cnic && (
+                                                        <span className="text-zinc-400 font-mono"> · {family.primary_guardian.cnic}</span>
                                                     )}
-                                                </td>
-                                                <td className="px-5 py-4">
-                                                    <div className="flex flex-col gap-0.5 max-w-[240px]">
-                                                        {family.email ? (
-                                                            <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate flex items-center gap-1.5">
-                                                                <Mail className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 shrink-0" />
-                                                                {family.email}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-xs text-zinc-300 dark:text-zinc-600 italic">No email</span>
-                                                        )}
-                                                        {family.primary_address ? (
-                                                            <span className="text-xs text-zinc-500 dark:text-zinc-450 truncate flex items-center gap-1.5 mt-0.5" title={family.primary_address}>
-                                                                <MapPin className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 shrink-0" />
-                                                                {family.primary_address}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-xs text-zinc-300 dark:text-zinc-600 italic">No address</span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="px-5 py-4">
-                                                    <div className="flex flex-wrap gap-1.5 max-w-[320px]">
-                                                        {family.students && family.students.length > 0 ? (
-                                                            family.students.map((student) => (
-                                                                <span key={student.cc} className="inline-flex items-center gap-1 text-[10px] bg-zinc-50 dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-lg px-2 py-0.5 font-bold uppercase tracking-tight">
-                                                                    <GraduationCap className="h-3 w-3 text-zinc-400 dark:text-zinc-500" />
-                                                                    {student.full_name}
-                                                                </span>
-                                                            ))
-                                                        ) : (
-                                                            <span className="text-[10px] text-zinc-450 dark:text-zinc-500 italic">No enrolled students</span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="px-5 py-4 text-right">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setDetailFamilyId(family.id);
-                                                        }}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest rounded-lg border border-zinc-200 dark:border-zinc-800 transition-colors"
-                                                    >
-                                                        <Eye className="h-3.5 w-3.5" />
-                                                        Details
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+                                                </p>
+                                            )}
+                                            {/* Contact chips */}
+                                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                                {family.email && (
+                                                    <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold truncate max-w-[160px]">
+                                                        <Mail className="h-2.5 w-2.5 text-zinc-400 shrink-0" />{family.email}
+                                                    </span>
+                                                )}
+                                                {family.primary_address && (
+                                                    <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold truncate max-w-[160px]" title={family.primary_address}>
+                                                        <MapPin className="h-2.5 w-2.5 text-zinc-400 shrink-0" />{family.primary_address}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {/* Students */}
+                                            {family.students && family.students.length > 0 && (
+                                                <div className="mt-1.5 flex flex-wrap gap-1">
+                                                    {family.students.map((s) => (
+                                                        <span key={s.cc} className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                                                            <GraduationCap className="h-2.5 w-2.5 text-zinc-400" />{s.full_name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
             </div>

@@ -385,425 +385,426 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
   const score = getHealthScore();
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white dark:bg-zinc-950 rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col h-[90vh] border border-zinc-200 dark:border-zinc-800">
-        {/* Header */}
-        <div className="px-6 py-4 border-b flex justify-between items-center bg-zinc-50 dark:bg-zinc-900 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100/50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+
+        {/* Gradient Header */}
+        <div className="relative h-28 bg-gradient-to-r from-indigo-600 to-blue-700 p-6 flex flex-col justify-end flex-shrink-0">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            <XIcon className="h-5 w-5" />
+          </button>
+
+          <div className="flex items-end gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/20 text-white border border-white/30 flex items-center justify-center flex-shrink-0">
               <Users className="h-5 w-5" />
             </div>
             <div>
               {isEditingName ? (
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2">
                   <input
                     autoFocus
                     value={tempHouseholdName}
                     onChange={e => setTempHouseholdName(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && handleUpdateHouseholdName()}
-                    className="h-8 px-2 text-[14px] font-bold text-zinc-900 bg-white border border-emerald-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/10 uppercase"
+                    className="h-8 px-2 text-[14px] font-bold text-zinc-900 bg-white border border-white/80 rounded-lg outline-none uppercase"
                   />
-                  <button onClick={handleUpdateHouseholdName} disabled={isSavingName} className="px-3 h-8 text-[10px] font-black uppercase bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
+                  <button onClick={handleUpdateHouseholdName} disabled={isSavingName} className="px-3 h-8 text-[10px] font-black uppercase bg-white text-indigo-700 rounded-lg hover:bg-white/90">
                     {isSavingName ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
                   </button>
-                  <button onClick={() => setIsEditingName(false)} className="px-3 h-8 text-[10px] font-black uppercase bg-zinc-200 text-zinc-500 rounded-lg">Cancel</button>
+                  <button onClick={() => setIsEditingName(false)} className="px-3 h-8 text-[10px] font-black uppercase bg-white/20 text-white rounded-lg">Cancel</button>
                 </div>
               ) : (
                 <div className="group flex items-center gap-2 cursor-pointer" onClick={() => { setTempHouseholdName(family?.household_name || ""); setIsEditingName(true); }}>
-                  <h3 className="font-extrabold text-lg text-zinc-900 dark:text-zinc-100 leading-tight group-hover:text-emerald-600 uppercase tracking-tight">
+                  <h3 className="font-extrabold text-lg text-white leading-tight uppercase tracking-tight group-hover:text-white/80">
                     {family?.household_name ?? "Family Profile"}
                   </h3>
-                  <span className="text-[10px] text-zinc-400 opacity-0 group-hover:opacity-100">✏️</span>
+                  <span className="text-[10px] text-white/60 opacity-0 group-hover:opacity-100">✏️</span>
                 </div>
               )}
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 font-bold">FAMILY ID: #{familyId}</span>
+                <span className="text-xs text-white/70 font-bold">FAMILY ID: #{familyId}</span>
                 {family && (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-zinc-150/50 dark:bg-zinc-800 rounded-lg">
-                    <div className="h-1.5 w-16 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
-                      <div className={`h-full transition-all duration-1000 ${score > 80 ? "bg-emerald-500" : score > 50 ? "bg-amber-500" : "bg-rose-500"}`} style={{ width: `${score}%` }} />
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/10 rounded-lg">
+                    <div className="h-1.5 w-16 bg-white/20 rounded-full overflow-hidden">
+                      <div className={`h-full transition-all duration-1000 ${score > 80 ? "bg-emerald-400" : score > 50 ? "bg-amber-400" : "bg-rose-400"}`} style={{ width: `${score}%` }} />
                     </div>
-                    <span className="text-[9px] font-black text-zinc-500">{score}% Complete</span>
+                    <span className="text-[9px] font-black text-white/70">{score}% Complete</span>
                   </div>
                 )}
               </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl hover:bg-zinc-250/30 text-zinc-400 hover:text-zinc-600 transition-colors"
-          >
-            <XIcon className="h-5 w-5" />
-          </button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-zinc-50/50 dark:bg-zinc-950/20">
-          {isLoading && (
-            <div className="flex flex-col items-center justify-center py-20">
-              <Loader2 className="h-10 w-10 text-emerald-600 animate-spin" />
-              <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mt-4">Initializing Data Matrix...</p>
-            </div>
-          )}
-          {error && (
-            <div className="py-12 text-center text-red-500 text-sm">{error}</div>
-          )}
-
-          {family && !isLoading && (
-            <>
-              {/* Info Grid (Editable Details) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Email tile */}
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 relative group shadow-sm">
-                  <div className="flex items-center justify-between text-zinc-400 mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider">Email Address</span>
-                    <button className="text-xs opacity-0 group-hover:opacity-100 hover:text-emerald-600" onClick={() => { setTempEmail(family.email ?? ""); setIsEditingEmail(true); }}>✏️</button>
-                  </div>
-                  {isEditingEmail ? (
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <input value={tempEmail} onChange={e => setTempEmail(e.target.value)} className="h-7 px-2 border rounded text-xs w-full outline-none focus:border-emerald-500" />
-                      <button onClick={handleUpdateEmail} className="px-2 h-7 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700">Save</button>
-                      <button onClick={() => setIsEditingEmail(false)} className="px-2 h-7 bg-zinc-200 text-zinc-500 rounded text-[10px] font-bold">Cancel</button>
-                    </div>
-                  ) : (
-                    <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1 truncate">{family.email ?? "Not provided"}</p>
-                  )}
-                </div>
-
-                {/* Address tile */}
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 relative group sm:col-span-2 shadow-sm">
-                  <div className="flex items-center justify-between text-zinc-400 mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider">Primary Address</span>
-                    <button className="text-xs opacity-0 group-hover:opacity-100 hover:text-emerald-600" onClick={() => { setTempAddress(family.primary_address ?? ""); setIsEditingAddress(true); }}>✏️</button>
-                  </div>
-                  {isEditingAddress ? (
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <textarea value={tempAddress} onChange={e => setTempAddress(e.target.value)} rows={1} className="px-2 py-1 border rounded text-xs w-full outline-none resize-none focus:border-emerald-500" />
-                      <button onClick={handleUpdateAddress} className="px-2 h-7 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700">Save</button>
-                      <button onClick={() => setIsEditingAddress(false)} className="px-2 h-7 bg-zinc-200 text-zinc-500 rounded text-[10px] font-bold">Cancel</button>
-                    </div>
-                  ) : (
-                    <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1 uppercase truncate">{family.primary_address ?? "Not provided"}</p>
-                  )}
-                </div>
+        {/* Main Body (Scrollable) */}
+        <div className="flex-1 overflow-y-auto w-full">
+          <div className="p-6 space-y-6">
+            {isLoading && (
+              <div className="flex flex-col items-center justify-center py-20">
+                <Loader2 className="h-10 w-10 text-indigo-600 animate-spin" />
+                <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mt-4">Loading family data...</p>
               </div>
+            )}
+            {error && (
+              <div className="py-12 text-center text-red-500 text-sm">{error}</div>
+            )}
 
-              {/* Enrolled Students Banner */}
-              <section className="bg-emerald-50/10 dark:bg-zinc-900 border border-emerald-100/40 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-4">
-                <h4 className="text-[13px] font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-2 uppercase tracking-wider">
-                  <GraduationCap className="h-5 w-5 text-emerald-600 shrink-0" />
-                  Enrolled Students ({family.students.length})
-                </h4>
-                {family.students.length === 0 ? (
-                  <p className="text-sm text-zinc-400 italic">No students linked to this family.</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {family.students.map((s: FamilyStudent) => (
-                      <StudentRow key={s.cc} student={s} />
-                    ))}
+            {family && !isLoading && (
+              <>
+                {/* Household Info Box */}
+                <div className="bg-zinc-50 dark:bg-zinc-900/50 shadow-sm rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-indigo-500" /> Household Information
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="relative group">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-1">Email Address</p>
+                      {isEditingEmail ? (
+                        <div className="flex items-center gap-1.5">
+                          <input value={tempEmail} onChange={e => setTempEmail(e.target.value)} className="h-7 px-2 border rounded text-xs w-full outline-none focus:border-indigo-500" />
+                          <button onClick={handleUpdateEmail} className="px-2 h-7 bg-indigo-600 text-white rounded text-[10px] font-bold hover:bg-indigo-700">Save</button>
+                          <button onClick={() => setIsEditingEmail(false)} className="px-2 h-7 bg-zinc-200 text-zinc-500 rounded text-[10px] font-bold">Cancel</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase">{family.email ?? "Not provided"}</p>
+                          <button className="text-xs opacity-0 group-hover:opacity-100 hover:text-indigo-600 transition-opacity" onClick={() => { setTempEmail(family.email ?? ""); setIsEditingEmail(true); }}>✏️</button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="relative group">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-1">Primary Address</p>
+                      {isEditingAddress ? (
+                        <div className="flex items-center gap-1.5">
+                          <textarea value={tempAddress} onChange={e => setTempAddress(e.target.value)} rows={1} className="px-2 py-1 border rounded text-xs w-full outline-none resize-none focus:border-indigo-500" />
+                          <button onClick={handleUpdateAddress} className="px-2 h-7 bg-indigo-600 text-white rounded text-[10px] font-bold hover:bg-indigo-700">Save</button>
+                          <button onClick={() => setIsEditingAddress(false)} className="px-2 h-7 bg-zinc-200 text-zinc-500 rounded text-[10px] font-bold">Cancel</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase">{family.primary_address ?? "Not provided"}</p>
+                          <button className="text-xs opacity-0 group-hover:opacity-100 hover:text-indigo-600 transition-opacity" onClick={() => { setTempAddress(family.primary_address ?? ""); setIsEditingAddress(true); }}>✏️</button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </section>
+                </div>
 
-              {/* Structured Mailing Address */}
-              <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative transition-all duration-200">
-                <div className="absolute top-6 right-6">
-                  {isEditingAddrCard ? (
-                    <button onClick={() => { setIsEditingAddrCard(false); reloadData(); }} className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl"><XIcon className="h-4 w-4" /></button>
+                {/* Enrolled Students Box */}
+                <div className="bg-zinc-50 dark:bg-zinc-900/50 shadow-sm rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center gap-2">
+                    <GraduationCap className="h-4 w-4 text-emerald-500" /> Enrolled Students ({family.students.length})
+                  </h3>
+                  {family.students.length === 0 ? (
+                    <p className="text-sm text-zinc-400 italic">No students linked to this family.</p>
                   ) : (
-                    <button onClick={() => setIsEditingAddrCard(true)} className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"><Pencil className="h-4 w-4" /></button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {family.students.map((s: FamilyStudent) => (
+                        <StudentRow key={s.cc} student={s} />
+                      ))}
+                    </div>
                   )}
                 </div>
 
-                <h3 className="text-[16px] font-extrabold text-zinc-950 dark:text-zinc-100 tracking-tight flex items-center gap-2 mb-1">
-                  <MapPin className="h-5 w-5 text-emerald-600 shrink-0" />
-                  <span>FAMILY MAILING ADDRESS</span>
-                </h3>
-                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-6">THIS ADDRESS APPLIES TO FATHER, MOTHER, AND ALL GUARDIANS</p>
-
-                {isEditingAddrCard ? (
-                  <div className="space-y-5 animate-in fade-in duration-200">
-                    <div className="flex items-center justify-between flex-wrap gap-4 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                      <div className="flex items-center gap-4 shrink-0">
-                        <Toggle label="Apply to all household members" checked={syncToHousehold} onChange={setSyncToHousehold} />
-                      </div>
-                      <button 
-                        onClick={handleSaveFamilyAddress} 
-                        disabled={savingAddr} 
-                        className="flex items-center gap-1.5 px-4 h-10 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-extrabold rounded-xl shadow-sm uppercase tracking-wider"
-                      >
-                        {savingAddr ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedAddr ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
-                        {savingAddr ? "..." : savedAddr ? "Saved" : "Save All Addresses"}
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Field label="House / Apartment Name and No.">
-                        <Input value={familyAddress.house_appt_name} onChange={v => { setFamilyAddress((p: any) => ({ ...p, house_appt_name: v })); setIsAddrDirty(true); }} />
-                      </Field>
-                      <Field label="Area and Block #">
-                        <Input value={familyAddress.area_block} onChange={v => { setFamilyAddress((p: any) => ({ ...p, area_block: v })); setIsAddrDirty(true); }} />
-                      </Field>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 col-span-1 md:col-span-2">
-                        <Field label="City">
-                          <Input value={familyAddress.city} onChange={v => { setFamilyAddress((p: any) => ({ ...p, city: v })); setIsAddrDirty(true); }} />
-                        </Field>
-                        <Field label="Postal Code">
-                          <Input value={familyAddress.postal_code} onChange={v => { setFamilyAddress((p: any) => ({ ...p, postal_code: v })); setIsAddrDirty(true); }} />
-                        </Field>
-                        <Field label="Province">
-                          <Input value={familyAddress.province} onChange={v => { setFamilyAddress((p: any) => ({ ...p, province: v })); setIsAddrDirty(true); }} />
-                        </Field>
-                        <Field label="Country">
-                          <Input value={familyAddress.country} onChange={v => { setFamilyAddress((p: any) => ({ ...p, country: v })); setIsAddrDirty(true); }} />
-                        </Field>
-                      </div>
-                      <div className="col-span-1 md:col-span-2">
-                        <Field label="Family Home Phone #">
-                          <PhoneInput value={familyAddress.work_phone} onChange={v => { setFamilyAddress((p: any) => ({ ...p, work_phone: v })); setIsAddrDirty(true); }} />
-                        </Field>
-                      </div>
-                    </div>
+                {/* Family Mailing Address Box */}
+                <div className="bg-zinc-50 dark:bg-zinc-900/50 shadow-sm rounded-xl p-5 relative">
+                  <div className="absolute top-4 right-4">
+                    {isEditingAddrCard ? (
+                      <button onClick={() => { setIsEditingAddrCard(false); reloadData(); }} className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl"><XIcon className="h-4 w-4" /></button>
+                    ) : (
+                      <button onClick={() => setIsEditingAddrCard(true)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"><Pencil className="h-4 w-4" /></button>
+                    )}
                   </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-y-4 gap-x-6 animate-in fade-in duration-200">
-                    <div>
-                      <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">House / Apartment Name and No.</p>
-                      <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1 uppercase">{familyAddress.house_appt_name || "N/A"}</p>
+
+                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1 flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-emerald-500" /> Family Mailing Address
+                  </h3>
+                  <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider mb-4">This address applies to father, mother, and all guardians</p>
+
+                  {isEditingAddrCard ? (
+                    <div className="space-y-5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between flex-wrap gap-4 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                        <Toggle label="Apply to all household members" checked={syncToHousehold} onChange={setSyncToHousehold} />
+                        <button
+                          onClick={handleSaveFamilyAddress}
+                          disabled={savingAddr}
+                          className="flex items-center gap-1.5 px-4 h-10 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-extrabold rounded-xl shadow-sm uppercase tracking-wider"
+                        >
+                          {savingAddr ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedAddr ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
+                          {savingAddr ? "..." : savedAddr ? "Saved" : "Save All Addresses"}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Field label="House / Apartment Name and No.">
+                          <Input value={familyAddress.house_appt_name} onChange={v => { setFamilyAddress((p: any) => ({ ...p, house_appt_name: v })); setIsAddrDirty(true); }} />
+                        </Field>
+                        <Field label="Area and Block #">
+                          <Input value={familyAddress.area_block} onChange={v => { setFamilyAddress((p: any) => ({ ...p, area_block: v })); setIsAddrDirty(true); }} />
+                        </Field>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 col-span-1 md:col-span-2">
+                          <Field label="City">
+                            <Input value={familyAddress.city} onChange={v => { setFamilyAddress((p: any) => ({ ...p, city: v })); setIsAddrDirty(true); }} />
+                          </Field>
+                          <Field label="Postal Code">
+                            <Input value={familyAddress.postal_code} onChange={v => { setFamilyAddress((p: any) => ({ ...p, postal_code: v })); setIsAddrDirty(true); }} />
+                          </Field>
+                          <Field label="Province">
+                            <Input value={familyAddress.province} onChange={v => { setFamilyAddress((p: any) => ({ ...p, province: v })); setIsAddrDirty(true); }} />
+                          </Field>
+                          <Field label="Country">
+                            <Input value={familyAddress.country} onChange={v => { setFamilyAddress((p: any) => ({ ...p, country: v })); setIsAddrDirty(true); }} />
+                          </Field>
+                        </div>
+                        <div className="col-span-1 md:col-span-2">
+                          <Field label="Family Home Phone #">
+                            <PhoneInput value={familyAddress.work_phone} onChange={v => { setFamilyAddress((p: any) => ({ ...p, work_phone: v })); setIsAddrDirty(true); }} />
+                          </Field>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Area and Block #</p>
-                      <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1 uppercase">{familyAddress.area_block || "N/A"}</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-y-4 gap-x-6 animate-in fade-in duration-200">
+                      <div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-1">House / Apartment Name and No.</p>
+                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase">{familyAddress.house_appt_name || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-1">Area and Block #</p>
+                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase">{familyAddress.area_block || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-1">City</p>
+                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase">{familyAddress.city || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-1">Postal Code</p>
+                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase">{familyAddress.postal_code || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-1">Province</p>
+                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase">{familyAddress.province || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-1">Country</p>
+                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase">{familyAddress.country || "N/A"}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-1">Family Home Phone #</p>
+                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                          {isNA(familyAddress.work_phone) ? (
+                            <span className="px-1.5 py-0.5 text-[9px] font-black bg-emerald-600 text-white rounded-md uppercase">N/A</span>
+                          ) : (
+                            familyAddress.work_phone || "N/A"
+                          )}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">City</p>
-                      <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1 uppercase">{familyAddress.city || "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Postal Code</p>
-                      <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1 uppercase">{familyAddress.postal_code || "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Province</p>
-                      <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1 uppercase">{familyAddress.province || "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Country</p>
-                      <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1 uppercase">{familyAddress.country || "N/A"}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Family Home Phone #</p>
-                      <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1 flex items-center gap-2">
-                        {isNA(familyAddress.work_phone) ? (
-                          <span className="px-1.5 py-0.5 text-[9px] font-black bg-emerald-600 text-white rounded-md uppercase">N/A</span>
-                        ) : (
-                          familyAddress.work_phone
-                        )}
-                      </p>
-                    </div>
+                  )}
+                </div>
+
+                {/* Student Context Selection for link / add */}
+                {family.students.length > 1 && (
+                  <div className="flex items-center gap-3 p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl">
+                    <span className="text-[11px] font-bold text-zinc-700 dark:text-zinc-400 uppercase">Target Student Context:</span>
+                    <select
+                      value={selectedStudentId ?? ""}
+                      onChange={e => setSelectedStudentId(Number(e.target.value))}
+                      className="h-8 px-3 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 rounded-lg outline-none focus:border-indigo-500 text-zinc-800 dark:text-zinc-200 font-medium"
+                    >
+                      {family.students.map(s => (
+                        <option key={s.cc} value={s.cc}>{s.full_name} (CC {s.cc})</option>
+                      ))}
+                    </select>
                   </div>
                 )}
-              </section>
 
-              {/* Student Context Selection for link / add */}
-              {family.students.length > 1 && (
-                <div className="flex items-center gap-3 p-3 bg-emerald-50/10 dark:bg-emerald-950/10 border border-emerald-100/30 dark:border-emerald-800 rounded-xl">
-                  <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">Target Student Context:</span>
-                  <select
-                    value={selectedStudentId ?? ""}
-                    onChange={e => setSelectedStudentId(Number(e.target.value))}
-                    className="h-8 px-3 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 rounded-lg outline-none focus:border-emerald-500 text-zinc-800 dark:text-zinc-200 font-medium"
-                  >
-                    {family.students.map(s => (
-                      <option key={s.cc} value={s.cc}>{s.full_name} (CC {s.cc})</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Guardians operational block */}
-              <section className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
-                    <Users className="h-4 w-4 text-emerald-600" />
-                    Guardians ({family.guardians.length})
-                  </h4>
-                  <button onClick={() => setAddingGuardian(!addingGuardian)} className="flex items-center gap-1 px-3 h-8 text-[11px] font-bold text-emerald-650 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl hover:bg-emerald-100/80 dark:hover:bg-emerald-900/40 transition-colors">
-                    <Plus className="h-3.5 w-3.5" /> Add Guardian
-                  </button>
-                </div>
-
-                {/* Search & Link Guardian */}
-                <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-sm">
-                  <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Link Existing Guardian</p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 relative">
-                      <Input
-                        value={searchCnic}
-                        onChange={v => setSearchCnic(formatCNIC(v))}
-                        placeholder="SEARCH BY CNIC (xxxxx-xxxxxxx-x)"
-                        className="pl-9"
-                      />
-                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
-                    </div>
-                    <button
-                      onClick={handleSearchCnic}
-                      disabled={searchingCnic || searchCnic.length < 15}
-                      className="px-4 h-9 bg-zinc-900 dark:bg-zinc-800 text-white text-[11px] font-bold rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 disabled:opacity-50 transition-colors"
-                    >
-                      {searchingCnic ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "SEARCH"}
+                {/* Guardians Box */}
+                <div className="bg-zinc-50 dark:bg-zinc-900/50 shadow-sm rounded-xl p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                      <Users className="h-4 w-4 text-indigo-500" /> Guardians ({family.guardians.length})
+                    </h3>
+                    <button onClick={() => setAddingGuardian(!addingGuardian)} className="flex items-center gap-1 px-3 h-8 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl hover:bg-indigo-100/80 dark:hover:bg-indigo-900/40 transition-colors">
+                      <Plus className="h-3.5 w-3.5" /> Add Guardian
                     </button>
                   </div>
 
-                  {foundGuardian && (
-                    <div className="mt-4 bg-white dark:bg-zinc-950 border border-emerald-100 dark:border-emerald-900/30 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <h4 className="font-bold text-zinc-900 dark:text-zinc-155 uppercase">{foundGuardian.full_name}</h4>
-                      <p className="text-[10px] font-bold text-zinc-400 mt-0.5">{foundGuardian.cnic}</p>
-                      
-                      <div className="mt-3 grid grid-cols-2 gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                        <Field label="Relationship">
-                          <select value={linkRel} onChange={e => setLinkRel(e.target.value)} className="w-full h-9 px-3 text-[13px] font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-emerald-500 uppercase">
-                            {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
-                          </select>
-                        </Field>
-                        {linkRel === "OTHER" && (
-                          <Field label="Specify Relationship">
-                            <Input value={linkCustomRel} onChange={setLinkCustomRel} placeholder="e.g. DRIVER, TUTOR" showNA />
-                          </Field>
-                        )}
-                        <div className="flex items-center gap-3 pt-4 col-span-2">
-                          <Toggle label="Primary" checked={isLinkPrimary} onChange={setIsLinkPrimary} />
-                          <Toggle label="Emergency" checked={isLinkEmergency} onChange={setIsLinkEmergency} />
-                        </div>
+                  {/* Search & Link Guardian */}
+                  <div className="bg-white dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800/80 rounded-xl p-4 space-y-3 mb-4">
+                    <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Link Existing Guardian</p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 relative">
+                        <Input
+                          value={searchCnic}
+                          onChange={v => setSearchCnic(formatCNIC(v))}
+                          placeholder="SEARCH BY CNIC (xxxxx-xxxxxxx-x)"
+                          className="pl-9"
+                        />
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
                       </div>
-
-                      <div className="mt-4 flex gap-2">
-                        <button onClick={handleLinkExisting} disabled={linkingGuardian} className="flex items-center gap-1.5 px-4 h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-extrabold rounded-xl shadow-sm uppercase tracking-wider transition-all">
-                          {linkingGuardian ? <Loader2 className="h-3 w-3 animate-spin" /> : <LinkIcon className="h-3 w-3" />}
-                          {linkingGuardian ? "Linking..." : "Link Guardian"}
-                        </button>
-                        <button onClick={() => setFoundGuardian(null)} className="px-3 h-8 text-[11px] font-bold text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all">Cancel</button>
-                      </div>
+                      <button
+                        onClick={handleSearchCnic}
+                        disabled={searchingCnic || searchCnic.length < 15}
+                        className="px-4 h-9 bg-zinc-900 dark:bg-zinc-800 text-white text-[11px] font-bold rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+                      >
+                        {searchingCnic ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "SEARCH"}
+                      </button>
                     </div>
-                  )}
-                </div>
 
-                {/* Add new Guardian Form */}
-                {addingGuardian && (
-                  <div className="bg-emerald-50/10 dark:bg-emerald-950/5 border border-emerald-100/30 dark:border-emerald-800/30 rounded-2xl p-4 space-y-3 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-                    <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">New Guardian</p>
+                    {foundGuardian && (
+                      <div className="mt-4 bg-white dark:bg-zinc-950 border border-indigo-100 dark:border-indigo-900/30 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <h4 className="font-bold text-zinc-900 dark:text-zinc-100 uppercase">{foundGuardian.full_name}</h4>
+                        <p className="text-[10px] font-bold text-zinc-400 mt-0.5">{foundGuardian.cnic}</p>
 
-                    <div className="flex flex-col md:flex-row gap-6">
-                      {/* Photo Picker */}
-                      <div className="shrink-0">
-                        <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Profile Picture</label>
-                        <div
-                          onClick={() => fileInputRef.current?.click()}
-                          className="relative group w-32 h-40 bg-white dark:bg-zinc-900 rounded-2xl border-2 border-dashed border-emerald-250 dark:border-emerald-900/30 flex flex-col items-center justify-center overflow-hidden transition-all hover:border-emerald-500/50 cursor-pointer shadow-sm"
-                        >
-                          {photoPreview ? (
-                            <>
-                              <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <Camera className="h-6 w-6 text-white" />
-                              </div>
-                            </>
-                          ) : (
-                            <div className="flex flex-col items-center gap-2 text-emerald-300 dark:text-emerald-700/60 group-hover:text-emerald-600 transition-colors">
-                              <Camera className="h-8 w-8" />
-                              <span className="text-[10px] font-black uppercase">Upload</span>
-                            </div>
-                          )}
-                          <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handlePhotoSelect} />
-                        </div>
-                      </div>
-
-                      {/* Form Fields */}
-                      <div className="flex-1 space-y-5">
-                        <div className="flex gap-6 pb-2 border-b border-emerald-100/30 dark:border-emerald-900/20">
-                          <Toggle label="Primary Contact" checked={newG.is_primary_contact} onChange={v => setNewG((p: any) => ({ ...p, is_primary_contact: v }))} />
-                          <Toggle label="Emergency Contact" checked={newG.is_emergency_contact} onChange={v => setNewG((p: any) => ({ ...p, is_emergency_contact: v }))} />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="md:col-span-2">
-                            <Field label="Full Name"><Input value={newG.full_name} onChange={v => setNewG((p: any) => ({ ...p, full_name: v }))} showNA /></Field>
-                          </div>
-
-                          <Field label="CNIC">
-                            <Input value={newG.cnic} onChange={v => setNewG((p: any) => ({ ...p, cnic: formatCNIC(v) }))} placeholder="xxxxx-xxxxxxx-x" />
-                          </Field>
-
+                        <div className="mt-3 grid grid-cols-2 gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                           <Field label="Relationship">
-                            <select
-                              value={RELATIONSHIPS.filter(r => r !== "OTHER").includes((newG.relationship || "").toUpperCase()) ? (newG.relationship || "").toUpperCase() : "OTHER"}
-                              onChange={e => setNewG((p: any) => ({ ...p, relationship: e.target.value.toUpperCase() }))}
-                              className="w-full h-9 px-3 text-[13px] font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-emerald-500 appearance-none uppercase"
-                            >
+                            <select value={linkRel} onChange={e => setLinkRel(e.target.value)} className="w-full h-9 px-3 text-[13px] font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-indigo-500 uppercase">
                               {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
                             </select>
                           </Field>
-
-                          {(!RELATIONSHIPS.filter(r => r !== "OTHER").includes((newG.relationship || "").toUpperCase())) && (
-                            <div className="md:col-span-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                              <Field label="Specify Relationship">
-                                <Input value={newG.relationship === "OTHER" ? "" : newG.relationship} onChange={v => setNewG((p: any) => ({ ...p, relationship: v }))} placeholder="e.g. DRIVER, TUTOR" showNA />
-                              </Field>
-                            </div>
+                          {linkRel === "OTHER" && (
+                            <Field label="Specify Relationship">
+                              <Input value={linkCustomRel} onChange={setLinkCustomRel} placeholder="e.g. DRIVER, TUTOR" showNA />
+                            </Field>
                           )}
+                          <div className="flex items-center gap-3 pt-4 col-span-2">
+                            <Toggle label="Primary" checked={isLinkPrimary} onChange={setIsLinkPrimary} />
+                            <Toggle label="Emergency" checked={isLinkEmergency} onChange={setIsLinkEmergency} />
+                          </div>
+                        </div>
 
-                          <Field label="Phone">
-                            <PhoneInput value={newG.primary_phone} onChange={v => setNewG((p: any) => ({ ...p, primary_phone: v }))} />
-                          </Field>
-
-                          <Field label="WhatsApp">
-                            <PhoneInput value={newG.whatsapp_number} onChange={v => setNewG((p: any) => ({ ...p, whatsapp_number: v }))} />
-                          </Field>
-
-                          <Field label="Occupation">
-                            <Input value={newG.occupation} onChange={v => setNewG((p: any) => ({ ...p, occupation: v }))} />
-                          </Field>
-
-                          <Field label="Email">
-                            <Input type="email" value={newG.email_address} onChange={v => setNewG((p: any) => ({ ...p, email_address: v }))} />
-                          </Field>
+                        <div className="mt-4 flex gap-2">
+                          <button onClick={handleLinkExisting} disabled={linkingGuardian} className="flex items-center gap-1.5 px-4 h-8 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-extrabold rounded-xl shadow-sm uppercase tracking-wider transition-all">
+                            {linkingGuardian ? <Loader2 className="h-3 w-3 animate-spin" /> : <LinkIcon className="h-3 w-3" />}
+                            {linkingGuardian ? "Linking..." : "Link Guardian"}
+                          </button>
+                          <button onClick={() => setFoundGuardian(null)} className="px-3 h-8 text-[11px] font-bold text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all">Cancel</button>
                         </div>
                       </div>
-                    </div>
-
-                    <div className="flex gap-2 pt-2">
-                      <button onClick={handleCreateGuardian} disabled={savingGuardian} className="flex items-center gap-1.5 px-4 h-8 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all shadow-sm">
-                        {savingGuardian ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserCheck className="h-3 w-3" />}
-                        {savingGuardian ? "Submitting..." : "Add Guardian"}
-                      </button>
-                      <button onClick={() => { setAddingGuardian(false); setPhotoFile(null); setPhotoPreview(null); }} className="px-3 h-8 text-[11px] font-bold text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all">Cancel</button>
-                    </div>
+                    )}
                   </div>
-                )}
 
-                {/* Guardians list items */}
-                <div className="space-y-2">
-                  {family.guardians.map((g: FamilyGuardian) => (
-                    <GuardianCard
-                      key={g.id}
-                      studentCc={selectedStudentId || 0}
-                      guardian={g}
-                      expanded={expandedGuardianId === g.id}
-                      onToggle={() => setExpandedGuardianId(expandedGuardianId === g.id ? null : g.id)}
-                      onReload={reloadData}
-                    />
-                  ))}
+                  {/* Add new Guardian Form */}
+                  {addingGuardian && (
+                    <div className="bg-white dark:bg-zinc-900/50 border border-indigo-100/50 dark:border-indigo-800/30 rounded-xl p-4 space-y-3 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">New Guardian</p>
+
+                      <div className="flex flex-col md:flex-row gap-6">
+                        {/* Photo Picker */}
+                        <div className="shrink-0">
+                          <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Profile Picture</label>
+                          <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className="relative group w-32 h-40 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 flex flex-col items-center justify-center overflow-hidden transition-all hover:border-indigo-500/50 cursor-pointer shadow-sm"
+                          >
+                            {photoPreview ? (
+                              <>
+                                <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <Camera className="h-6 w-6 text-white" />
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex flex-col items-center gap-2 text-zinc-400 group-hover:text-indigo-500 transition-colors">
+                                <Camera className="h-8 w-8" />
+                                <span className="text-[10px] font-black uppercase">Upload</span>
+                              </div>
+                            )}
+                            <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handlePhotoSelect} />
+                          </div>
+                        </div>
+
+                        {/* Form Fields */}
+                        <div className="flex-1 space-y-5">
+                          <div className="flex gap-6 pb-2 border-b border-zinc-100 dark:border-zinc-800">
+                            <Toggle label="Primary Contact" checked={newG.is_primary_contact} onChange={v => setNewG((p: any) => ({ ...p, is_primary_contact: v }))} />
+                            <Toggle label="Emergency Contact" checked={newG.is_emergency_contact} onChange={v => setNewG((p: any) => ({ ...p, is_emergency_contact: v }))} />
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                              <Field label="Full Name"><Input value={newG.full_name} onChange={v => setNewG((p: any) => ({ ...p, full_name: v }))} showNA /></Field>
+                            </div>
+
+                            <Field label="CNIC">
+                              <Input value={newG.cnic} onChange={v => setNewG((p: any) => ({ ...p, cnic: formatCNIC(v) }))} placeholder="xxxxx-xxxxxxx-x" />
+                            </Field>
+
+                            <Field label="Relationship">
+                              <select
+                                value={RELATIONSHIPS.filter(r => r !== "OTHER").includes((newG.relationship || "").toUpperCase()) ? (newG.relationship || "").toUpperCase() : "OTHER"}
+                                onChange={e => setNewG((p: any) => ({ ...p, relationship: e.target.value.toUpperCase() }))}
+                                className="w-full h-9 px-3 text-[13px] font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-indigo-500 appearance-none uppercase"
+                              >
+                                {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+                              </select>
+                            </Field>
+
+                            {(!RELATIONSHIPS.filter(r => r !== "OTHER").includes((newG.relationship || "").toUpperCase())) && (
+                              <div className="md:col-span-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <Field label="Specify Relationship">
+                                  <Input value={newG.relationship === "OTHER" ? "" : newG.relationship} onChange={v => setNewG((p: any) => ({ ...p, relationship: v }))} placeholder="e.g. DRIVER, TUTOR" showNA />
+                                </Field>
+                              </div>
+                            )}
+
+                            <Field label="Phone">
+                              <PhoneInput value={newG.primary_phone} onChange={v => setNewG((p: any) => ({ ...p, primary_phone: v }))} />
+                            </Field>
+
+                            <Field label="WhatsApp">
+                              <PhoneInput value={newG.whatsapp_number} onChange={v => setNewG((p: any) => ({ ...p, whatsapp_number: v }))} />
+                            </Field>
+
+                            <Field label="Occupation">
+                              <Input value={newG.occupation} onChange={v => setNewG((p: any) => ({ ...p, occupation: v }))} />
+                            </Field>
+
+                            <Field label="Email">
+                              <Input type="email" value={newG.email_address} onChange={v => setNewG((p: any) => ({ ...p, email_address: v }))} />
+                            </Field>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-2">
+                        <button onClick={handleCreateGuardian} disabled={savingGuardian} className="flex items-center gap-1.5 px-4 h-8 text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-sm">
+                          {savingGuardian ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserCheck className="h-3 w-3" />}
+                          {savingGuardian ? "Submitting..." : "Add Guardian"}
+                        </button>
+                        <button onClick={() => { setAddingGuardian(false); setPhotoFile(null); setPhotoPreview(null); }} className="px-3 h-8 text-[11px] font-bold text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all">Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Guardians list items */}
+                  <div className="space-y-2">
+                    {family.guardians.map((g: FamilyGuardian) => (
+                      <GuardianCard
+                        key={g.id}
+                        studentCc={selectedStudentId || 0}
+                        guardian={g}
+                        expanded={expandedGuardianId === g.id}
+                        onToggle={() => setExpandedGuardianId(expandedGuardianId === g.id ? null : g.id)}
+                        onReload={reloadData}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </section>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex justify-end flex-shrink-0">
+        {/* Footer Actions */}
+        <div className="bg-zinc-50 dark:bg-zinc-900 p-4 border-t flex justify-end items-center gap-3 flex-shrink-0">
           <button
             onClick={onClose}
-            className="px-5 py-2 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:bg-zinc-800 font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-950 shadow-sm transition-colors"
+            className="px-5 h-10 text-[13px] font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
           >
             Close
           </button>
@@ -815,25 +816,34 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
+function proxyUrl(url?: string | null) {
+  if (!url) return null;
+  const sanitized = url.replace(/([^:])\/\//g, "$1/");
+  return `/api/v1/media/proxy?url=${encodeURIComponent(sanitized)}`;
+}
+
 function StudentRow({ student }: { student: FamilyStudent }) {
+  const [imgError, setImgError] = useState(false);
   const statusStyle =
     STATUS_STYLES[student.status] ?? "bg-zinc-50 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800";
-  
+
   const studentName = student.full_name || "Unknown Student";
   const initial = studentName.charAt(0).toUpperCase();
+  const photo = proxyUrl(student.photograph_url);
 
   return (
     <div className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm hover:border-emerald-500/30 transition-all">
       <div className="flex items-center gap-3">
-        {student.photograph_url ? (
+        {photo && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={student.photograph_url}
+            src={photo}
             alt={studentName}
-            className="w-8 h-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-800"
+            onError={() => setImgError(true)}
+            className="w-9 h-9 rounded-full object-cover border border-zinc-200 dark:border-zinc-800"
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold">
+          <div className="w-9 h-9 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold">
             {initial}
           </div>
         )}
@@ -858,10 +868,25 @@ function StudentRow({ student }: { student: FamilyStudent }) {
   );
 }
 
-function GuardianCard({ 
-  studentCc, guardian, expanded, onToggle, onReload 
-}: { 
-  studentCc: number; guardian: any; expanded: boolean; onToggle: () => void; onReload: () => void 
+function GuardianAvatar({ name, photoUrl, isPrimary }: { name: string; photoUrl?: string | null; isPrimary: boolean }) {
+  const [imgError, setImgError] = useState(false);
+  const proxied = proxyUrl(photoUrl);
+  return (
+    <div className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-black shrink-0 overflow-hidden ${isPrimary ? "bg-emerald-600 text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"}`}>
+      {proxied && !imgError ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={proxied} alt="" onError={() => setImgError(true)} className="h-full w-full object-cover" />
+      ) : (
+        (name || "?")[0]?.toUpperCase()
+      )}
+    </div>
+  );
+}
+
+function GuardianCard({
+  studentCc, guardian, expanded, onToggle, onReload
+}: {
+  studentCc: number; guardian: any; expanded: boolean; onToggle: () => void; onReload: () => void
 }) {
   const [local, setLocal] = useState(guardian);
   const [saving, setSaving] = useState(false);
@@ -939,13 +964,7 @@ function GuardianCard({
   return (
     <div className={`border rounded-2xl overflow-hidden transition-all ${isPrimary ? "border-emerald-500/30 bg-emerald-50/10 dark:bg-emerald-950/10 shadow-sm ring-1 ring-emerald-500/5" : "border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"}`}>
       <button className="w-full flex items-center gap-3 px-4 py-3 text-left" onClick={onToggle}>
-        <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${isPrimary ? "bg-emerald-650 text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"}`}>
-          {local.photo_url ? (
-            <img src={local.photo_url} alt="" className="h-full w-full object-cover rounded-full" />
-          ) : (
-            (local.full_name || "?")[0]?.toUpperCase()
-          )}
-        </div>
+        <GuardianAvatar name={local.full_name} photoUrl={local.photo_url} isPrimary={isPrimary} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="font-bold text-[13px] text-zinc-900 dark:text-zinc-100 truncate uppercase">{local.full_name || "UNNAMED"}</p>
