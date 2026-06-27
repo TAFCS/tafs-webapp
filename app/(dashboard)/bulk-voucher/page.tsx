@@ -974,7 +974,7 @@ export default function BulkVoucherPage() {
                             {previewStudents.map(student => (
                                 <tr 
                                     key={student.cc} 
-                                    className={`transition-colors ${student.is_already_issued ? "bg-zinc-50/50 dark:bg-zinc-900/10 opacity-60" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/30"}`}
+                                    className={`transition-colors ${student.is_already_issued && !student.is_ready ? "bg-zinc-50/50 dark:bg-zinc-900/10 opacity-60" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/30"}`}
                                 >
                                     <td className="px-8 py-4">
                                         <button 
@@ -1035,7 +1035,7 @@ export default function BulkVoucherPage() {
                         </div>
                         <div className="text-right">
                             <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Already Issued</p>
-                            <p className="text-xl font-black text-rose-600 dark:text-rose-400">{previewStudents.filter(s => s.is_already_issued).length}</p>
+                            <p className="text-xl font-black text-rose-600 dark:text-rose-400">{previewStudents.filter(s => s.is_already_issued && !s.is_ready).length}</p>
                         </div>
                         <div className="text-right pl-6 border-l border-zinc-200 dark:border-zinc-800">
                             <p className="text-[10px] font-black text-primary uppercase tracking-widest">Selected to Generate</p>

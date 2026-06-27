@@ -289,9 +289,11 @@ const bulkVoucherSlice = createSlice({
             .addCase(fetchBulkPreview.fulfilled, (state, action) => {
                 state.isFetchingPreview = false;
                 state.previewStudents = action.payload;
-                // Auto-select students that are not already issued (or all if toggle is off)
+                // Auto-select students that are not already issued (or all if toggle is off).
+                // A student with is_ready=true is always selected even if is_already_issued,
+                // because the backend found NOT_ISSUED heads the prior voucher didn't capture.
                 state.selectedStudentCCs = action.payload
-                    .filter((s) => !state.filters.skipAlreadyIssued || !s.is_already_issued)
+                    .filter((s) => s.is_ready || (!state.filters.skipAlreadyIssued || !s.is_already_issued))
                     .map((s) => s.cc);
             })
             .addCase(fetchBulkPreview.rejected, (state, action) => {
