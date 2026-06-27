@@ -16,7 +16,7 @@ import {
   Pencil,
   RefreshCw,
 } from "lucide-react";
-import { hrService, CalendarDay, Department } from "@/lib/hr.service";
+import { hrService, CalendarDay, Department, STAFF_CATEGORY_OPTIONS, formatStaffCategory } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
 import { useAuthState } from "@/context/AuthContext";
 import { useAppSelector } from "@/store/hooks";
@@ -31,6 +31,7 @@ type FormState = {
   class_id: string;
   section_id: string;
   department_id: string;
+  staff_category: string;
   employee_id: string;
 };
 
@@ -41,6 +42,7 @@ const emptyForm = (): FormState => ({
   class_id: "",
   section_id: "",
   department_id: "",
+  staff_category: "",
   employee_id: "",
 });
 
@@ -149,7 +151,11 @@ export default function CalendarPage() {
     if (day.employee_id && day.employee) {
       return day.employee.full_name ?? day.employee.employee_code ?? "Employee";
     }
-    if (day.department_id && day.departments) return day.departments.name;
+    if (day.department_id && day.departments) {
+      const category = formatStaffCategory(day.staff_category);
+      return category ? `${day.departments.name} / ${category}` : day.departments.name;
+    }
+    if (day.staff_category) return formatStaffCategory(day.staff_category) ?? day.staff_category;
     return "Whole campus";
   };
 
@@ -178,6 +184,7 @@ export default function CalendarPage() {
       class_id: day.class_id ? String(day.class_id) : "",
       section_id: day.section_id ? String(day.section_id) : "",
       department_id: day.department_id ? String(day.department_id) : "",
+      staff_category: day.staff_category ?? "",
       employee_id: day.employee_id ? String(day.employee_id) : "",
     });
     setShowModal(true);
@@ -212,6 +219,7 @@ export default function CalendarPage() {
               }
             : {
                 department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
+                staff_category: formData.staff_category || undefined,
                 employee_id: formData.employee_id ? parseInt(formData.employee_id, 10) : undefined,
               }),
         };
@@ -244,6 +252,7 @@ export default function CalendarPage() {
               }
             : {
                 department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
+                staff_category: formData.staff_category || undefined,
                 employee_id: formData.employee_id ? parseInt(formData.employee_id, 10) : undefined,
               }),
         };
@@ -660,6 +669,7 @@ export default function CalendarPage() {
                             class_id: "",
                             section_id: "",
                             department_id: "",
+                            staff_category: "",
                             employee_id: "",
                           }));
                         }
@@ -669,7 +679,7 @@ export default function CalendarPage() {
                     <span className="text-sm">
                       <span className="font-semibold text-purple-900 dark:text-purple-200">Apply to all campuses</span>
                       <span className="block text-xs text-purple-800/80 dark:text-purple-300/80 mt-0.5">
-                        Creates the same whole-campus entry on every campus. Class, section, and department scoping is not available for bulk add.
+                        Creates the same whole-campus entry on every campus. Class, section, department, and category scoping is not available for bulk add.
                       </span>
                     </span>
                   </label>
@@ -759,27 +769,44 @@ export default function CalendarPage() {
                     </div>
                   </div>
                 ) : activeTab === "STAFF" && !applyToAllCampuses ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-bold text-zinc-400 uppercase">Department (optional)</label>
-                      <select
-                        className="w-full h-10 px-3 mt-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-sm"
-                        value={formData.department_id}
-                        onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
-                      >
-                        <option value="">All departments</option>
-                        {departments.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name}
-                          </option>
-                        ))}
-                      </select>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-zinc-400 uppercase">Department (optional)</label>
+                        <select
+                          className="w-full h-10 px-3 mt-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-sm"
+                          value={formData.department_id}
+                          onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
+                        >
+                          <option value="">All departments</option>
+                          {departments.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-zinc-400 uppercase">Category (optional)</label>
+                        <select
+                          className="w-full h-10 px-3 mt-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-sm"
+                          value={formData.staff_category}
+                          onChange={(e) => setFormData({ ...formData, staff_category: e.target.value })}
+                        >
+                          <option value="">All categories</option>
+                          {STAFF_CATEGORY_OPTIONS.map((c) => (
+                            <option key={c.value} value={c.value}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                     <div>
                       <label className="text-xs font-bold text-zinc-400 uppercase">Employee ID (optional)</label>
                       <input
                         type="number"
-                        placeholder="Individual override"
+                        placeholder="Individual override — takes priority over department and category"
                         className="w-full h-10 px-3 mt-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-sm"
                         value={formData.employee_id}
                         onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}

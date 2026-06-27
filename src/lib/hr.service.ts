@@ -168,6 +168,7 @@ export interface CalendarDay {
   class_id?: number | null;
   section_id?: number | null;
   department_id?: number | null;
+  staff_category?: StaffCategory | null;
   employee_id?: number | null;
   classes?: { id: number; description: string; class_code: string } | null;
   sections?: { id: number; description: string } | null;
@@ -412,6 +413,7 @@ export const hrService = {
     class_id?: number;
     section_id?: number;
     department_id?: number;
+    staff_category?: StaffCategory;
     employee_id?: number;
   }): Promise<CalendarDay> {
     const { data } = await api.post<ApiEnvelope<CalendarDay>>('/v1/hr/calendar', payload);
