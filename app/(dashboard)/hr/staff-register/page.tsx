@@ -6,6 +6,7 @@ import {
   CalendarOff,
   CheckCircle2,
   ClipboardCheck,
+  Clock,
   Loader2,
   RefreshCw,
 } from "lucide-react";
@@ -349,6 +350,7 @@ export default function StaffRegisterPage() {
                   <th className="px-5 py-3">Role</th>
                   <th className="px-5 py-3">Department</th>
                   <th className="px-5 py-3">Category</th>
+                  <th className="px-5 py-3">Expected In</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Notes</th>
                 </tr>
@@ -375,6 +377,21 @@ export default function StaffRegisterPage() {
                       </td>
                       <td className="px-5 py-3 text-slate-500">
                         {formatStaffCategory(emp.staff_category) ?? "—"}
+                      </td>
+                      <td className="px-5 py-3">
+                        {emp.reporting_time ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-mono text-zinc-600">
+                            <Clock className="h-3 w-3 text-zinc-400" />
+                            {new Date(emp.reporting_time).toLocaleTimeString("en-US", {
+                              hour: "2-digit", minute: "2-digit", timeZone: "UTC",
+                            })}
+                            {emp.late_relaxation_minutes ? (
+                              <span className="text-[10px] text-zinc-400">+{emp.late_relaxation_minutes}m</span>
+                            ) : null}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-300">—</span>
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         {isOffDay ? (

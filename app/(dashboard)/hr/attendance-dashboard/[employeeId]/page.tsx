@@ -97,6 +97,17 @@ function fmtBreak(min: number) {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+function computeLateMinutes(day: { status: StaffAttendanceStatus | null; segments: { type: string; start: string }[] }, reportingTime: string | null, graceMinutes: number | null): number {
+    if (day.status !== "LATE" || !reportingTime) return 0;
+    const workSeg = day.segments.find((s) => s.type === "WORK");
+    if (!workSeg) return 0;
+    const rep = new Date(reportingTime);
+    const repMins = rep.getUTCHours() * 60 + rep.getUTCMinutes();
+    const checkIn = new Date(workSeg.start);
+    const checkInMins = checkIn.getUTCHours() * 60 + checkIn.getUTCMinutes();
+    return Math.max(0, checkInMins - (repMins + (graceMinutes ?? 0)));
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function StaffAttendanceTimelinePage() {
@@ -316,6 +327,14 @@ export default function StaffAttendanceTimelinePage() {
                                                     {day.status}
                                                 </span>
                                             )}
+                                            {(() => {
+                                                const lm = computeLateMinutes(day, employee?.reporting_time ?? null, employee?.late_relaxation_minutes ?? null);
+                                                return lm > 0 ? (
+                                                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                                                        +{lm}m late
+                                                    </span>
+                                                ) : null;
+                                            })()}
                                             {isUnresolved && !isResolving && (
                                                 <button
                                                     onClick={() => { setResolvingDate(day.date); setResolveForm({ checkOut: "" }); setResolveError(null); }}

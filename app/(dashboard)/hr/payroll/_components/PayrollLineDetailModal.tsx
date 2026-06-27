@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
   X, Loader2, AlertTriangle, RefreshCw, Coffee,
-  CheckCircle2, Clock, AlertCircle,
+  CheckCircle2, Clock, AlertCircle, Timer,
 } from "lucide-react";
 import { hrService, PayrollRun, PayrollRunLine, DayBreakdownEntry, DayClassification } from "@/lib/hr.service";
 import { attendanceService, StaffAttendanceStatus } from "@/lib/attendance.service";
@@ -120,6 +120,7 @@ function applyManualOverridePreview(
     source: "MANUAL",
     segments: buildPreviewSegments(status, checkInAt, checkOutAt),
     break_minutes: clearsPunches || manualWithTimes ? 0 : day.break_minutes,
+    late_minutes: 0,
   };
 }
 
@@ -385,6 +386,11 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
                         effClass !== "EXCUSED" && (
                         <span className="text-[11px] text-zinc-400 truncate flex items-center gap-1">
                           {fmtISO(day.check_in_at)} – {fmtISO(day.check_out_at)}
+                          {day.late_minutes > 0 && (
+                            <span className="inline-flex items-center gap-0.5 ml-1 text-amber-600 dark:text-amber-400">
+                              <Timer className="h-2.5 w-2.5" />+{day.late_minutes}m late
+                            </span>
+                          )}
                           {day.break_minutes > 0 && (
                             <span className="inline-flex items-center gap-0.5 ml-1">
                               <Coffee className="h-2.5 w-2.5" />{day.break_minutes}m

@@ -216,6 +216,11 @@ export function PayrollMatrixView({ run, lines, onOpenLine }: Props) {
                                     {p.time}
                                   </div>
                                 ))}
+                                {cls === "LATE" && (day.late_minutes ?? 0) > 0 && (
+                                  <div className="mt-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 leading-none">
+                                    +{day.late_minutes}m
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>

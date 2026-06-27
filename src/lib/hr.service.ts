@@ -227,6 +227,7 @@ export interface DayBreakdownEntry {
   check_in_at: string | null;
   check_out_at: string | null;
   break_minutes: number;
+  late_minutes: number;
   source: 'MANUAL' | 'BIOMETRIC' | 'SYSTEM' | null;
   segments?: { type: string; start: string; end: string; isMissingOut?: boolean }[];
 }
@@ -243,11 +244,13 @@ export interface PayrollRunLine {
   excused_days: number;
   unresolved_days: number;
   total_break_minutes: number;
+  total_late_minutes: number;
   monthly_pay: number;
   daily_rate: number;
   per_minute_rate: number;
   absence_deduction: number;
   half_day_deduction: number;
+  late_deduction: number;
   break_deduction: number;
   total_deductions: number;
   net_pay: number;

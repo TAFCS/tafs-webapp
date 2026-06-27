@@ -325,6 +325,7 @@ export default function PayrollRunDetailPage() {
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Present</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Absent</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Unresolved</th>
+                  <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Late (min)</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Break (min)</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Daily Rate</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Deductions</th>
@@ -420,6 +421,9 @@ function PayrollLineRow({
         ) : (
           <span className="text-zinc-300 dark:text-zinc-600">0</span>
         )}
+      </td>
+      <td className="px-4 py-3 text-center text-sm">
+        {line.total_late_minutes > 0 ? <span className="font-semibold text-amber-600">{line.total_late_minutes}</span> : <span className="text-zinc-300 dark:text-zinc-600">0</span>}
       </td>
       <td className="px-4 py-3 text-center text-sm text-zinc-600 dark:text-zinc-300">{line.total_break_minutes}</td>
       <td className="px-4 py-3 text-right text-sm font-mono text-zinc-600 dark:text-zinc-300">{formatPkr(line.daily_rate)}</td>
