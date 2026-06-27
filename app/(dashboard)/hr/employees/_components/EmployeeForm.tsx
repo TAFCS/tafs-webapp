@@ -274,10 +274,27 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     }
   }, [justCreated, loading]);
 
-  // ── Computed: sections available for a given class ────────────────────────
-  const sectionsForClass = (classId: number | "") => {
-    if (!classId) return allSections;
-    // filter campus_sections if campus selected, else all sections
+  // ── Campus-aware class & section lookups (derived from already-loaded campuses list) ──
+  // The campus list endpoint returns offered_classes for every campus, so no extra fetch needed.
+  const campusOfferedClasses: OfferedClass[] | null =
+    formData.campus_id
+      ? (campuses.find((c) => String(c.id) === formData.campus_id)?.offered_classes as OfferedClass[] | undefined) ?? []
+      : null;
+
+  // When a campus is selected: only show classes offered at that campus.
+  // When no campus: fall back to all classes (for non-teacher staff).
+  const campusClasses = campusOfferedClasses
+    ? campusOfferedClasses.filter((c) => c.is_active)
+    : allClasses;
+
+  // Returns sections available for a given class at the selected campus.
+  // Falls back to all sections when no campus is chosen.
+  const getSectionsForClass = (classId: number | ""): { id: number; description: string }[] => {
+    if (!classId) return [];
+    if (campusOfferedClasses) {
+      const found = campusOfferedClasses.find((c) => c.id === Number(classId));
+      return found?.sections.filter((s) => s.is_active) ?? [];
+    }
     return allSections;
   };
 
@@ -689,13 +706,23 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                 <select
                   className={selectCls}
                   value={formData.campus_id}
-                  onChange={e => setFormData(p => ({ ...p, campus_id: e.target.value }))}
+                  onChange={e => {
+                    const newVal = e.target.value;
+                    // Changing campus invalidates existing class assignments — clear them
+                    if (newVal !== formData.campus_id && classSectionRows.length > 0) {
+                      setClassSectionRows([]);
+                    }
+                    setFormData(p => ({ ...p, campus_id: newVal }));
+                  }}
                 >
-                  <option value="">-- Choose Campus --</option>
+                  <option value="">-- Choose Campus (optional) --</option>
                   {campuses.map(c => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
               </div>
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-600">
+                Selecting a campus filters the class assignments below to that campus only.
+              </p>
             </div>
             {/* Reporting Manager */}
             <div className="space-y-1.5 sm:col-span-2">
@@ -874,71 +901,108 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
             SECTION 5 — CLASS–SECTION ASSIGNMENTS
         ═══════════════════════════════════════════════════════════ */}
         <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
-          <SectionHeader icon={BookOpen} title="Class–Section Assignments" subtitle="Assign this employee to specific classes and sections" />
+          <SectionHeader
+            icon={BookOpen}
+            title="Class–Section Assignments"
+            subtitle={formData.campus_id
+              ? `Classes offered at ${campuses.find(c => String(c.id) === formData.campus_id)?.campus_name ?? 'selected campus'}`
+              : 'Assign this employee to specific classes and sections'}
+          />
+
+          {/* Campus context banner */}
+          {formData.campus_id ? (
+            <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/15 rounded-xl text-xs text-primary dark:text-primary/80">
+              <BookOpen className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>
+                Showing classes offered at{' '}
+                <span className="font-semibold">{campuses.find(c => String(c.id) === formData.campus_id)?.campus_name}</span>.
+                {' '}Changing the campus above will clear these assignments.
+              </span>
+            </div>
+          ) : (
+            <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-500">
+              <BookOpen className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>Select a campus above to filter classes by campus. All classes are shown when no campus is set.</span>
+            </div>
+          )}
 
           <div className="space-y-3">
             {classSectionRows.length === 0 && (
               <p className="text-sm text-zinc-400 dark:text-zinc-600 italic py-2">No class assignments yet. Click &quot;Add Class&quot; below to assign.</p>
             )}
-            {classSectionRows.map((row, idx) => (
-              <div key={row.id} className="flex flex-col sm:flex-row gap-3 p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-2.5">
-                  {idx + 1}
-                </div>
-                {/* Class picker */}
-                <div className="flex-1 space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Class</label>
-                  <div className="relative">
-                    <select
-                      className={selectCls}
-                      value={row.class_id}
-                      onChange={e => updateClassRow(row.id, "class_id", e.target.value ? Number(e.target.value) : "")}
-                    >
-                      <option value="">-- Select Class --</option>
-                      {allClasses.map(c => (
-                        <option key={c.id} value={c.id}>{c.description} ({c.class_code})</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+            {classSectionRows.map((row, idx) => {
+              const rowSections = getSectionsForClass(row.class_id);
+              return (
+                <div key={row.id} className="flex flex-col sm:flex-row gap-3 p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-2.5">
+                    {idx + 1}
                   </div>
-                </div>
-                {/* Section multi-select */}
-                <div className="flex-1 space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Sections</label>
-                  <div className="flex flex-wrap gap-1.5 min-h-[44px] p-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl">
-                    {allSections.map(sec => {
-                      const selected = row.section_ids.includes(sec.id);
-                      return (
-                        <button
-                          key={sec.id}
-                          type="button"
-                          onClick={() => toggleSection(row.id, sec.id)}
-                          className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-all border ${
-                            selected
-                              ? "bg-primary text-white border-primary"
-                              : "bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-primary/50"
-                          }`}
-                        >
-                          {sec.description}
-                        </button>
-                      );
-                    })}
+                  {/* Class picker */}
+                  <div className="flex-1 space-y-1.5">
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Class</label>
+                    <div className="relative">
+                      <select
+                        className={selectCls}
+                        value={row.class_id}
+                        onChange={e => {
+                          const newClassId = e.target.value ? Number(e.target.value) : "";
+                          // Clear sections when class changes
+                          updateClassRow(row.id, "class_id", newClassId);
+                          updateClassRow(row.id, "section_ids", []);
+                        }}
+                      >
+                        <option value="">-- Select Class --</option>
+                        {campusClasses.map(c => (
+                          <option key={c.id} value={c.id}>{c.description} ({c.class_code})</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                    </div>
                   </div>
-                  {row.section_ids.length > 0 && (
-                    <p className="text-[10px] text-zinc-400">{row.section_ids.length} section(s) selected</p>
-                  )}
+                  {/* Section multi-select */}
+                  <div className="flex-1 space-y-1.5">
+                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Sections</label>
+                    <div className="flex flex-wrap gap-1.5 min-h-[44px] p-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl">
+                      {!row.class_id ? (
+                        <span className="text-[11px] text-zinc-400 dark:text-zinc-600 self-center px-1">Select a class first</span>
+                      ) : rowSections.length === 0 ? (
+                        <span className="text-[11px] text-zinc-400 dark:text-zinc-600 self-center px-1">No sections available</span>
+                      ) : (
+                        rowSections.map(sec => {
+                          const selected = row.section_ids.includes(sec.id);
+                          return (
+                            <button
+                              key={sec.id}
+                              type="button"
+                              onClick={() => toggleSection(row.id, sec.id)}
+                              className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-all border ${
+                                selected
+                                  ? "bg-primary text-white border-primary"
+                                  : "bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-primary/50"
+                              }`}
+                            >
+                              {sec.description}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                    {row.section_ids.length > 0 && (
+                      <p className="text-[10px] text-zinc-400">{row.section_ids.length} section(s) selected</p>
+                    )}
+                  </div>
+                  {/* Remove row */}
+                  <button
+                    type="button"
+                    onClick={() => removeClassRow(row.id)}
+                    className="flex-shrink-0 p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all self-start mt-6"
+                    title="Remove this class row"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                {/* Remove row */}
-                <button
-                  type="button"
-                  onClick={() => removeClassRow(row.id)}
-                  className="flex-shrink-0 p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all self-start mt-6"
-                  title="Remove this class row"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+              );
+            })}
             <button
               type="button"
               onClick={addClassRow}
