@@ -6,7 +6,7 @@ import {
   Loader2, AlertCircle, CheckCircle2, User, Briefcase, Clock, BookOpen, Link as LinkIcon,
   Plus, X, Camera, ChevronDown
 } from "lucide-react";
-import { hrService, EmployeeProfile, EmployeeCreatePayload, StaffType, Department, Designation, WorkScheduleDay, STAFF_CATEGORY_OPTIONS } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, EmployeeCreatePayload, Department, WorkScheduleDay, STAFF_CATEGORY_OPTIONS } from "@/lib/hr.service";
 import { campusesService, Campus, OfferedClass, SectionInfo } from "@/lib/campuses.service";
 import { PhotoUpload } from "@/app/(dashboard)/identity/students/tabs/PhotoUpload";
 
@@ -38,9 +38,7 @@ interface FormData {
   personal_email: string;
   // Employment
   employee_code: string;
-  staff_type_id: string;
   department_id: string;
-  designation_id: string;
   staff_category: string;
   job_title: string;
   job_description: string;
@@ -62,7 +60,7 @@ interface FormData {
 const EMPTY_FORM: FormData = {
   full_name: "", father_name: "", mother_name: "", cnic: "",
   date_of_birth: "", address: "", personal_phone: "", personal_email: "",
-  employee_code: "", staff_type_id: "", department_id: "", designation_id: "", staff_category: "",
+  employee_code: "", department_id: "", staff_category: "",
   job_title: "", job_description: "", join_date: "", employment_type: "Full-time",
   reporting_manager_id: "", campus_id: "", notes: "",
   reporting_time: "", leaving_time: "", late_relaxation_minutes: "",
@@ -140,9 +138,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   // Lookups
-  const [staffTypes, setStaffTypes] = useState<StaffType[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [allDesignations, setAllDesignations] = useState<Designation[]>([]);
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [allClasses, setAllClasses] = useState<OfferedClass[]>([]);
@@ -159,8 +155,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
 
   // ── Load reference data ───────────────────────────────────────────────────
   const loadLookups = useCallback(async () => {
-    const [stData, deptData, empData, campusData, classData, sectionData, usersList] = await Promise.all([
-      hrService.listStaffTypes(),
+    const [deptData, empData, campusData, classData, sectionData, usersList] = await Promise.all([
       hrService.listDepartments(),
       hrService.listEmployees(),
       campusesService.list(),
@@ -168,10 +163,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       campusesService.listAllSections(),
       hrService.getUnlinkedUsers(),
     ]);
-    setStaffTypes(stData.filter(s => s.is_active));
     setDepartments(deptData);
-    const allDesg = deptData.flatMap(d => d.designations ?? []);
-    setAllDesignations(allDesg);
     setEmployees(empData);
     setCampuses(campusData);
     // Cast to OfferedClass[] — listAllClasses returns CampusClassInfo[] but we need description
@@ -219,9 +211,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       personal_phone: emp.personal_phone ?? "",
       personal_email: emp.personal_email ?? "",
       employee_code: emp.employee_code ?? "",
-      staff_type_id: emp.staff_type_id ? String(emp.staff_type_id) : "",
       department_id: emp.department_id ? String(emp.department_id) : "",
-      designation_id: emp.designation_id ? String(emp.designation_id) : "",
       staff_category: emp.staff_category ?? "",
       job_title: emp.job_title ?? "",
       job_description: emp.job_description ?? "",
@@ -284,11 +274,6 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     }
   }, [justCreated, loading]);
 
-  // ── Computed: filtered designations ──────────────────────────────────────
-  const filteredDesignations = allDesignations.filter(
-    d => !formData.department_id || d.department_id === parseInt(formData.department_id, 10)
-  );
-
   // ── Computed: sections available for a given class ────────────────────────
   const sectionsForClass = (classId: number | "") => {
     if (!classId) return allSections;
@@ -344,9 +329,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       personal_phone: formData.personal_phone || undefined,
       personal_email: formData.personal_email || undefined,
       employee_code: formData.employee_code || undefined,
-      staff_type_id: formData.staff_type_id ? parseInt(formData.staff_type_id, 10) : undefined,
       department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
-      designation_id: formData.designation_id ? parseInt(formData.designation_id, 10) : undefined,
       staff_category: formData.staff_category ? (formData.staff_category as EmployeeCreatePayload['staff_category']) : undefined,
       job_title: formData.job_title || undefined,
       job_description: formData.job_description || undefined,
@@ -629,23 +612,6 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
               />
               <p className="text-[10px] text-zinc-400 dark:text-zinc-600">Auto-suggested — assigned by school, must be unique.</p>
             </div>
-            {/* Staff Type (optional legacy) */}
-            <div className="space-y-1.5">
-              <FieldLabel>Staff Type</FieldLabel>
-              <div className="relative">
-                <select
-                  className={selectCls}
-                  value={formData.staff_type_id}
-                  onChange={e => setFormData(p => ({ ...p, staff_type_id: e.target.value }))}
-                >
-                  <option value="">-- Optional --</option>
-                  {staffTypes.map(st => (
-                    <option key={st.id} value={st.id}>{st.name} ({st.code})</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-              </div>
-            </div>
             {/* Department */}
             <div className="space-y-1.5">
               <FieldLabel>Department</FieldLabel>
@@ -653,26 +619,10 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                 <select
                   className={selectCls}
                   value={formData.department_id}
-                  onChange={e => setFormData(p => ({ ...p, department_id: e.target.value, designation_id: "" }))}
+                  onChange={e => setFormData(p => ({ ...p, department_id: e.target.value }))}
                 >
                   <option value="">-- Choose Department --</option>
                   {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-              </div>
-            </div>
-            {/* Designation */}
-            <div className="space-y-1.5">
-              <FieldLabel>Designation</FieldLabel>
-              <div className="relative">
-                <select
-                  className={selectCls}
-                  value={formData.designation_id}
-                  onChange={e => setFormData(p => ({ ...p, designation_id: e.target.value }))}
-                  disabled={!formData.department_id}
-                >
-                  <option value="">-- Choose Designation --</option>
-                  {filteredDesignations.map(d => <option key={d.id} value={d.id}>{d.title}</option>)}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
               </div>
@@ -761,7 +711,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     .filter(e => e.id !== employeeId)
                     .map(e => (
                       <option key={e.id} value={e.id}>
-                        {e.full_name || e.users?.full_name || `Profile #${e.id}`} {e.designations?.title ? `(${e.designations.title})` : ""}
+                        {e.full_name || e.users?.full_name || `Profile #${e.id}`} {e.job_title ? `(${e.job_title})` : ""}
                       </option>
                     ))}
                 </select>

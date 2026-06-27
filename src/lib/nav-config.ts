@@ -4,7 +4,7 @@ import {
     LayoutGrid, TrendingUp, UserCheck, Contact, Tags, CalendarDays,
     FilePlus2, HandCoins, Printer, FileText, History, Layers,
     MessageSquare, Database, Briefcase, Clock, CalendarCheck,
-    CalendarClock, ClipboardList, ClipboardCheck, Bell, Tag,
+    CalendarClock, ClipboardList, ClipboardCheck, Bell,
     Fingerprint, BarChart3, CreditCard, Wallet, Building2,
 } from "lucide-react";
 import { SUPPORT_TICKETS_VIEW_PERMISSION } from "@/features/support-tickets/supportTicketAccess";
@@ -104,8 +104,7 @@ export const NAV_MODULES: NavModule[] = [
         permissions: ["hr.employees.view", "hr.policies.manage", "hr.leave.apply", "hr.payroll.view", "attendance.staff.mark"],
         items: [
             { name: "Employee Directory", description: "Staff profiles and records", href: "/hr/employees", icon: Users, permission: "hr.employees.view" },
-            { name: "Departments", description: "Organisational structure", href: "/hr/departments", icon: Layers, permission: "hr.employees.view" },
-            { name: "Staff Types", description: "Employment categories", href: "/hr/staff-types", icon: Tag, permission: "hr.employees.view" },
+            { name: "Departments", description: "Departments and staff categories", href: "/hr/departments", icon: Layers, permission: "hr.employees.view" },
             { name: "HR Policies", description: "Rules and guidelines", href: "/hr/policies", icon: FileText, permission: "hr.policies.manage" },
             { name: "Staff Register", description: "Daily staff punch-in", href: "/hr/staff-register", icon: ClipboardCheck, permission: "attendance.staff.mark" },
             { name: "Payroll", description: "Salary processing", href: "/hr/payroll", icon: Wallet, permission: "hr.payroll.view" },

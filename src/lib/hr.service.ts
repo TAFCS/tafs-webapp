@@ -21,18 +21,18 @@ export type StaffCategory =
   | 'CREATIVE_STAFF'
   | 'FINANCE_STAFF';
 
-export const STAFF_CATEGORY_OPTIONS: { value: StaffCategory; label: string }[] = [
-  { value: 'TEACHER', label: 'TEACHER' },
-  { value: 'ASSISTANT_TEACHER', label: 'ASSISTANT TEACHER' },
-  { value: 'SPORTS_COACH', label: 'SPORTS COACH' },
-  { value: 'SCOUT_LEADER', label: 'SCOUT LEADER' },
-  { value: 'ACADEMIC_COORDINATOR', label: 'ACADEMIC COORDINATOR' },
-  { value: 'ACADEMIC_ADMINISTRATOR', label: 'ACADEMIC ADMINISTRATOR' },
-  { value: 'SENIOR_LEADERSHIP', label: 'SENIOR LEADERSHIP' },
-  { value: 'ADMINISTRATIVE_STAFF', label: 'ADMINISTRATIVE STAFF' },
-  { value: 'IT_STAFF', label: 'IT STAFF' },
-  { value: 'CREATIVE_STAFF', label: 'CREATIVE STAFF' },
-  { value: 'FINANCE_STAFF', label: 'FINANCE STAFF' },
+export const STAFF_CATEGORY_OPTIONS: { value: StaffCategory; label: string; description: string }[] = [
+  { value: 'TEACHER', label: 'TEACHER', description: 'Subject teachers and class/home-room teachers' },
+  { value: 'ASSISTANT_TEACHER', label: 'ASSISTANT TEACHER', description: 'Co-teachers and helper teachers' },
+  { value: 'SPORTS_COACH', label: 'SPORTS COACH', description: 'Taekwondo, gymnastics, and specialized activity coaches' },
+  { value: 'SCOUT_LEADER', label: 'SCOUT LEADER', description: 'Scout leaders' },
+  { value: 'ACADEMIC_COORDINATOR', label: 'ACADEMIC COORDINATOR', description: 'Coordinators, subject heads, academic assistants, deputy segment heads' },
+  { value: 'ACADEMIC_ADMINISTRATOR', label: 'ACADEMIC ADMINISTRATOR', description: 'Headmistress, principal, campus directress, sports manager, A-level manager' },
+  { value: 'SENIOR_LEADERSHIP', label: 'SENIOR LEADERSHIP', description: 'CEO, MD, group directresses, deputy directress' },
+  { value: 'ADMINISTRATIVE_STAFF', label: 'ADMINISTRATIVE STAFF', description: 'Office assistants, FDOs, admin assistants' },
+  { value: 'IT_STAFF', label: 'IT STAFF', description: 'IT manager and computer operators' },
+  { value: 'CREATIVE_STAFF', label: 'CREATIVE STAFF', description: 'Graphic designers' },
+  { value: 'FINANCE_STAFF', label: 'FINANCE STAFF', description: 'Finance directress and accounts staff' },
 ];
 
 export function formatStaffCategory(value: string | null | undefined): string | null {
