@@ -287,8 +287,8 @@ export const attendanceService = {
     date: string;
     campus_id: number;
     records: { employee_id: number; status: StaffAttendanceStatus; notes?: string; check_in_time?: string; check_out_time?: string }[];
-  }): Promise<StaffRegisterRow[]> {
-    const { data } = await api.put<ApiEnvelope<StaffRegisterRow[]>>(
+  }): Promise<{ saved_count: number }> {
+    const { data } = await api.put<ApiEnvelope<{ saved_count: number }>>(
       '/v1/attendance/staff',
       payload,
     );

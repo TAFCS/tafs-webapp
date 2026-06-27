@@ -158,10 +158,15 @@ export default function StaffRegisterPage() {
     setError(null);
     setSuccess(null);
     try {
-      const data = await attendanceService.bulkMarkStaff({
+      await attendanceService.bulkMarkStaff({
         date,
         campus_id: Number(campusId),
         records,
+      });
+      const data = await attendanceService.getStaffRegister({
+        date,
+        campus_id: Number(campusId),
+        ...(deptId ? { department_id: Number(deptId) } : {}),
       });
       applyRows(data);
       setSuccess(`Attendance saved for ${records.length} staff members.`);

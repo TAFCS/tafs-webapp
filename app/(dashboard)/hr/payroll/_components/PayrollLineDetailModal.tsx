@@ -150,7 +150,8 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
       setResolvingDate(null);
     } catch (err: any) {
       const msg = err.response?.data?.message;
-      setError(Array.isArray(msg) ? msg.join('. ') : (msg ?? "Failed to save attendance."));
+      const detail = err.message && !err.response ? err.message : null;
+      setError(Array.isArray(msg) ? msg.join('. ') : (msg ?? detail ?? "Failed to save attendance."));
     } finally {
       setSaving(null);
     }
