@@ -252,6 +252,9 @@ export interface PayrollRunLine {
   total_deductions: number;
   net_pay: number;
   daily_breakdown: DayBreakdownEntry[];
+  disbursed_at?: string | null;
+  disbursed_by?: string | null;
+  disbursement_notes?: string | null;
   employee_profiles?: {
     id: number;
     full_name: string | null;
@@ -493,5 +496,26 @@ export const hrService = {
   },
   async deletePayrollRun(id: number): Promise<void> {
     await api.delete(`/v1/hr/payroll/runs/${id}`);
+  },
+  async disbursePayrollLine(
+    runId: number,
+    employeeId: number,
+    payload?: { disbursed_at?: string; notes?: string },
+  ): Promise<PayrollRunLine> {
+    const { data } = await api.post<ApiEnvelope<PayrollRunLine>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/disburse`,
+      payload ?? {},
+    );
+    return data.data;
+  },
+  async disbursePayrollRunAll(
+    runId: number,
+    payload?: { disbursed_at?: string; notes?: string },
+  ): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(
+      `/v1/hr/payroll/runs/${runId}/disburse-all`,
+      payload ?? {},
+    );
+    return data.data;
   },
 };

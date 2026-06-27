@@ -56,6 +56,8 @@ export default function PayrollRunDetailPage() {
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
   const [tab, setTab] = useState<"lines" | "matrix">("lines");
   const [deleting, setDeleting] = useState(false);
+  const [disbursingAll, setDisbursingAll] = useState(false);
+  const [disbursingLineId, setDisbursingLineId] = useState<number | null>(null);
 
   const fetchRun = async () => {
     setLoading(true);
@@ -89,6 +91,7 @@ export default function PayrollRunDetailPage() {
   const totalGross = lines.reduce((sum, l) => sum + Number(l.monthly_pay), 0);
   const totalDeductions = lines.reduce((sum, l) => sum + Number(l.total_deductions), 0);
   const totalNet = lines.reduce((sum, l) => sum + Number(l.net_pay), 0);
+  const undisbursedCount = lines.filter((l) => !l.disbursed_at).length;
 
   const handleFinalize = async () => {
     if (!run) return;
@@ -104,6 +107,39 @@ export default function PayrollRunDetailPage() {
       setError(err.response?.data?.message || "Failed to finalize payroll run.");
     } finally {
       setFinalizing(false);
+    }
+  };
+
+  const handleDisburseAll = async () => {
+    if (!run) return;
+    if (!confirm(`Mark all ${undisbursedCount} undisbursed employee line(s) as paid?`)) return;
+    setDisbursingAll(true);
+    setError(null);
+    try {
+      const updated = await hrService.disbursePayrollRunAll(run.id);
+      setRun(updated);
+      setSuccess("All undisbursed lines marked as disbursed.");
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to disburse payroll run.");
+    } finally {
+      setDisbursingAll(false);
+    }
+  };
+
+  const handleDisburseLine = async (line: PayrollRunLine) => {
+    if (!run) return;
+    setDisbursingLineId(line.employee_id);
+    setError(null);
+    try {
+      await hrService.disbursePayrollLine(run.id, line.employee_id);
+      await fetchRun();
+      setSuccess("Employee line marked as disbursed.");
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to mark line as disbursed.");
+    } finally {
+      setDisbursingLineId(null);
     }
   };
 
@@ -199,6 +235,16 @@ export default function PayrollRunDetailPage() {
               {finalizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Finalize
             </button>
           )}
+          {isFinal && undisbursedCount > 0 && (
+            <button
+              onClick={handleDisburseAll}
+              disabled={disbursingAll}
+              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all disabled:opacity-50"
+            >
+              {disbursingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Disburse All ({undisbursedCount})
+            </button>
+          )}
         </div>
       </div>
 
@@ -283,11 +329,21 @@ export default function PayrollRunDetailPage() {
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Daily Rate</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Deductions</th>
                   <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Net Pay</th>
+                  {isFinal && (
+                    <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Disbursed</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {lines.map((line) => (
-                  <PayrollLineRow key={line.id} line={line} onClick={() => { setSelectedLine(line); setSelectedDate(undefined); }} />
+                  <PayrollLineRow
+                    key={line.id}
+                    line={line}
+                    isFinal={isFinal}
+                    disbursing={disbursingLineId === line.employee_id}
+                    onDisburse={() => handleDisburseLine(line)}
+                    onClick={() => { setSelectedLine(line); setSelectedDate(undefined); }}
+                  />
                 ))}
               </tbody>
             </table>
@@ -313,7 +369,19 @@ export default function PayrollRunDetailPage() {
   );
 }
 
-function PayrollLineRow({ line, onClick }: { line: PayrollRunLine; onClick: () => void }) {
+function PayrollLineRow({
+  line,
+  onClick,
+  isFinal,
+  onDisburse,
+  disbursing,
+}: {
+  line: PayrollRunLine;
+  onClick: () => void;
+  isFinal?: boolean;
+  onDisburse?: () => void;
+  disbursing?: boolean;
+}) {
   const emp = line.employee_profiles;
   const name = emp?.full_name ?? `Employee #${line.employee_id}`;
   const hasIssue = line.unresolved_days > 0;
@@ -357,6 +425,23 @@ function PayrollLineRow({ line, onClick }: { line: PayrollRunLine; onClick: () =
         {Number(line.total_deductions) > 0 ? `-${formatPkr(line.total_deductions)}` : formatPkr(0)}
       </td>
       <td className="px-5 py-3 text-right text-sm font-bold text-zinc-900 dark:text-white">{formatPkr(line.net_pay)}</td>
+      {isFinal && (
+        <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+          {line.disbursed_at ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+              {new Date(line.disbursed_at).toLocaleDateString()}
+            </span>
+          ) : (
+            <button
+              onClick={onDisburse}
+              disabled={disbursing}
+              className="text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+            >
+              {disbursing ? "Saving…" : "Mark disbursed"}
+            </button>
+          )}
+        </td>
+      )}
     </tr>
   );
 }
