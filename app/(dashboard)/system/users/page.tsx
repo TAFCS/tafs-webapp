@@ -504,6 +504,8 @@ export default function UserManagementPage() {
                         <option value="RECEPTIONIST">RECEPTIONIST</option>
                         <option value="TEACHER">TEACHER</option>
                         <option value="STAFF_EDITOR">STAFF EDITOR</option>
+                        <option value="GENERAL_RESPONDENT">GENERAL RESPONDENT</option>
+                        <option value="EMPLOYEES">EMPLOYEES</option>
                       </select>
                     </div>
 

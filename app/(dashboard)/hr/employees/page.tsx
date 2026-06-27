@@ -6,7 +6,7 @@ import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
   SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone,
 } from "lucide-react";
-import { hrService, EmployeeProfile } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, formatStaffCategory, STAFF_CATEGORY_OPTIONS } from "@/lib/hr.service";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
 
 function initials(name: string) {
@@ -78,14 +78,19 @@ function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClic
             {employee.cnic && <span className="text-[11px] text-zinc-400 font-mono">{employee.cnic}</span>}
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {employee.designations?.title && (
+            {employee.job_title && (
               <span className="flex items-center gap-1 text-[10px] bg-primary/10 text-primary rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
-                <Briefcase className="h-2.5 w-2.5" />{employee.designations.title}
+                <Briefcase className="h-2.5 w-2.5" />{employee.job_title}
               </span>
             )}
-            {employee.staff_types?.name && (
+            {employee.staff_category && (
+              <span className="flex items-center gap-1 text-[10px] bg-violet-50 dark:bg-violet-950/40 border border-violet-100 dark:border-violet-900 text-violet-700 dark:text-violet-300 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                {formatStaffCategory(employee.staff_category)}
+              </span>
+            )}
+            {employee.departments?.name && (
               <span className="flex items-center gap-1 text-[10px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
-                {employee.staff_types.name}
+                <Building2 className="h-2.5 w-2.5" />{employee.departments.name}
               </span>
             )}
             {employee.campuses?.campus_name && (
@@ -123,8 +128,8 @@ export default function EmployeesPage() {
 
   const [search, setSearch] = useState("");
   const [campusFilter, setCampusFilter] = useState("");
-  const [staffTypeFilter, setStaffTypeFilter] = useState("");
-  const [designationFilter, setDesignationFilter] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [auditFilter, setAuditFilter] = useState("");
 
   const fetchData = async () => {
@@ -157,20 +162,18 @@ export default function EmployeesPage() {
     return [...map.entries()].map(([value, label]) => ({ value, label }));
   }, [employees]);
 
-  const staffTypeOptions = useMemo(() => {
+  const departmentOptions = useMemo(() => {
     const map = new Map<string, string>();
-    employees.forEach(e => { if (e.staff_types) map.set(String(e.staff_types.id), e.staff_types.name); });
+    employees.forEach(e => { if (e.departments) map.set(String(e.departments.id), e.departments.name); });
     return [...map.entries()].map(([value, label]) => ({ value, label }));
   }, [employees]);
 
-  const designationOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    employees.forEach(e => { if (e.designations) map.set(String(e.designations.id), e.designations.title); });
-    return [...map.entries()].map(([value, label]) => ({ value, label }));
-  }, [employees]);
+  const categoryOptions = useMemo(() =>
+    STAFF_CATEGORY_OPTIONS.map((c) => ({ value: c.value, label: c.label })),
+  []);
 
-  const hasFilters = campusFilter || staffTypeFilter || designationFilter || auditFilter;
-  const clearFilters = () => { setCampusFilter(""); setStaffTypeFilter(""); setDesignationFilter(""); setAuditFilter(""); };
+  const hasFilters = campusFilter || departmentFilter || categoryFilter || auditFilter;
+  const clearFilters = () => { setCampusFilter(""); setDepartmentFilter(""); setCategoryFilter(""); setAuditFilter(""); };
 
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -180,8 +183,8 @@ export default function EmployeesPage() {
         if (!haystack.includes(q)) return false;
       }
       if (campusFilter && String(emp.campuses?.id) !== campusFilter) return false;
-      if (staffTypeFilter && String(emp.staff_types?.id) !== staffTypeFilter) return false;
-      if (designationFilter && String(emp.designations?.id) !== designationFilter) return false;
+      if (departmentFilter && String(emp.departments?.id) !== departmentFilter) return false;
+      if (categoryFilter && emp.staff_category !== categoryFilter) return false;
       if (auditFilter) {
         const missing = missingFields(emp);
         if (auditFilter === "missing_cnic" && !missing.includes("CNIC")) return false;
@@ -192,7 +195,7 @@ export default function EmployeesPage() {
       }
       return true;
     });
-  }, [employees, search, campusFilter, staffTypeFilter, designationFilter, auditFilter]);
+  }, [employees, search, campusFilter, departmentFilter, categoryFilter, auditFilter]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -239,7 +242,7 @@ export default function EmployeesPage() {
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
           <input
             type="text"
-            placeholder="Search by name, code, CNIC, or job title..."
+            placeholder="Search by name, code, CNIC, or role..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full h-10 pl-10 pr-10 text-[13px] font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-zinc-400"
@@ -254,8 +257,8 @@ export default function EmployeesPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <SlidersHorizontal className="h-4 w-4 text-zinc-400 shrink-0" />
           <FilterSelect label="All Campuses" value={campusFilter} onChange={setCampusFilter} options={campusOptions} icon={<Building2 className="h-3.5 w-3.5" />} />
-          <FilterSelect label="All Staff Types" value={staffTypeFilter} onChange={setStaffTypeFilter} options={staffTypeOptions} />
-          <FilterSelect label="All Designations" value={designationFilter} onChange={setDesignationFilter} options={designationOptions} />
+          <FilterSelect label="All Departments" value={departmentFilter} onChange={setDepartmentFilter} options={departmentOptions} icon={<Building2 className="h-3.5 w-3.5" />} />
+          <FilterSelect label="All Categories" value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} />
           <FilterSelect
             label="Data Audit"
             value={auditFilter}

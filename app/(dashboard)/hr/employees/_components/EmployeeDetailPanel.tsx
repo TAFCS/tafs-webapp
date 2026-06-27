@@ -7,7 +7,7 @@ import {
   Phone, Mail, MapPin, CreditCard, Cake, Calendar, Building2,
   AlertTriangle, Users as UsersIcon,
 } from "lucide-react";
-import { hrService, EmployeeProfile } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, formatStaffCategory } from "@/lib/hr.service";
 
 const TABS = [
   { id: "profile", label: "Profile", icon: User },
@@ -124,7 +124,7 @@ export function EmployeeDetailPanel({ employee, onClose, onDeleted }: Props) {
               <h2 className="text-[17px] font-black text-zinc-900 dark:text-zinc-100 tracking-tight truncate">{name}</h2>
               <p className="text-[11px] text-zinc-400 font-mono mt-0.5 truncate">
                 {emp.employee_code || "No code"}
-                {emp.designations?.title ? ` · ${emp.designations.title}` : ""}
+                {emp.job_title ? ` · ${emp.job_title}` : ""}
               </p>
             </div>
           </div>
@@ -182,12 +182,21 @@ export function EmployeeDetailPanel({ employee, onClose, onDeleted }: Props) {
 
             {tab === "employment" && (
               <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 divide-y divide-zinc-100 dark:divide-zinc-800">
-                <Field icon={Briefcase} label="Designation" value={emp.designations?.title} missing={!emp.designations} />
-                <Field icon={UsersIcon} label="Staff Type" value={emp.staff_types?.name} missing={!emp.staff_types} />
+                <Field icon={Building2} label="Department" value={emp.departments?.name} missing={!emp.departments} />
+                <Field icon={Briefcase} label="Category" value={formatStaffCategory(emp.staff_category)} missing={!emp.staff_category} />
+                <Field icon={Briefcase} label="Role" value={emp.job_title} missing={!emp.job_title} />
                 <Field icon={Building2} label="Campus" value={emp.campuses?.campus_name} missing={!emp.campuses} />
-                <Field icon={Briefcase} label="Job Title" value={emp.job_title} missing={!emp.job_title} />
                 <Field icon={Calendar} label="Date of Joining" value={fmtDate(emp.join_date)} missing={!fmtDate(emp.join_date)} />
-                <Field icon={Briefcase} label="Employment Type" value={emp.employment_type} missing={!emp.employment_type} />
+                <Field icon={UsersIcon} label="Linked User" value={emp.users ? `${emp.users.full_name} (${emp.users.role})` : null} missing={!emp.users} />
+                {emp.designations?.title && (
+                  <Field icon={Briefcase} label="Designation (legacy)" value={emp.designations.title} />
+                )}
+                {emp.staff_types?.name && (
+                  <Field icon={UsersIcon} label="Staff Type (legacy)" value={emp.staff_types.name} />
+                )}
+                {emp.employment_type && (
+                  <Field icon={Briefcase} label="Employment Type" value={emp.employment_type} />
+                )}
                 <Field
                   icon={UsersIcon}
                   label="Reporting Manager"

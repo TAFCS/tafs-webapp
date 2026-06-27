@@ -8,6 +8,38 @@ export interface StaffType {
   is_active: boolean;
 }
 
+export type StaffCategory =
+  | 'TEACHER'
+  | 'ASSISTANT_TEACHER'
+  | 'SPORTS_COACH'
+  | 'SCOUT_LEADER'
+  | 'ACADEMIC_COORDINATOR'
+  | 'ACADEMIC_ADMINISTRATOR'
+  | 'SENIOR_LEADERSHIP'
+  | 'ADMINISTRATIVE_STAFF'
+  | 'IT_STAFF'
+  | 'CREATIVE_STAFF'
+  | 'FINANCE_STAFF';
+
+export const STAFF_CATEGORY_OPTIONS: { value: StaffCategory; label: string }[] = [
+  { value: 'TEACHER', label: 'TEACHER' },
+  { value: 'ASSISTANT_TEACHER', label: 'ASSISTANT TEACHER' },
+  { value: 'SPORTS_COACH', label: 'SPORTS COACH' },
+  { value: 'SCOUT_LEADER', label: 'SCOUT LEADER' },
+  { value: 'ACADEMIC_COORDINATOR', label: 'ACADEMIC COORDINATOR' },
+  { value: 'ACADEMIC_ADMINISTRATOR', label: 'ACADEMIC ADMINISTRATOR' },
+  { value: 'SENIOR_LEADERSHIP', label: 'SENIOR LEADERSHIP' },
+  { value: 'ADMINISTRATIVE_STAFF', label: 'ADMINISTRATIVE STAFF' },
+  { value: 'IT_STAFF', label: 'IT STAFF' },
+  { value: 'CREATIVE_STAFF', label: 'CREATIVE STAFF' },
+  { value: 'FINANCE_STAFF', label: 'FINANCE STAFF' },
+];
+
+export function formatStaffCategory(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return STAFF_CATEGORY_OPTIONS.find((o) => o.value === value)?.label ?? value.replace(/_/g, ' ').toUpperCase();
+}
+
 export interface EmployeeProfile {
   id: number;
   user_id: string | null;
@@ -27,6 +59,7 @@ export interface EmployeeProfile {
   personal_phone: string | null;
   personal_email: string | null;
   job_title: string | null;
+  staff_category: StaffCategory | null;
   job_description: string | null;
   notes: string | null;
   reporting_time: string | null;
@@ -80,6 +113,7 @@ export interface EmployeeCreatePayload {
   personal_phone?: string;
   personal_email?: string;
   job_title?: string;
+  staff_category?: StaffCategory;
   job_description?: string;
   notes?: string;
   reporting_time?: string;

@@ -12,7 +12,7 @@ import {
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
-import { hrService, Department } from "@/lib/hr.service";
+import { hrService, Department, formatStaffCategory } from "@/lib/hr.service";
 import {
   attendanceService,
   StaffAttendanceStatus,
@@ -343,7 +343,7 @@ export default function StaffRegisterPage() {
                   <th className="px-5 py-3">Name</th>
                   <th className="px-5 py-3">Role</th>
                   <th className="px-5 py-3">Department</th>
-                  <th className="px-5 py-3">Designation</th>
+                  <th className="px-5 py-3">Category</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Notes</th>
                 </tr>
@@ -360,16 +360,16 @@ export default function StaffRegisterPage() {
                       className={`hover:bg-slate-50/60 transition ${isOffDay ? "bg-sky-50/40" : ""}`}
                     >
                       <td className="px-5 py-3 font-medium text-slate-800">
-                        {emp.users?.full_name ?? "—"}
+                        {emp.full_name ?? emp.users?.full_name ?? "—"}
                       </td>
-                      <td className="px-5 py-3 text-slate-500 capitalize text-xs">
-                        {emp.users?.role?.replace(/_/g, " ") ?? "—"}
+                      <td className="px-5 py-3 text-slate-500 text-xs font-semibold uppercase">
+                        {emp.job_title ?? "—"}
                       </td>
                       <td className="px-5 py-3 text-slate-500">
                         {emp.departments?.name ?? "—"}
                       </td>
                       <td className="px-5 py-3 text-slate-500">
-                        {emp.designations?.title ?? "—"}
+                        {formatStaffCategory(emp.staff_category) ?? "—"}
                       </td>
                       <td className="px-5 py-3">
                         {isOffDay ? (

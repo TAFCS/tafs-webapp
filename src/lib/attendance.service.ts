@@ -30,6 +30,9 @@ export interface StaffRegisterRow {
   employee: {
     id: number;
     user_id: string | null;
+    full_name: string | null;
+    job_title: string | null;
+    staff_category: string | null;
     employment_type: string | null;
     users: { id: string; full_name: string; role: string; email: string } | null;
     departments: { id: number; name: string } | null;

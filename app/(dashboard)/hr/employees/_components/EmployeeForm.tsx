@@ -6,7 +6,7 @@ import {
   Loader2, AlertCircle, CheckCircle2, User, Briefcase, Clock, BookOpen, Link as LinkIcon,
   Plus, X, Camera, ChevronDown
 } from "lucide-react";
-import { hrService, EmployeeProfile, EmployeeCreatePayload, StaffType, Department, Designation, WorkScheduleDay } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, EmployeeCreatePayload, StaffType, Department, Designation, WorkScheduleDay, STAFF_CATEGORY_OPTIONS } from "@/lib/hr.service";
 import { campusesService, Campus, OfferedClass, SectionInfo } from "@/lib/campuses.service";
 import { PhotoUpload } from "@/app/(dashboard)/identity/students/tabs/PhotoUpload";
 
@@ -41,6 +41,7 @@ interface FormData {
   staff_type_id: string;
   department_id: string;
   designation_id: string;
+  staff_category: string;
   job_title: string;
   job_description: string;
   join_date: string;
@@ -61,7 +62,7 @@ interface FormData {
 const EMPTY_FORM: FormData = {
   full_name: "", father_name: "", mother_name: "", cnic: "",
   date_of_birth: "", address: "", personal_phone: "", personal_email: "",
-  employee_code: "", staff_type_id: "", department_id: "", designation_id: "",
+  employee_code: "", staff_type_id: "", department_id: "", designation_id: "", staff_category: "",
   job_title: "", job_description: "", join_date: "", employment_type: "Full-time",
   reporting_manager_id: "", campus_id: "", notes: "",
   reporting_time: "", leaving_time: "", late_relaxation_minutes: "",
@@ -221,6 +222,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       staff_type_id: emp.staff_type_id ? String(emp.staff_type_id) : "",
       department_id: emp.department_id ? String(emp.department_id) : "",
       designation_id: emp.designation_id ? String(emp.designation_id) : "",
+      staff_category: emp.staff_category ?? "",
       job_title: emp.job_title ?? "",
       job_description: emp.job_description ?? "",
       join_date: emp.join_date ? new Date(emp.join_date).toISOString().split("T")[0] : "",
@@ -318,7 +320,6 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     if (!formData.cnic.trim()) return "CNIC is required.";
     if (formData.cnic.replace(/\D/g, "").length !== 13) return "CNIC must be 13 digits (XXXXX-XXXXXXX-X).";
     if (!formData.employee_code.trim()) return "Employee code is required.";
-    if (!formData.staff_type_id) return "Staff type is required.";
     if (!formData.monthly_pay) return "Monthly pay is required.";
     return null;
   };
@@ -346,6 +347,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       staff_type_id: formData.staff_type_id ? parseInt(formData.staff_type_id, 10) : undefined,
       department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
       designation_id: formData.designation_id ? parseInt(formData.designation_id, 10) : undefined,
+      staff_category: formData.staff_category ? (formData.staff_category as EmployeeCreatePayload['staff_category']) : undefined,
       job_title: formData.job_title || undefined,
       job_description: formData.job_description || undefined,
       join_date: formData.join_date || undefined,
@@ -627,17 +629,16 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
               />
               <p className="text-[10px] text-zinc-400 dark:text-zinc-600">Auto-suggested — assigned by school, must be unique.</p>
             </div>
-            {/* Staff Type */}
+            {/* Staff Type (optional legacy) */}
             <div className="space-y-1.5">
-              <FieldLabel required>Staff Type</FieldLabel>
+              <FieldLabel>Staff Type</FieldLabel>
               <div className="relative">
                 <select
-                  required
                   className={selectCls}
                   value={formData.staff_type_id}
                   onChange={e => setFormData(p => ({ ...p, staff_type_id: e.target.value }))}
                 >
-                  <option value="">-- Select Staff Type --</option>
+                  <option value="">-- Optional --</option>
                   {staffTypes.map(st => (
                     <option key={st.id} value={st.id}>{st.name} ({st.code})</option>
                   ))}
@@ -676,15 +677,32 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
               </div>
             </div>
-            {/* Job Title */}
+            {/* Staff Category */}
             <div className="space-y-1.5">
-              <FieldLabel>Job Title</FieldLabel>
+              <FieldLabel>Category</FieldLabel>
+              <div className="relative">
+                <select
+                  className={selectCls}
+                  value={formData.staff_category}
+                  onChange={e => setFormData(p => ({ ...p, staff_category: e.target.value }))}
+                >
+                  <option value="">-- Choose Category --</option>
+                  {STAFF_CATEGORY_OPTIONS.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+              </div>
+            </div>
+            {/* Role (cleaned job title) */}
+            <div className="space-y-1.5">
+              <FieldLabel>Role</FieldLabel>
               <input
                 type="text"
-                placeholder="e.g. Senior Teacher, Head of Department"
+                placeholder="e.g. URDU TEACHER, CLASS TEACHER"
                 className={inputCls}
                 value={formData.job_title}
-                onChange={e => setFormData(p => ({ ...p, job_title: e.target.value }))}
+                onChange={e => setFormData(p => ({ ...p, job_title: e.target.value.toUpperCase() }))}
               />
             </div>
             {/* Join Date */}
