@@ -5,7 +5,7 @@ import {
     FilePlus2, HandCoins, Printer, FileText, History, Layers,
     MessageSquare, Database, Briefcase, Clock, CalendarCheck,
     CalendarClock, ClipboardList, ClipboardCheck, Bell,
-    Fingerprint, BarChart3, CreditCard, Wallet, Building2,
+    Fingerprint, BarChart3, CreditCard, Wallet, Building2, Megaphone,
 } from "lucide-react";
 import { SUPPORT_TICKETS_VIEW_PERMISSION } from "@/features/support-tickets/supportTicketAccess";
 import type { LucideIcon } from "lucide-react";
@@ -101,7 +101,7 @@ export const NAV_MODULES: NavModule[] = [
         color: "text-amber-600 dark:text-amber-400",
         bg: "bg-amber-50 dark:bg-amber-950/40",
         border: "border-amber-100 dark:border-amber-900/50",
-        permissions: ["hr.employees.view", "hr.policies.manage", "hr.leave.apply", "hr.payroll.view", "attendance.staff.mark", "hr.objections.review"],
+        permissions: ["hr.employees.view", "hr.policies.manage", "hr.leave.apply", "hr.payroll.view", "attendance.staff.mark", "hr.objections.review", "communication.send_employee_announcements"],
         items: [
             { name: "Employee Directory", description: "Staff profiles and records", href: "/hr/employees", icon: Users, permission: "hr.employees.view" },
             { name: "Departments", description: "Departments and staff categories", href: "/hr/departments", icon: Layers, permission: "hr.employees.view" },
@@ -111,6 +111,7 @@ export const NAV_MODULES: NavModule[] = [
             { name: "Attendance Objections", description: "Review employee attendance disputes", href: "/hr/objections", icon: ClipboardList, permission: "hr.objections.review" },
             { name: "My Leave", description: "Leave applications", href: "/hr/leave", icon: CalendarClock, permission: "hr.leave.apply" },
             { name: "Academic Calendar", description: "School year and events", href: "/hr/calendar", icon: CalendarDays, permission: "hr.policies.manage" },
+            { name: "Employee Notices", description: "Broadcast announcements to staff by role", href: "/hr/notices", icon: Megaphone, permission: "communication.send_employee_announcements" },
         ],
     },
     {

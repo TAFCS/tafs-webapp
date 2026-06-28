@@ -87,6 +87,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .catch(() => {
                 clearSession();
                 dispatch(clearCredentials());
+                if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
+                    router.push('/auth/login');
+                }
             });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);

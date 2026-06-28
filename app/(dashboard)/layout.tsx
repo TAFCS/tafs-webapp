@@ -25,17 +25,21 @@ const URL_TO_MODULE: Record<string, string> = {};
 NAV_MODULES.forEach(m => m.items.forEach(item => { URL_TO_MODULE[item.href] = m.id; }));
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
-    const { user } = useAuthState();
+    const { user, isLoading } = useAuthState();
     const { logout } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
     const { activeModuleId } = useNavigation();
 
     useEffect(() => {
+        if (!isLoading && !user) {
+            router.push("/auth/login");
+            return;
+        }
         if (user?.role === "STAFF_EDITOR" && !pathname.startsWith("/staff-editing/students")) {
             router.replace("/staff-editing/students");
         }
-    }, [user, pathname, router]);
+    }, [user, isLoading, pathname, router]);
 
     const hasPermission = (perm: string) => {
         if (user?.role === "SUPER_ADMIN") return true;
