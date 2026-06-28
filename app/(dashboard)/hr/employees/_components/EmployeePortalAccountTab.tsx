@@ -5,8 +5,9 @@ import { Loader2, Save, CheckCircle2, KeyRound } from "lucide-react";
 import { hrService, EmployeeProfile } from "@/lib/hr.service";
 import { Campus, campusesService } from "@/lib/campuses.service";
 import { CLASS_BANDS } from "@/lib/class-bands";
+import { useAuthState } from "@/context/AuthContext";
 
-const STAFF_ROLES = [
+const ALL_STAFF_ROLES = [
   "SUPER_ADMIN",
   "CAMPUS_ADMIN",
   "PRINCIPAL",
@@ -31,11 +32,13 @@ interface Props {
 }
 
 export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
+  const { user: currentUser } = useAuthState();
   const user = employee.users;
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [form, setForm] = useState({
@@ -46,6 +49,10 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
     allowed_class_ids: [] as number[],
   });
   const [selectedBand, setSelectedBand] = useState("");
+
+  const assignableRoles = ALL_STAFF_ROLES.filter(
+    (r) => currentUser?.role === "SUPER_ADMIN" || r !== "SUPER_ADMIN",
+  );
 
   useEffect(() => {
     campusesService.list().then(setCampuses).catch(() => {});
@@ -89,6 +96,7 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
 
   const handleSaveAccount = async () => {
     setSaving(true);
+    setError(null);
     try {
       await hrService.updateEmployeeAccount(employee.id, {
         email: form.email || undefined,
@@ -101,7 +109,7 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
       onUpdated();
       setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {
-      alert(err?.response?.data?.message || "Failed to update account.");
+      setError(err?.response?.data?.message || "Failed to update account.");
     } finally {
       setSaving(false);
     }
@@ -109,22 +117,24 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
 
   const handleResetPassword = async () => {
     if (password.length < 8) {
-      alert("Password must be at least 8 characters.");
+      setError("Password must be at least 8 characters.");
       return;
     }
     if (password !== confirmPassword) {
-      alert("Passwords do not match.");
+      setError("Passwords do not match.");
       return;
     }
     if (!confirm("Reset this employee's portal password?")) return;
     setResetting(true);
+    setError(null);
     try {
       await hrService.resetEmployeePassword(employee.id, password);
       setPassword("");
       setConfirmPassword("");
-      alert("Password reset successfully.");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {
-      alert(err?.response?.data?.message || "Failed to reset password.");
+      setError(err?.response?.data?.message || "Failed to reset password.");
     } finally {
       setResetting(false);
     }
@@ -132,6 +142,11 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
 
   return (
     <div className="space-y-4">
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900 px-4 py-3 text-sm font-medium text-rose-700 dark:text-rose-300">
+          {error}
+        </div>
+      )}
       <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-[15px] font-extrabold text-zinc-900 dark:text-zinc-100">Account settings</h3>
@@ -155,7 +170,7 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
             <FieldLabel>Role</FieldLabel>
             <select className={inputCls} value={form.role}
               onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}>
-              {STAFF_ROLES.map((r) => (
+              {assignableRoles.map((r) => (
                 <option key={r} value={r}>{r.replace(/_/g, " ")}</option>
               ))}
             </select>

@@ -109,15 +109,23 @@ function MappingFormModal({
 export function EmployeeBiometricTab({ employeeId, employeeName }: Props) {
   const [mappings, setMappings] = useState<DeviceUserMapping[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<DeviceUserMapping | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       setMappings(await zkPushService.getMappings(employeeId));
-    } catch {
+    } catch (err: any) {
       setMappings([]);
+      const status = err?.response?.status;
+      if (status === 403) {
+        setError("You do not have permission to view biometric mappings.");
+      } else {
+        setError(err?.response?.data?.message || "Failed to load biometric mappings.");
+      }
     } finally {
       setLoading(false);
     }
@@ -155,14 +163,18 @@ export function EmployeeBiometricTab({ employeeId, employeeName }: Props) {
             className="inline-flex items-center gap-1 text-xs font-bold text-zinc-500 hover:text-primary">
             Manage all <ExternalLink className="h-3 w-3" />
           </Link>
-          <button type="button" onClick={() => { setEditing(null); setShowModal(true); }}
-            className="inline-flex items-center gap-1.5 h-8 px-3 text-[11px] font-bold text-white bg-primary rounded-xl">
-            <Plus className="h-3.5 w-3.5" /> Add mapping
-          </button>
+          {!error && (
+            <button type="button" onClick={() => { setEditing(null); setShowModal(true); }}
+              className="inline-flex items-center gap-1.5 h-8 px-3 text-[11px] font-bold text-white bg-primary rounded-xl">
+              <Plus className="h-3.5 w-3.5" /> Add mapping
+            </button>
+          )}
         </div>
       </div>
 
-      {mappings.length === 0 ? (
+      {error ? (
+        <p className="text-sm text-rose-600 dark:text-rose-400 text-center py-10 font-medium">{error}</p>
+      ) : mappings.length === 0 ? (
         <p className="text-sm text-zinc-500 text-center py-10">
           No device PINs mapped to this employee. Add a mapping so biometric punches are recognized.
         </p>

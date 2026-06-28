@@ -16,6 +16,8 @@ import {
   WorkScheduleDay,
   formatStaffCategory,
   STAFF_CATEGORY_OPTIONS,
+  optionalText,
+  optionalStaffCategory,
 } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
 import { EmployeePortalAccountTab } from "./EmployeePortalAccountTab";
@@ -46,6 +48,16 @@ function defaultWeekSchedule(daysPerWeek: number): Record<number, boolean> {
   };
   if (daysPerWeek === 6) map[6] = true;
   return map;
+}
+
+function formatWeekScheduleLabel(
+  useCustom: boolean,
+  weekSchedule: Record<number, boolean>,
+  daysPerWeek: number | null | undefined,
+): string {
+  if (!useCustom) return `Default (${daysPerWeek ?? 5} days/week)`;
+  const days = WEEKDAY_ORDER.filter((d) => weekSchedule[d.dow]).map((d) => d.label);
+  return days.length > 0 ? `Custom — ${days.join(", ")}` : "Custom — no working days";
 }
 
 function buildScheduleDays(weekSchedule: Record<number, boolean>): WorkScheduleDay[] {
@@ -471,18 +483,18 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     onEdit={() => setEditProfile(true)}
                     onCancel={() => { setEditProfile(false); syncForms(emp); }}
                     onSave={() => patch({
-                      full_name: profileForm.full_name || undefined,
-                      father_name: profileForm.father_name || undefined,
-                      mother_name: profileForm.mother_name || undefined,
-                      cnic: profileForm.cnic || undefined,
-                      date_of_birth: profileForm.date_of_birth || undefined,
-                      personal_phone: profileForm.personal_phone || undefined,
-                      personal_email: profileForm.personal_email || undefined,
-                      address: profileForm.address || undefined,
-                      notes: profileForm.notes || undefined,
-                      emergency_contact_name: profileForm.emergency_contact_name || undefined,
-                      emergency_contact_phone: profileForm.emergency_contact_phone || undefined,
-                      emergency_contact_relationship: profileForm.emergency_contact_relationship || undefined,
+                      full_name: optionalText(profileForm.full_name),
+                      father_name: optionalText(profileForm.father_name),
+                      mother_name: optionalText(profileForm.mother_name),
+                      cnic: optionalText(profileForm.cnic),
+                      date_of_birth: optionalText(profileForm.date_of_birth),
+                      personal_phone: optionalText(profileForm.personal_phone),
+                      personal_email: optionalText(profileForm.personal_email),
+                      address: optionalText(profileForm.address),
+                      notes: optionalText(profileForm.notes),
+                      emergency_contact_name: optionalText(profileForm.emergency_contact_name),
+                      emergency_contact_phone: optionalText(profileForm.emergency_contact_phone),
+                      emergency_contact_relationship: optionalText(profileForm.emergency_contact_relationship),
                     }, setSavingProfile, setSavedProfile, () => setEditProfile(false))}
                     readContent={
                       <>
@@ -534,13 +546,13 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     onEdit={() => setEditEmployment(true)}
                     onCancel={() => { setEditEmployment(false); syncForms(emp); }}
                     onSave={() => patch({
-                      employee_code: employmentForm.employee_code || undefined,
+                      employee_code: optionalText(employmentForm.employee_code),
                       department_id: employmentForm.department_id ? parseInt(employmentForm.department_id, 10) : undefined,
-                      staff_category: employmentForm.staff_category ? (employmentForm.staff_category as EmployeeCreatePayload["staff_category"]) : undefined,
-                      job_title: employmentForm.job_title || undefined,
+                      staff_category: optionalStaffCategory(employmentForm.staff_category),
+                      job_title: optionalText(employmentForm.job_title),
                       campus_id: employmentForm.campus_id ? parseInt(employmentForm.campus_id, 10) : undefined,
-                      join_date: employmentForm.join_date || undefined,
-                      job_description: employmentForm.job_description || undefined,
+                      join_date: optionalText(employmentForm.join_date),
+                      job_description: optionalText(employmentForm.job_description),
                     }, setSavingEmployment, setSavedEmployment, () => setEditEmployment(false))}
                     readContent={
                       <>
@@ -601,13 +613,13 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       setSavingSchedule(true);
                       try {
                         const updated = await hrService.updateEmployee(emp.id, {
-                          reporting_time: scheduleForm.reporting_time || undefined,
-                          leaving_time: scheduleForm.leaving_time || undefined,
+                          reporting_time: optionalText(scheduleForm.reporting_time),
+                          leaving_time: optionalText(scheduleForm.leaving_time),
                           late_relaxation_minutes: scheduleForm.late_relaxation_minutes ? parseInt(scheduleForm.late_relaxation_minutes, 10) : undefined,
                           days_per_week: scheduleForm.days_per_week ? parseInt(scheduleForm.days_per_week, 10) : undefined,
                           monthly_pay: scheduleForm.monthly_pay ? parseFloat(scheduleForm.monthly_pay) : undefined,
-                          account_number: scheduleForm.account_number || undefined,
-                          bank_name: scheduleForm.bank_name || undefined,
+                          account_number: optionalText(scheduleForm.account_number),
+                          bank_name: optionalText(scheduleForm.bank_name),
                         });
                         if (useCustomSchedule) {
                           await hrService.updateEmployeeWorkSchedule(emp.id, buildScheduleDays(weekSchedule));
@@ -632,6 +644,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         <ReadField icon={Clock} label="Leaving Time" value={fmtTime(emp.leaving_time)} missing={!fmtTime(emp.leaving_time)} />
                         <ReadField icon={Clock} label="Late Relaxation" value={emp.late_relaxation_minutes != null ? `${emp.late_relaxation_minutes} minutes` : null} missing={emp.late_relaxation_minutes == null} />
                         <ReadField icon={Calendar} label="Working Days / Week" value={emp.days_per_week} missing={emp.days_per_week == null} />
+                        <ReadField icon={Calendar} label="Weekly Pattern" value={formatWeekScheduleLabel(useCustomSchedule, weekSchedule, emp.days_per_week)} />
                         <ReadField icon={Briefcase} label="Monthly Pay" value={fmtMoney(emp.monthly_pay)} missing={emp.monthly_pay == null} />
                         <ReadField icon={Landmark} label="Bank Account" value={
                           emp.account_number ? `${emp.bank_name ?? "Bank"} · ${emp.account_number}` : null

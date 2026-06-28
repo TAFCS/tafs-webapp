@@ -6,7 +6,7 @@ import {
   Loader2, AlertCircle, CheckCircle2, User, Briefcase, Clock, BookOpen, Link as LinkIcon,
   Plus, X, Camera, ChevronDown, Landmark, PhoneCall
 } from "lucide-react";
-import { hrService, EmployeeProfile, EmployeeCreatePayload, Department, WorkScheduleDay, STAFF_CATEGORY_OPTIONS } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, EmployeeCreatePayload, Department, WorkScheduleDay, STAFF_CATEGORY_OPTIONS, optionalText, optionalStaffCategory } from "@/lib/hr.service";
 import { campusesService, Campus, OfferedClass, SectionInfo } from "@/lib/campuses.service";
 import { PhotoUpload } from "@/app/(dashboard)/identity/students/tabs/PhotoUpload";
 
@@ -348,35 +348,35 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       }
     }
     return {
-      full_name: formData.full_name || undefined,
-      father_name: formData.father_name || undefined,
-      mother_name: formData.mother_name || undefined,
-      cnic: formData.cnic || undefined,
-      date_of_birth: formData.date_of_birth || undefined,
-      address: formData.address || undefined,
-      personal_phone: formData.personal_phone || undefined,
-      personal_email: formData.personal_email || undefined,
-      emergency_contact_name: formData.emergency_contact_name || undefined,
-      emergency_contact_phone: formData.emergency_contact_phone || undefined,
-      emergency_contact_relationship: formData.emergency_contact_relationship || undefined,
-      employee_code: formData.employee_code || undefined,
+      full_name: optionalText(formData.full_name),
+      father_name: optionalText(formData.father_name),
+      mother_name: optionalText(formData.mother_name),
+      cnic: optionalText(formData.cnic),
+      date_of_birth: optionalText(formData.date_of_birth),
+      address: optionalText(formData.address),
+      personal_phone: optionalText(formData.personal_phone),
+      personal_email: optionalText(formData.personal_email),
+      emergency_contact_name: optionalText(formData.emergency_contact_name),
+      emergency_contact_phone: optionalText(formData.emergency_contact_phone),
+      emergency_contact_relationship: optionalText(formData.emergency_contact_relationship),
+      employee_code: optionalText(formData.employee_code),
       department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
-      staff_category: formData.staff_category ? (formData.staff_category as EmployeeCreatePayload['staff_category']) : undefined,
-      job_title: formData.job_title || undefined,
-      job_description: formData.job_description || undefined,
-      join_date: formData.join_date || undefined,
-      employment_type: formData.employment_type || undefined,
+      staff_category: optionalStaffCategory(formData.staff_category),
+      job_title: optionalText(formData.job_title),
+      job_description: optionalText(formData.job_description),
+      join_date: optionalText(formData.join_date),
+      employment_type: optionalText(formData.employment_type),
       reporting_manager_id: formData.reporting_manager_id ? parseInt(formData.reporting_manager_id, 10) : undefined,
       campus_id: formData.campus_id ? parseInt(formData.campus_id, 10) : undefined,
-      notes: formData.notes || undefined,
-      reporting_time: formData.reporting_time || undefined,
-      leaving_time: formData.leaving_time || undefined,
+      notes: optionalText(formData.notes),
+      reporting_time: optionalText(formData.reporting_time),
+      leaving_time: optionalText(formData.leaving_time),
       late_relaxation_minutes: formData.late_relaxation_minutes ? parseInt(formData.late_relaxation_minutes, 10) : undefined,
       days_per_week: formData.days_per_week ? parseInt(formData.days_per_week, 10) : undefined,
       monthly_pay: formData.monthly_pay ? parseFloat(formData.monthly_pay) : undefined,
-      account_number: formData.account_number || undefined,
-      bank_name: formData.bank_name || undefined,
-      user_id: formData.user_id || undefined,
+      account_number: optionalText(formData.account_number),
+      bank_name: optionalText(formData.bank_name),
+      user_id: optionalText(formData.user_id) ?? undefined,
       class_section_assignments: assignments.length > 0 ? assignments : [],
     };
   };

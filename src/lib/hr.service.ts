@@ -40,6 +40,16 @@ export function formatStaffCategory(value: string | null | undefined): string | 
   return STAFF_CATEGORY_OPTIONS.find((o) => o.value === value)?.label ?? value.replace(/_/g, ' ').toUpperCase();
 }
 
+/** Trim text; return null when empty so PATCH payloads can clear optional fields. */
+export function optionalText(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
+}
+
+export function optionalStaffCategory(value: string): StaffCategory | null {
+  return value ? (value as StaffCategory) : null;
+}
+
 export interface EmployeeProfile {
   id: number;
   user_id: string | null;
@@ -105,38 +115,38 @@ export interface EmployeeProfile {
 }
 
 export interface EmployeeCreatePayload {
-  user_id?: string;
-  cnic?: string;
-  join_date?: string;
-  employment_type?: string;
+  user_id?: string | null;
+  cnic?: string | null;
+  join_date?: string | null;
+  employment_type?: string | null;
   department_id?: number;
   designation_id?: number;
   reporting_manager_id?: number;
-  employee_code?: string;
-  full_name?: string;
-  father_name?: string;
-  mother_name?: string;
-  date_of_birth?: string;
-  address?: string;
-  personal_phone?: string;
-  personal_email?: string;
-  job_title?: string;
-  staff_category?: StaffCategory;
-  job_description?: string;
-  notes?: string;
-  reporting_time?: string;
-  leaving_time?: string;
+  employee_code?: string | null;
+  full_name?: string | null;
+  father_name?: string | null;
+  mother_name?: string | null;
+  date_of_birth?: string | null;
+  address?: string | null;
+  personal_phone?: string | null;
+  personal_email?: string | null;
+  job_title?: string | null;
+  staff_category?: StaffCategory | null;
+  job_description?: string | null;
+  notes?: string | null;
+  reporting_time?: string | null;
+  leaving_time?: string | null;
   late_relaxation_minutes?: number;
   monthly_pay?: number;
   staff_type_id?: number;
   campus_id?: number;
   days_per_week?: number;
   photo_url?: string | null;
-  account_number?: string;
-  bank_name?: string;
-  emergency_contact_name?: string;
-  emergency_contact_phone?: string;
-  emergency_contact_relationship?: string;
+  account_number?: string | null;
+  bank_name?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  emergency_contact_relationship?: string | null;
   class_section_assignments?: { class_id: number; section_id: number }[];
 }
 
