@@ -19,9 +19,16 @@ import {
   optionalText,
   optionalStaffCategory,
 } from "@/lib/hr.service";
-import { campusesService, Campus } from "@/lib/campuses.service";
 import { EmployeePortalAccountTab } from "./EmployeePortalAccountTab";
 import { EmployeeBiometricTab } from "./EmployeeBiometricTab";
+import {
+  assignmentsToRows,
+  rowsToAssignments,
+  EmployeeClassAssignmentsEditor,
+  EmployeeClassAssignmentsRead,
+  useClassAssignmentLookups,
+  type ClassSectionRow,
+} from "./EmployeeClassAssignmentsEditor";
 
 const BASE_TABS = [
   { id: "profile", label: "Profile", icon: User },
@@ -216,17 +223,20 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const [tab, setTab] = useState<TabId>("profile");
   const [deleting, setDeleting] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const { campuses, allClasses, allSections, loading: classLookupsLoading } = useClassAssignmentLookups();
 
   const [editProfile, setEditProfile] = useState(false);
   const [editEmployment, setEditEmployment] = useState(false);
   const [editSchedule, setEditSchedule] = useState(false);
+  const [editClasses, setEditClasses] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingEmployment, setSavingEmployment] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const [savingClasses, setSavingClasses] = useState(false);
   const [savedProfile, setSavedProfile] = useState(false);
   const [savedEmployment, setSavedEmployment] = useState(false);
   const [savedSchedule, setSavedSchedule] = useState(false);
+  const [savedClasses, setSavedClasses] = useState(false);
 
   const [profileForm, setProfileForm] = useState({
     full_name: "", father_name: "", mother_name: "", cnic: "", date_of_birth: "",
@@ -243,6 +253,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   });
   const [useCustomSchedule, setUseCustomSchedule] = useState(false);
   const [weekSchedule, setWeekSchedule] = useState<Record<number, boolean>>(defaultWeekSchedule(5));
+  const [classSectionRows, setClassSectionRows] = useState<ClassSectionRow[]>([]);
 
   const syncForms = useCallback((employee: EmployeeProfile) => {
     setProfileForm({
@@ -287,6 +298,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
         setWeekSchedule(defaultWeekSchedule(employee.days_per_week ?? 5));
       }
     }).catch(() => setWeekSchedule(defaultWeekSchedule(employee.days_per_week ?? 5)));
+    setClassSectionRows(assignmentsToRows(employee.employee_class_section_assignments));
   }, []);
 
   const reload = useCallback(async () => {
@@ -314,7 +326,6 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     }
     reload();
     hrService.listDepartments().then(setDepartments).catch(() => {});
-    campusesService.list().then(setCampuses).catch(() => {});
   }, [employeeId, reload]);
 
   const patch = async (
@@ -360,21 +371,15 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
 
   const name = emp?.full_name || emp?.users?.full_name || (loading ? "Loading…" : `Profile #${employeeId}`);
 
+  const resetClassRows = () => {
+    if (emp) setClassSectionRows(assignmentsToRows(emp.employee_class_section_assignments));
+  };
+
   const tabs = [
     ...BASE_TABS,
     ...(emp?.users ? [{ id: "portal" as const, label: "Portal Account", icon: Shield }] : []),
     { id: "biometric" as const, label: "Biometric", icon: Fingerprint },
   ];
-
-  const assignmentsByClass = new Map<string, { sections: string[] }>();
-  if (emp?.employee_class_section_assignments) {
-    for (const a of emp.employee_class_section_assignments) {
-      const key = a.classes ? `${a.classes.description} (${a.classes.class_code})` : `Class #${a.class_id}`;
-      const sec = a.sections?.description || `Section #${a.section_id}`;
-      if (!assignmentsByClass.has(key)) assignmentsByClass.set(key, { sections: [] });
-      assignmentsByClass.get(key)!.sections.push(sec);
-    }
-  }
 
   return (
     <div
@@ -710,38 +715,52 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                 )}
 
                 {tab === "classes" && (
-                  <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-[15px] font-extrabold text-zinc-900 dark:text-zinc-100">Class & section assignments</h3>
-                      <button
-                        type="button"
-                        onClick={() => router.push(`/hr/employees/${emp.id}/edit`)}
-                        className="flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-primary bg-primary/10 rounded-xl hover:bg-primary/15 transition-colors"
-                      >
-                        <Pencil className="h-3.5 w-3.5" /> Edit assignments
-                      </button>
-                    </div>
-                    {assignmentsByClass.size === 0 ? (
-                      <div className="text-center py-12">
-                        <BookOpen className="h-8 w-8 text-zinc-300 mx-auto mb-3" />
-                        <p className="text-sm font-semibold text-zinc-500">No class or section assignments</p>
-                        <p className="text-xs text-zinc-400 mt-1">Use Advanced editor to assign classes.</p>
+                  <EditableCard
+                    title="Class & section assignments"
+                    editing={editClasses}
+                    saving={savingClasses}
+                    saved={savedClasses}
+                    onEdit={() => setEditClasses(true)}
+                    onCancel={() => { setEditClasses(false); resetClassRows(); }}
+                    onSave={async () => {
+                      if (!emp) return;
+                      setSavingClasses(true);
+                      try {
+                        const updated = await hrService.updateEmployee(emp.id, {
+                          class_section_assignments: rowsToAssignments(classSectionRows),
+                        });
+                        setEmp(updated);
+                        syncForms(updated);
+                        setSavedClasses(true);
+                        setEditClasses(false);
+                        onUpdated();
+                        setTimeout(() => setSavedClasses(false), 2000);
+                      } catch (err: any) {
+                        alert(err?.response?.data?.message || "Failed to update class assignments.");
+                      } finally {
+                        setSavingClasses(false);
+                      }
+                    }}
+                    readContent={
+                      <EmployeeClassAssignmentsRead assignments={emp.employee_class_section_assignments} />
+                    }
+                  >
+                    {classLookupsLoading ? (
+                      <div className="flex justify-center py-10">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
                       </div>
                     ) : (
-                      <div className="space-y-3">
-                        {[...assignmentsByClass.entries()].map(([cls, { sections }]) => (
-                          <div key={cls} className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-100 dark:border-zinc-800">
-                            <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{cls}</span>
-                            <div className="flex gap-1.5 flex-wrap justify-end">
-                              {sections.map(s => (
-                                <span key={s} className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-primary/10 text-primary">{s}</span>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      <EmployeeClassAssignmentsEditor
+                        compact
+                        campusId={emp.campus_id}
+                        rows={classSectionRows}
+                        onRowsChange={setClassSectionRows}
+                        campuses={campuses}
+                        allClasses={allClasses}
+                        allSections={allSections}
+                      />
                     )}
-                  </div>
+                  </EditableCard>
                 )}
               </>
             )}
