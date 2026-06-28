@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Loader2, AlertCircle, CheckCircle2, User, Briefcase, Clock, BookOpen, Link as LinkIcon,
-  Plus, X, Camera, ChevronDown
+  Plus, X, Camera, ChevronDown, Landmark, PhoneCall
 } from "lucide-react";
 import { hrService, EmployeeProfile, EmployeeCreatePayload, Department, WorkScheduleDay, STAFF_CATEGORY_OPTIONS } from "@/lib/hr.service";
 import { campusesService, Campus, OfferedClass, SectionInfo } from "@/lib/campuses.service";
@@ -36,6 +36,9 @@ interface FormData {
   address: string;
   personal_phone: string;
   personal_email: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+  emergency_contact_relationship: string;
   // Employment
   employee_code: string;
   department_id: string;
@@ -53,6 +56,8 @@ interface FormData {
   late_relaxation_minutes: string;
   days_per_week: string;
   monthly_pay: string;
+  account_number: string;
+  bank_name: string;
   // Account
   user_id: string;
 }
@@ -60,11 +65,12 @@ interface FormData {
 const EMPTY_FORM: FormData = {
   full_name: "", father_name: "", mother_name: "", cnic: "",
   date_of_birth: "", address: "", personal_phone: "", personal_email: "",
+  emergency_contact_name: "", emergency_contact_phone: "", emergency_contact_relationship: "",
   employee_code: "", department_id: "", staff_category: "",
   job_title: "", job_description: "", join_date: "", employment_type: "Full-time",
   reporting_manager_id: "", campus_id: "", notes: "",
   reporting_time: "", leaving_time: "", late_relaxation_minutes: "",
-  days_per_week: "5", monthly_pay: "", user_id: "",
+  days_per_week: "5", monthly_pay: "", account_number: "", bank_name: "", user_id: "",
 };
 
 const WEEKDAY_ORDER = [
@@ -210,6 +216,9 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       address: emp.address ?? "",
       personal_phone: emp.personal_phone ?? "",
       personal_email: emp.personal_email ?? "",
+      emergency_contact_name: emp.emergency_contact_name ?? "",
+      emergency_contact_phone: emp.emergency_contact_phone ?? "",
+      emergency_contact_relationship: emp.emergency_contact_relationship ?? "",
       employee_code: emp.employee_code ?? "",
       department_id: emp.department_id ? String(emp.department_id) : "",
       staff_category: emp.staff_category ?? "",
@@ -225,6 +234,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       late_relaxation_minutes: emp.late_relaxation_minutes != null ? String(emp.late_relaxation_minutes) : "",
       days_per_week: emp.days_per_week ? String(emp.days_per_week) : "5",
       monthly_pay: emp.monthly_pay != null ? String(emp.monthly_pay) : "",
+      account_number: emp.account_number ?? "",
+      bank_name: emp.bank_name ?? "",
       user_id: emp.user_id ?? "",
     });
 
@@ -345,6 +356,9 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       address: formData.address || undefined,
       personal_phone: formData.personal_phone || undefined,
       personal_email: formData.personal_email || undefined,
+      emergency_contact_name: formData.emergency_contact_name || undefined,
+      emergency_contact_phone: formData.emergency_contact_phone || undefined,
+      emergency_contact_relationship: formData.emergency_contact_relationship || undefined,
       employee_code: formData.employee_code || undefined,
       department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
       staff_category: formData.staff_category ? (formData.staff_category as EmployeeCreatePayload['staff_category']) : undefined,
@@ -360,6 +374,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       late_relaxation_minutes: formData.late_relaxation_minutes ? parseInt(formData.late_relaxation_minutes, 10) : undefined,
       days_per_week: formData.days_per_week ? parseInt(formData.days_per_week, 10) : undefined,
       monthly_pay: formData.monthly_pay ? parseFloat(formData.monthly_pay) : undefined,
+      account_number: formData.account_number || undefined,
+      bank_name: formData.bank_name || undefined,
       user_id: formData.user_id || undefined,
       class_section_assignments: assignments.length > 0 ? assignments : [],
     };
@@ -483,6 +499,23 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                 label="Profile Photo"
                 onSuccess={(url) => setPhotoUrl(url)}
               />
+              {photoUrl && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm("Remove this employee's profile photo?")) return;
+                    try {
+                      await hrService.updateEmployee(effectiveEmployeeId!, { photo_url: null });
+                      setPhotoUrl(null);
+                    } catch (err: any) {
+                      alert(err?.response?.data?.message || "Failed to remove photo.");
+                    }
+                  }}
+                  className="mt-3 text-xs font-semibold text-rose-600 hover:text-rose-700 underline underline-offset-2"
+                >
+                  Remove photo
+                </button>
+              )}
               <div className="text-sm text-zinc-500 dark:text-zinc-400 pt-2 max-w-xs">
                 <p className="font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Supported formats</p>
                 <p>JPG, PNG, WEBP — max 10MB. The photo will be stored in the TAFS media CDN.</p>
@@ -606,6 +639,28 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                 value={formData.address}
                 onChange={e => setFormData(p => ({ ...p, address: e.target.value }))}
               />
+            </div>
+            <div className="sm:col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <PhoneCall className="h-3.5 w-3.5" /> Emergency Contact
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <FieldLabel>Contact Name</FieldLabel>
+                  <input type="text" className={inputCls} value={formData.emergency_contact_name}
+                    onChange={e => setFormData(p => ({ ...p, emergency_contact_name: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <FieldLabel>Contact Phone</FieldLabel>
+                  <input type="text" className={inputCls} value={formData.emergency_contact_phone}
+                    onChange={e => setFormData(p => ({ ...p, emergency_contact_phone: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <FieldLabel>Relationship</FieldLabel>
+                  <input type="text" placeholder="e.g. Spouse, Parent" className={inputCls} value={formData.emergency_contact_relationship}
+                    onChange={e => setFormData(p => ({ ...p, emergency_contact_relationship: e.target.value }))} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1015,7 +1070,26 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
         </div>
 
         {/* ════════════════════════════════════════════════════════
-            SECTION 6 — ACCOUNT LINK
+            SECTION 6 — FINANCIAL
+        ═══════════════════════════════════════════════════════════ */}
+        <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
+          <SectionHeader icon={Landmark} title="Financial" subtitle="Salary bank account for payroll deposits" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <FieldLabel>Account Number</FieldLabel>
+              <input type="text" className={inputCls} value={formData.account_number}
+                onChange={e => setFormData(p => ({ ...p, account_number: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel>Bank Name</FieldLabel>
+              <input type="text" className={inputCls} value={formData.bank_name}
+                onChange={e => setFormData(p => ({ ...p, bank_name: e.target.value }))} />
+            </div>
+          </div>
+        </div>
+
+        {/* ════════════════════════════════════════════════════════
+            SECTION 7 — ACCOUNT LINK
         ═══════════════════════════════════════════════════════════ */}
         <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
           <SectionHeader icon={LinkIcon} title="System Account Link" subtitle="Link this employee to a staff portal account" />

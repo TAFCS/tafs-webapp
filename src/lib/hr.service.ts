@@ -70,13 +70,21 @@ export interface EmployeeProfile {
   campus_id: number | null;
   days_per_week: number | null;
   photo_url: string | null;
+  account_number: string | null;
+  bank_name: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  emergency_contact_relationship: string | null;
   // Relations
   users?: {
     id: string;
+    username?: string;
     full_name: string;
     role: string;
     email: string;
     is_active: boolean;
+    campus_id?: number | null;
+    allowed_class_ids?: number[];
   } | null;
   departments?: Department | null;
   designations?: Designation | null;
@@ -123,7 +131,21 @@ export interface EmployeeCreatePayload {
   staff_type_id?: number;
   campus_id?: number;
   days_per_week?: number;
+  photo_url?: string | null;
+  account_number?: string;
+  bank_name?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  emergency_contact_relationship?: string;
   class_section_assignments?: { class_id: number; section_id: number }[];
+}
+
+export interface EmployeeAccountUpdatePayload {
+  email?: string;
+  role?: string;
+  campus_id?: number | null;
+  is_active?: boolean;
+  allowed_class_ids?: number[];
 }
 
 export interface Department {
@@ -313,6 +335,13 @@ export const hrService = {
   async updateEmployee(id: number, payload: Partial<EmployeeCreatePayload>): Promise<EmployeeProfile> {
     const { data } = await api.patch<ApiEnvelope<EmployeeProfile>>(`/v1/hr/employees/${id}`, payload);
     return data.data;
+  },
+  async updateEmployeeAccount(id: number, payload: EmployeeAccountUpdatePayload) {
+    const { data } = await api.patch<ApiEnvelope<EmployeeProfile['users']>>(`/v1/hr/employees/${id}/account`, payload);
+    return data.data;
+  },
+  async resetEmployeePassword(id: number, password: string): Promise<void> {
+    await api.post(`/v1/hr/employees/${id}/account/reset-password`, { password });
   },
   async deleteEmployee(id: number): Promise<void> {
     await api.delete(`/v1/hr/employees/${id}`);

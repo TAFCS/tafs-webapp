@@ -101,8 +101,9 @@ export const zkPushService = {
         return res.data;
     },
 
-    getMappings: async (): Promise<DeviceUserMapping[]> => {
-        const res = await api.get('/v1/attendance/zk-device-mappings');
+    getMappings: async (employeeId?: number): Promise<DeviceUserMapping[]> => {
+        const params = employeeId != null ? { employee_id: employeeId } : {};
+        const res = await api.get('/v1/attendance/zk-device-mappings', { params });
         return res.data;
     },
 
