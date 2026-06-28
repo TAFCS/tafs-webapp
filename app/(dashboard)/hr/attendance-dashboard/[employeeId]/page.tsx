@@ -105,7 +105,9 @@ function computeLateMinutes(day: { status: StaffAttendanceStatus | null; segment
     const repMins = rep.getUTCHours() * 60 + rep.getUTCMinutes();
     const checkIn = new Date(workSeg.start);
     const checkInMins = checkIn.getUTCHours() * 60 + checkIn.getUTCMinutes();
-    return Math.max(0, checkInMins - (repMins + (graceMinutes ?? 0)));
+    const rawLate = checkInMins - repMins;
+    const relaxation = graceMinutes ?? 0;
+    return rawLate > relaxation ? rawLate : 0;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
