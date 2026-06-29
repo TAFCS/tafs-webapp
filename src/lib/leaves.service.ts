@@ -79,25 +79,42 @@ export const leavesService = {
 
 export interface SaturdaySchedule {
   id: number;
-  campus_id: number;
+  employee_id: number;
   date: string;
   marked_by: string;
   marked_at: string;
-  campuses: { id: number; campus_name: string };
+  employee_profiles: {
+    id: number;
+    full_name: string | null;
+    campus_id: number | null;
+    employee_class_section_assignments?: {
+      section_id: number;
+      class_id: number;
+      sections?: { description: string };
+      classes?: { description: string; class_code: string };
+    }[];
+  };
   users: { id: string; full_name: string | null };
 }
 
+export interface ListSaturdaySchedulesParams {
+  month: string;
+  campusId?: number;
+  sectionId?: number;
+  employeeId?: number;
+}
+
 export const saturdaySchedulesService = {
-  async list(campusId: number, month: string): Promise<SaturdaySchedule[]> {
+  async list(params: ListSaturdaySchedulesParams): Promise<SaturdaySchedule[]> {
     const { data } = await api.get<ApiEnvelope<SaturdaySchedule[]>>("/v1/hr/saturday-schedules", {
-      params: { campusId, month },
+      params,
     });
     return data.data;
   },
 
-  async create(campusId: number, date: string): Promise<SaturdaySchedule> {
-    const { data } = await api.post<ApiEnvelope<SaturdaySchedule>>("/v1/hr/saturday-schedules", {
-      campusId,
+  async create(employeeIds: number[], date: string): Promise<SaturdaySchedule[]> {
+    const { data } = await api.post<ApiEnvelope<SaturdaySchedule[]>>("/v1/hr/saturday-schedules", {
+      employeeIds,
       date,
     });
     return data.data;

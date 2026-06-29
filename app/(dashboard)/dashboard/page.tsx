@@ -80,8 +80,11 @@ export default function DashboardPage() {
     };
 
     const isItemVisible = (item: NavItem) => {
-        if (item.href === "/admin/developer" || item.href === "/attendance/zk-device-logs" || item.href === "/hr/saturday-schedules") {
+        if (item.href === "/admin/developer" || item.href === "/attendance/zk-device-logs") {
             return user?.role === "SUPER_ADMIN";
+        }
+        if (item.href === "/hr/saturday-schedules") {
+            return user?.role === "SUPER_ADMIN" || user?.role === "CAMPUS_ADMIN";
         }
         if (item.permissions) return item.permissions.some(hasPermission);
         if (item.permission) return hasPermission(item.permission);
