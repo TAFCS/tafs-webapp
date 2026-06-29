@@ -2,7 +2,7 @@ import api from './api';
 
 export type RollSessionStatus = 'DRAFT' | 'SUBMITTED' | 'SKIPPED';
 export type RollRecordStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED' | 'LATE';
-export type StaffAttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'EXCUSED' | 'UNPAID_LEAVE';
+export type StaffAttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'EXCUSED' | 'UNPAID_LEAVE' | 'SICK_LEAVE' | 'CASUAL_LEAVE' | 'ANNUAL_LEAVE';
 
 export interface ClassCheckInSchedule {
   id: number;
@@ -24,6 +24,7 @@ export interface StaffAttendanceRecord {
   status: StaffAttendanceStatus;
   notes: string | null;
   marked_by: string | null;
+  source: 'MANUAL' | 'BIOMETRIC' | 'LEAVE' | 'HOLIDAY' | null;
 }
 
 export interface StaffRegisterRow {

@@ -26,12 +26,27 @@ const SEGMENT_STYLES: Record<TimelineSegmentType, { bg: string; label: string }>
     DAY_OFF:  { bg: "bg-zinc-300 dark:bg-zinc-700", label: "Day Off" },
 };
 
+const STATUS_LABEL: Record<StaffAttendanceStatus, string> = {
+    PRESENT:      "Present",
+    LATE:         "Late",
+    ABSENT:       "Absent",
+    HALF_DAY:     "Half Day",
+    EXCUSED:      "Excused",
+    SICK_LEAVE:   "Sick Leave",
+    CASUAL_LEAVE: "Casual Leave",
+    ANNUAL_LEAVE: "Annual Leave",
+    UNPAID_LEAVE: "Unpaid Leave",
+};
+
 const STATUS_PILL: Record<StaffAttendanceStatus, string> = {
     PRESENT:  "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
     LATE:     "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
     ABSENT:   "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
     HALF_DAY: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-    EXCUSED:  "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+    EXCUSED:      "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+    SICK_LEAVE:   "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+    CASUAL_LEAVE: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+    ANNUAL_LEAVE: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
     UNPAID_LEAVE: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
 };
 
@@ -327,7 +342,7 @@ export default function StaffAttendanceTimelinePage() {
                                         <div className="flex items-center gap-2">
                                             {day.status && (
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_PILL[day.status]}`}>
-                                                    {day.status}
+                                                    {STATUS_LABEL[day.status]}
                                                 </span>
                                             )}
                                             {(() => {

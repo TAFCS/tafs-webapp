@@ -20,14 +20,17 @@ const SEG: Record<SegType, { bg: string; label: string }> = {
 };
 
 const PILL: Record<DayClassification, { cls: string; label: string }> = {
-  PRESENT:    { cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400", label: "Present" },
-  LATE:       { cls: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",         label: "Late" },
-  HALF_DAY:   { cls: "bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400",     label: "Half Day" },
-  ABSENT:     { cls: "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",             label: "Absent" },
-  EXCUSED:    { cls: "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400",                 label: "Excused" },
-  UNPAID_LEAVE: { cls: "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",           label: "Unpaid Leave" },
-  UNRESOLVED: { cls: "bg-amber-200 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",         label: "Unresolved" },
-  DAY_OFF:    { cls: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",                label: "Day Off" },
+  PRESENT:      { cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400", label: "Present" },
+  LATE:         { cls: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",         label: "Late" },
+  HALF_DAY:     { cls: "bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400",     label: "Half Day" },
+  ABSENT:       { cls: "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",             label: "Absent" },
+  EXCUSED:      { cls: "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400",                 label: "Excused" },
+  SICK_LEAVE:   { cls: "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400",     label: "Sick Leave" },
+  CASUAL_LEAVE: { cls: "bg-teal-100 text-teal-700 dark:bg-teal-950/40 dark:text-teal-400",             label: "Casual Leave" },
+  ANNUAL_LEAVE: { cls: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400",     label: "Annual Leave" },
+  UNPAID_LEAVE: { cls: "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",             label: "Unpaid Leave" },
+  UNRESOLVED:   { cls: "bg-amber-200 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",         label: "Unresolved" },
+  DAY_OFF:      { cls: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",                label: "Day Off" },
 };
 
 const ALT_STATUSES: { value: StaffAttendanceStatus; label: string }[] = [
@@ -84,7 +87,7 @@ function buildPreviewSegments(
   checkInAt: string | null,
   checkOutAt: string | null,
 ): Seg[] {
-  if (status === "EXCUSED") {
+  if (status === "EXCUSED" || status === "SICK_LEAVE" || status === "CASUAL_LEAVE" || status === "ANNUAL_LEAVE") {
     return [{ type: "DAY_OFF", start: "00:00", end: "24:00" }];
   }
   if (status === "UNPAID_LEAVE" || status === "ABSENT") return [];
@@ -195,7 +198,7 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
     setSaving(date);
     setError(null);
     try {
-      const clearsPunches = status === "ABSENT" || status === "EXCUSED";
+      const clearsPunches = status === "ABSENT" || status === "EXCUSED" || status === "SICK_LEAVE" || status === "CASUAL_LEAVE" || status === "ANNUAL_LEAVE" || status === "UNPAID_LEAVE";
       const checkInTime = clearsPunches ? undefined : (form.checkIn || undefined);
       const checkOutTime = clearsPunches ? undefined : (form.checkOut || undefined);
 

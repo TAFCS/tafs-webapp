@@ -32,22 +32,40 @@ const STATUS_OPTIONS: { value: StaffAttendanceStatus; label: string; color: stri
   { value: "EXCUSED",  label: "Excused",  color: "sky"     },
 ];
 
+const STATUS_LABEL: Record<StaffAttendanceStatus, string> = {
+  PRESENT:      "Present",
+  ABSENT:       "Absent",
+  LATE:         "Late",
+  HALF_DAY:     "Half Day",
+  EXCUSED:      "Excused",
+  SICK_LEAVE:   "Sick Leave",
+  CASUAL_LEAVE: "Casual Leave",
+  ANNUAL_LEAVE: "Annual Leave",
+  UNPAID_LEAVE: "Unpaid Leave",
+};
+
 const STATUS_STYLES: Record<StaffAttendanceStatus, string> = {
-  PRESENT:  "bg-emerald-600 text-white ring-emerald-600",
-  ABSENT:   "bg-rose-600    text-white ring-rose-600",
-  LATE:     "bg-amber-500   text-white ring-amber-500",
-  HALF_DAY: "bg-orange-500  text-white ring-orange-500",
-  EXCUSED:  "bg-sky-500     text-white ring-sky-500",
-  UNPAID_LEAVE: "bg-rose-600 text-white ring-rose-600",
+  PRESENT:      "bg-emerald-600 text-white ring-emerald-600",
+  ABSENT:       "bg-rose-600    text-white ring-rose-600",
+  LATE:         "bg-amber-500   text-white ring-amber-500",
+  HALF_DAY:     "bg-orange-500  text-white ring-orange-500",
+  EXCUSED:      "bg-sky-500     text-white ring-sky-500",
+  SICK_LEAVE:   "bg-violet-600  text-white ring-violet-600",
+  CASUAL_LEAVE: "bg-teal-600    text-white ring-teal-600",
+  ANNUAL_LEAVE: "bg-indigo-600  text-white ring-indigo-600",
+  UNPAID_LEAVE: "bg-rose-600    text-white ring-rose-600",
 };
 
 const INACTIVE_STYLES: Record<StaffAttendanceStatus, string> = {
-  PRESENT:  "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
-  ABSENT:   "bg-rose-50    text-rose-700    hover:bg-rose-100",
-  LATE:     "bg-amber-50   text-amber-700   hover:bg-amber-100",
-  HALF_DAY: "bg-orange-50  text-orange-700  hover:bg-orange-100",
-  EXCUSED:  "bg-sky-50     text-sky-700     hover:bg-sky-100",
-  UNPAID_LEAVE: "bg-rose-50 text-rose-700 hover:bg-rose-100",
+  PRESENT:      "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+  ABSENT:       "bg-rose-50    text-rose-700    hover:bg-rose-100",
+  LATE:         "bg-amber-50   text-amber-700   hover:bg-amber-100",
+  HALF_DAY:     "bg-orange-50  text-orange-700  hover:bg-orange-100",
+  EXCUSED:      "bg-sky-50     text-sky-700     hover:bg-sky-100",
+  SICK_LEAVE:   "bg-violet-50  text-violet-700  hover:bg-violet-100",
+  CASUAL_LEAVE: "bg-teal-50    text-teal-700    hover:bg-teal-100",
+  ANNUAL_LEAVE: "bg-indigo-50  text-indigo-700  hover:bg-indigo-100",
+  UNPAID_LEAVE: "bg-rose-50    text-rose-700    hover:bg-rose-100",
 };
 
 export default function StaffRegisterPage() {
@@ -398,7 +416,11 @@ export default function StaffRegisterPage() {
                       <td className="px-5 py-3">
                         {isOffDay ? (
                           <span className="inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-sky-100 text-sky-800">
-                            EXCUSED — {row.day_description ?? row.day_type ?? "Day off"}
+                            Excused — {row.day_description ?? row.day_type ?? "Day off"}
+                          </span>
+                        ) : row.record?.source === "LEAVE" && currentStatus ? (
+                          <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold ${INACTIVE_STYLES[currentStatus]}`}>
+                            {STATUS_LABEL[currentStatus]} (Approved Leave)
                           </span>
                         ) : (
                           <div className="flex flex-wrap gap-1">

@@ -58,36 +58,45 @@ function extractPunches(day: DayBreakdownEntry): Array<{ time: string; missing?:
 // ── Cell styles by classification ─────────────────────────────────────────────
 
 const CELL_BG: Record<DayClassification, string> = {
-  PRESENT:    "bg-white dark:bg-zinc-950",
-  LATE:       "bg-amber-50 dark:bg-amber-950/20",
-  HALF_DAY:   "bg-orange-50 dark:bg-orange-950/20",
-  ABSENT:     "bg-rose-50 dark:bg-rose-950/20",
-  EXCUSED:    "bg-sky-50 dark:bg-sky-950/20",
+  PRESENT:      "bg-white dark:bg-zinc-950",
+  LATE:         "bg-amber-50 dark:bg-amber-950/20",
+  HALF_DAY:     "bg-orange-50 dark:bg-orange-950/20",
+  ABSENT:       "bg-rose-50 dark:bg-rose-950/20",
+  EXCUSED:      "bg-sky-50 dark:bg-sky-950/20",
+  SICK_LEAVE:   "bg-violet-50 dark:bg-violet-950/20",
+  CASUAL_LEAVE: "bg-teal-50 dark:bg-teal-950/20",
+  ANNUAL_LEAVE: "bg-indigo-50 dark:bg-indigo-950/20",
   UNPAID_LEAVE: "bg-rose-100 dark:bg-rose-950/30",
-  UNRESOLVED: "bg-amber-100 dark:bg-amber-900/30",
-  DAY_OFF:    "bg-zinc-50 dark:bg-zinc-900/30",
+  UNRESOLVED:   "bg-amber-100 dark:bg-amber-900/30",
+  DAY_OFF:      "bg-zinc-50 dark:bg-zinc-900/30",
 };
 
 const CELL_DOT: Record<DayClassification, string> = {
-  PRESENT:    "bg-emerald-500",
-  LATE:       "bg-amber-500",
-  HALF_DAY:   "bg-orange-500",
-  ABSENT:     "bg-rose-500",
-  EXCUSED:    "bg-sky-400",
+  PRESENT:      "bg-emerald-500",
+  LATE:         "bg-amber-500",
+  HALF_DAY:     "bg-orange-500",
+  ABSENT:       "bg-rose-500",
+  EXCUSED:      "bg-sky-400",
+  SICK_LEAVE:   "bg-violet-500",
+  CASUAL_LEAVE: "bg-teal-500",
+  ANNUAL_LEAVE: "bg-indigo-500",
   UNPAID_LEAVE: "bg-rose-600",
-  UNRESOLVED: "bg-amber-500 animate-pulse",
-  DAY_OFF:    "bg-zinc-300 dark:bg-zinc-600",
+  UNRESOLVED:   "bg-amber-500 animate-pulse",
+  DAY_OFF:      "bg-zinc-300 dark:bg-zinc-600",
 };
 
 const CELL_TEXT: Record<DayClassification, string> = {
-  PRESENT:    "text-zinc-700 dark:text-zinc-200",
-  LATE:       "text-amber-700 dark:text-amber-400",
-  HALF_DAY:   "text-orange-700 dark:text-orange-400",
-  ABSENT:     "text-rose-600 dark:text-rose-400",
-  EXCUSED:    "text-sky-700 dark:text-sky-400",
+  PRESENT:      "text-zinc-700 dark:text-zinc-200",
+  LATE:         "text-amber-700 dark:text-amber-400",
+  HALF_DAY:     "text-orange-700 dark:text-orange-400",
+  ABSENT:       "text-rose-600 dark:text-rose-400",
+  EXCUSED:      "text-sky-700 dark:text-sky-400",
+  SICK_LEAVE:   "text-violet-700 dark:text-violet-400",
+  CASUAL_LEAVE: "text-teal-700 dark:text-teal-400",
+  ANNUAL_LEAVE: "text-indigo-700 dark:text-indigo-400",
   UNPAID_LEAVE: "text-rose-700 dark:text-rose-300",
-  UNRESOLVED: "text-amber-800 dark:text-amber-300",
-  DAY_OFF:    "text-zinc-400 dark:text-zinc-600",
+  UNRESOLVED:   "text-amber-800 dark:text-amber-300",
+  DAY_OFF:      "text-zinc-400 dark:text-zinc-600",
 };
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -198,8 +207,10 @@ export function PayrollMatrixView({ run, lines, onOpenLine }: Props) {
                               </span>
                             ) : cls === "ABSENT" ? (
                               <span className={`text-[10px] font-semibold ${CELL_TEXT[cls]}`}>Absent</span>
-                            ) : cls === "EXCUSED" ? (
-                              <span className={`text-[10px] font-semibold ${CELL_TEXT[cls]}`}>Excused</span>
+                            ) : cls === "EXCUSED" || cls === "SICK_LEAVE" || cls === "CASUAL_LEAVE" || cls === "ANNUAL_LEAVE" || cls === "UNPAID_LEAVE" ? (
+                              <span className={`text-[9px] font-semibold text-center leading-tight ${CELL_TEXT[cls]}`}>
+                                {cls === "SICK_LEAVE" ? "Sick" : cls === "CASUAL_LEAVE" ? "Casual" : cls === "ANNUAL_LEAVE" ? "Annual" : cls === "UNPAID_LEAVE" ? "Unpaid" : "Excused"}
+                              </span>
                             ) : punches.length === 0 ? (
                               <span className="text-[9px] text-zinc-300 dark:text-zinc-700">No data</span>
                             ) : (
@@ -247,6 +258,10 @@ export function PayrollMatrixView({ run, lines, onOpenLine }: Props) {
             ["HALF_DAY", "Half Day"],
             ["ABSENT", "Absent"],
             ["EXCUSED", "Excused"],
+            ["SICK_LEAVE", "Sick Leave"],
+            ["CASUAL_LEAVE", "Casual Leave"],
+            ["ANNUAL_LEAVE", "Annual Leave"],
+            ["UNPAID_LEAVE", "Unpaid Leave"],
             ["UNRESOLVED", "Unresolved"],
             ["DAY_OFF", "Day Off"],
           ] as [DayClassification, string][]

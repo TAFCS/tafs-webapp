@@ -248,7 +248,7 @@ export interface ClassAttendanceMode {
 }
 
 export type PayrollRunStatus = 'DRAFT' | 'FINALIZED';
-export type DayClassification = 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT' | 'EXCUSED' | 'UNPAID_LEAVE' | 'UNRESOLVED' | 'DAY_OFF';
+export type DayClassification = 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT' | 'EXCUSED' | 'SICK_LEAVE' | 'CASUAL_LEAVE' | 'ANNUAL_LEAVE' | 'UNPAID_LEAVE' | 'UNRESOLVED' | 'DAY_OFF';
 
 export interface DayBreakdownEntry {
   date: string;

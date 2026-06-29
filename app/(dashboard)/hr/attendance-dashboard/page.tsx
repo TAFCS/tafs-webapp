@@ -43,19 +43,34 @@ const item = {
     show: { y: 0, opacity: 1 },
 };
 
+const STATUS_LABEL: Record<StaffAttendanceStatus, string> = {
+    PRESENT:      "Present",
+    LATE:         "Late",
+    ABSENT:       "Absent",
+    HALF_DAY:     "Half Day",
+    EXCUSED:      "Excused",
+    SICK_LEAVE:   "Sick Leave",
+    CASUAL_LEAVE: "Casual Leave",
+    ANNUAL_LEAVE: "Annual Leave",
+    UNPAID_LEAVE: "Unpaid Leave",
+};
+
 const STATUS_BADGE: Record<StaffAttendanceStatus, string> = {
-    PRESENT: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    LATE: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-    ABSENT: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
-    HALF_DAY: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-    EXCUSED: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+    PRESENT:      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    LATE:         "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    ABSENT:       "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+    HALF_DAY:     "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+    EXCUSED:      "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+    SICK_LEAVE:   "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+    CASUAL_LEAVE: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+    ANNUAL_LEAVE: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
     UNPAID_LEAVE: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
 };
 
 type SortKey = "name" | "status" | "check_in" | "check_out";
 
 const STATUS_SORT_ORDER: Record<string, number> = {
-    "null": 0, ABSENT: 1, LATE: 2, HALF_DAY: 3, PRESENT: 4, EXCUSED: 5,
+    "null": 0, ABSENT: 1, LATE: 2, HALF_DAY: 3, PRESENT: 4, EXCUSED: 5, SICK_LEAVE: 6, CASUAL_LEAVE: 7, ANNUAL_LEAVE: 8, UNPAID_LEAVE: 9,
 };
 
 function formatTime(iso: string | null): string {
@@ -396,7 +411,7 @@ export default function AttendanceDashboardPage() {
                                                     <td className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">{row.note ?? "—"}</td>
                                                     <td className="px-4 py-3">
                                                         {row.status
-                                                            ? <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[row.status]}`}>{row.status}</span>
+                                                            ? <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[row.status]}`}>{STATUS_LABEL[row.status]}</span>
                                                             : <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">—</span>}
                                                     </td>
                                                 </tr>
