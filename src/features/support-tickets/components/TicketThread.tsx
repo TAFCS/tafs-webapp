@@ -62,6 +62,30 @@ function isOwnStaffMessage(msg: TicketMessage, userId?: string): boolean {
   return msg.sender_type === "STAFF" && Boolean(userId && msg.sender_user?.id === userId);
 }
 
+const SENDER_COLORS = [
+  "#e11d48", "#ea580c", "#d97706", "#16a34a", "#0d9488",
+  "#2563eb", "#7c3aed", "#db2777", "#0891b2", "#9333ea",
+  "#c2410c", "#15803d", "#0369a1", "#6d28d9", "#be185d",
+];
+
+function msgSenderKey(msg: TicketMessage): string {
+  if (msg.sender_type === "GUARDIAN") {
+    return `g:${msg.sender_guardian?.full_name ?? "unknown"}`;
+  }
+  return `s:${msg.sender_user?.id ?? msg.sender_user?.full_name ?? "unknown"}`;
+}
+
+function buildSenderColorMap(messages: TicketMessage[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const msg of messages) {
+    const key = msgSenderKey(msg);
+    if (!map.has(key)) {
+      map.set(key, SENDER_COLORS[map.size % SENDER_COLORS.length]);
+    }
+  }
+  return map;
+}
+
 function incomingLabelForSuperAdmin(
   msg: TicketMessage,
   assigneeId?: string | null,
@@ -139,6 +163,7 @@ export function TicketThread({
   const isReadOnlyViewer = !isClosed && !isAssignee;
   const canCompose = !isClosed && (isAssignee || isSuperAdmin);
   const messages = [...(ticket.messages ?? [])].reverse();
+  const senderColorMap = buildSenderColorMap(messages);
   const composerDisabled = !isConnected || isSending || uploading;
 
   const handleSend = async () => {
@@ -340,68 +365,63 @@ export function TicketThread({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-zinc-50 dark:bg-zinc-900 min-w-0">
-      <div className="p-4 border-b bg-white dark:bg-zinc-950 dark:border-zinc-800">
-        {isSuperAdmin && isReadOnlyViewer && (
-          <div className="mb-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-sm text-amber-900 dark:text-amber-100 border border-amber-200 dark:border-amber-900/50">
-            <p className="font-bold">Super Admin oversight</p>
-            <p className="mt-1 text-xs opacity-90">
-              Assigned to {ticket.current_assignee?.full_name ?? "the routed role"}. Approve staff replies below, or send a direct reply to the parent.
-            </p>
+
+      {/* ── Thread Header ── */}
+      <div className="px-5 py-3 border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+
+        {/* Row 1: Family name + badges + actions */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex items-center gap-2 flex-wrap">
+            <h2 className="font-black text-sm tracking-tight text-zinc-900 dark:text-zinc-50 truncate">
+              {ticket.families?.household_name}
+            </h2>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide shrink-0 ${
+              isClosed
+                ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                : ticket.status === "ASSIGNED"
+                  ? "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
+                  : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+            }`}>
+              {statusLabel(ticket.status)}
+            </span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide shrink-0 ${
+              isFinance
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                : "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400"
+            }`}>
+              {categoryLabel(ticket.category)}
+            </span>
+            <span className="text-xs text-zinc-400 truncate hidden sm:inline">
+              {ticket.subtopic ?? "General inquiry"}
+              {ticket.current_assignee && ` · ${ticket.current_assignee.full_name}`}
+            </span>
+            {isSuperAdmin && isReadOnlyViewer && (
+              <span className="text-[11px] text-amber-600 dark:text-amber-400 shrink-0">
+                Awaiting reply from {ticket.current_assignee?.full_name ?? "assignee"} — you can reply directly below.
+              </span>
+            )}
+            {!isSuperAdmin && isReadOnlyViewer && (
+              <span className="text-[11px] text-zinc-400 shrink-0">Read-only</span>
+            )}
           </div>
-        )}
-        {!isSuperAdmin && isReadOnlyViewer && (
-          <div className="mb-3 p-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-sm text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
-            <p className="font-bold">Read-only view</p>
-            <p className="mt-1 text-xs opacity-90">
-              You are not the assigned responder on this ticket.
-            </p>
-          </div>
-        )}
-        <div className="flex flex-wrap gap-4 items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-inner border border-zinc-200/20">
-              {(ticket.students?.photograph_url || ticket.students?.photo_blue_bg_url) ? (
-                <img
-                  src={ticket.students.photograph_url || ticket.students.photo_blue_bg_url || ""}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <User className="h-6 w-6 text-zinc-400" />
-              )}
-            </div>
-            <div>
-              <h2 className="font-black text-lg">{ticket.families?.household_name}</h2>
-              <p className="text-sm text-zinc-500">
-                {categoryLabel(ticket.category)} · {ticket.subtopic}
-                {ticket.students?.full_name && ` · ${ticket.students.full_name}`}
-              </p>
-              <p className="text-xs mt-1">
-                Status: <span className="font-bold">{statusLabel(ticket.status)}</span>
-                {ticket.current_assignee && <> · Assignee: {ticket.current_assignee.full_name}</>}
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2 flex-wrap">
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
             {ticket.family_id && (
               <button
                 onClick={fetchFamilyStudents}
                 disabled={isLoadingStudents}
-                className="inline-flex items-center gap-2 px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 transition-colors"
               >
-                {isLoadingStudents ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                )}
-                Family Info
+                {isLoadingStudents ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                Family
               </button>
             )}
             {isUnclaimedFinance && userRole === "FINANCE_CLERK" && (
               <button
                 onClick={handleClaim}
                 disabled={claimLoading}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-xl text-sm font-bold hover:opacity-90 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold hover:opacity-90 disabled:opacity-40 transition-colors"
               >
                 {claimLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Claim
@@ -410,7 +430,7 @@ export function TicketThread({
             {isFinance && isAssignee && userRole === "FINANCE_CLERK" && !isClosed && (
               <button
                 onClick={() => setShowClaim(true)}
-                className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
               >
                 Transfer
               </button>
@@ -418,7 +438,7 @@ export function TicketThread({
             {userRole === "GENERAL_RESPONDENT" && isAssignee && !isClosed && (
               <button
                 onClick={() => setShowForward(true)}
-                className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
               >
                 Forward
               </button>
@@ -426,73 +446,59 @@ export function TicketThread({
             {!isClosed && isAssignee && (
               <button
                 onClick={() => setShowCloseModal(true)}
-                className="px-3 py-1.5 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-xl text-sm font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                className="px-3 py-1.5 border border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
               >
                 Close
               </button>
             )}
           </div>
         </div>
+
+        {/* Row 2: Student info — compact inline card */}
         {ticket.students && (
-          <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-zinc-50 dark:bg-zinc-900/40 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50 w-full sm:w-fit">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 flex-shrink-0 shadow-sm border border-zinc-100 dark:border-zinc-800">
-                {(ticket.students.photograph_url || ticket.students.photo_blue_bg_url) ? (
-                  <img
-                    src={ticket.students.photograph_url || ticket.students.photo_blue_bg_url || ""}
-                    alt={ticket.students.full_name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center">
-                    <User className="h-5 w-5 text-zinc-400" />
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                    {ticket.students.full_name}
-                  </span>
-                  <span className="px-1.5 py-0.5 bg-primary/10 text-primary rounded-md text-[9px] font-black uppercase tracking-wider">
-                    CC: {ticket.students.cc}
-                  </span>
-                  {ticket.students.gr_number && (
-                    <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-md text-[9px] font-black uppercase tracking-wider">
-                      GR: {ticket.students.gr_number}
-                    </span>
-                  )}
+          <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-100 dark:border-zinc-800">
+            <div className="h-7 w-7 rounded-md overflow-hidden bg-zinc-200 dark:bg-zinc-800 flex-shrink-0">
+              {(ticket.students.photograph_url || ticket.students.photo_blue_bg_url) ? (
+                <img
+                  src={ticket.students.photograph_url || ticket.students.photo_blue_bg_url || ""}
+                  alt={ticket.students.full_name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="h-full w-full flex items-center justify-center">
+                  <User className="h-3 w-3 text-zinc-400" />
                 </div>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {ticket.students.classes?.description && (
-                    <span className="px-2 py-0.5 bg-white dark:bg-zinc-800 rounded-md text-[9px] font-black border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
-                      {ticket.students.classes.description} {ticket.students.sections?.description}
-                    </span>
-                  )}
-                  {ticket.students.campuses?.campus_name && (
-                    <span className="px-2 py-0.5 bg-white dark:bg-zinc-800 rounded-md text-[9px] font-black border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
-                      {ticket.students.campuses.campus_name}
-                    </span>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
-            {(ticket.students.primary_phone || ticket.students.whatsapp_number) && (
-              <div className="sm:pl-3 sm:border-l sm:border-zinc-200 dark:sm:border-zinc-800 flex gap-2 items-center text-[10px] text-zinc-500 font-semibold mt-1 sm:mt-0">
-                <Phone className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                <span>
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">{ticket.students.full_name}</span>
+              <span className="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-[9px] font-black">CC: {ticket.students.cc}</span>
+              {ticket.students.gr_number && (
+                <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded text-[9px] font-black">GR: {ticket.students.gr_number}</span>
+              )}
+              {ticket.students.classes?.description && (
+                <span className="text-[10px] text-zinc-400">{ticket.students.classes.description} {ticket.students.sections?.description}</span>
+              )}
+              {ticket.students.campuses?.campus_name && (
+                <span className="text-[10px] text-zinc-400">· {ticket.students.campuses.campus_name}</span>
+              )}
+              {(ticket.students.primary_phone || ticket.students.whatsapp_number) && (
+                <span className="text-[10px] text-zinc-400 flex items-center gap-1">
+                  <Phone className="h-2.5 w-2.5" />
                   {ticket.students.primary_phone || ticket.students.whatsapp_number}
+                  {ticket.students.whatsapp_number && ticket.students.whatsapp_number !== ticket.students.primary_phone && (
+                    <span className="px-1 bg-green-500/10 text-green-600 rounded text-[8px] font-black">WA</span>
+                  )}
                 </span>
-                {ticket.students.whatsapp_number && ticket.students.whatsapp_number !== ticket.students.primary_phone && (
-                  <span className="px-1 py-0.2 bg-green-500/10 text-green-600 rounded text-[8px] font-black shrink-0">
-                    WA
-                  </span>
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
-        <p className="mt-3 text-sm bg-zinc-100 dark:bg-zinc-800 p-3 rounded-xl">{ticket.description}</p>
+
+        {/* Row 3: Original description */}
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900/40 rounded-lg px-3 py-1.5 leading-relaxed">
+          {ticket.description}
+        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3 relative">
@@ -516,7 +522,7 @@ export function TicketThread({
             className={`max-w-[80%] p-3 rounded-2xl text-sm ${
               onRight
                 ? "ml-auto bg-primary text-white"
-                : "bg-white dark:bg-zinc-800 border dark:border-zinc-700"
+                : "bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700"
             }`}
           >
             <p
@@ -535,11 +541,13 @@ export function TicketThread({
                     )}
                   </>
                 ) : (
-                  <span>{incomingLabelForSuperAdmin(msg, ticket.current_assignee_id)}</span>
+                  <span style={{ color: senderColorMap.get(msgSenderKey(msg)) }}>
+                    {incomingLabelForSuperAdmin(msg, ticket.current_assignee_id)}
+                  </span>
                 )
               ) : (
                 <>
-                  <span>
+                  <span style={onRight ? undefined : { color: senderColorMap.get(msgSenderKey(msg)) }}>
                     {msg.sender_type === "GUARDIAN"
                       ? incomingLabelForSuperAdmin(msg, ticket.current_assignee_id)
                       : senderName(msg)}
