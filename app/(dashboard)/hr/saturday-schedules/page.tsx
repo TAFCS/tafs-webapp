@@ -72,6 +72,7 @@ function getAdvisoryBanner(): { variant: "amber" | "yellow" | "blue"; message: s
 }
 
 interface SectionOption {
+  classId: number;
   sectionId: number;
   label: string;
 }
@@ -83,12 +84,20 @@ function flattenSections(offered?: OfferedClass[]): SectionOption[] {
     for (const sec of cls.sections ?? []) {
       if (!sec.is_active) continue;
       options.push({
+        classId: cls.id,
         sectionId: sec.id,
         label: `${cls.description}-${sec.description}`,
       });
     }
   }
   return options.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function parseSectionFilter(value: string): { classId: number; sectionId: number } | null {
+  if (!value) return null;
+  const [classId, sectionId] = value.split(":").map((v) => parseInt(v, 10));
+  if (!classId || !sectionId) return null;
+  return { classId, sectionId };
 }
 
 export default function SaturdaySchedulesPage() {
@@ -98,7 +107,7 @@ export default function SaturdaySchedulesPage() {
 
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [campusId, setCampusId] = useState<string>("");
-  const [sectionId, setSectionId] = useState<string>("");
+  const [sectionFilter, setSectionFilter] = useState<string>("");
   const [campusDetail, setCampusDetail] = useState<Campus | null>(null);
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [search, setSearch] = useState("");
@@ -149,14 +158,16 @@ export default function SaturdaySchedulesPage() {
 
   const filteredTeachers = useMemo(() => {
     const cid = Number(campusId);
-    const sid = sectionId ? Number(sectionId) : null;
+    const section = parseSectionFilter(sectionFilter);
     const q = search.trim().toLowerCase();
 
     return employees.filter((emp) => {
       if (emp.campus_id !== cid) return false;
       if (!emp.staff_category || !TEACHER_CATEGORIES.has(emp.staff_category)) return false;
-      if (sid != null) {
-        const hasSection = emp.employee_class_section_assignments?.some((a) => a.section_id === sid);
+      if (section != null) {
+        const hasSection = emp.employee_class_section_assignments?.some(
+          (a) => a.class_id === section.classId && a.section_id === section.sectionId,
+        );
         if (!hasSection) return false;
       }
       if (q) {
@@ -165,7 +176,7 @@ export default function SaturdaySchedulesPage() {
       }
       return true;
     });
-  }, [employees, campusId, sectionId, search]);
+  }, [employees, campusId, sectionFilter, search]);
 
   const assignedCountByEmployee = useMemo(() => {
     const map = new Map<number, number>();
@@ -179,20 +190,28 @@ export default function SaturdaySchedulesPage() {
     if (!campusId) return;
     setLoading(true);
     setError(null);
+    const section = parseSectionFilter(sectionFilter);
     try {
       const data = await saturdaySchedulesService.list({
         month,
         campusId: Number(campusId),
-        ...(sectionId ? { sectionId: Number(sectionId) } : {}),
+        ...(section ? { sectionId: section.sectionId } : {}),
       });
-      setItems(data);
+      const filtered = section
+        ? data.filter((item) =>
+            item.employee_profiles.employee_class_section_assignments?.some(
+              (a) => a.class_id === section.classId && a.section_id === section.sectionId,
+            ),
+          )
+        : data;
+      setItems(filtered);
     } catch (err: unknown) {
       console.error(err);
       setError("Failed to load Saturday schedules.");
     } finally {
       setLoading(false);
     }
-  }, [campusId, month, sectionId]);
+  }, [campusId, month, sectionFilter]);
 
   useEffect(() => {
     if (canManage) load();
@@ -320,7 +339,7 @@ export default function SaturdaySchedulesPage() {
                 disabled={isCampusAdmin}
                 onChange={(e) => {
                   setCampusId(e.target.value);
-                  setSectionId("");
+                  setSectionFilter("");
                   setSelectedIds(new Set());
                 }}
                 className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm disabled:opacity-60"
@@ -333,16 +352,21 @@ export default function SaturdaySchedulesPage() {
             <div className="sm:col-span-2">
               <label className="text-xs text-zinc-500 block mb-1">Section</label>
               <select
-                value={sectionId}
+                value={sectionFilter}
                 onChange={(e) => {
-                  setSectionId(e.target.value);
+                  setSectionFilter(e.target.value);
                   setSelectedIds(new Set());
                 }}
                 className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
               >
                 <option value="">All sections</option>
                 {sectionOptions.map((s) => (
-                  <option key={s.sectionId} value={s.sectionId}>{s.label}</option>
+                  <option
+                    key={`${s.classId}-${s.sectionId}`}
+                    value={`${s.classId}:${s.sectionId}`}
+                  >
+                    {s.label}
+                  </option>
                 ))}
               </select>
             </div>
