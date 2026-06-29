@@ -25,6 +25,7 @@ const PILL: Record<DayClassification, { cls: string; label: string }> = {
   HALF_DAY:   { cls: "bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400",     label: "Half Day" },
   ABSENT:     { cls: "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",             label: "Absent" },
   EXCUSED:    { cls: "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400",                 label: "Excused" },
+  UNPAID_LEAVE: { cls: "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",           label: "Unpaid Leave" },
   UNRESOLVED: { cls: "bg-amber-200 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",         label: "Unresolved" },
   DAY_OFF:    { cls: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",                label: "Day Off" },
 };

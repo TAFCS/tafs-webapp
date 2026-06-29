@@ -63,6 +63,7 @@ const CELL_BG: Record<DayClassification, string> = {
   HALF_DAY:   "bg-orange-50 dark:bg-orange-950/20",
   ABSENT:     "bg-rose-50 dark:bg-rose-950/20",
   EXCUSED:    "bg-sky-50 dark:bg-sky-950/20",
+  UNPAID_LEAVE: "bg-rose-100 dark:bg-rose-950/30",
   UNRESOLVED: "bg-amber-100 dark:bg-amber-900/30",
   DAY_OFF:    "bg-zinc-50 dark:bg-zinc-900/30",
 };
@@ -73,6 +74,7 @@ const CELL_DOT: Record<DayClassification, string> = {
   HALF_DAY:   "bg-orange-500",
   ABSENT:     "bg-rose-500",
   EXCUSED:    "bg-sky-400",
+  UNPAID_LEAVE: "bg-rose-600",
   UNRESOLVED: "bg-amber-500 animate-pulse",
   DAY_OFF:    "bg-zinc-300 dark:bg-zinc-600",
 };
@@ -83,6 +85,7 @@ const CELL_TEXT: Record<DayClassification, string> = {
   HALF_DAY:   "text-orange-700 dark:text-orange-400",
   ABSENT:     "text-rose-600 dark:text-rose-400",
   EXCUSED:    "text-sky-700 dark:text-sky-400",
+  UNPAID_LEAVE: "text-rose-700 dark:text-rose-300",
   UNRESOLVED: "text-amber-800 dark:text-amber-300",
   DAY_OFF:    "text-zinc-400 dark:text-zinc-600",
 };

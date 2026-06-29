@@ -248,7 +248,7 @@ export interface ClassAttendanceMode {
 }
 
 export type PayrollRunStatus = 'DRAFT' | 'FINALIZED';
-export type DayClassification = 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT' | 'EXCUSED' | 'UNRESOLVED' | 'DAY_OFF';
+export type DayClassification = 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT' | 'EXCUSED' | 'UNPAID_LEAVE' | 'UNRESOLVED' | 'DAY_OFF';
 
 export interface DayBreakdownEntry {
   date: string;
@@ -260,7 +260,7 @@ export interface DayBreakdownEntry {
   check_out_at: string | null;
   break_minutes: number;
   late_minutes: number;
-  source: 'MANUAL' | 'BIOMETRIC' | 'SYSTEM' | null;
+  source: 'MANUAL' | 'BIOMETRIC' | 'SYSTEM' | 'LEAVE' | null;
   segments?: { type: string; start: string; end: string; isMissingOut?: boolean }[];
 }
 
@@ -274,6 +274,7 @@ export interface PayrollRunLine {
   half_days: number;
   absent_days: number;
   excused_days: number;
+  unpaid_leave_days?: number;
   unresolved_days: number;
   total_break_minutes: number;
   total_late_minutes: number;

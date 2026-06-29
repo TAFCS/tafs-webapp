@@ -411,7 +411,18 @@ function PayrollLineRow({
       </td>
       <td className="px-4 py-3 text-center text-sm text-zinc-600 dark:text-zinc-300">{line.present_days}/{line.scheduled_working_days}</td>
       <td className="px-4 py-3 text-center text-sm">
-        {line.absent_days > 0 ? <span className="font-semibold text-rose-600">{line.absent_days}</span> : <span className="text-zinc-300 dark:text-zinc-600">0</span>}
+        {(line.absent_days + (line.unpaid_leave_days ?? 0)) > 0 ? (
+          <span className="font-semibold text-rose-600">
+            {line.absent_days + (line.unpaid_leave_days ?? 0)}
+            {(line.unpaid_leave_days ?? 0) > 0 && (
+              <span className="text-[10px] font-normal text-zinc-400 ml-1">
+                ({line.unpaid_leave_days} unpaid)
+              </span>
+            )}
+          </span>
+        ) : (
+          <span className="text-zinc-300 dark:text-zinc-600">0</span>
+        )}
       </td>
       <td className="px-4 py-3 text-center text-sm">
         {hasIssue ? (
