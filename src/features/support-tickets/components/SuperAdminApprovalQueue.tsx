@@ -48,84 +48,99 @@ export function SuperAdminApprovalQueue({
 
   if (isLoading) {
     return (
-      <div className="p-4 border-b bg-amber-50 dark:bg-amber-950/30 flex items-center gap-2">
-        <Loader2 className="h-4 w-4 text-amber-700 animate-spin" />
-        <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">Loading approvals…</p>
+      <div className="px-5 py-3 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
+        <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />
+        <p className="text-sm text-zinc-500 font-medium">Loading approvals…</p>
       </div>
     );
   }
 
   if (items.length === 0) {
     return (
-      <div className="p-4 border-b bg-amber-50 dark:bg-amber-950/30 text-sm text-amber-800 dark:text-amber-200">
-        <p className="font-bold">No pending reply approvals</p>
-        <p className="mt-1 text-xs opacity-90">
-          New tickets appear under <strong>All Open</strong>. Staff replies show here once the assignee responds.
-        </p>
+      <div className="px-5 py-3 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2.5">
+        <div className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600" />
+        <p className="text-xs text-zinc-400 font-medium">No pending reply approvals</p>
       </div>
     );
   }
 
   return (
-    <div className="border-b bg-amber-50 dark:bg-amber-950/20 max-h-64 overflow-y-auto">
-      <p className="px-4 pt-3 text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
-        Pending Approvals ({items.length})
-      </p>
-      {items.map((item) => {
-        const busy = loadingId === item.id;
-        return (
-          <div key={item.id} className="p-4 border-t border-amber-100 dark:border-amber-900/50">
-            <p className="text-xs text-zinc-500">
-              {item.ticket?.families?.household_name} · {item.sender_user?.full_name} ({item.sender_user?.role})
-            </p>
-            <p className="text-sm mt-1 font-medium">{item.content}</p>
-            <p className="text-[10px] text-zinc-400 mt-1">{format(new Date(item.created_at), "PPp")}</p>
-            <div className="flex gap-2 mt-2 flex-wrap">
-              {item.ticket?.id && onSelectTicket && (
+    <div className="border-b border-zinc-200 dark:border-zinc-800">
+      {/* Header */}
+      <div className="px-5 pt-4 pb-2 flex items-center gap-2">
+        <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Pending Approvals</p>
+        <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full">
+          {items.length}
+        </span>
+      </div>
+      {/* Scrollable items */}
+      <div className="max-h-52 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800/60">
+        {items.map((item) => {
+          const busy = loadingId === item.id;
+          return (
+            <div key={item.id} className="px-5 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-zinc-500 truncate">
+                    {item.ticket?.families?.household_name}
+                    {item.sender_user?.full_name && (
+                      <span className="text-zinc-400 font-normal"> · {item.sender_user.full_name}</span>
+                    )}
+                  </p>
+                  <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 mt-1.5 line-clamp-2">
+                    {item.content}
+                  </p>
+                  <p className="text-[10px] text-zinc-400 mt-1.5">{format(new Date(item.created_at), "PPp")}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-3">
+                {item.ticket?.id && onSelectTicket && (
+                  <button
+                    disabled={busy}
+                    onClick={() => onSelectTicket(item.ticket!.id)}
+                    className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-50 transition-colors"
+                  >
+                    Open ticket
+                  </button>
+                )}
                 <button
                   disabled={busy}
-                  onClick={() => onSelectTicket(item.ticket!.id)}
-                  className="px-3 py-1 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-bold hover:bg-white/50 disabled:opacity-50"
+                  onClick={() => review(item.id, "APPROVED")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                 >
-                  Open ticket
+                  {busy && <Loader2 className="h-3 w-3 animate-spin" />}
+                  Approve
                 </button>
-              )}
-              <button
-                disabled={busy}
-                onClick={() => review(item.id, "APPROVED")}
-                className="inline-flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded-xl text-xs font-bold hover:opacity-90 disabled:opacity-50"
-              >
-                {busy && <Loader2 className="h-3 w-3 animate-spin" />}
-                Approve
-              </button>
-              <button
-                disabled={busy}
-                onClick={() => setRejectId(rejectId === item.id ? null : item.id)}
-                className="px-3 py-1 bg-red-600 text-white rounded-xl text-xs font-bold hover:opacity-90 disabled:opacity-50"
-              >
-                Reject
-              </button>
-            </div>
-            {rejectId === item.id && (
-              <div className="mt-2 flex gap-2">
-                <input
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Rejection reason..."
-                  className="flex-1 h-9 px-2 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
                 <button
-                  disabled={busy || !comment.trim()}
-                  onClick={() => review(item.id, "REJECTED", comment)}
-                  className="px-3 py-1 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-bold disabled:opacity-50"
+                  disabled={busy}
+                  onClick={() => setRejectId(rejectId === item.id ? null : item.id)}
+                  className="px-3 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-semibold hover:bg-rose-700 disabled:opacity-50 transition-colors"
                 >
-                  Confirm
+                  Reject
                 </button>
               </div>
-            )}
-          </div>
-        );
-      })}
+              {rejectId === item.id && (
+                <div className="mt-3 flex gap-2">
+                  <input
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Rejection reason…"
+                    className="flex-1 h-9 px-3 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                  <button
+                    disabled={busy || !comment.trim()}
+                    onClick={() => review(item.id, "REJECTED", comment)}
+                    className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-semibold disabled:opacity-50 hover:bg-zinc-50 transition-colors"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

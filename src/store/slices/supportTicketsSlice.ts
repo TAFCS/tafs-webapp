@@ -54,7 +54,7 @@ export interface PendingApproval {
   ticket?: SupportTicket & { families?: { household_name: string } };
 }
 
-export type QueueTab = 'my-queue' | 'finance-queue' | 'oversight' | 'closed';
+export type QueueTab = 'my-queue' | 'finance-queue' | 'oversight' | 'approvals' | 'closed';
 
 interface SupportTicketsState {
   queueTab: QueueTab;

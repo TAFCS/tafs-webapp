@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { LogOut, Home } from "lucide-react";
 import { GlobalHeader } from "@/components/layout/global-header";
 import { useAuth, useAuthState } from "@/context/AuthContext";
 import { NavigationProvider } from "@/context/NavigationContext";
@@ -52,9 +52,11 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     // - on /dashboard: use context state
     // - on any other page: derive from URL
     const highlightedId =
-        pathname === "/dashboard"
-            ? activeModuleId
-            : (URL_TO_MODULE[pathname] ?? null);
+        pathname === "/home"
+            ? "home"
+            : pathname === "/dashboard"
+                ? activeModuleId
+                : (URL_TO_MODULE[pathname] ?? null);
 
     const initials = user?.fullName
         ? user.fullName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()
@@ -65,6 +67,20 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
             {/* ── Universal Left Rail ── */}
             <div className="w-[80px] shrink-0 h-full flex flex-col items-center py-4 gap-1 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-y-auto">
+                {/* Home — always visible, above all modules */}
+                <Link
+                    href="/home"
+                    title="Home"
+                    className={`w-[60px] flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl transition-all duration-150 ${
+                        highlightedId === "home"
+                            ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                            : "text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                    }`}
+                >
+                    <Home className="h-6 w-6" />
+                    <span className="text-[9px] font-bold tracking-wide leading-tight text-center">Home</span>
+                </Link>
+
                 {visibleModules.map(module => {
                     const isActive = module.id === highlightedId;
                     return (

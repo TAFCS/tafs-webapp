@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { AlertCircle, Loader2, RefreshCcw } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSocket } from "@/context/SocketContext";
 import { useAuthState } from "@/context/AuthContext";
 import type { AppDispatch, RootState } from "@/store/store";
@@ -31,13 +31,13 @@ import {
   TicketThreadPlaceholder,
 } from "@/features/support-tickets/components/TicketQueueList";
 import { TicketThread } from "@/features/support-tickets/components/TicketThread";
-import { SuperAdminApprovalQueue } from "@/features/support-tickets/components/SuperAdminApprovalQueue";
 import { canViewSupportTickets } from "@/features/support-tickets/supportTicketAccess";
 import type { PendingApproval, SupportTicket, TicketMessage } from "@/store/slices/supportTicketsSlice";
 
 export default function SupportTicketsPage() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { socket, isConnected } = useSocket();
   const { user, isLoading: authLoading } = useAuthState();
   const {
@@ -61,7 +61,14 @@ export default function SupportTicketsPage() {
 
   const hasPermission = canViewSupportTickets(user);
 
+  // Pre-select a ticket from ?ticket= query param (e.g. deep-linked from home page)
+  useEffect(() => {
+    const ticketParam = searchParams.get("ticket");
+    if (ticketParam) dispatch(setSelectedTicketId(ticketParam));
+  }, [searchParams, dispatch]);
+
   const loadQueue = useCallback(() => {
+    if (queueTab === "approvals") return;
     if (queueTab === "my-queue") dispatch(fetchMyQueue());
     else if (queueTab === "finance-queue") dispatch(fetchFinanceQueue());
     else if (queueTab === "oversight") dispatch(fetchOversightQueue());
@@ -229,21 +236,15 @@ export default function SupportTicketsPage() {
     selectedTicket && selectedTicketId && selectedTicket.id === selectedTicketId;
 
   return (
-    <div className="h-[calc(100vh-160px)] flex flex-col shadow-xl border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+    <div className="h-[calc(100vh-5.5rem)] flex border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+      {/* Offline banner — overlaid at top */}
       {!isConnected && (
         <div
           role="alert"
-          className="mx-4 mt-2 flex items-center justify-between gap-3 bg-red-500/10 backdrop-blur-md border border-red-500/20 px-4 py-2.5 rounded-2xl"
+          className="absolute top-2 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-red-600 text-white px-4 py-2 rounded-2xl shadow-lg text-[11px] font-bold uppercase tracking-wider"
         >
-          <p className="text-[11px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
-            Connection lost — messages may be delayed
-          </p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:underline"
-          >
-            <RefreshCcw className="h-3.5 w-3.5" />
+          Connection lost
+          <button type="button" onClick={() => window.location.reload()} className="underline">
             Reload
           </button>
         </div>
@@ -251,30 +252,16 @@ export default function SupportTicketsPage() {
       {queueError && (
         <div
           role="alert"
-          className="mx-4 mt-2 flex items-center gap-3 bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl p-4 text-sm dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400"
+          className="absolute top-2 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-rose-600 text-white px-4 py-2 rounded-2xl shadow-lg text-sm font-semibold"
         >
-          <AlertCircle className="h-5 w-5 text-rose-500 flex-shrink-0" />
-          <span className="flex-1">{queueError}</span>
-          <button
-            onClick={() => {
-              dispatch(clearQueueError());
-              loadQueue();
-            }}
-            className="underline font-bold shrink-0"
-          >
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <span>{queueError}</span>
+          <button onClick={() => { dispatch(clearQueueError()); loadQueue(); }} className="underline ml-1">
             Retry
           </button>
         </div>
       )}
-      {user?.role === "SUPER_ADMIN" && (
-        <SuperAdminApprovalQueue
-          items={pendingApprovals}
-          isLoading={isLoadingApprovals}
-          onSelectTicket={(ticketId) => dispatch(setSelectedTicketId(ticketId))}
-          onRefresh={() => dispatch(fetchPendingApprovals())}
-        />
-      )}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="flex w-full h-full overflow-hidden">
         <TicketQueueList
           tickets={tickets}
           selectedId={selectedTicketId}
@@ -287,6 +274,13 @@ export default function SupportTicketsPage() {
           onSelect={(id) => dispatch(setSelectedTicketId(id))}
           showFinanceTab={showFinanceTab}
           showOversightTab={showOversightTab}
+          pendingApprovals={user?.role === "SUPER_ADMIN" ? pendingApprovals : undefined}
+          isLoadingApprovals={isLoadingApprovals}
+          onRefreshApprovals={() => dispatch(fetchPendingApprovals())}
+          onSelectTicketFromApproval={(ticketId) => {
+            dispatch(setSelectedTicketId(ticketId));
+            dispatch(setQueueTab("oversight"));
+          }}
         />
         {selectedTicketId && (isLoadingDetail || !threadReady) && !detailError ? (
           <TicketThreadLoading />
