@@ -2,7 +2,7 @@ import api from './api';
 
 export type RollSessionStatus = 'DRAFT' | 'SUBMITTED' | 'SKIPPED';
 export type RollRecordStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED' | 'LATE';
-export type StaffAttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'EXCUSED';
+export type StaffAttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'EXCUSED' | 'UNPAID_LEAVE';
 
 export interface ClassCheckInSchedule {
   id: number;

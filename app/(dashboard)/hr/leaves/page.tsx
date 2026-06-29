@@ -24,6 +24,20 @@ function formatDate(iso: string) {
   });
 }
 
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function parseApiError(err: unknown, fallback: string): string {
+  const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
+  if (Array.isArray(msg)) return msg.join(". ");
+  if (typeof msg === "string" && msg.trim()) return msg;
+  return fallback;
+}
+
 function statusPill(status: LeaveRequestStatus) {
   switch (status) {
     case "APPROVED":
@@ -39,6 +53,8 @@ export default function LeavesReviewPage() {
   const { user } = useAuthState();
   const [status, setStatus] = useState<LeaveRequestStatus | "ALL">("PENDING");
   const [typeCode, setTypeCode] = useState("ALL");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [items, setItems] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,15 +94,17 @@ export default function LeavesReviewPage() {
         campusId,
         status: status === "ALL" ? undefined : status,
         leaveTypeCode: typeCode === "ALL" ? undefined : typeCode,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
       });
       setItems(data);
     } catch (err: unknown) {
       console.error(err);
-      setError("Failed to load leave requests.");
+      setError(parseApiError(err, "Failed to load leave requests."));
     } finally {
       setLoading(false);
     }
-  }, [campusId, status, typeCode]);
+  }, [campusId, status, typeCode, fromDate, toDate]);
 
   useEffect(() => {
     if (canReview) load();
@@ -112,7 +130,28 @@ export default function LeavesReviewPage() {
       await load();
     } catch (err: unknown) {
       console.error(err);
-      setError("Failed to review leave request.");
+      setError(parseApiError(err, "Failed to review leave request."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRevoke = async () => {
+    if (!selected) return;
+    if (!reviewReason.trim()) {
+      setError("Revocation reason is required.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await leavesService.revoke(selected.id, reviewReason.trim());
+      setSelected(null);
+      setReviewReason("");
+      await load();
+    } catch (err: unknown) {
+      console.error(err);
+      setError(parseApiError(err, "Failed to revoke leave request."));
     } finally {
       setSubmitting(false);
     }
@@ -169,6 +208,22 @@ export default function LeavesReviewPage() {
             <option key={t} value={t}>{t === "ALL" ? "All types" : t}</option>
           ))}
         </select>
+        <input
+          type="date"
+          value={fromDate}
+          onChange={(e) => setFromDate(e.target.value)}
+          className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
+          placeholder="From"
+          aria-label="From date"
+        />
+        <input
+          type="date"
+          value={toDate}
+          onChange={(e) => setToDate(e.target.value)}
+          className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
+          placeholder="To"
+          aria-label="To date"
+        />
       </div>
 
       {error && (
@@ -249,6 +304,13 @@ export default function LeavesReviewPage() {
               {selected.review_reason && (
                 <p><span className="text-zinc-500">Review note:</span> {selected.review_reason}</p>
               )}
+              <p><span className="text-zinc-500">Submitted:</span> {formatDateTime(selected.created_at)}</p>
+              {selected.reviewer?.full_name && (
+                <p><span className="text-zinc-500">Reviewed by:</span> {selected.reviewer.full_name}</p>
+              )}
+              {selected.reviewed_at && (
+                <p><span className="text-zinc-500">Reviewed at:</span> {formatDateTime(selected.reviewed_at)}</p>
+              )}
             </div>
 
             {selected.attachment_url && (
@@ -300,6 +362,25 @@ export default function LeavesReviewPage() {
                     <XCircle className="h-4 w-4" /> Reject
                   </button>
                 </div>
+              </>
+            )}
+
+            {selected.status === "APPROVED" && (
+              <>
+                <textarea
+                  value={reviewReason}
+                  onChange={(e) => setReviewReason(e.target.value)}
+                  placeholder="Revocation reason (required)"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm min-h-[80px]"
+                />
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={handleRevoke}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 text-white py-2 text-sm font-medium disabled:opacity-50"
+                >
+                  <XCircle className="h-4 w-4" /> Revoke approval
+                </button>
               </>
             )}
           </div>

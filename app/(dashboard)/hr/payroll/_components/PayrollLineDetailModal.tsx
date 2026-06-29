@@ -87,7 +87,7 @@ function buildPreviewSegments(
   if (status === "EXCUSED") {
     return [{ type: "DAY_OFF", start: "00:00", end: "24:00" }];
   }
-  if (status === "ABSENT") return [];
+  if (status === "UNPAID_LEAVE" || status === "ABSENT") return [];
   if (checkInAt) {
     return [{ type: "WORK", start: checkInAt, end: checkOutAt ?? checkInAt }];
   }
@@ -304,6 +304,26 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
             >
               <X className="h-5 w-5" />
             </button>
+          </div>
+
+          {/* Period summary */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-6 py-3 bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
+            <div className="text-center">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Present</p>
+              <p className="text-sm font-bold text-emerald-600">{line.present_days}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Excused</p>
+              <p className="text-sm font-bold text-sky-600">{line.excused_days}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Absent</p>
+              <p className="text-sm font-bold text-rose-600">{line.absent_days}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Unpaid Leave</p>
+              <p className="text-sm font-bold text-rose-600">{line.unpaid_leave_days ?? 0}</p>
+            </div>
           </div>
 
           {/* Banners */}

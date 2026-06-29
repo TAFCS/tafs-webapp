@@ -38,6 +38,7 @@ const STATUS_STYLES: Record<StaffAttendanceStatus, string> = {
   LATE:     "bg-amber-500   text-white ring-amber-500",
   HALF_DAY: "bg-orange-500  text-white ring-orange-500",
   EXCUSED:  "bg-sky-500     text-white ring-sky-500",
+  UNPAID_LEAVE: "bg-rose-600 text-white ring-rose-600",
 };
 
 const INACTIVE_STYLES: Record<StaffAttendanceStatus, string> = {
@@ -46,6 +47,7 @@ const INACTIVE_STYLES: Record<StaffAttendanceStatus, string> = {
   LATE:     "bg-amber-50   text-amber-700   hover:bg-amber-100",
   HALF_DAY: "bg-orange-50  text-orange-700  hover:bg-orange-100",
   EXCUSED:  "bg-sky-50     text-sky-700     hover:bg-sky-100",
+  UNPAID_LEAVE: "bg-rose-50 text-rose-700 hover:bg-rose-100",
 };
 
 export default function StaffRegisterPage() {

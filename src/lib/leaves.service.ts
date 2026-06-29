@@ -68,6 +68,13 @@ export const leavesService = {
     });
     return data.data;
   },
+
+  async revoke(id: number, reviewReason: string): Promise<LeaveRequest> {
+    const { data } = await api.patch<ApiEnvelope<LeaveRequest>>(`/v1/hr/leaves/${id}/revoke`, {
+      reviewReason,
+    });
+    return data.data;
+  },
 };
 
 export interface SaturdaySchedule {

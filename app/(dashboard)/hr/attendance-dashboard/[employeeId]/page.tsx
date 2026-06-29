@@ -32,6 +32,7 @@ const STATUS_PILL: Record<StaffAttendanceStatus, string> = {
     ABSENT:   "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
     HALF_DAY: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
     EXCUSED:  "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+    UNPAID_LEAVE: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
 };
 
 function timeToPercent(value: string): number {
