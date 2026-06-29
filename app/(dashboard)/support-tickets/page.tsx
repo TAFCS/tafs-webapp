@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, Suspense } from "react";
 import { AlertCircle, Loader2, RefreshCcw } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -34,10 +34,19 @@ import { TicketThread } from "@/features/support-tickets/components/TicketThread
 import { canViewSupportTickets } from "@/features/support-tickets/supportTicketAccess";
 import type { PendingApproval, SupportTicket, TicketMessage } from "@/store/slices/supportTicketsSlice";
 
+function TicketParamSync() {
+  const searchParams = useSearchParams();
+  const dispatch = useDispatch<AppDispatch>();
+  useEffect(() => {
+    const id = searchParams.get("ticket");
+    if (id) dispatch(setSelectedTicketId(id));
+  }, [searchParams, dispatch]);
+  return null;
+}
+
 export default function SupportTicketsPage() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { socket, isConnected } = useSocket();
   const { user, isLoading: authLoading } = useAuthState();
   const {
@@ -60,12 +69,6 @@ export default function SupportTicketsPage() {
   const roleDefaultApplied = useRef(false);
 
   const hasPermission = canViewSupportTickets(user);
-
-  // Pre-select a ticket from ?ticket= query param (e.g. deep-linked from home page)
-  useEffect(() => {
-    const ticketParam = searchParams.get("ticket");
-    if (ticketParam) dispatch(setSelectedTicketId(ticketParam));
-  }, [searchParams, dispatch]);
 
   const loadQueue = useCallback(() => {
     if (queueTab === "approvals") return;
@@ -237,6 +240,7 @@ export default function SupportTicketsPage() {
 
   return (
     <div className="h-[calc(100vh-5.5rem)] flex border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+      <Suspense fallback={null}><TicketParamSync /></Suspense>
       {/* Offline banner — overlaid at top */}
       {!isConnected && (
         <div
