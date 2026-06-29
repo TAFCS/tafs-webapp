@@ -30,7 +30,10 @@ const STATUS_OPTIONS = [
     { value: "EXPIRED", label: "Expired", icon: Hourglass, color: "text-orange-500" },
 ];
 
-const PAGE_SIZE_OPTIONS = [20, 50, 100];
+// Sentinel "fetch all" limit — larger than any realistic voucher count, so the
+// backend (which has no max cap) returns every matching row in one page.
+const ALL_PAGE_SIZE = 1000000;
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 250, 500, 1000, ALL_PAGE_SIZE];
 
 const MONTH_NAMES = [
     "", "January", "February", "March", "April", "May", "June",
@@ -1340,7 +1343,7 @@ export default function VouchersPage() {
                             className="h-8 px-3 text-xs font-bold bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:border-primary"
                         >
                             {PAGE_SIZE_OPTIONS.map(n => (
-                                <option key={n} value={n}>{n}</option>
+                                <option key={n} value={n}>{n === ALL_PAGE_SIZE ? "All" : n}</option>
                             ))}
                         </select>
                     </div>
