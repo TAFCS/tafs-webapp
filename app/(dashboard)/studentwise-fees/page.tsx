@@ -376,7 +376,7 @@ function StudentwiseFeeEditor() {
     }, [rows, activeCell]);
 
     const user = useAppSelector((s) => s.auth.user);
-    const canResetAllHeads = user?.username === "muhammad.hassan.mirza";
+    const canResetAllHeads = user?.username === "muhammad.hassan.mirza" || user?.username === "dev";
     const selectedClass = useMemo(() => {
         if (selectedClassId === "") return null;
         return classes.find(c => c.id === selectedClassId);
