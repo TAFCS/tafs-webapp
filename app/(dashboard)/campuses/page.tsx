@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Building2, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ChevronDown, ChevronRight, GraduationCap, ToggleLeft, ToggleRight, LayoutGrid, MapPin } from "lucide-react";
+import { Building2, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ChevronDown, ChevronRight, GraduationCap, ToggleLeft, ToggleRight, LayoutGrid, MapPin, ShieldAlert } from "lucide-react";
 import { campusesService, Campus, CampusClassInfo, SectionInfo } from "@/lib/campuses.service";
+import { useDeleteGuard } from "@/hooks/use-delete-guard";
 
 export default function CampusesPage() {
     const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -30,6 +31,7 @@ export default function CampusesPage() {
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+    const deleteGuard = useDeleteGuard("campuses");
     const [confirmRemoveClass, setConfirmRemoveClass] = useState<{ campusId: number; classId: number; className: string } | null>(null);
     const [confirmRemoveSection, setConfirmRemoveSection] = useState<{ campusId: number; classId: number; sectionId: number; sectionName: string } | null>(null);
 
@@ -138,12 +140,20 @@ export default function CampusesPage() {
 
     const handleDelete = async () => {
         if (deleteId === null) return;
+        await deleteGuard.check(deleteId);
+        if (!deleteGuard.canDelete) {
+            const deps = deleteGuard.dependencies ?? {};
+            const details = Object.entries(deps).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(", ");
+            setDeleteError(`Cannot delete: ${details || "has dependencies"}. Remove them first.`);
+            return;
+        }
         setIsDeleting(true);
         setDeleteError(null);
         try {
             await campusesService.delete(deleteId);
             setSuccessMessage("Campus deleted successfully.");
             setDeleteId(null);
+            deleteGuard.reset();
             fetchCampuses();
         } catch (err: any) {
             const errMsg = err.response?.data?.message || "Failed to delete campus.";
@@ -225,6 +235,11 @@ export default function CampusesPage() {
 
     return (
         <div className="space-y-6 relative pb-20 max-w-7xl mx-auto">
+            {/* Destructive setup warning */}
+            <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-2xl text-indigo-700 dark:text-indigo-300">
+                <ShieldAlert className="h-4 w-4 shrink-0" />
+                <p className="text-[11px] font-bold">Setup zone — campuses are referenced by students, staff, and classes. Deletions are blocked if active dependencies exist.</p>
+            </div>
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>

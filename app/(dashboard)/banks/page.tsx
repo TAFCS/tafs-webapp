@@ -16,10 +16,12 @@ import {
     Loader2,
     CheckCircle2,
     X,
-    AlertCircle
+    AlertCircle,
+    ShieldAlert,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { bankAccountsService, BankAccount } from "@/lib/bank-accounts.service";
+import { useDeleteGuard } from "@/hooks/use-delete-guard";
 
 export default function BanksManagement() {
     const [banks, setBanks] = useState<BankAccount[]>([]);
@@ -28,6 +30,7 @@ export default function BanksManagement() {
     const [showModal, setShowModal] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [editingBank, setEditingBank] = useState<BankAccount | null>(null);
+    const deleteGuard = useDeleteGuard("bank-accounts");
 
     // Form State
     const [formData, setFormData] = useState({
@@ -113,14 +116,23 @@ export default function BanksManagement() {
     const handleDelete = async (id: number) => {
         const bank = banks.find(b => b.id === id);
         if (!bank) return;
-        
+
+        await deleteGuard.check(id);
+        if (!deleteGuard.canDelete) {
+            const deps = deleteGuard.dependencies ?? {};
+            const details = Object.entries(deps).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(", ");
+            toast.error(`Cannot delete: ${details || "has dependencies"}. Remove them first.`);
+            return;
+        }
+
         const expectedPhrase = `delete ${bank.bank_name}`;
         const userInput = prompt(`Are you sure you want to permanently delete this bank account?\n\nTo confirm, please type exactly:\n"${expectedPhrase}"`);
-        
+
         if (userInput === expectedPhrase) {
             try {
                 await bankAccountsService.delete(id);
                 setBanks(banks.filter(b => b.id !== id));
+                deleteGuard.reset();
                 toast.success("Bank removed successfully.");
             } catch (err: any) {
                 const msg = err.response?.data?.message || "Failed to delete bank. Ensure it has no active vouchers or jobs referencing it.";
@@ -133,6 +145,11 @@ export default function BanksManagement() {
 
     return (
         <div className="max-w-7xl mx-auto space-y-8 pb-20 mt-4 px-4">
+            {/* Destructive setup warning */}
+            <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-2xl text-indigo-700 dark:text-indigo-300">
+                <ShieldAlert className="h-4 w-4 shrink-0" />
+                <p className="text-[11px] font-bold">Setup zone — changes here cascade to vouchers and finance records. Deletions are blocked if dependencies exist.</p>
+            </div>
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="space-y-1">
@@ -177,16 +194,16 @@ export default function BanksManagement() {
                         className="group relative bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] p-8 hover:border-zinc-300 dark:border-zinc-700 hover:shadow-2xl hover:shadow-zinc-200/50 transition-all duration-500 overflow-hidden"
                     >
                         {/* Status Badge */}
-                        <div className="absolute top-6 right-6 flex items-center gap-2">
+                        <div className="absolute top-6 right-6 flex flex-col items-end gap-1.5">
+                            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 animate-in fade-in zoom-in duration-300">
+                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Active</span>
+                            </div>
                             {bank.is_default && (
                                 <span className="px-3 py-1 bg-zinc-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-md shadow-zinc-900/10">
                                     Default
                                 </span>
                             )}
-                            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 animate-in fade-in zoom-in duration-300">
-                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Active</span>
-                            </div>
                         </div>
 
                         {/* Bank Identity */}

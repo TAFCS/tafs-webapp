@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BookOpen, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X } from "lucide-react";
+import { BookOpen, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ShieldAlert } from "lucide-react";
 import api from "@/lib/api";
+import { useDeleteGuard } from "@/hooks/use-delete-guard";
 
 interface ClassItem {
     id: string | number;
@@ -18,6 +19,7 @@ export default function ClassesPage() {
     const [originalClasses, setOriginalClasses] = useState<ClassItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const deleteGuard = useDeleteGuard("classes");
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -135,6 +137,13 @@ export default function ClassesPage() {
 
     const handleDelete = async () => {
         if (deleteId === null) return;
+        await deleteGuard.check(Number(deleteId));
+        if (!deleteGuard.canDelete) {
+            const deps = deleteGuard.dependencies ?? {};
+            const details = Object.entries(deps).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(", ");
+            setError(`Cannot delete: ${details || "has dependencies"}. Remove them first.`);
+            return;
+        }
         setIsDeleting(true);
         setError(null);
         setSuccessMessage(null);
@@ -142,6 +151,7 @@ export default function ClassesPage() {
             await api.delete(`/v1/classes/${deleteId}`);
             setSuccessMessage("Class deleted successfully.");
             setDeleteId(null);
+            deleteGuard.reset();
             fetchClasses();
         } catch (err: any) {
             console.error("Error deleting class:", err);
@@ -156,6 +166,10 @@ export default function ClassesPage() {
 
     return (
         <div className="space-y-6 relative">
+            <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-2xl text-indigo-700 dark:text-indigo-300">
+                <ShieldAlert className="h-4 w-4 shrink-0" />
+                <p className="text-[11px] font-bold">Setup zone — classes are referenced by students and fee schedules. Deletions are blocked if dependencies exist.</p>
+            </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Classes</h1>
