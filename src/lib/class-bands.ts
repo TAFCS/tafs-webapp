@@ -1,7 +1,7 @@
 /**
  * Class bands for principal scope — must match `classes.id` in the database.
  * Cambridge: 1=PN, 2=NUR, 3=KG, 4–8=JR, 9–11=SR, 12–14=O
- * Secondary: 15–19=VI–X | A-Level: 21=AS, 22=A2
+ * Secondary: 15–19=VI–X | A-Level: 20=AS, 21=A2
  */
 export const CLASS_BANDS = [
   { label: 'PN–KG', ids: [1, 2, 3] },
@@ -9,7 +9,7 @@ export const CLASS_BANDS = [
   { label: 'Jr III–V', ids: [6, 7, 8] },
   { label: 'Sr I–III', ids: [9, 10, 11] },
   { label: 'VI–X', ids: [15, 16, 17, 18, 19] },
-  { label: 'O/A Levels', ids: [12, 13, 14, 21, 22] },
+  { label: 'O/A Levels', ids: [12, 13, 14, 20, 21] },
 ] as const;
 
 export function classBandLabel(ids: number[]): string | null {
