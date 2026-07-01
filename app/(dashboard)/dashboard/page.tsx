@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -8,6 +8,7 @@ import { useAuthState } from "@/context/AuthContext";
 import { canViewSupportTickets, SUPPORT_TICKETS_VIEW_PERMISSION } from "@/features/support-tickets/supportTicketAccess";
 import { NAV_MODULES, type NavItem } from "@/lib/nav-config";
 import { useNavigation } from "@/context/NavigationContext";
+import api from "@/lib/api";
 
 // Stat cards per module — wire to APIs as they become available
 const MODULE_STATS: Record<string, { label: string; value: string; sub?: string; subColor?: string }[]> = {
@@ -72,6 +73,24 @@ function ModuleParamSync() {
 export default function DashboardPage() {
     const { user } = useAuthState();
     const { activeModuleId, setActiveModule } = useNavigation();
+    const [statsData, setStatsData] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const { data } = await api.get("/v1/analytics/module-stats");
+                if (data.status === 200) {
+                    setStatsData(data.data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch module stats:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchStats();
+    }, []);
 
     const hasPermission = (perm: string) => {
         if (user?.role === "SUPER_ADMIN") return true;
@@ -94,7 +113,23 @@ export default function DashboardPage() {
     const visibleModules = NAV_MODULES.filter(m => m.permissions.some(hasPermission));
     const activeModule = visibleModules.find(m => m.id === activeModuleId) ?? visibleModules[0];
     const visibleItems = activeModule?.items.filter(isItemVisible) ?? [];
-    const stats = MODULE_STATS[activeModule?.id ?? ""] ?? [];
+    
+    const stats = (MODULE_STATS[activeModule?.id ?? ""] ?? []).map(stat => {
+        if (!statsData || !statsData[activeModule?.id]) return stat;
+        const apiValue = statsData[activeModule.id][stat.label];
+        if (apiValue === undefined || apiValue === null) return stat;
+
+        let formattedValue = String(apiValue);
+        if (stat.label === "Fees Collected" || stat.label === "Outstanding") {
+            formattedValue = `Rs. ${Math.round(Number(apiValue)).toLocaleString()}`;
+        } else if (stat.label === "Collection Rate") {
+            formattedValue = `${Number(apiValue).toFixed(1)}%`;
+        } else {
+            formattedValue = Number(apiValue).toLocaleString();
+        }
+
+        return { ...stat, value: formattedValue };
+    });
 
     // Keep header in sync with whichever module is shown
     useEffect(() => {
@@ -137,15 +172,19 @@ export default function DashboardPage() {
                             {stats.map((stat, i) => (
                                 <div
                                     key={i}
-                                    className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800/80 rounded-2xl p-4"
+                                    className="bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800/80 rounded-2xl p-4 flex flex-col justify-between min-h-[96px]"
                                 >
                                     <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] leading-tight">
                                         {stat.label}
                                     </p>
-                                    <p className="text-3xl font-black text-zinc-900 dark:text-zinc-50 mt-2 font-outfit tracking-tight">
-                                        {stat.value}
-                                    </p>
-                                    {stat.sub && (
+                                    {isLoading ? (
+                                        <div className="h-8 w-24 bg-zinc-100 dark:bg-zinc-800/60 animate-pulse rounded-lg mt-2" />
+                                    ) : (
+                                        <p className="text-3xl font-black text-zinc-900 dark:text-zinc-50 mt-2 font-outfit tracking-tight">
+                                            {stat.value}
+                                        </p>
+                                    )}
+                                    {stat.sub && !isLoading && (
                                         <p className={`text-xs font-bold mt-1 ${stat.subColor ?? "text-zinc-400"}`}>
                                             {stat.sub}
                                         </p>
@@ -188,3 +227,4 @@ export default function DashboardPage() {
         </>
     );
 }
+
