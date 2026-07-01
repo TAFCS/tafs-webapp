@@ -7,12 +7,16 @@ import {
     Printer, CreditCard, HandCoins, History, Clock,
     UserPlus, Users, BarChart3, MessageSquare, UserCog,
     Ticket, FilePlus, FilePen, Trash2, RefreshCw,
+    AlertTriangle, CheckCircle, ExternalLink, Loader2, User, ArrowRight,
 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { NAV_MODULES } from "@/lib/nav-config";
 import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
+import { getSectionColor } from "@/lib/log-colors";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchMyQueue, type SupportTicket } from "@/store/slices/supportTicketsSlice";
+import api from "@/lib/api";
+import toast from "react-hot-toast";
 import type { LucideIcon } from "lucide-react";
 
 // ── Inline Components ──────────────────────────────────────────────────────────
@@ -136,7 +140,7 @@ function AuditLogSidebar({ currentUsername, currentFullName }: { currentUsername
     useEffect(() => {
         auditLogsService
             .list({ limit: 50 })
-            .then(res => setLogs(res.data))
+            .then(res => setLogs(res.data.filter(l => l.section !== 'attendance')))
             .catch(() => setError(true))
             .finally(() => setLoading(false));
     }, []);
@@ -158,25 +162,26 @@ function AuditLogSidebar({ currentUsername, currentFullName }: { currentUsername
                 <p className="text-sm text-zinc-400 py-4 text-center">No recent activity.</p>
             )}
             {!loading && !error && groups.length > 0 && (
-                <div className="overflow-y-auto max-h-[520px] flex flex-col gap-1 pr-1 -mr-1">
+                <div className="overflow-y-auto max-h-[480px] flex flex-col gap-1 pr-1 -mr-1">
                     {groups.map(log => {
                         const meta = ACTION_META[log.action] ?? ACTION_META.UPDATED;
                         const Icon = meta.icon;
+                        const sectionColor = getSectionColor((log as any).section);
                         const entity = ENTITY_LABELS[log.entity_type];
                         const entityLabel = log.count > 1
-                            ? `${log.count} ${entity?.plural ?? log.entity_type.toLowerCase()}`
-                            : entity?.singular ?? log.entity_type.toLowerCase();
+                            ? `${log.count} ${entity?.plural ?? log.entity_type.toLowerCase().replace(/_/g, ' ')}`
+                            : entity?.singular ?? log.entity_type.toLowerCase().replace(/_/g, ' ');
                         const name = displayName(log.changed_by);
                         return (
                             <div key={log.key} className="flex items-start gap-2.5 px-2 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition-colors group">
-                                <div className={`mt-0.5 h-6 w-6 rounded-md flex items-center justify-center shrink-0 ${meta.bg}`}>
-                                    <Icon className={`h-3 w-3 ${meta.color}`} />
+                                <div className={`mt-0.5 h-6 w-6 rounded-md flex items-center justify-center shrink-0 ${sectionColor.bg}`}>
+                                    <Icon className={`h-3 w-3 ${sectionColor.text}`} />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-[12px] leading-snug text-zinc-700 dark:text-zinc-300">
                                         <span className="font-semibold text-zinc-900 dark:text-zinc-100">{name}</span>
                                         {" "}{meta.label}{" "}
-                                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${entity?.pill ?? "bg-zinc-100 text-zinc-600"}`}>
+                                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${entity?.pill ?? `${sectionColor.bg} ${sectionColor.text}`}`}>
                                             {entityLabel}
                                         </span>
                                     </p>
@@ -211,7 +216,151 @@ function AuditLogSidebar({ currentUsername, currentFullName }: { currentUsername
                     })}
                 </div>
             )}
+            {!loading && !error && (
+                <Link href="/system/logs" className="flex items-center justify-center gap-1.5 text-[10px] font-bold text-zinc-400 hover:text-primary transition-colors pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                    Show all activity <ArrowRight className="h-3 w-3" />
+                </Link>
+            )}
         </SidebarShell>
+    );
+}
+
+function AttendanceLogPanel() {
+    const [logs, setLogs] = useState<AuditLog[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        auditLogsService
+            .list({ section: 'attendance', limit: 15 })
+            .then(res => setLogs(res.data))
+            .catch(() => {})
+            .finally(() => setLoading(false));
+    }, []);
+
+    if (!loading && logs.length === 0) return null;
+
+    return (
+        <SidebarShell title="Attendance Activity">
+            {loading && <SkeletonRows count={3} />}
+            {!loading && logs.length > 0 && (
+                <div className="flex flex-col gap-1">
+                    {logs.slice(0, 8).map(log => (
+                        <div key={log.id} className="flex items-start gap-2.5 px-2 py-2 rounded-xl hover:bg-rose-50/50 dark:hover:bg-rose-950/20 transition-colors">
+                            <div className="mt-0.5 h-2 w-2 rounded-full bg-rose-500 shrink-0 mt-2" />
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[12px] text-zinc-700 dark:text-zinc-300 truncate">
+                                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">{log.changed_by}</span>
+                                    {" — "}{log.note ?? `${log.entity_type.toLowerCase().replace(/_/g, ' ')} marked`}
+                                </p>
+                                <p className="text-[10px] text-rose-500 mt-0.5">{relativeTime(log.changed_at)}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </SidebarShell>
+    );
+}
+
+interface ChequeAlert { id: number; amount: number; due_date: string; }
+
+function PostdatedChequeAlert() {
+    const [count, setCount] = useState(0);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        api.get('/v1/postdated-cheques/alerts')
+            .then(res => setCount(res.data?.data?.count ?? 0))
+            .catch(() => {})
+            .finally(() => setLoading(false));
+    }, []);
+
+    if (loading || count === 0) return null;
+
+    return (
+        <Link href="/postdated-cheques" className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl hover:border-amber-400 transition-all group">
+            <div className="h-8 w-8 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+                    {count} post-dated cheque{count > 1 ? 's' : ''} due for cashing
+                </p>
+                <p className="text-[10px] text-amber-600 dark:text-amber-400">Review and process in Post-dated Cheques</p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-amber-500 group-hover:translate-x-0.5 transition-transform" />
+        </Link>
+    );
+}
+
+interface FlagNotification {
+    id: number;
+    student_id: number;
+    student_name: string;
+    current_class: string;
+    flag: string;
+    reminder_date: string;
+}
+
+function StudentFlagAlerts() {
+    const [flags, setFlags] = useState<FlagNotification[]>([]);
+    const [processing, setProcessing] = useState<number | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        api.get('/v1/student-flags/all/notifications')
+            .then(res => setFlags(res.data?.data ?? []))
+            .catch(() => {})
+            .finally(() => setLoading(false));
+    }, []);
+
+    const markDone = async (n: FlagNotification) => {
+        setProcessing(n.id);
+        try {
+            await api.patch(`/v1/student-flags/${n.student_id}/${n.flag}/done`);
+            toast.success("Marked as done");
+            setFlags(prev => prev.filter(f => f.id !== n.id));
+        } catch {
+            toast.error("Failed to update");
+        } finally {
+            setProcessing(null);
+        }
+    };
+
+    if (loading || flags.length === 0) return null;
+
+    return (
+        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col gap-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">Pending Promotions ({flags.length})</p>
+            <div className="flex flex-col gap-2">
+                {flags.slice(0, 5).map(n => (
+                    <div key={n.id} className="flex items-center gap-3 p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-xl">
+                        <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                            <User className="h-4 w-4 text-amber-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-bold text-zinc-900 dark:text-zinc-100 truncate">{n.student_name}</p>
+                            <p className="text-[10px] text-zinc-500">CC #{n.student_id} · {n.current_class}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                                onClick={() => markDone(n)}
+                                disabled={processing === n.id}
+                                className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                {processing === n.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                            </button>
+                            <a href={`/identity/register?cc=${n.student_id}`} className="p-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-400 hover:text-zinc-700 transition-colors">
+                                <ExternalLink className="h-3 w-3" />
+                            </a>
+                        </div>
+                    </div>
+                ))}
+                {flags.length > 5 && (
+                    <p className="text-[10px] text-zinc-400 text-center">+{flags.length - 5} more in bell menu</p>
+                )}
+            </div>
+        </div>
     );
 }
 
@@ -325,6 +474,9 @@ export default function HomePage() {
     const roleLabel = ROLE_LABELS[user.role] ?? user.role;
     const role = user.role;
 
+    const isAdminRole = role === "SUPER_ADMIN" || role === "CAMPUS_ADMIN";
+    const isFinanceRole = role === "SUPER_ADMIN" || role === "FINANCE_CLERK";
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -338,6 +490,14 @@ export default function HomePage() {
                 </h1>
                 <p className="text-sm text-zinc-400 mt-1">{roleLabel}</p>
             </div>
+
+            {/* Alerts row */}
+            {(isAdminRole || isFinanceRole) && (
+                <div className="flex flex-col gap-3 mt-6">
+                    {isFinanceRole && <PostdatedChequeAlert />}
+                    {isAdminRole && <StudentFlagAlerts />}
+                </div>
+            )}
 
             {/* Body */}
             {role === "PRINCIPAL" ? (
@@ -384,9 +544,10 @@ export default function HomePage() {
                     </div>
 
                     {/* Sidebar — 1/3 */}
-                    {(role === "SUPER_ADMIN" || role === "CAMPUS_ADMIN") && (
-                        <div className="md:col-span-1">
+                    {isAdminRole && (
+                        <div className="md:col-span-1 flex flex-col gap-4">
                             <AuditLogSidebar currentUsername={user.username} currentFullName={user.fullName} />
+                            <AttendanceLogPanel />
                         </div>
                     )}
                 </div>
