@@ -5,7 +5,7 @@ import {
     FilePlus2, HandCoins, Printer, FileText, History, Layers,
     MessageSquare, Database, Briefcase, Clock, CalendarCheck,
     CalendarClock, ClipboardList, ClipboardCheck, Bell,
-    Fingerprint, BarChart3, CreditCard, Wallet, Building2, Megaphone,
+    Fingerprint, BarChart3, CreditCard, Wallet, Building2, Megaphone, ScrollText,
 } from "lucide-react";
 import { SUPPORT_TICKETS_VIEW_PERMISSION } from "@/features/support-tickets/supportTicketAccess";
 import type { LucideIcon } from "lucide-react";
@@ -105,7 +105,6 @@ export const NAV_MODULES: NavModule[] = [
         items: [
             { name: "Employee Directory", description: "Staff profiles and records", href: "/hr/employees", icon: Users, permission: "hr.employees.view" },
             { name: "Departments", description: "Departments and staff categories", href: "/hr/departments", icon: Layers, permission: "hr.employees.view" },
-            { name: "HR Policies", description: "Rules and guidelines", href: "/hr/policies", icon: FileText, permission: "hr.policies.manage" },
             { name: "Staff Register", description: "Daily staff punch-in", href: "/hr/staff-register", icon: ClipboardCheck, permission: "attendance.staff.mark" },
             { name: "Payroll", description: "Salary processing", href: "/hr/payroll", icon: Wallet, permission: "hr.payroll.view" },
             { name: "Attendance Objections", description: "Review employee attendance disputes", href: "/hr/objections", icon: ClipboardList, permission: "hr.objections.review" },
@@ -169,6 +168,7 @@ export const NAV_MODULES: NavModule[] = [
         items: [
             { name: "User Management", description: "Admin account control", href: "/system/users", icon: UserCog, permission: "system.users.view" },
             { name: "Permissions", description: "Role-based access control", href: "/system/permissions", icon: ShieldCheck, permission: "system.permissions.manage" },
+            { name: "Activity Logs", description: "Full audit log across all modules", href: "/system/logs", icon: ScrollText, permission: "system.users.view" },
             { name: "Database Backups", description: "Data backup management", href: "/admin/backups", icon: Database, permission: "system.backups.view" },
             { name: "Developer Settings", description: "Technical configuration", href: "/admin/developer", icon: Settings, permission: "system.permissions.manage" },
         ],
