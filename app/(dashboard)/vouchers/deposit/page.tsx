@@ -78,25 +78,19 @@ interface DepositModalProps {
 }
 
 function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
-    // Guard: do not allow deposit on a VOID or EXPIRED voucher (bypassed in dev mode)
-    if (!DEV_ALLOW_VOID_DEPOSITS && (voucher.status === "VOID" || voucher.status === "EXPIRED")) {
-        const isExpired = voucher.status === "EXPIRED";
+    // Guard: do not allow deposit on a VOID voucher (bypassed in dev mode). EXPIRED
+    // vouchers are allowed through — the form below shows a "fill at own risk" warning instead.
+    if (!DEV_ALLOW_VOID_DEPOSITS && voucher.status === "VOID") {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm animate-in fade-in duration-200">
                 <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
                     <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
                         <div className="flex items-center gap-4">
                             <div className="h-12 w-12 bg-zinc-200/60 dark:bg-zinc-800 rounded-2xl flex items-center justify-center">
-                                {isExpired ? (
-                                    <Hourglass className="h-6 w-6 text-orange-500" />
-                                ) : (
-                                    <Ban className="h-6 w-6 text-zinc-500" />
-                                )}
+                                <Ban className="h-6 w-6 text-zinc-500" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100">
-                                    {isExpired ? "Voucher Expired" : "Voucher Voided"}
-                                </h2>
+                                <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100">Voucher Voided</h2>
                                 <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Voucher #{voucher.id} • {voucher.students.full_name}</p>
                             </div>
                         </div>
@@ -108,13 +102,9 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         <div className="flex items-start gap-4 p-5 bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/40 rounded-2xl">
                             <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                             <div className="space-y-1">
-                                <p className="text-sm font-black text-amber-800 dark:text-amber-300">
-                                    {isExpired ? "This voucher's validity date has passed" : "This voucher has been superseded"}
-                                </p>
+                                <p className="text-sm font-black text-amber-800 dark:text-amber-300">This voucher has been superseded</p>
                                 <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                                    {isExpired
-                                        ? "This voucher can no longer be deposited. Issue a new voucher for this student and record the deposit against it instead."
-                                        : "The unpaid fee heads from this voucher have been rolled into a newer voucher. Please locate that voucher and record the deposit against it to avoid double-payment."}
+                                    The unpaid fee heads from this voucher have been rolled into a newer voucher. Please locate that voucher and record the deposit against it to avoid double-payment.
                                 </p>
                             </div>
                         </div>
@@ -129,6 +119,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         );
     }
 
+    const isExpired = voucher.status === "EXPIRED";
     const [amount, setAmount] = useState<string>("");
     const [isSaving, setIsSaving] = useState(false);
     const [fillingMode, setFillingMode] = useState<"auto" | "manual">("auto");
@@ -319,6 +310,17 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                 </div>
 
                 <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto">
+                    {isExpired && (
+                        <div className="flex items-start gap-4 p-5 bg-orange-50 dark:bg-orange-900/15 border border-orange-200 dark:border-orange-800/40 rounded-2xl">
+                            <Hourglass className="h-5 w-5 text-orange-600 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                                <p className="text-sm font-black text-orange-800 dark:text-orange-300">This voucher has expired</p>
+                                <p className="text-xs text-orange-700 dark:text-orange-400 leading-relaxed">
+                                    Its validity date has passed. You may still record a deposit against it, but fill at your own risk.
+                                </p>
+                            </div>
+                        </div>
+                    )}
                     {/* Amount Input */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between ml-1">
