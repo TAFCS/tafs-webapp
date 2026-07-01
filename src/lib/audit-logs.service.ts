@@ -2,9 +2,9 @@ import api from './api';
 
 export interface AuditLog {
   id: number;
-  entity_type: 'STUDENT' | 'GUARDIAN' | 'FAMILY' | 'VOUCHER' | 'DEPOSIT';
+  entity_type: string;
   entity_id: string;
-  action: 'UPDATED' | 'CREATED' | 'DELETED' | 'STATUS_CHANGED';
+  action: 'UPDATED' | 'CREATED' | 'DELETED' | 'STATUS_CHANGED' | string;
   field?: string | null;
   old_value?: string | null;
   new_value?: string | null;
@@ -12,6 +12,7 @@ export interface AuditLog {
   changed_at: string;
   note?: string | null;
   student_id?: number | null;
+  section?: string | null;
 }
 
 export interface AuditLogsResponse {
@@ -27,6 +28,7 @@ export interface AuditLogsQuery {
   to?: string;
   limit?: number;
   offset?: number;
+  section?: string;
 }
 
 export const auditLogsService = {
