@@ -2,8 +2,15 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { useAuthState } from "@/context/AuthContext";
+import { clearSession } from "@/context/AuthContext";
+import { useAppDispatch } from "@/store/hooks";
+import { clearCredentials } from "@/store/slices/authSlice";
+
+// How long to wait before retrying a transient (non-401) token refresh failure.
+const REFRESH_RETRY_DELAY_MS = 5000;
 
 interface SocketContextType {
     socket: Socket | null;
@@ -26,6 +33,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const [token, setToken] = useState<string | null>(null);
     const [isTokenLoaded, setIsTokenLoaded] = useState(false);
     const { isAuthenticated } = useAuthState();
+    const router = useRouter();
+    const dispatch = useAppDispatch();
     // Track whether we've already tried to refresh to avoid an infinite refresh loop
     const isRefreshingRef = useRef(false);
 
@@ -51,6 +60,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     useEffect(() => {
         if (!isTokenLoaded) return;
+        let cleanedUp = false;
 
         let rawUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
         let socketUrl = rawUrl;
@@ -105,10 +115,29 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                         socketInstance.io.opts.reconnectionAttempts = Infinity;
                         socketInstance.connect();
                     }
-                } catch (refreshErr) {
-                    console.warn("[SocketContext] Token refresh failed — session expired");
-                    setIsConnecting(false);
-                    // Leave reconnectionAttempts at 0 — force user to re-login
+                } catch (refreshErr: any) {
+                    const status = refreshErr?.response?.status;
+                    if (status === 401) {
+                        // Refresh token itself is invalid — session is genuinely over.
+                        // Stop retrying and send the user to log back in explicitly,
+                        // instead of leaving the socket silently bricked forever.
+                        console.warn("[SocketContext] Refresh token invalid — logging out");
+                        socketInstance.io.opts.reconnectionAttempts = 0;
+                        setIsConnecting(false);
+                        clearSession();
+                        dispatch(clearCredentials());
+                        router.push("/auth/login");
+                    } else {
+                        // Transient failure (network blip, 5xx, etc.) — do NOT brick the
+                        // socket permanently. Restore unlimited reconnection and retry the
+                        // refresh shortly; each retry re-enters this same handler.
+                        console.warn("[SocketContext] Token refresh failed (transient) — retrying shortly:", refreshErr);
+                        socketInstance.io.opts.reconnectionAttempts = Infinity;
+                        setIsConnecting(true);
+                        setTimeout(() => {
+                            if (!cleanedUp && !socketInstance.connected) socketInstance.connect();
+                        }, REFRESH_RETRY_DELAY_MS);
+                    }
                 } finally {
                     isRefreshingRef.current = false;
                 }
@@ -150,6 +179,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         setSocket(socketInstance);
 
         return () => {
+            cleanedUp = true;
             socketInstance.disconnect();
         };
     }, [isTokenLoaded, token]);
