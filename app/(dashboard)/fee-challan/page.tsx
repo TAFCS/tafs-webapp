@@ -23,6 +23,7 @@ import {
   Info,
   Layers,
   X,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -63,6 +64,11 @@ interface VoucherHead {
   id: number;
   discount_amount: number | string | null;
   net_amount: number | string;
+  vouchers?: {
+    id: number;
+    issue_date: string;
+    status: string | null;
+  } | null;
 }
 
 interface StudentFee {
@@ -74,7 +80,7 @@ interface StudentFee {
   target_month?: number;
   academic_year: string;
   due_date: string;
-  status: boolean;
+  status: string;
   fee_types?: {
     id: number;
     description: string;
@@ -93,6 +99,51 @@ interface StudentFee {
     id: number;
     bundle_name: string;
   } | null;
+}
+
+type VoucherGenStatus = {
+  anyGenerated: boolean;
+  anyPaid: boolean;
+  anyPartiallyPaid: boolean;
+};
+
+function computeVoucherGenStatus(fees: StudentFee[]): VoucherGenStatus {
+  let anyGenerated = false;
+  let anyPaid = false;
+  let anyPartiallyPaid = false;
+  for (const fee of fees) {
+    const head = fee.voucher_heads?.[0];
+    if (head) {
+      anyGenerated = true;
+      const voucherStatus = head.vouchers?.status;
+      if (voucherStatus === "PAID") anyPaid = true;
+      if (voucherStatus === "PARTIALLY_PAID") anyPartiallyPaid = true;
+    }
+  }
+  return { anyGenerated, anyPaid, anyPartiallyPaid };
+}
+
+function VoucherGenBadge({ status }: { status: VoucherGenStatus }) {
+  if (!status.anyGenerated) return null;
+  if (status.anyPaid) {
+    return (
+      <span className="text-[10px] font-black bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-1.5">
+        <CheckCircle2 className="h-3 w-3" /> Already Paid
+      </span>
+    );
+  }
+  if (status.anyPartiallyPaid) {
+    return (
+      <span className="text-[10px] font-black bg-amber-500/10 text-amber-600 px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-1.5">
+        <AlertCircle className="h-3 w-3" /> Partially Paid
+      </span>
+    );
+  }
+  return (
+    <span className="text-[10px] font-black bg-blue-500/10 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-1.5">
+      <Info className="h-3 w-3" /> Already Generated
+    </span>
+  );
 }
 
 export default function FeeChallanGenerator() {
@@ -146,6 +197,12 @@ export default function FeeChallanGenerator() {
   const [applyLateFee, setApplyLateFee] = useState(true);
   const [lateFeeAmount, setLateFeeAmount] = useState(1000);
   const [waiveSurcharge, setWaiveSurcharge] = useState(false);
+  const [applyReprintFee, setApplyReprintFee] = useState(false);
+  const [reprintFeeAmount, setReprintFeeAmount] = useState(100);
+  // Per fee_date, since Part 3 can show multiple independent voucher-group cards
+  // at once — a shared toggle would leak an admin's reprint-fee choice from one
+  // group's card onto whichever group's Generate button gets clicked next.
+  const [groupReprintFee, setGroupReprintFee] = useState<Record<string, { apply: boolean; amount: number }>>({});
 
   // --- Date Range Selection ---
   const [dateFrom, setDateFrom] = useState("");
@@ -154,6 +211,7 @@ export default function FeeChallanGenerator() {
   // --- Fees States ---
   const [studentFees, setStudentFees] = useState<StudentFee[]>([]);
   const [isFetchingFees, setIsFetchingFees] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [voucherSaved, setVoucherSaved] = useState(false);
   const [isSavingVoucher, setIsSavingVoucher] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
@@ -401,6 +459,19 @@ export default function FeeChallanGenerator() {
     setIban(bank.iban || "");
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        fetchBanks(),
+        student ? fetchStudentFees(student.cc, month, academicYear) : Promise.resolve(),
+      ]);
+      toast.success("Refreshed.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleSelectStudent = async (studentBrief: {
     cc: number;
     full_name: string;
@@ -526,6 +597,8 @@ export default function FeeChallanGenerator() {
       formData.append("month", (MONTH_TO_NUM[month] || 1).toString());
       formData.append("late_fee_charge", applyLateFee.toString());
       formData.append("late_fee_amount", (lateFeeAmount || 0).toString());
+      formData.append("reprint_fee_charge", applyReprintFee.toString());
+      formData.append("reprint_fee_amount", (reprintFeeAmount || 100).toString());
       formData.append("waive_surcharge", waiveSurcharge.toString());
       formData.append(
         "waived_by",
@@ -600,7 +673,7 @@ export default function FeeChallanGenerator() {
   const handleSaveVoucherForGroup = async (group: {
     fee_date: string;
     fees: StudentFee[];
-  }) => {
+  }, includeReprintFee = false) => {
     if (!student || !selectedBank) return;
     setGeneratingGroupDate(group.fee_date);
 
@@ -636,8 +709,11 @@ export default function FeeChallanGenerator() {
       formData.append("fee_date", group.fee_date);
       formData.append("academic_year", academicYear);
       formData.append("month", (MONTH_TO_NUM[month] || 1).toString());
+      const groupReprint = groupReprintFee[group.fee_date];
       formData.append("late_fee_charge", applyLateFee.toString());
       formData.append("late_fee_amount", (lateFeeAmount || 0).toString());
+      formData.append("reprint_fee_charge", (includeReprintFee && !!groupReprint?.apply).toString());
+      formData.append("reprint_fee_amount", (groupReprint?.amount || 100).toString());
       formData.append("waive_surcharge", waiveSurcharge.toString());
       formData.append(
         "waived_by",
@@ -826,6 +902,14 @@ export default function FeeChallanGenerator() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            title="Refresh/Reload"
+            className="inline-flex items-center gap-2 h-12 px-5 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-medium text-zinc-700 dark:text-zinc-300 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all shadow-sm disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} /> Refresh
+          </button>
           <Link
             href="/bulk-voucher"
             className="h-12 px-6 bg-primary text-white rounded-2xl flex items-center gap-3 font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98]"
@@ -1109,7 +1193,12 @@ export default function FeeChallanGenerator() {
                         <button onClick={() => setApplyLateFee(true)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${applyLateFee ? "bg-white text-rose-600 shadow-xl" : "text-zinc-400"}`}>Apply</button>
                         <button onClick={() => setApplyLateFee(false)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!applyLateFee ? "bg-white text-zinc-400 shadow-xl" : "text-zinc-400"}`}>None</button>
                       </div>
-                      {applyLateFee && <input type="number" value={lateFeeAmount} onChange={(e) => setLateFeeAmount(Number(e.target.value))} className="w-full h-12 px-5 bg-rose-50/50 border-2 border-rose-100 rounded-2xl text-[14px] font-black text-rose-600" />}
+                      {applyLateFee && (
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Surcharge Amount (PKR)</label>
+                          <input type="number" value={lateFeeAmount} onChange={(e) => setLateFeeAmount(Number(e.target.value))} className="w-full h-12 px-5 bg-rose-50/50 border-2 border-rose-100 rounded-2xl text-[14px] font-black text-rose-600" />
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-6">
@@ -1193,13 +1282,17 @@ export default function FeeChallanGenerator() {
 
                   <div className="space-y-8">
                     {feeGroupsByDate.map((g) => {
+                      const genStatus = computeVoucherGenStatus(g.fees);
                       return (
                         <div key={g.fee_date} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] overflow-hidden shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
                           <div className="p-8 flex items-center justify-between bg-zinc-50/30 dark:bg-zinc-900/10">
                             <div className="flex items-center gap-5">
                               <Calendar className="h-6 w-6 text-zinc-400" />
                               <div>
-                                <h4 className="font-black text-lg text-zinc-900 dark:text-zinc-100">FEE DATE: {g.fee_date}</h4>
+                                <h4 className="font-black text-lg text-zinc-900 dark:text-zinc-100 flex items-center gap-3">
+                                  FEE DATE: {g.fee_date}
+                                  <VoucherGenBadge status={genStatus} />
+                                </h4>
                                 <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">{g.fees.length} fees</p>
                               </div>
                             </div>
@@ -1207,7 +1300,7 @@ export default function FeeChallanGenerator() {
                               <button onClick={() => handleShowPreviewForGroup(g)} disabled={previewingGroupDate === g.fee_date} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-2 transition-all hover:bg-zinc-200 dark:hover:bg-zinc-700">
                                 {previewingGroupDate === g.fee_date ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />} Preview
                               </button>
-                              <button onClick={() => handleSaveVoucherForGroup(g)} disabled={generatingGroupDate === g.fee_date} className={`h-12 px-10 rounded-2xl text-[11px] uppercase font-black tracking-widest transition-all flex items-center gap-3 ${generatedGroupDates.has(g.fee_date) ? "bg-emerald-50 text-emerald-600" : "bg-zinc-900 text-white"}`}>
+                              <button onClick={() => handleSaveVoucherForGroup(g, true)} disabled={generatingGroupDate === g.fee_date} className={`h-12 px-10 rounded-2xl text-[11px] uppercase font-black tracking-widest transition-all flex items-center gap-3 ${generatedGroupDates.has(g.fee_date) ? "bg-emerald-50 text-emerald-600" : "bg-zinc-900 text-white"}`}>
                                 {generatingGroupDate === g.fee_date ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
                                 {generatedGroupDates.has(g.fee_date) ? "Regenerate" : "Generate"}
                               </button>
@@ -1223,6 +1316,43 @@ export default function FeeChallanGenerator() {
                               )}
                             </div>
                           </div>
+                          <div className="px-8 pb-6 flex items-center gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={!!groupReprintFee[g.fee_date]?.apply}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setGroupReprintFee(prev => ({
+                                    ...prev,
+                                    [g.fee_date]: { apply: checked, amount: prev[g.fee_date]?.amount || 100 },
+                                  }));
+                                }}
+                                className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
+                              />
+                              <span className="text-[11px] font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-widest">
+                                Add Reprint Fee
+                              </span>
+                            </label>
+                            {groupReprintFee[g.fee_date]?.apply && (
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">Amount (PKR)</label>
+                                <input
+                                  type="number"
+                                  value={groupReprintFee[g.fee_date]?.amount ?? 100}
+                                  onChange={(e) => {
+                                    const amount = Number(e.target.value);
+                                    setGroupReprintFee(prev => ({
+                                      ...prev,
+                                      [g.fee_date]: { apply: true, amount },
+                                    }));
+                                  }}
+                                  className="w-32 h-10 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-black text-zinc-700 dark:text-zinc-300 outline-none focus:ring-4 focus:ring-primary/10"
+                                  placeholder="100"
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -1230,6 +1360,42 @@ export default function FeeChallanGenerator() {
                 </div>
               ) : studentFees.length > 0 ? (
                 <div className="space-y-10 w-full max-w-6xl mx-auto">
+                  {(() => {
+                    const genStatus = computeVoucherGenStatus(studentFees);
+                    return genStatus.anyGenerated ? (
+                      <div className="flex justify-end">
+                        <VoucherGenBadge status={genStatus} />
+                      </div>
+                    ) : null;
+                  })()}
+                  <div className="flex items-center justify-end gap-4 pb-4">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={applyReprintFee}
+                        onChange={(e) => {
+                          setApplyReprintFee(e.target.checked);
+                          if (e.target.checked && !reprintFeeAmount) setReprintFeeAmount(100);
+                        }}
+                        className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
+                      />
+                      <span className="text-[11px] font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-widest">
+                        Add Reprint Fee
+                      </span>
+                    </label>
+                    {applyReprintFee && (
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">Amount (PKR)</label>
+                        <input
+                          type="number"
+                          value={reprintFeeAmount}
+                          onChange={(e) => setReprintFeeAmount(Number(e.target.value))}
+                          className="w-32 h-10 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-black text-zinc-700 dark:text-zinc-300 outline-none focus:ring-4 focus:ring-primary/10"
+                          placeholder="100"
+                        />
+                      </div>
+                    )}
+                  </div>
                   <div className="flex justify-end gap-4 pb-10">
                     <button onClick={() => handleShowPreview(studentFees, dateFrom || issueDate)} disabled={isFetchingArrears} className="h-16 px-8 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 transition-all hover:-translate-y-1">
                       {isFetchingArrears ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileSearch className="h-5 w-5" />} Preview

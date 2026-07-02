@@ -436,20 +436,22 @@ function PartiallyPaidModal({
 
 // ─── Voucher Row ─────────────────────────────────────────────────────────────
 
-function VoucherRow({ 
-    voucher, 
-    index, 
-    sections, 
+function VoucherRow({
+    voucher,
+    index,
+    sections,
     onRefresh,
     isSelected,
-    onToggleSelect
-}: { 
-    voucher: VoucherItem; 
-    index: number; 
-    sections: any[]; 
+    onToggleSelect,
+    canDelete
+}: {
+    voucher: VoucherItem;
+    index: number;
+    sections: any[];
     onRefresh: () => void;
     isSelected: boolean;
     onToggleSelect: () => void;
+    canDelete: boolean;
 }) {
     const status = getStatusConfig(voucher.status);
     const [isDownloading, setIsDownloading] = useState(false);
@@ -696,13 +698,23 @@ function VoucherRow({
                     )}
 
                     {(voucher.status === "UNPAID" || voucher.status === "OVERDUE" || voucher.status === "VOID" || voucher.status === "EXPIRED") && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-                            title="Delete Voucher & Reset Heads"
-                            className="p-1.5 text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </button>
+                        canDelete ? (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                                title="Delete Voucher & Reset Heads"
+                                className="p-1.5 text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </button>
+                        ) : (
+                            <button
+                                disabled
+                                title="Only the most recent voucher for this student can be deleted. Delete newer vouchers first."
+                                className="p-1.5 text-zinc-200 dark:text-zinc-700 rounded-lg cursor-not-allowed"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </button>
+                        )
                     )}
                 </div>
             </td>
@@ -917,10 +929,29 @@ export default function VouchersPage() {
 
     const handleBulkDelete = async () => {
         if (selectedVoucherIds.length === 0) return;
+
+        // Single-student view: only the topmost (most recent) voucher may ever be
+        // deleted, regardless of how many were selected — mirrors the per-row
+        // restriction so the reactivation chain can't be broken via bulk select.
+        let idsToDelete = selectedVoucherIds;
+        if (activeFiltersApplied.cc != null) {
+            const topId = page === 1 ? displayedVouchers[0]?.id : undefined;
+            idsToDelete = selectedVoucherIds.filter(id => id === topId);
+            const skippedForOrder = selectedVoucherIds.length - idsToDelete.length;
+            if (idsToDelete.length === 0) {
+                toast.error("Only the most recent voucher for this student can be deleted. Delete newer vouchers first.");
+                setShowBulkDeleteModal(false);
+                return;
+            }
+            if (skippedForOrder > 0) {
+                toast(`${skippedForOrder} voucher(s) skipped — only the most recent voucher for this student can be deleted.`, { duration: 5000 });
+            }
+        }
+
         setIsBulkDeleting(true);
-        const loadingToast = toast.loading(`Deleting ${selectedVoucherIds.length} vouchers…`);
+        const loadingToast = toast.loading(`Deleting ${idsToDelete.length} vouchers…`);
         try {
-            const { data } = await api.delete("/v1/vouchers/bulk", { data: { ids: selectedVoucherIds, force: false } });
+            const { data } = await api.delete("/v1/vouchers/bulk", { data: { ids: idsToDelete, force: false } });
             toast.dismiss(loadingToast);
             if (data.data.skipped > 0) {
                 toast.success(`${data.data.deleted} deleted, ${data.data.skipped} skipped (paid/partially paid).`, { duration: 5000 });
@@ -1395,17 +1426,22 @@ export default function VouchersPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {displayedVouchers.map((v, i) => (
+                                {displayedVouchers.map((v, i) => {
+                                    const globalIndex = (page - 1) * pageSize + i;
+                                    const canDelete = activeFiltersApplied.cc == null || globalIndex === 0;
+                                    return (
                                     <VoucherRow
                                         key={v.id}
                                         voucher={v}
-                                        index={(page - 1) * pageSize + i}
+                                        index={globalIndex}
                                         sections={sections}
                                         onRefresh={handleRefresh}
                                         isSelected={selectedVoucherIds.includes(v.id)}
                                         onToggleSelect={() => toggleSelect(v.id)}
+                                        canDelete={canDelete}
                                     />
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -1518,9 +1554,14 @@ export default function VouchersPage() {
                         <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">
                             You've selected <span className="font-bold text-zinc-900 dark:text-zinc-100">{selectedVoucherIds.length}</span> voucher{selectedVoucherIds.length !== 1 ? "s" : ""} for deletion.
                         </p>
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+                        <p className={`text-sm text-zinc-500 dark:text-zinc-400 ${activeFiltersApplied.cc != null ? "mb-1" : "mb-6"}`}>
                             Paid and partially paid vouchers will be skipped automatically. Deleted vouchers will have their fee heads reset to <code className="text-xs bg-zinc-100 dark:bg-zinc-900 px-1 py-0.5 rounded">NOT_ISSUED</code>.
                         </p>
+                        {activeFiltersApplied.cc != null && (
+                            <p className="text-sm text-amber-600 dark:text-amber-400 mb-6">
+                                Single-student view — only the most recent voucher for this student will actually be deleted; any others in your selection will be skipped.
+                            </p>
+                        )}
                         <div className="flex gap-3 justify-end">
                             <button
                                 onClick={() => setShowBulkDeleteModal(false)}
