@@ -23,6 +23,10 @@ export default function ChatHubPage() {
     // can emit leaveChat when switching away.
     const enteredChatFamilyRef = useRef<number | null>(null);
 
+    // ✅ FIX: Guards against a stale fetchHistory response (from a conversation
+    // the admin already navigated away from) overwriting the current one.
+    const historyRequestIdRef = useRef(0);
+
     const fetchInbox = useCallback(async () => {
         try {
             const res = await api.get("v1/chat/inbox");
@@ -42,16 +46,20 @@ export default function ChatHubPage() {
 
     const fetchHistory = useCallback(async (familyId: number | null) => {
         if (familyId === null) return;
+        // Stamp this request; if a newer fetchHistory call starts before this one
+        // resolves (fast conversation switching), its response must win instead.
+        const requestId = ++historyRequestIdRef.current;
         setIsLoadingHistory(true);
         try {
             const res = await api.get(`v1/chat/history/admin/${familyId}`);
+            if (historyRequestIdRef.current !== requestId) return; // stale — a newer request has since started
             const data = res.data;
             const history = Array.isArray(data) ? data : (data.data || []);
             setMessages([...history].reverse());
         } catch (err) {
             console.error("Failed to fetch history:", err);
         } finally {
-            setIsLoadingHistory(false);
+            if (historyRequestIdRef.current === requestId) setIsLoadingHistory(false);
         }
     }, []);
 
@@ -69,6 +77,7 @@ export default function ChatHubPage() {
 
         if (selectedFamilyId === null) {
             enteredChatFamilyRef.current = null;
+            historyRequestIdRef.current++; // invalidate any in-flight fetchHistory for the previous selection
             setMessages([]);
             return;
         }
@@ -258,6 +267,14 @@ export default function ChatHubPage() {
         };
         setMessages(prev => [...prev, optimisticMessage]);
 
+        // Thread the same tempId through to the server (in mediaMetadata) so a
+        // retried/duplicate send (e.g. socket ack lost, admin retries manually,
+        // or a REST-fallback races a socket send that actually landed) can be
+        // deduped server-side instead of creating two persisted messages.
+        const mediaMetadataWithTempId = isAnnouncement
+            ? mediaMetadata
+            : { ...(mediaMetadata ?? {}), tempId };
+
         const eventName = isAnnouncement ? "sendAnnouncement" : "sendMessage";
         const socketPayload = isAnnouncement
             ? {
@@ -272,7 +289,7 @@ export default function ChatHubPage() {
                   senderType: "ADMIN",
                   messageType: type,
                   content,
-                  mediaMetadata,
+                  mediaMetadata: mediaMetadataWithTempId,
               };
 
         // ✅ FIX: Try socket first; if disconnected use REST fallback so messages are never lost
@@ -292,7 +309,7 @@ export default function ChatHubPage() {
                     familyId: selectedFamilyId,
                     messageType: type,
                     content,
-                    mediaMetadata,
+                    mediaMetadata: mediaMetadataWithTempId,
                 });
                 const savedMessage = res.data;
                 setMessages(prev => {
