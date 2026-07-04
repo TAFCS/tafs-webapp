@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, ChevronDown, Layers, Hash, Sparkles, UserCheck, CheckCircle, Printer, ChevronRight } from "lucide-react";
+import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, ChevronDown, Layers, Hash, Sparkles, UserCheck, CheckCircle, Printer, ChevronRight, TrendingUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -15,6 +15,7 @@ import { AdmissionOrderTab } from "./AdmissionOrderTab";
 import { TransferOrderTab } from "./TransferOrderTab";
 import { StudentLogsTab } from "./StudentLogsTab";
 import { DangerZoneTab } from "./DangerZoneTab";
+import { AcademicProgressionTab } from "./AcademicProgressionTab";
 
 interface Suggestions {
     suggested_gr: string;
@@ -45,6 +46,7 @@ const TABS = [
     { id: "class_grade", label: "Class Grade", icon: Layers },
     { id: "admissions", label: "Admissions",  icon: BookOpen },
     { id: "academic",   label: "Academic",    icon: GraduationCap },
+    { id: "progression", label: "Progression", icon: TrendingUp },
     { id: "guardians",  label: "Guardians",   icon: Shield },
     { id: "logs",       label: "Logs",        icon: History },
 ] as const;
@@ -336,6 +338,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                 )}
                                 {tab === "admissions" && <AdmissionsTab student={student} onReload={() => reload(true)} classes={classes} />}
                                 {tab === "academic" && <AcademicTab student={student} onReload={() => reload(true)} />}
+                                {tab === "progression" && <AcademicProgressionTab cc={student.cc} />}
                                 {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} />}
                                 {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
                                 {tab === "transfer_order" && <TransferOrderTab cc={student.cc} />}

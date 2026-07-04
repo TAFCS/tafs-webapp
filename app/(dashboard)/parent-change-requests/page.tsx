@@ -219,10 +219,17 @@ export default function ParentChangeRequestsPage() {
                                         </td>
                                         <td className="px-8 py-6">
                                             {isAccountDeletionRequest(req) ? (
-                                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900/50 text-[11px] font-black text-rose-700 dark:text-rose-300 shadow-sm uppercase tracking-wide">
-                                                    <AlertCircle className="h-3.5 w-3.5" />
-                                                    Account Deletion
-                                                </span>
+                                                <div>
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900/50 text-[11px] font-black text-rose-700 dark:text-rose-300 shadow-sm uppercase tracking-wide">
+                                                        <AlertCircle className="h-3.5 w-3.5" />
+                                                        Account Deletion
+                                                    </span>
+                                                    {req.requested_data?.reason && (
+                                                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 italic max-w-xs truncate">
+                                                            {req.requested_data.reason}
+                                                        </p>
+                                                    )}
+                                                </div>
                                             ) : (
                                                 <div className="flex gap-2 flex-wrap max-w-md">
                                                     {req.requested_data && Object.entries(req.requested_data)
@@ -352,6 +359,11 @@ export default function ParentChangeRequestsPage() {
                                                     <span className="font-black">{selectedRequest.guardians?.full_name}</span>.
                                                     This action cannot be undone.
                                                 </p>
+                                                {selectedRequest.requested_data?.reason && (
+                                                    <p className="text-sm text-rose-700 dark:text-rose-300 mt-3 italic">
+                                                        <span className="font-semibold not-italic">Reason:</span> {selectedRequest.requested_data.reason}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
