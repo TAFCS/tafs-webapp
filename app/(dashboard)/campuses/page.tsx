@@ -6,6 +6,10 @@ import { Building2, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Tr
 import { campusesService, Campus, CampusClassInfo, SectionInfo } from "@/lib/campuses.service";
 import { useDeleteGuard } from "@/hooks/use-delete-guard";
 
+function toUpperName(str: string): string {
+    return str.toUpperCase();
+}
+
 export default function CampusesPage() {
     const [campuses, setCampuses] = useState<Campus[]>([]);
     const [originalCampuses, setOriginalCampuses] = useState<Campus[]>([]);
@@ -369,8 +373,8 @@ export default function CampusesPage() {
                                     </div>
                                     <input
                                         type="text"
-                                        value={item.campus_name}
-                                        onChange={(e) => handleChange(item.id, 'campus_name', e.target.value)}
+                                        value={toUpperName(item.campus_name)}
+                                        onChange={(e) => handleChange(item.id, 'campus_name', toUpperName(e.target.value))}
                                         className="w-full text-xl font-bold text-zinc-900 dark:text-zinc-100 bg-transparent border-none p-0 focus:ring-0 block"
                                         placeholder="Campus Name"
                                     />
@@ -424,7 +428,7 @@ export default function CampusesPage() {
                         {/* Drawer Header */}
                         <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50 dark:bg-zinc-900/50">
                             <div>
-                                <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{activeCampus.campus_name}</h2>
+                                <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{toUpperName(activeCampus.campus_name)}</h2>
                                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-mono uppercase tracking-widest flex items-center gap-1.5">
                                     <MapPin className="h-3 w-3" />
                                     {activeCampus.address || "NO ADDRESS SET"}
@@ -621,7 +625,7 @@ export default function CampusesPage() {
                                         <input
                                             required
                                             value={newCampus.campus_name}
-                                            onChange={(e) => setNewCampus({ ...newCampus, campus_name: e.target.value })}
+                                            onChange={(e) => setNewCampus({ ...newCampus, campus_name: toUpperName(e.target.value) })}
                                             className="w-full h-12 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary"
                                         />
                                     </div>

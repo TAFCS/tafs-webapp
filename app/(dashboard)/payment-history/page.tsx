@@ -28,6 +28,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
+import { formatPaymentMethod } from "@/lib/payment-methods";
 
 // --- Types ---
 
@@ -239,7 +240,7 @@ function ReverseDepositModal({
                         </div>
                         <div className="flex justify-between text-sm">
                             <span className="text-zinc-500 font-bold">Channel</span>
-                            <span className="font-black text-zinc-900 dark:text-zinc-100">{deposit.payment_method}</span>
+                            <span className="font-black text-zinc-900 dark:text-zinc-100">{formatPaymentMethod(deposit.payment_method)}</span>
                         </div>
                         {deposit.reference_number && (
                             <div className="flex justify-between text-sm">
@@ -668,7 +669,7 @@ const DepositRow = ({
                 <span className="text-sm font-black text-emerald-600">{formatCurrency(deposit.total_amount)}</span>
             </td>
             <td className="px-6 py-5">
-                <SimpleBadge color="blue">{deposit.payment_method}</SimpleBadge>
+                <SimpleBadge color="blue">{formatPaymentMethod(deposit.payment_method)}</SimpleBadge>
             </td>
             <td className="px-6 py-5 font-mono text-[10px] text-zinc-500">
                 {deposit.reference_number || "—"}

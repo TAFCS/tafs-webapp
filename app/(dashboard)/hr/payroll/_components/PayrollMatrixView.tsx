@@ -129,12 +129,12 @@ export function PayrollMatrixView({ run, lines, onOpenLine }: Props) {
       )}
 
       <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-950 shadow-sm">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[calc(100vh-220px)]">
           <table className="border-collapse text-xs" style={{ minWidth: `${200 + dates.length * 88}px` }}>
-            <thead>
-              <tr className="bg-zinc-50 dark:bg-zinc-900/60 border-b border-zinc-200 dark:border-zinc-800">
-                {/* Sticky employee column header */}
-                <th className="sticky left-0 z-20 bg-zinc-50 dark:bg-zinc-900/60 px-4 py-2.5 text-left font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider border-r border-zinc-200 dark:border-zinc-800 min-w-[200px]">
+            <thead className="sticky top-0 z-30">
+              <tr className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+                {/* Sticky employee column header — double-sticky: top via thead, left via own position */}
+                <th className="sticky left-0 z-20 bg-zinc-50 dark:bg-zinc-900 px-4 py-2.5 text-left font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider border-r border-zinc-200 dark:border-zinc-800 min-w-[200px]">
                   Employee
                 </th>
                 {dates.map((d) => {
