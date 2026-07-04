@@ -13,6 +13,7 @@ import {
   CalendarDays,
   Briefcase,
   ShieldAlert,
+  Power,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
@@ -107,6 +108,21 @@ const ALL_TEMPLATE_KEYS = TEMPLATE_GROUPS.flatMap((g) =>
   g.templates.map((t) => t.key),
 );
 
+function getDisabledKeys(): string[] {
+  const keys: string[] = [];
+  for (const g of TEMPLATE_GROUPS) {
+    const used = new Set<string>();
+    for (const t of g.templates) {
+      if (used.has(t.key) || t.field !== "title") continue;
+      keys.push(t.key.replace(/_title$/, "_disabled"));
+      used.add(t.key);
+    }
+  }
+  return keys;
+}
+
+const ALL_DISABLED_KEYS = getDisabledKeys();
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -136,6 +152,8 @@ export default function NotificationTemplatesPage() {
 
   const [values, setValues] = useState<Record<string, string>>({ ...defaults });
   const [saved, setSaved] = useState<Record<string, string>>({ ...defaults });
+  const [disabledMap, setDisabledMap] = useState<Record<string, boolean>>({});
+  const [savedDisabledMap, setSavedDisabledMap] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
@@ -148,14 +166,20 @@ export default function NotificationTemplatesPage() {
       const { data } = await api.get("/v1/app-config");
       const configList: { key: string; value: string }[] = data?.data || [];
       const configMap: Record<string, string> = {};
+      const disabledState: Record<string, boolean> = {};
       for (const cfg of configList) {
         if (ALL_TEMPLATE_KEYS.includes(cfg.key)) {
           configMap[cfg.key] = cfg.value;
+        }
+        if (ALL_DISABLED_KEYS.includes(cfg.key)) {
+          disabledState[cfg.key] = cfg.value === "true";
         }
       }
       const merged = { ...defaults, ...configMap };
       setValues(merged);
       setSaved(merged);
+      setDisabledMap({ ...disabledState });
+      setSavedDisabledMap({ ...disabledState });
     } catch {
       toast.error("Failed to load notification templates");
     } finally {
@@ -170,7 +194,10 @@ export default function NotificationTemplatesPage() {
   const dirtyKeys = new Set(
     Object.keys(values).filter((k) => values[k] !== saved[k]),
   );
-  const dirtyCount = dirtyKeys.size;
+  const dirtyDisabledKeys = new Set(
+    ALL_DISABLED_KEYS.filter((k) => !!disabledMap[k] !== !!savedDisabledMap[k]),
+  );
+  const dirtyCount = dirtyKeys.size + dirtyDisabledKeys.size;
 
   const toggleGroup = (id: string) => {
     setExpandedGroups((prev) => {
@@ -189,6 +216,21 @@ export default function NotificationTemplatesPage() {
     setValues((prev) => ({ ...prev, [key]: defaults[key] }));
   };
 
+  const toggleDisabled = async (titleKey: string) => {
+    const disabledKey = titleKey.replace(/_title$/, "_disabled");
+    const currentlyDisabled = !!disabledMap[disabledKey];
+    const newValue = !currentlyDisabled;
+    setDisabledMap((prev) => ({ ...prev, [disabledKey]: newValue }));
+    try {
+      await api.patch(`/v1/app-config/${disabledKey}`, { value: newValue ? "true" : "false" });
+      setSavedDisabledMap((prev) => ({ ...prev, [disabledKey]: newValue }));
+      toast.success(newValue ? "Notification disabled" : "Notification enabled");
+    } catch {
+      setDisabledMap((prev) => ({ ...prev, [disabledKey]: currentlyDisabled }));
+      toast.error("Failed to update");
+    }
+  };
+
   const handleSave = async () => {
     if (dirtyCount === 0) return;
     setIsSaving(true);
@@ -197,7 +239,11 @@ export default function NotificationTemplatesPage() {
       for (const key of dirtyKeys) {
         await api.patch(`/v1/app-config/${key}`, { value: values[key] });
       }
+      for (const key of dirtyDisabledKeys) {
+        await api.patch(`/v1/app-config/${key}`, { value: disabledMap[key] ? "true" : "false" });
+      }
       setSaved({ ...values });
+      setSavedDisabledMap({ ...disabledMap });
       toast.success(`${dirtyCount} template(s) saved`, { id: loadingToast });
     } catch {
       toast.error("Failed to save templates", { id: loadingToast });
@@ -343,6 +389,8 @@ export default function NotificationTemplatesPage() {
                           const titleDirty = dirtyKeys.has(titleDef.key);
                           const bodyDirty = dirtyKeys.has(bodyDef.key);
                           const isDirty = titleDirty || bodyDirty;
+                          const disabledKey = titleDef.key.replace(/_title$/, "_disabled");
+                          const isDisabled = !!disabledMap[disabledKey];
                           const allVars = [
                             ...new Set([
                               ...titleDef.variables,
@@ -362,15 +410,17 @@ export default function NotificationTemplatesPage() {
                             <div
                               key={titleDef.key}
                               className={`p-5 rounded-2xl border transition-colors ${
-                                isDirty
-                                  ? "border-amber-200 bg-amber-50/30"
-                                  : "border-zinc-100 bg-zinc-50/40"
+                                isDisabled
+                                  ? "border-red-200 bg-red-50/30 opacity-60"
+                                  : isDirty
+                                    ? "border-amber-200 bg-amber-50/30"
+                                    : "border-zinc-100 bg-zinc-50/40"
                               }`}
                             >
                               {/* Row header */}
                               <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-bold text-sm text-zinc-800">
+                                  <span className={`font-bold text-sm ${isDisabled ? "text-zinc-400 line-through" : "text-zinc-800"}`}>
                                     {label}
                                   </span>
                                   <span
@@ -386,17 +436,31 @@ export default function NotificationTemplatesPage() {
                                     <span className="h-2 w-2 rounded-full bg-amber-500" />
                                   )}
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleReset(titleDef.key);
-                                    handleReset(bodyDef.key);
-                                  }}
-                                  className="flex items-center gap-1 text-[11px] font-bold text-zinc-400 hover:text-zinc-600 transition-colors"
-                                >
-                                  <RotateCcw className="h-3 w-3" />
-                                  Reset
-                                </button>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDisabled(titleDef.key)}
+                                    className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors ${
+                                      isDisabled
+                                        ? "bg-red-100 text-red-600 hover:bg-red-200"
+                                        : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                                    }`}
+                                  >
+                                    <Power className="h-3 w-3" />
+                                    {isDisabled ? "Disabled" : "Enabled"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleReset(titleDef.key);
+                                      handleReset(bodyDef.key);
+                                    }}
+                                    className="flex items-center gap-1 text-[11px] font-bold text-zinc-400 hover:text-zinc-600 transition-colors"
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                    Reset
+                                  </button>
+                                </div>
                               </div>
 
                               {/* Title input */}
