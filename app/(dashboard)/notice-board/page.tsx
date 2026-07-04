@@ -16,6 +16,7 @@ interface Post {
     media_urls: string[];
     media_types: string[];
     is_pinned: boolean;
+    notification_only: boolean;
     posted_at: string;
     expires_at: string | null;
     deleted_at: string | null;
@@ -54,6 +55,7 @@ export default function NoticeBoardPage() {
     const [isPinned, setIsPinned] = useState(false);
     const [expiresAt, setExpiresAt] = useState("");
     const [uploadedMedia, setUploadedMedia] = useState<{ url: string; type: string; name: string }[]>([]);
+    const [notificationOnly, setNotificationOnly] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
@@ -132,6 +134,7 @@ export default function NoticeBoardPage() {
                 media_urls: uploadedMedia.map(m => m.url),
                 media_types: uploadedMedia.map(m => m.type),
                 is_pinned: isPinned,
+                notification_only: notificationOnly,
                 expires_at: expiresAt || undefined,
             });
             setPosts(prev => [res.data, ...prev]);
@@ -158,7 +161,8 @@ export default function NoticeBoardPage() {
 
     function resetCompose() {
         setTitle(""); setBody(""); setSelectedCampusIds([]); setSelectedClassIds([]);
-        setSelectedSectionIds([]); setIsPinned(false); setExpiresAt(""); setUploadedMedia([]);
+        setSelectedSectionIds([]); setIsPinned(false); setNotificationOnly(false);
+        setExpiresAt(""); setUploadedMedia([]);
         setSelectedStudents([]); setStudentSearchQuery(""); setStudentSearchResults([]);
         setCcPasteText(""); setStudentTargetOpen(false);
     }
@@ -329,6 +333,7 @@ export default function NoticeBoardPage() {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5 mb-1">
                                         {post.is_pinned && <Pin className="h-3 w-3 text-primary flex-shrink-0" />}
+                                        {post.notification_only && <span className="text-[9px] font-bold text-orange-600 bg-orange-100 dark:bg-orange-900/40 dark:text-orange-300 rounded px-1 py-px flex-shrink-0">NOTIF ONLY</span>}
                                         <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 truncate">{scopeLabel(post)}</span>
                                     </div>
                                     {post.title && <p className="text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">{post.title}</p>}
@@ -556,10 +561,15 @@ export default function NoticeBoardPage() {
                             </div>
 
                             {/* 4. Options */}
-                            <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-6 flex-wrap">
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input type="checkbox" checked={isPinned} onChange={e => setIsPinned(e.target.checked)} className="rounded" />
                                     <span className="text-sm text-zinc-600 dark:text-zinc-400">Pin post</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" checked={notificationOnly} onChange={e => setNotificationOnly(e.target.checked)} className="rounded" />
+                                    <span className="text-sm text-zinc-600 dark:text-zinc-400">Notification only</span>
+                                    <span className="text-[10px] text-zinc-400">(don&apos;t show on notice board)</span>
                                 </label>
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <Calendar className="h-4 w-4 text-zinc-400" />
@@ -619,6 +629,7 @@ export default function NoticeBoardPage() {
                                         <span key={i} className={`text-xs font-bold rounded-full px-2.5 py-0.5 ${b.color}`}>{b.label}</span>
                                     ))}
                                     {selectedPost.is_pinned && <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5 flex items-center gap-1"><Pin className="h-3 w-3" />Pinned</span>}
+                                    {selectedPost.notification_only && <span className="text-xs font-bold text-orange-600 bg-orange-100 dark:bg-orange-900/40 dark:text-orange-300 rounded-full px-2.5 py-0.5">Notification only</span>}
                                 </div>
                                 {selectedPost.title && <p className="font-bold text-zinc-800 dark:text-zinc-100 mb-1">{selectedPost.title}</p>}
                                 <p className="text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap">{selectedPost.body}</p>
