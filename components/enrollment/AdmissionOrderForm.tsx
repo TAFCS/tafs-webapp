@@ -6,6 +6,7 @@ import { pdf } from '@react-pdf/renderer';
 import { AdmissionOrderPDF } from './AdmissionOrderPDF';
 import { useAuthState } from '@/context/AuthContext';
 
+
 interface Student {
   cc: number;
   gr_number?: string;
