@@ -87,10 +87,11 @@ export const NAV_MODULES: NavModule[] = [
         color: "text-violet-600 dark:text-violet-400",
         bg: "bg-violet-50 dark:bg-violet-950/40",
         border: "border-violet-100 dark:border-violet-900/50",
-        permissions: ["communication.send_announcements", SUPPORT_TICKETS_VIEW_PERMISSION],
+        permissions: ["communication.send_announcements", SUPPORT_TICKETS_VIEW_PERMISSION, "system.permissions.manage"],
         items: [
             { name: "Notice Board", description: "Broadcast announcements", href: "/notice-board", icon: Bell, permission: "communication.send_announcements" },
             { name: "Support Tickets", description: "Issue tracking and resolution", href: "/support-tickets", icon: MessageSquare, permission: SUPPORT_TICKETS_VIEW_PERMISSION },
+            { name: "Notification Templates", description: "Edit push notification text", href: "/admin/notification-templates", icon: Bell, permission: "system.permissions.manage" },
         ],
     },
     {
