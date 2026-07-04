@@ -12,6 +12,7 @@ interface Post {
     campus_ids: number[];
     class_ids: number[];
     section_ids: number[];
+    student_ccs: number[];
     media_urls: string[];
     media_types: string[];
     is_pinned: boolean;
@@ -207,7 +208,18 @@ export default function NoticeBoardPage() {
         setCcPasteText("");
     }
 
-    // Derive scope label for a post
+    // Build a class/section name lookup from campuses data
+    const classNameMap = new Map<number, string>();
+    const sectionNameMap = new Map<number, string>();
+    for (const c of campuses) {
+        for (const oc of ((c as any).offered_classes ?? [])) {
+            if (oc.id) classNameMap.set(oc.id, oc.description);
+            for (const s of (oc.sections ?? [])) {
+                if (s.id) sectionNameMap.set(s.id, s.description);
+            }
+        }
+    }
+
     function scopeLabel(post: Post) {
         if (!post.campus_ids.length && !post.class_ids.length && !post.section_ids.length) return "School-wide";
         const parts: string[] = [];
@@ -215,7 +227,45 @@ export default function NoticeBoardPage() {
             const names = campuses.filter(c => post.campus_ids.includes(c.id)).map((c: any) => c.campus_name);
             parts.push(names.join(", "));
         }
+        if (post.class_ids.length) {
+            const names = post.class_ids.map(id => classNameMap.get(id)).filter(Boolean);
+            if (names.length) parts.push(names.join(", "));
+        }
+        if (post.section_ids.length) {
+            const names = post.section_ids.map(id => sectionNameMap.get(id)).filter(Boolean);
+            if (names.length) parts.push(names.join(", "));
+        }
         return parts.join(" · ") || "Targeted";
+    }
+
+    function scopeBadges(post: Post): { label: string; color: string }[] {
+        const badges: { label: string; color: string }[] = [];
+        if (!post.campus_ids.length && !post.class_ids.length && !post.section_ids.length) {
+            badges.push({ label: "School-wide", color: "bg-zinc-200 dark:bg-zinc-700 text-zinc-500" });
+            return badges;
+        }
+        if (post.campus_ids.length) {
+            for (const id of post.campus_ids) {
+                const name = campuses.find(c => c.id === id)?.campus_name;
+                if (name) badges.push({ label: name, color: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300" });
+            }
+        }
+        if (post.class_ids.length) {
+            for (const id of post.class_ids) {
+                const name = classNameMap.get(id);
+                if (name) badges.push({ label: name, color: "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300" });
+            }
+        }
+        if (post.section_ids.length) {
+            for (const id of post.section_ids) {
+                const name = sectionNameMap.get(id);
+                if (name) badges.push({ label: name, color: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300" });
+            }
+        }
+        if (post.student_ccs?.length) {
+            badges.push({ label: `${post.student_ccs.length} student${post.student_ccs.length > 1 ? "s" : ""} targeted`, color: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300" });
+        }
+        return badges;
     }
 
     // Live scope preview in compose
@@ -564,8 +614,10 @@ export default function NoticeBoardPage() {
                         <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-6">
                             {/* Post preview */}
                             <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-xs font-bold text-zinc-500 bg-zinc-200 dark:bg-zinc-700 rounded-full px-2 py-0.5">{scopeLabel(selectedPost)}</span>
+                                <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                                    {scopeBadges(selectedPost).map((b, i) => (
+                                        <span key={i} className={`text-xs font-bold rounded-full px-2.5 py-0.5 ${b.color}`}>{b.label}</span>
+                                    ))}
                                     {selectedPost.is_pinned && <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5 flex items-center gap-1"><Pin className="h-3 w-3" />Pinned</span>}
                                 </div>
                                 {selectedPost.title && <p className="font-bold text-zinc-800 dark:text-zinc-100 mb-1">{selectedPost.title}</p>}
