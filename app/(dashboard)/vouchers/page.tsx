@@ -238,25 +238,32 @@ function PartiallyPaidModal({
             toast.dismiss(loadingToast);
             toast.success(`Voucher split — Paid #${splitRes.data?.paid_voucher_id}, Balance #${splitRes.data?.unpaid_voucher_id}`);
 
-            if (splitRes.data?.paid_pdf_url) {
-                const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : "unknown";
-                const grOrCc = (voucher as any).students?.gr_number || `CC${(voucher as any).students?.cc || voucher.id}`;
-                const paidId = splitRes.data?.paid_voucher_id;
-                const paidFilename = `${feeDateStr}-${grOrCc}-${paidId}-paid.pdf`;
+            // Download both the PAID receipt and the new UNPAID balance voucher.
+            const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : "unknown";
+            const grOrCc = (voucher as any).students?.gr_number || `CC${(voucher as any).students?.cc || voucher.id}`;
+            const downloadPdf = async (url: string, filename: string) => {
                 try {
-                    const res = await fetch(splitRes.data.paid_pdf_url);
+                    const res = await fetch(url);
                     const blob = await res.blob();
                     const blobUrl = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.href = blobUrl;
-                    link.download = paidFilename;
+                    link.download = filename;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                     URL.revokeObjectURL(blobUrl);
                 } catch {
-                    window.open(splitRes.data.paid_pdf_url, '_blank');
+                    window.open(url, '_blank');
                 }
+            };
+
+            if (splitRes.data?.paid_pdf_url) {
+                await downloadPdf(splitRes.data.paid_pdf_url, `${feeDateStr}-${grOrCc}-${splitRes.data?.paid_voucher_id}-paid.pdf`);
+            }
+
+            if (splitRes.data?.unpaid_pdf_url) {
+                await downloadPdf(splitRes.data.unpaid_pdf_url, `${feeDateStr}-${grOrCc}-${splitRes.data?.unpaid_voucher_id}-unpaid.pdf`);
             }
 
             onSuccess(splitRes.data?.unpaid_voucher_id);
@@ -408,7 +415,7 @@ function PartiallyPaidModal({
                     {/* Actions */}
                     <div className="flex items-center justify-between pt-1">
                         <p className="text-[11px] text-zinc-400 max-w-xs">
-                            The original voucher stays in the system unchanged. A PAID-stamped PDF will be downloaded for the deposited amount.
+                            The original voucher stays in the system unchanged. Both the PAID-stamped receipt and the new UNPAID balance voucher will be downloaded.
                         </p>
                         <div className="flex gap-3">
                             <button
