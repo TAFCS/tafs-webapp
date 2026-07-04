@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/lib/api";
-import { Pin, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2 } from "lucide-react";
+import { Pin, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface Post {
@@ -56,6 +56,15 @@ export default function NoticeBoardPage() {
     const [uploading, setUploading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
+
+    // Student targeting state
+    const [studentTargetOpen, setStudentTargetOpen] = useState(false);
+    const [studentSearchQuery, setStudentSearchQuery] = useState("");
+    const [studentSearchResults, setStudentSearchResults] = useState<{ cc: number; full_name: string; gr_number: string }[]>([]);
+    const [selectedStudents, setSelectedStudents] = useState<{ cc: number; full_name: string; gr_number: string }[]>([]);
+    const [searchingStudents, setSearchingStudents] = useState(false);
+    const [ccPasteText, setCcPasteText] = useState("");
+    const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         fetchPosts();
@@ -118,6 +127,7 @@ export default function NoticeBoardPage() {
                 campus_ids: selectedCampusIds,
                 class_ids: selectedClassIds,
                 section_ids: selectedSectionIds,
+                student_ccs: selectedStudents.map(s => s.cc),
                 media_urls: uploadedMedia.map(m => m.url),
                 media_types: uploadedMedia.map(m => m.type),
                 is_pinned: isPinned,
@@ -148,6 +158,53 @@ export default function NoticeBoardPage() {
     function resetCompose() {
         setTitle(""); setBody(""); setSelectedCampusIds([]); setSelectedClassIds([]);
         setSelectedSectionIds([]); setIsPinned(false); setExpiresAt(""); setUploadedMedia([]);
+        setSelectedStudents([]); setStudentSearchQuery(""); setStudentSearchResults([]);
+        setCcPasteText(""); setStudentTargetOpen(false);
+    }
+
+    const searchStudents = useCallback((q: string) => {
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+        if (q.length < 2) { setStudentSearchResults([]); return; }
+        searchTimerRef.current = setTimeout(async () => {
+            setSearchingStudents(true);
+            try {
+                const res = await api.get("/v1/students/search-simple", { params: { q } });
+                setStudentSearchResults(res.data?.data ?? res.data ?? []);
+            } catch { setStudentSearchResults([]); }
+            finally { setSearchingStudents(false); }
+        }, 300);
+    }, []);
+
+    function addStudent(s: { cc: number; full_name: string; gr_number: string }) {
+        if (selectedStudents.some(x => x.cc === s.cc)) return;
+        setSelectedStudents(prev => [...prev, s]);
+        setStudentSearchQuery("");
+        setStudentSearchResults([]);
+    }
+
+    function removeStudent(cc: number) {
+        setSelectedStudents(prev => prev.filter(s => s.cc !== cc));
+    }
+
+    async function parseCcPaste() {
+        const raw = ccPasteText.split(/[,\n\r]+/).map(s => s.trim()).filter(Boolean);
+        const ccs = raw.map(Number).filter(n => Number.isInteger(n) && n > 0);
+        const newCcs = ccs.filter(cc => !selectedStudents.some(s => s.cc === cc));
+        if (!newCcs.length) return;
+        const resolved: { cc: number; full_name: string; gr_number: string }[] = [];
+        for (const cc of newCcs) {
+            try {
+                const res = await api.get("/v1/students/search-simple", { params: { q: String(cc) } });
+                const list = res.data?.data ?? res.data ?? [];
+                const match = list.find((s: any) => s.cc === cc);
+                if (match) resolved.push(match);
+                else resolved.push({ cc, full_name: `CC ${cc}`, gr_number: "" });
+            } catch {
+                resolved.push({ cc, full_name: `CC ${cc}`, gr_number: "" });
+            }
+        }
+        setSelectedStudents(prev => [...prev, ...resolved]);
+        setCcPasteText("");
     }
 
     // Derive scope label for a post
@@ -175,16 +232,16 @@ export default function NoticeBoardPage() {
 
     // Derive available classes for selected campuses
     const availableClasses = campuses
-        .filter(c => !selectedCampusIds.length || selectedCampusIds.includes(c.id))
-        .flatMap((c: any) => (c.campus_classes ?? []).map((cc: any) => ({ id: cc.classes?.id, name: cc.classes?.description })))
+        .filter(c => selectedCampusIds.includes(c.id))
+        .flatMap((c: any) => (c.offered_classes ?? []).map((oc: any) => ({ id: oc.id, name: oc.description })))
         .filter((c: any) => c.id)
         .filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i);
 
     const availableSections = campuses
-        .filter(c => !selectedCampusIds.length || selectedCampusIds.includes(c.id))
-        .flatMap((c: any) => (c.campus_classes ?? [])
-            .filter((cc: any) => !selectedClassIds.length || selectedClassIds.includes(cc.classes?.id))
-            .flatMap((cc: any) => (cc.campus_sections ?? []).map((cs: any) => ({ id: cs.sections?.id, name: cs.sections?.description }))))
+        .filter(c => selectedCampusIds.includes(c.id))
+        .flatMap((c: any) => (c.offered_classes ?? [])
+            .filter((oc: any) => selectedClassIds.includes(oc.id))
+            .flatMap((oc: any) => (oc.sections ?? []).map((s: any) => ({ id: s.id, name: s.description }))))
         .filter((s: any) => s.id)
         .filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i);
 
@@ -322,7 +379,7 @@ export default function NoticeBoardPage() {
                                             ))}
                                         </div>
                                     </div>
-                                    {availableClasses.length > 0 && (
+                                    {selectedCampusIds.length > 0 && availableClasses.length > 0 && (
                                         <div>
                                             <p className="text-xs text-zinc-500 mb-1">Class</p>
                                             <div className="flex flex-wrap gap-2">
@@ -338,7 +395,7 @@ export default function NoticeBoardPage() {
                                             </div>
                                         </div>
                                     )}
-                                    {availableSections.length > 0 && (
+                                    {selectedCampusIds.length > 0 && selectedClassIds.length > 0 && availableSections.length > 0 && (
                                         <div>
                                             <p className="text-xs text-zinc-500 mb-1">Section</p>
                                             <div className="flex flex-wrap gap-2">
@@ -358,6 +415,94 @@ export default function NoticeBoardPage() {
                                         Will be visible to: {composeScopeLabel()}
                                     </p>
                                 </div>
+                            </div>
+
+                            {/* 3b. Student targeting */}
+                            <div>
+                                <button
+                                    type="button"
+                                    onClick={() => setStudentTargetOpen(prev => !prev)}
+                                    className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase tracking-wider hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+                                >
+                                    <UserPlus className="h-3.5 w-3.5" />
+                                    Target specific students
+                                    {selectedStudents.length > 0 && (
+                                        <span className="bg-primary/10 text-primary font-black text-[10px] rounded-full px-2 py-0.5">
+                                            {selectedStudents.length}
+                                        </span>
+                                    )}
+                                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${studentTargetOpen ? "rotate-180" : ""}`} />
+                                </button>
+
+                                {studentTargetOpen && (
+                                    <div className="mt-3 flex flex-col gap-3">
+                                        {/* Search */}
+                                        <div className="relative">
+                                            <div className="flex items-center gap-2 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2">
+                                                <Search className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+                                                <input
+                                                    value={studentSearchQuery}
+                                                    onChange={e => { setStudentSearchQuery(e.target.value); searchStudents(e.target.value); }}
+                                                    placeholder="Search by name or GR number…"
+                                                    className="flex-1 text-sm bg-transparent outline-none"
+                                                />
+                                                {searchingStudents && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
+                                            </div>
+                                            {studentSearchResults.length > 0 && (
+                                                <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-lg overflow-hidden">
+                                                    {studentSearchResults.map(s => (
+                                                        <button
+                                                            key={s.cc}
+                                                            onClick={() => addStudent(s)}
+                                                            disabled={selectedStudents.some(x => x.cc === s.cc)}
+                                                            className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between disabled:opacity-40"
+                                                        >
+                                                            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">{s.full_name}</span>
+                                                            <span className="text-xs text-zinc-400">{s.gr_number ? `GR ${s.gr_number}` : `CC ${s.cc}`}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Chip list */}
+                                        {selectedStudents.length > 0 && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {selectedStudents.map(s => (
+                                                    <span
+                                                        key={s.cc}
+                                                        className="inline-flex items-center gap-1.5 bg-primary/10 text-primary rounded-lg px-2.5 py-1 text-xs font-semibold"
+                                                    >
+                                                        {s.full_name}
+                                                        {s.gr_number && <span className="text-primary/60">({s.gr_number})</span>}
+                                                        <button onClick={() => removeStudent(s.cc)} className="hover:text-red-500 transition-colors">
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Paste CCs */}
+                                        <div className="flex gap-2">
+                                            <textarea
+                                                value={ccPasteText}
+                                                onChange={e => setCcPasteText(e.target.value)}
+                                                placeholder="Paste comma-separated CCs (e.g. 1001, 1002, 1003)"
+                                                rows={2}
+                                                className="flex-1 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs bg-transparent focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={parseCcPaste}
+                                                disabled={!ccPasteText.trim()}
+                                                className="self-end px-4 py-2 text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40"
+                                            >
+                                                Parse
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* 4. Options */}

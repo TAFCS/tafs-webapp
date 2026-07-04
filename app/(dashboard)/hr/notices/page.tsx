@@ -37,6 +37,8 @@ interface EmployeeNotice {
     body: string;
     target_roles: StaffRole[];
     campus_ids: number[];
+    class_ids: number[];
+    section_ids: number[];
     media_urls: string[];
     media_types: string[];
     is_pinned: boolean;
@@ -51,6 +53,7 @@ interface EmployeeNotice {
 interface Campus {
     id: number;
     campus_name: string;
+    campus_classes?: { classes?: { id: number; description: string }; campus_sections?: { sections?: { id: number; description: string } }[] }[];
 }
 
 type PanelMode = "list" | "compose" | "stats";
@@ -69,6 +72,8 @@ export default function EmployeeNoticesPage() {
     const [body, setBody] = useState("");
     const [selectedRoles, setSelectedRoles] = useState<StaffRole[]>([]);   // empty = all
     const [selectedCampusIds, setSelectedCampusIds] = useState<number[]>([]); // empty = all
+    const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]);
+    const [selectedSectionIds, setSelectedSectionIds] = useState<number[]>([]);
     const [isPinned, setIsPinned] = useState(false);
     const [expiresAt, setExpiresAt] = useState("");
     const [submitting, setSubmitting] = useState(false);
@@ -102,8 +107,23 @@ export default function EmployeeNoticesPage() {
 
     // ── Compose helpers ───────────────────────────────────────────────────────
 
+    const availableClasses = campuses
+        .filter(c => selectedCampusIds.includes(c.id))
+        .flatMap((c: any) => (c.offered_classes ?? []).map((oc: any) => ({ id: oc.id, name: oc.description })))
+        .filter((c: any) => c.id)
+        .filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i);
+
+    const availableSections = campuses
+        .filter(c => selectedCampusIds.includes(c.id))
+        .flatMap((c: any) => (c.offered_classes ?? [])
+            .filter((oc: any) => selectedClassIds.includes(oc.id))
+            .flatMap((oc: any) => (oc.sections ?? []).map((s: any) => ({ id: s.id, name: s.description }))))
+        .filter((s: any) => s.id)
+        .filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i);
+
     function resetCompose() {
         setTitle(""); setBody(""); setSelectedRoles([]); setSelectedCampusIds([]);
+        setSelectedClassIds([]); setSelectedSectionIds([]);
         setIsPinned(false); setExpiresAt(""); setEditingId(null);
     }
 
@@ -114,6 +134,8 @@ export default function EmployeeNoticesPage() {
             setBody(notice.body);
             setSelectedRoles(notice.target_roles);
             setSelectedCampusIds(notice.campus_ids);
+            setSelectedClassIds(notice.class_ids ?? []);
+            setSelectedSectionIds(notice.section_ids ?? []);
             setIsPinned(notice.is_pinned);
             setExpiresAt(notice.expires_at ? notice.expires_at.slice(0, 16) : "");
         } else {
@@ -132,6 +154,21 @@ export default function EmployeeNoticesPage() {
         setSelectedCampusIds(prev =>
             prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
         );
+        setSelectedClassIds([]);
+        setSelectedSectionIds([]);
+    }
+
+    function toggleClass(id: number) {
+        setSelectedClassIds(prev =>
+            prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+        );
+        setSelectedSectionIds([]);
+    }
+
+    function toggleSection(id: number) {
+        setSelectedSectionIds(prev =>
+            prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+        );
     }
 
     async function handleSubmit() {
@@ -143,6 +180,8 @@ export default function EmployeeNoticesPage() {
                 body: body.trim(),
                 target_roles: selectedRoles,
                 campus_ids: selectedCampusIds,
+                class_ids: selectedClassIds,
+                section_ids: selectedSectionIds,
                 is_pinned: isPinned,
                 expires_at: expiresAt || undefined,
             };
@@ -368,6 +407,70 @@ export default function EmployeeNoticesPage() {
                                                     }`}
                                             >
                                                 {c.campus_name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 3b. Class */}
+                            {selectedCampusIds.length > 0 && availableClasses.length > 0 && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Class</p>
+                                        {selectedClassIds.length > 0 && (
+                                            <button
+                                                onClick={() => { setSelectedClassIds([]); setSelectedSectionIds([]); }}
+                                                className="text-xs text-amber-600 dark:text-amber-400 font-medium hover:underline"
+                                            >
+                                                All classes
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-zinc-400 mb-2">Leave empty to target all classes.</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {availableClasses.map((c: any) => (
+                                            <button
+                                                key={c.id}
+                                                onClick={() => toggleClass(c.id)}
+                                                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${selectedClassIds.includes(c.id)
+                                                    ? "bg-amber-500 text-white border-amber-500"
+                                                    : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-amber-400"
+                                                    }`}
+                                            >
+                                                {c.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 3c. Section */}
+                            {selectedCampusIds.length > 0 && selectedClassIds.length > 0 && availableSections.length > 0 && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Section</p>
+                                        {selectedSectionIds.length > 0 && (
+                                            <button
+                                                onClick={() => setSelectedSectionIds([])}
+                                                className="text-xs text-amber-600 dark:text-amber-400 font-medium hover:underline"
+                                            >
+                                                All sections
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-zinc-400 mb-2">Leave empty to target all sections in the selected classes.</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {availableSections.map((s: any) => (
+                                            <button
+                                                key={s.id}
+                                                onClick={() => toggleSection(s.id)}
+                                                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${selectedSectionIds.includes(s.id)
+                                                    ? "bg-amber-500 text-white border-amber-500"
+                                                    : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-amber-400"
+                                                    }`}
+                                            >
+                                                {s.name}
                                             </button>
                                         ))}
                                     </div>
