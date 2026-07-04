@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import { buildVoucherFilename } from "@/lib/voucher-filename";
+import { PAYMENT_METHODS } from "@/lib/payment-methods";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { fetchSections } from "@/store/slices/sectionsSlice";
 import { fetchVouchers, fetchVouchersByStudent, VoucherItem, clearVouchers } from "@/store/slices/vouchersSlice";
@@ -369,10 +370,9 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                 onChange={e => setPaymentMethod(e.target.value)}
                                 className="w-full h-11 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[14px] text-sm font-bold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-emerald-500/30 transition-all"
                             >
-                                <option value="cash">Cash</option>
-                                <option value="bank_transfer">Bank Transfer</option>
-                                <option value="cheque">Cheque</option>
-                                <option value="online">Online Payment</option>
+                                {PAYMENT_METHODS.map(m => (
+                                    <option key={m.value} value={m.value}>{m.label}</option>
+                                ))}
                             </select>
                         </div>
                         <div className="space-y-2">

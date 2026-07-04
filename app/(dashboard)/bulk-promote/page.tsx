@@ -140,6 +140,11 @@ export default function BulkPromotePage() {
   const [errorLog, setErrorLog] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // ── GR Override state ───────────────────────────────────────────────────────
+  const [showGrOverrides, setShowGrOverrides] = useState(false);
+  const [grOverrides, setGrOverrides] = useState<Record<number, string>>({});
+  const [grPrefix, setGrPrefix] = useState("");
+
   // ── Student ID resolution state ─────────────────────────────────────────────
   const [resolvedIds, setResolvedIds] = useState<
     Map<number, ResolvedStudent | "not_found" | "loading">
@@ -376,6 +381,11 @@ export default function BulkPromotePage() {
     if (sourceAcademicYear) payload.academic_year = sourceAcademicYear;   // source filter
     if (targetAcademicYear) payload.target_academic_year = targetAcademicYear; // destination override
 
+    const activeOverrides = Object.entries(grOverrides)
+      .filter(([, v]) => v.trim())
+      .map(([k, v]) => ({ student_cc: Number(k), new_gr: v.trim() }));
+    if (activeOverrides.length > 0) payload.gr_overrides = activeOverrides;
+
     try {
       const { data } = await api.post("/v1/students/promotion/bulk", payload);
       const responseData = data?.data as PromotionResponse;
@@ -602,6 +612,13 @@ export default function BulkPromotePage() {
               <span>Dry-run <span className="text-xs text-zinc-400">(validate only, no DB writes)</span></span>
             </label>
             <div className="flex items-center gap-2">
+              {/* Manage GRs toggle */}
+              {!isGraduating && !isExpelling && !isLeaving && (
+                <button type="button" onClick={() => setShowGrOverrides((v) => !v)}
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${showGrOverrides ? "border-amber-300 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300" : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}>
+                  Manage GRs
+                </button>
+              )}
               {/* Preview button */}
               {fromClassId && (
                 <button type="button" id="preview-students-btn" onClick={loadPreview} disabled={previewLoading}
@@ -692,12 +709,47 @@ export default function BulkPromotePage() {
                   </div>
                 ) : (
                   <div className="overflow-auto max-h-96">
+                    {showGrOverrides && (
+                      <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-3 bg-amber-50/50 dark:bg-amber-900/10">
+                        <label className="text-xs font-medium text-zinc-600 dark:text-zinc-300 whitespace-nowrap">Apply prefix to all:</label>
+                        <input
+                          value={grPrefix}
+                          onChange={(e) => setGrPrefix(e.target.value)}
+                          placeholder="e.g. A-"
+                          className="w-24 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!grPrefix.trim()) return;
+                            const updated = { ...grOverrides };
+                            for (const s of previewStudents!) {
+                              if (!updated[s.cc]?.trim()) {
+                                const numMatch = (s.gr_number ?? "").match(/(\d+)$/);
+                                if (numMatch) updated[s.cc] = `${grPrefix.trim()}${numMatch[1]}`;
+                              }
+                            }
+                            setGrOverrides(updated);
+                          }}
+                          className="rounded-lg bg-amber-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-amber-700 transition-colors"
+                        >
+                          Apply
+                        </button>
+                        {Object.values(grOverrides).some(v => v.trim()) && (
+                          <button type="button" onClick={() => setGrOverrides({})}
+                            className="text-xs text-zinc-500 hover:text-zinc-700 underline">
+                            Clear all
+                          </button>
+                        )}
+                      </div>
+                    )}
                     <table className="w-full text-sm">
                       <thead className="bg-zinc-50 dark:bg-zinc-900/60 text-xs text-zinc-500 dark:text-zinc-400 sticky top-0">
                         <tr>
                           <th className="text-left px-4 py-3 font-medium">CC / ID</th>
                           <th className="text-left px-4 py-3 font-medium">Full Name</th>
                           <th className="text-left px-4 py-3 font-medium">GR Number</th>
+                          {showGrOverrides && <th className="text-left px-4 py-3 font-medium">New GR</th>}
                           <th className="text-left px-4 py-3 font-medium">Current Class</th>
                           <th className="text-left px-4 py-3 font-medium">Section</th>
                           <th className="text-left px-4 py-3 font-medium">Campus</th>
@@ -710,6 +762,16 @@ export default function BulkPromotePage() {
                             <td className="px-4 py-3 font-mono font-semibold text-zinc-800 dark:text-zinc-200">{s.cc}</td>
                             <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{s.student_full_name ?? "—"}</td>
                             <td className="px-4 py-3 text-zinc-500 font-mono text-xs">{s.gr_number ?? "—"}</td>
+                            {showGrOverrides && (
+                              <td className="px-4 py-3">
+                                <input
+                                  value={grOverrides[s.cc] ?? ""}
+                                  onChange={(e) => setGrOverrides((prev) => ({ ...prev, [s.cc]: e.target.value }))}
+                                  placeholder="leave blank to keep"
+                                  className="w-28 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                                />
+                              </td>
+                            )}
                             <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">
                               {s.core?.class_description ?? resolveClassName(s.class_id, classMap)}
                             </td>
