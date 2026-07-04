@@ -50,4 +50,12 @@ export const authService = {
   async logoutStaff(): Promise<void> {
     await api.post('/v1/auth/staff/logout');
   },
+
+  async forgotPasswordStaff(email: string): Promise<void> {
+    await api.post('/v1/auth/staff/forgot-password', { email });
+  },
+
+  async resetPasswordStaff(email: string, code: string, newPassword: string): Promise<void> {
+    await api.post('/v1/auth/staff/reset-password', { email, code, newPassword });
+  },
 };
