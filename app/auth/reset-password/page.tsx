@@ -19,6 +19,16 @@ function ResetPasswordForm() {
         e.preventDefault();
         setError(null);
 
+        if (!email) {
+            setError('Missing email. Please start from the forgot password page.');
+            return;
+        }
+
+        if (code.length !== 4) {
+            setError('Please enter the 4-digit verification code.');
+            return;
+        }
+
         if (newPassword !== confirmPassword) {
             setError('Passwords do not match.');
             return;
