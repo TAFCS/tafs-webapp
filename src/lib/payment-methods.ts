@@ -2,7 +2,7 @@ export const PAYMENT_METHODS: { value: string; label: string }[] = [
     { value: "cash", label: "CASH" },
     { value: "bank_transfer", label: "BANK TRANSFER" },
     { value: "cheque", label: "CHEQUE" },
-    { value: "online", label: "ONLINE PAYMENT" },
+    { value: "online", label: "IBFT" },
     { value: "pos", label: "POS" },
     { value: "pay_order", label: "PAY ORDER" },
 ];
