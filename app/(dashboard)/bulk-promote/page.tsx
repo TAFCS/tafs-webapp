@@ -88,8 +88,36 @@ type PreviewStudent = {
 const GRADUATE_SENTINEL = "__GRADUATE__";
 const EXPEL_SENTINEL = "__EXPEL__";
 const LEFT_SENTINEL = "__LEFT__";
+const A_LEVEL_GR_PREFIX = "A-";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function isALevelAcademicSystem(system?: string): boolean {
+  return system?.toLowerCase().replace(/[^a-z]/g, "") === "alevel";
+}
+
+/** e.g. 554 → A-554 when prefix is A-; leaves A-554 unchanged */
+function applyGrPrefix(currentGr: string | null | undefined, prefix: string): string | null {
+  if (!prefix.trim() || !currentGr?.trim()) return null;
+  const trimmed = currentGr.trim();
+  const p = prefix.trim();
+  if (trimmed.startsWith(p)) return trimmed;
+  const numMatch = trimmed.match(/(\d+)$/);
+  if (!numMatch) return null;
+  return `${p}${numMatch[1]}`;
+}
+
+function buildPrefixedGrOverrides(
+  students: PreviewStudent[],
+  prefix: string,
+): Record<number, string> {
+  const updated: Record<number, string> = {};
+  for (const s of students) {
+    const next = applyGrPrefix(s.gr_number, prefix);
+    if (next) updated[s.cc] = next;
+  }
+  return updated;
+}
 
 function deriveClassOrder(code: string, description: string): number {
   // Concatenate code + description so "PN"+"Pre Nursery" → "pn pre nursery" → hits 'nursery'
@@ -207,6 +235,35 @@ export default function BulkPromotePage() {
   const isExpelling = toClassId === EXPEL_SENTINEL;
   const isLeaving = toClassId === LEFT_SENTINEL;
   const academicYears = useMemo(() => generateAcademicYears(), []);
+
+  const selectedToClass = useMemo(
+    () => sortedClasses.find((c) => String(c.id) === toClassId),
+    [sortedClasses, toClassId],
+  );
+  const isPromotingToALevel = useMemo(
+    () =>
+      !isGraduating &&
+      !isExpelling &&
+      !isLeaving &&
+      !!selectedToClass &&
+      isALevelAcademicSystem(selectedToClass.academic_system),
+    [isGraduating, isExpelling, isLeaving, selectedToClass],
+  );
+
+  // O-Level → A-Level (e.g. O3 → AS): auto-enable GR overrides with A- prefix
+  useEffect(() => {
+    if (!isPromotingToALevel) {
+      setGrOverrides({});
+      return;
+    }
+    setShowGrOverrides(true);
+    setGrPrefix(A_LEVEL_GR_PREFIX);
+  }, [isPromotingToALevel, toClassId]);
+
+  useEffect(() => {
+    if (!isPromotingToALevel || !previewStudents?.length) return;
+    setGrOverrides(buildPrefixedGrOverrides(previewStudents, A_LEVEL_GR_PREFIX));
+  }, [previewStudents, isPromotingToALevel]);
 
   // ── Live student ID resolution via search-simple ────────────────────────────
   useEffect(() => {
@@ -710,7 +767,12 @@ export default function BulkPromotePage() {
                 ) : (
                   <div className="overflow-auto max-h-96">
                     {showGrOverrides && (
-                      <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-3 bg-amber-50/50 dark:bg-amber-900/10">
+                      <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center gap-3 bg-amber-50/50 dark:bg-amber-900/10">
+                        {isPromotingToALevel && (
+                          <p className="w-full text-xs text-amber-800 dark:text-amber-200">
+                            Promoting to A-Level — GR numbers are prefixed automatically (e.g. 1234 → A-1234). Review or edit below before submitting.
+                          </p>
+                        )}
                         <label className="text-xs font-medium text-zinc-600 dark:text-zinc-300 whitespace-nowrap">Apply prefix to all:</label>
                         <input
                           value={grPrefix}
@@ -721,15 +783,17 @@ export default function BulkPromotePage() {
                         <button
                           type="button"
                           onClick={() => {
-                            if (!grPrefix.trim()) return;
-                            const updated = { ...grOverrides };
-                            for (const s of previewStudents!) {
-                              if (!updated[s.cc]?.trim()) {
-                                const numMatch = (s.gr_number ?? "").match(/(\d+)$/);
-                                if (numMatch) updated[s.cc] = `${grPrefix.trim()}${numMatch[1]}`;
+                            if (!grPrefix.trim() || !previewStudents) return;
+                            setGrOverrides((prev) => {
+                              const updated = { ...prev };
+                              for (const s of previewStudents) {
+                                if (!updated[s.cc]?.trim()) {
+                                  const next = applyGrPrefix(s.gr_number, grPrefix);
+                                  if (next) updated[s.cc] = next;
+                                }
                               }
-                            }
-                            setGrOverrides(updated);
+                              return updated;
+                            });
                           }}
                           className="rounded-lg bg-amber-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-amber-700 transition-colors"
                         >
