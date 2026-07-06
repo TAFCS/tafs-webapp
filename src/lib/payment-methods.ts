@@ -1,10 +1,10 @@
 export const PAYMENT_METHODS: { value: string; label: string }[] = [
-    { value: "cash", label: "Cash" },
-    { value: "bank_transfer", label: "Bank Transfer" },
-    { value: "cheque", label: "Cheque" },
-    { value: "online", label: "Online Payment" },
+    { value: "cash", label: "CASH" },
+    { value: "bank_transfer", label: "BANK TRANSFER" },
+    { value: "cheque", label: "CHEQUE" },
+    { value: "online", label: "ONLINE PAYMENT" },
     { value: "pos", label: "POS" },
-    { value: "pay_order", label: "Pay Order" },
+    { value: "pay_order", label: "PAY ORDER" },
 ];
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = Object.fromEntries(
