@@ -99,6 +99,11 @@ interface StudentFee {
     id: number;
     bundle_name: string;
   } | null;
+  is_discount?: boolean;
+  discount_presets?: {
+    id: number;
+    title: string;
+  } | null;
 }
 
 type VoucherGenStatus = {
@@ -1489,6 +1494,18 @@ export default function FeeChallanGenerator() {
                       : f.installment_sequence && f.student_fee_installments
                       ? ` (${f.installment_sequence} of ${f.student_fee_installments.installment_count})`
                       : '';
+                    if (f.is_discount) {
+                      return (
+                        <div key={f.id} className="flex items-center justify-between gap-4">
+                          <span className="text-[12px] font-bold text-zinc-600 dark:text-zinc-400 flex-1">
+                            {f.discount_presets?.title || 'Discount'}
+                          </span>
+                          <span className="font-black text-emerald-500 text-[13px] font-mono tabular-nums">
+                            - PKR {Number(f.amount).toLocaleString()}
+                          </span>
+                        </div>
+                      );
+                    }
                     const discount = Math.max(0, Number(f.amount_before_discount || 0) - Number(f.amount || 0));
                     return (
                       <div key={f.id} className="flex items-center justify-between gap-4">
@@ -1511,7 +1528,7 @@ export default function FeeChallanGenerator() {
                 <span className="font-black text-zinc-900 dark:text-zinc-100 text-[18px] font-mono tabular-nums">
                   PKR {(
                     (contentPreviewArrears?.rows ?? []).reduce((s, r) => s + Number(r.outstanding), 0) +
-                    contentPreviewFees.reduce((s, f) => s + Number(f.amount), 0)
+                    contentPreviewFees.reduce((s, f) => s + (f.is_discount ? -Number(f.amount) : Number(f.amount)), 0)
                   ).toLocaleString()}
                 </span>
               </div>
