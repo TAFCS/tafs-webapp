@@ -88,35 +88,11 @@ type PreviewStudent = {
 const GRADUATE_SENTINEL = "__GRADUATE__";
 const EXPEL_SENTINEL = "__EXPEL__";
 const LEFT_SENTINEL = "__LEFT__";
-const A_LEVEL_GR_PREFIX = "A-";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function isALevelAcademicSystem(system?: string): boolean {
   return system?.toLowerCase().replace(/[^a-z]/g, "") === "alevel";
-}
-
-/** e.g. 554 → A-554 when prefix is A-; leaves A-554 unchanged */
-function applyGrPrefix(currentGr: string | null | undefined, prefix: string): string | null {
-  if (!prefix.trim() || !currentGr?.trim()) return null;
-  const trimmed = currentGr.trim();
-  const p = prefix.trim();
-  if (trimmed.startsWith(p)) return trimmed;
-  const numMatch = trimmed.match(/(\d+)$/);
-  if (!numMatch) return null;
-  return `${p}${numMatch[1]}`;
-}
-
-function buildPrefixedGrOverrides(
-  students: PreviewStudent[],
-  prefix: string,
-): Record<number, string> {
-  const updated: Record<number, string> = {};
-  for (const s of students) {
-    const next = applyGrPrefix(s.gr_number, prefix);
-    if (next) updated[s.cc] = next;
-  }
-  return updated;
 }
 
 function deriveClassOrder(code: string, description: string): number {
@@ -172,6 +148,7 @@ export default function BulkPromotePage() {
   const [showGrOverrides, setShowGrOverrides] = useState(false);
   const [grOverrides, setGrOverrides] = useState<Record<number, string>>({});
   const [grPrefix, setGrPrefix] = useState("");
+  const [grSuggestionsLoading, setGrSuggestionsLoading] = useState(false);
 
   // ── Student ID resolution state ─────────────────────────────────────────────
   const [resolvedIds, setResolvedIds] = useState<
@@ -250,20 +227,41 @@ export default function BulkPromotePage() {
     [isGraduating, isExpelling, isLeaving, selectedToClass],
   );
 
-  // O-Level → A-Level (e.g. O3 → AS): auto-enable GR overrides with A- prefix
+  // O-Level → A-Level: auto-enable GR column; assign next available A- numbers on preview
   useEffect(() => {
     if (!isPromotingToALevel) {
       setGrOverrides({});
       return;
     }
     setShowGrOverrides(true);
-    setGrPrefix(A_LEVEL_GR_PREFIX);
   }, [isPromotingToALevel, toClassId]);
+
+  const fetchALevelGrSuggestions = useCallback(async (students: PreviewStudent[]) => {
+    if (!students.length) return;
+    setGrSuggestionsLoading(true);
+    try {
+      const { data } = await api.post("/v1/students/gr-numbers/suggest-for-promotion", {
+        student_ccs: students.map((s) => s.cc),
+        a_level: true,
+      });
+      const assignments = (data?.data?.assignments ?? {}) as Record<string, string>;
+      const next: Record<number, string> = {};
+      for (const s of students) {
+        const gr = assignments[String(s.cc)];
+        if (gr) next[s.cc] = gr;
+      }
+      setGrOverrides(next);
+    } catch {
+      toast.error("Could not load suggested A-Level GR numbers.");
+    } finally {
+      setGrSuggestionsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isPromotingToALevel || !previewStudents?.length) return;
-    setGrOverrides(buildPrefixedGrOverrides(previewStudents, A_LEVEL_GR_PREFIX));
-  }, [previewStudents, isPromotingToALevel]);
+    fetchALevelGrSuggestions(previewStudents);
+  }, [previewStudents, isPromotingToALevel, fetchALevelGrSuggestions]);
 
   // ── Live student ID resolution via search-simple ────────────────────────────
   useEffect(() => {
@@ -770,35 +768,48 @@ export default function BulkPromotePage() {
                       <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center gap-3 bg-amber-50/50 dark:bg-amber-900/10">
                         {isPromotingToALevel && (
                           <p className="w-full text-xs text-amber-800 dark:text-amber-200">
-                            Promoting to A-Level — GR numbers are prefixed automatically (e.g. 1234 → A-1234). Review or edit below before submitting.
+                            Promoting to A-Level — each student gets the next available GR in the campus A- series (not a prefix of their old O-Level GR). Review or edit below before submitting.
                           </p>
                         )}
-                        <label className="text-xs font-medium text-zinc-600 dark:text-zinc-300 whitespace-nowrap">Apply prefix to all:</label>
-                        <input
-                          value={grPrefix}
-                          onChange={(e) => setGrPrefix(e.target.value)}
-                          placeholder="e.g. A-"
-                          className="w-24 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-400/40"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!grPrefix.trim() || !previewStudents) return;
-                            setGrOverrides((prev) => {
-                              const updated = { ...prev };
-                              for (const s of previewStudents) {
-                                if (!updated[s.cc]?.trim()) {
-                                  const next = applyGrPrefix(s.gr_number, grPrefix);
-                                  if (next) updated[s.cc] = next;
-                                }
-                              }
-                              return updated;
-                            });
-                          }}
-                          className="rounded-lg bg-amber-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-amber-700 transition-colors"
-                        >
-                          Apply
-                        </button>
+                        {isPromotingToALevel ? (
+                          <button
+                            type="button"
+                            disabled={grSuggestionsLoading || !previewStudents?.length}
+                            onClick={() => previewStudents && fetchALevelGrSuggestions(previewStudents)}
+                            className="rounded-lg border border-amber-300 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-200 hover:bg-amber-100/50 disabled:opacity-50"
+                          >
+                            {grSuggestionsLoading ? "Loading…" : "Refresh suggested GRs"}
+                          </button>
+                        ) : (
+                          <>
+                            <label className="text-xs font-medium text-zinc-600 dark:text-zinc-300 whitespace-nowrap">Apply prefix to all:</label>
+                            <input
+                              value={grPrefix}
+                              onChange={(e) => setGrPrefix(e.target.value)}
+                              placeholder="e.g. A-"
+                              className="w-24 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!grPrefix.trim() || !previewStudents) return;
+                                setGrOverrides((prev) => {
+                                  const updated = { ...prev };
+                                  for (const s of previewStudents) {
+                                    if (!updated[s.cc]?.trim()) {
+                                      const numMatch = (s.gr_number ?? "").match(/(\d+)$/);
+                                      if (numMatch) updated[s.cc] = `${grPrefix.trim()}${numMatch[1]}`;
+                                    }
+                                  }
+                                  return updated;
+                                });
+                              }}
+                              className="rounded-lg bg-amber-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-amber-700 transition-colors"
+                            >
+                              Apply
+                            </button>
+                          </>
+                        )}
                         {Object.values(grOverrides).some(v => v.trim()) && (
                           <button type="button" onClick={() => setGrOverrides({})}
                             className="text-xs text-zinc-500 hover:text-zinc-700 underline">
