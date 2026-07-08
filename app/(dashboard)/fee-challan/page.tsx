@@ -1305,7 +1305,12 @@ export default function FeeChallanGenerator() {
                               <button onClick={() => handleShowPreviewForGroup(g)} disabled={previewingGroupDate === g.fee_date} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-2 transition-all hover:bg-zinc-200 dark:hover:bg-zinc-700">
                                 {previewingGroupDate === g.fee_date ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />} Preview
                               </button>
-                              <button onClick={() => handleSaveVoucherForGroup(g, true)} disabled={generatingGroupDate === g.fee_date} className={`h-12 px-10 rounded-2xl text-[11px] uppercase font-black tracking-widest transition-all flex items-center gap-3 ${generatedGroupDates.has(g.fee_date) ? "bg-emerald-50 text-emerald-600" : "bg-zinc-900 text-white"}`}>
+                              <button
+                                onClick={() => handleSaveVoucherForGroup(g, true)}
+                                disabled={generatingGroupDate === g.fee_date || (generatedGroupDates.has(g.fee_date) && genStatus.anyPartiallyPaid)}
+                                title={generatedGroupDates.has(g.fee_date) && genStatus.anyPartiallyPaid ? "Cannot regenerate: this voucher has partial payments" : undefined}
+                                className={`h-12 px-10 rounded-2xl text-[11px] uppercase font-black tracking-widest transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${generatedGroupDates.has(g.fee_date) ? "bg-emerald-50 text-emerald-600" : "bg-zinc-900 text-white"}`}
+                              >
                                 {generatingGroupDate === g.fee_date ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
                                 {generatedGroupDates.has(g.fee_date) ? "Regenerate" : "Generate"}
                               </button>
