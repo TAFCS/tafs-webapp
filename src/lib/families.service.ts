@@ -11,6 +11,7 @@ export interface Family {
   created_at: string;
   username: string | null;
   consent_publicity: boolean;
+  has_password?: boolean;
   student_count?: number;
   home_phone?: string | null;
   primary_guardian?: {

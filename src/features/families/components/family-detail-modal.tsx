@@ -5,7 +5,8 @@ import {
   X as XIcon, Users, UserCircle, GraduationCap, Phone, Mail, 
   Building2, Plus, Trash2, Save, Loader2, CheckCircle2, 
   Search, Link as LinkIcon, User, RefreshCw, MapPin, Camera,
-  Edit2, ChevronDown, ChevronUp, Pencil, UserCheck
+  Edit2, ChevronDown, ChevronUp, Pencil, UserCheck,
+  Smartphone, Lock, Check, AlertCircle
 } from "lucide-react";
 import {
   familiesService,
@@ -138,6 +139,16 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
   const [tempEmail, setTempEmail] = useState("");
   const [isSavingEmail, setIsSavingEmail] = useState(false);
 
+  // Flutter App Access Reset States
+  const [newAppEmail, setNewAppEmail] = useState("");
+  const [isSavingAppEmail, setIsSavingAppEmail] = useState(false);
+  const [appEmailError, setAppEmailError] = useState<string | null>(null);
+
+  const [newAppPassword, setNewAppPassword] = useState("");
+  const [isSavingAppPassword, setIsSavingAppPassword] = useState(false);
+  const [appPasswordError, setAppPasswordError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+
   // Guardian Management State
   const [expandedGuardianId, setExpandedGuardianId] = useState<number | null>(null);
   const [addingGuardian, setAddingGuardian] = useState(false);
@@ -193,6 +204,8 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
       .getById(familyId)
       .then((data) => {
         setFamily(data);
+        setNewAppEmail(data.email || "");
+        setNewAppPassword("");
         if (data.students && data.students.length > 0) {
           setSelectedStudentId(data.students[0].cc);
         }
@@ -214,6 +227,53 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
       })
       .catch(() => setError("Failed to load family details."))
       .finally(() => setIsLoading(false));
+  };
+
+  const handleResetEmail = async () => {
+    if (!newAppEmail.trim()) {
+      setAppEmailError("Email cannot be empty");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newAppEmail)) {
+      setAppEmailError("Please enter a valid email address");
+      return;
+    }
+
+    setIsSavingAppEmail(true);
+    setAppEmailError(null);
+    try {
+      await familiesService.update(familyId, { email: newAppEmail.toLowerCase().trim() });
+      reloadData();
+    } catch (err: any) {
+      setAppEmailError(err?.response?.data?.message || "Failed to update email");
+    } finally {
+      setIsSavingAppEmail(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!newAppPassword) {
+      setAppPasswordError("Password cannot be empty");
+      return;
+    }
+    if (newAppPassword.length < 6) {
+      setAppPasswordError("Password must be at least 6 characters");
+      return;
+    }
+
+    setIsSavingAppPassword(true);
+    setAppPasswordError(null);
+    try {
+      await familiesService.update(familyId, { password: newAppPassword });
+      setNewAppPassword("");
+      alert("App password reset successfully!");
+      reloadData();
+    } catch (err: any) {
+      setAppPasswordError(err?.response?.data?.message || "Failed to reset password");
+    } finally {
+      setIsSavingAppPassword(false);
+    }
   };
 
   useEffect(() => {
@@ -489,6 +549,131 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
                           <button className="text-xs opacity-0 group-hover:opacity-100 hover:text-indigo-600 transition-opacity" onClick={() => { setTempAddress(family.primary_address ?? ""); setIsEditingAddress(true); }}>✏️</button>
                         </div>
                       )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Flutter App Access & Registration */}
+                <div className="bg-zinc-50 dark:bg-zinc-900/50 shadow-sm rounded-xl p-5 border border-zinc-150 dark:border-zinc-800">
+                  <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                      <Smartphone className="h-4 w-4 text-violet-500" /> Flutter App Access & Registration
+                    </h3>
+                    {family.email && family.has_password ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-255 rounded-full dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Registered & Signed In
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-zinc-505 bg-zinc-100 border border-zinc-200 rounded-full dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700">
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-405"></span>
+                        Not Registered
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Left Column: Info & Email Reset */}
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-1">Registered Email Address</p>
+                        <p className="text-sm font-bold text-zinc-850 dark:text-zinc-200 tracking-wide font-mono select-all">
+                          {family.email || <span className="text-zinc-400 italic font-sans font-normal">No email registered</span>}
+                        </p>
+                      </div>
+
+                      <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                        <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-2 uppercase tracking-wide">Reset Registered Email</p>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                            <input
+                              type="email"
+                              placeholder="new.email@example.com"
+                              value={newAppEmail}
+                              onChange={(e) => {
+                                setNewAppEmail(e.target.value);
+                                setAppEmailError(null);
+                              }}
+                              className="w-full h-9 pl-9 pr-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/10 transition-all lowercase"
+                            />
+                          </div>
+                          <button
+                            onClick={handleResetEmail}
+                            disabled={isSavingAppEmail || !newAppEmail.trim() || newAppEmail === family.email}
+                            className="px-4 h-9 bg-zinc-900 dark:bg-zinc-800 text-white hover:bg-zinc-800 dark:hover:bg-zinc-700 text-[11px] font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 shrink-0"
+                          >
+                            {isSavingAppEmail ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Save className="h-3.5 w-3.5" />
+                            )}
+                            Update Email
+                          </button>
+                        </div>
+                        {appEmailError && (
+                          <p className="text-[11px] text-red-500 mt-1 font-semibold">{appEmailError}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Column: Password Reset */}
+                    <div className="space-y-4 md:border-l md:border-zinc-100 md:dark:border-zinc-800 md:pl-6">
+                      <div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mb-1">App Password Status</p>
+                        <p className="text-sm font-bold text-zinc-850 dark:text-zinc-200">
+                          {family.has_password ? (
+                            <span className="text-emerald-600 dark:text-emerald-450 flex items-center gap-1">
+                              <Check className="h-4 w-4" /> Password Configured
+                            </span>
+                          ) : (
+                            <span className="text-amber-600 dark:text-amber-500 flex items-center gap-1">
+                              <AlertCircle className="h-4 w-4" /> Password Not Configured
+                            </span>
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                        <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-2 uppercase tracking-wide">Reset App Password</p>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                            <input
+                              type={showPassword ? "text" : "password"}
+                              placeholder="New password (min 6 chars)"
+                              value={newAppPassword}
+                              onChange={(e) => {
+                                setNewAppPassword(e.target.value);
+                                setAppPasswordError(null);
+                              }}
+                              className="w-full h-9 pl-9 pr-8 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/10 transition-all"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-650"
+                            >
+                              {showPassword ? "🙈" : "👁️"}
+                            </button>
+                          </div>
+                          <button
+                            onClick={handleResetPassword}
+                            disabled={isSavingAppPassword || !newAppPassword || newAppPassword.length < 6}
+                            className="px-4 h-9 bg-zinc-900 dark:bg-zinc-800 text-white hover:bg-zinc-800 dark:hover:bg-zinc-700 text-[11px] font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 shrink-0"
+                          >
+                            {isSavingAppPassword ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Save className="h-3.5 w-3.5" />
+                            )}
+                            Update Password
+                          </button>
+                        </div>
+                        {appPasswordError && (
+                          <p className="text-[11px] text-red-500 mt-1 font-semibold">{appPasswordError}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
