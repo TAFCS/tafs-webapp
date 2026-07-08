@@ -19,6 +19,7 @@ export function AdmissionForm() {
     const { items: classes } = useSelector((state: RootState) => state.classes);
     const [currentStep, setCurrentStep] = useState(1);
     const [isFetchingCC, setIsFetchingCC] = useState(false);
+    const [source, setSource] = useState<string | null>(null);
 
     useEffect(() => {
         if (classes.length === 0) {
@@ -300,6 +301,7 @@ export function AdmissionForm() {
                                 onChange={e => {
                                     setFormData({ ...formData, computerCodeNo: e.target.value });
                                     setCcError(null);
+                                    setSource(null);
                                 }}
                                 placeholder="CC-YYYY-00001"
                             />
@@ -312,6 +314,7 @@ export function AdmissionForm() {
                                     }
                                     setIsFetchingCC(true);
                                     setCcError(null);
+                                    setSource(null);
                                     try {
                                         const { data } = await api.get<{ data: any }>(
                                             `/v1/admissions/by-cc/${encodeURIComponent(formData.computerCodeNo.trim())}`
@@ -321,6 +324,7 @@ export function AdmissionForm() {
                                             setCcError("No admission data returned for this Computer Code.");
                                             return;
                                         }
+                                        setSource(student.source || null);
 
                                         const admission = Array.isArray(student.student_admissions)
                                             ? student.student_admissions[0]
@@ -525,6 +529,12 @@ export function AdmissionForm() {
 
                 {/* Wizard Body (Scrollable) */}
                 <div className="flex-1 p-6 sm:p-8 bg-zinc-50 dark:bg-zinc-900/50 overflow-y-auto">
+                    {source === 'unconfirmed_admission' && (
+                        <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-800 dark:text-emerald-300 text-sm flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                            <span>Pre-filled from Quick Admission record (CC: {formData.computerCodeNo})</span>
+                        </div>
+                    )}
 
                     {/* -- PAGE 1: PERSONAL DATA -- */}
                     {currentStep === 1 && (
