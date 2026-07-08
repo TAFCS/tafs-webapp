@@ -6,7 +6,8 @@ import {
     Check, X, Eye, ArrowRight, User, Phone, Mail, 
     Badge, Briefcase, MapPin, School, Building2,
     Clock, History, ClipboardCheck, AlertCircle,
-    Search, Filter, MoreVertical, ExternalLink
+    Search, Filter, MoreVertical, ExternalLink,
+    Camera, Calendar
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -70,6 +71,9 @@ export default function ParentChangeRequestsPage() {
     const isAccountDeletionRequest = (req: any) =>
         req?.requested_data?.request_type === 'ACCOUNT_DELETION';
 
+    const isStudentUpdateRequest = (req: any) =>
+        req?.requested_data?.request_type === 'STUDENT_UPDATE';
+
     const formatLabel = (key: string) => {
         if (key === 'request_type') return 'Request Type';
         return key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
@@ -86,6 +90,10 @@ export default function ParentChangeRequestsPage() {
             case 'organization': return <Building2 className="h-4 w-4" />;
             case 'education_level': return <School className="h-4 w-4" />;
             case 'mailing_address': return <MapPin className="h-4 w-4" />;
+            case 'photograph_url':
+            case 'photo_url':
+            case 'photo_blue_bg_url': return <Camera className="h-4 w-4" />;
+            case 'dob': return <Calendar className="h-4 w-4" />;
             default: return <User className="h-4 w-4" />;
         }
     };
@@ -230,6 +238,24 @@ export default function ParentChangeRequestsPage() {
                                                         </p>
                                                     )}
                                                 </div>
+                                            ) : isStudentUpdateRequest(req) ? (
+                                                <div className="flex gap-2 flex-wrap max-w-md">
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/50 text-[11px] font-black text-blue-700 dark:text-blue-300 shadow-sm uppercase tracking-wide">
+                                                        <User className="h-3.5 w-3.5" />
+                                                        {(() => {
+                                                            const student = req.families?.students?.find(
+                                                                (s: any) => s.cc === Number(req.requested_data.student_cc)
+                                                            );
+                                                            return student ? student.full_name : `Student CC: ${req.requested_data.student_cc}`;
+                                                        })()}
+                                                    </span>
+                                                    {req.requested_data.changes && Object.keys(req.requested_data.changes).map((key) => (
+                                                        <span key={key} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-400 shadow-sm">
+                                                            {getFieldIcon(key)}
+                                                            {formatLabel(key)}
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             ) : (
                                                 <div className="flex gap-2 flex-wrap max-w-md">
                                                     {req.requested_data && Object.entries(req.requested_data)
@@ -367,6 +393,73 @@ export default function ParentChangeRequestsPage() {
                                             </div>
                                         </div>
                                     </div>
+                                ) : isStudentUpdateRequest(selectedRequest) ? (
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <div className="mb-4 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-3xl border border-blue-100 dark:border-blue-900/50 flex gap-4 items-center">
+                                            <User className="h-8 w-8 text-blue-500 shrink-0" />
+                                            <div>
+                                                <div className="font-black text-blue-950 dark:text-blue-300 text-sm uppercase tracking-wider mb-1">
+                                                    Student Target
+                                                </div>
+                                                <p className="text-blue-800 dark:text-blue-450 font-black">
+                                                    {(() => {
+                                                        const student = selectedRequest.families?.students?.find(
+                                                            (s: any) => s.cc === Number(selectedRequest.requested_data.student_cc)
+                                                        );
+                                                        return student ? `${student.full_name} (CC: ${student.cc})` : `CC: ${selectedRequest.requested_data.student_cc}`;
+                                                    })()}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {(() => {
+                                            const student = selectedRequest.families?.students?.find(
+                                                (s: any) => s.cc === Number(selectedRequest.requested_data.student_cc)
+                                            );
+                                            const changes = selectedRequest.requested_data.changes || {};
+
+                                            return Object.entries(changes).map(([key, newValue]) => {
+                                                const currentValue = student?.[key];
+                                                const isChanged = String(currentValue || '') !== String(newValue || '');
+
+                                                return (
+                                                    <div key={key} className={`p-6 rounded-[2rem] border transition-all duration-500 ${isChanged ? 'bg-white dark:bg-zinc-900 border-amber-200 dark:border-amber-900/50 shadow-lg shadow-amber-500/5' : 'bg-zinc-50 dark:bg-zinc-900/30 border-zinc-100 dark:border-zinc-800'}`}>
+                                                        <div className="flex items-center justify-between mb-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`p-2 rounded-xl ${isChanged ? 'bg-amber-100 text-amber-600' : 'bg-zinc-200 text-zinc-500'} transition-colors`}>
+                                                                    {getFieldIcon(key)}
+                                                                </div>
+                                                                <span className="text-lg font-black text-zinc-800 dark:text-zinc-200">{formatLabel(key)}</span>
+                                                            </div>
+                                                            {isChanged && <span className="text-[10px] px-3 py-1 bg-amber-500 text-white rounded-full font-black shadow-lg shadow-amber-500/30 animate-pulse">CHANGED</span>}
+                                                        </div>
+                                                        
+                                                        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-6">
+                                                            <div className="flex-1 p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
+                                                                <div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Original Data</div>
+                                                                <div className="text-sm font-bold text-zinc-500 dark:text-zinc-400 break-all">
+                                                                    {(key === 'photograph_url' || key === 'photo_url') && currentValue && String(currentValue).startsWith('http') ? (
+                                                                        <img src={currentValue} className="h-20 w-20 object-cover rounded-2xl border border-zinc-200 dark:border-zinc-800" />
+                                                                    ) : String(currentValue || 'N/A')}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center justify-center text-zinc-300 dark:text-zinc-700">
+                                                                <ArrowRight className="h-6 w-6 mx-2" />
+                                                            </div>
+                                                            <div className="flex-1 p-4 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/10">
+                                                                <div className="text-[10px] font-black text-primary uppercase tracking-widest mb-2">Requested Update</div>
+                                                                <div className="text-sm font-black text-zinc-900 dark:text-zinc-100 break-all">
+                                                                    {(key === 'photograph_url' || key === 'photo_url') && newValue && String(newValue).startsWith('http') ? (
+                                                                        <img src={newValue} className="h-20 w-20 object-cover rounded-2xl border border-zinc-200 dark:border-zinc-800" />
+                                                                    ) : String(newValue || 'N/A')}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            });
+                                        })()}
+                                    </div>
                                 ) : (
                                 <div className="grid grid-cols-1 gap-4">
                                     {selectedRequest.requested_data && Object.entries(selectedRequest.requested_data)
@@ -398,7 +491,11 @@ export default function ParentChangeRequestsPage() {
                                                 <div className="flex flex-col md:flex-row items-stretch md:items-center gap-6">
                                                     <div className="flex-1 p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-900">
                                                         <div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Original Data</div>
-                                                        <div className="text-sm font-bold text-zinc-500 dark:text-zinc-400 break-all">{String(currentValue || 'N/A')}</div>
+                                                        <div className="text-sm font-bold text-zinc-500 dark:text-zinc-400 break-all">
+                                                            {key === 'photo_url' && currentValue && String(currentValue).startsWith('http') ? (
+                                                                <img src={currentValue} className="h-20 w-20 object-cover rounded-2xl border border-zinc-200 dark:border-zinc-800" />
+                                                            ) : String(currentValue || 'N/A')}
+                                                        </div>
                                                     </div>
                                                     <div className="flex items-center justify-center text-zinc-300 dark:text-zinc-700">
                                                         <div className="h-px w-8 bg-zinc-200 dark:bg-zinc-800 hidden md:block" />
@@ -407,12 +504,16 @@ export default function ParentChangeRequestsPage() {
                                                     </div>
                                                     <div className="flex-1 p-4 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/10">
                                                         <div className="text-[10px] font-black text-primary uppercase tracking-widest mb-2">Requested Update</div>
-                                                        <div className="text-sm font-black text-zinc-900 dark:text-zinc-100 break-all">{String(newValue || 'N/A')}</div>
+                                                        <div className="text-sm font-black text-zinc-900 dark:text-zinc-100 break-all">
+                                                            {key === 'photo_url' && newValue && String(newValue).startsWith('http') ? (
+                                                                <img src={newValue} className="h-20 w-20 object-cover rounded-2xl border border-zinc-200 dark:border-zinc-800" />
+                                                            ) : String(newValue || 'N/A')}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
                                 </div>
                                 )}
                             </div>
