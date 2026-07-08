@@ -450,7 +450,7 @@ export default function ParentChangeRequestsPage() {
                                                                 <div className="text-[10px] font-black text-primary uppercase tracking-widest mb-2">Requested Update</div>
                                                                 <div className="text-sm font-black text-zinc-900 dark:text-zinc-100 break-all">
                                                                     {(key === 'photograph_url' || key === 'photo_url') && newValue && String(newValue).startsWith('http') ? (
-                                                                        <img src={newValue} className="h-20 w-20 object-cover rounded-2xl border border-zinc-200 dark:border-zinc-800" />
+                                                                        <img src={newValue as string} className="h-20 w-20 object-cover rounded-2xl border border-zinc-200 dark:border-zinc-800" />
                                                                     ) : String(newValue || 'N/A')}
                                                                 </div>
                                                             </div>
@@ -506,7 +506,7 @@ export default function ParentChangeRequestsPage() {
                                                         <div className="text-[10px] font-black text-primary uppercase tracking-widest mb-2">Requested Update</div>
                                                         <div className="text-sm font-black text-zinc-900 dark:text-zinc-100 break-all">
                                                             {key === 'photo_url' && newValue && String(newValue).startsWith('http') ? (
-                                                                <img src={newValue} className="h-20 w-20 object-cover rounded-2xl border border-zinc-200 dark:border-zinc-800" />
+                                                                <img src={newValue as string} className="h-20 w-20 object-cover rounded-2xl border border-zinc-200 dark:border-zinc-800" />
                                                             ) : String(newValue || 'N/A')}
                                                         </div>
                                                     </div>
