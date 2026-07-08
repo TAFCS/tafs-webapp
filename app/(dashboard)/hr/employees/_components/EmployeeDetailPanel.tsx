@@ -16,6 +16,8 @@ import {
   WorkScheduleDay,
   formatStaffCategory,
   STAFF_CATEGORY_OPTIONS,
+  CHECK_IN_SOURCE_OPTIONS,
+  CheckInSource,
   optionalText,
   optionalStaffCategory,
 } from "@/lib/hr.service";
@@ -248,7 +250,8 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     campus_id: "", join_date: "", job_description: "",
   });
   const [scheduleForm, setScheduleForm] = useState({
-    reporting_time: "", leaving_time: "", late_relaxation_minutes: "", days_per_week: "", monthly_pay: "",
+    reporting_time: "", leaving_time: "", check_in_source: "FIXED" as CheckInSource,
+    late_relaxation_minutes: "", days_per_week: "", monthly_pay: "",
     account_number: "", bank_name: "",
   });
   const [useCustomSchedule, setUseCustomSchedule] = useState(false);
@@ -282,6 +285,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     setScheduleForm({
       reporting_time: parseTimeInput(employee.reporting_time),
       leaving_time: parseTimeInput(employee.leaving_time),
+      check_in_source: employee.check_in_source === "TIMETABLE" ? "TIMETABLE" : "FIXED",
       late_relaxation_minutes: employee.late_relaxation_minutes != null ? String(employee.late_relaxation_minutes) : "",
       days_per_week: employee.days_per_week != null ? String(employee.days_per_week) : "",
       monthly_pay: employee.monthly_pay != null ? String(employee.monthly_pay) : "",
@@ -620,6 +624,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         const updated = await hrService.updateEmployee(emp.id, {
                           reporting_time: optionalText(scheduleForm.reporting_time),
                           leaving_time: optionalText(scheduleForm.leaving_time),
+                          check_in_source: scheduleForm.check_in_source,
                           late_relaxation_minutes: scheduleForm.late_relaxation_minutes ? parseInt(scheduleForm.late_relaxation_minutes, 10) : undefined,
                           days_per_week: scheduleForm.days_per_week ? parseInt(scheduleForm.days_per_week, 10) : undefined,
                           monthly_pay: scheduleForm.monthly_pay ? parseFloat(scheduleForm.monthly_pay) : undefined,
@@ -645,6 +650,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     }}
                     readContent={
                       <>
+                        <ReadField icon={Clock} label="Check-in source" value={scheduleForm.check_in_source === "TIMETABLE" ? "Derived from timetable" : "Fixed times"} />
                         <ReadField icon={Clock} label="Reporting Time" value={fmtTime(emp.reporting_time)} missing={!fmtTime(emp.reporting_time)} />
                         <ReadField icon={Clock} label="Leaving Time" value={fmtTime(emp.leaving_time)} missing={!fmtTime(emp.leaving_time)} />
                         <ReadField icon={Clock} label="Late Relaxation" value={emp.late_relaxation_minutes != null ? `${emp.late_relaxation_minutes} minutes` : null} missing={emp.late_relaxation_minutes == null} />
@@ -658,8 +664,32 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     }
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div><FieldLabel>Reporting Time</FieldLabel><input type="time" className={inputCls} value={scheduleForm.reporting_time} onChange={e => setScheduleForm(p => ({ ...p, reporting_time: e.target.value }))} /></div>
-                      <div><FieldLabel>Leaving Time</FieldLabel><input type="time" className={inputCls} value={scheduleForm.leaving_time} onChange={e => setScheduleForm(p => ({ ...p, leaving_time: e.target.value }))} /></div>
+                      <div className="sm:col-span-2">
+                        <FieldLabel>Check-in source</FieldLabel>
+                        <select
+                          className={inputCls}
+                          value={scheduleForm.check_in_source}
+                          onChange={e => setScheduleForm(p => ({ ...p, check_in_source: e.target.value as CheckInSource }))}
+                        >
+                          {CHECK_IN_SOURCE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        {scheduleForm.check_in_source === "TIMETABLE" && (
+                          <p className="text-xs text-zinc-500 mt-1">
+                            Times come from timetable blocks. Fixed times are fallback when a day has no slots.{" "}
+                            <a href="/hr/timetables" className="text-rose-600 hover:underline">Open timetables</a>
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <FieldLabel>Reporting Time{scheduleForm.check_in_source === "TIMETABLE" ? " (fallback)" : ""}</FieldLabel>
+                        <input type="time" className={inputCls} disabled={scheduleForm.check_in_source === "TIMETABLE"} value={scheduleForm.reporting_time} onChange={e => setScheduleForm(p => ({ ...p, reporting_time: e.target.value }))} />
+                      </div>
+                      <div>
+                        <FieldLabel>Leaving Time{scheduleForm.check_in_source === "TIMETABLE" ? " (fallback)" : ""}</FieldLabel>
+                        <input type="time" className={inputCls} disabled={scheduleForm.check_in_source === "TIMETABLE"} value={scheduleForm.leaving_time} onChange={e => setScheduleForm(p => ({ ...p, leaving_time: e.target.value }))} />
+                      </div>
                       <div><FieldLabel>Late Relaxation (minutes)</FieldLabel><input type="number" min={0} className={inputCls} value={scheduleForm.late_relaxation_minutes} onChange={e => setScheduleForm(p => ({ ...p, late_relaxation_minutes: e.target.value }))} /></div>
                       <div><FieldLabel>Working Days / Week</FieldLabel><input type="number" min={1} max={7} className={inputCls} value={scheduleForm.days_per_week} onChange={e => setScheduleForm(p => ({ ...p, days_per_week: e.target.value }))} /></div>
                       <div className="sm:col-span-2"><FieldLabel>Monthly Pay (PKR)</FieldLabel><input type="number" min={0} className={inputCls} value={scheduleForm.monthly_pay} onChange={e => setScheduleForm(p => ({ ...p, monthly_pay: e.target.value }))} /></div>

@@ -6,7 +6,7 @@ import {
   Loader2, AlertCircle, CheckCircle2, User, Briefcase, Clock, BookOpen, Link as LinkIcon,
   Plus, X, Camera, ChevronDown, Landmark, PhoneCall
 } from "lucide-react";
-import { hrService, EmployeeProfile, EmployeeCreatePayload, Department, WorkScheduleDay, STAFF_CATEGORY_OPTIONS, optionalText, optionalStaffCategory } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, EmployeeCreatePayload, Department, WorkScheduleDay, STAFF_CATEGORY_OPTIONS, CHECK_IN_SOURCE_OPTIONS, CheckInSource, optionalText, optionalStaffCategory } from "@/lib/hr.service";
 import { campusesService, Campus, OfferedClass, SectionInfo } from "@/lib/campuses.service";
 import { PhotoUpload } from "@/app/(dashboard)/identity/students/tabs/PhotoUpload";
 import {
@@ -52,6 +52,7 @@ interface FormData {
   // Schedule & Pay
   reporting_time: string;
   leaving_time: string;
+  check_in_source: CheckInSource;
   late_relaxation_minutes: string;
   days_per_week: string;
   monthly_pay: string;
@@ -68,7 +69,7 @@ const EMPTY_FORM: FormData = {
   employee_code: "", department_id: "", staff_category: "",
   job_title: "", job_description: "", join_date: "", employment_type: "Full-time",
   reporting_manager_id: "", campus_id: "", notes: "",
-  reporting_time: "", leaving_time: "", late_relaxation_minutes: "",
+  reporting_time: "", leaving_time: "", check_in_source: "FIXED", late_relaxation_minutes: "",
   days_per_week: "5", monthly_pay: "", account_number: "", bank_name: "", user_id: "",
 };
 
@@ -218,6 +219,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       notes: emp.notes ?? "",
       reporting_time: parseTime(emp.reporting_time),
       leaving_time: parseTime(emp.leaving_time),
+      check_in_source: emp.check_in_source === "TIMETABLE" ? "TIMETABLE" : "FIXED",
       late_relaxation_minutes: emp.late_relaxation_minutes != null ? String(emp.late_relaxation_minutes) : "",
       days_per_week: emp.days_per_week ? String(emp.days_per_week) : "5",
       monthly_pay: emp.monthly_pay != null ? String(emp.monthly_pay) : "",
@@ -309,6 +311,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       notes: optionalText(formData.notes),
       reporting_time: optionalText(formData.reporting_time),
       leaving_time: optionalText(formData.leaving_time),
+      check_in_source: formData.check_in_source,
       late_relaxation_minutes: formData.late_relaxation_minutes ? parseInt(formData.late_relaxation_minutes, 10) : undefined,
       days_per_week: formData.days_per_week ? parseInt(formData.days_per_week, 10) : undefined,
       monthly_pay: formData.monthly_pay ? parseFloat(formData.monthly_pay) : undefined,
@@ -769,22 +772,47 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
         <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
           <SectionHeader icon={Clock} title="Work Schedule & Pay" subtitle="Attendance times, working days, and salary" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Check-in source */}
+            <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+              <FieldLabel>Check-in source</FieldLabel>
+              <div className="relative">
+                <select
+                  className={selectCls}
+                  value={formData.check_in_source}
+                  onChange={e => setFormData(p => ({ ...p, check_in_source: e.target.value as CheckInSource }))}
+                >
+                  {CHECK_IN_SOURCE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+              </div>
+              {formData.check_in_source === "TIMETABLE" && (
+                <p className="text-xs text-zinc-500">
+                  Expected check-in/out come from this teacher&apos;s earliest and latest timetable blocks that weekday.
+                  Fixed times below are kept as fallback when a day has no slots.{" "}
+                  <a href="/hr/timetables" className="text-rose-600 hover:underline">Open timetables</a>
+                </p>
+              )}
+            </div>
             {/* Reporting Time */}
             <div className="space-y-1.5">
-              <FieldLabel>Reporting Time</FieldLabel>
+              <FieldLabel>Reporting Time{formData.check_in_source === "TIMETABLE" ? " (fallback)" : ""}</FieldLabel>
               <input
                 type="time"
                 className={inputCls}
+                disabled={formData.check_in_source === "TIMETABLE"}
                 value={formData.reporting_time}
                 onChange={e => setFormData(p => ({ ...p, reporting_time: e.target.value }))}
               />
             </div>
             {/* Leaving Time */}
             <div className="space-y-1.5">
-              <FieldLabel>Leaving Time</FieldLabel>
+              <FieldLabel>Leaving Time{formData.check_in_source === "TIMETABLE" ? " (fallback)" : ""}</FieldLabel>
               <input
                 type="time"
                 className={inputCls}
+                disabled={formData.check_in_source === "TIMETABLE"}
                 value={formData.leaving_time}
                 onChange={e => setFormData(p => ({ ...p, leaving_time: e.target.value }))}
               />

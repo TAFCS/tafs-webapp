@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   CalendarOff,
@@ -9,6 +9,7 @@ import {
   Loader2,
   RefreshCw,
   SkipForward,
+  MapPin,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
@@ -20,9 +21,22 @@ import {
   RollSession,
   RollSessionRosterEntry,
 } from "@/lib/attendance.service";
+import { DaySlotsResponse, timetablesService } from "@/lib/timetables.service";
 import { isAsA2Class } from "@/lib/alevel-classes";
 
-const PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
+const LEGACY_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
+
+function blockLabel(block: DaySlotsResponse["blocks"][number]): string {
+  if (block.label) return block.label;
+  const d = new Date(block.start_time);
+  const h = d.getUTCHours();
+  const m = d.getUTCMinutes();
+  const hour12 = ((h + 11) % 12) + 1;
+  const suffix = h < 12 ? "am" : "pm";
+  const time =
+    m === 0 ? `${hour12}${suffix}` : `${hour12}:${String(m).padStart(2, "0")}${suffix}`;
+  return time;
+}
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -41,13 +55,24 @@ export default function RollCallPage() {
     user?.permissions?.includes("attendance.student.rollcall.view") ||
     user?.role === "SUPER_ADMIN";
 
+  const gulistanCampus = campuses.find(
+    (c) =>
+      c.campus_name.toLowerCase().includes("gulistan") ||
+      c.campus_name.toLowerCase().includes("johar") ||
+      c.campus_name.toLowerCase().includes("jauhar")
+  );
+  const lockedCampusId = gulistanCampus ? String(gulistanCampus.id) : (user?.campusId ? String(user.campusId) : "");
+
   const [scope, setScope] = useState<ScopeValue>({
-    campusId: user?.campusId ? String(user.campusId) : "",
+    campusId: lockedCampusId,
     classId: "",
     sectionId: "",
   });
   const [sessionDate, setSessionDate] = useState(todayIso());
   const [period, setPeriod] = useState(1);
+  const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
+  const [daySlots, setDaySlots] = useState<DaySlotsResponse | null>(null);
+  const [daySlotsLoading, setDaySlotsLoading] = useState(false);
   const [session, setSession] = useState<RollSession | null>(null);
   const [marks, setMarks] = useState<Record<number, RollRecordStatus>>({});
   const [loading, setLoading] = useState(false);
@@ -62,10 +87,10 @@ export default function RollCallPage() {
   }, [dispatch]);
 
   useEffect(() => {
-    if (!scope.campusId && user?.campusId) {
-      setScope((s) => ({ ...s, campusId: String(user.campusId) }));
+    if (lockedCampusId && scope.campusId !== lockedCampusId) {
+      setScope((s) => ({ ...s, campusId: lockedCampusId }));
     }
-  }, [user?.campusId, scope.campusId]);
+  }, [lockedCampusId, scope.campusId]);
 
   // Clear class/section if selection is not AS/A2 (e.g. after campus change)
   useEffect(() => {
@@ -80,6 +105,25 @@ export default function RollCallPage() {
   const isScopeReady =
     !!scope.campusId && !!scope.classId && !!scope.sectionId && !!sessionDate;
 
+  const slotPills =
+    daySlots?.blocks.flatMap((block) =>
+      block.slots.map((slot) => ({
+        slot,
+        block,
+        pillLabel: `${blockLabel(block)} — ${slot.subject.name} (${slot.employee.full_name ?? "TBA"})`,
+      })),
+    ) ?? [];
+  const timetableMode = slotPills.length > 0;
+
+  const isSlotValidForDay = useCallback(
+    (slotId: number | null) => {
+      if (!slotId) return true;
+      if (!daySlots) return false;
+      return daySlots.blocks.some((block) => block.slots.some((slot) => slot.id === slotId));
+    },
+    [daySlots],
+  );
+
   const applySession = useCallback((s: RollSession) => {
     setSession(s);
     const next: Record<number, RollRecordStatus> = {};
@@ -91,63 +135,167 @@ export default function RollCallPage() {
     setMarks(next);
   }, []);
 
-  const loadSession = useCallback(async () => {
-    if (!isScopeReady || !canView) return;
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const campusId = Number(scope.campusId);
-      const classId = Number(scope.classId);
-      const sectionId = Number(scope.sectionId);
+  const loadSession = useCallback(
+    async (opts?: { slotId?: number | null; periodNum?: number }) => {
+      if (!isScopeReady || !canView) return;
 
-      const existing = await attendanceService.listRollSessions({
-        date: sessionDate,
-        campus_id: campusId,
-        class_id: classId,
-        section_id: sectionId,
-        period,
-      });
+      const slotId = opts?.slotId !== undefined ? opts.slotId : selectedSlotId;
+      const periodNum = opts?.periodNum ?? period;
 
-      let active = existing.find((s) => s.period === period) ?? null;
+      if (opts?.slotId === undefined && !isSlotValidForDay(slotId)) return;
 
-      if (!active && canMark) {
-        active = await attendanceService.createRollSession({
-          session_date: sessionDate,
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      try {
+        const campusId = Number(scope.campusId);
+        const classId = Number(scope.classId);
+        const sectionId = Number(scope.sectionId);
+
+        const existing = await attendanceService.listRollSessions({
+          date: sessionDate,
           campus_id: campusId,
           class_id: classId,
           section_id: sectionId,
-          period,
+          period: periodNum,
+          ...(slotId ? { timetable_slot_id: slotId } : {}),
         });
-      } else if (active) {
-        active = await attendanceService.getRollSession(active.id);
-      }
 
-      if (!active) {
+        let active =
+          existing.find(
+            (s) =>
+              s.period === periodNum &&
+              (slotId ? s.timetable_slot_id === slotId : !s.timetable_slot_id),
+          ) ?? null;
+
+        if (!active && canMark) {
+          active = await attendanceService.createRollSession({
+            session_date: sessionDate,
+            campus_id: campusId,
+            class_id: classId,
+            section_id: sectionId,
+            period: periodNum,
+            ...(slotId ? { timetable_slot_id: slotId } : {}),
+          });
+        } else if (active) {
+          active = await attendanceService.getRollSession(active.id);
+        }
+
+        if (!active) {
+          setSession(null);
+          setMarks({});
+          setError("No roll session found. Select scope with mark permission to open one.");
+          return;
+        }
+
+        applySession(active);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load roll call session.");
         setSession(null);
-        setMarks({});
-        setError("No roll session found. Select scope with mark permission to open one.");
-        return;
+      } finally {
+        setLoading(false);
       }
+    },
+    [
+      isScopeReady,
+      canView,
+      canMark,
+      scope,
+      sessionDate,
+      period,
+      selectedSlotId,
+      isSlotValidForDay,
+      applySession,
+    ],
+  );
 
-      applySession(active);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load roll call session.");
-      setSession(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [isScopeReady, canView, canMark, scope, sessionDate, period, applySession]);
+  const loadSessionRef = useRef(loadSession);
+  useEffect(() => {
+    loadSessionRef.current = loadSession;
+  }, [loadSession]);
 
   useEffect(() => {
-    if (isScopeReady) {
-      loadSession();
-    } else {
+    if (!isScopeReady) {
+      setDaySlots(null);
+      setSelectedSlotId(null);
+      setDaySlotsLoading(false);
       setSession(null);
       setMarks({});
+      return;
     }
-  }, [isScopeReady, loadSession]);
+
+    let cancelled = false;
+    setDaySlotsLoading(true);
+    setDaySlots(null);
+    setSelectedSlotId(null);
+    setSession(null);
+    setMarks({});
+
+    (async () => {
+      try {
+        const data = await timetablesService.getDaySlots({
+          campus_id: Number(scope.campusId),
+          class_id: Number(scope.classId),
+          section_id: Number(scope.sectionId),
+          date: sessionDate,
+        });
+        if (cancelled) return;
+
+        setDaySlots(data);
+        const pills = data.blocks.flatMap((block) =>
+          block.slots.map((slot) => ({ ...slot, block_number: block.block_number })),
+        );
+
+        const slotId = pills.length > 0 ? pills[0].id : null;
+        const periodNum = pills.length > 0 ? pills[0].block_number : 1;
+
+        setSelectedSlotId(slotId);
+        setPeriod(periodNum);
+        setDaySlotsLoading(false);
+
+        if (!cancelled && canView) {
+          await loadSessionRef.current({ slotId, periodNum });
+        }
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) {
+          setDaySlots(null);
+          setSelectedSlotId(null);
+          setDaySlotsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isScopeReady,
+    scope.campusId,
+    scope.classId,
+    scope.sectionId,
+    sessionDate,
+    canView,
+  ]);
+
+  const selectSlot = useCallback(
+    (slotId: number, blockNumber: number) => {
+      setSelectedSlotId(slotId);
+      setPeriod(blockNumber);
+      void loadSession({ slotId, periodNum: blockNumber });
+    },
+    [loadSession],
+  );
+
+  const selectLegacyPeriod = useCallback(
+    (periodNum: number) => {
+      setPeriod(periodNum);
+      setSelectedSlotId(null);
+      void loadSession({ slotId: null, periodNum });
+    },
+    [loadSession],
+  );
 
   const roster: RollSessionRosterEntry[] = session?.roster ?? [];
   const isLocked = session?.status === "SUBMITTED" || session?.status === "SKIPPED";
@@ -254,11 +402,11 @@ export default function RollCallPage() {
         </div>
         <button
           type="button"
-          onClick={loadSession}
-          disabled={loading || !isScopeReady}
+          onClick={() => void loadSession()}
+          disabled={loading || daySlotsLoading || !isScopeReady}
           className="mt-3 md:mt-0 flex items-center gap-2 px-4 py-2 text-sm border rounded-lg bg-white hover:bg-slate-50"
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw className={`h-4 w-4 ${loading || daySlotsLoading ? "animate-spin" : ""}`} />
           Refresh
         </button>
       </div>
@@ -288,6 +436,16 @@ export default function RollCallPage() {
       )}
 
       <div className="bg-white border rounded-xl p-5 space-y-4 shadow-sm">
+        {/* Campus – Permanent Badge */}
+        <div className="flex items-center gap-2 mb-1">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+            <MapPin className="w-3.5 h-3.5" />
+            Gulistan-e-Jauhar Campus
+          </span>
+          <span className="text-zinc-400 text-xs">·</span>
+          <span className="text-zinc-400 text-xs">Campus is fixed</span>
+        </div>
+
         <ScopeBlock
           value={scope}
           onChange={(v) => {
@@ -295,48 +453,78 @@ export default function RollCallPage() {
             setSession(null);
           }}
           filterClass={isAsA2Class}
-          lockCampusId={user?.campusId ?? undefined}
+          lockCampusId={Number(lockedCampusId)}
           allowedClassIds={user?.allowedClassIds?.length ? user.allowedClassIds : undefined}
           requireClassAndSection
+          hideCampusSelect={true}
         />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div>
-            <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Date</label>
-            <input
-              type="date"
-              value={sessionDate}
-              onChange={(e) => setSessionDate(e.target.value)}
-              className="w-full h-10 px-3 border rounded-xl text-sm"
-            />
+        <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Date</label>
+              <input
+                type="date"
+                value={sessionDate}
+                onChange={(e) => setSessionDate(e.target.value)}
+                className="w-full h-10 px-3 border rounded-xl text-sm"
+              />
+            </div>
+            {!timetableMode && (
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Period</label>
+                <select
+                  value={period}
+                  onChange={(e) => selectLegacyPeriod(Number(e.target.value))}
+                  disabled={daySlotsLoading}
+                  className="w-full h-10 px-3 border rounded-xl text-sm"
+                >
+                  {LEGACY_PERIODS.map((p) => (
+                    <option key={p} value={p}>
+                      Period {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {session && (
+              <div className={`${timetableMode ? "col-span-2" : "col-span-2"} flex items-end`}>
+                <span
+                  className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold ${
+                    session.status === "SUBMITTED"
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : session.status === "SKIPPED"
+                        ? "bg-slate-100 text-slate-600 border border-slate-200"
+                        : "bg-amber-50 text-amber-700 border border-amber-200"
+                  }`}
+                >
+                  {session.status}
+                  {session.skip_reason ? ` — ${session.skip_reason}` : ""}
+                </span>
+              </div>
+            )}
           </div>
-          <div>
-            <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Period</label>
-            <select
-              value={period}
-              onChange={(e) => setPeriod(Number(e.target.value))}
-              className="w-full h-10 px-3 border rounded-xl text-sm"
-            >
-              {PERIODS.map((p) => (
-                <option key={p} value={p}>
-                  Period {p}
-                </option>
-              ))}
-            </select>
-          </div>
-          {session && (
-            <div className="col-span-2 flex items-end">
-              <span
-                className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold ${
-                  session.status === "SUBMITTED"
-                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                    : session.status === "SKIPPED"
-                      ? "bg-slate-100 text-slate-600 border border-slate-200"
-                      : "bg-amber-50 text-amber-700 border border-amber-200"
-                }`}
-              >
-                {session.status}
-                {session.skip_reason ? ` — ${session.skip_reason}` : ""}
-              </span>
+          {timetableMode && (
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">
+                Scheduled lessons
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {slotPills.map(({ slot, block, pillLabel }) => (
+                  <button
+                    key={slot.id}
+                    type="button"
+                    onClick={() => selectSlot(slot.id, block.block_number)}
+                    disabled={daySlotsLoading || loading}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                      selectedSlotId === slot.id
+                        ? "bg-amber-600 text-white border-amber-600"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-amber-50"
+                    }`}
+                  >
+                    {pillLabel}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -346,10 +534,12 @@ export default function RollCallPage() {
         <p className="text-sm text-slate-500 text-center py-12">
           Select campus, class, and section to begin roll call.
         </p>
-      ) : loading ? (
+      ) : loading || daySlotsLoading ? (
         <div className="flex flex-col items-center py-16">
           <Loader2 className="h-8 w-8 text-amber-600 animate-spin" />
-          <p className="text-sm text-slate-500 mt-2">Loading roster...</p>
+          <p className="text-sm text-slate-500 mt-2">
+            {daySlotsLoading ? "Loading schedule..." : "Loading roster..."}
+          </p>
         </div>
       ) : !session ? null : (
         <>

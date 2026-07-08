@@ -78,6 +78,7 @@ export interface RollSession {
   section_id: number;
   session_date: string;
   period: number;
+  timetable_slot_id?: number | null;
   status: RollSessionStatus;
   skip_reason: string | null;
   created_at: string;
@@ -224,6 +225,7 @@ export const attendanceService = {
     class_id?: number;
     section_id?: number;
     period?: number;
+    timetable_slot_id?: number;
   }): Promise<RollSession[]> {
     const { data } = await api.get<ApiEnvelope<RollSession[]>>('/v1/attendance/roll-sessions', {
       params,
@@ -242,6 +244,7 @@ export const attendanceService = {
     class_id: number;
     section_id: number;
     period?: number;
+    timetable_slot_id?: number;
   }): Promise<RollSession> {
     const { data } = await api.post<ApiEnvelope<RollSession>>(
       '/v1/attendance/roll-sessions',

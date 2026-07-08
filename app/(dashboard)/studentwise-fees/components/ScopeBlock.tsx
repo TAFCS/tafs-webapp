@@ -21,6 +21,8 @@ interface Props {
     lockCampusId?: number;
     /** Require class + section selection (no "All" options) */
     requireClassAndSection?: boolean;
+    /** Hide campus select dropdown */
+    hideCampusSelect?: boolean;
 }
 
 export function ScopeBlock({
@@ -30,6 +32,7 @@ export function ScopeBlock({
     allowedClassIds,
     lockCampusId,
     requireClassAndSection = false,
+    hideCampusSelect = false,
 }: Props) {
     const allCampuses = useAppSelector((s: any) => s.campuses.items);
     const campuses = useMemo(() => {
@@ -58,25 +61,27 @@ export function ScopeBlock({
     return (
         <div className="space-y-3">
             <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Scope</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className={`grid gap-3 ${hideCampusSelect ? "grid-cols-2" : "grid-cols-3"}`}>
                 {/* Campus */}
-                <div className="relative">
-                    <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Campus <span className="text-rose-500">*</span></label>
+                {!hideCampusSelect && (
                     <div className="relative">
-                        <select
-                            value={value.campusId}
-                            onChange={(e) => onChange({ campusId: e.target.value, classId: "", sectionId: "" })}
-                            disabled={lockCampusId != null}
-                            className={`${sel} disabled:opacity-60 disabled:cursor-not-allowed`}
-                        >
-                            <option value="">Select campus...</option>
-                            {campuses.map((c: { id: number; campus_name: string }) => (
-                                <option key={c.id} value={c.id}>{c.campus_name}</option>
-                            ))}
-                        </select>
-                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+                        <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Campus <span className="text-rose-500">*</span></label>
+                        <div className="relative">
+                            <select
+                                value={value.campusId}
+                                onChange={(e) => onChange({ campusId: e.target.value, classId: "", sectionId: "" })}
+                                disabled={lockCampusId != null}
+                                className={`${sel} disabled:opacity-60 disabled:cursor-not-allowed`}
+                            >
+                                <option value="">Select campus...</option>
+                                {campuses.map((c: { id: number; campus_name: string }) => (
+                                    <option key={c.id} value={c.id}>{c.campus_name}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Class */}
                 <div className="relative">

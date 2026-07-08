@@ -21,6 +21,13 @@ export type StaffCategory =
   | 'CREATIVE_STAFF'
   | 'FINANCE_STAFF';
 
+export type CheckInSource = 'FIXED' | 'TIMETABLE';
+
+export const CHECK_IN_SOURCE_OPTIONS: { value: CheckInSource; label: string; description: string }[] = [
+  { value: 'FIXED', label: 'Fixed times', description: 'Use reporting/leaving times on this profile' },
+  { value: 'TIMETABLE', label: 'Derived from timetable', description: 'Earliest/latest teaching block that weekday' },
+];
+
 export const STAFF_CATEGORY_OPTIONS: { value: StaffCategory; label: string; description: string }[] = [
   { value: 'TEACHER', label: 'TEACHER', description: 'Subject teachers and class/home-room teachers' },
   { value: 'ASSISTANT_TEACHER', label: 'ASSISTANT TEACHER', description: 'Co-teachers and helper teachers' },
@@ -74,6 +81,7 @@ export interface EmployeeProfile {
   notes: string | null;
   reporting_time: string | null;
   leaving_time: string | null;
+  check_in_source: CheckInSource;
   late_relaxation_minutes: number | null;
   monthly_pay: number | null;
   staff_type_id: number | null;
@@ -136,6 +144,7 @@ export interface EmployeeCreatePayload {
   notes?: string | null;
   reporting_time?: string | null;
   leaving_time?: string | null;
+  check_in_source?: CheckInSource;
   late_relaxation_minutes?: number;
   monthly_pay?: number;
   staff_type_id?: number;
