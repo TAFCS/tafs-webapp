@@ -396,15 +396,25 @@ export default function BulkVoucherPage() {
     // ── Report Modal helpers ────────────────────────────────────────────────────
 
     const getFriendlyStatus = (item: any): { label: string; cls: string } => {
-        if (item.status === 'SUCCESS') return { label: 'Voucher Generated', cls: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400' };
-        if (item.status === 'SKIPPED') return { label: 'Skipped', cls: 'bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400' };
+        if (item.status === 'SUCCESS') {
+            if (item.split_from_partially_paid) return { label: 'Split (Partially Paid Period)', cls: 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400' };
+            return { label: 'Voucher Generated', cls: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400' };
+        }
+        if (item.status === 'SKIPPED') {
+            if (item.partially_paid) return { label: 'Partially Paid — Skipped', cls: 'bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400' };
+            return { label: 'Skipped', cls: 'bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400' };
+        }
         return { label: 'Generation Failed', cls: 'bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-400' };
     };
 
     const getFriendlyNote = (item: any): string => {
-        if (item.status === 'SUCCESS') return 'Fee voucher was created and is ready for payment.';
+        if (item.status === 'SUCCESS') {
+            if (item.split_from_partially_paid) return 'The original voucher for this period is partially paid and was left untouched. This new voucher only covers the remaining unpaid fee heads.';
+            return 'Fee voucher was created and is ready for payment.';
+        }
         if (item.status === 'SKIPPED') {
             const r = (item.reason || '').toLowerCase();
+            if (item.partially_paid || r.includes('partially paid')) return item.reason || 'The existing voucher for this period is partially paid — regeneration was skipped to avoid disturbing the payment already recorded.';
             if (r.includes('already fully paid') || r.includes('no voucher needed')) return 'All fees for this period are already settled — no voucher was needed.';
             if (r.includes('already issued') || r.includes('already generated')) return 'A voucher was already issued for this student for this period.';
             return item.reason || 'Student was skipped during generation.';
@@ -621,7 +631,7 @@ export default function BulkVoucherPage() {
                                                                                     <td className="px-6 py-3 text-[12px] font-black text-zinc-900 dark:text-zinc-100">{item.student_name}</td>
                                                                                     <td className="px-6 py-3">
                                                                                         <span className={`px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase ${item.status?.toLowerCase() === 'success' ? 'bg-emerald-50 text-emerald-600' : item.status?.toLowerCase() === 'skipped' || item.status?.toLowerCase() === 'already_issued' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'}`}>
-                                                                                            {item.status}
+                                                                                            {item.partially_paid ? 'PARTIALLY PAID' : item.split_from_partially_paid ? 'SPLIT (PARTIAL)' : item.status}
                                                                                         </span>
                                                                                     </td>
                                                                                     <td className="px-6 py-3 text-[11px] font-medium text-zinc-500">{item.reason || item.error || item.pdf_url || "—"}</td>
