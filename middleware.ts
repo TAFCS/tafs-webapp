@@ -15,6 +15,10 @@ export function middleware(request: NextRequest) {
     const session = request.cookies.get('tafs_session');
     const isRoot = request.nextUrl.pathname === '/';
 
+    if (request.nextUrl.pathname === '/privacy-policy') {
+        return NextResponse.next();
+    }
+
     if (isRoot) {
         if (session) {
             return NextResponse.redirect(new URL('/dashboard', request.url));
