@@ -31,6 +31,8 @@ import {
   useClassAssignmentLookups,
   type ClassSectionRow,
 } from "./EmployeeClassAssignmentsEditor";
+import { EmployeeCodeFields } from "./EmployeeCodeFields";
+import { employeeCodePartsFromProfile, formatEmployeeCodeDisplay } from "@/lib/employee-code";
 
 const BASE_TABS = [
   { id: "profile", label: "Profile", icon: User },
@@ -246,7 +248,8 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     emergency_contact_name: "", emergency_contact_phone: "", emergency_contact_relationship: "",
   });
   const [employmentForm, setEmploymentForm] = useState({
-    employee_code: "", department_id: "", staff_category: "", job_title: "",
+    employee_code: "", employee_code_dep: "", employee_code_number: "",
+    department_id: "", staff_category: "", job_title: "",
     campus_id: "", join_date: "", job_description: "",
   });
   const [scheduleForm, setScheduleForm] = useState({
@@ -273,8 +276,11 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       emergency_contact_phone: employee.emergency_contact_phone ?? "",
       emergency_contact_relationship: employee.emergency_contact_relationship ?? "",
     });
+    const codeParts = employeeCodePartsFromProfile(employee);
     setEmploymentForm({
       employee_code: employee.employee_code ?? "",
+      employee_code_dep: codeParts?.dep ?? "",
+      employee_code_number: codeParts?.number ?? "",
       department_id: employee.department_id ? String(employee.department_id) : "",
       staff_category: employee.staff_category ?? "",
       job_title: employee.job_title ?? "",
@@ -429,7 +435,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
             <div className="min-w-0">
               <h2 className="text-[17px] font-black text-zinc-900 dark:text-zinc-100 tracking-tight truncate">{name}</h2>
               <p className="text-[11px] text-zinc-400 font-mono mt-0.5 truncate">
-                {emp?.employee_code || "—"}
+                {emp ? (formatEmployeeCodeDisplay(emp) || "—") : "—"}
                 {emp?.job_title ? ` · ${emp.job_title}` : ""}
               </p>
             </div>
@@ -556,6 +562,8 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     onCancel={() => { setEditEmployment(false); syncForms(emp); }}
                     onSave={() => patch({
                       employee_code: optionalText(employmentForm.employee_code),
+                      employee_code_dep: optionalText(employmentForm.employee_code_dep),
+                      employee_code_number: optionalText(employmentForm.employee_code_number),
                       department_id: employmentForm.department_id ? parseInt(employmentForm.department_id, 10) : undefined,
                       staff_category: optionalStaffCategory(employmentForm.staff_category),
                       job_title: optionalText(employmentForm.job_title),
@@ -565,7 +573,9 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     }, setSavingEmployment, setSavedEmployment, () => setEditEmployment(false))}
                     readContent={
                       <>
-                        <ReadField icon={CreditCard} label="Employee Code" value={<span className="font-mono">{emp.employee_code}</span>} missing={!emp.employee_code} />
+                        <ReadField icon={CreditCard} label="Employee Code" value={
+                          <span className="font-mono">{formatEmployeeCodeDisplay(emp)}</span>
+                        } missing={!formatEmployeeCodeDisplay(emp)} />
                         <ReadField icon={Building2} label="Department" value={emp.departments?.name} missing={!emp.departments} />
                         <ReadField icon={Briefcase} label="Category" value={formatStaffCategory(emp.staff_category)} missing={!emp.staff_category} />
                         <ReadField icon={Briefcase} label="Role" value={emp.job_title} missing={!emp.job_title} />
@@ -577,7 +587,22 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     }
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div><FieldLabel>Employee Code</FieldLabel><input className={`${inputCls} font-mono uppercase`} value={employmentForm.employee_code} onChange={e => setEmploymentForm(p => ({ ...p, employee_code: e.target.value.toUpperCase() }))} /></div>
+                      <EmployeeCodeFields
+                        inputCls={inputCls}
+                        value={{
+                          employee_code: employmentForm.employee_code,
+                          employee_code_dep: employmentForm.employee_code_dep,
+                          employee_code_number: employmentForm.employee_code_number,
+                        }}
+                        onChange={(codeValue) =>
+                          setEmploymentForm(p => ({
+                            ...p,
+                            employee_code: codeValue.employee_code,
+                            employee_code_dep: codeValue.employee_code_dep,
+                            employee_code_number: codeValue.employee_code_number,
+                          }))
+                        }
+                      />
                       <div><FieldLabel>Date of Joining</FieldLabel><input type="date" className={inputCls} value={employmentForm.join_date} onChange={e => setEmploymentForm(p => ({ ...p, join_date: e.target.value }))} /></div>
                       <div>
                         <FieldLabel>Department</FieldLabel>

@@ -15,6 +15,8 @@ import {
   EmployeeClassAssignmentsEditor,
   type ClassSectionRow,
 } from "./EmployeeClassAssignmentsEditor";
+import { EmployeeCodeFields } from "./EmployeeCodeFields";
+import { employeeCodePartsFromProfile, isLegacyEmployeeCode } from "@/lib/employee-code";
 
 // ── CNIC auto-formatter ──────────────────────────────────────────────────────
 function formatCnic(raw: string): string {
@@ -40,6 +42,8 @@ interface FormData {
   emergency_contact_relationship: string;
   // Employment
   employee_code: string;
+  employee_code_dep: string;
+  employee_code_number: string;
   department_id: string;
   staff_category: string;
   job_title: string;
@@ -66,7 +70,7 @@ const EMPTY_FORM: FormData = {
   full_name: "", father_name: "", mother_name: "", cnic: "",
   date_of_birth: "", address: "", personal_phone: "", personal_email: "",
   emergency_contact_name: "", emergency_contact_phone: "", emergency_contact_relationship: "",
-  employee_code: "", department_id: "", staff_category: "",
+  employee_code: "", employee_code_dep: "", employee_code_number: "", department_id: "", staff_category: "",
   job_title: "", job_description: "", join_date: "", employment_type: "Full-time",
   reporting_manager_id: "", campus_id: "", notes: "",
   reporting_time: "", leaving_time: "", check_in_source: "FIXED", late_relaxation_minutes: "",
@@ -195,6 +199,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       return match ? match[1] : "";
     };
 
+    const codeParts = employeeCodePartsFromProfile(emp);
     setFormData({
       full_name: emp.full_name ?? "",
       father_name: emp.father_name ?? "",
@@ -208,6 +213,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       emergency_contact_phone: emp.emergency_contact_phone ?? "",
       emergency_contact_relationship: emp.emergency_contact_relationship ?? "",
       employee_code: emp.employee_code ?? "",
+      employee_code_dep: codeParts?.dep ?? "",
+      employee_code_number: codeParts?.number ?? "",
       department_id: emp.department_id ? String(emp.department_id) : "",
       staff_category: emp.staff_category ?? "",
       job_title: emp.job_title ?? "",
@@ -251,9 +258,13 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
         if (isEdit && employeeId) {
           await loadEmployee(employeeId);
         } else {
-          // Suggest next employee code
-          const { code } = await hrService.getNextEmployeeCode();
-          setFormData(prev => ({ ...prev, employee_code: code }));
+          const { dep, number, code } = await hrService.getNextEmployeeCode("02");
+          setFormData(prev => ({
+            ...prev,
+            employee_code_dep: dep ?? "02",
+            employee_code_number: number,
+            employee_code: code,
+          }));
         }
       } catch (err: any) {
         console.error(err);
@@ -274,12 +285,35 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     }
   }, [justCreated, loading]);
 
+  const suggestNextCodeForDep = useCallback(async (dep: string) => {
+    if (!dep.trim() || isEdit) return;
+    try {
+      const { number, code } = await hrService.getNextEmployeeCode(dep);
+      setFormData(prev => ({
+        ...prev,
+        employee_code_dep: dep.padStart(2, "0"),
+        employee_code_number: number,
+        employee_code: code,
+      }));
+    } catch {
+      // keep manual entry
+    }
+  }, [isEdit]);
+
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = () => {
     if (!formData.full_name.trim()) return "Full name is required.";
     if (!formData.cnic.trim()) return "CNIC is required.";
     if (formData.cnic.replace(/\D/g, "").length !== 13) return "CNIC must be 13 digits (XXXXX-XXXXXXX-X).";
-    if (!formData.employee_code.trim()) return "Employee code is required.";
+    const hasSplitCode = formData.employee_code_dep.trim() && formData.employee_code_number.trim();
+    const hasLegacyCode = Boolean(formData.employee_code.trim()) && isLegacyEmployeeCode(formData.employee_code);
+    if (!hasSplitCode && !hasLegacyCode) return "Employee code is required (dept + number).";
+    if (formData.employee_code_dep.trim() && !formData.employee_code_number.trim()) {
+      return "Employee code number is required.";
+    }
+    if (formData.employee_code_number.trim() && !formData.employee_code_dep.trim()) {
+      return "Employee code dept is required.";
+    }
     if (!formData.monthly_pay) return "Monthly pay is required.";
     return null;
   };
@@ -300,6 +334,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       emergency_contact_phone: optionalText(formData.emergency_contact_phone),
       emergency_contact_relationship: optionalText(formData.emergency_contact_relationship),
       employee_code: optionalText(formData.employee_code),
+      employee_code_dep: optionalText(formData.employee_code_dep),
+      employee_code_number: optionalText(formData.employee_code_number),
       department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
       staff_category: optionalStaffCategory(formData.staff_category),
       job_title: optionalText(formData.job_title),
@@ -612,19 +648,24 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
         <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
           <SectionHeader icon={Briefcase} title="Employment Details" subtitle="Role, department, and employment configuration" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Employee Code */}
-            <div className="space-y-1.5">
-              <FieldLabel required>Employee Code</FieldLabel>
-              <input
-                type="text"
-                required
-                placeholder="e.g. EMP-0001"
-                className={`${inputCls} font-mono uppercase`}
-                value={formData.employee_code}
-                onChange={e => setFormData(p => ({ ...p, employee_code: e.target.value.toUpperCase() }))}
-              />
-              <p className="text-[10px] text-zinc-400 dark:text-zinc-600">Auto-suggested — assigned by school, must be unique.</p>
-            </div>
+            <EmployeeCodeFields
+              required
+              inputCls={inputCls}
+              value={{
+                employee_code: formData.employee_code,
+                employee_code_dep: formData.employee_code_dep,
+                employee_code_number: formData.employee_code_number,
+              }}
+              onChange={(codeValue) =>
+                setFormData(p => ({
+                  ...p,
+                  employee_code: codeValue.employee_code,
+                  employee_code_dep: codeValue.employee_code_dep,
+                  employee_code_number: codeValue.employee_code_number,
+                }))
+              }
+              onDepChange={suggestNextCodeForDep}
+            />
             {/* Department */}
             <div className="space-y-1.5">
               <FieldLabel>Department</FieldLabel>

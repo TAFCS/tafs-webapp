@@ -68,6 +68,8 @@ export interface EmployeeProfile {
   reporting_manager_id: number | null;
   // Extended fields
   employee_code: string | null;
+  employee_code_dep: string | null;
+  employee_code_number: string | null;
   full_name: string | null;
   father_name: string | null;
   mother_name: string | null;
@@ -131,6 +133,8 @@ export interface EmployeeCreatePayload {
   designation_id?: number;
   reporting_manager_id?: number;
   employee_code?: string | null;
+  employee_code_dep?: string | null;
+  employee_code_number?: string | null;
   full_name?: string | null;
   father_name?: string | null;
   mother_name?: string | null;
@@ -370,8 +374,11 @@ export const hrService = {
     const { data } = await api.get<ApiEnvelope<any[]>>('/v1/hr/employees/unlinked-users');
     return data.data;
   },
-  async getNextEmployeeCode(): Promise<{ code: string }> {
-    const { data } = await api.get<ApiEnvelope<{ code: string }>>('/v1/hr/employees/next-code');
+  async getNextEmployeeCode(dep?: string): Promise<{ dep: string | null; number: string; code: string }> {
+    const { data } = await api.get<ApiEnvelope<{ dep: string | null; number: string; code: string }>>(
+      '/v1/hr/employees/next-code',
+      { params: dep ? { dep } : undefined },
+    );
     return data.data;
   },
 
