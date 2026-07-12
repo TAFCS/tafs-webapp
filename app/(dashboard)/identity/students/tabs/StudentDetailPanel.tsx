@@ -181,6 +181,14 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
 
     const handleStatusChange = (targetStatus: string) => {
         if (!cc || !student) return;
+        const currentStatus = (student.status || '').toUpperCase();
+
+        // LEFT → ENROLLED: use re-enroll modal (simpler than full enrollment flow)
+        if (targetStatus === 'ENROLLED' && currentStatus === 'LEFT') {
+            setLifecycleModal({ open: true, targetStatus: 'ENROLLED', label: 'Re-enroll' });
+            return;
+        }
+
         if (targetStatus === 'ENROLLED') {
             handleStartEnroll();
             return;
@@ -607,7 +615,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                 isOpen={lifecycleModal.open}
                 onClose={() => setLifecycleModal(prev => ({ ...prev, open: false }))}
                 onConfirm={confirmLifecycleAction}
-                action={lifecycleModal.targetStatus === 'GRADUATED' ? 'graduate' : lifecycleModal.targetStatus === 'EXPELLED' ? 'expel' : 'left'}
+                action={lifecycleModal.targetStatus === 'GRADUATED' ? 'graduate' : lifecycleModal.targetStatus === 'EXPELLED' ? 'expel' : lifecycleModal.targetStatus === 'ENROLLED' ? 'reenroll' : 'left'}
                 studentName={student?.full_name || ""}
             />
         </div>

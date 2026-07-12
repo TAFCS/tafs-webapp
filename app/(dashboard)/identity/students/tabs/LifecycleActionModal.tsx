@@ -2,13 +2,13 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, GraduationCap, DoorOpen, Ban, Loader2, AlertTriangle } from "lucide-react";
+import { X, GraduationCap, DoorOpen, Ban, Loader2, AlertTriangle, RotateCcw } from "lucide-react";
 
 interface LifecycleActionModalProps {
     isOpen: boolean;
     onClose: () => void;
     onConfirm: (reason: string) => Promise<void>;
-    action: "graduate" | "expel" | "left";
+    action: "graduate" | "expel" | "left" | "reenroll";
     studentName: string;
 }
 
@@ -45,6 +45,17 @@ const actionConfig = {
         border: "border-amber-200",
         btn: "bg-amber-600 hover:bg-amber-700",
         description: "Use this if the student has withdrawn from the school (e.g. transfer, family moving)."
+    },
+    reenroll: {
+        title: "Re-enroll Student",
+        verb: "Re-enroll",
+        icon: RotateCcw,
+        color: "emerald",
+        bg: "bg-emerald-50",
+        text: "text-emerald-600",
+        border: "border-emerald-200",
+        btn: "bg-emerald-600 hover:bg-emerald-700",
+        description: "This will restore the student to Enrolled status. Their existing class and section assignment will be kept as-is. Add a reason for the re-enrollment (e.g. returned after transfer)."
     }
 };
 
