@@ -73,8 +73,8 @@ export interface FamilyListResult {
 export interface CreateFamilyPayload {
   household_name: string;
   primary_address?: string;
-  email?: string;
-  password?: string;
+  email?: string | null;
+  password?: string | null;
   legacy_pid?: string;
   username?: string;
   consent_publicity?: boolean;

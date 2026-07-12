@@ -148,6 +148,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
   const [isSavingAppPassword, setIsSavingAppPassword] = useState(false);
   const [appPasswordError, setAppPasswordError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isWipingAppAccess, setIsWipingAppAccess] = useState(false);
 
   // Guardian Management State
   const [expandedGuardianId, setExpandedGuardianId] = useState<number | null>(null);
@@ -273,6 +274,24 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
       setAppPasswordError(err?.response?.data?.message || "Failed to reset password");
     } finally {
       setIsSavingAppPassword(false);
+    }
+  };
+
+  const handleWipeAppAccess = async () => {
+    if (!window.confirm("Are you sure you want to wipe this family's app access credentials (email and password)? This will log them out of the app.")) {
+      return;
+    }
+    setIsWipingAppAccess(true);
+    try {
+      await familiesService.update(familyId, { email: null, password: null });
+      setNewAppEmail("");
+      setNewAppPassword("");
+      alert("App credentials wiped successfully!");
+      reloadData();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Failed to wipe app credentials");
+    } finally {
+      setIsWipingAppAccess(false);
     }
   };
 
@@ -559,17 +578,34 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
                     <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                       <Smartphone className="h-4 w-4 text-violet-500" /> Flutter App Access & Registration
                     </h3>
-                    {family.email && family.has_password ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-255 rounded-full dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Registered & Signed In
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-zinc-505 bg-zinc-100 border border-zinc-200 rounded-full dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700">
-                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-405"></span>
-                        Not Registered
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {family.email && family.has_password ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-255 rounded-full dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          Registered & Signed In
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-zinc-505 bg-zinc-100 border border-zinc-200 rounded-full dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-zinc-405"></span>
+                          Not Registered
+                        </span>
+                      )}
+                      {(family.email || family.has_password) && (
+                        <button
+                          onClick={handleWipeAppAccess}
+                          disabled={isWipingAppAccess}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-full hover:bg-red-100 transition-all dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/50 disabled:opacity-50"
+                          title="Wipe email and password"
+                        >
+                          {isWipingAppAccess ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                          Wipe Access
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
