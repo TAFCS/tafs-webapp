@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { parentChangeRequestsService } from "@/lib/parent-change-requests.service";
 import { 
     Check, X, Eye, ArrowRight, User, Phone, Mail, 
@@ -14,6 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 
 export default function ParentChangeRequestsPage() {
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
     const [requests, setRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -371,16 +373,21 @@ export default function ParentChangeRequestsPage() {
                                         {selectedRequest.families?.students?.length > 0 && (
                                             <div className="flex flex-wrap gap-2">
                                                 {selectedRequest.families.students.map((s: any) => (
-                                                    <div
+                                                    <button
                                                         key={s.cc}
-                                                        className="flex items-center gap-2.5 pl-1 pr-3 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-sm"
+                                                        onClick={() => {
+                                                            setSelectedRequest(null);
+                                                            router.push(`/identity/students?cc=${s.cc}`);
+                                                        }}
+                                                        className="group flex items-center gap-2.5 pl-1 pr-3 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-primary/40 hover:bg-primary/5 dark:hover:bg-primary/10 rounded-2xl shadow-sm transition-all duration-200 cursor-pointer"
+                                                        title={`Open ${s.full_name ?? 'student'} in Student Directory`}
                                                     >
                                                         {/* Avatar */}
-                                                        <div className="h-7 w-7 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black text-xs shrink-0">
+                                                        <div className="h-7 w-7 rounded-xl bg-primary/10 border border-primary/20 group-hover:bg-primary/20 flex items-center justify-center text-primary font-black text-xs shrink-0 transition-colors">
                                                             {s.full_name?.charAt(0) ?? '?'}
                                                         </div>
                                                         {/* Name */}
-                                                        <span className="text-sm font-black text-zinc-800 dark:text-zinc-100 max-w-[140px] truncate">
+                                                        <span className="text-sm font-black text-zinc-800 dark:text-zinc-100 group-hover:text-primary max-w-[140px] truncate transition-colors">
                                                             {s.full_name ?? 'Unknown'}
                                                         </span>
                                                         {/* Divider */}
@@ -398,7 +405,9 @@ export default function ParentChangeRequestsPage() {
                                                                 </span>
                                                             </>
                                                         )}
-                                                    </div>
+                                                        {/* External link hint */}
+                                                        <ExternalLink className="h-3 w-3 text-zinc-300 group-hover:text-primary transition-colors shrink-0" />
+                                                    </button>
                                                 ))}
                                             </div>
                                         )}
