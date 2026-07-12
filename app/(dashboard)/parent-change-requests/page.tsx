@@ -348,25 +348,65 @@ export default function ParentChangeRequestsPage() {
                             className="relative bg-white dark:bg-zinc-950 rounded-[2.5rem] border border-zinc-200 dark:border-zinc-800 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
                         >
                             {/* Modal Header */}
-                            <div className="p-8 border-b border-zinc-100 dark:border-zinc-900 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50">
-                                <div>
-                                    <div className="flex items-center gap-3 mb-1">
-                                        <h3 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">
-                                            {isAccountDeletionRequest(selectedRequest) ? 'Review Account Deletion' : 'Review Changes'}
-                                        </h3>
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                            selectedRequest.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 
-                                            selectedRequest.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 
-                                            'bg-rose-100 text-rose-700'
-                                        }`}>
-                                            {selectedRequest.status}
-                                        </span>
+                            <div className="p-8 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/50">
+                                <div className="flex justify-between items-start">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-3 mb-1">
+                                            <h3 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">
+                                                {isAccountDeletionRequest(selectedRequest) ? 'Review Account Deletion' : 'Review Changes'}
+                                            </h3>
+                                            <span className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                                selectedRequest.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 
+                                                selectedRequest.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 
+                                                'bg-rose-100 text-rose-700'
+                                            }`}>
+                                                {selectedRequest.status}
+                                            </span>
+                                        </div>
+                                        <p className="text-zinc-500 dark:text-zinc-400 font-medium italic mb-4">
+                                            Requested by {selectedRequest.guardians?.full_name}
+                                        </p>
+
+                                        {/* Student Roster */}
+                                        {selectedRequest.families?.students?.length > 0 && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {selectedRequest.families.students.map((s: any) => (
+                                                    <div
+                                                        key={s.cc}
+                                                        className="flex items-center gap-2.5 pl-1 pr-3 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-sm"
+                                                    >
+                                                        {/* Avatar */}
+                                                        <div className="h-7 w-7 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black text-xs shrink-0">
+                                                            {s.full_name?.charAt(0) ?? '?'}
+                                                        </div>
+                                                        {/* Name */}
+                                                        <span className="text-sm font-black text-zinc-800 dark:text-zinc-100 max-w-[140px] truncate">
+                                                            {s.full_name ?? 'Unknown'}
+                                                        </span>
+                                                        {/* Divider */}
+                                                        <span className="text-zinc-300 dark:text-zinc-600 text-xs">|</span>
+                                                        {/* CC */}
+                                                        <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+                                                            CC <span className="text-primary font-black">{s.cc}</span>
+                                                        </span>
+                                                        {/* GR — only if present */}
+                                                        {s.gr_number && (
+                                                            <>
+                                                                <span className="text-zinc-300 dark:text-zinc-600 text-xs">·</span>
+                                                                <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+                                                                    GR <span className="text-zinc-700 dark:text-zinc-300 font-black">{s.gr_number}</span>
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                    <p className="text-zinc-500 dark:text-zinc-400 font-medium italic">Requested by {selectedRequest.guardians?.full_name}</p>
+                                    <button onClick={() => setSelectedRequest(null)} className="ml-4 shrink-0 p-3 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-2xl transition-colors">
+                                        <X className="h-6 w-6" />
+                                    </button>
                                 </div>
-                                <button onClick={() => setSelectedRequest(null)} className="p-3 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-2xl transition-colors">
-                                    <X className="h-6 w-6" />
-                                </button>
                             </div>
 
                             {/* Modal Content */}
