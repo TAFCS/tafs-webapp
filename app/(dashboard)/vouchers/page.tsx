@@ -937,22 +937,20 @@ export default function VouchersPage() {
     const handleBulkDelete = async () => {
         if (selectedVoucherIds.length === 0) return;
 
-        // Single-student view: only the topmost (most recent) voucher may ever be
-        // deleted, regardless of how many were selected — mirrors the per-row
-        // restriction so the reactivation chain can't be broken via bulk select.
-        let idsToDelete = selectedVoucherIds;
-        if (activeFiltersApplied.cc != null) {
-            const topId = page === 1 ? displayedVouchers[0]?.id : undefined;
-            idsToDelete = selectedVoucherIds.filter(id => id === topId);
-            const skippedForOrder = selectedVoucherIds.length - idsToDelete.length;
-            if (idsToDelete.length === 0) {
-                toast.error("Only the most recent voucher for this student can be deleted. Delete newer vouchers first.");
-                setShowBulkDeleteModal(false);
-                return;
-            }
-            if (skippedForOrder > 0) {
-                toast(`${skippedForOrder} voucher(s) skipped — only the most recent voucher for this student can be deleted.`, { duration: 5000 });
-            }
+        // Only the topmost (most recent) voucher per student may ever be deleted —
+        // mirrors the per-row restriction so the reactivation chain can't be broken
+        // via bulk select. `is_latest_for_student` comes from the backend, so this
+        // works correctly whether or not a single-student filter is applied.
+        const deletableById = new Map(displayedVouchers.map(v => [v.id, v.is_latest_for_student === true]));
+        const idsToDelete = selectedVoucherIds.filter(id => deletableById.get(id));
+        const skippedForOrder = selectedVoucherIds.length - idsToDelete.length;
+        if (idsToDelete.length === 0) {
+            toast.error("Only the most recent voucher for each student can be deleted. Delete newer vouchers first.");
+            setShowBulkDeleteModal(false);
+            return;
+        }
+        if (skippedForOrder > 0) {
+            toast(`${skippedForOrder} voucher(s) skipped — only the most recent voucher for each student can be deleted.`, { duration: 5000 });
         }
 
         setIsBulkDeleting(true);
@@ -1435,7 +1433,7 @@ export default function VouchersPage() {
                             <tbody>
                                 {displayedVouchers.map((v, i) => {
                                     const globalIndex = (page - 1) * pageSize + i;
-                                    const canDelete = activeFiltersApplied.cc == null || globalIndex === 0;
+                                    const canDelete = v.is_latest_for_student === true;
                                     return (
                                     <VoucherRow
                                         key={v.id}

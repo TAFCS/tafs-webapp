@@ -96,6 +96,10 @@ export interface VoucherItem {
     // SPECIAL ADMIN WORKFLOW "main-column receipt" button (see vouchers.service.ts
     // generateMainColumnReceipt()) to decide whether that action is offered.
     split_parent_id?: number | null;
+    // True when this is the most recent voucher for its student (across all
+    // statuses) — vouchers can only be deleted most-recent-first, so only rows
+    // with this set true are ever delete-eligible.
+    is_latest_for_student?: boolean;
     total_payable_before_due?: string;
     total_payable_after_due?: string;
     late_fee_deposited?: string;

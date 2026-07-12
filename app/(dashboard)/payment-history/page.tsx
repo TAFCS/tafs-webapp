@@ -64,6 +64,9 @@ interface DepositItem {
     reference_number?: string;
     remarks?: string;
     allocations: DepositAllocation[];
+    // True only for this student's single most recent deposit — deposits can
+    // only be reversed most-recent-first (see assertDepositIsLatest on the backend).
+    is_latest?: boolean;
 }
 
 interface PaymentStats {
@@ -680,14 +683,25 @@ const DepositRow = ({
                 </span>
             </td>
             <td className="px-6 py-5 text-center" onClick={(e) => e.stopPropagation()}>
-                <button
-                    onClick={onReverse}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 dark:bg-rose-900/10 hover:bg-rose-100 dark:hover:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors"
-                    title="Reverse this deposit"
-                >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Reverse
-                </button>
+                {deposit.is_latest ? (
+                    <button
+                        onClick={onReverse}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 dark:bg-rose-900/10 hover:bg-rose-100 dark:hover:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors"
+                        title="Reverse this deposit"
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Reverse
+                    </button>
+                ) : (
+                    <button
+                        disabled
+                        title="Only the most recent deposit can be reversed. Reverse newer deposits first."
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900/30 text-zinc-300 dark:text-zinc-700 border border-zinc-200 dark:border-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest cursor-not-allowed"
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Reverse
+                    </button>
+                )}
             </td>
             <td className="px-6 py-5">
                 <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
