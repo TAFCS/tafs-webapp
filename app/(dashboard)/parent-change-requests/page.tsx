@@ -218,9 +218,20 @@ export default function ParentChangeRequestsPage() {
                                                 </div>
                                                 <div>
                                                     <div className="font-black text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">{req.guardians?.full_name}</div>
-                                                    <div className="text-xs text-zinc-500 font-bold flex items-center gap-1 mt-1">
-                                                        <MapPin className="h-3 w-3" />
-                                                        {req.families?.household_name}
+                                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                                        {req.families?.students?.length > 0 ? (
+                                                            req.families.students.map((s: any) => (
+                                                                <span key={s.cc} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[10px] font-black text-zinc-600 dark:text-zinc-300">
+                                                                    <School className="h-2.5 w-2.5 text-primary" />
+                                                                    CC {s.cc}
+                                                                    {s.gr_number && (
+                                                                        <span className="text-zinc-400 dark:text-zinc-500 font-bold">· GR {s.gr_number}</span>
+                                                                    )}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-[10px] text-zinc-400 font-medium">{req.families?.household_name || 'No students'}</span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
