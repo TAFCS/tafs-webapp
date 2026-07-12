@@ -467,6 +467,7 @@ function DirectoryContent() {
         { value: "SOFT_ADMISSION", label: "Soft Admission" },
         { value: "EXPELLED", label: "Expelled" },
         { value: "GRADUATED", label: "Graduated" },
+        { value: "LEFT", label: "Left" },
     ];
     const auditOptions = [
         { value: "missing_guardian", label: "Missing Guardians" },
