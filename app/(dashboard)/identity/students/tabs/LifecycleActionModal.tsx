@@ -2,13 +2,13 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, GraduationCap, DoorOpen, Ban, Loader2, AlertTriangle, RotateCcw } from "lucide-react";
+import { X, GraduationCap, DoorOpen, Ban, Loader2, AlertTriangle, RotateCcw, UserCheck } from "lucide-react";
 
 interface LifecycleActionModalProps {
     isOpen: boolean;
     onClose: () => void;
     onConfirm: (reason: string) => Promise<void>;
-    action: "graduate" | "expel" | "left" | "reenroll";
+    action: "graduate" | "expel" | "left" | "reenroll" | "soft_admission";
     studentName: string;
 }
 
@@ -55,7 +55,18 @@ const actionConfig = {
         text: "text-emerald-600",
         border: "border-emerald-200",
         btn: "bg-emerald-600 hover:bg-emerald-700",
-        description: "This will restore the student to Enrolled status. Their existing class and section assignment will be kept as-is. Add a reason for the re-enrollment (e.g. returned after transfer)."
+        description: "This will restore the student to Enrolled status. Their existing class and section assignment will be kept as-is."
+    },
+    soft_admission: {
+        title: "Move to Soft Admission",
+        verb: "Move to Soft Admission",
+        icon: UserCheck,
+        color: "blue",
+        bg: "bg-blue-50",
+        text: "text-blue-600",
+        border: "border-blue-200",
+        btn: "bg-blue-600 hover:bg-blue-700",
+        description: "This will move the student back to Soft Admission status. They will need to be formally enrolled again before attending classes."
     }
 };
 

@@ -104,9 +104,6 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
 
     const isSoft = (student?.status || "").toUpperCase() === "SOFT_ADMISSION";
 
-    // Statuses that need a reason modal before applying
-    const NEEDS_MODAL = new Set(['GRADUATED', 'EXPELLED', 'LEFT']);
-
     // GR prefix enforcement for enrollment modal
     useEffect(() => {
         if (!enrollModal || !student) return;
@@ -183,26 +180,21 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
         if (!cc || !student) return;
         const currentStatus = (student.status || '').toUpperCase();
 
-        // LEFT → ENROLLED: use re-enroll modal (simpler than full enrollment flow)
-        if (targetStatus === 'ENROLLED' && currentStatus === 'LEFT') {
-            setLifecycleModal({ open: true, targetStatus: 'ENROLLED', label: 'Re-enroll' });
-            return;
-        }
-
-        if (targetStatus === 'ENROLLED') {
+        // SOFT_ADMISSION → ENROLLED: use full enrollment wizard (assigns GR, House, Section)
+        if (targetStatus === 'ENROLLED' && currentStatus === 'SOFT_ADMISSION') {
             handleStartEnroll();
             return;
         }
-        if (NEEDS_MODAL.has(targetStatus)) {
-            const labelMap: Record<string, string> = {
-                GRADUATED: 'Graduate',
-                EXPELLED: 'Expel',
-                LEFT: 'Mark as Left',
-            };
-            setLifecycleModal({ open: true, targetStatus, label: labelMap[targetStatus] || targetStatus });
-        } else {
-            applyStatusChange(targetStatus, undefined);
-        }
+
+        // Every other transition: open reason modal
+        const labelMap: Record<string, string> = {
+            GRADUATED:      'Graduate',
+            EXPELLED:       'Expel',
+            LEFT:           'Mark as Left',
+            ENROLLED:       'Re-enroll',
+            SOFT_ADMISSION: 'Move to Soft Admission',
+        };
+        setLifecycleModal({ open: true, targetStatus, label: labelMap[targetStatus] || targetStatus });
     };
 
     const applyStatusChange = async (targetStatus: string, reason: string | undefined) => {
@@ -615,7 +607,13 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                 isOpen={lifecycleModal.open}
                 onClose={() => setLifecycleModal(prev => ({ ...prev, open: false }))}
                 onConfirm={confirmLifecycleAction}
-                action={lifecycleModal.targetStatus === 'GRADUATED' ? 'graduate' : lifecycleModal.targetStatus === 'EXPELLED' ? 'expel' : lifecycleModal.targetStatus === 'ENROLLED' ? 'reenroll' : 'left'}
+                action={
+                    lifecycleModal.targetStatus === 'GRADUATED'      ? 'graduate'      :
+                    lifecycleModal.targetStatus === 'EXPELLED'       ? 'expel'         :
+                    lifecycleModal.targetStatus === 'ENROLLED'       ? 'reenroll'      :
+                    lifecycleModal.targetStatus === 'SOFT_ADMISSION' ? 'soft_admission' :
+                    'left'
+                }
                 studentName={student?.full_name || ""}
             />
         </div>
