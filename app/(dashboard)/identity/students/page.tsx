@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Home, Download, Loader2 } from "lucide-react";
+import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Home, Download, Loader2, ClipboardPlus } from "lucide-react";
+import Link from "next/link";
 import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
@@ -489,6 +490,13 @@ function DirectoryContent() {
                         {meta ? <span><strong className="text-zinc-700">{meta.total.toLocaleString()}</strong> students found</span> : "Search and manage all students"}
                     </p>
                 </div>
+                <Link
+                    href="/identity/quick-registration"
+                    className="inline-flex items-center justify-center h-9 px-4 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all font-bold text-[12px] shadow-sm active:scale-95 shrink-0"
+                >
+                    <ClipboardPlus className="h-3.5 w-3.5 mr-1.5" />
+                    Quick Registration
+                </Link>
             </div>
 
             {/* Search + Filters */}

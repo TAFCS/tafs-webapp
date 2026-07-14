@@ -5,7 +5,7 @@ import {
     FilePlus2, HandCoins, Printer, FileText, History, Layers,
     MessageSquare, Database, Briefcase, Clock, CalendarCheck,
     CalendarClock, ClipboardList, ClipboardCheck, Bell,
-    Fingerprint, BarChart3, CreditCard, Wallet, Building2, Megaphone, ScrollText,
+    Fingerprint, BarChart3, CreditCard, Wallet, Building2, Megaphone, ScrollText, ClipboardPlus,
 } from "lucide-react";
 import { SUPPORT_TICKETS_VIEW_PERMISSION } from "@/features/support-tickets/supportTicketAccess";
 import type { LucideIcon } from "lucide-react";
@@ -46,6 +46,7 @@ export const NAV_MODULES: NavModule[] = [
             "academic.transfers.view", "academic.bulk_promote.execute",
         ],
         items: [
+            { name: "Quick Registration", description: "Unconfirmed admission intake", href: "/identity/quick-registration", icon: ClipboardPlus, permission: "students.registration.view" },
             { name: "Registration", description: "New student intake", href: "/identity/register", icon: UserPlus, permission: "students.registration.view" },
             { name: "Enrollments", description: "Class and section assignment", href: "/enrollments", icon: UserCheck, permission: "students.enrollment.view" },
             { name: "Student Directory", description: "Search all students", href: "/identity/students", icon: Users, permission: "students.directory.view" },
