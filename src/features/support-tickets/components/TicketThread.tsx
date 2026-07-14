@@ -110,7 +110,6 @@ export function TicketThread({
   userId,
   userRole,
   isSending = false,
-  isConnected = true,
   detailError,
   onRetryDetail,
   onRefresh,
@@ -164,7 +163,7 @@ export function TicketThread({
   const canCompose = !isClosed && (isAssignee || isSuperAdmin);
   const messages = [...(ticket.messages ?? [])].reverse();
   const senderColorMap = buildSenderColorMap(messages);
-  const composerDisabled = !isConnected || isSending || uploading;
+  const composerDisabled = isSending || uploading;
 
   const handleSend = async () => {
     if (!reply.trim() || composerDisabled) return;
@@ -618,11 +617,6 @@ export function TicketThread({
 
       {canCompose && (
         <div className="relative p-4 border-t bg-white dark:bg-zinc-950">
-          {!isConnected && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-zinc-950/60 backdrop-blur-sm">
-              <p className="text-xs font-bold text-red-600 uppercase tracking-wider">Offline — reconnecting</p>
-            </div>
-          )}
           <div className="flex gap-2 items-center">
             <div className="flex items-center gap-1 shrink-0">
               {!isRecording && (

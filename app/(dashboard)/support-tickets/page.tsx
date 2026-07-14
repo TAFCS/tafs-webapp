@@ -241,30 +241,6 @@ export default function SupportTicketsPage() {
   return (
     <div className="h-[calc(100vh-5.5rem)] flex border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
       <Suspense fallback={null}><TicketParamSync /></Suspense>
-      {/* Offline banner — overlaid at top */}
-      {!isConnected && (
-        <div
-          role="alert"
-          className="absolute top-2 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-red-600 text-white px-4 py-2 rounded-2xl shadow-lg text-[11px] font-bold uppercase tracking-wider"
-        >
-          Connection lost
-          <button type="button" onClick={() => window.location.reload()} className="underline">
-            Reload
-          </button>
-        </div>
-      )}
-      {queueError && (
-        <div
-          role="alert"
-          className="absolute top-2 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-rose-600 text-white px-4 py-2 rounded-2xl shadow-lg text-sm font-semibold"
-        >
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          <span>{queueError}</span>
-          <button onClick={() => { dispatch(clearQueueError()); loadQueue(); }} className="underline ml-1">
-            Retry
-          </button>
-        </div>
-      )}
       <div className="flex w-full h-full overflow-hidden">
         <TicketQueueList
           tickets={tickets}
