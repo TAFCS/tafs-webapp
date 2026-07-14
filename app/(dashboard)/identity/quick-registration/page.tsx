@@ -344,6 +344,40 @@ export default function QuickRegistrationPage() {
                     {/* Section 1: Candidate Info */}
                     <SectionCard icon={<User className="h-3.5 w-3.5" />} title="Candidate Information">
                         <div className="space-y-4">
+                            <FormField label="Candidate Photo (Optional)">
+                                <div className="flex items-start gap-5">
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="w-24 h-24 rounded-2xl border-2 border-dashed border-zinc-200 hover:border-primary/50 bg-zinc-50 hover:bg-primary/5 transition-all flex items-center justify-center overflow-hidden shrink-0"
+                                    >
+                                        {photoPreview ? (
+                                            <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <Camera className="h-7 w-7 text-zinc-300" />
+                                        )}
+                                    </button>
+                                    <div className="pt-1">
+                                        <p className="text-[13px] font-bold text-zinc-700">
+                                            {photoPreview ? "Photo selected" : "Upload candidate photograph"}
+                                        </p>
+                                        <p className="text-[12px] text-zinc-400 mt-1">
+                                            {photoPreview ? photoFile?.name : "Click the box to select a JPG, PNG or WEBP"}
+                                        </p>
+                                        {photoPreview && (
+                                            <button
+                                                type="button"
+                                                onClick={() => { setPhotoFile(null); setPhotoPreview(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                                                className="mt-2 text-[11px] font-bold text-red-400 hover:text-red-600 transition-colors"
+                                            >
+                                                Remove photo
+                                            </button>
+                                        )}
+                                    </div>
+                                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+                                </div>
+                            </FormField>
+
                             <FormField label="Full Name (Block Letters)" required error={errors.full_name}>
                                 <input
                                     value={fullName}
@@ -598,8 +632,8 @@ export default function QuickRegistrationPage() {
                         )}
                     </div>
 
-                    {/* Section 4: Admission Details & Photo */}
-                    <SectionCard icon={<Banknote className="h-3.5 w-3.5" />} title="Admission Details &amp; Photo">
+                    {/* Section 4: Admission Details */}
+                    <SectionCard icon={<Banknote className="h-3.5 w-3.5" />} title="Admission Details">
                         <div className="space-y-5">
                             <FormField label="Deposit Amount (PKR)" required error={errors.deposit_amount}>
                                 <div className="relative">
@@ -612,40 +646,6 @@ export default function QuickRegistrationPage() {
                                         placeholder="0"
                                         className={inputCls + " pl-11"}
                                     />
-                                </div>
-                            </FormField>
-
-                            <FormField label="Candidate Photo (Optional)">
-                                <div className="flex items-start gap-5">
-                                    <button
-                                        type="button"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="w-24 h-24 rounded-2xl border-2 border-dashed border-zinc-200 hover:border-primary/50 bg-zinc-50 hover:bg-primary/5 transition-all flex items-center justify-center overflow-hidden shrink-0"
-                                    >
-                                        {photoPreview ? (
-                                            <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <Camera className="h-7 w-7 text-zinc-300" />
-                                        )}
-                                    </button>
-                                    <div className="pt-1">
-                                        <p className="text-[13px] font-bold text-zinc-700">
-                                            {photoPreview ? "Photo selected" : "Upload candidate photograph"}
-                                        </p>
-                                        <p className="text-[12px] text-zinc-400 mt-1">
-                                            {photoPreview ? photoFile?.name : "Click the box to select a JPG, PNG or WEBP"}
-                                        </p>
-                                        {photoPreview && (
-                                            <button
-                                                type="button"
-                                                onClick={() => { setPhotoFile(null); setPhotoPreview(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-                                                className="mt-2 text-[11px] font-bold text-red-400 hover:text-red-600 transition-colors"
-                                            >
-                                                Remove photo
-                                            </button>
-                                        )}
-                                    </div>
-                                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
                                 </div>
                             </FormField>
                         </div>
