@@ -24,6 +24,9 @@ import {
     UserCircle,
     ShieldCheck,
     Hash,
+    GraduationCap,
+    BookOpen,
+    StickyNote,
 } from "lucide-react";
 import api from "@/lib/api";
 import { campusesService, type Campus } from "@/lib/campuses.service";
@@ -34,12 +37,15 @@ interface GuardianInput {
     name: string;
     relation: "Father" | "Mother" | "Guardian";
     cnic: string;
+    photoFile: File | null;
+    photoPreview: string | null;
 }
 
 interface FormErrors {
     full_name?: string;
     date_of_birth?: string;
     deposit_amount?: string;
+    admission_level?: string;
     guardians?: { name?: string; cnic?: string }[];
     submit?: string;
 }
@@ -110,7 +116,7 @@ function FormField({ label, required, error, children }: { label: string; requir
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-const INITIAL_GUARDIAN: GuardianInput = { name: "", relation: "Father", cnic: "" };
+const INITIAL_GUARDIAN: GuardianInput = { name: "", relation: "Father", cnic: "", photoFile: null, photoPreview: null };
 
 export default function QuickRegistrationPage() {
     const router = useRouter();
@@ -122,6 +128,10 @@ export default function QuickRegistrationPage() {
     const [address, setAddress] = useState("");
     const [selectedCampusId, setSelectedCampusId] = useState<number | "">("");
 
+    // ── Class Applying For
+    const [admissionSystem, setAdmissionSystem] = useState<"" | "cambridge" | "secondary" | "alevel">("");
+    const [admissionLevel, setAdmissionLevel] = useState("");
+
     // ── Guardian Info
     const [addGuardian, setAddGuardian] = useState(false);
     const [guardians, setGuardians] = useState<GuardianInput[]>([{ ...INITIAL_GUARDIAN }]);
@@ -131,6 +141,10 @@ export default function QuickRegistrationPage() {
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const guardianFileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+
+    // ── Internal Notes
+    const [adminNotes, setAdminNotes] = useState("");
 
     // ── Meta
     const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -145,6 +159,29 @@ export default function QuickRegistrationPage() {
 
     const age = calcAge(dob);
     const selectedCampus = campuses.find((c) => c.id === selectedCampusId);
+
+    const offeredClassNames = selectedCampus
+        ? (selectedCampus.offered_classes || []).map((c) => c.description.trim().toUpperCase())
+        : [];
+    const cambridgeClasses = ["Pre-Nursery", "Nursery", "K.G.", "JR-I", "JR-II", "JR-III", "JR-IV", "JR-V", "SR-I", "SR-II", "SR-III", "O-I", "O-II", "O-III"]
+        .filter((cls) => !selectedCampusId || offeredClassNames.includes(cls.trim().toUpperCase()));
+    const secondaryClasses = ["VI", "VII", "VIII", "IX", "X"]
+        .filter((cls) => !selectedCampusId || offeredClassNames.includes(cls.trim().toUpperCase()));
+    const aLevelClasses = ["AS Level", "A2 Level"]
+        .filter((cls) => !selectedCampusId || offeredClassNames.includes(cls.trim().toUpperCase()));
+    const hasCambridge = cambridgeClasses.length > 0;
+    const hasSecondary = secondaryClasses.length > 0;
+    const hasALevel = aLevelClasses.length > 0;
+
+    useEffect(() => {
+        if (!selectedCampusId) return;
+        const systemClasses = admissionSystem === "cambridge" ? cambridgeClasses : admissionSystem === "secondary" ? secondaryClasses : admissionSystem === "alevel" ? aLevelClasses : [];
+        if (admissionLevel && !systemClasses.includes(admissionLevel)) setAdmissionLevel("");
+        if (admissionSystem === "cambridge" && !hasCambridge) setAdmissionSystem("");
+        if (admissionSystem === "secondary" && !hasSecondary) setAdmissionSystem("");
+        if (admissionSystem === "alevel" && !hasALevel) setAdmissionSystem("");
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedCampusId]);
 
     // ── Photo
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -161,6 +198,14 @@ export default function QuickRegistrationPage() {
         setGuardians((prev) => prev.map((g, i) => (i === index ? { ...g, ...patch } : g)));
     const addGuardianRow = () => setGuardians((prev) => [...prev, { ...INITIAL_GUARDIAN }]);
     const removeGuardianRow = (i: number) => setGuardians((prev) => prev.filter((_, idx) => idx !== i));
+    const handleGuardianPhotoChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => updateGuardian(index, { photoPreview: ev.target?.result as string });
+        reader.readAsDataURL(file);
+        updateGuardian(index, { photoFile: file });
+    };
 
     // ── Validation
     const validate = (): boolean => {
@@ -170,6 +215,7 @@ export default function QuickRegistrationPage() {
         if (!dob) errs.date_of_birth = "Date of birth is required";
         if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) < 0)
             errs.deposit_amount = "Enter a valid positive deposit amount";
+        if (!admissionSystem || !admissionLevel) errs.admission_level = "Select the class the candidate is applying for";
 
         if (addGuardian) {
             const gErrs = guardians.map((g) => {
@@ -192,21 +238,24 @@ export default function QuickRegistrationPage() {
         setSubmitStep("creating");
         setErrors({});
         try {
+            const filteredGuardians = guardians.filter((g) => g.name.trim());
+            const academicSystemLabel = admissionSystem === "cambridge" ? "Cambridge" : admissionSystem === "alevel" ? "A-Level" : "Secondary";
             const payload: Record<string, unknown> = {
                 full_name: fullName.trim().toUpperCase(),
                 date_of_birth: new Date(dob).toISOString(),
                 gender,
                 deposit_amount: Number(depositAmount),
+                academic_system: academicSystemLabel,
+                requested_grade: admissionLevel,
                 ...(address.trim() && { address: address.trim() }),
                 ...(selectedCampusId !== "" && { campus_id: Number(selectedCampusId) }),
-                ...(addGuardian && guardians.filter((g) => g.name.trim()).length > 0 && {
-                    guardians: guardians
-                        .filter((g) => g.name.trim())
-                        .map((g) => ({
-                            name: g.name.trim(),
-                            relation: g.relation,
-                            ...(g.cnic.trim() && { cnic: g.cnic.trim() }),
-                        })),
+                ...(adminNotes.trim() && { admin_notes: adminNotes.trim() }),
+                ...(addGuardian && filteredGuardians.length > 0 && {
+                    guardians: filteredGuardians.map((g) => ({
+                        name: g.name.trim(),
+                        relation: g.relation,
+                        ...(g.cnic.trim() && { cnic: g.cnic.trim() }),
+                    })),
                 }),
             };
 
@@ -221,6 +270,22 @@ export default function QuickRegistrationPage() {
                 await api.post(`/v1/unconfirmed-admissions/${cc}/photo`, fd, {
                     headers: { "Content-Type": "multipart/form-data" },
                 });
+            }
+
+            if (addGuardian && cc) {
+                const guardiansWithPhotos = filteredGuardians
+                    .map((g, i) => ({ g, i }))
+                    .filter(({ g }) => g.photoFile);
+                if (guardiansWithPhotos.length > 0) {
+                    setSubmitStep("uploading");
+                    for (const { g, i } of guardiansWithPhotos) {
+                        const fd = new FormData();
+                        fd.append("file", g.photoFile as File);
+                        await api.post(`/v1/unconfirmed-admissions/${cc}/guardian-photo/${i}`, fd, {
+                            headers: { "Content-Type": "multipart/form-data" },
+                        });
+                    }
+                }
             }
 
             setSubmitStep("done");
@@ -239,7 +304,8 @@ export default function QuickRegistrationPage() {
     const handleReset = () => {
         setFullName(""); setDob(""); setGender("Male"); setAddress("");
         setSelectedCampusId(""); setAddGuardian(false);
-        setGuardians([{ ...INITIAL_GUARDIAN }]); setDepositAmount("");
+        setAdmissionSystem(""); setAdmissionLevel(""); setAdminNotes("");
+        setGuardians([{ ...INITIAL_GUARDIAN }]); guardianFileInputRefs.current = {}; setDepositAmount("");
         setPhotoFile(null); setPhotoPreview(null); setErrors({});
         setSubmitStep(""); setGeneratedCc(null);
     };
@@ -341,16 +407,73 @@ export default function QuickRegistrationPage() {
                                 <FormField label="Residential Address">
                                     <input
                                         value={address}
-                                        onChange={(e) => setAddress(e.target.value)}
-                                        placeholder="Optional"
-                                        className={inputCls}
+                                        onChange={(e) => setAddress(e.target.value.toUpperCase())}
+                                        placeholder="OPTIONAL"
+                                        className={inputCls + " uppercase"}
                                     />
                                 </FormField>
                             </div>
                         </div>
                     </SectionCard>
 
-                    {/* Section 2: Guardian Info */}
+                    {/* Section 2: Class Applying For */}
+                    <SectionCard icon={<GraduationCap className="h-3.5 w-3.5" />} title="Class Applying For">
+                        <div className="space-y-4">
+                            <FormField label="Academic System" required error={errors.admission_level}>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    {([
+                                        { key: "cambridge" as const, label: "Cambridge O'Level", icon: <GraduationCap className="h-3.5 w-3.5" />, enabled: hasCambridge },
+                                        { key: "secondary" as const, label: "Secondary", icon: <BookOpen className="h-3.5 w-3.5" />, enabled: hasSecondary },
+                                        { key: "alevel" as const, label: "A'Level", icon: <ShieldCheck className="h-3.5 w-3.5" />, enabled: hasALevel },
+                                    ]).map((sys) => (
+                                        <button
+                                            key={sys.key}
+                                            type="button"
+                                            disabled={!sys.enabled}
+                                            onClick={() => { setAdmissionSystem(sys.key); setAdmissionLevel(""); }}
+                                            className={`h-10 rounded-xl text-[12px] font-bold border-2 transition-all flex items-center justify-center gap-1.5 ${
+                                                admissionSystem === sys.key
+                                                    ? "bg-primary text-white border-primary shadow-sm"
+                                                    : sys.enabled
+                                                        ? "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
+                                                        : "bg-zinc-50 text-zinc-300 border-zinc-100 cursor-not-allowed"
+                                            }`}
+                                        >
+                                            {sys.icon}
+                                            {sys.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </FormField>
+
+                            {admissionSystem && (
+                                <FormField label="Grade / Level" required>
+                                    <div className="flex flex-wrap gap-2">
+                                        {(admissionSystem === "cambridge" ? cambridgeClasses : admissionSystem === "secondary" ? secondaryClasses : aLevelClasses).map((cls) => (
+                                            <button
+                                                key={cls}
+                                                type="button"
+                                                onClick={() => setAdmissionLevel(cls)}
+                                                className={`px-3.5 h-8 rounded-lg text-[12px] font-bold border-2 transition-all ${
+                                                    admissionLevel === cls
+                                                        ? "bg-primary text-white border-primary shadow-sm"
+                                                        : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
+                                                }`}
+                                            >
+                                                {cls}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </FormField>
+                            )}
+
+                            {!selectedCampusId && (
+                                <p className="text-[11px] text-zinc-400 font-medium">Select a campus above to narrow the grade list to classes it offers.</p>
+                            )}
+                        </div>
+                    </SectionCard>
+
+                    {/* Section 3: Guardian Info */}
                     <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
                         <button
                             type="button"
@@ -391,39 +514,75 @@ export default function QuickRegistrationPage() {
                                             )}
                                         </div>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                            <div className="sm:col-span-2">
-                                                <FormField label="Full Name" required error={errors.guardians?.[i]?.name}>
+                                        <div className="flex items-start gap-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => guardianFileInputRefs.current[i]?.click()}
+                                                className="w-16 h-16 rounded-xl border-2 border-dashed border-zinc-200 hover:border-primary/50 bg-white hover:bg-primary/5 transition-all flex items-center justify-center overflow-hidden shrink-0"
+                                                title="Attach guardian photo"
+                                            >
+                                                {g.photoPreview ? (
+                                                    <img src={g.photoPreview} alt="Guardian preview" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <Camera className="h-5 w-5 text-zinc-300" />
+                                                )}
+                                            </button>
+                                            <input
+                                                ref={(el) => { guardianFileInputRefs.current[i] = el; }}
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => handleGuardianPhotoChange(i, e)}
+                                                className="hidden"
+                                            />
+                                            <div className="flex-1 space-y-4">
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                    <div className="sm:col-span-2">
+                                                        <FormField label="Full Name" required error={errors.guardians?.[i]?.name}>
+                                                            <input
+                                                                value={g.name}
+                                                                onChange={(e) => updateGuardian(i, { name: e.target.value.toUpperCase() })}
+                                                                placeholder="GUARDIAN FULL NAME"
+                                                                className={inputCls + " uppercase"}
+                                                            />
+                                                        </FormField>
+                                                    </div>
+                                                    <FormField label="Relation">
+                                                        <select
+                                                            value={g.relation}
+                                                            onChange={(e) => updateGuardian(i, { relation: e.target.value as GuardianInput["relation"] })}
+                                                            className={inputCls}
+                                                        >
+                                                            <option value="Father">Father</option>
+                                                            <option value="Mother">Mother</option>
+                                                            <option value="Guardian">Other / Guardian</option>
+                                                        </select>
+                                                    </FormField>
+                                                </div>
+
+                                                <FormField label="CNIC (optional)" error={errors.guardians?.[i]?.cnic}>
                                                     <input
-                                                        value={g.name}
-                                                        onChange={(e) => updateGuardian(i, { name: e.target.value.toUpperCase() })}
-                                                        placeholder="GUARDIAN FULL NAME"
-                                                        className={inputCls + " uppercase"}
+                                                        value={g.cnic}
+                                                        onChange={(e) => updateGuardian(i, { cnic: formatCnic(e.target.value) })}
+                                                        placeholder="42101-1234567-1"
+                                                        maxLength={15}
+                                                        className={`${inputCls} font-mono`}
                                                     />
                                                 </FormField>
                                             </div>
-                                            <FormField label="Relation">
-                                                <select
-                                                    value={g.relation}
-                                                    onChange={(e) => updateGuardian(i, { relation: e.target.value as GuardianInput["relation"] })}
-                                                    className={inputCls}
-                                                >
-                                                    <option value="Father">Father</option>
-                                                    <option value="Mother">Mother</option>
-                                                    <option value="Guardian">Other / Guardian</option>
-                                                </select>
-                                            </FormField>
                                         </div>
-
-                                        <FormField label="CNIC (optional)" error={errors.guardians?.[i]?.cnic}>
-                                            <input
-                                                value={g.cnic}
-                                                onChange={(e) => updateGuardian(i, { cnic: formatCnic(e.target.value) })}
-                                                placeholder="42101-1234567-1"
-                                                maxLength={15}
-                                                className={`${inputCls} font-mono`}
-                                            />
-                                        </FormField>
+                                        {g.photoPreview && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    updateGuardian(i, { photoFile: null, photoPreview: null });
+                                                    const el = guardianFileInputRefs.current[i];
+                                                    if (el) el.value = "";
+                                                }}
+                                                className="text-[11px] font-bold text-red-400 hover:text-red-600 transition-colors"
+                                            >
+                                                Remove photo
+                                            </button>
+                                        )}
                                     </div>
                                 ))}
 
@@ -439,7 +598,7 @@ export default function QuickRegistrationPage() {
                         )}
                     </div>
 
-                    {/* Section 3: Admission Details & Photo */}
+                    {/* Section 4: Admission Details & Photo */}
                     <SectionCard icon={<Banknote className="h-3.5 w-3.5" />} title="Admission Details &amp; Photo">
                         <div className="space-y-5">
                             <FormField label="Deposit Amount (PKR)" required error={errors.deposit_amount}>
@@ -492,6 +651,19 @@ export default function QuickRegistrationPage() {
                         </div>
                     </SectionCard>
 
+                    {/* Section 5: Internal Notes */}
+                    <SectionCard icon={<StickyNote className="h-3.5 w-3.5" />} title="Internal Notes">
+                        <FormField label="Note for the back office (not shown to the family)">
+                            <textarea
+                                value={adminNotes}
+                                onChange={(e) => setAdminNotes(e.target.value.toUpperCase())}
+                                placeholder="OPTIONAL — E.G. SIBLING DISCOUNT PROMISED, PAID IN CASH, SPECIAL CIRCUMSTANCE, ETC."
+                                rows={3}
+                                className={inputCls + " h-auto py-2.5 resize-none uppercase"}
+                            />
+                        </FormField>
+                    </SectionCard>
+
                     {/* Submit error */}
                     {errors.submit && (
                         <div className="flex items-center gap-2.5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
@@ -534,6 +706,9 @@ export default function QuickRegistrationPage() {
                                 </SummaryRow>
                                 <SummaryRow icon={<Building2 className="h-3.5 w-3.5" />} label="Campus">
                                     {selectedCampus?.campus_name ?? "—"}
+                                </SummaryRow>
+                                <SummaryRow icon={<GraduationCap className="h-3.5 w-3.5" />} label="Class Applying For">
+                                    {admissionLevel || "—"}
                                 </SummaryRow>
                                 <SummaryRow icon={<MapPin className="h-3.5 w-3.5" />} label="Address">
                                     <span className="truncate">{address || "—"}</span>

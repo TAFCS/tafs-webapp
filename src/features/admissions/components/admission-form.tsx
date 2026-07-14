@@ -20,6 +20,7 @@ export function AdmissionForm() {
     const [currentStep, setCurrentStep] = useState(1);
     const [isFetchingCC, setIsFetchingCC] = useState(false);
     const [source, setSource] = useState<string | null>(null);
+    const [prefillNotes, setPrefillNotes] = useState<string | null>(null);
 
     useEffect(() => {
         if (classes.length === 0) {
@@ -302,6 +303,7 @@ export function AdmissionForm() {
                                     setFormData({ ...formData, computerCodeNo: e.target.value });
                                     setCcError(null);
                                     setSource(null);
+                                    setPrefillNotes(null);
                                 }}
                                 placeholder="CC-YYYY-00001"
                             />
@@ -315,6 +317,7 @@ export function AdmissionForm() {
                                     setIsFetchingCC(true);
                                     setCcError(null);
                                     setSource(null);
+                                    setPrefillNotes(null);
                                     try {
                                         const { data } = await api.get<{ data: any }>(
                                             `/v1/admissions/by-cc/${encodeURIComponent(formData.computerCodeNo.trim())}`
@@ -325,6 +328,7 @@ export function AdmissionForm() {
                                             return;
                                         }
                                         setSource(student.source || null);
+                                        setPrefillNotes(student.admin_notes || null);
 
                                         const admission = Array.isArray(student.student_admissions)
                                             ? student.student_admissions[0]
@@ -533,6 +537,13 @@ export function AdmissionForm() {
                         <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-800 dark:text-emerald-300 text-sm flex items-center gap-2">
                             <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                             <span>Pre-filled from Quick Admission record (CC: {formData.computerCodeNo})</span>
+                        </div>
+                    )}
+
+                    {prefillNotes && (
+                        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-300 text-sm">
+                            <p className="font-semibold uppercase tracking-wide text-[11px] mb-1">Front Desk Note</p>
+                            <p>{prefillNotes}</p>
                         </div>
                     )}
 

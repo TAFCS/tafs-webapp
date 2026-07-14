@@ -845,7 +845,8 @@ function StudentwiseFeeEditor() {
                 setDiscountForm(f => ({ ...f, fee_date: d.toISOString().split('T')[0], target_month: d.getMonth() + 1 }));
             }
         } catch (err: any) {
-            toast.error(err.response?.data?.message || "Failed to add discount.");
+            const msg = err.response?.data?.message;
+            toast.error(Array.isArray(msg) ? msg.join("; ") : (msg || "Failed to add discount."));
         } finally {
             setIsSavingDiscount(false);
         }
