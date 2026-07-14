@@ -91,6 +91,12 @@ interface ApiEnvelope<T> {
   message: string;
 }
 
+export interface FamilyStats {
+  total: number;
+  registeredOnApp: number;
+  notConfigured: number;
+}
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export const familiesService = {
@@ -103,6 +109,11 @@ export const familiesService = {
       params,
     });
     return { data: data.data, meta: data.meta! };
+  },
+
+  async getStats(): Promise<FamilyStats> {
+    const { data } = await api.get<ApiEnvelope<FamilyStats>>('/v1/families/stats');
+    return data.data;
   },
 
   async getById(id: number): Promise<FamilyDetail> {
