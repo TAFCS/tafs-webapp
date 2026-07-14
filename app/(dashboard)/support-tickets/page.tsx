@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, Suspense } from "react";
-import { AlertCircle, Loader2, RefreshCcw } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSocket } from "@/context/SocketContext";
@@ -10,7 +9,6 @@ import type { AppDispatch, RootState } from "@/store/store";
 import {
   addPendingApproval,
   appendTicketMessage,
-  clearQueueError,
   fetchClosedTickets,
   fetchFinanceQueue,
   fetchMyQueue,
@@ -47,7 +45,7 @@ function TicketParamSync() {
 export default function SupportTicketsPage() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  const { socket, isConnected } = useSocket();
+  const { socket } = useSocket();
   const { user, isLoading: authLoading } = useAuthState();
   const {
     queueTab,
@@ -60,7 +58,6 @@ export default function SupportTicketsPage() {
     isLoadingDetail,
     isLoadingApprovals,
     isSending,
-    queueError,
     detailError,
   } = useSelector((s: RootState) => s.supportTickets);
 
@@ -101,12 +98,15 @@ export default function SupportTicketsPage() {
   }, [dispatch, user?.role]);
 
   useEffect(() => {
-    if (!selectedTicketId || !hasPermission) return;
+    if (!selectedTicketId || !hasPermission || !socket) return;
     dispatch(fetchTicketDetail(selectedTicketId));
     dispatch(markTicketRead(selectedTicketId));
-    socket?.emit("enterTicket", { ticketId: selectedTicketId });
+    const join = () => socket.emit("enterTicket", { ticketId: selectedTicketId });
+    join();
+    socket.on("connect", join);
     return () => {
-      socket?.emit("leaveTicket", { ticketId: selectedTicketId });
+      socket.off("connect", join);
+      socket.emit("leaveTicket", { ticketId: selectedTicketId });
     };
   }, [selectedTicketId, dispatch, socket, hasPermission]);
 
@@ -270,7 +270,6 @@ export default function SupportTicketsPage() {
             userId={user?.id}
             userRole={user?.role}
             isSending={isSending}
-            isConnected={isConnected}
             detailError={detailError}
             onRetryDetail={loadDetail}
             onRefresh={() => {
@@ -287,7 +286,6 @@ export default function SupportTicketsPage() {
                   mediaMetadata,
                 }),
               ).unwrap();
-              if (user?.role === "SUPER_ADMIN") dispatch(fetchPendingApprovals());
             }}
           />
         ) : selectedTicketId && detailError ? (

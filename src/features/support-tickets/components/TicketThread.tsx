@@ -2,10 +2,11 @@
 
 import { format } from "date-fns";
 import { FileText, Loader2, Mic, Send, X, User, ShieldCheck, Phone } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { useSocket } from "@/context/SocketContext";
 import type { AppDispatch } from "@/store/store";
 import type { SupportTicket, TicketMessage } from "@/store/slices/supportTicketsSlice";
 import { claimTicket, closeTicket, reviewTicketMessage } from "@/store/slices/supportTicketsSlice";
@@ -18,7 +19,6 @@ interface TicketThreadProps {
   userId?: string;
   userRole?: string;
   isSending?: boolean;
-  isConnected?: boolean;
   detailError?: string | null;
   onRetryDetail?: () => void;
   onRefresh: () => void;
@@ -116,7 +116,9 @@ export function TicketThread({
   onSendMessage,
 }: TicketThreadProps) {
   const dispatch = useDispatch<AppDispatch>();
+  const { socket } = useSocket();
   const [reply, setReply] = useState("");
+  const [parentTyping, setParentTyping] = useState(false);
   const [showClaim, setShowClaim] = useState(false);
   const [showForward, setShowForward] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -128,6 +130,8 @@ export function TicketThread({
   const [rejectComment, setRejectComment] = useState("");
   const [uploading, setUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const typingStopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingEmit = useRef(0);
   const [recordingTime, setRecordingTime] = useState(0);
 
   const [showStudentDetails, setShowStudentDetails] = useState(false);
@@ -165,9 +169,53 @@ export function TicketThread({
   const senderColorMap = buildSenderColorMap(messages);
   const composerDisabled = isSending || uploading;
 
+  const emitTyping = (isTyping: boolean) => {
+    if (!socket || !ticket.id) return;
+    socket.emit("ticketTyping", { ticketId: ticket.id, isTyping });
+  };
+
+  const handleReplyChange = (value: string) => {
+    setReply(value);
+    if (!canCompose) return;
+    const now = Date.now();
+    // Emit promptly so the parent sees "Support is typing…" without a long delay.
+    if (value.trim() && now - lastTypingEmit.current > 400) {
+      lastTypingEmit.current = now;
+      emitTyping(true);
+    }
+    if (typingStopTimer.current) clearTimeout(typingStopTimer.current);
+    typingStopTimer.current = setTimeout(() => emitTyping(false), 1600);
+  };
+
+  useEffect(() => {
+    if (!socket || !ticket.id) return;
+    const onTyping = (payload: {
+      ticketId?: string;
+      isTyping?: boolean;
+      userType?: string;
+      userId?: string;
+    }) => {
+      if (payload.ticketId !== ticket.id) return;
+      if (payload.userType !== "PARENT") return;
+      if (payload.userId && payload.userId === userId) return;
+      setParentTyping(!!payload.isTyping);
+      if (payload.isTyping) {
+        window.setTimeout(() => setParentTyping(false), 3000);
+      }
+    };
+    socket.on("ticketTyping", onTyping);
+    return () => {
+      socket.off("ticketTyping", onTyping);
+      if (typingStopTimer.current) clearTimeout(typingStopTimer.current);
+      emitTyping(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, ticket.id, userId]);
+
   const handleSend = async () => {
     if (!reply.trim() || composerDisabled) return;
     try {
+      emitTyping(false);
       await onSendMessage(reply.trim());
       setReply("");
       toast.success(isSuperAdmin ? "Reply sent" : "Reply submitted for approval");
@@ -563,7 +611,9 @@ export function TicketThread({
             {renderMedia(msg)}
             <div className="flex gap-2 mt-1 text-[10px] opacity-70 flex-wrap items-center">
               <span>{format(new Date(msg.created_at), "h:mm a")}</span>
-              {msg.sender_type === "STAFF" && !(isSuperAdmin && ownMessage) && (
+              {msg.sender_type === "STAFF" &&
+                msg.status !== "APPROVED" &&
+                !(isSuperAdmin && ownMessage) && (
                 <span className="font-bold uppercase">{statusLabel(msg.status)}</span>
               )}
               {msg.status === "REJECTED" && msg.review_comment && (
@@ -617,6 +667,11 @@ export function TicketThread({
 
       {canCompose && (
         <div className="relative p-4 border-t bg-white dark:bg-zinc-950">
+          {parentTyping && (
+            <p className="absolute -top-7 left-4 text-[11px] font-semibold text-zinc-500 animate-pulse">
+              Parent is typing…
+            </p>
+          )}
           <div className="flex gap-2 items-center">
             <div className="flex items-center gap-1 shrink-0">
               {!isRecording && (
@@ -674,7 +729,7 @@ export function TicketThread({
             ) : (
               <input
                 value={reply}
-                onChange={(e) => setReply(e.target.value)}
+                onChange={(e) => handleReplyChange(e.target.value)}
                 placeholder={
                   isSuperAdmin
                     ? "Write a direct reply to the parent..."
