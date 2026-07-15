@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Save, CheckCircle, CreditCard, AlertCircle, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/src/store/store";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
@@ -15,6 +15,7 @@ import { resolveClassIdFromGrade } from "@/lib/fee-utils";
 
 export function AdmissionForm() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const dispatch = useDispatch<AppDispatch>();
     const { items: classes } = useSelector((state: RootState) => state.classes);
     const [currentStep, setCurrentStep] = useState(1);
@@ -76,6 +77,172 @@ export function AdmissionForm() {
     const handlePrev = () => setCurrentStep(prev => Math.max(prev - 1, 1));
     const isFirstStep = currentStep === 1;
     const isLastStep = currentStep === 5;
+
+    // Fetch an existing/unconfirmed admission by Computer Code and pre-fill the form.
+    const fetchByCC = useCallback(async (rawCode: string) => {
+        const code = (rawCode || "").trim();
+        if (!code) {
+            setCcError("Enter a Computer Code first.");
+            return;
+        }
+        setIsFetchingCC(true);
+        setCcError(null);
+        setSource(null);
+        setPrefillNotes(null);
+        try {
+            const { data } = await api.get<{ data: any }>(
+                `/v1/admissions/by-cc/${encodeURIComponent(code)}`
+            );
+            const student = data?.data;
+            if (!student) {
+                setCcError("No admission data returned for this Computer Code.");
+                return;
+            }
+            setSource(student.source || null);
+            setPrefillNotes(student.admin_notes || null);
+
+            const admission = Array.isArray(student.student_admissions)
+                ? student.student_admissions[0]
+                : null;
+
+            const fatherRel = Array.isArray(student.student_guardians)
+                ? student.student_guardians.find((g: any) => g.relationship === "Father")
+                : null;
+            const motherRel = Array.isArray(student.student_guardians)
+                ? student.student_guardians.find((g: any) => g.relationship === "Mother")
+                : null;
+            const emergencyRel = Array.isArray(student.student_guardians)
+                ? student.student_guardians.find((g: any) => g.is_emergency_contact)
+                : null;
+
+            const father = fatherRel?.guardians;
+            const mother = motherRel?.guardians;
+            const emergency = emergencyRel?.guardians;
+
+            const dob = student.dob ? new Date(student.dob) : null;
+
+            const previousSchools = Array.isArray(student.student_previous_schools)
+                ? student.student_previous_schools.map((s: any) => ({
+                    name: s.school_name ?? "",
+                    location: s.location ?? "",
+                    classStudied: [s.class_studied_from, s.class_studied_to]
+                        .filter(Boolean)
+                        .join(" - "),
+                    reasonForLeaving: s.reason_for_leaving ?? "",
+                }))
+                : undefined;
+
+            const composeAddress = (g: any): string =>
+                [g?.house_appt_name, g?.area_block, g?.city, g?.province, g?.country]
+                    .filter(Boolean).join(", ");
+
+            const candidatePOB = {
+                country: student.country ?? "",
+                province: student.province ?? "",
+                city: student.city ?? "",
+            };
+            const fatherPOB = { country: father?.country ?? "", province: father?.province ?? "", city: father?.city ?? "" };
+            const motherPOB = { country: mother?.country ?? "", province: mother?.province ?? "", city: mother?.city ?? "" };
+
+            setFormData((prev) => ({
+                ...prev,
+                computerCodeNo: student.cc_number ?? prev.computerCodeNo,
+                candidateName: `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim(),
+                candidatePhone: student.primary_phone ?? prev.candidatePhone,
+                candidateEmail: student.email ?? prev.candidateEmail,
+                gender: student.gender ?? prev.gender,
+                nationality: student.nationality ?? prev.nationality,
+                religion: student.religion ?? prev.religion,
+                identificationMarks: student.identification_marks ?? prev.identificationMarks,
+                ageYears: student.admission_age_years?.toString() ?? prev.ageYears,
+                physicalImpairment: student.physical_impairment ?? prev.physicalImpairment,
+                candidateInterests: student.interests ?? prev.candidateInterests,
+                medicalProblems: student.medical_info ?? prev.medicalProblems,
+                publicizeConsent:
+                    student.consent_publicity === true
+                        ? "Consent"
+                        : student.consent_publicity === false
+                            ? "Dissent"
+                            : prev.publicizeConsent,
+                dobDay: dob ? String(dob.getDate()).padStart(2, "0") : prev.dobDay,
+                dobMonth: dob ? String(dob.getMonth() + 1).padStart(2, "0") : prev.dobMonth,
+                dobYear: dob ? String(dob.getFullYear()) : prev.dobYear,
+
+                placeOfBirthCountry: candidatePOB.country || prev.placeOfBirthCountry,
+                placeOfBirthProvince: candidatePOB.province || prev.placeOfBirthProvince,
+                placeOfBirthCity: candidatePOB.city || prev.placeOfBirthCity,
+
+                admissionClass: admission?.requested_grade ?? prev.admissionClass,
+                admissionSystem: admission?.academic_system ?? prev.admissionSystem,
+
+                fatherName: father?.full_name ?? prev.fatherName,
+                fatherPrimaryPhoneCountryCode: father?.primary_phone_country_code ?? prev.fatherPrimaryPhoneCountryCode ?? "+92",
+                fatherWhatsappCountryCode: father?.whatsapp_country_code ?? prev.fatherWhatsappCountryCode ?? "+92",
+                fatherWorkPhoneCountryCode: father?.work_phone_country_code ?? prev.fatherWorkPhoneCountryCode ?? "+92",
+                fatherCellPhone: father?.whatsapp_number ?? father?.primary_phone ?? prev.fatherCellPhone,
+                fatherHomePhone: father?.primary_phone ?? prev.fatherHomePhone,
+                fatherWorkPhone: father?.work_phone ?? prev.fatherWorkPhone,
+                fatherCnic: father?.cnic ?? prev.fatherCnic,
+                fatherEmail: father?.email_address ?? prev.fatherEmail,
+                fatherAddress: composeAddress(father) || prev.fatherAddress,
+                fatherEducation: father?.education_level ?? prev.fatherEducation,
+                fatherOccupation: father?.occupation ?? prev.fatherOccupation,
+                fatherOrganization: father?.organization ?? prev.fatherOrganization,
+                fatherPosition: father?.occupational_position ?? father?.job_position ?? prev.fatherPosition,
+                fatherPOBCountry: fatherPOB.country || prev.fatherPOBCountry,
+                fatherPOBProvince: fatherPOB.province || prev.fatherPOBProvince,
+                fatherPOBCity: fatherPOB.city || prev.fatherPOBCity,
+
+                motherName: mother?.full_name ?? prev.motherName,
+                motherPrimaryPhoneCountryCode: mother?.primary_phone_country_code ?? prev.motherPrimaryPhoneCountryCode ?? "+92",
+                motherWhatsappCountryCode: mother?.whatsapp_country_code ?? prev.motherWhatsappCountryCode ?? "+92",
+                motherWorkPhoneCountryCode: mother?.work_phone_country_code ?? prev.motherWorkPhoneCountryCode ?? "+92",
+                motherCellPhone: mother?.whatsapp_number ?? mother?.primary_phone ?? prev.motherCellPhone,
+                motherHomePhone: mother?.primary_phone ?? prev.motherHomePhone,
+                motherWorkPhone: mother?.work_phone ?? prev.motherWorkPhone,
+                motherCnic: mother?.cnic ?? prev.motherCnic,
+                motherEmail: mother?.email_address ?? prev.motherEmail,
+                motherAddress: composeAddress(mother) || prev.motherAddress,
+                motherEducation: mother?.education_level ?? prev.motherEducation,
+                motherOccupation: mother?.occupation ?? prev.motherOccupation,
+                motherOrganization: mother?.organization ?? prev.motherOrganization,
+                motherPosition: mother?.occupational_position ?? mother?.job_position ?? prev.motherPosition,
+                motherPOBCountry: motherPOB.country || prev.motherPOBCountry,
+                motherPOBProvince: motherPOB.province || prev.motherPOBProvince,
+                motherPOBCity: motherPOB.city || prev.motherPOBCity,
+
+                guardianName: emergency?.full_name ?? prev.guardianName,
+                guardianPrimaryPhoneCountryCode: emergency?.primary_phone_country_code ?? prev.guardianPrimaryPhoneCountryCode ?? "+92",
+                guardianWhatsappCountryCode: emergency?.whatsapp_country_code ?? prev.guardianWhatsappCountryCode ?? "+92",
+                guardianWorkPhoneCountryCode: emergency?.work_phone_country_code ?? prev.guardianWorkPhoneCountryCode ?? "+92",
+                guardianCellPhone: emergency?.primary_phone ?? prev.guardianCellPhone,
+                guardianCnic: emergency?.cnic ?? prev.guardianCnic,
+
+                previousSchools: previousSchools && previousSchools.length
+                    ? previousSchools
+                    : prev.previousSchools,
+            }));
+        } catch (error: any) {
+            const status = error?.response?.status;
+            if (status === 404) {
+                setCcError("No admission found for this Computer Code.");
+            } else {
+                setCcError("Failed to fetch admission details. Please try again.");
+            }
+        } finally {
+            setIsFetchingCC(false);
+        }
+    }, []);
+
+    // Auto-fetch when arriving with ?cc= (e.g. from the directory's Unconfirmed cards).
+    useEffect(() => {
+        const cc = searchParams.get("cc");
+        if (cc && !isNaN(Number(cc))) {
+            setFormData((prev) => ({ ...prev, computerCodeNo: cc }));
+            fetchByCC(cc);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]);
 
     const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -309,177 +476,7 @@ export function AdmissionForm() {
                             />
                             <button
                                 type="button"
-                                onClick={async () => {
-                                    if (!formData.computerCodeNo.trim()) {
-                                        setCcError("Enter a Computer Code first.");
-                                        return;
-                                    }
-                                    setIsFetchingCC(true);
-                                    setCcError(null);
-                                    setSource(null);
-                                    setPrefillNotes(null);
-                                    try {
-                                        const { data } = await api.get<{ data: any }>(
-                                            `/v1/admissions/by-cc/${encodeURIComponent(formData.computerCodeNo.trim())}`
-                                        );
-                                        const student = data?.data;
-                                        if (!student) {
-                                            setCcError("No admission data returned for this Computer Code.");
-                                            return;
-                                        }
-                                        setSource(student.source || null);
-                                        setPrefillNotes(student.admin_notes || null);
-
-                                        const admission = Array.isArray(student.student_admissions)
-                                            ? student.student_admissions[0]
-                                            : null;
-
-                                        const fatherRel = Array.isArray(student.student_guardians)
-                                            ? student.student_guardians.find(
-                                                (g: any) => g.relationship === "Father"
-                                            )
-                                            : null;
-                                        const motherRel = Array.isArray(student.student_guardians)
-                                            ? student.student_guardians.find(
-                                                (g: any) => g.relationship === "Mother"
-                                            )
-                                            : null;
-                                        const emergencyRel = Array.isArray(student.student_guardians)
-                                            ? student.student_guardians.find(
-                                                (g: any) => g.is_emergency_contact
-                                            )
-                                            : null;
-
-                                        const father = fatherRel?.guardians;
-                                        const mother = motherRel?.guardians;
-                                        const emergency = emergencyRel?.guardians;
-
-                                        const dob = student.dob ? new Date(student.dob) : null;
-
-                                        const previousSchools = Array.isArray(student.student_previous_schools)
-                                            ? student.student_previous_schools.map((s: any) => ({
-                                                name: s.school_name ?? "",
-                                                location: s.location ?? "",
-                                                classStudied: [s.class_studied_from, s.class_studied_to]
-                                                    .filter(Boolean)
-                                                    .join(" - "),
-                                                reasonForLeaving: s.reason_for_leaving ?? "",
-                                            }))
-                                            : undefined;
-
-                                        // Helper: compose a mailing address from guardian address fields
-                                        const composeAddress = (g: any): string =>
-                                            [g?.house_appt_name, g?.area_block, g?.city, g?.province, g?.country]
-                                                .filter(Boolean).join(", ");
-
-                                        // Candidate place of birth — now stored as separate country/province/city fields
-                                        const candidatePOB = {
-                                            country: student.country ?? "",
-                                            province: student.province ?? "",
-                                            city: student.city ?? "",
-                                        };
-                                        const fatherPOB = { country: father?.country ?? "", province: father?.province ?? "", city: father?.city ?? "" };
-                                        const motherPOB = { country: mother?.country ?? "", province: mother?.province ?? "", city: mother?.city ?? "" };
-
-                                        setFormData((prev) => ({
-                                            ...prev,
-                                            computerCodeNo: student.cc_number ?? prev.computerCodeNo,
-                                            candidateName: `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim(),
-                                            candidatePhone: student.primary_phone ?? prev.candidatePhone,
-                                            candidateEmail: student.email ?? prev.candidateEmail,
-                                            gender: student.gender ?? prev.gender,
-                                            nationality: student.nationality ?? prev.nationality,
-                                            religion: student.religion ?? prev.religion,
-                                            identificationMarks: student.identification_marks ?? prev.identificationMarks,
-                                            ageYears: student.admission_age_years?.toString() ?? prev.ageYears,
-                                            physicalImpairment: student.physical_impairment ?? prev.physicalImpairment,
-                                            candidateInterests: student.interests ?? prev.candidateInterests,
-                                            medicalProblems: student.medical_info ?? prev.medicalProblems,
-                                            publicizeConsent:
-                                                student.consent_publicity === true
-                                                    ? "Consent"
-                                                    : student.consent_publicity === false
-                                                        ? "Dissent"
-                                                        : prev.publicizeConsent,
-                                            dobDay: dob ? String(dob.getDate()).padStart(2, "0") : prev.dobDay,
-                                            dobMonth: dob ? String(dob.getMonth() + 1).padStart(2, "0") : prev.dobMonth,
-                                            dobYear: dob ? String(dob.getFullYear()) : prev.dobYear,
-
-                                            // Candidate place of birth (split combined string from registration)
-                                            placeOfBirthCountry: candidatePOB.country || prev.placeOfBirthCountry,
-                                            placeOfBirthProvince: candidatePOB.province || prev.placeOfBirthProvince,
-                                            placeOfBirthCity: candidatePOB.city || prev.placeOfBirthCity,
-
-                                            admissionClass: admission?.requested_grade ?? prev.admissionClass,
-                                            admissionSystem: admission?.academic_system ?? prev.admissionSystem,
-
-                                            // Father
-                                            fatherName: father?.full_name ?? prev.fatherName,
-                                            fatherPrimaryPhoneCountryCode: father?.primary_phone_country_code ?? prev.fatherPrimaryPhoneCountryCode ?? "+92",
-                                            fatherWhatsappCountryCode: father?.whatsapp_country_code ?? prev.fatherWhatsappCountryCode ?? "+92",
-                                            fatherWorkPhoneCountryCode: father?.work_phone_country_code ?? prev.fatherWorkPhoneCountryCode ?? "+92",
-                                            fatherCellPhone: father?.whatsapp_number ?? father?.primary_phone ?? prev.fatherCellPhone,
-                                            fatherHomePhone: father?.primary_phone ?? prev.fatherHomePhone,
-                                            fatherWorkPhone: father?.work_phone ?? prev.fatherWorkPhone,
-                                            fatherCnic: father?.cnic ?? prev.fatherCnic,
-                                            fatherEmail: father?.email_address ?? prev.fatherEmail,
-                                            // Father address (composed from registration mailing address fields)
-                                            fatherAddress: composeAddress(father) || prev.fatherAddress,
-                                            // Father occupation & background
-                                            fatherEducation: father?.education_level ?? prev.fatherEducation,
-                                            fatherOccupation: father?.occupation ?? prev.fatherOccupation,
-                                            fatherOrganization: father?.organization ?? prev.fatherOrganization,
-                                            fatherPosition: father?.occupational_position ?? father?.job_position ?? prev.fatherPosition,
-                                            // Father place of birth (split combined string)
-                                            fatherPOBCountry: fatherPOB.country || prev.fatherPOBCountry,
-                                            fatherPOBProvince: fatherPOB.province || prev.fatherPOBProvince,
-                                            fatherPOBCity: fatherPOB.city || prev.fatherPOBCity,
-
-                                            // Mother
-                                            motherName: mother?.full_name ?? prev.motherName,
-                                            motherPrimaryPhoneCountryCode: mother?.primary_phone_country_code ?? prev.motherPrimaryPhoneCountryCode ?? "+92",
-                                            motherWhatsappCountryCode: mother?.whatsapp_country_code ?? prev.motherWhatsappCountryCode ?? "+92",
-                                            motherWorkPhoneCountryCode: mother?.work_phone_country_code ?? prev.motherWorkPhoneCountryCode ?? "+92",
-                                            motherCellPhone: mother?.whatsapp_number ?? mother?.primary_phone ?? prev.motherCellPhone,
-                                            motherHomePhone: mother?.primary_phone ?? prev.motherHomePhone,
-                                            motherWorkPhone: mother?.work_phone ?? prev.motherWorkPhone,
-                                            motherCnic: mother?.cnic ?? prev.motherCnic,
-                                            motherEmail: mother?.email_address ?? prev.motherEmail,
-                                            // Mother address (composed from registration mailing address fields)
-                                            motherAddress: composeAddress(mother) || prev.motherAddress,
-                                            // Mother occupation & background
-                                            motherEducation: mother?.education_level ?? prev.motherEducation,
-                                            motherOccupation: mother?.occupation ?? prev.motherOccupation,
-                                            motherOrganization: mother?.organization ?? prev.motherOrganization,
-                                            motherPosition: mother?.occupational_position ?? mother?.job_position ?? prev.motherPosition,
-                                            // Mother place of birth (split combined string)
-                                            motherPOBCountry: motherPOB.country || prev.motherPOBCountry,
-                                            motherPOBProvince: motherPOB.province || prev.motherPOBProvince,
-                                            motherPOBCity: motherPOB.city || prev.motherPOBCity,
-
-                                            // Guardian / emergency contact
-                                            guardianName: emergency?.full_name ?? prev.guardianName,
-                                            guardianPrimaryPhoneCountryCode: emergency?.primary_phone_country_code ?? prev.guardianPrimaryPhoneCountryCode ?? "+92",
-                                            guardianWhatsappCountryCode: emergency?.whatsapp_country_code ?? prev.guardianWhatsappCountryCode ?? "+92",
-                                            guardianWorkPhoneCountryCode: emergency?.work_phone_country_code ?? prev.guardianWorkPhoneCountryCode ?? "+92",
-                                            guardianCellPhone: emergency?.primary_phone ?? prev.guardianCellPhone,
-                                            guardianCnic: emergency?.cnic ?? prev.guardianCnic,
-
-                                            previousSchools: previousSchools && previousSchools.length
-                                                ? previousSchools
-                                                : prev.previousSchools,
-                                        }));
-                                    } catch (error: any) {
-                                        const status = error?.response?.status;
-                                        if (status === 404) {
-                                            setCcError("No admission found for this Computer Code.");
-                                        } else {
-                                            setCcError("Failed to fetch admission details. Please try again.");
-                                        }
-                                    } finally {
-                                        setIsFetchingCC(false);
-                                    }
-                                }}
+                                onClick={() => fetchByCC(formData.computerCodeNo)}
                                 disabled={isFetchingCC}
                                 className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded border border-primary text-primary bg-white dark:bg-zinc-950 hover:bg-primary/5 disabled:opacity-60 disabled:cursor-not-allowed"
                             >

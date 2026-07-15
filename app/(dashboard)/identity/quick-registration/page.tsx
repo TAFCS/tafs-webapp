@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
     ArrowLeft,
@@ -317,12 +316,13 @@ export default function QuickRegistrationPage() {
             {/* ── Page Header ── */}
             <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-3">
-                    <Link
-                        href="/identity/students"
+                    <button
+                        type="button"
+                        onClick={() => router.back()}
                         className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-all"
                     >
                         <ArrowLeft className="h-4.5 w-4.5" />
-                    </Link>
+                    </button>
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
                             <ClipboardPlus className="h-4.5 w-4.5 text-primary" />
@@ -779,13 +779,14 @@ export default function QuickRegistrationPage() {
                         </button>
                     )}
 
-                    <Link
-                        href="/identity/students"
-                        className="block w-full h-10 flex items-center justify-center gap-2 text-[12px] font-bold text-zinc-500 hover:text-zinc-700 transition-colors"
+                    <button
+                        type="button"
+                        onClick={() => router.back()}
+                        className="w-full h-10 flex items-center justify-center gap-2 text-[12px] font-bold text-zinc-500 hover:text-zinc-700 transition-colors"
                     >
                         <ArrowLeft className="h-3.5 w-3.5" />
-                        Back to Student Directory
-                    </Link>
+                        Go Back
+                    </button>
                 </div>
             </div>
         </div>

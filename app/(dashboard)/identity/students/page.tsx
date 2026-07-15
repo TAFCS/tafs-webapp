@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Home, Download, Loader2, ClipboardPlus } from "lucide-react";
-import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Home, Download, Loader2 } from "lucide-react";
 import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
@@ -224,7 +223,7 @@ interface StudentCore {
     section_description: string | null;
     house_name: string | null;
     house_color: string | null;
-    enrollment_status: "SOFT_ADMISSION" | "ENROLLED" | "EXPELLED" | "GRADUATED";
+    enrollment_status: "SOFT_ADMISSION" | "ENROLLED" | "EXPELLED" | "GRADUATED" | "UNCONFIRMED";
     class_id: number;
     photograph_url: string | null;
     academic_system?: string | null;
@@ -252,6 +251,7 @@ interface PaginationMeta {
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
     ENROLLED:       { label: "ENROLLED",       bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500" },
     SOFT_ADMISSION: { label: "SOFT ADMISSION",  bg: "bg-blue-50",     text: "text-blue-700",    dot: "bg-blue-500" },
+    UNCONFIRMED:    { label: "UNCONFIRMED",     bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500" },
     EXPELLED:       { label: "EXPELLED",        bg: "bg-rose-50",     text: "text-rose-700",    dot: "bg-rose-500" },
     GRADUATED:      { label: "GRADUATED",       bg: "bg-violet-50",   text: "text-violet-700",  dot: "bg-violet-500" },
     LEFT:           { label: "LEFT",            bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500" },
@@ -354,6 +354,7 @@ function FilterSelect({ label, value, onChange, options, icon }: { label: string
 // ── Wrapper for SearchParams ──────────────────────────────────────────────
 function DirectoryContent() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const dispatch = useAppDispatch();
     const { items: campuses } = useAppSelector(s => s.campuses);
     const { items: classes }  = useAppSelector(s => s.classes);
@@ -464,6 +465,7 @@ function DirectoryContent() {
     const classOptions   = classes.map((c: any) => ({ value: String(c.id), label: c.description }));
     const sectionOptions = sections.map((s: any) => ({ value: String(s.id), label: s.description }));
     const statusOptions  = [
+        { value: "UNCONFIRMED", label: "Unconfirmed (Quick Admission)" },
         { value: "ENROLLED", label: "Enrolled" },
         { value: "SOFT_ADMISSION", label: "Soft Admission" },
         { value: "EXPELLED", label: "Expelled" },
@@ -490,13 +492,6 @@ function DirectoryContent() {
                         {meta ? <span><strong className="text-zinc-700">{meta.total.toLocaleString()}</strong> students found</span> : "Search and manage all students"}
                     </p>
                 </div>
-                <Link
-                    href="/identity/quick-registration"
-                    className="inline-flex items-center justify-center h-9 px-4 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all font-bold text-[12px] shadow-sm active:scale-95 shrink-0"
-                >
-                    <ClipboardPlus className="h-3.5 w-3.5 mr-1.5" />
-                    Quick Registration
-                </Link>
             </div>
 
             {/* Search + Filters */}
@@ -591,10 +586,18 @@ function DirectoryContent() {
                     ) : (
                         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                             {students.map(s => (
-                                <StudentCard 
-                                    key={s.cc} 
-                                    student={s} 
-                                    onClick={() => setSelectedCc(s.cc)} 
+                                <StudentCard
+                                    key={s.cc}
+                                    student={s}
+                                    onClick={() => {
+                                        // Unconfirmed (quick-admission) records aren't real students yet —
+                                        // send staff to the admission form to complete/confirm them.
+                                        if (s.core?.enrollment_status === "UNCONFIRMED") {
+                                            router.push(`/identity/register/admission-form?cc=${s.cc}`);
+                                        } else {
+                                            setSelectedCc(s.cc);
+                                        }
+                                    }}
                                 />
                             ))}
                         </div>
