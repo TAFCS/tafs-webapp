@@ -183,6 +183,10 @@ export default function NoticeBoardPage() {
     function addStudent(s: { cc: number; full_name: string; gr_number: string }) {
         if (selectedStudents.some(x => x.cc === s.cc)) return;
         setSelectedStudents(prev => [...prev, s]);
+        // Student targeting is exclusive — clear campus/class/section.
+        setSelectedCampusIds([]);
+        setSelectedClassIds([]);
+        setSelectedSectionIds([]);
         setStudentSearchQuery("");
         setStudentSearchResults([]);
     }
@@ -209,6 +213,9 @@ export default function NoticeBoardPage() {
             }
         }
         setSelectedStudents(prev => [...prev, ...resolved]);
+        setSelectedCampusIds([]);
+        setSelectedClassIds([]);
+        setSelectedSectionIds([]);
         setCcPasteText("");
     }
 
@@ -274,6 +281,13 @@ export default function NoticeBoardPage() {
 
     // Live scope preview in compose
     function composeScopeLabel() {
+        if (selectedStudents.length === 1) {
+            const s = selectedStudents[0];
+            return `Only ${s.full_name} (${s.cc}) — not school-wide`;
+        }
+        if (selectedStudents.length > 1) {
+            return `Only ${selectedStudents.length} selected students — not school-wide`;
+        }
         if (!selectedCampusIds.length && !selectedClassIds.length && !selectedSectionIds.length)
             return "All families (school-wide)";
         const parts: string[] = [];
@@ -563,11 +577,21 @@ export default function NoticeBoardPage() {
                             {/* 4. Options */}
                             <div className="flex items-center gap-6 flex-wrap">
                                 <label className="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" checked={isPinned} onChange={e => setIsPinned(e.target.checked)} className="rounded" />
+                                    <input
+                                        type="checkbox"
+                                        checked={isPinned}
+                                        onChange={e => { setIsPinned(e.target.checked); if (e.target.checked) setNotificationOnly(false); }}
+                                        className="rounded"
+                                    />
                                     <span className="text-sm text-zinc-600 dark:text-zinc-400">Pin post</span>
                                 </label>
                                 <label className="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" checked={notificationOnly} onChange={e => setNotificationOnly(e.target.checked)} className="rounded" />
+                                    <input
+                                        type="checkbox"
+                                        checked={notificationOnly}
+                                        onChange={e => { setNotificationOnly(e.target.checked); if (e.target.checked) setIsPinned(false); }}
+                                        className="rounded"
+                                    />
                                     <span className="text-sm text-zinc-600 dark:text-zinc-400">Notification only</span>
                                     <span className="text-[10px] text-zinc-400">(don&apos;t show on notice board)</span>
                                 </label>
