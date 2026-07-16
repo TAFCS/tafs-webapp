@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AdmissionForm } from "@/src/features/admissions/components/admission-form";
 
 export default function ComprehensiveAdmissionPage() {
@@ -9,7 +10,9 @@ export default function ComprehensiveAdmissionPage() {
             </div>
 
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <AdmissionForm />
+                <Suspense fallback={<div className="p-8 text-center text-zinc-400 font-medium animate-pulse">Loading admission form...</div>}>
+                    <AdmissionForm />
+                </Suspense>
             </div>
         </div>
     );
