@@ -104,8 +104,11 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
     const estatusStyles: Record<string, string> = {
         ENROLLED: "bg-emerald-100 text-emerald-800 border-emerald-200",
         SOFT_ADMISSION: "bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-800",
+        QUICK_ADMISSION: "bg-amber-100 text-amber-800 border-amber-200",
+        UNCONFIRMED: "bg-amber-100 text-amber-800 border-amber-200",
         GRADUATED: "bg-blue-100 text-blue-800 border-blue-200",
         EXPELLED: "bg-rose-100 text-rose-800 border-rose-200 line-through decoration-rose-400",
+        LEFT: "bg-amber-100 text-amber-800 border-amber-200",
     };
 
 

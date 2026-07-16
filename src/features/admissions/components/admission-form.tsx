@@ -146,8 +146,10 @@ export function AdmissionForm() {
 
             setFormData((prev) => ({
                 ...prev,
-                computerCodeNo: student.cc_number ?? prev.computerCodeNo,
-                candidateName: `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim(),
+                computerCodeNo: student.cc_number ?? student.cc ?? prev.computerCodeNo,
+                candidateName: student.first_name != null || student.last_name != null
+                    ? `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim()
+                    : (student.full_name ?? prev.candidateName),
                 candidatePhone: student.primary_phone ?? prev.candidatePhone,
                 candidateEmail: student.email ?? prev.candidateEmail,
                 gender: student.gender ?? prev.gender,
@@ -530,7 +532,7 @@ export function AdmissionForm() {
 
                 {/* Wizard Body (Scrollable) */}
                 <div className="flex-1 p-6 sm:p-8 bg-zinc-50 dark:bg-zinc-900/50 overflow-y-auto">
-                    {source === 'unconfirmed_admission' && (
+                    {(source === 'unconfirmed_admission' || source === 'quick_admission') && (
                         <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-800 dark:text-emerald-300 text-sm flex items-center gap-2">
                             <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                             <span>Pre-filled from Quick Admission record (CC: {formData.computerCodeNo})</span>
