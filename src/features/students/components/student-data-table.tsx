@@ -100,8 +100,11 @@ const FINANCIAL_STYLES: Record<string, { cls: string; label: string }> = {
 const ENROLLMENT_STYLES: Record<string, { cls: string; label: string }> = {
     ENROLLED: { cls: "bg-emerald-50 text-emerald-700 border border-emerald-200", label: "Enrolled" },
     SOFT_ADMISSION: { cls: "bg-zinc-100 dark:bg-zinc-800   text-zinc-600 dark:text-zinc-400    border border-zinc-200 dark:border-zinc-800", label: "Soft Admission" },
+    QUICK_ADMISSION: { cls: "bg-amber-50 text-amber-700 border border-amber-200", label: "Quick Admission" },
+    UNCONFIRMED: { cls: "bg-amber-50 text-amber-700 border border-amber-200", label: "Quick Admission" },
     GRADUATED: { cls: "bg-blue-50    text-blue-700    border border-blue-200", label: "Graduated" },
     EXPELLED: { cls: "bg-rose-50    text-rose-700    border border-rose-200", label: "Expelled" },
+    LEFT: { cls: "bg-amber-50 text-amber-700 border border-amber-200", label: "Left" },
 };
 
 const CAMPUS_CODES: Record<string, string> = {

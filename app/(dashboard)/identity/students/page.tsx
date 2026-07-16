@@ -223,7 +223,7 @@ interface StudentCore {
     section_description: string | null;
     house_name: string | null;
     house_color: string | null;
-    enrollment_status: "SOFT_ADMISSION" | "ENROLLED" | "EXPELLED" | "GRADUATED" | "UNCONFIRMED";
+    enrollment_status: "SOFT_ADMISSION" | "ENROLLED" | "EXPELLED" | "GRADUATED" | "LEFT" | "QUICK_ADMISSION" | "UNCONFIRMED";
     class_id: number;
     photograph_url: string | null;
     academic_system?: string | null;
@@ -251,7 +251,8 @@ interface PaginationMeta {
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
     ENROLLED:       { label: "ENROLLED",       bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500" },
     SOFT_ADMISSION: { label: "SOFT ADMISSION",  bg: "bg-blue-50",     text: "text-blue-700",    dot: "bg-blue-500" },
-    UNCONFIRMED:    { label: "UNCONFIRMED",     bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500" },
+    QUICK_ADMISSION:{ label: "QUICK ADMISSION", bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500" },
+    UNCONFIRMED:    { label: "QUICK ADMISSION", bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500" },
     EXPELLED:       { label: "EXPELLED",        bg: "bg-rose-50",     text: "text-rose-700",    dot: "bg-rose-500" },
     GRADUATED:      { label: "GRADUATED",       bg: "bg-violet-50",   text: "text-violet-700",  dot: "bg-violet-500" },
     LEFT:           { label: "LEFT",            bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500" },
@@ -465,7 +466,7 @@ function DirectoryContent() {
     const classOptions   = classes.map((c: any) => ({ value: String(c.id), label: c.description }));
     const sectionOptions = sections.map((s: any) => ({ value: String(s.id), label: s.description }));
     const statusOptions  = [
-        { value: "UNCONFIRMED", label: "Unconfirmed (Quick Admission)" },
+        { value: "QUICK_ADMISSION", label: "Quick Admission" },
         { value: "ENROLLED", label: "Enrolled" },
         { value: "SOFT_ADMISSION", label: "Soft Admission" },
         { value: "EXPELLED", label: "Expelled" },
@@ -590,9 +591,11 @@ function DirectoryContent() {
                                     key={s.cc}
                                     student={s}
                                     onClick={() => {
-                                        // Unconfirmed (quick-admission) records aren't real students yet —
-                                        // send staff to the admission form to complete/confirm them.
-                                        if (s.core?.enrollment_status === "UNCONFIRMED") {
+                                        // Quick admission records open the admission form to complete them.
+                                        if (
+                                            s.core?.enrollment_status === "QUICK_ADMISSION" ||
+                                            s.core?.enrollment_status === "UNCONFIRMED"
+                                        ) {
                                             router.push(`/identity/register/admission-form?cc=${s.cc}`);
                                         } else {
                                             setSelectedCc(s.cc);
