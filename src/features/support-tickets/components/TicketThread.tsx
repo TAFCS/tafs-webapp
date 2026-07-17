@@ -470,7 +470,7 @@ export function TicketThread({
             </span>
             {isSuperAdmin && isReadOnlyViewer && (
               <span className="text-[11px] text-amber-600 dark:text-amber-400 shrink-0">
-                Awaiting reply from {ticket.current_assignee?.full_name ?? "assignee"} — you can reply directly below.
+                Awaiting reply from {ticket.current_assignee?.full_name ?? "assignee"} — you can reply or close.
               </span>
             )}
             {!isSuperAdmin && isReadOnlyViewer && (
@@ -516,7 +516,7 @@ export function TicketThread({
                 Forward
               </button>
             )}
-            {!isClosed && isAssignee && (
+            {!isClosed && (isAssignee || isSuperAdmin) && (
               <button
                 onClick={() => setShowCloseModal(true)}
                 className="px-3 py-1.5 border border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
