@@ -9,6 +9,14 @@ import { useAuth, useAuthState } from "@/context/AuthContext";
 import { NavigationProvider } from "@/context/NavigationContext";
 import { useNavigation } from "@/context/NavigationContext";
 import { NAV_MODULES } from "@/lib/nav-config";
+import { useSelector, useDispatch } from "react-redux";
+import type { RootState } from "@/store/store";
+import { useSocket } from "@/context/SocketContext";
+import {
+    fetchPendingApprovals,
+    addPendingApproval,
+    updateMessageReviewStatus
+} from "@/store/slices/supportTicketsSlice";
 
 const RAIL_LABELS: Record<string, string> = {
     student: "Students",
@@ -30,6 +38,49 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
     const { activeModuleId } = useNavigation();
+    const dispatch = useDispatch();
+    const { socket } = useSocket();
+    const { pendingApprovals } = useSelector((state: RootState) => state.supportTickets);
+
+    useEffect(() => {
+        if (user?.role === "SUPER_ADMIN") {
+            dispatch(fetchPendingApprovals() as any);
+        }
+    }, [dispatch, user]);
+
+    useEffect(() => {
+        if (!socket || user?.role !== "SUPER_ADMIN") return;
+
+        const onPending = (payload: { message?: any; ticket?: any }) => {
+            if (payload.message) {
+                dispatch(
+                    addPendingApproval({
+                        ...payload.message,
+                        ticket: payload.ticket,
+                    }) as any
+                );
+            }
+        };
+
+        const onReviewed = (payload: { message?: any }) => {
+            if (payload.message?.id) {
+                dispatch(
+                    updateMessageReviewStatus({
+                        messageId: payload.message.id,
+                        status: payload.message.status ?? "APPROVED",
+                    }) as any
+                );
+            }
+        };
+
+        socket.on("replyPendingApproval", onPending);
+        socket.on("replyReviewed", onReviewed);
+
+        return () => {
+            socket.off("replyPendingApproval", onPending);
+            socket.off("replyReviewed", onReviewed);
+        };
+    }, [socket, user, dispatch]);
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -83,18 +134,26 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
                 {visibleModules.map(module => {
                     const isActive = module.id === highlightedId;
+                    const isComms = module.id === "communication";
+                    const showBadge = isComms && user?.role === "SUPER_ADMIN" && pendingApprovals.length > 0;
                     return (
                         <Link
                             key={module.id}
                             href={`/dashboard?module=${module.id}`}
                             title={module.name}
-                            className={`w-[60px] flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl transition-all duration-150 ${
+                            className={`w-[60px] flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl transition-all duration-150 relative ${
                                 isActive
                                     ? `${module.bg} ${module.color}`
                                     : "text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900"
                             }`}
                         >
                             <module.icon className="h-6 w-6" />
+                            {showBadge && (
+                                <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+                                </span>
+                            )}
                             <span className="text-[9px] font-bold tracking-wide leading-tight text-center">
                                 {RAIL_LABELS[module.id] ?? module.name}
                             </span>

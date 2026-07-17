@@ -47,6 +47,28 @@ function inferMessageType(file: File): "IMAGE" | "VOICE" | "DOCUMENT" {
   return "DOCUMENT";
 }
 
+const isNewDay = (currentMsg: TicketMessage, prevMsg?: TicketMessage) => {
+  if (!prevMsg) return true;
+  const currentDate = new Date(currentMsg.created_at).toDateString();
+  const prevDate = new Date(prevMsg.created_at).toDateString();
+  return currentDate !== prevDate;
+};
+
+const formatSeparatorDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) {
+    return "Today";
+  } else if (date.toDateString() === yesterday.toDateString()) {
+    return "Yesterday";
+  } else {
+    return format(date, "MMMM d, yyyy");
+  }
+};
+
 function senderName(msg: TicketMessage): string {
   if (msg.sender_type === "GUARDIAN") {
     return msg.sender_guardian?.full_name ?? "Parent";
@@ -118,6 +140,7 @@ export function TicketThread({
   const dispatch = useDispatch<AppDispatch>();
   const { socket } = useSocket();
   const [reply, setReply] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [parentTyping, setParentTyping] = useState(false);
   const [showClaim, setShowClaim] = useState(false);
   const [showForward, setShowForward] = useState(false);
@@ -218,6 +241,9 @@ export function TicketThread({
       emitTyping(false);
       await onSendMessage(reply.trim());
       setReply("");
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "40px";
+      }
       toast.success(isSuperAdmin ? "Reply sent" : "Reply submitted for approval");
     } catch (err: unknown) {
       const e = err as { message?: string };
@@ -557,110 +583,120 @@ export function TicketThread({
             </p>
           </div>
         )}
-        {messages.map((msg) => {
+        {messages.map((msg, index) => {
           const ownMessage = isOwnStaffMessage(msg, userId);
           const onRight = ownMessage;
           const incomingStaff =
             msg.sender_type === "STAFF" && !ownMessage;
+          const prevMsg = index > 0 ? messages[index - 1] : undefined;
+          const showDateHeader = isNewDay(msg, prevMsg);
 
           return (
-          <div
-            key={msg.id}
-            className={`max-w-[80%] p-3 rounded-2xl text-sm ${
-              onRight
-                ? "ml-auto bg-primary text-white"
-                : "bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700"
-            }`}
-          >
-            <p
-              className={`text-[10px] font-bold opacity-80 mb-1 flex flex-wrap items-center gap-1 ${
-                onRight ? "justify-end" : ""
-              }`}
-            >
-              {isSuperAdmin ? (
-                ownMessage ? (
-                  <>
-                    <span>{senderName(msg)}</span>
-                    {isSuperAdminMessage(msg) && (
-                      <span className="px-1.5 py-0.5 rounded bg-amber-400/90 text-amber-950 text-[9px] uppercase tracking-wide">
-                        Super Admin
+            <div key={msg.id} className="w-full flex flex-col gap-3">
+              {showDateHeader && (
+                <div className="flex justify-center my-3 w-full">
+                  <span className="px-3 py-1 bg-zinc-200/80 dark:bg-zinc-800/80 text-[10px] font-black uppercase text-zinc-500 rounded-full select-none">
+                    {formatSeparatorDate(msg.created_at)}
+                  </span>
+                </div>
+              )}
+              <div
+                className={`max-w-[80%] p-3 rounded-2xl text-sm ${
+                  onRight
+                    ? "ml-auto bg-primary text-white"
+                    : "bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700"
+                }`}
+              >
+                <p
+                  className={`text-[10px] font-bold opacity-80 mb-1 flex flex-wrap items-center gap-1 ${
+                    onRight ? "justify-end" : ""
+                  }`}
+                >
+                  {isSuperAdmin ? (
+                    ownMessage ? (
+                      <>
+                        <span>{senderName(msg)}</span>
+                        {isSuperAdminMessage(msg) && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-400/90 text-amber-950 text-[9px] uppercase tracking-wide">
+                            Super Admin
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span style={{ color: senderColorMap.get(msgSenderKey(msg)) }}>
+                        {incomingLabelForSuperAdmin(msg, ticket.current_assignee_id)}
                       </span>
-                    )}
-                  </>
-                ) : (
-                  <span style={{ color: senderColorMap.get(msgSenderKey(msg)) }}>
-                    {incomingLabelForSuperAdmin(msg, ticket.current_assignee_id)}
-                  </span>
-                )
-              ) : (
-                <>
-                  <span style={onRight ? undefined : { color: senderColorMap.get(msgSenderKey(msg)) }}>
-                    {msg.sender_type === "GUARDIAN"
-                      ? incomingLabelForSuperAdmin(msg, ticket.current_assignee_id)
-                      : senderName(msg)}
-                  </span>
-                  {isSuperAdminMessage(msg) && (
-                    <span className="px-1.5 py-0.5 rounded bg-amber-400/90 text-amber-950 text-[9px] uppercase tracking-wide">
-                      Super Admin
+                    )
+                  ) : (
+                    <>
+                      <span style={onRight ? undefined : { color: senderColorMap.get(msgSenderKey(msg)) }}>
+                        {msg.sender_type === "GUARDIAN"
+                          ? incomingLabelForSuperAdmin(msg, ticket.current_assignee_id)
+                          : senderName(msg)}
+                      </span>
+                      {isSuperAdminMessage(msg) && (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-400/90 text-amber-950 text-[9px] uppercase tracking-wide">
+                          Super Admin
+                        </span>
+                      )}
+                    </>
+                  )}
+                </p>
+                {msg.message_type === "TEXT" && <p>{msg.content}</p>}
+                {renderMedia(msg)}
+                <div className="flex gap-2 mt-1 text-[10px] opacity-70 flex-wrap items-center">
+                  <span>{format(new Date(msg.created_at), "h:mm a")}</span>
+                  {msg.sender_type === "STAFF" &&
+                    msg.status !== "APPROVED" &&
+                    !(isSuperAdmin && ownMessage) && (
+                    <span className="font-bold uppercase">{statusLabel(msg.status)}</span>
+                  )}
+                  {msg.status === "REJECTED" && msg.review_comment && (
+                    <span className={onRight ? "font-semibold text-red-200" : "text-red-600 dark:text-red-400"}>
+                      Reason: {msg.review_comment}
                     </span>
                   )}
-                </>
-              )}
-            </p>
-            {msg.message_type === "TEXT" && <p>{msg.content}</p>}
-            {renderMedia(msg)}
-            <div className="flex gap-2 mt-1 text-[10px] opacity-70 flex-wrap items-center">
-              <span>{format(new Date(msg.created_at), "h:mm a")}</span>
-              {msg.sender_type === "STAFF" &&
-                msg.status !== "APPROVED" &&
-                !(isSuperAdmin && ownMessage) && (
-                <span className="font-bold uppercase">{statusLabel(msg.status)}</span>
-              )}
-              {msg.status === "REJECTED" && msg.review_comment && (
-                <span className={ownMessage ? "font-semibold text-red-200" : "text-red-600 dark:text-red-400"}>
-                  Reason: {msg.review_comment}
-                </span>
-              )}
-            </div>
-            {isSuperAdmin && incomingStaff && msg.status === "PENDING" && (
-              <div className={`mt-2 pt-2 border-t flex flex-wrap gap-2 ${
-                onRight ? "border-white/20" : "border-zinc-200 dark:border-zinc-700"
-              }`}>
-                <button
-                  disabled={reviewLoading === msg.id}
-                  onClick={() => reviewMessage(msg.id, "APPROVED")}
-                  className="inline-flex items-center gap-1 px-2 py-1 bg-green-600 text-white rounded-lg text-xs font-bold disabled:opacity-50"
-                >
-                  {reviewLoading === msg.id && <Loader2 className="h-3 w-3 animate-spin" />}
-                  Approve
-                </button>
-                <button
-                  disabled={reviewLoading === msg.id}
-                  onClick={() => setRejectId(rejectId === msg.id ? null : msg.id)}
-                  className="px-2 py-1 bg-red-600 text-white rounded-lg text-xs font-bold disabled:opacity-50"
-                >
-                  Reject
-                </button>
-                {rejectId === msg.id && (
-                  <div className="w-full flex gap-2 mt-1">
-                    <input
-                      value={rejectComment}
-                      onChange={(e) => setRejectComment(e.target.value)}
-                      placeholder="Rejection reason..."
-                      className="flex-1 px-2 py-1 rounded-lg text-xs text-zinc-900"
-                    />
+                </div>
+                {isSuperAdmin && incomingStaff && msg.status === "PENDING" && (
+                  <div className={`mt-2 pt-2 border-t flex flex-wrap gap-2 ${
+                    onRight ? "border-white/20" : "border-zinc-200 dark:border-zinc-700"
+                  }`}>
                     <button
-                      disabled={reviewLoading === msg.id || !rejectComment.trim()}
-                      onClick={() => reviewMessage(msg.id, "REJECTED", rejectComment)}
-                      className="px-2 py-1 bg-white text-red-600 rounded-lg text-xs font-bold disabled:opacity-50"
+                      disabled={reviewLoading === msg.id}
+                      onClick={() => reviewMessage(msg.id, "APPROVED")}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-green-600 text-white rounded-lg text-xs font-bold disabled:opacity-50"
                     >
-                      Confirm
+                      {reviewLoading === msg.id && <Loader2 className="h-3 w-3 animate-spin" />}
+                      Approve
                     </button>
+                    <button
+                      disabled={reviewLoading === msg.id}
+                      onClick={() => setRejectId(rejectId === msg.id ? null : msg.id)}
+                      className="px-2 py-1 bg-red-600 text-white rounded-lg text-xs font-bold disabled:opacity-50"
+                    >
+                      Reject
+                    </button>
+                    {rejectId === msg.id && (
+                      <div className="w-full flex gap-2 mt-1">
+                        <input
+                          value={rejectComment}
+                          onChange={(e) => setRejectComment(e.target.value)}
+                          placeholder="Rejection reason..."
+                          className="flex-1 px-2 py-1 rounded-lg text-xs text-zinc-900"
+                        />
+                        <button
+                          disabled={reviewLoading === msg.id || !rejectComment.trim()}
+                          onClick={() => reviewMessage(msg.id, "REJECTED", rejectComment)}
+                          className="px-2 py-1 bg-white text-red-600 rounded-lg text-xs font-bold disabled:opacity-50"
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
           );
         })}
       </div>
@@ -727,16 +763,29 @@ export function TicketThread({
                 </span>
               </div>
             ) : (
-              <input
+              <textarea
+                ref={textareaRef}
                 value={reply}
-                onChange={(e) => handleReplyChange(e.target.value)}
+                onChange={(e) => {
+                  handleReplyChange(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
                 placeholder={
                   isSuperAdmin
                     ? "Write a direct reply to the parent..."
                     : "Write a reply (requires Super Admin approval)..."
                 }
                 disabled={composerDisabled}
-                className="flex-1 px-4 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                rows={1}
+                className="flex-1 px-4 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 resize-none min-h-[40px] max-h-[120px] align-middle overflow-y-auto"
+                style={{ height: "40px" }}
               />
             )}
             <button

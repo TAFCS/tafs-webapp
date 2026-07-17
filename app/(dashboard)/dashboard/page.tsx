@@ -9,6 +9,8 @@ import { canViewSupportTickets, SUPPORT_TICKETS_VIEW_PERMISSION } from "@/featur
 import { NAV_MODULES, type NavItem } from "@/lib/nav-config";
 import { useNavigation } from "@/context/NavigationContext";
 import api from "@/lib/api";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/store/store";
 
 // Stat cards per module — wire to APIs as they become available
 const MODULE_STATS: Record<string, { label: string; value: string; sub?: string; subColor?: string }[]> = {
@@ -75,6 +77,7 @@ export default function DashboardPage() {
     const { activeModuleId, setActiveModule } = useNavigation();
     const [statsData, setStatsData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const { pendingApprovals } = useSelector((s: RootState) => s.supportTickets);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -204,11 +207,16 @@ export default function DashboardPage() {
                                 <Link
                                     key={item.href}
                                     href={item.href}
-                                    className="group bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800/80 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-2xl p-5 flex flex-col gap-3 transition-all duration-150 hover:shadow-md"
+                                    className="group bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800/80 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-2xl p-5 flex flex-col gap-3 transition-all duration-150 hover:shadow-md relative"
                                 >
                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${activeModule.bg} ${activeModule.color} transition-transform duration-150 group-hover:scale-110`}>
                                         <item.icon className="h-5 w-5" />
                                     </div>
+                                    {item.href === "/support-tickets" && user?.role === "SUPER_ADMIN" && pendingApprovals.length > 0 && (
+                                        <span className="absolute top-5 right-5 inline-flex items-center justify-center px-2 py-1 text-[10px] font-black leading-none text-white bg-rose-600 rounded-full animate-pulse">
+                                            {pendingApprovals.length}
+                                        </span>
+                                    )}
                                     <div className="flex-1">
                                         <p className="font-black text-zinc-900 dark:text-zinc-50 text-sm tracking-tight">
                                             {item.name}

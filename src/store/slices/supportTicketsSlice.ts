@@ -269,9 +269,27 @@ export const closeTicket = createAsyncThunk(
 );
 
 function patchQueueTicket(state: SupportTicketsState, ticket: SupportTicket) {
-  const idx = state.queueItems.findIndex((t) => t.id === ticket.id);
-  if (idx >= 0) state.queueItems[idx] = { ...state.queueItems[idx], ...ticket };
-  else if (ticket.status !== 'CLOSED') state.queueItems.unshift(ticket);
+  const isClosed = ticket.status === 'CLOSED';
+  const targetArray = isClosed ? 'closedItems' : 'queueItems';
+  const otherArray = isClosed ? 'queueItems' : 'closedItems';
+
+  state[otherArray] = state[otherArray].filter((t) => t.id !== ticket.id);
+
+  const idx = state[targetArray].findIndex((t) => t.id === ticket.id);
+  if (idx >= 0) {
+    state[targetArray][idx] = { ...state[targetArray][idx], ...ticket };
+  } else {
+    state[targetArray].unshift(ticket);
+  }
+
+  // Sort both arrays descending by last_message_at
+  state.queueItems.sort(
+    (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+  );
+  state.closedItems.sort(
+    (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+  );
+
   if (state.selectedTicket?.id === ticket.id) {
     state.selectedTicket = { ...state.selectedTicket, ...ticket };
   }
@@ -351,7 +369,9 @@ const supportTicketsSlice = createSlice({
       })
       .addCase(fetchMyQueue.fulfilled, (state, action) => {
         state.isLoadingQueue = false;
-        state.queueItems = action.payload;
+        state.queueItems = action.payload.slice().sort(
+          (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+        );
       })
       .addCase(fetchMyQueue.rejected, (state, action) => {
         state.isLoadingQueue = false;
@@ -363,7 +383,9 @@ const supportTicketsSlice = createSlice({
       })
       .addCase(fetchFinanceQueue.fulfilled, (state, action) => {
         state.isLoadingQueue = false;
-        state.queueItems = action.payload;
+        state.queueItems = action.payload.slice().sort(
+          (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+        );
       })
       .addCase(fetchFinanceQueue.rejected, (state, action) => {
         state.isLoadingQueue = false;
@@ -375,7 +397,9 @@ const supportTicketsSlice = createSlice({
       })
       .addCase(fetchOversightQueue.fulfilled, (state, action) => {
         state.isLoadingQueue = false;
-        state.queueItems = action.payload;
+        state.queueItems = action.payload.slice().sort(
+          (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+        );
       })
       .addCase(fetchOversightQueue.rejected, (state, action) => {
         state.isLoadingQueue = false;
@@ -387,7 +411,9 @@ const supportTicketsSlice = createSlice({
       })
       .addCase(fetchClosedTickets.fulfilled, (state, action) => {
         state.isLoadingQueue = false;
-        state.closedItems = action.payload;
+        state.closedItems = action.payload.slice().sort(
+          (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+        );
       })
       .addCase(fetchClosedTickets.rejected, (state, action) => {
         state.isLoadingQueue = false;
@@ -449,6 +475,18 @@ const supportTicketsSlice = createSlice({
       })
       .addCase(closeTicket.fulfilled, (state, action) => {
         state.queueItems = state.queueItems.filter((t) => t.id !== action.payload.id);
+        
+        // Add to closedItems if not already present
+        if (!state.closedItems.some((t) => t.id === action.payload.id)) {
+          state.closedItems.unshift(action.payload);
+        } else {
+          const idx = state.closedItems.findIndex((t) => t.id === action.payload.id);
+          state.closedItems[idx] = { ...state.closedItems[idx], ...action.payload };
+        }
+        state.closedItems.sort(
+          (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+        );
+
         if (state.selectedTicket?.id === action.payload.id) {
           state.selectedTicket = { ...state.selectedTicket, ...action.payload, status: 'CLOSED' };
         }
