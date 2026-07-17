@@ -5,6 +5,7 @@ import { auditLogsService, AuditLog } from "@/lib/audit-logs.service";
 import { getSectionColor, SECTION_LABELS, SECTION_COLORS } from "@/lib/log-colors";
 import { ScrollText, Search, Calendar, RefreshCw, ArrowRight } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { useAuthState } from "@/context/AuthContext";
 
 function formatDate(value?: string | null) {
   if (!value) return "N/A";
@@ -29,6 +30,9 @@ function ActionBadge({ action }: { action: string }) {
   if (act === "DELETED")       cls = "bg-rose-50 text-rose-700 border-rose-200";
   if (act === "UPDATED")       cls = "bg-amber-50 text-amber-700 border-amber-200";
   if (act === "STATUS_CHANGED") cls = "bg-indigo-50 text-indigo-700 border-indigo-200";
+  if (act === "REQUESTED")     cls = "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200";
+  if (act === "APPROVED")      cls = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (act === "REJECTED")      cls = "bg-rose-50 text-rose-700 border-rose-200";
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase border tracking-wider ${cls}`}>
       {action.replace(/_/g, " ")}
@@ -36,9 +40,12 @@ function ActionBadge({ action }: { action: string }) {
   );
 }
 
-const SECTIONS = ["", "student", "finance", "communication", "hr", "attendance", "school-setup", "system"] as const;
+const BASE_SECTIONS = ["", "student", "finance", "communication", "hr", "attendance", "school-setup", "system"] as const;
 
 export default function SystemLogsPage() {
+  const { user } = useAuthState();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const SECTIONS = isSuperAdmin ? [...BASE_SECTIONS, "parent-requests"] : BASE_SECTIONS;
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
