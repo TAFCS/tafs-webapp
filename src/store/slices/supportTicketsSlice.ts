@@ -370,7 +370,7 @@ const supportTicketsSlice = createSlice({
       .addCase(fetchMyQueue.fulfilled, (state, action) => {
         state.isLoadingQueue = false;
         state.queueItems = action.payload.slice().sort(
-          (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+          (a: SupportTicket, b: SupportTicket) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
         );
       })
       .addCase(fetchMyQueue.rejected, (state, action) => {
@@ -384,7 +384,7 @@ const supportTicketsSlice = createSlice({
       .addCase(fetchFinanceQueue.fulfilled, (state, action) => {
         state.isLoadingQueue = false;
         state.queueItems = action.payload.slice().sort(
-          (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+          (a: SupportTicket, b: SupportTicket) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
         );
       })
       .addCase(fetchFinanceQueue.rejected, (state, action) => {
@@ -398,7 +398,7 @@ const supportTicketsSlice = createSlice({
       .addCase(fetchOversightQueue.fulfilled, (state, action) => {
         state.isLoadingQueue = false;
         state.queueItems = action.payload.slice().sort(
-          (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+          (a: SupportTicket, b: SupportTicket) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
         );
       })
       .addCase(fetchOversightQueue.rejected, (state, action) => {
@@ -412,7 +412,7 @@ const supportTicketsSlice = createSlice({
       .addCase(fetchClosedTickets.fulfilled, (state, action) => {
         state.isLoadingQueue = false;
         state.closedItems = action.payload.slice().sort(
-          (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+          (a: SupportTicket, b: SupportTicket) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
         );
       })
       .addCase(fetchClosedTickets.rejected, (state, action) => {
