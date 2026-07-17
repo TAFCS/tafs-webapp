@@ -333,6 +333,8 @@ function StudentwiseFeeEditor() {
     const [isGraduated, setIsGraduated] = useState(false);
     const [graduatedFromClassId, setGraduatedFromClassId] = useState<number | null>(null);
     const [graduatedFromClassObj, setGraduatedFromClassObj] = useState<any>(null);
+    const [cautionFeeHistory, setCautionFeeHistory] = useState<{ id: number; amount: string; amount_paid: string; fee_date: string | null; academic_year: string; status: string }[]>([]);
+    const [isAddingCautionRefund, setIsAddingCautionRefund] = useState(false);
     const [isComplementary, setIsComplementary] = useState(false);
     const [isFeeEndowment, setIsFeeEndowment] = useState(false);
     const [feeStartTerm, setFeeStartTerm] = useState("");
@@ -780,6 +782,19 @@ function StudentwiseFeeEditor() {
             .catch(() => {/* silently ignore */});
     }, []);
 
+    // ── Caution fee history fetch (class_id 14 / O-3 only — REFUNDABLE/ADJUSTABLE CAUTION FEE) ──
+    useEffect(() => {
+        const match = studentId.match(/\d+$/);
+        const cc = match ? parseInt(match[0]) : 0;
+        if (cc > 0 && !isGraduated && selectedClassId === 14) {
+            api.get(`/v1/student-fees/caution-fee-history/${cc}`)
+                .then(res => setCautionFeeHistory(res.data?.data || []))
+                .catch(() => setCautionFeeHistory([]));
+        } else {
+            setCautionFeeHistory([]);
+        }
+    }, [studentId, isGraduated, selectedClassId]);
+
     // ── Installment plans fetch ────────────────────────────────────────────
     const fetchInstallmentPlans = useCallback(async (cc: number, year: string) => {
         try {
@@ -862,6 +877,58 @@ function StudentwiseFeeEditor() {
             toast.error(err.response?.data?.message || "Failed to remove discount.");
         } finally {
             setIsDeletingDiscountId(null);
+        }
+    };
+
+    const CAUTION_FEE_REFUND_DISCOUNT_TYPE_ID = 10; // "REFUND OF CAUTION FEE" preset
+
+    const handleAddCautionRefund = async () => {
+        if (!studentId || cautionFeeHistory.length === 0) return;
+        const numericMatch = studentId.match(/\d+$/);
+        const ccVal = numericMatch ? parseInt(numericMatch[0]) : 0;
+
+        // The most recent caution fee row taken (should only ever be one, but be defensive).
+        const cautionFee = cautionFeeHistory[0];
+        const refundAmount = parseFloat(cautionFee.amount_paid || cautionFee.amount || "0");
+        if (!refundAmount || refundAmount <= 0) {
+            toast.error("No caution fee amount found to refund.");
+            return;
+        }
+
+        // Land the refund on the very last fee_date of the currently viewed term.
+        const datedRows = rows.filter(r => r.fee_date);
+        const lastRow = datedRows.reduce<SpreadsheetRow | null>((latest, r) => {
+            if (!latest || !latest.fee_date) return r;
+            return (r.fee_date && r.fee_date > latest.fee_date) ? r : latest;
+        }, null);
+        const lastFeeDate = lastRow?.fee_date;
+        const lastTargetMonth = lastRow?.target_month ?? 8;
+
+        setIsAddingCautionRefund(true);
+        try {
+            const res = await api.post('/v1/student-fees/discount', {
+                student_id: ccVal,
+                discount_type_id: CAUTION_FEE_REFUND_DISCOUNT_TYPE_ID,
+                amount: refundAmount,
+                academic_year: selectedYear,
+                target_month: lastTargetMonth,
+                fee_date: lastFeeDate || undefined,
+            });
+            const created = res.data?.data || res.data;
+            setDiscountRows(prev => [...prev, {
+                id: created.id,
+                title: created.discount_presets?.title || 'Refund of Caution Fee',
+                amount: created.amount?.toString() || String(refundAmount),
+                fee_date: created.fee_date ? new Date(created.fee_date).toISOString().split('T')[0] : undefined,
+                target_month: created.target_month,
+                discount_type_id: created.discount_type_id,
+            }]);
+            toast.success("Caution fee refund added to the last month of this term.");
+        } catch (err: any) {
+            const msg = err.response?.data?.message;
+            toast.error(Array.isArray(msg) ? msg.join("; ") : (msg || "Failed to add caution fee refund."));
+        } finally {
+            setIsAddingCautionRefund(false);
         }
     };
 
@@ -1128,7 +1195,7 @@ function StudentwiseFeeEditor() {
             return;
         }
 
-        const firstType = feeTypes[0];
+        const firstType = feeTypes.find(f => f.id === 1) ?? feeTypes[0];
         const feeId = firstType.id;
 
         // Pick the first month slot (in academic order) not already used as
@@ -2223,6 +2290,35 @@ function StudentwiseFeeEditor() {
                             </div>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Caution Fee Refund CTA — class_id 14 (O-3) students carry a REFUNDABLE/ADJUSTABLE
+                CAUTION FEE from admission that only surfaces here, since it lives under an old
+                academic_year and won't show in the current schedule fetch. */}
+            {cautionFeeHistory.length > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-[24px] shadow-sm overflow-hidden px-6 py-5 flex items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                        <div className="h-8 w-8 shrink-0 bg-amber-100 dark:bg-amber-900 rounded-xl flex items-center justify-center mt-0.5">
+                            <AlertCircle className="h-4 w-4 text-amber-600" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-black text-zinc-800 dark:text-zinc-200">
+                                Refundable Caution Fee — PKR {parseFloat(cautionFeeHistory[0].amount_paid || cautionFeeHistory[0].amount || "0").toLocaleString()} paid {cautionFeeHistory[0].fee_date ? new Date(cautionFeeHistory[0].fee_date).toLocaleDateString() : "at admission"} (AY {cautionFeeHistory[0].academic_year})
+                            </p>
+                            <p className="text-xs text-zinc-500 mt-1">
+                                Clear every other due except the last month first, then add the caution fee refund against that last month.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleAddCautionRefund}
+                        disabled={isAddingCautionRefund}
+                        className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+                    >
+                        {isAddingCautionRefund ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                        Add Caution Fee Refund
+                    </button>
                 </div>
             )}
 
