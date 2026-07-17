@@ -255,12 +255,7 @@ export default function ParentChangeRequestsPage() {
                                                 <div className="flex gap-2 flex-wrap max-w-md">
                                                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/50 text-[11px] font-black text-blue-700 dark:text-blue-300 shadow-sm uppercase tracking-wide">
                                                         <User className="h-3.5 w-3.5" />
-                                                        {(() => {
-                                                            const student = req.families?.students?.find(
-                                                                (s: any) => s.cc === Number(req.requested_data.student_cc)
-                                                            );
-                                                            return student ? student.full_name : `Student CC: ${req.requested_data.student_cc}`;
-                                                        })()}
+                                                        Student Update
                                                     </span>
                                                     {req.requested_data.changes && Object.keys(req.requested_data.changes).map((key) => (
                                                         <span key={key} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-400 shadow-sm">
