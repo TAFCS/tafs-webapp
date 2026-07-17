@@ -701,7 +701,7 @@ export function TicketThread({
         })}
       </div>
 
-      {canCompose && (
+      {canCompose ? (
         <div className="relative p-4 border-t bg-white dark:bg-zinc-950">
           {parentTyping && (
             <p className="absolute -top-7 left-4 text-[11px] font-semibold text-zinc-500 animate-pulse">
@@ -804,7 +804,16 @@ export function TicketThread({
             </button>
           </div>
         </div>
-      )}
+      ) : isClosed ? (
+        <div className="p-4 border-t bg-white dark:bg-zinc-950 shrink-0">
+          <div className="px-3.5 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700">
+            <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">This query is closed</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+              Messaging is disabled. You can still review the conversation history.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {showCloseModal && (
         <div
