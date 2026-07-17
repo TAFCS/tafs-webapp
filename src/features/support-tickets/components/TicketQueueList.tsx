@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 import type { AppDispatch } from "@/store/store";
 import type { PendingApproval, QueueTab, SupportTicket } from "@/store/slices/supportTicketsSlice";
 import { reviewTicketMessage } from "@/store/slices/supportTicketsSlice";
-import { categoryLabel } from "@/features/support-tickets/supportTicketLabels";
+import { categoryLabel, ticketRequesterLabel } from "@/features/support-tickets/supportTicketLabels";
 
 interface TicketQueueListProps {
   tickets: SupportTicket[];
@@ -69,7 +69,7 @@ function ApprovalItem({
         </div>
         <p className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 truncate">
           {item.sender_user?.full_name ?? "Staff"}
-          <span className="text-zinc-400 font-normal"> → {item.ticket?.families?.household_name ?? "Family"}</span>
+          <span className="text-zinc-400 font-normal"> → {item.ticket ? ticketRequesterLabel(item.ticket) : "Family"}</span>
         </p>
         <span className="ml-auto text-[10px] text-zinc-400 shrink-0">
           {format(new Date(item.created_at), "MMM d, h:mm a")}
@@ -152,7 +152,7 @@ function TicketCard({
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <span className="font-bold text-[13px] text-zinc-900 dark:text-zinc-100 truncate leading-snug">
-          {ticket.families?.household_name ?? `Family #${ticket.family_id}`}
+          {ticketRequesterLabel(ticket)}
         </span>
         <div className="flex items-center gap-1.5 shrink-0">
           {ticket.unread_by_staff > 0 && (
@@ -208,6 +208,8 @@ export function TicketQueueList({
       ? tickets.filter(t => {
           const q = search.toLowerCase();
           return (
+            ticketRequesterLabel(t).toLowerCase().includes(q) ||
+            (t.students?.full_name?.toLowerCase().includes(q)) ||
             (t.families?.household_name?.toLowerCase().includes(q)) ||
             (t.subtopic?.toLowerCase().includes(q)) ||
             (t.last_message_snippet?.toLowerCase().includes(q))

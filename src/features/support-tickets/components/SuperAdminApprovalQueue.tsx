@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import type { AppDispatch } from "@/store/store";
 import type { PendingApproval } from "@/store/slices/supportTicketsSlice";
 import { reviewTicketMessage } from "@/store/slices/supportTicketsSlice";
+import { ticketRequesterLabel } from "@/features/support-tickets/supportTicketLabels";
 
 interface SuperAdminApprovalQueueProps {
   items: PendingApproval[];
@@ -83,7 +84,7 @@ export function SuperAdminApprovalQueue({
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-zinc-500 truncate">
-                    {item.ticket?.families?.household_name}
+                    {item.ticket ? ticketRequesterLabel(item.ticket) : "Ticket"}
                     {item.sender_user?.full_name && (
                       <span className="text-zinc-400 font-normal"> · {item.sender_user.full_name}</span>
                     )}

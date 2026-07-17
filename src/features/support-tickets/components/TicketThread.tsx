@@ -10,7 +10,7 @@ import { useSocket } from "@/context/SocketContext";
 import type { AppDispatch } from "@/store/store";
 import type { SupportTicket, TicketMessage } from "@/store/slices/supportTicketsSlice";
 import { claimTicket, closeTicket, reviewTicketMessage } from "@/store/slices/supportTicketsSlice";
-import { categoryLabel, statusLabel } from "@/features/support-tickets/supportTicketLabels";
+import { categoryLabel, statusLabel, ticketRequesterLabel } from "@/features/support-tickets/supportTicketLabels";
 import { ClaimTransferModal } from "./ClaimTransferModal";
 import { ForwardTicketModal } from "./ForwardTicketModal";
 
@@ -446,7 +446,7 @@ export function TicketThread({
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex items-center gap-2 flex-wrap">
             <h2 className="font-black text-sm tracking-tight text-zinc-900 dark:text-zinc-50 truncate">
-              {ticket.families?.household_name}
+              {ticketRequesterLabel(ticket)}
             </h2>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide shrink-0 ${
               isClosed
