@@ -93,8 +93,9 @@ interface ApiEnvelope<T> {
 
 export interface FamilyStats {
   total: number;
-  registeredOnApp: number;
-  notConfigured: number;
+  activeWithChildren: number;
+  withCredentials: number;
+  kidsInCredentialedFamilies: number;
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
