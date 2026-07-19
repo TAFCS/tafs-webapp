@@ -16,6 +16,11 @@ import { TransferOrderTab } from "./TransferOrderTab";
 import { StudentLogsTab } from "./StudentLogsTab";
 import { DangerZoneTab } from "./DangerZoneTab";
 import { AcademicProgressionTab } from "./AcademicProgressionTab";
+import {
+    extractApiErrorMessage,
+    formatSectionOptionLabel,
+    isSectionSelectableForGender,
+} from "@/lib/section-allocation";
 
 interface Suggestions {
     suggested_gr: string;
@@ -23,7 +28,15 @@ interface Suggestions {
     suggested_section: number | null;
     min_gr: string | null;
     all_houses: Array<{ id: number; house_name: string; house_color: string }>;
-    available_sections: Array<{ id: number; description: string }>;
+    available_sections: Array<{
+        id: number;
+        description: string;
+        student_capacity?: number | null;
+        gender_mode?: string;
+        enrolled_count?: number;
+        remaining_seats?: number | null;
+        is_full?: boolean;
+    }>;
     alevel_analysis?: {
         subjects: Array<{ name: string; code: string }>;
         scienceCount: number;
@@ -170,7 +183,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
             await reload();
             onUpdated?.();
         } catch (error: any) {
-            toast.error(error?.response?.data?.message || "Enrollment failed. Please try again.");
+            toast.error(extractApiErrorMessage(error, "Enrollment failed. Please try again."));
         } finally {
             setIsEnrolling(false);
         }
@@ -480,11 +493,24 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                                     className="w-full px-4 py-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-black text-zinc-700 dark:text-zinc-300 appearance-none cursor-pointer"
                                                 >
                                                     <option value="">Unassigned</option>
-                                                    {suggestions?.available_sections.map(section => (
-                                                        <option key={section.id} value={section.id}>
-                                                            {section.description} {suggestions?.suggested_section === section.id ? '(Recommended)' : ''}
+                                                    {suggestions?.available_sections.map(section => {
+                                                        const selectable = isSectionSelectableForGender(
+                                                            section,
+                                                            student?.gender,
+                                                        );
+                                                        return (
+                                                        <option
+                                                            key={section.id}
+                                                            value={section.id}
+                                                            disabled={!selectable}
+                                                        >
+                                                            {formatSectionOptionLabel(section, {
+                                                                recommendedId: suggestions?.suggested_section,
+                                                                studentGender: student?.gender,
+                                                            })}
                                                         </option>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </select>
                                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
                                                     <ChevronRight className="h-5 w-5 rotate-90" />

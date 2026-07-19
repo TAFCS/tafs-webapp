@@ -8,6 +8,16 @@ export interface CampusSection {
     description: string;
     campus_section_id: number;
     is_active: boolean;
+    student_capacity?: number | null;
+    gender_mode?: 'COED' | 'BOYS_ONLY' | 'GIRLS_ONLY' | string;
+    enrolled_count?: number;
+    remaining_seats?: number | null;
+    is_full?: boolean;
+    male_count?: number;
+    female_count?: number;
+    unknown_count?: number;
+    capacity_conflict_count?: number;
+    gender_conflict_count?: number;
 }
 
 export interface CampusClass {

@@ -1,5 +1,7 @@
 import api from './api';
 
+export type SectionGenderMode = 'COED' | 'BOYS_ONLY' | 'GIRLS_ONLY';
+
 export interface CampusClassInfo {
     id: number;
     description: string;
@@ -12,13 +14,25 @@ export interface SectionInfo {
     description: string;
 }
 
+export interface OfferedSection extends SectionInfo {
+    campus_section_id: number;
+    is_active: boolean;
+    student_capacity?: number | null;
+    gender_mode?: SectionGenderMode;
+    enrolled_count?: number;
+    remaining_seats?: number | null;
+    is_full?: boolean;
+    male_count?: number;
+    female_count?: number;
+    unknown_count?: number;
+    capacity_conflict_count?: number;
+    gender_conflict_count?: number;
+}
+
 export interface OfferedClass extends CampusClassInfo {
     campus_class_id: number;
     is_active: boolean;
-    sections: (SectionInfo & {
-        campus_section_id: number;
-        is_active: boolean;
-    })[];
+    sections: OfferedSection[];
 }
 
 export interface Campus {
@@ -41,6 +55,12 @@ export type UpdateCampusPayload = Partial<CreateCampusPayload>;
 
 export interface BulkUpdateCampusesPayload {
     items: (UpdateCampusPayload & { id: number })[];
+}
+
+export interface UpsertCampusSectionPayload {
+    is_active?: boolean;
+    student_capacity?: number | null;
+    gender_mode?: SectionGenderMode;
 }
 
 interface ApiEnvelope<T> {
@@ -99,8 +119,18 @@ export const campusesService = {
         return data.data;
     },
 
-    async upsertCampusSection(campusId: number, classId: number, sectionId: number, isActive: boolean = true): Promise<Campus> {
-        const { data } = await api.put<ApiEnvelope<Campus>>(`/v1/campuses/${campusId}/classes/${classId}/sections/${sectionId}`, { is_active: isActive });
+    async upsertCampusSection(
+        campusId: number,
+        classId: number,
+        sectionId: number,
+        payload: UpsertCampusSectionPayload | boolean = true,
+    ): Promise<Campus> {
+        const body: UpsertCampusSectionPayload =
+            typeof payload === 'boolean' ? { is_active: payload } : payload;
+        const { data } = await api.put<ApiEnvelope<Campus>>(
+            `/v1/campuses/${campusId}/classes/${classId}/sections/${sectionId}`,
+            body,
+        );
         return data.data;
     },
 

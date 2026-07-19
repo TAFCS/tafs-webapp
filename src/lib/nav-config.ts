@@ -6,6 +6,7 @@ import {
     MessageSquare, Database, Briefcase, Clock, CalendarCheck,
     CalendarClock, ClipboardList, ClipboardCheck, Bell,
     Fingerprint, BarChart3, CreditCard, Wallet, Building2, Megaphone, ScrollText, ClipboardPlus,
+    Shuffle, SlidersHorizontal,
 } from "lucide-react";
 import { SUPPORT_TICKETS_VIEW_PERMISSION } from "@/features/support-tickets/supportTicketAccess";
 import type { LucideIcon } from "lucide-react";
@@ -54,6 +55,7 @@ export const NAV_MODULES: NavModule[] = [
             { name: "Parent Change Requests", description: "Profile update approvals", href: "/parent-change-requests", icon: ShieldCheck, permission: "students.families.view" },
             { name: "Transfers", description: "Inter-school movements", href: "/transfers", icon: ArrowLeftRight, permission: "academic.transfers.view" },
             { name: "Academic Actions", description: "Bulk promotions and actions", href: "/bulk-promote", icon: TrendingUp, permission: "academic.bulk_promote.execute" },
+            { name: "House Balancer", description: "Random evenly balanced house redistribution", href: "/house-balancer", icon: Shuffle, permission: "academic.campuses.view" },
         ],
     },
     {
@@ -155,6 +157,8 @@ export const NAV_MODULES: NavModule[] = [
             { name: "Campuses", description: "Branch locations and details", href: "/campuses", icon: LandPlot, permission: "academic.campuses.view" },
             { name: "Classes", description: "Grade and year configuration", href: "/classes", icon: BookOpen, permission: "academic.classes.view" },
             { name: "Sections", description: "Class subdivisions", href: "/sections", icon: LayoutGrid, permission: "academic.sections.view" },
+            { name: "Section Allocation Rules", description: "Capacity and gender limits per campus/class/section", href: "/campuses/allocation-rules", icon: SlidersHorizontal, permission: "academic.campuses.view" },
+            { name: "House Balancer", description: "Random evenly balanced house redistribution", href: "/house-balancer", icon: Shuffle, permission: "academic.campuses.view" },
             { name: "Fee Types", description: "Fee head definitions", href: "/fee-types", icon: Tags, permission: "fee_admin.fee_types.view" },
             { name: "Discount Presets", description: "Standard discount templates", href: "/discount-presets", icon: HandCoins, permission: "fee_admin.fee_types.view" },
             { name: "Banks", description: "Banking relationships", href: "/banks", icon: Landmark, permission: "finance.banks.view" },

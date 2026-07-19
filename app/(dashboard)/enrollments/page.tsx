@@ -25,20 +25,28 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
+import {
+    extractApiErrorMessage,
+    formatSectionOptionLabel,
+    isSectionSelectableForGender,
+} from "@/lib/section-allocation";
 
 interface Candidate {
     cc: number;
     full_name: string;
-    campus_id: number;
-    class_id: number;
+    gender?: string | null;
+    gr_number?: string | null;
+    campus_id?: number;
+    class_id?: number;
     not_pursuing?: boolean;
-    campuses: { campus_name: string };
-    classes: { description: string };
-    student_admissions: Array<{
-        requested_grade: string;
-        academic_system: string;
-        academic_year: string;
-        application_date: string;
+    campuses?: { campus_name: string; campus_code?: string } | null;
+    classes?: { description: string; class_code?: string } | null;
+    sections?: { description: string } | null;
+    student_admissions?: Array<{
+        requested_grade?: string;
+        academic_system?: string;
+        academic_year?: string;
+        application_date?: string;
         discipline?: string;
     }>;
 }
@@ -49,7 +57,15 @@ interface Suggestions {
     suggested_section: number | null;
     min_gr: string | null;
     all_houses: Array<{ id: number, house_name: string, house_color: string }>;
-    available_sections: Array<{ id: number, description: string }>;
+    available_sections: Array<{
+        id: number;
+        description: string;
+        student_capacity?: number | null;
+        gender_mode?: string;
+        enrolled_count?: number;
+        remaining_seats?: number | null;
+        is_full?: boolean;
+    }>;
     alevel_analysis?: {
         subjects: Array<{ name: string, code: string }>;
         scienceCount: number;
@@ -177,7 +193,7 @@ export default function EnrollmentsPage() {
             setSuggestions(null);
             toast.success("Student enrolled successfully!");
         } catch (error) {
-            toast.error("Enrollment failed. Please try again.");
+            toast.error(extractApiErrorMessage(error, "Enrollment failed. Please try again."));
         } finally {
             setIsEnrolling(false);
         }
@@ -504,11 +520,24 @@ export default function EnrollmentsPage() {
                                                     className="w-full px-4 py-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-black text-zinc-700 dark:text-zinc-300 appearance-none cursor-pointer"
                                                 >
                                                     <option value="">Unassigned</option>
-                                                    {suggestions?.available_sections.map(section => (
-                                                        <option key={section.id} value={section.id}>
-                                                            {section.description} {suggestions?.suggested_section === section.id ? '(Recommended)' : ''}
+                                                    {suggestions?.available_sections.map(section => {
+                                                        const selectable = isSectionSelectableForGender(
+                                                            section,
+                                                            selectedStudent?.gender,
+                                                        );
+                                                        return (
+                                                        <option
+                                                            key={section.id}
+                                                            value={section.id}
+                                                            disabled={!selectable}
+                                                        >
+                                                            {formatSectionOptionLabel(section, {
+                                                                recommendedId: suggestions?.suggested_section,
+                                                                studentGender: selectedStudent?.gender,
+                                                            })}
                                                         </option>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </select>
                                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
                                                     <ChevronRight className="h-5 w-5 rotate-90" />

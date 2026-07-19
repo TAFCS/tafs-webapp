@@ -4,6 +4,11 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Download, Loader2, ArrowLeftRight, CheckCircle2, ChevronDown, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
+import {
+    extractApiErrorMessage,
+    formatSectionOptionLabel,
+    isSectionSelectableForGender,
+} from '@/lib/section-allocation';
 
 interface TransferStudent {
     cc: number;
@@ -41,6 +46,11 @@ interface TransferStudent {
 interface SectionOption {
     id: number;
     description: string;
+    student_capacity?: number | null;
+    gender_mode?: string;
+    enrolled_count?: number;
+    remaining_seats?: number | null;
+    is_full?: boolean;
 }
 
 interface ClassOption {
@@ -201,7 +211,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
             setTransferred(true);
             toast.success('Transfer completed successfully!');
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Transfer failed. Please try again.');
+            toast.error(extractApiErrorMessage(err, 'Transfer failed. Please try again.'));
         } finally {
             setIsExecuting(false);
         }
@@ -647,11 +657,14 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                             className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer disabled:opacity-50"
                         >
                             <option value="">— Select target section —</option>
-                            {availableSections.map((sec) => (
-                                <option key={sec.id} value={sec.id}>
-                                    {sec.description}
+                            {availableSections.map((sec) => {
+                                const selectable = isSectionSelectableForGender(sec, student.gender);
+                                return (
+                                <option key={sec.id} value={sec.id} disabled={!selectable}>
+                                    {formatSectionOptionLabel(sec, { studentGender: student.gender })}
                                 </option>
-                            ))}
+                                );
+                            })}
                         </select>
                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                     </div>

@@ -25,6 +25,7 @@ import { AppDispatch, RootState } from "@/src/store/store";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
 import { fetchCampuses } from "@/src/store/slices/campusesSlice";
 import { fetchSections } from "@/src/store/slices/sectionsSlice";
+import { formatSectionOptionLabel } from "@/lib/section-allocation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -217,6 +218,44 @@ export default function BulkPromotePage() {
     () => sortedClasses.find((c) => String(c.id) === toClassId),
     [sortedClasses, toClassId],
   );
+
+  const targetSectionOptions = useMemo(() => {
+    if (!toClassId || isGraduating || isExpelling || isLeaving) return [];
+
+    // Prefer campus-specific offerings when a campus filter is selected.
+    if (campusId) {
+      const campus = campuses.find((c) => String(c.id) === campusId);
+      const offered = campus?.offered_classes?.find((c) => String(c.id) === toClassId);
+      if (offered?.sections?.length) {
+        return offered.sections
+          .filter((s) => s.is_active !== false)
+          .map((s) => ({
+            id: s.id,
+            label: formatSectionOptionLabel(s as any),
+          }));
+      }
+    }
+
+    // Fallback: union of the destination class's sections across all campuses.
+    const byId = new Map<number, { id: number; label: string }>();
+    for (const campus of campuses) {
+      const offered = campus.offered_classes?.find((c) => String(c.id) === toClassId);
+      for (const s of offered?.sections ?? []) {
+        if (s.is_active === false) continue;
+        if (!byId.has(s.id)) {
+          byId.set(s.id, {
+            id: s.id,
+            label: formatSectionOptionLabel(s as any),
+          });
+        }
+      }
+    }
+    if (byId.size > 0) return Array.from(byId.values());
+
+    // Last resort: global section catalog
+    return sections.map((s) => ({ id: s.id, label: s.description }));
+  }, [toClassId, campusId, campuses, sections, isGraduating, isExpelling, isLeaving]);
+
   const isPromotingToALevel = useMemo(
     () =>
       !isGraduating &&
@@ -598,10 +637,12 @@ export default function BulkPromotePage() {
             <div className="space-y-2">
               <label htmlFor="target-section" className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Target Section</label>
               <select id="target-section" value={toSectionId} onChange={(e) => setToSectionId(e.target.value)}
-                disabled={isGraduating}
+                disabled={isGraduating || isExpelling || isLeaving}
                 className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-40 disabled:cursor-not-allowed">
                 <option value="">Keep existing section</option>
-                {sections.map((s) => <option key={s.id} value={s.id}>{s.description}</option>)}
+                {targetSectionOptions.map((s) => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
               </select>
             </div>
           </div>

@@ -5,6 +5,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import type { CampusItem } from "@/src/store/slices/campusesSlice";
+import {
+    extractApiErrorMessage,
+    formatSectionOptionLabel,
+    isSectionSelectableForGender,
+} from "@/lib/section-allocation";
 
 function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
     return (
@@ -24,7 +29,7 @@ function Select({
 }: {
     value: string;
     onChange: (v: string) => void;
-    options: { label: string; value: string }[];
+    options: { label: string; value: string; disabled?: boolean }[];
     placeholder?: string;
     disabled?: boolean;
 }) {
@@ -38,7 +43,7 @@ function Select({
             >
                 <option value="">{placeholder || "Select"}</option>
                 {options.map((o) => (
-                    <option key={o.value} value={o.value}>
+                    <option key={o.value} value={o.value} disabled={o.disabled}>
                         {o.label}
                     </option>
                 ))}
@@ -127,10 +132,14 @@ export function ClassGradeTab({ student, classes = [], sections = [], campuses =
         if (offered?.sections?.length) {
             return offered.sections
                 .filter((s) => s.is_active !== false)
-                .map((s) => ({ label: s.description, value: String(s.id) }));
+                .map((s: any) => ({
+                    label: formatSectionOptionLabel(s, { studentGender: student.gender }),
+                    value: String(s.id),
+                    disabled: !isSectionSelectableForGender(s, student.gender),
+                }));
         }
-        return sections.map((s) => ({ label: s.description, value: String(s.id) }));
-    }, [classId, offeredClasses, sections]);
+        return sections.map((s) => ({ label: s.description, value: String(s.id), disabled: false }));
+    }, [classId, offeredClasses, sections, student.gender]);
 
     const isDirty =
         classId !== (student.class_id != null ? String(student.class_id) : "") ||
@@ -164,7 +173,7 @@ export function ClassGradeTab({ student, classes = [], sections = [], campuses =
             setIsEditing(false);
             onReload();
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || "Failed to update class and section.");
+            toast.error(extractApiErrorMessage(err, "Failed to update class and section."));
         } finally {
             setSaving(false);
         }
