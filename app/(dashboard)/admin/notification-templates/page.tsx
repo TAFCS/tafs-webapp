@@ -102,6 +102,17 @@ const TEMPLATE_GROUPS: TemplateGroup[] = [
       { key: "notif_staff_saturday_body", label: "Saturday Schedule", audience: "Staff", field: "body", defaultValue: "You are required to attend school on the following Saturday(s) in {month}: {date_list}. {attendance_note}", variables: ["month", "date_list", "attendance_note"] },
     ],
   },
+  {
+    id: "profile",
+    label: "Profile Update Notifications",
+    icon: Bell,
+    templates: [
+      { key: "notif_profile_approved_title", label: "Profile Approved", audience: "Parent", field: "title", defaultValue: "Profile Update Approved", variables: [] },
+      { key: "notif_profile_approved_body", label: "Profile Approved", audience: "Parent", field: "body", defaultValue: "Your profile change request has been approved and synced successfully.", variables: [] },
+      { key: "notif_profile_rejected_title", label: "Profile Rejected", audience: "Parent", field: "title", defaultValue: "Profile Update Rejected", variables: [] },
+      { key: "notif_profile_rejected_body", label: "Profile Rejected", audience: "Parent", field: "body", defaultValue: "Your profile change request has been rejected.{reason_clause}", variables: ["comment", "reason_clause"] },
+    ],
+  },
 ];
 
 const ALL_TEMPLATE_KEYS = TEMPLATE_GROUPS.flatMap((g) =>

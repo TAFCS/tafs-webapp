@@ -13,6 +13,7 @@ interface Post {
     class_ids: number[];
     section_ids: number[];
     student_ccs: number[];
+    targeted_students?: { cc: number; full_name: string; gr_number: string; household_name?: string }[];
     media_urls: string[];
     media_types: string[];
     is_pinned: boolean;
@@ -28,6 +29,7 @@ interface ReadStats {
     post_id: number;
     total_reached: number;
     total_read: number;
+    targeted_reads?: { cc: number; full_name: string; gr_number: string; household_name?: string; read_at: string | null }[];
 }
 
 interface Campus {
@@ -232,6 +234,9 @@ export default function NoticeBoardPage() {
     }
 
     function scopeLabel(post: Post) {
+        if (post.student_ccs?.length) {
+            return `${post.student_ccs.length} Student${post.student_ccs.length > 1 ? "s" : ""} Targeted`;
+        }
         if (!post.campus_ids.length && !post.class_ids.length && !post.section_ids.length) return "School-wide";
         const parts: string[] = [];
         if (post.campus_ids.length) {
@@ -251,8 +256,13 @@ export default function NoticeBoardPage() {
 
     function scopeBadges(post: Post): { label: string; color: string }[] {
         const badges: { label: string; color: string }[] = [];
+        if (post.student_ccs?.length) {
+            badges.push({ label: `Targeted: ${post.student_ccs.length} student${post.student_ccs.length > 1 ? "s" : ""}`, color: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300" });
+        }
         if (!post.campus_ids.length && !post.class_ids.length && !post.section_ids.length) {
-            badges.push({ label: "School-wide", color: "bg-zinc-200 dark:bg-zinc-700 text-zinc-500" });
+            if (!post.student_ccs?.length) {
+                badges.push({ label: "School-wide", color: "bg-zinc-200 dark:bg-zinc-700 text-zinc-500" });
+            }
             return badges;
         }
         if (post.campus_ids.length) {
@@ -272,9 +282,6 @@ export default function NoticeBoardPage() {
                 const name = sectionNameMap.get(id);
                 if (name) badges.push({ label: name, color: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300" });
             }
-        }
-        if (post.student_ccs?.length) {
-            badges.push({ label: `${post.student_ccs.length} student${post.student_ccs.length > 1 ? "s" : ""} targeted`, color: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300" });
         }
         return badges;
     }
@@ -355,7 +362,15 @@ export default function NoticeBoardPage() {
                                 </div>
                                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
                                     <span className="text-xs text-zinc-400">{formatDistanceToNow(new Date(post.posted_at), { addSuffix: true })}</span>
-                                    <span className="text-xs text-zinc-400">{post._count?.post_reads ?? 0} read</span>
+                                    {post.student_ccs && post.student_ccs.length > 0 ? (
+                                        (post._count?.post_reads ?? 0) > 0 ? (
+                                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded">READ</span>
+                                        ) : (
+                                            <span className="text-[10px] font-bold text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">UNREAD</span>
+                                        )
+                                    ) : (
+                                        <span className="text-xs text-zinc-400">{post._count?.post_reads ?? 0} read</span>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -663,33 +678,84 @@ export default function NoticeBoardPage() {
                                 </p>
                             </div>
 
+                            {/* Targeted Students list (shown only if read receipt list is not loaded yet) */}
+                            {selectedPost.targeted_students && selectedPost.targeted_students.length > 0 && !readStats?.targeted_reads && (
+                                <div>
+                                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Targeted Students</p>
+                                    <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                                        {selectedPost.targeted_students.map((s) => (
+                                            <div key={s.cc} className="p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-150 dark:border-zinc-800 flex items-center justify-between text-xs">
+                                                <div>
+                                                    <p className="font-bold text-zinc-800 dark:text-zinc-200">{s.full_name}</p>
+                                                    <p className="text-zinc-500 font-medium mt-0.5">Family: <span className="font-bold">{s.household_name || "Unknown"}</span></p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-bold text-primary">CC {s.cc}</p>
+                                                    {s.gr_number && <p className="text-zinc-450 font-bold mt-0.5">GR {s.gr_number}</p>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Read stats */}
                             {readStats ? (
                                 <div>
                                     <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Read Analytics</p>
-                                    <div className="grid grid-cols-2 gap-4 mb-4">
-                                        <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 text-center">
-                                            <p className="text-2xl font-black text-zinc-800 dark:text-zinc-100">{readStats.total_reached}</p>
-                                            <p className="text-xs text-zinc-400 mt-1">Families Reached</p>
+                                    {readStats.targeted_reads && readStats.targeted_reads.length > 0 ? (
+                                        <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
+                                            {readStats.targeted_reads.map((s) => (
+                                                <div key={s.cc} className="p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-150 dark:border-zinc-800 flex items-center justify-between text-xs">
+                                                    <div>
+                                                        <p className="font-bold text-zinc-800 dark:text-zinc-200">{s.full_name}</p>
+                                                        <p className="text-zinc-500 font-medium mt-0.5">Family: <span className="font-bold">{s.household_name || "Unknown"}</span></p>
+                                                    </div>
+                                                    <div className="text-right flex flex-col items-end gap-1">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="font-bold text-primary">CC {s.cc}</span>
+                                                            {s.read_at ? (
+                                                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 rounded font-black text-[9px] uppercase tracking-wider">READ</span>
+                                                            ) : (
+                                                                <span className="px-2 py-0.5 bg-zinc-200 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-400 rounded font-black text-[9px] uppercase tracking-wider">UNREAD</span>
+                                                            )}
+                                                        </div>
+                                                        {s.read_at ? (
+                                                            <span className="text-[10px] text-zinc-400 font-medium">Read {formatDistanceToNow(new Date(s.read_at), { addSuffix: true })}</span>
+                                                        ) : (
+                                                            s.gr_number && <span className="text-[10px] text-zinc-400 font-bold">GR {s.gr_number}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                        <div className="bg-primary/5 rounded-xl p-4 text-center">
-                                            <p className="text-2xl font-black text-primary">{readStats.total_read}</p>
-                                            <p className="text-xs text-zinc-400 mt-1">Families Read</p>
-                                        </div>
-                                    </div>
-                                    {readStats.total_reached > 0 && (
-                                        <div>
-                                            <div className="flex justify-between text-xs text-zinc-500 mb-1">
-                                                <span>Read rate</span>
-                                                <span>{Math.round((readStats.total_read / readStats.total_reached) * 100)}%</span>
+                                    ) : (
+                                        <>
+                                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                                <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 text-center">
+                                                    <p className="text-2xl font-black text-zinc-800 dark:text-zinc-100">{readStats.total_reached}</p>
+                                                    <p className="text-xs text-zinc-400 mt-1">Families Reached</p>
+                                                </div>
+                                                <div className="bg-primary/5 rounded-xl p-4 text-center">
+                                                    <p className="text-2xl font-black text-primary">{readStats.total_read}</p>
+                                                    <p className="text-xs text-zinc-400 mt-1">Families Read</p>
+                                                </div>
                                             </div>
-                                            <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-primary rounded-full transition-all duration-500"
-                                                    style={{ width: `${Math.round((readStats.total_read / readStats.total_reached) * 100)}%` }}
-                                                />
-                                            </div>
-                                        </div>
+                                            {readStats.total_reached > 0 && (
+                                                <div>
+                                                    <div className="flex justify-between text-xs text-zinc-500 mb-1">
+                                                        <span>Read rate</span>
+                                                        <span>{Math.round((readStats.total_read / readStats.total_reached) * 100)}%</span>
+                                                    </div>
+                                                    <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-primary rounded-full transition-all duration-500"
+                                                            style={{ width: `${Math.round((readStats.total_read / readStats.total_reached) * 100)}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             ) : (
