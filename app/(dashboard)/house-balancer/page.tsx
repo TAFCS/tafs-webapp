@@ -16,8 +16,13 @@ import { useAppSelector } from "@/store/hooks";
 import { Campus, campusesService } from "@/lib/campuses.service";
 import {
     HouseBalancerPreview,
+    CampusHouseBalancerPreview,
+    CampusHouseBalanceGroup,
+    HouseInfo,
+    HouseAssignmentPreview,
     houseBalancerService,
 } from "@/lib/house-balancer.service";
+import { extractApiErrorMessage } from "@/lib/section-allocation";
 
 export default function HouseBalancerPage() {
     const user = useAppSelector((s) => s.auth.user);
@@ -31,6 +36,8 @@ export default function HouseBalancerPage() {
     const [selectedClassId, setSelectedClassId] = useState<number | "">("");
     const [selectedSectionId, setSelectedSectionId] = useState<number | "">("");
     const [preview, setPreview] = useState<HouseBalancerPreview | null>(null);
+    const [campusPreview, setCampusPreview] =
+        useState<CampusHouseBalancerPreview | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isPreviewing, setIsPreviewing] = useState(false);
     const [isApplying, setIsApplying] = useState(false);
@@ -68,72 +75,92 @@ export default function HouseBalancerPage() {
 
     const clearPreview = () => {
         setPreview(null);
+        setCampusPreview(null);
         setConfirmApply(false);
     };
 
     const generatePreview = async () => {
-        if (!selectedCampusId || !selectedClassId || !selectedSectionId) {
-            toast.error("Select campus, class, and section first.");
+        if (!selectedCampusId) {
+            toast.error("Select a campus first.");
+            return;
+        }
+        if (selectedClassId && !selectedSectionId) {
+            toast.error("Select a section, or clear the class to shuffle the whole campus.");
             return;
         }
         setIsPreviewing(true);
         setError(null);
         try {
-            const data = await houseBalancerService.preview({
-                campus_id: Number(selectedCampusId),
-                class_id: Number(selectedClassId),
-                section_id: Number(selectedSectionId),
-            });
-            setPreview(data);
+            if (!selectedClassId) {
+                const data = await houseBalancerService.previewCampus(
+                    Number(selectedCampusId),
+                );
+                setCampusPreview(data);
+                setPreview(null);
+                toast.success(
+                    `Campus preview ready for ${data.total_students} student(s) across ${data.group_count} class/section group(s)`,
+                );
+            } else {
+                const data = await houseBalancerService.preview({
+                    campus_id: Number(selectedCampusId),
+                    class_id: Number(selectedClassId),
+                    section_id: Number(selectedSectionId),
+                });
+                setPreview(data);
+                setCampusPreview(null);
+                toast.success(`Preview ready for ${data.student_count} student(s)`);
+            }
             setConfirmApply(false);
-            toast.success(`Preview ready for ${data.student_count} student(s)`);
-        } catch (err: any) {
-            const message =
-                err?.response?.data?.message?.message ||
-                err?.response?.data?.message ||
-                "Failed to generate house preview";
-            toast.error(typeof message === "string" ? message : "Failed to generate house preview");
-            setPreview(null);
+        } catch (err: unknown) {
+            toast.error(
+                extractApiErrorMessage(err, "Failed to generate house preview"),
+            );
+            clearPreview();
         } finally {
             setIsPreviewing(false);
         }
     };
 
     const applyAssignments = async () => {
-        if (!preview || !canEdit) return;
+        if ((!preview && !campusPreview) || !canEdit) return;
         setIsApplying(true);
         try {
-            const result = await houseBalancerService.apply({
-                campus_id: Number(selectedCampusId),
-                class_id: Number(selectedClassId),
-                section_id: Number(selectedSectionId),
-                roster_fingerprint: preview.roster_fingerprint,
-                assignments: preview.assignments.map((a) => ({
-                    student_id: a.student_id,
-                    house_id: a.proposed_house.id,
-                })),
-            });
-            toast.success(`Applied house assignments for ${result.student_count} student(s)`);
-            // Refresh preview from current DB state so UI shows applied distribution
-            const refreshed = await houseBalancerService.preview({
-                campus_id: Number(selectedCampusId),
-                class_id: Number(selectedClassId),
-                section_id: Number(selectedSectionId),
-            });
-            setPreview(refreshed);
-            setConfirmApply(false);
-        } catch (err: any) {
-            const payload = err?.response?.data?.message;
-            const code = payload?.code || err?.response?.data?.code;
-            const message =
-                payload?.message ||
-                (typeof payload === "string" ? payload : null) ||
-                "Failed to apply house assignments";
+            if (campusPreview) {
+                const result = await houseBalancerService.applyCampus(campusPreview);
+                toast.success(
+                    `Applied house assignments for ${result.total_students} student(s) across ${result.group_count} class/section group(s)`,
+                );
+            } else if (preview) {
+                const result = await houseBalancerService.apply({
+                    campus_id: Number(selectedCampusId),
+                    class_id: Number(selectedClassId),
+                    section_id: Number(selectedSectionId),
+                    roster_fingerprint: preview.roster_fingerprint,
+                    assignments: preview.assignments.map((a) => ({
+                        student_id: a.student_id,
+                        house_id: a.proposed_house.id,
+                    })),
+                });
+                toast.success(
+                    `Applied house assignments for ${result.student_count} student(s)`,
+                );
+            }
+            clearPreview();
+        } catch (err: unknown) {
+            const response = (err as {
+                response?: { data?: { message?: { code?: string } | string; code?: string } };
+            })?.response;
+            const payload = response?.data?.message;
+            const code =
+                (typeof payload === "object" ? payload?.code : undefined) ||
+                response?.data?.code;
             if (code === "HOUSE_PREVIEW_STALE") {
                 toast.error("Roster changed. Generate a new preview before applying.");
                 clearPreview();
             } else {
-                toast.error(typeof message === "string" ? message : "Failed to apply house assignments");
+                toast.error(
+                    extractApiErrorMessage(err, "Failed to apply house assignments"),
+                );
             }
         } finally {
             setIsApplying(false);
@@ -164,7 +191,8 @@ export default function HouseBalancerPage() {
                         House Balancer
                     </h1>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                        Preview and apply an evenly balanced random house distribution for one campus + class + section.
+                        Select only a campus to balance every populated class/section at once,
+                        or optionally choose a class and section for a targeted shuffle.
                     </p>
                 </div>
             </div>
@@ -210,7 +238,7 @@ export default function HouseBalancerPage() {
                         }}
                         className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
                     >
-                        <option value="">Select class</option>
+                        <option value="">All classes (campus-wide)</option>
                         {offeredClasses.map((c) => (
                             <option key={c.id} value={c.id}>
                                 {c.description}
@@ -246,7 +274,12 @@ export default function HouseBalancerPage() {
             <div className="flex flex-wrap gap-3">
                 <button
                     onClick={generatePreview}
-                    disabled={!selectedSectionId || isPreviewing || isLoading}
+                    disabled={
+                        !selectedCampusId ||
+                        (!!selectedClassId && !selectedSectionId) ||
+                        isPreviewing ||
+                        isLoading
+                    }
                     className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
                 >
                     {isPreviewing ? (
@@ -254,9 +287,9 @@ export default function HouseBalancerPage() {
                     ) : (
                         <Shuffle className="h-4 w-4" />
                     )}
-                    {preview ? "Refresh Preview" : "Generate Preview"}
+                    {preview || campusPreview ? "Refresh Preview" : "Generate Preview"}
                 </button>
-                {preview && canEdit && (
+                {(preview || campusPreview) && canEdit && (
                     <button
                         onClick={() => setConfirmApply(true)}
                         disabled={isApplying}
@@ -354,16 +387,57 @@ export default function HouseBalancerPage() {
                 </div>
             )}
 
-            {confirmApply && preview && (
+            {campusPreview && (
+                <div className="space-y-4">
+                    <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-900 dark:bg-indigo-950/30">
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-indigo-800 dark:text-indigo-200">
+                            <Users className="h-4 w-4" />
+                            <strong>{campusPreview.campus.campus_name}</strong>
+                            <span>
+                                {campusPreview.total_students} students across{" "}
+                                {campusPreview.group_count} class/section groups
+                            </span>
+                        </div>
+                        <p className="mt-2 text-xs text-indigo-700/80 dark:text-indigo-300/80">
+                            Every class/section below is balanced independently. Students
+                            are never mixed between classes or sections.
+                        </p>
+                    </div>
+
+                    {campusPreview.groups.map((group) => (
+                        <CampusGroupPreview
+                            key={`${group.class.id}:${group.section.id}`}
+                            group={group}
+                            houses={campusPreview.houses}
+                        />
+                    ))}
+                </div>
+            )}
+
+            {confirmApply && (preview || campusPreview) && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
                     <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                             Apply house assignments?
                         </h3>
                         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                            This will update houses for <strong>{preview.student_count}</strong> enrolled
-                            student(s) in {preview.campus.campus_name} / {preview.class.description} /
-                            Section {preview.section.description}.
+                            {campusPreview ? (
+                                <>
+                                    This will update houses for{" "}
+                                    <strong>{campusPreview.total_students}</strong> enrolled
+                                    student(s) across{" "}
+                                    <strong>{campusPreview.group_count}</strong> class/section
+                                    groups at {campusPreview.campus.campus_name}.
+                                </>
+                            ) : preview ? (
+                                <>
+                                    This will update houses for{" "}
+                                    <strong>{preview.student_count}</strong> enrolled student(s)
+                                    in {preview.campus.campus_name} /{" "}
+                                    {preview.class.description} / Section{" "}
+                                    {preview.section.description}.
+                                </>
+                            ) : null}
                         </p>
                         <div className="mt-6 flex justify-end gap-3">
                             <button
@@ -388,6 +462,100 @@ export default function HouseBalancerPage() {
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+function CampusGroupPreview({
+    group,
+    houses,
+}: {
+    group: CampusHouseBalanceGroup;
+    houses: HouseInfo[];
+}) {
+    return (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+            <div className="p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="font-semibold text-slate-900 dark:text-white">
+                        {group.class.description} · Section {group.section.description}
+                    </h2>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold dark:bg-slate-800">
+                        {group.student_count} students
+                    </span>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    {houses.map((house) => (
+                        <div
+                            key={house.id}
+                            className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700"
+                        >
+                            <div className="flex items-center gap-2 font-medium">
+                                <span
+                                    className="h-2.5 w-2.5 rounded-full"
+                                    style={{
+                                        backgroundColor: house.house_color || "#94a3b8",
+                                    }}
+                                />
+                                {house.house_name || `House #${house.id}`}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-500">
+                                {group.current_counts[house.id] ?? 0} →{" "}
+                                <strong>{group.proposed_counts[house.id] ?? 0}</strong>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <details className="border-t border-slate-200 dark:border-slate-800">
+                <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-indigo-600 hover:bg-slate-50 dark:text-indigo-300 dark:hover:bg-slate-950">
+                    View {group.student_count} student assignments
+                </summary>
+                <AssignmentTable assignments={group.assignments} />
+            </details>
+        </div>
+    );
+}
+
+function AssignmentTable({
+    assignments,
+}: {
+    assignments: HouseAssignmentPreview[];
+}) {
+    return (
+        <div className="max-h-96 overflow-auto">
+            <table className="min-w-full text-sm">
+                <thead className="sticky top-0 bg-slate-50 text-left text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+                    <tr>
+                        <th className="px-4 py-3 font-medium">CC</th>
+                        <th className="px-4 py-3 font-medium">Student</th>
+                        <th className="px-4 py-3 font-medium">Current House</th>
+                        <th className="px-4 py-3 font-medium">Proposed House</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {assignments.map((row) => (
+                        <tr
+                            key={row.student_id}
+                            className="border-t border-slate-100 dark:border-slate-800"
+                        >
+                            <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
+                                {row.student_cc}
+                            </td>
+                            <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">
+                                {row.student_name}
+                            </td>
+                            <td className="px-4 py-2">
+                                <HouseChip house={row.current_house} />
+                            </td>
+                            <td className="px-4 py-2">
+                                <HouseChip house={row.proposed_house} />
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
         </div>
     );
 }
