@@ -308,10 +308,10 @@ export default function ParentChangeRequestsPage() {
                                             <div className="flex flex-col">
                                                 <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
                                                     <Clock className="h-3.5 w-3.5 text-zinc-400" />
-                                                    {formatDistanceToNow(new Date(req.created_at), { addSuffix: true })}
+                                                    {formatDistanceToNow(new Date(req.status !== 'PENDING' ? (req.processed_at || req.updated_at) : req.created_at), { addSuffix: true })}
                                                 </span>
                                                 <span className="text-[10px] text-zinc-400 font-medium mt-1">
-                                                    {new Date(req.created_at).toLocaleDateString()}
+                                                    {new Date(req.status !== 'PENDING' ? (req.processed_at || req.updated_at) : req.created_at).toLocaleDateString()}
                                                 </span>
                                             </div>
                                         </td>
