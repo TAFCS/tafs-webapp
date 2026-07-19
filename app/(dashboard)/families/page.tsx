@@ -2,7 +2,7 @@
 
 import { FamiliesDataTable } from "@/features/families/components/families-data-table";
 import { familiesService, type FamilyStats } from "@/lib/families.service";
-import { Link as LinkIcon, Users, Smartphone, AlertCircle } from "lucide-react";
+import { Link as LinkIcon, Users, UserCheck, Smartphone } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const STAT_CONFIG = [
@@ -12,23 +12,24 @@ const STAT_CONFIG = [
         icon: Users,
         iconBg: "bg-indigo-50",
         iconColor: "text-indigo-600",
-        valueFn: (v: number) => v.toLocaleString(),
+        valueFn: (v: number, _stats: FamilyStats) => v.toLocaleString(),
     },
     {
-        key: "registeredOnApp" as keyof FamilyStats,
-        label: "Registered on App",
-        icon: Smartphone,
+        key: "activeWithChildren" as keyof FamilyStats,
+        label: "Active w/ Children",
+        icon: UserCheck,
         iconBg: "bg-emerald-50",
         iconColor: "text-emerald-600",
-        valueFn: (v: number) => v.toLocaleString(),
+        valueFn: (v: number, _stats: FamilyStats) => v.toLocaleString(),
     },
     {
-        key: "notConfigured" as keyof FamilyStats,
-        label: "Not Configured",
-        icon: AlertCircle,
-        iconBg: "bg-amber-50",
-        iconColor: "text-amber-600",
-        valueFn: (v: number) => v.toLocaleString(),
+        key: "withCredentials" as keyof FamilyStats,
+        label: "With Credentials",
+        icon: Smartphone,
+        iconBg: "bg-sky-50",
+        iconColor: "text-sky-600",
+        valueFn: (v: number, stats: FamilyStats) =>
+            `${v.toLocaleString()} (${stats.kidsInCredentialedFamilies.toLocaleString()} kids)`,
     },
 ];
 
@@ -89,7 +90,7 @@ export default function FamiliesPage() {
                                 <div className="h-7 w-20 bg-zinc-100 animate-pulse rounded-lg mt-1.5" />
                             ) : (
                                 <p className="text-2xl font-black text-zinc-900 mt-0.5 tracking-tight font-outfit">
-                                    {stats ? valueFn(stats[key]) : "—"}
+                                    {stats ? valueFn(stats[key], stats) : "—"}
                                 </p>
                             )}
                         </div>
