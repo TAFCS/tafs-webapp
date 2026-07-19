@@ -55,6 +55,7 @@ export const NAV_MODULES: NavModule[] = [
             { name: "Parent Change Requests", description: "Profile update approvals", href: "/parent-change-requests", icon: ShieldCheck, permission: "students.families.view" },
             { name: "Transfers", description: "Inter-school movements", href: "/transfers", icon: ArrowLeftRight, permission: "academic.transfers.view" },
             { name: "Academic Actions", description: "Bulk promotions and actions", href: "/bulk-promote", icon: TrendingUp, permission: "academic.bulk_promote.execute" },
+            { name: "Section Allocation Rules", description: "Capacity and gender limits per campus/class/section", href: "/campuses/allocation-rules", icon: SlidersHorizontal, permission: "academic.campuses.view" },
             { name: "House Balancer", description: "Random evenly balanced house redistribution", href: "/house-balancer", icon: Shuffle, permission: "academic.campuses.view" },
         ],
     },

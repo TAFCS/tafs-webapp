@@ -6,11 +6,14 @@ import {
     AlertCircle,
     AlertTriangle,
     ArrowLeft,
+    ArrowRightLeft,
     CheckCircle,
     Loader2,
     RefreshCw,
     Save,
+    Search,
     Users,
+    X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAppSelector } from "@/store/hooks";
@@ -20,6 +23,15 @@ import {
     SectionGenderMode,
     campusesService,
 } from "@/lib/campuses.service";
+import {
+    SectionRosterStudent,
+    studentsService,
+} from "@/lib/students.service";
+import {
+    extractApiErrorMessage,
+    formatSectionOptionLabel,
+    isSectionSelectableForGender,
+} from "@/lib/section-allocation";
 
 type DraftRule = {
     student_capacity: string;
@@ -49,6 +61,12 @@ export default function SectionAllocationRulesPage() {
         || !!user?.permissions?.includes("academic.campuses.update")
         || user?.role === "SUPER_ADMIN"
         || user?.role === "CAMPUS_ADMIN";
+    const canViewStudents = !!user?.permissions?.includes("students.directory.view")
+        || user?.role === "SUPER_ADMIN"
+        || user?.role === "CAMPUS_ADMIN";
+    const canMoveStudents = !!user?.permissions?.includes("students.directory.edit")
+        || user?.role === "SUPER_ADMIN"
+        || user?.role === "CAMPUS_ADMIN";
 
     const [campuses, setCampuses] = useState<Campus[]>([]);
     const [selectedCampusId, setSelectedCampusId] = useState<number | "">("");
@@ -57,6 +75,12 @@ export default function SectionAllocationRulesPage() {
     const [savingId, setSavingId] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [managingSectionId, setManagingSectionId] = useState<number | null>(null);
+    const [roster, setRoster] = useState<SectionRosterStudent[]>([]);
+    const [isRosterLoading, setIsRosterLoading] = useState(false);
+    const [rosterSearch, setRosterSearch] = useState("");
+    const [destinationByStudent, setDestinationByStudent] = useState<Record<number, string>>({});
+    const [movingStudentId, setMovingStudentId] = useState<number | null>(null);
 
     const loadData = async () => {
         setIsLoading(true);
@@ -98,6 +122,13 @@ export default function SectionAllocationRulesPage() {
         });
         setDrafts(next);
     }, [selectedCampusId, selectedClassId, campuses]);
+
+    useEffect(() => {
+        setManagingSectionId(null);
+        setRoster([]);
+        setRosterSearch("");
+        setDestinationByStudent({});
+    }, [selectedCampusId, selectedClassId]);
 
     if (!canView) {
         return (
@@ -162,6 +193,74 @@ export default function SectionAllocationRulesPage() {
             setSavingId(null);
         }
     };
+
+    const refreshCampusData = async () => {
+        const data = await campusesService.list();
+        setCampuses(data);
+    };
+
+    const openRosterManager = async (section: OfferedSection) => {
+        if (!selectedCampusId || !selectedClassId || !canViewStudents) return;
+        setManagingSectionId(section.id);
+        setRoster([]);
+        setRosterSearch("");
+        setDestinationByStudent({});
+        setIsRosterLoading(true);
+        try {
+            const students = await studentsService.listSectionRoster({
+                campus_id: Number(selectedCampusId),
+                class_id: Number(selectedClassId),
+                section_id: section.id,
+            });
+            setRoster(students);
+        } catch (err) {
+            toast.error(extractApiErrorMessage(err, "Failed to load the section roster."));
+            setManagingSectionId(null);
+        } finally {
+            setIsRosterLoading(false);
+        }
+    };
+
+    const moveStudent = async (student: SectionRosterStudent) => {
+        if (!selectedCampusId || !selectedClassId || !managingSectionId) return;
+        const destinationSectionId = Number(destinationByStudent[student.cc]);
+        if (!destinationSectionId || destinationSectionId === managingSectionId) {
+            toast.error("Select a different destination section.");
+            return;
+        }
+
+        setMovingStudentId(student.cc);
+        try {
+            await studentsService.moveToSection(student.cc, {
+                campus_id: Number(selectedCampusId),
+                class_id: Number(selectedClassId),
+                section_id: destinationSectionId,
+            });
+            setRoster((current) => current.filter((item) => item.cc !== student.cc));
+            setDestinationByStudent((current) => {
+                const next = { ...current };
+                delete next[student.cc];
+                return next;
+            });
+            await refreshCampusData();
+            toast.success(`${student.student_full_name} moved successfully.`);
+        } catch (err) {
+            toast.error(extractApiErrorMessage(err, "Failed to move student."));
+        } finally {
+            setMovingStudentId(null);
+        }
+    };
+
+    const managedSection = sections.find((section) => section.id === managingSectionId);
+    const filteredRoster = roster.filter((student) => {
+        const query = rosterSearch.trim().toLowerCase();
+        if (!query) return true;
+        return (
+            student.student_full_name?.toLowerCase().includes(query)
+            || String(student.cc).includes(query)
+            || student.gr_number?.toLowerCase().includes(query)
+        );
+    });
 
     return (
         <div className="p-6 md:p-8 space-y-6">
@@ -383,9 +482,165 @@ export default function SectionAllocationRulesPage() {
                                         </button>
                                     </div>
                                 </div>
+
+                                {canViewStudents && (
+                                    <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
+                                        <button
+                                            onClick={() => openRosterManager(section)}
+                                            className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-950"
+                                        >
+                                            <Users className="h-4 w-4" />
+                                            Manage {section.enrolled_count ?? 0} allocated student(s)
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {managingSectionId && managedSection && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900">
+                        <div className="flex items-start justify-between border-b border-slate-200 p-5 dark:border-slate-800">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                                    Manage Section {managedSection.description} Students
+                                </h2>
+                                <p className="mt-1 text-sm text-slate-500">
+                                    {selectedCampus?.campus_name} · {selectedClass?.description} · {roster.length} enrolled student(s)
+                                </p>
+                                <p className="mt-1 text-xs text-slate-400">
+                                    Move existing students to another configured section. Capacity and gender rules are checked by the server.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setManagingSectionId(null)}
+                                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+                                aria-label="Close roster manager"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="border-b border-slate-200 p-4 dark:border-slate-800">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                <input
+                                    value={rosterSearch}
+                                    onChange={(event) => setRosterSearch(event.target.value)}
+                                    placeholder="Search by student name, CC, or GR number"
+                                    className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="overflow-auto">
+                            {isRosterLoading ? (
+                                <div className="flex items-center justify-center gap-2 p-12 text-slate-500">
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                    Loading allocated students…
+                                </div>
+                            ) : filteredRoster.length === 0 ? (
+                                <div className="p-12 text-center text-slate-500">
+                                    {roster.length === 0
+                                        ? "No enrolled students are allocated to this section."
+                                        : "No students match your search."}
+                                </div>
+                            ) : (
+                                <table className="min-w-full text-sm">
+                                    <thead className="sticky top-0 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950">
+                                        <tr>
+                                            <th className="px-4 py-3">Student</th>
+                                            <th className="px-4 py-3">Gender</th>
+                                            <th className="px-4 py-3">Destination section</th>
+                                            <th className="px-4 py-3 text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredRoster.map((student) => (
+                                            <tr
+                                                key={student.cc}
+                                                className="border-t border-slate-100 dark:border-slate-800"
+                                            >
+                                                <td className="px-4 py-3">
+                                                    <div className="font-semibold text-slate-900 dark:text-white">
+                                                        {student.student_full_name}
+                                                    </div>
+                                                    <div className="text-xs text-slate-500">
+                                                        CC {student.cc}
+                                                        {student.gr_number ? ` · GR ${student.gr_number}` : ""}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                                                    {student.gender || "Unknown"}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <select
+                                                        value={destinationByStudent[student.cc] ?? ""}
+                                                        onChange={(event) =>
+                                                            setDestinationByStudent((current) => ({
+                                                                ...current,
+                                                                [student.cc]: event.target.value,
+                                                            }))
+                                                        }
+                                                        disabled={!canMoveStudents || movingStudentId === student.cc}
+                                                        className="w-full min-w-52 rounded-lg border border-slate-200 bg-white px-3 py-2 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950"
+                                                    >
+                                                        <option value="">Select destination</option>
+                                                        {sections
+                                                            .filter((section) => section.id !== managingSectionId)
+                                                            .map((section) => {
+                                                                const selectable = isSectionSelectableForGender(
+                                                                    section,
+                                                                    student.gender,
+                                                                );
+                                                                return (
+                                                                    <option
+                                                                        key={section.id}
+                                                                        value={section.id}
+                                                                        disabled={!selectable}
+                                                                    >
+                                                                        {formatSectionOptionLabel(section, {
+                                                                            studentGender: student.gender,
+                                                                        })}
+                                                                    </option>
+                                                                );
+                                                            })}
+                                                    </select>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <button
+                                                        onClick={() => moveStudent(student)}
+                                                        disabled={
+                                                            !canMoveStudents
+                                                            || movingStudentId === student.cc
+                                                            || !destinationByStudent[student.cc]
+                                                        }
+                                                        className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                                                    >
+                                                        {movingStudentId === student.cc ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <ArrowRightLeft className="h-4 w-4" />
+                                                        )}
+                                                        Move
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+
+                        {!canMoveStudents && (
+                            <div className="border-t border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                                You can view this roster, but moving students requires the Student Directory edit permission.
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
