@@ -332,10 +332,10 @@ export default function ParentChangeRequestsPage() {
                                         <td className="px-8 py-6 text-right">
                                             <button 
                                                 onClick={() => setSelectedRequest(req)}
-                                                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-black text-primary hover:bg-primary/10 rounded-xl transition-all hover:gap-3 group/btn"
+                                                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-black text-primary hover:bg-primary/10 rounded-xl transition-colors group/btn"
                                             >
                                                 {req.status === 'PENDING' ? 'Review' : 'View Details'}
-                                                <ArrowRight className="h-4 w-4" />
+                                                <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-1" />
                                             </button>
                                         </td>
                                     </tr>
