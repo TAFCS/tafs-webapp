@@ -745,6 +745,13 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
                   </h3>
                   <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider mb-4">This address applies to father, mother, and all guardians</p>
 
+                  {family.primary_address && (
+                    <div className="mb-4 p-3 bg-zinc-100/60 dark:bg-zinc-800/60 rounded-xl border border-zinc-200/50 dark:border-zinc-700/50">
+                      <p className="text-[10px] text-zinc-400 font-black uppercase tracking-wider mb-1">Active Family Address</p>
+                      <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 uppercase">{family.primary_address}</p>
+                    </div>
+                  )}
+
                   {isEditingAddrCard ? (
                     <div className="space-y-5 animate-in fade-in duration-200">
                       <div className="flex items-center justify-between flex-wrap gap-4 pt-2 border-t border-zinc-100 dark:border-zinc-800">
