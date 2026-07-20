@@ -43,15 +43,19 @@ export default function ParentChangeRequestsPage() {
         }
         return Object.keys(req.requested_data).filter((key) => {
             if (key === 'request_type' || key === 'student_cc') return false;
-            if (req.status !== 'PENDING') return true;
-            const currentValue = req.guardians?.[key];
             const newValue = req.requested_data[key];
-            const normCurrent = (currentValue || '').toString().trim();
-            const normNew = (String(newValue) || '').trim();
-            if (normCurrent === normNew) return false;
-            if (normCurrent === '' && normNew === '+92') return false;
+            const normNew = (String(newValue ?? '')).trim();
+            // Hide placeholder-only phone drafts
+            if (normNew === '+92') return false;
             return true;
         });
+    };
+
+    const fieldAlreadyMatches = (req: any, key: string, newValue: any): boolean => {
+        const currentValue = req?.guardians?.[key];
+        const normCurrent = (currentValue ?? '').toString().trim().toUpperCase();
+        const normNew = (String(newValue ?? '')).trim().toUpperCase();
+        return normCurrent === normNew;
     };
 
     const openRequest = (req: any) => {
@@ -115,8 +119,18 @@ export default function ParentChangeRequestsPage() {
             setShowRejectionModal(false);
             setRejectionComment("");
             fetchRequests();
-        } catch (error) {
-            toast.error(`Failed to ${status.toLowerCase()} request`);
+        } catch (error: any) {
+            const apiMessage =
+                error?.response?.data?.message ||
+                error?.response?.data?.error ||
+                (Array.isArray(error?.response?.data?.message)
+                    ? error.response.data.message.join(', ')
+                    : null);
+            toast.error(
+                typeof apiMessage === 'string'
+                    ? apiMessage
+                    : `Failed to ${status.toLowerCase()} request`
+            );
         } finally {
             setIsProcessing(false);
         }
@@ -741,21 +755,27 @@ export default function ParentChangeRequestsPage() {
                                                 });
                                             })()
                                         ) : (
-                                            Object.entries(selectedRequest.requested_data)
-                                                .filter(([key, newValue]) => {
-                                                    if (key === 'request_type' || key === 'student_cc') return false;
-                                                    if (selectedRequest.status !== 'PENDING') return true;
+                                            (() => {
+                                                const entries = Object.entries(selectedRequest.requested_data)
+                                                    .filter(([key, newValue]) => {
+                                                        if (key === 'request_type' || key === 'student_cc') return false;
+                                                        const normNew = (String(newValue ?? '')).trim();
+                                                        if (normNew === '+92') return false;
+                                                        return true;
+                                                    });
+
+                                                if (entries.length === 0) {
+                                                    return (
+                                                        <div className="p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 text-sm font-medium text-zinc-500">
+                                                            No field updates on this request.
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return entries.map(([key, newValue]) => {
                                                     const currentValue = selectedRequest.guardians?.[key];
-                                                    const normCurrent = (currentValue || '').trim();
-                                                    const normNew = (String(newValue) || '').trim();
-                                                    
-                                                    if (normCurrent === normNew) return false;
-                                                    if (normCurrent === '' && normNew === '+92') return false;
-                                                    return true;
-                                                })
-                                                .map(([key, newValue]) => {
-                                                    const currentValue = selectedRequest.guardians?.[key];
-                                                    const isChanged = selectedRequest.status !== 'PENDING' || (currentValue || '') !== (newValue || '');
+                                                    const alreadyMatches = fieldAlreadyMatches(selectedRequest, key, newValue);
+                                                    const isChanged = selectedRequest.status !== 'PENDING' || !alreadyMatches;
                                                     const canSelect = selectedRequest.status === 'PENDING';
                                                     const isChecked = selectedFields.has(key);
                                                     return (
@@ -783,12 +803,16 @@ export default function ParentChangeRequestsPage() {
                                                                             className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary cursor-pointer"
                                                                         />
                                                                     )}
-                                                                    <div className={`p-1.5 rounded-lg ${isChanged ? 'bg-amber-100 text-amber-600' : 'bg-zinc-200 text-zinc-500'} transition-colors`}>
+                                                                    <div className={`p-1.5 rounded-lg ${isChanged ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'} transition-colors`}>
                                                                         {getFieldIcon(key)}
                                                                     </div>
                                                                     <span className="text-sm font-black text-zinc-850 dark:text-zinc-200">{formatLabel(key)}</span>
                                                                 </div>
-                                                                {isChanged && <span className="text-[8px] px-2 py-0.5 bg-amber-500 text-white rounded-full font-black tracking-wider animate-pulse">CHANGED</span>}
+                                                                {alreadyMatches && selectedRequest.status === 'PENDING' ? (
+                                                                    <span className="text-[8px] px-2 py-0.5 bg-emerald-500 text-white rounded-full font-black tracking-wider">ALREADY MATCHES</span>
+                                                                ) : isChanged ? (
+                                                                    <span className="text-[8px] px-2 py-0.5 bg-amber-500 text-white rounded-full font-black tracking-wider animate-pulse">CHANGED</span>
+                                                                ) : null}
                                                             </div>
                                                             
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
@@ -821,7 +845,8 @@ export default function ParentChangeRequestsPage() {
                                                             </div>
                                                         </div>
                                                     );
-                                                })
+                                                });
+                                            })()
                                         )}
                                     </div>
                                 </div>
