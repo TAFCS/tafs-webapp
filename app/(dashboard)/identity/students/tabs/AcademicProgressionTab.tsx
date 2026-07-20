@@ -20,6 +20,25 @@ interface HistoryRow {
   campuses: { campus_name: string } | null;
 }
 
+interface HouseRef {
+  id: number;
+  house_name: string | null;
+  house_color: string | null;
+}
+
+interface HouseHistoryRow {
+  id: number;
+  from_house: HouseRef | null;
+  to_house: HouseRef | null;
+  changed_by: string | null;
+  changed_at: string;
+  note: string | null;
+}
+
+type TimelineEvent =
+  | { kind: "academic"; key: string; changed_at: string; data: HistoryRow }
+  | { kind: "house"; key: string; changed_at: string; data: HouseHistoryRow };
+
 const CHANGE_TYPE_STYLES: Record<string, { bg: string; text: string }> = {
   ENROLLED: { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700" },
   PROMOTED: { bg: "bg-blue-50 border-blue-200", text: "text-blue-700" },
@@ -28,22 +47,38 @@ const CHANGE_TYPE_STYLES: Record<string, { bg: string; text: string }> = {
   GRADUATED: { bg: "bg-purple-50 border-purple-200", text: "text-purple-700" },
 };
 
+function HouseChip({ house }: { house: HouseRef | null }) {
+  if (!house) {
+    return <span className="text-zinc-400">Unassigned</span>;
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="h-2.5 w-2.5 rounded-full"
+        style={{ backgroundColor: house.house_color || "#94a3b8" }}
+      />
+      {house.house_name || `House #${house.id}`}
+    </span>
+  );
+}
+
 export function AcademicProgressionTab({ cc }: { cc: number }) {
   const [rows, setRows] = useState<HistoryRow[]>([]);
+  const [houseRows, setHouseRows] = useState<HouseHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    api
-      .get(`/v1/students/${cc}/academic-history`)
-      .then((res) => {
-        if (!cancelled) setRows(res.data?.data ?? []);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    Promise.all([
+      api.get(`/v1/students/${cc}/academic-history`).catch(() => null),
+      api.get(`/v1/students/${cc}/house-history`).catch(() => null),
+    ]).then(([academicRes, houseRes]) => {
+      if (cancelled) return;
+      setRows(academicRes?.data?.data ?? []);
+      setHouseRows(houseRes?.data?.data ?? []);
+      setLoading(false);
+    });
     return () => { cancelled = true; };
   }, [cc]);
 
@@ -55,26 +90,67 @@ export function AcademicProgressionTab({ cc }: { cc: number }) {
     );
   }
 
-  if (rows.length === 0) {
+  const events: TimelineEvent[] = [
+    ...rows.map((row): TimelineEvent => ({
+      kind: "academic",
+      key: `academic-${row.id}`,
+      changed_at: row.changed_at,
+      data: row,
+    })),
+    ...houseRows.map((row): TimelineEvent => ({
+      kind: "house",
+      key: `house-${row.id}`,
+      changed_at: row.changed_at,
+      data: row,
+    })),
+  ].sort((a, b) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime());
+
+  if (events.length === 0) {
     return (
       <div className="flex items-center justify-center py-16 text-zinc-400 text-sm font-medium">
-        No academic history recorded yet.
+        No progression history recorded yet.
       </div>
     );
   }
 
-  const sorted = [...rows].reverse();
+  const sorted = [...events].reverse();
+  const academicRows = rows;
 
   return (
     <div className="px-6 py-5">
       <div className="relative border-l-2 border-zinc-200 ml-3">
-        {sorted.map((row, idx) => {
-          const prevRow = idx < sorted.length - 1 ? sorted[idx + 1] : null;
+        {sorted.map((event) => {
+          if (event.kind === "house") {
+            const row = event.data;
+            return (
+              <div key={event.key} className="relative pl-7 pb-6 last:pb-0">
+                <div className="absolute left-[-5px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white bg-zinc-400 shadow-sm" />
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-bold uppercase tracking-wide bg-indigo-50 border-indigo-200 text-indigo-700">
+                    HOUSE CHANGED
+                  </span>
+                  <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-md bg-zinc-50 border border-zinc-200 text-[13px] font-medium text-zinc-700">
+                    <HouseChip house={row.from_house} />
+                    <span className="text-zinc-300">→</span>
+                    <HouseChip house={row.to_house} />
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center gap-3 text-[11px] text-zinc-400">
+                  <span>{new Date(row.changed_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                  {row.changed_by && <span>by {row.changed_by}</span>}
+                </div>
+              </div>
+            );
+          }
+
+          const row = event.data;
+          const idx = academicRows.findIndex((r) => r.id === row.id);
+          const prevRow = idx > 0 ? academicRows[idx - 1] : null;
           const grChanged = prevRow && row.gr_number !== prevRow.gr_number && row.gr_number;
           const style = CHANGE_TYPE_STYLES[row.change_type] ?? CHANGE_TYPE_STYLES.REASSIGNED;
 
           return (
-            <div key={row.id} className="relative pl-7 pb-6 last:pb-0">
+            <div key={event.key} className="relative pl-7 pb-6 last:pb-0">
               <div className="absolute left-[-5px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white bg-zinc-400 shadow-sm" />
 
               <div className="flex flex-wrap items-center gap-2">
