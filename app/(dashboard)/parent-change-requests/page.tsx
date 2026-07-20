@@ -599,6 +599,11 @@ export default function ParentChangeRequestsPage() {
                                                                     <div className="text-xs font-bold text-zinc-500 dark:text-zinc-400 break-all">
                                                                         {key === 'photo_url' && currentValue && String(currentValue).startsWith('http') ? (
                                                                             <img src={currentValue} className="h-20 w-20 object-cover rounded-xl border border-zinc-200 dark:border-zinc-800" />
+                                                                        ) : key === 'cnic_pic_url' && currentValue && String(currentValue).startsWith('http') ? (
+                                                                            <a href={currentValue} target="_blank" rel="noopener noreferrer" className="block group">
+                                                                                <img src={currentValue} className="h-32 w-48 object-contain bg-zinc-100 dark:bg-zinc-950 rounded-xl border border-zinc-200 dark:border-zinc-800 transition hover:opacity-90" />
+                                                                                <span className="text-[10px] text-primary group-hover:underline mt-1 block">Click to view full size</span>
+                                                                            </a>
                                                                         ) : formatValue(key, currentValue)}
                                                                     </div>
                                                                 </div>
@@ -607,6 +612,11 @@ export default function ParentChangeRequestsPage() {
                                                                     <div className="text-xs font-black text-zinc-900 dark:text-zinc-100 break-all">
                                                                         {key === 'photo_url' && newValue && String(newValue).startsWith('http') ? (
                                                                             <img src={newValue as string} className="h-20 w-20 object-cover rounded-xl border border-zinc-200 dark:border-zinc-800" />
+                                                                        ) : key === 'cnic_pic_url' && newValue && String(newValue).startsWith('http') ? (
+                                                                            <a href={newValue as string} target="_blank" rel="noopener noreferrer" className="block group">
+                                                                                <img src={newValue as string} className="h-32 w-48 object-contain bg-zinc-100 dark:bg-zinc-950 rounded-xl border border-zinc-200 dark:border-zinc-800 transition hover:opacity-90" />
+                                                                                <span className="text-[10px] text-primary group-hover:underline mt-1 block">Click to view full size</span>
+                                                                            </a>
                                                                         ) : formatValue(key, newValue)}
                                                                     </div>
                                                                 </div>
