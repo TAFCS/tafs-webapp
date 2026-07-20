@@ -1,7 +1,7 @@
 "use client";
 
 import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe, Download, Reply, WifiOff, RefreshCcw, Check, CheckCheck } from "lucide-react";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { format, isSameDay } from "date-fns";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import api from "@/lib/api";
@@ -44,8 +44,19 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const shouldSend = useRef(true);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const prevMessageTailRef = useRef<string | null>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const docInputRef = useRef<HTMLInputElement>(null);
+
+    const scrollToBottom = useCallback((smooth = false) => {
+        const el = scrollRef.current;
+        if (!el) return;
+        el.scrollTo({
+            top: el.scrollHeight,
+            behavior: smooth ? "smooth" : "instant",
+        });
+    }, []);
 
     const isAnnouncementChannel = familyId === 0;
 
@@ -128,13 +139,33 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
         });
     };
 
-    const prevMessagesLength = useRef(messages.length);
+    // Jump to latest when opening or switching a conversation.
     useEffect(() => {
-        if (scrollRef.current && messages.length > prevMessagesLength.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-        prevMessagesLength.current = messages.length;
-    }, [messages]);
+        prevMessageTailRef.current = null;
+    }, [familyId]);
+
+    useEffect(() => {
+        if (familyId === null || isLoading) return;
+
+        const jump = () => scrollToBottom(false);
+        jump();
+        const raf1 = requestAnimationFrame(() => {
+            jump();
+            requestAnimationFrame(jump);
+        });
+        return () => cancelAnimationFrame(raf1);
+    }, [familyId, isLoading, messageTailKey, scrollToBottom]);
+
+    // Stick to bottom when messages change (send, receive, optimistic confirm).
+    useEffect(() => {
+        if (familyId === null || isLoading || !messageTailKey) return;
+
+        if (prevMessageTailRef.current === messageTailKey) return;
+
+        const isFirstPaint = prevMessageTailRef.current === null;
+        prevMessageTailRef.current = messageTailKey;
+        scrollToBottom(!isFirstPaint);
+    }, [messageTailKey, familyId, isLoading, scrollToBottom]);
 
     const startRecording = async () => {
         try {
@@ -294,6 +325,12 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
             }
         }
         return results;
+    }, [messages]);
+
+    const messageTailKey = useMemo(() => {
+        if (messages.length === 0) return "";
+        const tail = messages[messages.length - 1];
+        return `${tail?.id ?? ""}:${tail?.status ?? ""}:${messages.length}`;
     }, [messages]);
 
     if (familyId === null) {
@@ -548,6 +585,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                         </div>
                     );
                 })}
+                <div ref={messagesEndRef} aria-hidden="true" className="h-px shrink-0" />
             </div>
 
             {/* Input Area */}

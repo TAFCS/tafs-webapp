@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { FileText, Loader2, Mic, Send, X, User, ShieldCheck, Phone } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -141,6 +141,9 @@ export function TicketThread({
   const { socket } = useSocket();
   const [reply, setReply] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevMessageTailRef = useRef<string | null>(null);
   const [parentTyping, setParentTyping] = useState(false);
   const [showClaim, setShowClaim] = useState(false);
   const [showForward, setShowForward] = useState(false);
@@ -188,9 +191,53 @@ export function TicketThread({
   const isSuperAdmin = userRole === "SUPER_ADMIN";
   const isReadOnlyViewer = !isClosed && !isAssignee;
   const canCompose = !isClosed && (isAssignee || isSuperAdmin);
-  const messages = [...(ticket.messages ?? [])].reverse();
+  const messages = useMemo(
+    () => [...(ticket.messages ?? [])].reverse(),
+    [ticket.messages],
+  );
   const senderColorMap = buildSenderColorMap(messages);
   const composerDisabled = isSending || uploading;
+
+  const messageTailKey = useMemo(() => {
+    if (messages.length === 0) return "";
+    const tail = messages[messages.length - 1];
+    return `${tail?.id ?? ""}:${tail?.status ?? ""}:${messages.length}`;
+  }, [messages]);
+
+  const scrollToBottom = useCallback((smooth = false) => {
+    const el = messagesScrollRef.current;
+    if (!el) return;
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: smooth ? "smooth" : "instant",
+    });
+  }, []);
+
+  useEffect(() => {
+    prevMessageTailRef.current = null;
+  }, [ticket.id]);
+
+  useEffect(() => {
+    if (!messageTailKey) return;
+
+    const jump = () => scrollToBottom(false);
+    jump();
+    const raf1 = requestAnimationFrame(() => {
+      jump();
+      requestAnimationFrame(jump);
+    });
+    return () => cancelAnimationFrame(raf1);
+  }, [ticket.id, messageTailKey, scrollToBottom]);
+
+  useEffect(() => {
+    if (!messageTailKey) return;
+
+    if (prevMessageTailRef.current === messageTailKey) return;
+
+    const isFirstPaint = prevMessageTailRef.current === null;
+    prevMessageTailRef.current = messageTailKey;
+    scrollToBottom(!isFirstPaint);
+  }, [messageTailKey, scrollToBottom]);
 
   const emitTyping = (isTyping: boolean) => {
     if (!socket || !ticket.id) return;
@@ -574,7 +621,7 @@ export function TicketThread({
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 relative">
+      <div ref={messagesScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 relative">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-zinc-400 gap-2">
             <p className="text-sm font-medium">No messages yet</p>
@@ -699,6 +746,7 @@ export function TicketThread({
             </div>
           );
         })}
+        <div ref={messagesEndRef} aria-hidden="true" className="h-px shrink-0" />
       </div>
 
       {canCompose ? (
