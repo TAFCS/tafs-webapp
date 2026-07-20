@@ -689,7 +689,9 @@ export function TicketThread({
                     </>
                   )}
                 </p>
-                {msg.message_type === "TEXT" && <p>{msg.content}</p>}
+                {msg.message_type === "TEXT" && (
+                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                )}
                 {renderMedia(msg)}
                 <div className="flex gap-2 mt-1 text-[10px] opacity-70 flex-wrap items-center">
                   <span>{format(new Date(msg.created_at), "h:mm a")}</span>
