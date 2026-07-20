@@ -144,15 +144,51 @@ export default function ParentChangeRequestsPage() {
             .join(' / ');
     };
 
+    const toDateOnly = (value: any): string | null => {
+        if (value === null || value === undefined || value === '') return null;
+        const str = String(value).trim();
+        // Prefer explicit YYYY-MM-DD prefix to avoid locale/timezone parse quirks
+        const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+        const parsed = new Date(str);
+        if (!Number.isNaN(parsed.getTime())) {
+            const y = parsed.getUTCFullYear();
+            const m = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+            const d = String(parsed.getUTCDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+        return null;
+    };
+
+    const formatDobDisplay = (value: any): string => {
+        const iso = toDateOnly(value);
+        if (!iso) return 'N/A';
+        const [y, m, d] = iso.split('-').map(Number);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${String(d).padStart(2, '0')} ${months[m - 1]} ${y}`; // e.g. 12 Jul 2010 — unambiguous
+    };
+
+    /** True when requested DOB is exactly month/day swapped vs original (common app bug). */
+    const isMonthDaySwap = (original: any, requested: any): boolean => {
+        const a = toDateOnly(original);
+        const b = toDateOnly(requested);
+        if (!a || !b) return false;
+        const [ay, am, ad] = a.split('-');
+        const [by, bm, bd] = b.split('-');
+        return ay === by && am === bd && ad === bm && am !== ad;
+    };
+
     const formatValue = (key: string, value: any) => {
         if (value === null || value === undefined || value === '') return 'N/A';
         const strVal = String(value);
         const lowerKey = key.toLowerCase();
+        if (lowerKey === 'dob') {
+            return formatDobDisplay(value);
+        }
         if (
             lowerKey.includes('email') ||
             lowerKey.includes('url') ||
-            lowerKey.includes('pic') ||
-            lowerKey === 'dob'
+            lowerKey.includes('pic')
         ) {
             return strVal;
         }
@@ -161,6 +197,7 @@ export default function ParentChangeRequestsPage() {
 
     const formatLabel = (key: string) => {
         if (key === 'request_type') return 'Request Type';
+        if (key === 'dob') return 'Date of Birth';
         return key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     };
 
@@ -634,8 +671,13 @@ export default function ParentChangeRequestsPage() {
 
                                                 return Object.entries(changes).map(([key, newValue]) => {
                                                     const currentValue = student?.[key];
-                                                    const isChanged = selectedRequest.status !== 'PENDING' || (currentValue || '') !== (newValue || '');
+                                                    const valuesEqual =
+                                                        key === 'dob'
+                                                            ? toDateOnly(currentValue) === toDateOnly(newValue)
+                                                            : (currentValue || '') === (newValue || '');
+                                                    const isChanged = selectedRequest.status !== 'PENDING' || !valuesEqual;
                                                     const isChecked = selectedFields.has(key);
+                                                    const dobLooksSwapped = key === 'dob' && isMonthDaySwap(currentValue, newValue);
 
                                                     return (
                                                         <div
@@ -669,6 +711,12 @@ export default function ParentChangeRequestsPage() {
                                                                 </div>
                                                                 {isChanged && <span className="text-[8px] px-2 py-0.5 bg-amber-500 text-white rounded-full font-black tracking-wider animate-pulse">CHANGED</span>}
                                                             </div>
+
+                                                            {dobLooksSwapped && (
+                                                                <div className="mb-3 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900/40 text-[11px] font-bold text-rose-700 dark:text-rose-300">
+                                                                    Likely month/day swap (e.g. 12 Jul ↔ 7 Dec). Reject unless the parent intentionally changed the date.
+                                                                </div>
+                                                            )}
                                                             
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
                                                                 <div className="p-3 bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-100 dark:border-zinc-900">
