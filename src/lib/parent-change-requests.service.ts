@@ -6,7 +6,14 @@ export const parentChangeRequestsService = {
     return response.data;
   },
 
-  async processRequest(id: number, data: { status: 'APPROVED' | 'REJECTED'; comment?: string }) {
+  async processRequest(
+    id: number,
+    data: {
+      status: 'APPROVED' | 'REJECTED';
+      comment?: string;
+      approved_fields?: string[];
+    },
+  ) {
     const response = await api.patch(`/v1/parent-change-requests/${id}/process`, data);
     return response.data;
   },

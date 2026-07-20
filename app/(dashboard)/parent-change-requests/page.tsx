@@ -20,6 +20,7 @@ export default function ParentChangeRequestsPage() {
     const [requests, setRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedRequest, setSelectedRequest] = useState<any>(null);
+    const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set());
     const [isProcessing, setIsProcessing] = useState(false);
     const [rejectionComment, setRejectionComment] = useState("");
     const [showRejectionModal, setShowRejectionModal] = useState(false);
@@ -28,6 +29,44 @@ export default function ParentChangeRequestsPage() {
     useEffect(() => {
         fetchRequests();
     }, []);
+
+    const isAccountDeletionRequest = (req: any) =>
+        req?.requested_data?.request_type === 'ACCOUNT_DELETION';
+
+    const isStudentUpdateRequest = (req: any) =>
+        req?.requested_data?.request_type === 'STUDENT_UPDATE';
+
+    const getApprovableFieldKeys = (req: any): string[] => {
+        if (!req?.requested_data || isAccountDeletionRequest(req)) return [];
+        if (isStudentUpdateRequest(req)) {
+            return Object.keys(req.requested_data.changes || {});
+        }
+        return Object.keys(req.requested_data).filter((key) => {
+            if (key === 'request_type' || key === 'student_cc') return false;
+            if (req.status !== 'PENDING') return true;
+            const currentValue = req.guardians?.[key];
+            const newValue = req.requested_data[key];
+            const normCurrent = (currentValue || '').toString().trim();
+            const normNew = (String(newValue) || '').trim();
+            if (normCurrent === normNew) return false;
+            if (normCurrent === '' && normNew === '+92') return false;
+            return true;
+        });
+    };
+
+    const openRequest = (req: any) => {
+        setSelectedRequest(req);
+        setSelectedFields(new Set(getApprovableFieldKeys(req)));
+    };
+
+    const toggleField = (key: string) => {
+        setSelectedFields((prev) => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+        });
+    };
 
     const fetchRequests = async () => {
         try {
@@ -43,13 +82,36 @@ export default function ParentChangeRequestsPage() {
 
     const handleProcess = async (id: number, status: 'APPROVED' | 'REJECTED') => {
         try {
+            if (status === 'APPROVED' && !isAccountDeletionRequest(selectedRequest)) {
+                if (selectedFields.size === 0) {
+                    toast.error("Select at least one field to approve");
+                    return;
+                }
+            }
             setIsProcessing(true);
-            await parentChangeRequestsService.processRequest(id, { 
-                status, 
-                comment: status === 'REJECTED' ? rejectionComment : undefined 
-            });
-            toast.success(`Request ${status.toLowerCase()} successfully`);
+            const payload: {
+                status: 'APPROVED' | 'REJECTED';
+                comment?: string;
+                approved_fields?: string[];
+            } = {
+                status,
+                comment: status === 'REJECTED' ? rejectionComment : undefined,
+            };
+            if (status === 'APPROVED' && !isAccountDeletionRequest(selectedRequest)) {
+                payload.approved_fields = Array.from(selectedFields);
+            }
+            await parentChangeRequestsService.processRequest(id, payload);
+            const partial =
+                status === 'APPROVED' &&
+                !isAccountDeletionRequest(selectedRequest) &&
+                selectedFields.size < getApprovableFieldKeys(selectedRequest).length;
+            toast.success(
+                partial
+                    ? "Selected fields approved — remaining stay pending"
+                    : `Request ${status.toLowerCase()} successfully`
+            );
             setSelectedRequest(null);
+            setSelectedFields(new Set());
             setShowRejectionModal(false);
             setRejectionComment("");
             fetchRequests();
@@ -69,12 +131,6 @@ export default function ParentChangeRequestsPage() {
         (r.guardians?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
          r.families?.household_name?.toLowerCase().includes(searchQuery.toLowerCase()))
     );
-
-    const isAccountDeletionRequest = (req: any) =>
-        req?.requested_data?.request_type === 'ACCOUNT_DELETION';
-
-    const isStudentUpdateRequest = (req: any) =>
-        req?.requested_data?.request_type === 'STUDENT_UPDATE';
 
     const getGuardianRelation = (req: any) => {
         const sgList = req?.guardians?.student_guardians || [];
@@ -331,7 +387,7 @@ export default function ParentChangeRequestsPage() {
                                         </td>
                                         <td className="px-8 py-6 text-right">
                                             <button 
-                                                onClick={() => setSelectedRequest(req)}
+                                                onClick={() => openRequest(req)}
                                                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-black text-primary hover:bg-primary/10 rounded-xl transition-colors group/btn"
                                             >
                                                 {req.status === 'PENDING' ? 'Review' : 'View Details'}
@@ -354,7 +410,10 @@ export default function ParentChangeRequestsPage() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => setSelectedRequest(null)}
+                            onClick={() => {
+                                setSelectedRequest(null);
+                                setSelectedFields(new Set());
+                            }}
                             className="absolute inset-0 bg-black/60 backdrop-blur-md"
                         />
                         <motion.div 
@@ -391,7 +450,13 @@ export default function ParentChangeRequestsPage() {
                                             </span>
                                         </div>
                                     </div>
-                                    <button onClick={() => setSelectedRequest(null)} className="ml-4 shrink-0 p-3 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-2xl transition-colors">
+                                    <button
+                                        onClick={() => {
+                                            setSelectedRequest(null);
+                                            setSelectedFields(new Set());
+                                        }}
+                                        className="ml-4 shrink-0 p-3 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-2xl transition-colors"
+                                    >
                                         <X className="h-6 w-6" />
                                     </button>
                                 </div>
@@ -517,24 +582,86 @@ export default function ParentChangeRequestsPage() {
 
                                     {/* Right Column: Actual changes comparison */}
                                     <div className="lg:col-span-8 flex flex-col gap-4">
-                                        <div className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
-                                            Requested Field Updates
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
+                                                Requested Field Updates
+                                            </div>
+                                            {selectedRequest.status === 'PENDING' && !isAccountDeletionRequest(selectedRequest) && getApprovableFieldKeys(selectedRequest).length > 0 && (
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-[10px] font-bold text-zinc-400">
+                                                        {selectedFields.size} of {getApprovableFieldKeys(selectedRequest).length} selected
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const keys = getApprovableFieldKeys(selectedRequest);
+                                                            setSelectedFields(
+                                                                selectedFields.size === keys.length
+                                                                    ? new Set()
+                                                                    : new Set(keys)
+                                                            );
+                                                        }}
+                                                        className="text-[10px] font-black text-primary hover:underline uppercase tracking-wider"
+                                                    >
+                                                        {selectedFields.size === getApprovableFieldKeys(selectedRequest).length
+                                                            ? 'Deselect all'
+                                                            : 'Select all'}
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
-                                        {isStudentUpdateRequest(selectedRequest) ? (
+                                        {isAccountDeletionRequest(selectedRequest) ? (
+                                            <div className="p-5 rounded-2xl border bg-white dark:bg-zinc-900 border-rose-200 dark:border-rose-900/50 shadow-md">
+                                                <div className="flex items-center gap-2.5 mb-3">
+                                                    <div className="p-1.5 rounded-lg bg-rose-100 text-rose-600">
+                                                        <AlertCircle className="h-4 w-4" />
+                                                    </div>
+                                                    <span className="text-sm font-black text-zinc-850 dark:text-zinc-200">Account Deletion Request</span>
+                                                </div>
+                                                <p className="text-sm text-zinc-600 dark:text-zinc-400 font-medium">
+                                                    {selectedRequest.requested_data?.reason
+                                                        ? `Reason: ${selectedRequest.requested_data.reason}`
+                                                        : 'No reason provided.'}
+                                                </p>
+                                            </div>
+                                        ) : isStudentUpdateRequest(selectedRequest) ? (
                                             (() => {
                                                 const student = selectedRequest.families?.students?.find(
                                                     (s: any) => s.cc === Number(selectedRequest.requested_data.student_cc)
                                                 );
                                                 const changes = selectedRequest.requested_data.changes || {};
+                                                const canSelect = selectedRequest.status === 'PENDING';
 
                                                 return Object.entries(changes).map(([key, newValue]) => {
                                                     const currentValue = student?.[key];
                                                     const isChanged = selectedRequest.status !== 'PENDING' || (currentValue || '') !== (newValue || '');
+                                                    const isChecked = selectedFields.has(key);
 
                                                     return (
-                                                        <div key={key} className={`p-5 rounded-2xl border transition-all duration-350 ${isChanged ? 'bg-white dark:bg-zinc-900 border-amber-200 dark:border-amber-900/50 shadow-md' : 'bg-zinc-50/50 dark:bg-zinc-900/20 border-zinc-100 dark:border-zinc-800'}`}>
+                                                        <div
+                                                            key={key}
+                                                            onClick={canSelect ? () => toggleField(key) : undefined}
+                                                            className={`p-5 rounded-2xl border transition-all duration-350 ${
+                                                                canSelect ? 'cursor-pointer' : ''
+                                                            } ${
+                                                                canSelect && isChecked
+                                                                    ? 'bg-white dark:bg-zinc-900 border-primary/40 ring-2 ring-primary/20 shadow-md'
+                                                                    : isChanged
+                                                                        ? 'bg-white dark:bg-zinc-900 border-amber-200 dark:border-amber-900/50 shadow-md'
+                                                                        : 'bg-zinc-50/50 dark:bg-zinc-900/20 border-zinc-100 dark:border-zinc-800'
+                                                            }`}
+                                                        >
                                                             <div className="flex items-center justify-between mb-3">
                                                                 <div className="flex items-center gap-2.5">
+                                                                    {canSelect && (
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={isChecked}
+                                                                            onChange={() => toggleField(key)}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary cursor-pointer"
+                                                                        />
+                                                                    )}
                                                                     <div className={`p-1.5 rounded-lg ${isChanged ? 'bg-amber-100 text-amber-600' : 'bg-zinc-200 text-zinc-500'} transition-colors`}>
                                                                         {getFieldIcon(key)}
                                                                     </div>
@@ -581,10 +708,33 @@ export default function ParentChangeRequestsPage() {
                                                 .map(([key, newValue]) => {
                                                     const currentValue = selectedRequest.guardians?.[key];
                                                     const isChanged = selectedRequest.status !== 'PENDING' || (currentValue || '') !== (newValue || '');
+                                                    const canSelect = selectedRequest.status === 'PENDING';
+                                                    const isChecked = selectedFields.has(key);
                                                     return (
-                                                        <div key={key} className={`p-5 rounded-2xl border transition-all duration-350 ${isChanged ? 'bg-white dark:bg-zinc-900 border-amber-200 dark:border-amber-900/50 shadow-md' : 'bg-zinc-50/50 dark:bg-zinc-900/20 border-zinc-100 dark:border-zinc-800'}`}>
+                                                        <div
+                                                            key={key}
+                                                            onClick={canSelect ? () => toggleField(key) : undefined}
+                                                            className={`p-5 rounded-2xl border transition-all duration-350 ${
+                                                                canSelect ? 'cursor-pointer' : ''
+                                                            } ${
+                                                                canSelect && isChecked
+                                                                    ? 'bg-white dark:bg-zinc-900 border-primary/40 ring-2 ring-primary/20 shadow-md'
+                                                                    : isChanged
+                                                                        ? 'bg-white dark:bg-zinc-900 border-amber-200 dark:border-amber-900/50 shadow-md'
+                                                                        : 'bg-zinc-50/50 dark:bg-zinc-900/20 border-zinc-100 dark:border-zinc-800'
+                                                            }`}
+                                                        >
                                                             <div className="flex items-center justify-between mb-3">
                                                                 <div className="flex items-center gap-2.5">
+                                                                    {canSelect && (
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={isChecked}
+                                                                            onChange={() => toggleField(key)}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary cursor-pointer"
+                                                                        />
+                                                                    )}
                                                                     <div className={`p-1.5 rounded-lg ${isChanged ? 'bg-amber-100 text-amber-600' : 'bg-zinc-200 text-zinc-500'} transition-colors`}>
                                                                         {getFieldIcon(key)}
                                                                     </div>
@@ -631,7 +781,13 @@ export default function ParentChangeRequestsPage() {
 
                             {/* Modal Footer */}
                             {selectedRequest.status === 'PENDING' ? (
-                                <div className="p-8 border-t border-zinc-100 dark:border-zinc-900 flex justify-end gap-4 bg-zinc-50/50 dark:bg-zinc-900/50">
+                                <div className="p-8 border-t border-zinc-100 dark:border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-50/50 dark:bg-zinc-900/50">
+                                    {!isAccountDeletionRequest(selectedRequest) && (
+                                        <p className="text-xs text-zinc-500 font-medium">
+                                            Check the fields you want to sync. Unchecked fields stay pending.
+                                        </p>
+                                    )}
+                                    <div className="flex justify-end gap-4 sm:ml-auto">
                                     <button 
                                         disabled={isProcessing}
                                         onClick={() => setShowRejectionModal(true)}
@@ -640,7 +796,10 @@ export default function ParentChangeRequestsPage() {
                                         {isAccountDeletionRequest(selectedRequest) ? 'Reject Request' : 'Reject Changes'}
                                     </button>
                                     <button 
-                                        disabled={isProcessing}
+                                        disabled={
+                                            isProcessing ||
+                                            (!isAccountDeletionRequest(selectedRequest) && selectedFields.size === 0)
+                                        }
                                         onClick={() => handleProcess(selectedRequest.id, 'APPROVED')}
                                         className={`px-10 py-4 rounded-2xl font-black shadow-xl transition-all disabled:opacity-50 active:scale-95 flex items-center gap-3 ${
                                             isAccountDeletionRequest(selectedRequest)
@@ -653,8 +812,12 @@ export default function ParentChangeRequestsPage() {
                                         ) : <Check className="h-5 w-5" />}
                                         {isAccountDeletionRequest(selectedRequest)
                                             ? 'Approve & Delete Account'
-                                            : 'Approve & Sync Profile'}
+                                            : selectedFields.size > 0 &&
+                                              selectedFields.size < getApprovableFieldKeys(selectedRequest).length
+                                                ? `Approve ${selectedFields.size} Selected`
+                                                : 'Approve & Sync Profile'}
                                     </button>
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="p-8 border-t border-zinc-100 dark:border-zinc-900 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-zinc-50/50 dark:bg-zinc-900/50 text-sm font-bold text-zinc-500">
