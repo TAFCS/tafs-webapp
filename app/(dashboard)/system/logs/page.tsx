@@ -230,15 +230,20 @@ export default function SystemLogsPage() {
                         <ActionBadge action={log.action} />
                       </td>
                       <td className="px-4 py-3 min-w-[320px]">
-                        {log.note ? (
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{log.note}</p>
-                        ) : log.field ? (
-                          <div className="flex items-center gap-1 text-xs whitespace-nowrap">
-                            <span className="font-semibold text-zinc-600 dark:text-zinc-400">{friendlyField(log.field)}:</span>
-                            {log.old_value && <span className="line-through text-rose-400">{log.old_value}</span>}
-                            <ArrowRight className="h-3 w-3 text-zinc-300 shrink-0" />
-                            {log.new_value && <span className="text-emerald-600 dark:text-emerald-400">{log.new_value}</span>}
+                        {log.field ? (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1 text-xs whitespace-nowrap">
+                              <span className="font-semibold text-zinc-600 dark:text-zinc-400">{friendlyField(log.field)}:</span>
+                              {log.old_value && <span className="line-through text-rose-400">{log.old_value}</span>}
+                              <ArrowRight className="h-3 w-3 text-zinc-300 shrink-0" />
+                              {log.new_value && <span className="text-emerald-600 dark:text-emerald-400">{log.new_value}</span>}
+                            </div>
+                            {log.note && (
+                              <p className="text-[10px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">{log.note}</p>
+                            )}
                           </div>
+                        ) : log.note ? (
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{log.note}</p>
                         ) : (
                           <span className="text-xs text-zinc-300 dark:text-zinc-600">—</span>
                         )}
