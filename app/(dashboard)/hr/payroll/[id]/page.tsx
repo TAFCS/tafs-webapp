@@ -305,10 +305,11 @@ export default function PayrollRunDetailPage() {
 
       {tab === "matrix" && run && (
         <PayrollMatrixView
-          run={run}
+          periodStart={run.period_start}
+          periodEnd={run.period_end}
           lines={lines}
           onOpenLine={(line, date) => {
-            setSelectedLine(line);
+            setSelectedLine(line as PayrollRunLine);
             setSelectedDate(date);
           }}
         />
@@ -328,6 +329,7 @@ export default function PayrollRunDetailPage() {
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Late (min)</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Break (min)</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Daily Rate</th>
+                  <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Total Pay</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Deductions</th>
                   <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Net Pay</th>
                   {isFinal && (
@@ -354,17 +356,21 @@ export default function PayrollRunDetailPage() {
 
       {selectedLine && run && (
         <PayrollLineDetailModal
-          run={run}
+          campusId={run.campus_id}
+          isFinal={isFinal}
           line={selectedLine}
           initialDate={selectedDate}
           onClose={() => { setSelectedLine(null); setSelectedDate(undefined); }}
-          onRunUpdated={(updated) => {
-            setRun(updated);
-            const refreshedLine = updated.payroll_run_lines?.find(
-              (l) => l.employee_id === selectedLine.employee_id,
-            );
-            if (refreshedLine) setSelectedLine(refreshedLine);
-            setSuccess("Payroll run regenerated with the latest attendance data.");
+          regenerate={{
+            periodEnd: run.period_end,
+            onRegenerated: (updated) => {
+              setRun(updated);
+              const refreshedLine = updated.payroll_run_lines?.find(
+                (l) => l.employee_id === selectedLine.employee_id,
+              );
+              if (refreshedLine) setSelectedLine(refreshedLine);
+              setSuccess("Payroll run regenerated with the latest attendance data.");
+            },
           }}
         />
       )}
@@ -438,6 +444,7 @@ function PayrollLineRow({
       </td>
       <td className="px-4 py-3 text-center text-sm text-zinc-600 dark:text-zinc-300">{line.total_break_minutes}</td>
       <td className="px-4 py-3 text-right text-sm font-mono text-zinc-600 dark:text-zinc-300">{formatPkr(line.daily_rate)}</td>
+      <td className="px-4 py-3 text-right text-sm font-mono text-zinc-600 dark:text-zinc-300">{formatPkr(line.monthly_pay)}</td>
       <td className="px-4 py-3 text-right text-sm font-mono text-rose-600">
         {Number(line.total_deductions) > 0 ? `-${formatPkr(line.total_deductions)}` : formatPkr(0)}
       </td>

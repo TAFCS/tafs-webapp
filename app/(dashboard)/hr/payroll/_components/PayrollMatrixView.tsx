@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import { DayBreakdownEntry, DayClassification, PayrollRun, PayrollRunLine } from "@/lib/hr.service";
+import { AttendanceLineBase, DayBreakdownEntry, DayClassification } from "@/lib/hr.service";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -102,18 +102,17 @@ const CELL_TEXT: Record<DayClassification, string> = {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  run: PayrollRun;
-  lines: PayrollRunLine[];
-  onOpenLine: (line: PayrollRunLine, date: string) => void;
+  periodStart: string;
+  periodEnd: string;
+  lines: AttendanceLineBase[];
+  onOpenLine: (line: AttendanceLineBase, date: string) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function PayrollMatrixView({ run, lines, onOpenLine }: Props) {
-  const dates = generateDates(run.period_start, run.period_end);
+export function PayrollMatrixView({ periodStart, periodEnd, lines, onOpenLine }: Props) {
+  const dates = generateDates(periodStart, periodEnd);
   const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-
-  console.log("[Matrix] period_start:", run.period_start, "period_end:", run.period_end, "dates count:", dates.length, "lines count:", lines.length);
 
   const totalUnresolved = lines.reduce((s, l) => s + l.unresolved_days, 0);
 
@@ -165,7 +164,7 @@ export function PayrollMatrixView({ run, lines, onOpenLine }: Props) {
                 );
 
                 return (
-                  <tr key={line.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/20 transition-colors">
+                  <tr key={line.employee_id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/20 transition-colors">
                     {/* Sticky employee name */}
                     <td className="sticky left-0 z-10 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 px-4 py-2">
                       <div>

@@ -5,7 +5,7 @@ import {
   X, Loader2, AlertTriangle, RefreshCw, Coffee,
   CheckCircle2, Clock, AlertCircle, Timer,
 } from "lucide-react";
-import { hrService, PayrollRun, PayrollRunLine, DayBreakdownEntry, DayClassification } from "@/lib/hr.service";
+import { hrService, PayrollRun, AttendanceLineBase, DayBreakdownEntry, DayClassification } from "@/lib/hr.service";
 import { attendanceService, StaffAttendanceStatus } from "@/lib/attendance.service";
 
 // ── Segment types & styles ────────────────────────────────────────────────────
@@ -134,16 +134,23 @@ interface Seg { type: string; start: string; end: string; isMissingOut?: boolean
 interface Tooltip { lines: string[]; x: number; y: number }
 
 interface Props {
-  run: PayrollRun;
-  line: PayrollRunLine;
+  campusId: number;
+  isFinal: boolean;
+  line: AttendanceLineBase;
   onClose: () => void;
-  onRunUpdated: (run: PayrollRun) => void;
   initialDate?: string;
+  /** Called after a resolve is saved, so a run-less caller (e.g. a dashboard widget) can refetch. */
+  onResolved?: () => void;
+  /** Only present when this line belongs to a persisted payroll run — offers the "regenerate" banner. */
+  regenerate?: {
+    periodEnd: string;
+    onRegenerated: (run: PayrollRun) => void;
+  };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initialDate }: Props) {
+export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onResolved, regenerate, initialDate }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -169,7 +176,6 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
 
   const emp = line.employee_profiles;
   const name = emp?.full_name ?? `Employee #${line.employee_id}`;
-  const isFinal = run.status === "FINALIZED";
 
   // ── Tooltip ──────────────────────────────────────────────────────────────────
 
@@ -204,7 +210,7 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
 
       await attendanceService.bulkMarkStaff({
         date,
-        campus_id: run.campus_id,
+        campus_id: campusId,
         records: [{
           employee_id: line.employee_id,
           status,
@@ -220,8 +226,9 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
             : d,
         ),
       );
-      setDirty(true);
+      if (regenerate) setDirty(true);
       setResolvingDate(null);
+      onResolved?.();
     } catch (err: any) {
       const msg = err.response?.data?.message;
       const detail = err.message && !err.response ? err.message : null;
@@ -232,16 +239,17 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
   };
 
   const doRegenerate = async () => {
+    if (!regenerate) return;
     setRegenerating(true);
     setError(null);
     try {
-      const end = new Date(run.period_end);
+      const end = new Date(regenerate.periodEnd);
       const updated = await hrService.generatePayrollRun({
-        campus_id: run.campus_id,
+        campus_id: campusId,
         year: end.getUTCFullYear(),
         month: end.getUTCMonth() + 1,
       });
-      onRunUpdated(updated);
+      regenerate.onRegenerated(updated);
       const refreshedLine = updated.payroll_run_lines?.find(l => l.employee_id === line.employee_id);
       if (refreshedLine) {
         setLocalBreakdown(refreshedLine.daily_breakdown);
@@ -330,7 +338,7 @@ export function PayrollLineDetailModal({ run, line, onClose, onRunUpdated, initi
           </div>
 
           {/* Banners */}
-          {dirty && !isFinal && (
+          {dirty && !isFinal && regenerate && (
             <div className="flex items-center gap-3 px-6 py-3 bg-amber-50 border-b border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/30 text-amber-800 dark:text-amber-300 shrink-0">
               <RefreshCw className="h-4 w-4 shrink-0" />
               <p className="flex-1 text-xs">Attendance updated — regenerate to reflect changes in payroll numbers.</p>

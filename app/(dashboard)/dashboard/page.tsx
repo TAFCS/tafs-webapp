@@ -11,6 +11,8 @@ import { useNavigation } from "@/context/NavigationContext";
 import api from "@/lib/api";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
+import { AttendanceBoard } from "../hr/attendance-dashboard/_components/AttendanceBoard";
+import { AttendanceCycleWidget } from "./_components/AttendanceCycleWidget";
 
 // Stat cards per module — wire to APIs as they become available
 const MODULE_STATS: Record<string, { label: string; value: string; sub?: string; subColor?: string }[]> = {
@@ -194,6 +196,24 @@ export default function DashboardPage() {
                                     )}
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {/* HR live attendance widgets — always visible here, no payroll run required */}
+                    {activeModule.id === "hr" && (
+                        <div className="space-y-8">
+                            <div>
+                                <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.25em] mb-4">
+                                    Today's Register
+                                </p>
+                                <AttendanceBoard showHeader={false} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.25em] mb-4">
+                                    Attendance by Pay Cycle
+                                </p>
+                                <AttendanceCycleWidget />
+                            </div>
                         </div>
                     )}
 

@@ -277,11 +277,14 @@ export interface DayBreakdownEntry {
   segments?: { type: string; start: string; end: string; isMissingOut?: boolean }[];
 }
 
-export interface PayrollRunLine {
-  id: number;
-  payroll_run_id: number;
+/**
+ * Fields shared by a full payroll-run employee line and the lighter,
+ * payroll-run-independent attendance matrix line (see getAttendanceMatrix
+ * below). PayrollLineDetailModal and PayrollMatrixView are built against
+ * this base so both contexts can reuse them without pulling in $ figures.
+ */
+export interface AttendanceLineBase {
   employee_id: number;
-  scheduled_working_days: number;
   present_days: number;
   late_days: number;
   half_days: number;
@@ -291,6 +294,20 @@ export interface PayrollRunLine {
   unresolved_days: number;
   total_break_minutes: number;
   total_late_minutes: number;
+  daily_breakdown: DayBreakdownEntry[];
+  employee_profiles?: {
+    id: number;
+    full_name: string | null;
+    employee_code: string | null;
+    job_title: string | null;
+    photo_url: string | null;
+  };
+}
+
+export interface PayrollRunLine extends AttendanceLineBase {
+  id: number;
+  payroll_run_id: number;
+  scheduled_working_days: number;
   monthly_pay: number;
   daily_rate: number;
   per_minute_rate: number;
@@ -300,17 +317,16 @@ export interface PayrollRunLine {
   break_deduction: number;
   total_deductions: number;
   net_pay: number;
-  daily_breakdown: DayBreakdownEntry[];
   disbursed_at?: string | null;
   disbursed_by?: string | null;
   disbursement_notes?: string | null;
-  employee_profiles?: {
-    id: number;
-    full_name: string | null;
-    employee_code: string | null;
-    job_title: string | null;
-    photo_url: string | null;
-  };
+}
+
+export interface AttendanceMatrix {
+  campus_id: number;
+  period_start: string;
+  period_end: string;
+  lines: AttendanceLineBase[];
 }
 
 export interface PayrollRun {
@@ -547,6 +563,10 @@ export const hrService = {
   },
   async getPayrollRun(id: number): Promise<PayrollRun> {
     const { data } = await api.get<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}`);
+    return data.data;
+  },
+  async getAttendanceMatrix(params: { campus_id: number; period_start: string; period_end: string }): Promise<AttendanceMatrix> {
+    const { data } = await api.get<ApiEnvelope<AttendanceMatrix>>('/v1/hr/payroll/attendance-matrix', { params });
     return data.data;
   },
   async finalizePayrollRun(id: number): Promise<PayrollRun> {
