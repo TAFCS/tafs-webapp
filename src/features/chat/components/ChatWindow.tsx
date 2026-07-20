@@ -139,6 +139,12 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
         });
     };
 
+    const messageTailKey = useMemo(() => {
+        if (messages.length === 0) return "";
+        const tail = messages[messages.length - 1];
+        return `${tail?.id ?? ""}:${tail?.status ?? ""}:${messages.length}`;
+    }, [messages]);
+
     // Jump to latest when opening or switching a conversation.
     useEffect(() => {
         prevMessageTailRef.current = null;
@@ -325,12 +331,6 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
             }
         }
         return results;
-    }, [messages]);
-
-    const messageTailKey = useMemo(() => {
-        if (messages.length === 0) return "";
-        const tail = messages[messages.length - 1];
-        return `${tail?.id ?? ""}:${tail?.status ?? ""}:${messages.length}`;
     }, [messages]);
 
     if (familyId === null) {
