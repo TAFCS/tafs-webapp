@@ -199,24 +199,6 @@ export default function DashboardPage() {
                         </div>
                     )}
 
-                    {/* HR live attendance widgets — always visible here, no payroll run required */}
-                    {activeModule.id === "hr" && (
-                        <div className="space-y-8">
-                            <div>
-                                <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.25em] mb-4">
-                                    Today's Register
-                                </p>
-                                <AttendanceBoard showHeader={false} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.25em] mb-4">
-                                    Attendance by Pay Cycle
-                                </p>
-                                <AttendanceCycleWidget />
-                            </div>
-                        </div>
-                    )}
-
                     {/* Page Grid */}
                     <div>
                         <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.25em] mb-4">
@@ -249,6 +231,24 @@ export default function DashboardPage() {
                             ))}
                         </div>
                     </div>
+
+                    {/* HR live attendance widgets — always visible here, no payroll run required */}
+                    {activeModule.id === "hr" && (
+                        <div className="space-y-8">
+                            <div>
+                                <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.25em] mb-4">
+                                    Today's Register
+                                </p>
+                                <AttendanceBoard showHeader={false} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.25em] mb-4">
+                                    Attendance by Pay Cycle
+                                </p>
+                                <AttendanceCycleWidget />
+                            </div>
+                        </div>
+                    )}
                 </motion.div>
             )}
         </AnimatePresence>
