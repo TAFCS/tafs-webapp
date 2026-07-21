@@ -170,7 +170,10 @@ export function PayrollMatrixView({ periodStart, periodEnd, lines, onOpenLine }:
                     <td className="sticky left-0 z-10 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 px-4 py-2">
                       <div>
                         <p className="font-semibold text-zinc-800 dark:text-zinc-100 leading-tight truncate max-w-[170px]">{name}</p>
-                        <p className="text-zinc-400 font-mono text-[10px]">{code}</p>
+                        <p className="text-zinc-400 font-mono text-[10px]">
+                          {code}
+                          {line.campus_name && <span className="ml-1 text-zinc-300 dark:text-zinc-700">· {line.campus_name}</span>}
+                        </p>
                         <AttendanceTagBadges line={line} className="mt-1" />
                       </div>
                     </td>

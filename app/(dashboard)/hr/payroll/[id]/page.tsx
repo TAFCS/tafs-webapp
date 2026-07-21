@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Wallet, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Lock,
-  Trash2, AlertTriangle, Building2, Calendar, LayoutGrid, List,
+  Trash2, AlertTriangle, Building2, Calendar, LayoutGrid, List, Download,
 } from "lucide-react";
 import { hrService, PayrollRun, PayrollRunLine } from "@/lib/hr.service";
 import { PayrollLineDetailModal } from "../_components/PayrollLineDetailModal";
@@ -59,6 +59,7 @@ export default function PayrollRunDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [disbursingAll, setDisbursingAll] = useState(false);
   const [disbursingLineId, setDisbursingLineId] = useState<number | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const fetchRun = async () => {
     setLoading(true);
@@ -159,6 +160,20 @@ export default function PayrollRunDetailPage() {
     }
   };
 
+  const handleExport = async () => {
+    if (!run) return;
+    setExporting(true);
+    setError(null);
+    try {
+      await hrService.exportPayrollRun(run.id);
+    } catch (err: any) {
+      console.error(err);
+      setError("Failed to export payroll run.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto flex flex-col items-center justify-center py-32 space-y-4">
@@ -217,6 +232,13 @@ export default function PayrollRunDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all disabled:opacity-50"
+          >
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Excel
+          </button>
           {!isFinal && (
             <button
               onClick={handleDelete}

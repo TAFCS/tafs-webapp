@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, LayoutGrid, List, Loader2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, Download, LayoutGrid, List, Loader2 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
@@ -58,7 +58,7 @@ function initials(name: string | null): string {
 
 function EmployeeLinesTable({ lines, onOpenLine }: { lines: AttendanceLineBase[]; onOpenLine: (line: AttendanceLineBase) => void }) {
     if (lines.length === 0) {
-        return <p className="text-sm text-zinc-500 text-center py-14">No employees found for this campus.</p>;
+        return <p className="text-sm text-zinc-500 text-center py-14">No employees found.</p>;
     }
 
     return (
@@ -99,7 +99,10 @@ function EmployeeLinesTable({ lines, onOpenLine }: { lines: AttendanceLineBase[]
                                             )}
                                             <div>
                                                 <p className="text-sm font-semibold text-zinc-900 dark:text-white leading-tight">{name}</p>
-                                                <p className="text-[11px] text-zinc-400 font-mono">{emp?.employee_code ?? "—"}</p>
+                                                <p className="text-[11px] text-zinc-400 font-mono">
+                                                    {emp?.employee_code ?? "—"}
+                                                    {line.campus_name && <span className="ml-1.5 text-zinc-300 dark:text-zinc-600">· {line.campus_name}</span>}
+                                                </p>
                                                 <AttendanceTagBadges line={line} className="mt-1" />
                                             </div>
                                         </div>
@@ -150,6 +153,7 @@ export function AttendanceCycleWidget() {
     const [tab, setTab] = useState<"lines" | "matrix">("lines");
     const [lines, setLines] = useState<AttendanceLineBase[]>([]);
     const [loading, setLoading] = useState(false);
+    const [exporting, setExporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedLine, setSelectedLine] = useState<AttendanceLineBase | null>(null);
     const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
@@ -163,12 +167,11 @@ export function AttendanceCycleWidget() {
     }, [user?.campusId, campusId]);
 
     const load = useCallback(async () => {
-        if (!campusId) return;
         setLoading(true);
         setError(null);
         try {
             const matrix = await hrService.getAttendanceMatrix({
-                campus_id: Number(campusId),
+                campus_id: campusId ? Number(campusId) : undefined,
                 period_start: periodStart,
                 period_end: periodEnd,
             });
@@ -182,6 +185,21 @@ export function AttendanceCycleWidget() {
     }, [campusId, periodStart, periodEnd]);
 
     useEffect(() => { load(); }, [load]);
+
+    const handleExport = async () => {
+        setExporting(true);
+        try {
+            await hrService.exportAttendanceMatrix({
+                campus_id: campusId ? Number(campusId) : undefined,
+                period_start: periodStart,
+                period_end: periodEnd,
+            });
+        } catch {
+            setError("Failed to export attendance data.");
+        } finally {
+            setExporting(false);
+        }
+    };
 
     return (
         <div className="space-y-4">
@@ -206,15 +224,25 @@ export function AttendanceCycleWidget() {
                         </button>
                     </div>
                 </div>
-                <select
-                    value={campusId}
-                    onChange={(e) => setCampusId(e.target.value)}
-                    disabled={!!user?.campusId}
-                    className="h-9 px-3 border rounded-xl text-sm bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
-                >
-                    <option value="">Select campus...</option>
-                    {campuses.map((c) => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
-                </select>
+                <div className="flex items-center gap-2">
+                    <select
+                        value={campusId}
+                        onChange={(e) => setCampusId(e.target.value)}
+                        disabled={!!user?.campusId}
+                        className="h-9 px-3 border rounded-xl text-sm bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
+                    >
+                        <option value="">All Campuses</option>
+                        {campuses.map((c) => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
+                    </select>
+                    <button
+                        onClick={handleExport}
+                        disabled={exporting || lines.length === 0}
+                        className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
+                    >
+                        {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                        Excel
+                    </button>
+                </div>
             </div>
 
             <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl w-fit">
@@ -246,9 +274,7 @@ export function AttendanceCycleWidget() {
                 </div>
             )}
 
-            {!campusId ? (
-                <p className="text-sm text-zinc-500 text-center py-14">Select a campus to load attendance data.</p>
-            ) : loading && lines.length === 0 ? (
+            {loading && lines.length === 0 ? (
                 <div className="flex items-center justify-center py-16">
                     <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
                 </div>
@@ -268,7 +294,7 @@ export function AttendanceCycleWidget() {
 
             {selectedLine && (
                 <PayrollLineDetailModal
-                    campusId={Number(campusId)}
+                    campusId={selectedLine.campus_id ?? Number(campusId)}
                     isFinal={false}
                     line={selectedLine}
                     initialDate={selectedDate}

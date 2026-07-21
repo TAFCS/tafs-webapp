@@ -1,5 +1,16 @@
 import api from './api';
 
+function downloadBlob(data: BlobPart, filename: string): void {
+  const url = window.URL.createObjectURL(new Blob([data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 export interface StaffType {
   id: number;
   code: string;
@@ -285,6 +296,9 @@ export interface DayBreakdownEntry {
  */
 export interface AttendanceLineBase {
   employee_id: number;
+  /** Only present on attendance-matrix lines, which can span multiple campuses. */
+  campus_id?: number;
+  campus_name?: string;
   /** No monthly_pay set — payroll doesn't apply to them, but still worth flagging. */
   has_salary: boolean;
   /** No active device_user_mappings row — can never record biometric attendance. */
@@ -329,7 +343,8 @@ export interface PayrollRunLine extends AttendanceLineBase {
 }
 
 export interface AttendanceMatrix {
-  campus_id: number;
+  /** null when spanning every campus the caller can see (no campus_id filter applied). */
+  campus_id: number | null;
   period_start: string;
   period_end: string;
   lines: AttendanceLineBase[];
@@ -571,9 +586,17 @@ export const hrService = {
     const { data } = await api.get<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}`);
     return data.data;
   },
-  async getAttendanceMatrix(params: { campus_id: number; period_start: string; period_end: string }): Promise<AttendanceMatrix> {
+  async getAttendanceMatrix(params: { campus_id?: number; period_start: string; period_end: string }): Promise<AttendanceMatrix> {
     const { data } = await api.get<ApiEnvelope<AttendanceMatrix>>('/v1/hr/payroll/attendance-matrix', { params });
     return data.data;
+  },
+  async exportAttendanceMatrix(params: { campus_id?: number; period_start: string; period_end: string }): Promise<void> {
+    const { data } = await api.get('/v1/hr/payroll/attendance-matrix/export', { params, responseType: 'blob' });
+    downloadBlob(data, `attendance-${params.period_start}-to-${params.period_end}.xlsx`);
+  },
+  async exportPayrollRun(id: number): Promise<void> {
+    const { data } = await api.get(`/v1/hr/payroll/runs/${id}/export`, { responseType: 'blob' });
+    downloadBlob(data, `payroll-run-${id}.xlsx`);
   },
   async finalizePayrollRun(id: number): Promise<PayrollRun> {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}/finalize`);
