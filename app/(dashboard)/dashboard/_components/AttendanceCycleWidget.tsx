@@ -8,6 +8,7 @@ import { useAuthState } from "@/context/AuthContext";
 import { hrService, AttendanceLineBase } from "@/lib/hr.service";
 import { PayrollMatrixView } from "../../hr/payroll/_components/PayrollMatrixView";
 import { PayrollLineDetailModal } from "../../hr/payroll/_components/PayrollLineDetailModal";
+import { AttendanceTagBadges } from "../../hr/payroll/_components/AttendanceTagBadges";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -99,6 +100,7 @@ function EmployeeLinesTable({ lines, onOpenLine }: { lines: AttendanceLineBase[]
                                             <div>
                                                 <p className="text-sm font-semibold text-zinc-900 dark:text-white leading-tight">{name}</p>
                                                 <p className="text-[11px] text-zinc-400 font-mono">{emp?.employee_code ?? "—"}</p>
+                                                <AttendanceTagBadges line={line} className="mt-1" />
                                             </div>
                                         </div>
                                     </td>

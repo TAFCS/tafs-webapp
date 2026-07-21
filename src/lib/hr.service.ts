@@ -285,6 +285,12 @@ export interface DayBreakdownEntry {
  */
 export interface AttendanceLineBase {
   employee_id: number;
+  /** No monthly_pay set — payroll doesn't apply to them, but still worth flagging. */
+  has_salary: boolean;
+  /** No active device_user_mappings row — can never record biometric attendance. */
+  is_mapped: boolean;
+  /** Mapped to a device, but zero scans in the period. */
+  has_punches: boolean;
   present_days: number;
   late_days: number;
   half_days: number;

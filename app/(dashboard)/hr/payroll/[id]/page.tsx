@@ -9,6 +9,7 @@ import {
 import { hrService, PayrollRun, PayrollRunLine } from "@/lib/hr.service";
 import { PayrollLineDetailModal } from "../_components/PayrollLineDetailModal";
 import { PayrollMatrixView } from "../_components/PayrollMatrixView";
+import { AttendanceTagBadges } from "../_components/AttendanceTagBadges";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -412,6 +413,7 @@ function PayrollLineRow({
           <div>
             <p className="text-sm font-semibold text-zinc-900 dark:text-white leading-tight">{name}</p>
             <p className="text-[11px] text-zinc-400 font-mono">{emp?.employee_code ?? "—"}</p>
+            <AttendanceTagBadges line={line} className="mt-1" />
           </div>
         </div>
       </td>

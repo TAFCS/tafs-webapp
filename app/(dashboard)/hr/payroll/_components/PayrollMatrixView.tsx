@@ -2,6 +2,7 @@
 
 import { AlertTriangle } from "lucide-react";
 import { AttendanceLineBase, DayBreakdownEntry, DayClassification } from "@/lib/hr.service";
+import { AttendanceTagBadges } from "./AttendanceTagBadges";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -170,6 +171,7 @@ export function PayrollMatrixView({ periodStart, periodEnd, lines, onOpenLine }:
                       <div>
                         <p className="font-semibold text-zinc-800 dark:text-zinc-100 leading-tight truncate max-w-[170px]">{name}</p>
                         <p className="text-zinc-400 font-mono text-[10px]">{code}</p>
+                        <AttendanceTagBadges line={line} className="mt-1" />
                       </div>
                     </td>
 

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { hrService, PayrollRun, AttendanceLineBase, DayBreakdownEntry, DayClassification } from "@/lib/hr.service";
 import { attendanceService, StaffAttendanceStatus } from "@/lib/attendance.service";
+import { AttendanceTagBadges } from "./AttendanceTagBadges";
 
 // ── Segment types & styles ────────────────────────────────────────────────────
 
@@ -307,6 +308,7 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
               <div className="min-w-0">
                 <p className="text-[15px] font-black text-zinc-900 dark:text-zinc-100 truncate">{name}</p>
                 <p className="text-[11px] text-zinc-400 font-mono">{emp?.employee_code ?? "—"} · {emp?.job_title ?? ""}</p>
+                <AttendanceTagBadges line={line} className="mt-1" />
               </div>
             </div>
             <button
