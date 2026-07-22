@@ -222,22 +222,6 @@ export default function SaturdaySchedulesPage() {
     }
     return [...groups.values()].sort((a, b) => a.segment.display_order - b.segment.display_order);
   }, [filteredTeachers]);
-  }, [campusTeachers, segmentFilter, search]);
-
-  // Group for display: segment header -> teachers, ordered by display_order.
-  // A teacher assigned across multiple segments appears under each of them —
-  // the checkbox state is keyed by employee id so that's harmless.
-  const teachersBySegment = useMemo(() => {
-    const groups = new Map<number, { segment: SegmentInfo; teachers: EmployeeProfile[] }>();
-    for (const emp of filteredTeachers) {
-      for (const s of employeeSegments(emp)) {
-        const bucket = groups.get(s.id) ?? { segment: s, teachers: [] };
-        bucket.teachers.push(emp);
-        groups.set(s.id, bucket);
-      }
-    }
-    return [...groups.values()].sort((a, b) => a.segment.display_order - b.segment.display_order);
-  }, [filteredTeachers]);
 
   const assignedCountByEmployee = useMemo(() => {
     const map = new Map<number, number>();
