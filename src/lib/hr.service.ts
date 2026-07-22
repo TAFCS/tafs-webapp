@@ -260,6 +260,15 @@ export interface BulkCalendarCreateResult {
   errors: { campus_id: number; message: string }[];
 }
 
+export interface EmployeeCalendarDaysResult {
+  employees_total: number;
+  dates_total: number;
+  created: number;
+  skipped: number;
+  failed: number;
+  errors: { employee_id: number; date: string; message: string }[];
+}
+
 export interface ClassAttendanceMode {
   id: number;
   class_id: number;
@@ -551,6 +560,18 @@ export const hrService = {
     applies_to: string;
   }): Promise<BulkCalendarCreateResult> {
     const { data } = await api.post<ApiEnvelope<BulkCalendarCreateResult>>('/v1/hr/calendar/bulk', payload);
+    return data.data;
+  },
+  async createEmployeeCalendarDays(payload: {
+    employee_ids: number[];
+    dates: string[];
+    day_type: "HOLIDAY" | "WORKDAY";
+    description?: string;
+  }): Promise<EmployeeCalendarDaysResult> {
+    const { data } = await api.post<ApiEnvelope<EmployeeCalendarDaysResult>>(
+      '/v1/hr/calendar/bulk-employees',
+      payload,
+    );
     return data.data;
   },
   async updateCalendarDay(id: number, payload: Partial<CalendarDay>): Promise<CalendarDay> {
