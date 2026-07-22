@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
@@ -118,7 +118,7 @@ const AUDIT_OPTIONS = [
   { value: "incomplete", label: "Any Incomplete Field" },
 ];
 
-export default function EmployeesPage() {
+function EmployeesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const idParam = searchParams.get("id");
@@ -183,24 +183,30 @@ export default function EmployeesPage() {
   const categoryOptions = useMemo(() => {
     const map = new Map<string, string>();
     employees.forEach((e) => {
-      if (e.staff_categories) map.set(String(e.staff_categories.id), e.staff_categories.name);
+      if (e.staff_categories) {
+        const cat = e.staff_categories;
+        const name = cat.name || cat.code;
+        map.set(String(cat.id), name);
+      }
     });
     return [...map.entries()].map(([value, label]) => ({ value, label }));
   }, [employees]);
 
-  const hasFilters = campusFilter || departmentFilter || categoryFilter || auditFilter;
-  const clearFilters = () => { setCampusFilter(""); setDepartmentFilter(""); setCategoryFilter(""); setAuditFilter(""); };
-
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase();
     return employees.filter(emp => {
+      if (campusFilter && String(emp.campus_id) !== campusFilter && String(emp.campuses?.id) !== campusFilter) return false;
+      if (departmentFilter && String(emp.department_id) !== departmentFilter && String(emp.departments?.id) !== departmentFilter) return false;
+      if (categoryFilter && String(emp.staff_category_id) !== categoryFilter && String(emp.staff_categories?.id) !== categoryFilter) return false;
+
       if (q) {
-        const haystack = [emp.full_name, emp.employee_code, emp.cnic, emp.job_title].filter(Boolean).join(" ").toLowerCase();
-        if (!haystack.includes(q)) return false;
+        const name = (emp.full_name || emp.users?.full_name || "").toLowerCase();
+        const code = (emp.employee_code || "").toLowerCase();
+        const cnic = (emp.cnic || "").toLowerCase();
+        const title = (emp.job_title || "").toLowerCase();
+        if (!name.includes(q) && !code.includes(q) && !cnic.includes(q) && !title.includes(q)) return false;
       }
-      if (campusFilter && String(emp.campuses?.id) !== campusFilter) return false;
-      if (departmentFilter && String(emp.departments?.id) !== departmentFilter) return false;
-      if (categoryFilter && String(emp.staff_category_id) !== categoryFilter) return false;
+
       if (auditFilter) {
         const missing = missingFields(emp);
         if (auditFilter === "missing_cnic" && !missing.includes("CNIC")) return false;
@@ -232,70 +238,63 @@ export default function EmployeesPage() {
 
       {/* Notifications */}
       {error && (
-        <div className="flex items-center gap-3 bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl p-4 text-sm dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400">
-          <AlertCircle className="h-5 w-5 text-rose-500 flex-shrink-0" />
+        <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 text-rose-800 dark:text-rose-400 rounded-2xl p-4 text-sm flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-rose-500 shrink-0" />
           <p className="flex-1">{error}</p>
+          <button onClick={() => setError(null)} className="p-1 hover:bg-rose-100 dark:hover:bg-rose-900/40 rounded-lg"><X className="h-4 w-4" /></button>
         </div>
       )}
       {success && (
-        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-2xl p-4 text-sm dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:text-emerald-400">
-          <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+        <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-400 rounded-2xl p-4 text-sm flex items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
           <p className="flex-1">{success}</p>
+          <button onClick={() => setSuccess(null)} className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-lg"><X className="h-4 w-4" /></button>
         </div>
       )}
 
-      {/* Search + Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[260px]">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+      {/* Filters Bar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
           <input
             type="text"
             placeholder="Search by name, code, CNIC, or role..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full h-10 pl-10 pr-10 text-[13px] font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-zinc-400"
+            className="w-full h-10 pl-10 pr-9 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
           />
           {search && (
-            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-600">
-              <X className="h-3.5 w-3.5" />
+            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <SlidersHorizontal className="h-4 w-4 text-zinc-400 shrink-0" />
-          <FilterSelect label="All Campuses" value={campusFilter} onChange={setCampusFilter} options={campusOptions} icon={<Building2 className="h-3.5 w-3.5" />} />
-          <FilterSelect label="All Departments" value={departmentFilter} onChange={setDepartmentFilter} options={departmentOptions} icon={<Building2 className="h-3.5 w-3.5" />} />
-          <FilterSelect label="All Categories" value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} />
-          <FilterSelect
-            label="Data Audit"
-            value={auditFilter}
-            onChange={setAuditFilter}
-            options={AUDIT_OPTIONS}
-            icon={<div className={`h-2 w-2 rounded-full ${auditFilter ? "bg-amber-500 animate-pulse" : "bg-zinc-300"}`} />}
-          />
-          {hasFilters && (
-            <button onClick={clearFilters} className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors">
-              <X className="h-3 w-3" /> Clear
-            </button>
-          )}
-        </div>
+        <FilterSelect label="All Campuses" value={campusFilter} onChange={setCampusFilter} options={campusOptions} icon={<Building2 className="h-3.5 w-3.5" />} />
+        <FilterSelect label="All Departments" value={departmentFilter} onChange={setDepartmentFilter} options={departmentOptions} icon={<Building2 className="h-3.5 w-3.5" />} />
+        <FilterSelect label="All Categories" value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} />
+        <FilterSelect label="Data Audit" value={auditFilter} onChange={setAuditFilter} options={AUDIT_OPTIONS} icon={<SlidersHorizontal className="h-3.5 w-3.5" />} />
+
+        {(search || campusFilter || departmentFilter || categoryFilter || auditFilter) && (
+          <button
+            onClick={() => { setSearch(""); setCampusFilter(""); setDepartmentFilter(""); setCategoryFilter(""); setAuditFilter(""); }}
+            className="h-9 px-3 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+          >
+            Clear Filters
+          </button>
+        )}
       </div>
 
-      {/* Main Content */}
+      {/* Grid */}
       {loading ? (
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 animate-pulse">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="bg-white dark:bg-zinc-900/30 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-4">
-              <div className="flex items-start gap-3">
-                <div className="h-11 w-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 shrink-0" />
-                <div className="flex-1 space-y-2 pt-1">
-                  <div className="h-3.5 bg-zinc-100 dark:bg-zinc-800 rounded w-3/4" />
-                  <div className="h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded w-1/2" />
-                  <div className="flex gap-1.5 mt-2">
-                    <div className="h-4 bg-zinc-100 dark:bg-zinc-800 rounded w-16" />
-                    <div className="h-4 bg-zinc-100 dark:bg-zinc-800 rounded w-14" />
-                  </div>
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="bg-white dark:bg-zinc-900/30 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-4 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-xl bg-zinc-200 dark:bg-zinc-800 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-3/4" />
+                  <div className="h-3 bg-zinc-100 dark:bg-zinc-800/60 rounded w-1/2" />
                 </div>
               </div>
             </div>
@@ -336,5 +335,20 @@ export default function EmployeesPage() {
         onDeleted={() => { setSuccess("Employee profile deleted successfully."); fetchData(); }}
       />
     </div>
+  );
+}
+
+export default function EmployeesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-12 flex flex-col items-center justify-center space-y-4">
+          <Loader2 className="h-8 w-8 text-primary animate-spin" />
+          <p className="text-zinc-500 text-sm font-medium">Loading employee directory...</p>
+        </div>
+      }
+    >
+      <EmployeesContent />
+    </Suspense>
   );
 }
