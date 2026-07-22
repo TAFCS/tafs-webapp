@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { composeEmployeeCode, isLegacyEmployeeCode } from "@/lib/employee-code";
+import { composeEmployeeCode, isLegacyEmployeeCode, campusPrefixForId } from "@/lib/employee-code";
 
 export interface EmployeeCodeFormValue {
   employee_code_dep: string;
@@ -15,6 +15,8 @@ interface EmployeeCodeFieldsProps {
   required?: boolean;
   onDepChange?: (dep: string) => void;
   inputCls: string;
+  /** When set, preview/full code includes campus prefix (GEJ/GKF/NNN). */
+  campusId?: number | null;
 }
 
 export function EmployeeCodeFields({
@@ -23,15 +25,17 @@ export function EmployeeCodeFields({
   required = false,
   onDepChange,
   inputCls,
+  campusId = null,
 }: EmployeeCodeFieldsProps) {
   const legacy = isLegacyEmployeeCode(value.employee_code);
+  const campusPrefix = campusPrefixForId(campusId);
   const splitPreview = useMemo(() => {
     if (legacy) return value.employee_code;
     if (value.employee_code_dep.trim() && value.employee_code_number.trim()) {
-      return composeEmployeeCode(value.employee_code_dep, value.employee_code_number);
+      return composeEmployeeCode(value.employee_code_dep, value.employee_code_number, campusPrefix);
     }
     return null;
-  }, [legacy, value.employee_code, value.employee_code_dep, value.employee_code_number]);
+  }, [legacy, value.employee_code, value.employee_code_dep, value.employee_code_number, campusPrefix]);
 
   if (legacy) {
     return (
@@ -136,7 +140,9 @@ export function EmployeeCodeFields({
         </p>
       )}
       <p className="text-[10px] text-zinc-400 dark:text-zinc-600">
-        Dept code and number are stored separately (e.g. 03 + 5256 → 03-5256).
+        {campusPrefix
+          ? `Campus prefix ${campusPrefix} is applied automatically (e.g. 02 + 1955 → ${campusPrefix}-02-1955).`
+          : "Dept code and number are stored separately. Select a campus to add the branch prefix."}
       </p>
     </div>
   );

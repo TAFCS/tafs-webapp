@@ -15,6 +15,7 @@ import {
   ChevronRight,
   X,
   Search,
+  Building2,
 } from "lucide-react";
 import Link from "next/link";
 import { hrService, Department, StaffCategory, EmployeeProfile } from "@/lib/hr.service";
@@ -41,6 +42,7 @@ export default function DepartmentsPage() {
   const [expandedCats, setExpandedCats] = useState<Set<number>>(new Set());
   const [expandedDeptEmps, setExpandedDeptEmps] = useState<Set<number>>(new Set());
 
+  const [selectedCampus, setSelectedCampus] = useState<string>("");
   const [catSearch, setCatSearch] = useState<Record<number, string>>({});
   const [deptEmpSearch, setDeptEmpSearch] = useState<Record<number, string>>({});
 
@@ -82,9 +84,26 @@ export default function DepartmentsPage() {
     void load();
   }, [load]);
 
+  const campusOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    employees.forEach((e) => {
+      if (e.campuses?.id && e.campuses?.campus_name) {
+        map.set(String(e.campuses.id), e.campuses.campus_name);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [employees]);
+
+  const filteredEmployees = useMemo(() => {
+    if (!selectedCampus) return employees;
+    return employees.filter(
+      (emp) => String(emp.campus_id ?? emp.campuses?.id) === selectedCampus
+    );
+  }, [employees, selectedCampus]);
+
   const employeesByCat = useMemo(() => {
     const map = new Map<number, EmployeeProfile[]>();
-    for (const emp of employees) {
+    for (const emp of filteredEmployees) {
       if (emp.staff_category_id) {
         const list = map.get(emp.staff_category_id) || [];
         list.push(emp);
@@ -92,11 +111,11 @@ export default function DepartmentsPage() {
       }
     }
     return map;
-  }, [employees]);
+  }, [filteredEmployees]);
 
   const employeesByDept = useMemo(() => {
     const map = new Map<number, EmployeeProfile[]>();
-    for (const emp of employees) {
+    for (const emp of filteredEmployees) {
       if (emp.department_id) {
         const list = map.get(emp.department_id) || [];
         list.push(emp);
@@ -104,7 +123,7 @@ export default function DepartmentsPage() {
       }
     }
     return map;
-  }, [employees]);
+  }, [filteredEmployees]);
 
   function toggleExpandedCat(catId: number) {
     setExpandedCats((prev) => {
@@ -286,15 +305,36 @@ export default function DepartmentsPage() {
         </div>
       ) : (
         <section className="space-y-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Layers className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Departments</h2>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
-              {departments.length}
-            </span>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-950/40 text-violet-600">
-              {totalCategories} subcategories
-            </span>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Layers className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Departments</h2>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                {departments.length}
+              </span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-950/40 text-violet-600">
+                {totalCategories} subcategories
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                <select
+                  value={selectedCampus}
+                  onChange={(e) => setSelectedCampus(e.target.value)}
+                  className="h-9 pl-9 pr-8 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl appearance-none outline-none hover:border-zinc-300 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all cursor-pointer"
+                >
+                  <option value="">All Campuses</option>
+                  {campusOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+              </div>
+            </div>
           </div>
 
           {departments.length === 0 ? (
@@ -307,7 +347,9 @@ export default function DepartmentsPage() {
                 const isOpen = expanded.has(dept.id);
                 const isDeptEmpsOpen = expandedDeptEmps.has(dept.id);
                 const deptEmployees = employeesByDept.get(dept.id) ?? [];
-                const empCount = Math.max(dept._count?.employee_profiles ?? 0, deptEmployees.length);
+                const empCount = selectedCampus
+                  ? deptEmployees.length
+                  : Math.max(dept._count?.employee_profiles ?? 0, deptEmployees.length);
                 const cats = dept.staff_categories ?? [];
                 return (
                   <div
@@ -476,7 +518,9 @@ export default function DepartmentsPage() {
                           <div className="grid gap-3 sm:grid-cols-2">
                             {cats.map((cat) => {
                               const catEmployees = employeesByCat.get(cat.id) ?? [];
-                              const catCount = Math.max(cat._count?.employee_profiles ?? 0, catEmployees.length);
+                              const catCount = selectedCampus
+                                ? catEmployees.length
+                                : Math.max(cat._count?.employee_profiles ?? 0, catEmployees.length);
                               const isCatOpen = expandedCats.has(cat.id);
                               const catQuery = (catSearch[cat.id] || "").trim().toLowerCase();
                               const filteredCatEmployees = catQuery

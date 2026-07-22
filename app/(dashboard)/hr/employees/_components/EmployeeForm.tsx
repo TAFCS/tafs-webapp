@@ -651,6 +651,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
             <EmployeeCodeFields
               required
               inputCls={inputCls}
+              campusId={formData.campus_id ? parseInt(formData.campus_id, 10) : null}
               value={{
                 employee_code: formData.employee_code,
                 employee_code_dep: formData.employee_code_dep,

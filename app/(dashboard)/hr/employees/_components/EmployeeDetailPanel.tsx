@@ -590,6 +590,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <EmployeeCodeFields
                         inputCls={inputCls}
+                        campusId={employmentForm.campus_id ? parseInt(employmentForm.campus_id, 10) : null}
                         value={{
                           employee_code: employmentForm.employee_code,
                           employee_code_dep: employmentForm.employee_code_dep,
