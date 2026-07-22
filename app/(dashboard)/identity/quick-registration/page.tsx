@@ -76,7 +76,7 @@ function calcAge(dob: string): number | null {
 // ── Shared UI ──────────────────────────────────────────────────────────────────
 
 const inputCls =
-    "w-full h-10 px-3.5 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-zinc-400";
+    "w-full h-10 px-3.5 text-[15px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-zinc-400";
 
 function SectionCard({ icon, title, children, rightSlot }: { icon: React.ReactNode; title: string; children: React.ReactNode; rightSlot?: React.ReactNode }) {
     return (
@@ -86,7 +86,7 @@ function SectionCard({ icon, title, children, rightSlot }: { icon: React.ReactNo
                     <div className="w-7 h-7 rounded-lg bg-white border border-zinc-100 shadow-sm flex items-center justify-center text-zinc-500">
                         {icon}
                     </div>
-                    <h2 className="text-[12px] font-black text-zinc-700 uppercase tracking-[0.15em]">{title}</h2>
+                    <h2 className="text-[14px] font-black text-zinc-700 uppercase tracking-[0.15em]">{title}</h2>
                 </div>
                 {rightSlot}
             </div>
@@ -98,13 +98,13 @@ function SectionCard({ icon, title, children, rightSlot }: { icon: React.ReactNo
 function FormField({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
     return (
         <div className="space-y-1.5">
-            <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+            <label className="block text-[12px] font-black text-zinc-400 uppercase tracking-widest">
                 {label}
                 {required && <span className="text-red-500 ml-0.5">*</span>}
             </label>
             {children}
             {error && (
-                <p className="text-[11px] font-bold text-red-500 flex items-center gap-1">
+                <p className="text-[13px] font-bold text-red-500 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3 shrink-0" />
                     {error}
                 </p>
@@ -328,8 +328,8 @@ export default function QuickRegistrationPage() {
                             <ClipboardPlus className="h-4.5 w-4.5 text-primary" />
                         </div>
                         <div>
-                            <h1 className="text-[22px] font-black tracking-tight text-zinc-900">Quick Registration</h1>
-                            <p className="text-[13px] text-zinc-500 mt-0.5">Create an unconfirmed admission record &amp; generate a deposit slip.</p>
+                            <h1 className="text-[24px] font-black tracking-tight text-zinc-900">Quick Registration</h1>
+                            <p className="text-[15px] text-zinc-500 mt-0.5">Create an unconfirmed admission record &amp; generate a deposit slip.</p>
                         </div>
                     </div>
                 </div>
@@ -358,17 +358,17 @@ export default function QuickRegistrationPage() {
                                         )}
                                     </button>
                                     <div className="pt-1">
-                                        <p className="text-[13px] font-bold text-zinc-700">
+                                        <p className="text-[15px] font-bold text-zinc-700">
                                             {photoPreview ? "Photo selected" : "Upload candidate photograph"}
                                         </p>
-                                        <p className="text-[12px] text-zinc-400 mt-1">
+                                        <p className="text-[14px] text-zinc-400 mt-1">
                                             {photoPreview ? photoFile?.name : "Click the box to select a JPG, PNG or WEBP"}
                                         </p>
                                         {photoPreview && (
                                             <button
                                                 type="button"
                                                 onClick={() => { setPhotoFile(null); setPhotoPreview(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-                                                className="mt-2 text-[11px] font-bold text-red-400 hover:text-red-600 transition-colors"
+                                                className="mt-2 text-[13px] font-bold text-red-400 hover:text-red-600 transition-colors"
                                             >
                                                 Remove photo
                                             </button>
@@ -399,7 +399,7 @@ export default function QuickRegistrationPage() {
                                 </FormField>
                                 <FormField label="Age at Registration">
                                     <div className={`${inputCls} flex items-center bg-zinc-50 cursor-default select-none`}>
-                                        <span className={`font-black text-[17px] ${age !== null ? "text-primary" : "text-zinc-300"}`}>
+                                        <span className={`font-black text-[19px] ${age !== null ? "text-primary" : "text-zinc-300"}`}>
                                             {age !== null ? `${age} Yrs` : "—"}
                                         </span>
                                     </div>
@@ -413,7 +413,7 @@ export default function QuickRegistrationPage() {
                                             key={g}
                                             type="button"
                                             onClick={() => setGender(g)}
-                                            className={`h-10 rounded-xl text-[13px] font-bold border-2 transition-all ${
+                                            className={`h-10 rounded-xl text-[15px] font-bold border-2 transition-all ${
                                                 gender === g
                                                     ? "bg-primary text-white border-primary shadow-sm"
                                                     : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
@@ -465,7 +465,7 @@ export default function QuickRegistrationPage() {
                                             type="button"
                                             disabled={!sys.enabled}
                                             onClick={() => { setAdmissionSystem(sys.key); setAdmissionLevel(""); }}
-                                            className={`h-10 rounded-xl text-[12px] font-bold border-2 transition-all flex items-center justify-center gap-1.5 ${
+                                            className={`h-10 rounded-xl text-[14px] font-bold border-2 transition-all flex items-center justify-center gap-1.5 ${
                                                 admissionSystem === sys.key
                                                     ? "bg-primary text-white border-primary shadow-sm"
                                                     : sys.enabled
@@ -488,7 +488,7 @@ export default function QuickRegistrationPage() {
                                                 key={cls}
                                                 type="button"
                                                 onClick={() => setAdmissionLevel(cls)}
-                                                className={`px-3.5 h-8 rounded-lg text-[12px] font-bold border-2 transition-all ${
+                                                className={`px-3.5 h-8 rounded-lg text-[14px] font-bold border-2 transition-all ${
                                                     admissionLevel === cls
                                                         ? "bg-primary text-white border-primary shadow-sm"
                                                         : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
@@ -502,7 +502,7 @@ export default function QuickRegistrationPage() {
                             )}
 
                             {!selectedCampusId && (
-                                <p className="text-[11px] text-zinc-400 font-medium">Select a campus above to narrow the grade list to classes it offers.</p>
+                                <p className="text-[13px] text-zinc-400 font-medium">Select a campus above to narrow the grade list to classes it offers.</p>
                             )}
                         </div>
                     </SectionCard>
@@ -518,10 +518,10 @@ export default function QuickRegistrationPage() {
                                 <div className="w-7 h-7 rounded-lg bg-white border border-zinc-100 shadow-sm flex items-center justify-center">
                                     <Users className="h-3.5 w-3.5 text-zinc-500" />
                                 </div>
-                                <h2 className="text-[12px] font-black text-zinc-700 uppercase tracking-[0.15em]">Guardian Information</h2>
+                                <h2 className="text-[14px] font-black text-zinc-700 uppercase tracking-[0.15em]">Guardian Information</h2>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${addGuardian ? "bg-primary/10 text-primary" : "bg-zinc-100 text-zinc-400"}`}>
+                                <span className={`text-[13px] font-bold px-2 py-0.5 rounded-lg ${addGuardian ? "bg-primary/10 text-primary" : "bg-zinc-100 text-zinc-400"}`}>
                                     {addGuardian ? "Enabled" : "Optional — click to add"}
                                 </span>
                                 {addGuardian ? <ChevronUp className="h-4 w-4 text-zinc-400" /> : <ChevronDown className="h-4 w-4 text-zinc-400" />}
@@ -533,7 +533,7 @@ export default function QuickRegistrationPage() {
                                 {guardians.map((g, i) => (
                                     <div key={i} className="bg-zinc-50 border border-zinc-100 rounded-xl p-5 space-y-4">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[11px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+                                            <span className="text-[13px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
                                                 <ShieldCheck className="h-3.5 w-3.5" />
                                                 Guardian #{i + 1}
                                             </span>
@@ -541,7 +541,7 @@ export default function QuickRegistrationPage() {
                                                 <button
                                                     type="button"
                                                     onClick={() => removeGuardianRow(i)}
-                                                    className="flex items-center gap-1 text-[11px] font-bold text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg transition-all"
+                                                    className="flex items-center gap-1 text-[13px] font-bold text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg transition-all"
                                                 >
                                                     <Trash2 className="h-3 w-3" /> Remove
                                                 </button>
@@ -612,7 +612,7 @@ export default function QuickRegistrationPage() {
                                                     const el = guardianFileInputRefs.current[i];
                                                     if (el) el.value = "";
                                                 }}
-                                                className="text-[11px] font-bold text-red-400 hover:text-red-600 transition-colors"
+                                                className="text-[13px] font-bold text-red-400 hover:text-red-600 transition-colors"
                                             >
                                                 Remove photo
                                             </button>
@@ -623,7 +623,7 @@ export default function QuickRegistrationPage() {
                                 <button
                                     type="button"
                                     onClick={addGuardianRow}
-                                    className="flex items-center gap-1.5 text-[12px] font-bold text-primary hover:text-primary/80 transition-colors py-1"
+                                    className="flex items-center gap-1.5 text-[14px] font-bold text-primary hover:text-primary/80 transition-colors py-1"
                                 >
                                     <Plus className="h-3.5 w-3.5" />
                                     Add Another Guardian
@@ -637,7 +637,7 @@ export default function QuickRegistrationPage() {
                         <div className="space-y-5">
                             <FormField label="Deposit Amount (PKR)" required error={errors.deposit_amount}>
                                 <div className="relative">
-                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-black text-zinc-400">PKR</span>
+                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] font-black text-zinc-400">PKR</span>
                                     <input
                                         type="number"
                                         min="0"
@@ -668,7 +668,7 @@ export default function QuickRegistrationPage() {
                     {errors.submit && (
                         <div className="flex items-center gap-2.5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
                             <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-                            <p className="text-[13px] font-bold text-red-600">{errors.submit}</p>
+                            <p className="text-[15px] font-bold text-red-600">{errors.submit}</p>
                         </div>
                     )}
                 </div>
@@ -678,7 +678,7 @@ export default function QuickRegistrationPage() {
                     {/* Summary Card */}
                     <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
                         <div className="px-5 py-4 border-b border-zinc-50 bg-zinc-50/60">
-                            <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.18em]">Record Preview</h3>
+                            <h3 className="text-[13px] font-black text-zinc-500 uppercase tracking-[0.18em]">Record Preview</h3>
                         </div>
                         <div className="px-5 py-5 space-y-4">
                             {/* Photo preview */}
@@ -691,10 +691,10 @@ export default function QuickRegistrationPage() {
                                     )}
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-[14px] font-black text-zinc-900 truncate">
+                                    <p className="text-[16px] font-black text-zinc-900 truncate">
                                         {fullName || <span className="text-zinc-300">Full name</span>}
                                     </p>
-                                    <p className="text-[12px] text-zinc-400 font-medium mt-0.5">
+                                    <p className="text-[14px] text-zinc-400 font-medium mt-0.5">
                                         {age !== null ? `${age} yrs · ` : ""}{gender}
                                     </p>
                                 </div>
@@ -731,9 +731,9 @@ export default function QuickRegistrationPage() {
                             <div className="flex items-center justify-center gap-2 px-4 py-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl">
                                 <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                                 <div>
-                                    <p className="text-[13px] font-black text-emerald-700">Record saved!</p>
+                                    <p className="text-[15px] font-black text-emerald-700">Record saved!</p>
                                     {generatedCc && (
-                                        <p className="text-[11px] text-emerald-600 font-bold">
+                                        <p className="text-[13px] text-emerald-600 font-bold">
                                             CC #{generatedCc} · Deposit slip opened
                                         </p>
                                     )}
@@ -743,7 +743,7 @@ export default function QuickRegistrationPage() {
                                 <button
                                     type="button"
                                     onClick={() => window.open(`/api/v1/unconfirmed-admissions/${generatedCc}/deposit-slip`, "_blank")}
-                                    className="w-full h-10 flex items-center justify-center gap-2 text-[12px] font-bold text-primary border border-primary/20 bg-primary/5 rounded-xl hover:bg-primary/10 transition-all"
+                                    className="w-full h-10 flex items-center justify-center gap-2 text-[14px] font-bold text-primary border border-primary/20 bg-primary/5 rounded-xl hover:bg-primary/10 transition-all"
                                 >
                                     <FileText className="h-3.5 w-3.5" />
                                     Re-open Deposit Slip
@@ -752,7 +752,7 @@ export default function QuickRegistrationPage() {
                             <button
                                 type="button"
                                 onClick={handleReset}
-                                className="w-full h-10 flex items-center justify-center gap-2 text-[12px] font-bold text-zinc-600 border border-zinc-200 bg-white rounded-xl hover:bg-zinc-50 transition-all"
+                                className="w-full h-10 flex items-center justify-center gap-2 text-[14px] font-bold text-zinc-600 border border-zinc-200 bg-white rounded-xl hover:bg-zinc-50 transition-all"
                             >
                                 <ClipboardPlus className="h-3.5 w-3.5" />
                                 Register Another Student
@@ -763,7 +763,7 @@ export default function QuickRegistrationPage() {
                             type="button"
                             onClick={handleSubmit}
                             disabled={isSubmitting}
-                            className="w-full h-12 flex items-center justify-center gap-2 text-[14px] font-black text-white bg-primary rounded-2xl hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98] shadow-sm shadow-primary/20"
+                            className="w-full h-12 flex items-center justify-center gap-2 text-[16px] font-black text-white bg-primary rounded-2xl hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98] shadow-sm shadow-primary/20"
                         >
                             {isSubmitting ? (
                                 <>
@@ -782,7 +782,7 @@ export default function QuickRegistrationPage() {
                     <button
                         type="button"
                         onClick={() => router.back()}
-                        className="w-full h-10 flex items-center justify-center gap-2 text-[12px] font-bold text-zinc-500 hover:text-zinc-700 transition-colors"
+                        className="w-full h-10 flex items-center justify-center gap-2 text-[14px] font-bold text-zinc-500 hover:text-zinc-700 transition-colors"
                     >
                         <ArrowLeft className="h-3.5 w-3.5" />
                         Go Back
@@ -800,8 +800,8 @@ function SummaryRow({ icon, label, children }: { icon: React.ReactNode; label: s
         <div className="flex items-start gap-2.5">
             <div className="text-zinc-300 mt-0.5 shrink-0">{icon}</div>
             <div className="min-w-0 flex-1">
-                <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block">{label}</span>
-                <span className="text-[12px] font-bold text-zinc-700 block truncate">{children}</span>
+                <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest block">{label}</span>
+                <span className="text-[14px] font-bold text-zinc-700 block truncate">{children}</span>
             </div>
         </div>
     );
