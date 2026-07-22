@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, CalendarClock, CheckCircle2, Loader2, Search } from "lucide-react";
+import { AlertCircle, CalendarClock, CalendarOff, CheckCircle2, Loader2, Search } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus } from "@/lib/campuses.service";
 import { hrService, EmployeeProfile, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
@@ -9,6 +9,8 @@ import { shiftOverridesService } from "@/lib/leaves.service";
 import { MultiSelectMonthCalendar } from "../employees/_components/MultiSelectMonthCalendar";
 
 const ALL_CAMPUSES = "ALL";
+
+type OverrideMode = "TIME" | "HOLIDAY";
 
 function employeeSectionLabel(emp: EmployeeProfile): string {
   const a = emp.employee_class_section_assignments?.[0];
@@ -43,6 +45,9 @@ export default function ShiftOverridesPage() {
   const { user } = useAuthState();
   const canManage = user?.role === "SUPER_ADMIN" || user?.role === "CAMPUS_ADMIN";
   const isCampusAdmin = user?.role === "CAMPUS_ADMIN";
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+
+  const [mode, setMode] = useState<OverrideMode>("TIME");
 
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [campusId, setCampusId] = useState<string>("");
@@ -55,6 +60,7 @@ export default function ShiftOverridesPage() {
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [dayType, setDayType] = useState<"HOLIDAY" | "WORKDAY">("HOLIDAY");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -158,8 +164,8 @@ export default function ShiftOverridesPage() {
   const canSubmit =
     selectedIds.size > 0 &&
     selectedDates.size > 0 &&
-    (startTime.trim() !== "" || endTime.trim() !== "") &&
-    !saving;
+    !saving &&
+    (mode === "TIME" ? startTime.trim() !== "" || endTime.trim() !== "" : true);
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,16 +174,31 @@ export default function ShiftOverridesPage() {
     setError(null);
     setSuccess(null);
     try {
-      const rows = await shiftOverridesService.bulkCreate({
-        employee_ids: [...selectedIds],
-        dates: [...selectedDates],
-        override_start_time: startTime.trim() || undefined,
-        override_end_time: endTime.trim() || undefined,
-        reason: reason.trim() || undefined,
-      });
-      setSuccess(
-        `Applied to ${selectedIds.size} employee(s) across ${selectedDates.size} day(s) — ${rows.length} override(s) saved.`,
-      );
+      if (mode === "TIME") {
+        const rows = await shiftOverridesService.bulkCreate({
+          employee_ids: [...selectedIds],
+          dates: [...selectedDates],
+          override_start_time: startTime.trim() || undefined,
+          override_end_time: endTime.trim() || undefined,
+          reason: reason.trim() || undefined,
+        });
+        setSuccess(
+          `Applied to ${selectedIds.size} employee(s) across ${selectedDates.size} day(s) — ${rows.length} override(s) saved.`,
+        );
+      } else {
+        const result = await hrService.createEmployeeCalendarDays({
+          employee_ids: [...selectedIds],
+          dates: [...selectedDates],
+          day_type: dayType,
+          description: reason.trim() || undefined,
+        });
+        setSuccess(
+          `${result.created} override(s) created` +
+            (result.skipped > 0 ? `, ${result.skipped} already existed` : "") +
+            (result.failed > 0 ? `, ${result.failed} failed` : "") +
+            ".",
+        );
+      }
       setSelectedDates(new Set());
       setStartTime("");
       setEndTime("");
@@ -236,10 +257,34 @@ export default function ShiftOverridesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Shift Overrides</h1>
           <p className="text-sm text-zinc-500">
-            Override the expected check-in/check-out time for a group of staff on specific day(s) —
-            e.g. an early off-time for a campus or segment on a given day.
+            {mode === "TIME"
+              ? "Override the expected check-in/check-out time for a group of staff on specific day(s) — e.g. an early off-time for a campus or segment on a given day."
+              : "Mark specific day(s) as a holiday (or reinstate a working day) for selected staff only — e.g. an extra day off for one segment while everyone else works."}
           </p>
         </div>
+      </div>
+
+      <div className="inline-flex rounded-xl border border-zinc-200 dark:border-zinc-800 p-1 bg-zinc-50 dark:bg-zinc-900/50">
+        <button
+          type="button"
+          onClick={() => setMode("TIME")}
+          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            mode === "TIME" ? "bg-white dark:bg-zinc-800 text-primary shadow-sm" : "text-zinc-500"
+          }`}
+        >
+          <CalendarClock className="h-4 w-4" /> Shift Time Override
+        </button>
+        {isSuperAdmin && (
+          <button
+            type="button"
+            onClick={() => setMode("HOLIDAY")}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+              mode === "HOLIDAY" ? "bg-white dark:bg-zinc-800 text-primary shadow-sm" : "text-zinc-500"
+            }`}
+          >
+            <CalendarOff className="h-4 w-4" /> Holiday Override
+          </button>
+        )}
       </div>
 
       {error && (
@@ -346,30 +391,48 @@ export default function ShiftOverridesPage() {
           <p className="text-xs text-zinc-500">{selectedIds.size} employee(s) selected</p>
         </div>
 
-        {/* Right panel — day(s) + time */}
+        {/* Right panel — day(s) + override details */}
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-4 space-y-4">
-          <h2 className="font-semibold text-sm text-zinc-700 dark:text-zinc-300">Override time</h2>
+          <h2 className="font-semibold text-sm text-zinc-700 dark:text-zinc-300">
+            {mode === "TIME" ? "Override time" : "Override day type"}
+          </h2>
 
           <form onSubmit={handleApply} className="space-y-4">
             <MultiSelectMonthCalendar value={selectedDates} onChange={setSelectedDates} />
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] font-bold text-zinc-400 uppercase">Start time</label>
-                <input type="time" className={inputCls} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+            {mode === "TIME" ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 uppercase">Start time</label>
+                  <input type="time" className={inputCls} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 uppercase">End time</label>
+                  <input type="time" className={inputCls} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                </div>
               </div>
+            ) : (
               <div>
-                <label className="text-[11px] font-bold text-zinc-400 uppercase">End time</label>
-                <input type="time" className={inputCls} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <label className="text-[11px] font-bold text-zinc-400 uppercase">Day type</label>
+                <select
+                  className={inputCls}
+                  value={dayType}
+                  onChange={(e) => setDayType(e.target.value as "HOLIDAY" | "WORKDAY")}
+                >
+                  <option value="HOLIDAY">Holiday (day off)</option>
+                  <option value="WORKDAY">Working day (reinstate)</option>
+                </select>
               </div>
-            </div>
+            )}
 
             <div>
-              <label className="text-[11px] font-bold text-zinc-400 uppercase">Reason (optional)</label>
+              <label className="text-[11px] font-bold text-zinc-400 uppercase">
+                {mode === "TIME" ? "Reason (optional)" : "Description (optional)"}
+              </label>
               <input
                 type="text"
                 className={inputCls}
-                placeholder="e.g. Early off-time for exam day"
+                placeholder={mode === "TIME" ? "e.g. Early off-time for exam day" : "e.g. Compensatory day off"}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
               />
