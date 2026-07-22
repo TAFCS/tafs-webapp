@@ -6,7 +6,7 @@ import {
   X, Loader2, User, Briefcase, Clock, BookOpen, Trash2,
   Phone, Mail, MapPin, CreditCard, Cake, Calendar, Building2,
   AlertTriangle, Users as UsersIcon, Pencil, Save, CheckCircle2,
-  Landmark, PhoneCall, Shield, Fingerprint,
+  Landmark, PhoneCall, Shield, Fingerprint, CalendarClock,
 } from "lucide-react";
 import {
   hrService,
@@ -23,6 +23,7 @@ import {
 } from "@/lib/hr.service";
 import { EmployeePortalAccountTab } from "./EmployeePortalAccountTab";
 import { EmployeeBiometricTab } from "./EmployeeBiometricTab";
+import { EmployeeShiftOverridesTab } from "./EmployeeShiftOverridesTab";
 import {
   assignmentsToRows,
   rowsToAssignments,
@@ -41,7 +42,7 @@ const BASE_TABS = [
   { id: "classes", label: "Class & Sections", icon: BookOpen },
 ] as const;
 
-type TabId = typeof BASE_TABS[number]["id"] | "portal" | "biometric";
+type TabId = typeof BASE_TABS[number]["id"] | "portal" | "biometric" | "shift_overrides";
 
 const WEEKDAY_ORDER = [
   { dow: 1, label: "Mon" },
@@ -389,6 +390,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     ...BASE_TABS,
     ...(emp?.users ? [{ id: "portal" as const, label: "Portal Account", icon: Shield }] : []),
     { id: "biometric" as const, label: "Biometric", icon: Fingerprint },
+    { id: "shift_overrides" as const, label: "Shift Overrides", icon: CalendarClock },
   ];
 
   return (
@@ -767,6 +769,10 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
 
                 {tab === "biometric" && (
                   <EmployeeBiometricTab employeeId={emp.id} employeeName={name} />
+                )}
+
+                {tab === "shift_overrides" && (
+                  <EmployeeShiftOverridesTab employeeId={emp.id} employeeName={name} />
                 )}
 
                 {tab === "classes" && (
