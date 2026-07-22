@@ -541,6 +541,7 @@ export default function DepartmentsPage() {
                                           ))}
                                         </div>
                                       )}
+                                    </div>
                                   )}
                                 </div>
                               );
