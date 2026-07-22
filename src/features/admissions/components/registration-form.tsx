@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X, Plus, GraduationCap, BookOpen, ShieldCheck, Star, Award, BookText } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X, Plus, GraduationCap, BookOpen, ShieldCheck, Star, Award, BookText, Trash2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/src/store/store";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
@@ -200,6 +200,7 @@ const RegistrationPhotoBox = memo(function RegistrationPhotoBox({
 
 export function RegistrationForm() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const dispatch = useDispatch<AppDispatch>();
     const { items: classes, isLoading: isClassesLoading } = useSelector((state: RootState) => state.classes);
     const { items: campuses, isLoading: isCampusesLoading } = useSelector((state: RootState) => state.campuses);
@@ -793,6 +794,28 @@ export function RegistrationForm() {
     const [prefillCc, setPrefillCc] = useState<number | null>(null);
     const [isPrefilling, setIsPrefilling] = useState(false);
 
+    // Delete-in-place option for a pending Quick Admission record being completed here.
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deleteConfirmText, setDeleteConfirmText] = useState("");
+    const [isDeletingRecord, setIsDeletingRecord] = useState(false);
+
+    const handleDeleteQuickAdmission = async () => {
+        if (!prefillCc || deleteConfirmText !== String(prefillCc)) return;
+        setIsDeletingRecord(true);
+        try {
+            await api.delete(`/v1/staff-editing/students/${prefillCc}/hard-delete`);
+            toast.success(`Quick Admission CC #${prefillCc} permanently deleted.`);
+            handleReset();
+            router.push("/identity/students");
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || "Failed to delete this record.");
+        } finally {
+            setIsDeletingRecord(false);
+            setIsDeleteModalOpen(false);
+            setDeleteConfirmText("");
+        }
+    };
+
     const handleReset = () => {
         // Deep clone the initial state to ensure a clean slate
         setFormData(JSON.parse(JSON.stringify(INITIAL_FORM_DATA)));
@@ -814,7 +837,7 @@ export function RegistrationForm() {
     };
 
     // Fetch a pending Quick Admission by CC and prefill the form with it.
-    const prefillFromQuickAdmission = async (cc: number) => {
+    const prefillFromQuickAdmission = useCallback(async (cc: number) => {
         setIsPrefilling(true);
         try {
             const { data } = await api.get<{ data: any }>(`/v1/admissions/by-cc/${cc}`);
@@ -886,7 +909,16 @@ export function RegistrationForm() {
         } finally {
             setIsPrefilling(false);
         }
-    };
+    }, []);
+
+    // Auto-prefill when arriving with ?cc= (e.g. from the directory's Quick Admission cards).
+    useEffect(() => {
+        const cc = searchParams.get("cc");
+        if (cc && !isNaN(Number(cc))) {
+            prefillFromQuickAdmission(Number(cc));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]);
 
     const isStep1Valid = () => {
         const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
@@ -1279,9 +1311,19 @@ export function RegistrationForm() {
                             Page {currentStep} of 3 — {currentStep === 1 ? 'Personal Data & Academic Target' : currentStep === 2 ? 'Contacts & Signatures' : 'Office Use Only'}
                         </p>
                         {prefillCc && (
-                            <p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mt-1">
-                                Completing Quick Admission CC #{prefillCc}
-                            </p>
+                            <div className="flex items-center gap-3 mt-1">
+                                <p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">
+                                    Completing Quick Admission CC #{prefillCc}
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDeleteModalOpen(true)}
+                                    className="flex items-center gap-1 text-[11px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest transition-colors"
+                                >
+                                    <Trash2 className="h-3 w-3" />
+                                    Delete This Record
+                                </button>
+                            </div>
                         )}
                     </div>
                     <div className="flex items-center gap-3">
@@ -2668,6 +2710,56 @@ export function RegistrationForm() {
                     />
                 )
             }
+
+            {/* Delete Quick Admission confirmation modal */}
+            {isDeleteModalOpen && prefillCc && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white dark:bg-zinc-950 border-2 border-rose-500 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-start gap-3">
+                            <div className="p-2.5 bg-rose-100 dark:bg-rose-900/30 rounded-xl text-rose-600 shrink-0">
+                                <Trash2 className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-black text-zinc-900 dark:text-zinc-100 uppercase">Permanently Delete This Record</p>
+                                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
+                                    This will permanently remove Quick Admission CC #{prefillCc} and all associated data. This cannot be undone.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="block text-[10px] font-black text-rose-600 uppercase tracking-wider">
+                                Type CC <span className="font-mono">#{prefillCc}</span> to confirm
+                            </label>
+                            <input
+                                type="text"
+                                value={deleteConfirmText}
+                                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                placeholder={`ENTER ${prefillCc} TO CONFIRM`}
+                                className="w-full h-11 px-4 text-sm font-mono font-black text-rose-600 bg-rose-50 dark:bg-rose-900/10 border-2 border-rose-100 dark:border-rose-900/30 rounded-xl outline-none focus:border-rose-500 transition-all text-center"
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => { setIsDeleteModalOpen(false); setDeleteConfirmText(""); }}
+                                className="flex-1 h-11 text-xs font-black uppercase tracking-wider bg-zinc-100 dark:bg-zinc-900 text-zinc-500 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDeleteQuickAdmission}
+                                disabled={isDeletingRecord || deleteConfirmText !== String(prefillCc)}
+                                className="flex-1 h-11 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider bg-rose-600 text-white rounded-xl hover:bg-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-200"
+                            >
+                                {isDeletingRecord ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm & Delete"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

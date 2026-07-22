@@ -328,6 +328,7 @@ export interface PayrollRunLine extends AttendanceLineBase {
   id: number;
   payroll_run_id: number;
   scheduled_working_days: number;
+  total_calendar_days: number;
   monthly_pay: number;
   daily_rate: number;
   per_minute_rate: number;

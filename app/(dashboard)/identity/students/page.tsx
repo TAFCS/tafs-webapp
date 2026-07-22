@@ -591,12 +591,12 @@ function DirectoryContent() {
                                     key={s.cc}
                                     student={s}
                                     onClick={() => {
-                                        // Quick admission records open the admission form to complete them.
+                                        // Quick admission records open the registration form, prefilled, to complete them.
                                         if (
                                             s.core?.enrollment_status === "QUICK_ADMISSION" ||
                                             s.core?.enrollment_status === "UNCONFIRMED"
                                         ) {
-                                            router.push(`/identity/register/admission-form?cc=${s.cc}`);
+                                            router.push(`/identity/register/registration-form?cc=${s.cc}`);
                                         } else {
                                             setSelectedCc(s.cc);
                                         }
