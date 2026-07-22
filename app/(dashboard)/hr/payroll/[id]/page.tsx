@@ -467,7 +467,12 @@ function PayrollLineRow({
         {line.total_late_minutes > 0 ? <span className="font-semibold text-amber-600">{line.total_late_minutes}</span> : <span className="text-zinc-300 dark:text-zinc-600">0</span>}
       </td>
       <td className="px-4 py-3 text-center text-sm text-zinc-600 dark:text-zinc-300">{line.total_break_minutes}</td>
-      <td className="px-4 py-3 text-right text-sm font-mono text-zinc-600 dark:text-zinc-300">{formatPkr(line.daily_rate)}</td>
+      <td
+        className="px-4 py-3 text-right text-sm font-mono text-zinc-600 dark:text-zinc-300"
+        title={`Monthly pay ÷ ${line.total_calendar_days} calendar days in the period (weekends/holidays included)`}
+      >
+        {formatPkr(line.daily_rate)}
+      </td>
       <td className="px-4 py-3 text-right text-sm font-mono text-zinc-600 dark:text-zinc-300">{formatPkr(line.monthly_pay)}</td>
       <td className="px-4 py-3 text-right text-sm font-mono text-rose-600">
         {Number(line.total_deductions) > 0 ? `-${formatPkr(line.total_deductions)}` : formatPkr(0)}

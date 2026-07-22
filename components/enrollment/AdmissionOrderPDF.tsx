@@ -195,7 +195,24 @@ const styles = StyleSheet.create({
         fontSize: 8,
         fontWeight: 'bold',
         textTransform: 'uppercase',
-    }
+    },
+    houseSwatch: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        borderWidth: 0.5,
+        borderColor: '#00000055',
+        marginRight: 4,
+    },
+    houseValueRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        borderBottomWidth: 0.5,
+        borderBottomColor: '#000000',
+        paddingLeft: 5,
+        minHeight: 12,
+    },
 });
 
 export interface AdmissionOrderData {
@@ -215,6 +232,8 @@ export interface AdmissionOrderData {
     campus_name?: string;
     class_name?: string;
     section_name?: string;
+    house_name?: string;
+    house_color?: string;
     remarks?: string;
     address?: string;
     home_phone?: string;
@@ -343,6 +362,15 @@ export const AdmissionOrderPDF = ({ data }: { data: AdmissionOrderData }) => {
                             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
                                 <Text style={styles.detailLabel}>SECTION :</Text>
                                 <Text style={styles.detailValue}>{data.section_name}</Text>
+                            </View>
+                            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={styles.detailLabel}>HOUSE :</Text>
+                                <View style={styles.houseValueRow}>
+                                    {data.house_name && (
+                                        <View style={[styles.houseSwatch, { backgroundColor: data.house_color || '#94a3b8' }]} />
+                                    )}
+                                    <Text style={{ fontSize: 9 }}>{data.house_name}</Text>
+                                </View>
                             </View>
                         </View>
 

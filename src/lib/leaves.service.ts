@@ -124,3 +124,51 @@ export const saturdaySchedulesService = {
     await api.delete(`/v1/hr/saturday-schedules/${id}`);
   },
 };
+
+export interface ShiftOverride {
+  id: number;
+  employee_id: number;
+  date: string;
+  override_start_time: string | null;
+  override_end_time: string | null;
+  reason: string | null;
+  created_by: string;
+  created_at: string;
+  employee_profiles: {
+    id: number;
+    full_name: string | null;
+    campus_id: number | null;
+  };
+}
+
+export interface ListShiftOverridesParams {
+  employee_id?: number;
+  date_from?: string;
+  date_to?: string;
+}
+
+export interface CreateShiftOverridesParams {
+  employee_id: number;
+  dates: string[];
+  override_start_time?: string;
+  override_end_time?: string;
+  reason?: string;
+}
+
+export const shiftOverridesService = {
+  async list(params: ListShiftOverridesParams): Promise<ShiftOverride[]> {
+    const { data } = await api.get<ApiEnvelope<ShiftOverride[]>>("/v1/hr/shift-overrides", {
+      params,
+    });
+    return data.data;
+  },
+
+  async bulkCreate(params: CreateShiftOverridesParams): Promise<ShiftOverride[]> {
+    const { data } = await api.post<ApiEnvelope<ShiftOverride[]>>("/v1/hr/shift-overrides", params);
+    return data.data;
+  },
+
+  async remove(id: number): Promise<void> {
+    await api.delete(`/v1/hr/shift-overrides/${id}`);
+  },
+};
