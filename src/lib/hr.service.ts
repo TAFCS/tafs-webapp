@@ -35,6 +35,7 @@ export interface StaffCategory {
   code: string;
   name: string;
   description: string | null;
+  employee_code_dep?: string | null;
   _count?: { employee_profiles: number };
 }
 
@@ -91,6 +92,13 @@ export interface EmployeeProfile {
   campus_id: number | null;
   days_per_week: number | null;
   photo_url: string | null;
+  father_photo_url?: string | null;
+  father_cnic?: string | null;
+  mother_photo_url?: string | null;
+  mother_cnic?: string | null;
+  spouse_name?: string | null;
+  spouse_cnic?: string | null;
+  spouse_photo_url?: string | null;
   account_number: string | null;
   bank_name: string | null;
   emergency_contact_name: string | null;
@@ -115,6 +123,7 @@ export interface EmployeeProfile {
   reporting_manager?: {
     id: number;
     full_name: string | null;
+    employee_code?: string | null;
     users?: { full_name: string } | null;
   } | null;
   employee_class_section_assignments?: {
@@ -162,6 +171,13 @@ export interface EmployeeCreatePayload {
   campus_id?: number;
   days_per_week?: number;
   photo_url?: string | null;
+  father_photo_url?: string | null;
+  father_cnic?: string | null;
+  mother_photo_url?: string | null;
+  mother_cnic?: string | null;
+  spouse_name?: string | null;
+  spouse_cnic?: string | null;
+  spouse_photo_url?: string | null;
   account_number?: string | null;
   bank_name?: string | null;
   emergency_contact_name?: string | null;
@@ -418,6 +434,13 @@ export const hrService = {
     );
     return data.data;
   },
+  async searchSimple(q: string): Promise<{ id: number; full_name: string | null; employee_code: string | null }[]> {
+    const { data } = await api.get<ApiEnvelope<{ id: number; full_name: string | null; employee_code: string | null }[]>>(
+      '/v1/hr/employees/search-simple',
+      { params: { q } },
+    );
+    return data.data;
+  },
 
   // ── Staff Types API ────────────────────────────────────────────────────────
   async listStaffTypes(): Promise<StaffType[]> {
@@ -649,6 +672,20 @@ export const hrService = {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>(
       `/v1/hr/payroll/runs/${runId}/disburse-all`,
       payload ?? {},
+    );
+    return data.data;
+  },
+  async uploadEmployeePhotoSlot(
+    employeeId: number,
+    file: File,
+    slot: 'profile' | 'father' | 'mother' | 'spouse' = 'profile',
+  ): Promise<{ url: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await api.post<ApiEnvelope<{ url: string }>>(
+      `/v1/media/employee/${employeeId}/photo?slot=${slot}`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
     );
     return data.data;
   },

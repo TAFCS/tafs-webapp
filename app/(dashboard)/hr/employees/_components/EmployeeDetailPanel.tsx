@@ -516,7 +516,11 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       <>
                         <ReadField icon={User} label="Full Name" value={emp.full_name} missing={!emp.full_name} />
                         <ReadField icon={User} label="Father's Name" value={emp.father_name} missing={!emp.father_name} />
+                        {emp.father_cnic && <ReadField icon={CreditCard} label="Father's CNIC" value={<span className="font-mono">{emp.father_cnic}</span>} />}
                         <ReadField icon={User} label="Mother's Name" value={emp.mother_name} missing={!emp.mother_name} />
+                        {emp.mother_cnic && <ReadField icon={CreditCard} label="Mother's CNIC" value={<span className="font-mono">{emp.mother_cnic}</span>} />}
+                        {emp.spouse_name && <ReadField icon={User} label="Spouse Name" value={emp.spouse_name} />}
+                        {emp.spouse_cnic && <ReadField icon={CreditCard} label="Spouse CNIC" value={<span className="font-mono">{emp.spouse_cnic}</span>} />}
                         <ReadField icon={CreditCard} label="CNIC" value={<span className="font-mono">{emp.cnic}</span>} missing={!emp.cnic} />
                         <ReadField icon={Cake} label="Date of Birth" value={fmtDate(emp.date_of_birth)} missing={!fmtDate(emp.date_of_birth)} />
                         <ReadField icon={Phone} label="Personal Phone" value={emp.personal_phone} missing={!emp.personal_phone} />
@@ -527,6 +531,31 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                             ? `${emp.emergency_contact_name}${emp.emergency_contact_phone ? ` · ${emp.emergency_contact_phone}` : ""}${emp.emergency_contact_relationship ? ` (${emp.emergency_contact_relationship})` : ""}`
                             : null
                         } missing={!emp.emergency_contact_name} />
+                        {(emp.father_photo_url || emp.mother_photo_url || emp.spouse_photo_url) && (
+                          <div className="pt-3 pb-1">
+                            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Family Photos</p>
+                            <div className="flex items-center gap-3">
+                              {emp.father_photo_url && (
+                                <div className="text-center">
+                                  <img src={emp.father_photo_url} alt="Father" className="w-14 h-14 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700" />
+                                  <span className="text-[10px] text-zinc-500 mt-1 block font-semibold">Father</span>
+                                </div>
+                              )}
+                              {emp.mother_photo_url && (
+                                <div className="text-center">
+                                  <img src={emp.mother_photo_url} alt="Mother" className="w-14 h-14 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700" />
+                                  <span className="text-[10px] text-zinc-500 mt-1 block font-semibold">Mother</span>
+                                </div>
+                              )}
+                              {emp.spouse_photo_url && (
+                                <div className="text-center">
+                                  <img src={emp.spouse_photo_url} alt="Spouse" className="w-14 h-14 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700" />
+                                  <span className="text-[10px] text-zinc-500 mt-1 block font-semibold">Spouse</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         {emp.notes && <ReadField icon={BookOpen} label="Internal Notes" value={emp.notes} />}
                       </>
                     }

@@ -100,19 +100,25 @@ export function EmployeeClassAssignmentsEditor({
     [campusId, campuses],
   );
 
-  const campusClasses = campusOfferedClasses
-    ? campusOfferedClasses.filter((c) => c.is_active)
-    : allClasses;
+  const campusClasses = useMemo(() => {
+    if (campusId != null && campusOfferedClasses && campusOfferedClasses.length > 0) {
+      const active = campusOfferedClasses.filter((c) => c.is_active);
+      if (active.length > 0) return active;
+    }
+    return allClasses;
+  }, [campusId, campusOfferedClasses, allClasses]);
 
   const campusName = campusId != null
     ? campuses.find((c) => c.id === campusId)?.campus_name
     : null;
 
-  const getSectionsForClass = (classId: number | ""): { id: number; description: string }[] => {
+  const getSectionsForClass = (classId: number | ""): { id: number; description?: string; name?: string }[] => {
     if (!classId) return [];
-    if (campusOfferedClasses) {
+    if (campusOfferedClasses && campusOfferedClasses.length > 0) {
       const found = campusOfferedClasses.find((c) => c.id === Number(classId));
-      return found?.sections.filter((s) => s.is_active) ?? [];
+      if (found && found.sections && found.sections.length > 0) {
+        return found.sections.filter((s) => s.is_active);
+      }
     }
     return allSections;
   };
@@ -208,9 +214,15 @@ export function EmployeeClassAssignmentsEditor({
                     }}
                   >
                     <option value="">-- Select Class --</option>
-                    {campusClasses.map((c) => (
-                      <option key={c.id} value={c.id}>{c.description} ({c.class_code})</option>
-                    ))}
+                    {campusClasses.map((c) => {
+                      const label = c.description || (c as any).name || (c as any).class_name || `Class #${c.id}`;
+                      const codeStr = c.class_code || (c as any).code ? ` (${c.class_code || (c as any).code})` : "";
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {label}{codeStr}
+                        </option>
+                      );
+                    })}
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                 </div>
@@ -225,6 +237,7 @@ export function EmployeeClassAssignmentsEditor({
                   ) : (
                     rowSections.map((sec) => {
                       const selected = row.section_ids.includes(sec.id);
+                      const secLabel = sec.description || sec.name || (sec as any).section_name || `Section #${sec.id}`;
                       return (
                         <button
                           key={sec.id}
@@ -236,7 +249,7 @@ export function EmployeeClassAssignmentsEditor({
                               : "bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-primary/50"
                           }`}
                         >
-                          {sec.description}
+                          {secLabel}
                         </button>
                       );
                     })
