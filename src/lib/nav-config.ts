@@ -109,6 +109,7 @@ export const NAV_MODULES: NavModule[] = [
         permissions: ["hr.employees.view", "hr.payroll.view", "communication.send_employee_announcements"],
         items: [
             { name: "Employee Directory", description: "Staff profiles and records", href: "/hr/employees", icon: Users, permission: "hr.employees.view" },
+            { name: "Register a Employee", description: "Create new employee profile", href: "/hr/employees/new", icon: UserPlus, permission: "hr.employees.view" },
             { name: "Departments", description: "Departments and staff categories", href: "/hr/departments", icon: Layers, permission: "hr.employees.view" },
             { name: "Payroll", description: "Salary processing", href: "/hr/payroll", icon: Wallet, permission: "hr.payroll.view" },
             { name: "Employee Notices", description: "Broadcast announcements to staff by role", href: "/hr/notices", icon: Megaphone, permission: "communication.send_employee_announcements" },

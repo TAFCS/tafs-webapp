@@ -228,14 +228,6 @@ export default function EmployeesPage() {
             </p>
           </div>
         </div>
-
-        <button
-          onClick={() => router.push("/hr/employees/new")}
-          className="inline-flex items-center justify-center h-11 px-5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white font-semibold rounded-xl shadow-sm transition-all active:scale-95 text-sm"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Employee
-        </button>
       </div>
 
       {/* Notifications */}
