@@ -13,6 +13,8 @@ import LogoImage from "@/public/logo.png";
 import { StudentProfileModal } from "@/src/features/students/components/student-profile-modal";
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
 import { GRADE_NAME_TO_CODE, resolveClassIdFromGrade } from "@/lib/fee-utils";
+import { QuickAdmissionsPopup } from "./quick-admissions-popup";
+import toast from "react-hot-toast";
 
 const isNA = (v: any) => v === "N/A" || v === "021-N/A";
 
@@ -786,6 +788,11 @@ export function RegistrationForm() {
     const [submitSuccess, setSubmitSuccess] = useState<StudentListItem | null>(null);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
+    // Set when the form was prefilled from a pending Quick Admission record.
+    // Submitting then completes that record in place instead of allocating a new CC.
+    const [prefillCc, setPrefillCc] = useState<number | null>(null);
+    const [isPrefilling, setIsPrefilling] = useState(false);
+
     const handleReset = () => {
         // Deep clone the initial state to ensure a clean slate
         setFormData(JSON.parse(JSON.stringify(INITIAL_FORM_DATA)));
@@ -793,6 +800,92 @@ export function RegistrationForm() {
         setSubmitSuccess(null);
         setSubmitError(null);
         setIsProfileModalOpen(false);
+        setPrefillCc(null);
+    };
+
+    // Map academic_system labels ("Cambridge", "A-Level", "Secondary", etc.) to the
+    // lowercase tokens this form uses for its admissionSystem field.
+    const mapAcademicSystemToToken = (system?: string | null): "" | "cambridge" | "secondary" | "alevel" => {
+        const normalized = (system || "").toLowerCase().replace(/[^a-z]/g, "");
+        if (normalized.includes("cambridge")) return "cambridge";
+        if (normalized.includes("alevel")) return "alevel";
+        if (normalized.includes("secondary")) return "secondary";
+        return "";
+    };
+
+    // Fetch a pending Quick Admission by CC and prefill the form with it.
+    const prefillFromQuickAdmission = async (cc: number) => {
+        setIsPrefilling(true);
+        try {
+            const { data } = await api.get<{ data: any }>(`/v1/admissions/by-cc/${cc}`);
+            const student = data?.data;
+            if (!student) {
+                toast.error("No admission data returned for this record.");
+                return;
+            }
+
+            const admission = Array.isArray(student.student_admissions) ? student.student_admissions[0] : null;
+            const fatherRel = Array.isArray(student.student_guardians)
+                ? student.student_guardians.find((g: any) => g.relationship === "Father")
+                : null;
+            const motherRel = Array.isArray(student.student_guardians)
+                ? student.student_guardians.find((g: any) => g.relationship === "Mother")
+                : null;
+            const otherGuardianRel = Array.isArray(student.student_guardians)
+                ? student.student_guardians.find((g: any) => g.relationship !== "Father" && g.relationship !== "Mother")
+                : null;
+
+            const father = fatherRel?.guardians;
+            const mother = motherRel?.guardians;
+            const otherGuardian = otherGuardianRel?.guardians;
+
+            const dob = student.dob ? new Date(student.dob) : null;
+
+            setFormData((prev) => ({
+                ...prev,
+                campusId: student.campus_id != null ? String(student.campus_id) : prev.campusId,
+                candidateName: student.full_name ?? prev.candidateName,
+                gender: student.gender ?? prev.gender,
+                dobDay: dob ? String(dob.getDate()).padStart(2, "0") : prev.dobDay,
+                dobMonth: dob ? String(dob.getMonth() + 1).padStart(2, "0") : prev.dobMonth,
+                dobYear: dob ? String(dob.getFullYear()) : prev.dobYear,
+
+                admissionSystem: mapAcademicSystemToToken(admission?.academic_system) || prev.admissionSystem,
+                admissionLevel: admission?.requested_grade ?? prev.admissionLevel,
+
+                fatherName: father?.full_name ?? prev.fatherName,
+                fatherCnic: father?.cnic ?? prev.fatherCnic,
+                fatherPhone: father?.primary_phone ?? prev.fatherPhone,
+                fatherEmail: father?.email_address ?? prev.fatherEmail,
+
+                motherName: mother?.full_name ?? prev.motherName,
+                motherCnic: mother?.cnic ?? prev.motherCnic,
+                motherPhone: mother?.primary_phone ?? prev.motherPhone,
+                motherEmail: mother?.email_address ?? prev.motherEmail,
+
+                // A single free-text address was captured at Quick Admission time — drop it
+                // into House/Address so the admin can review and split it out if needed.
+                houseNo: student.address ?? prev.houseNo,
+
+                // If a third guardian (relation "Guardian") was captured, surface them as
+                // the emergency contact so their details aren't silently dropped.
+                ...(otherGuardian
+                    ? {
+                        emergencyContactType: "other",
+                        emergencyContactName: otherGuardian.full_name ?? prev.emergencyContactName,
+                        emergencyRelationship: otherGuardianRel?.relationship ?? prev.emergencyRelationship,
+                    }
+                    : {}),
+            }));
+
+            setPrefillCc(cc);
+            toast.success(`Prefilled from Quick Admission CC #${cc}. Review and complete the remaining fields.`);
+        } catch (error: any) {
+            const status = error?.response?.status;
+            toast.error(status === 404 ? "No quick admission found for this record." : "Failed to fetch quick admission details.");
+        } finally {
+            setIsPrefilling(false);
+        }
     };
 
     const isStep1Valid = () => {
@@ -907,6 +1000,7 @@ export function RegistrationForm() {
                               formData.admissionSystem === 'alevel' ? 'A-Level' : 'Secondary';
 
         const payload = {
+            ...(prefillCc ? { existing_cc: prefillCc } : {}),
             full_name: fullName,
             cnic: sanitizeValue(formData.candidateCnic),
             dob,
@@ -1178,17 +1272,32 @@ export function RegistrationForm() {
             <div className="flex-1 flex flex-col">
 
                 {/* Wizard Header Sequence */}
-                <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between">
+                <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between gap-4 flex-wrap">
                     <div>
                         <h2 className="text-lg font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">Application for Registration (FORM #1)</h2>
                         <p className="text-sm text-zinc-500 dark:text-zinc-400">
                             Page {currentStep} of 3 — {currentStep === 1 ? 'Personal Data & Academic Target' : currentStep === 2 ? 'Contacts & Signatures' : 'Office Use Only'}
                         </p>
+                        {prefillCc && (
+                            <p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mt-1">
+                                Completing Quick Admission CC #{prefillCc}
+                            </p>
+                        )}
                     </div>
-                    <div className="hidden sm:flex items-center space-x-2">
-                        {[1, 2, 3].map((step) => (
-                            <div key={step} className={`h-2.5 w-10 rounded-full ${step === currentStep ? 'bg-primary' : step < currentStep ? 'bg-primary/40' : 'bg-zinc-200'}`} />
-                        ))}
+                    <div className="flex items-center gap-3">
+                        {isPrefilling ? (
+                            <div className="flex items-center gap-2 px-3 py-2 text-xs font-black text-zinc-400 uppercase tracking-wider">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                Loading record…
+                            </div>
+                        ) : (
+                            <QuickAdmissionsPopup onSelect={prefillFromQuickAdmission} />
+                        )}
+                        <div className="hidden sm:flex items-center space-x-2">
+                            {[1, 2, 3].map((step) => (
+                                <div key={step} className={`h-2.5 w-10 rounded-full ${step === currentStep ? 'bg-primary' : step < currentStep ? 'bg-primary/40' : 'bg-zinc-200'}`} />
+                            ))}
+                        </div>
                     </div>
                 </div>
 

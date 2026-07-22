@@ -368,8 +368,8 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                 <div className="bg-white dark:bg-zinc-950 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 space-y-4 shadow-sm">
                     <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
                         <div>
-                            <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Transfer History</p>
-                            <p className="text-[11px] text-zinc-500 font-semibold uppercase mt-0.5">Click the download button next to a transfer order to save its PDF</p>
+                            <p className="text-base font-black uppercase tracking-widest text-zinc-400">Transfer History</p>
+                            <p className="text-[13px] text-zinc-500 font-semibold uppercase mt-0.5">Click the download button next to a transfer order to save its PDF</p>
                         </div>
                     </div>
                     {transferHistory.length > 0 ? (
@@ -378,10 +378,10 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                                 <div key={log.id} className="p-3.5 bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800/80 rounded-2xl flex items-center justify-between gap-4 transition-all hover:border-zinc-200">
                                     <div className="space-y-1 min-w-0 flex-1">
                                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                            <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{log.note || 'Student Transferred'}</span>
-                                            <span className="text-[10px] text-zinc-400 shrink-0">{new Date(log.changed_at).toLocaleDateString()}</span>
+                                            <span className="text-base font-bold text-zinc-800 dark:text-zinc-200">{log.note || 'Student Transferred'}</span>
+                                            <span className="text-[12px] text-zinc-400 shrink-0">{new Date(log.changed_at).toLocaleDateString()}</span>
                                         </div>
-                                        <p className="text-[10px] text-zinc-400">Changed by {log.changed_by}</p>
+                                        <p className="text-[12px] text-zinc-400">Changed by {log.changed_by}</p>
                                     </div>
                                     <button
                                         onClick={() => handleDownloadOld(log)}
@@ -395,7 +395,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                             ))}
                         </div>
                     ) : (
-                        <div className="text-center py-12 text-zinc-400 text-xs font-medium italic border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                        <div className="text-center py-12 text-zinc-400 text-base font-medium italic border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
                             No historical transfer records found for this student.
                         </div>
                     )}
@@ -415,7 +415,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                         <div className="h-16 w-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                             <CheckCircle2 className="h-9 w-9" />
                         </div>
-                        <h2 className="text-2xl font-black tracking-tight mb-1">
+                        <h2 className="text-4xl font-black tracking-tight mb-1">
                             {alreadyTransferred ? 'Transfer Order' : 'Transfer Complete!'}
                         </h2>
                         <p className="text-green-100 font-medium">
@@ -433,7 +433,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                 {/* Summary card */}
                 <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
                     <div className="p-5 border-b border-zinc-100 dark:border-zinc-800">
-                        <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Transfer Summary</p>
+                        <p className="text-base font-black uppercase tracking-widest text-zinc-400">Transfer Summary</p>
                     </div>
                     <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
                         {[
@@ -452,8 +452,8 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                             { label: 'Discipline', value: discipline || '—' },
                         ].map(({ label, value }) => (
                             <div key={label} className="flex items-center justify-between px-5 py-3">
-                                <span className="text-xs font-black uppercase tracking-wider text-zinc-400">{label}</span>
-                                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">{value}</span>
+                                <span className="text-base font-black uppercase tracking-wider text-zinc-400">{label}</span>
+                                <span className="text-lg font-bold text-zinc-800 dark:text-zinc-200">{value}</span>
                             </div>
                         ))}
                     </div>
@@ -461,10 +461,10 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
 
                 {/* PDF Options */}
                 <div className="bg-white dark:bg-zinc-950 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-4 shadow-sm">
-                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400">PDF Options</p>
+                    <p className="text-base font-black uppercase tracking-widest text-zinc-400">PDF Options</p>
                     <div className="space-y-3">
                         <div>
-                            <label className="text-[10px] font-bold text-zinc-400 uppercase mb-1 block">Discipline</label>
+                            <label className="text-[12px] font-bold text-zinc-400 uppercase mb-1 block">Discipline</label>
                             <input
                                 type="text"
                                 value={discipline}
@@ -474,7 +474,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                             />
                         </div>
                         <div>
-                            <label className="text-[10px] font-bold text-zinc-400 uppercase mb-1 block">Remarks</label>
+                            <label className="text-[12px] font-bold text-zinc-400 uppercase mb-1 block">Remarks</label>
                             <textarea
                                 value={remarks}
                                 onChange={(e) => setRemarks(e.target.value)}
@@ -490,7 +490,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                 <button
                     onClick={handleDownload}
                     disabled={isGenerating}
-                    className="group w-full flex items-center justify-center gap-3 px-8 py-5 bg-gradient-to-r from-red-700 to-red-800 text-white rounded-2xl font-black text-base shadow-xl shadow-red-900/25 hover:shadow-red-900/40 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="group w-full flex items-center justify-center gap-3 px-8 py-5 bg-gradient-to-r from-red-700 to-red-800 text-white rounded-2xl font-black text-xl shadow-xl shadow-red-900/25 hover:shadow-red-900/40 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isGenerating ? (
                         <><Loader2 className="h-5 w-5 animate-spin" />Generating PDF...</>
@@ -502,16 +502,16 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                 {/* Transfer History */}
                 {transferHistory.length > 0 && (
                     <div className="bg-white dark:bg-zinc-950 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-4 shadow-sm">
-                        <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Transfer History</p>
+                        <p className="text-base font-black uppercase tracking-widest text-zinc-400">Transfer History</p>
                         <div className="space-y-3">
                             {transferHistory.map((log: any) => (
                                 <div key={log.id} className="p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 rounded-xl flex items-center justify-between gap-4">
                                     <div className="space-y-1 min-w-0 flex-1">
                                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                            <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{log.note || 'Student Transferred'}</span>
-                                            <span className="text-[10px] text-zinc-400 shrink-0">{new Date(log.changed_at).toLocaleDateString()}</span>
+                                            <span className="text-base font-bold text-zinc-800 dark:text-zinc-200">{log.note || 'Student Transferred'}</span>
+                                            <span className="text-[12px] text-zinc-400 shrink-0">{new Date(log.changed_at).toLocaleDateString()}</span>
                                         </div>
-                                        <p className="text-[10px] text-zinc-400">Changed by {log.changed_by}</p>
+                                        <p className="text-[12px] text-zinc-400">Changed by {log.changed_by}</p>
                                     </div>
                                     <button
                                         onClick={() => handleDownloadOld(log)}
@@ -540,14 +540,14 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                     <img src={displayPhoto} alt={student.full_name}
                         className="w-14 h-16 object-cover rounded-xl border-2 border-white/20 shadow-md flex-shrink-0" />
                 ) : (
-                    <div className="w-14 h-16 rounded-xl border-2 border-dashed border-white/20 bg-white/5 flex items-center justify-center text-[10px] text-white/30 font-bold flex-shrink-0">
+                    <div className="w-14 h-16 rounded-xl border-2 border-dashed border-white/20 bg-white/5 flex items-center justify-center text-[12px] text-white/30 font-bold flex-shrink-0">
                         No Photo
                     </div>
                 )}
                 <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-0.5">Student</p>
-                    <h2 className="text-xl font-black tracking-tight truncate">{student.full_name}</h2>
-                    <p className="text-zinc-400 text-xs font-medium mt-0.5">
+                    <p className="text-[12px] font-black uppercase tracking-widest text-zinc-400 mb-0.5">Student</p>
+                    <h2 className="text-3xl font-black tracking-tight truncate">{student.full_name}</h2>
+                    <p className="text-zinc-400 text-base font-medium mt-0.5">
                         CC #{student.cc} · GR #{student.gr_number || '—'} · {student.campus_name || '—'}
                     </p>
                 </div>
@@ -556,35 +556,35 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
             {/* Current state */}
             <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
                 <div className="px-5 pt-5 pb-3">
-                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-3">Current Assignment</p>
+                    <p className="text-base font-black uppercase tracking-widest text-zinc-400 mb-3">Current Assignment</p>
                     <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex items-center gap-2 px-3 py-2 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800">
-                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                            <span className={`text-[11px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
                                 fromSystem === 'CAMBRIDGE'
                                     ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
                                     : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
                             }`}>{fromSystem || 'UNKNOWN'}</span>
-                            <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">{student.class_name || 'No class'}</span>
+                            <span className="text-lg font-bold text-zinc-700 dark:text-zinc-300">{student.class_name || 'No class'}</span>
                             {student.section_name && (
-                                <span className="text-xs text-zinc-400">· {student.section_name}</span>
+                                <span className="text-base text-zinc-400">· {student.section_name}</span>
                             )}
-                            <span className="text-xs font-bold text-zinc-500 bg-zinc-100 rounded-md px-2 py-0.5 ml-2">
+                            <span className="text-base font-bold text-zinc-500 bg-zinc-100 rounded-md px-2 py-0.5 ml-2">
                                 Term {student.academic_year || 'Unknown'}
                             </span>
                         </div>
                         <ArrowLeftRight className="h-4 w-4 text-zinc-400 flex-shrink-0" />
-                        <div className="text-xs text-zinc-400 font-medium italic">Select target below</div>
+                        <div className="text-base text-zinc-400 font-medium italic">Select target below</div>
                     </div>
                 </div>
             </div>
 
             {/* Transfer inputs */}
             <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm p-5 space-y-4">
-                <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Transfer To</p>
+                <p className="text-base font-black uppercase tracking-widest text-zinc-400">Transfer To</p>
 
                 {/* Target Campus Picker */}
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
+                    <label className="text-[12px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
                         Target Campus <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
@@ -592,7 +592,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                             value={toCampusId}
                             onChange={(e) => handleCampusChange(e.target.value === '' ? '' : Number(e.target.value))}
                             disabled={loadingCampuses}
-                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer disabled:opacity-50"
+                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-lg text-zinc-800 dark:text-zinc-200 cursor-pointer disabled:opacity-50"
                         >
                             <option value="">— Select target campus —</option>
                             {campuses.map((c) => (
@@ -607,7 +607,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
 
                 {/* Target class picker */}
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
+                    <label className="text-[12px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
                         Target Class <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
@@ -615,7 +615,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                             value={toClassId}
                             onChange={(e) => setToClassId(e.target.value === '' ? '' : Number(e.target.value))}
                             disabled={!toCampusId}
-                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer disabled:opacity-50"
+                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-lg text-zinc-800 dark:text-zinc-200 cursor-pointer disabled:opacity-50"
                         >
                             <option value="">— Select target class —</option>
                             {Object.entries(groupedClasses).map(([system, classes]) => (
@@ -631,7 +631,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                     </div>
                     {selectedClass && (
-                        <p className="mt-1.5 text-[11px] font-medium text-zinc-500">
+                        <p className="mt-1.5 text-[13px] font-medium text-zinc-500">
                             Moving to{' '}
                             <span className={`font-black ${
                                 selectedClass.academic_system === 'CAMBRIDGE' ? 'text-blue-600' : 'text-green-600'
@@ -646,7 +646,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
 
                 {/* Target Section Picker */}
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
+                    <label className="text-[12px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
                         Target Section <span className="text-zinc-350">(optional)</span>
                     </label>
                     <div className="relative">
@@ -654,7 +654,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                             value={toSectionId}
                             onChange={(e) => setToSectionId(e.target.value === '' ? '' : Number(e.target.value))}
                             disabled={!toClassId}
-                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer disabled:opacity-50"
+                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-lg text-zinc-800 dark:text-zinc-200 cursor-pointer disabled:opacity-50"
                         >
                             <option value="">— Select target section —</option>
                             {availableSections.map((sec) => {
@@ -672,14 +672,14 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
 
                 {/* Target Academic Year */}
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
+                    <label className="text-[12px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
                         Target Academic Term <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                         <select
                             value={targetAcademicYear}
                             onChange={(e) => setTargetAcademicYear(e.target.value)}
-                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer"
+                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-lg text-zinc-800 dark:text-zinc-200 cursor-pointer"
                         >
                             <option value="">— Select target term —</option>
                             {academicYearOptions.map(year => (
@@ -692,14 +692,14 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
 
                 {/* Discipline */}
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
+                    <label className="text-[12px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
                         Discipline <span className="text-zinc-300">(optional)</span>
                     </label>
                     <div className="relative">
                         <select
                             value={discipline}
                             onChange={(e) => setDiscipline(e.target.value)}
-                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer"
+                            className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-lg text-zinc-800 dark:text-zinc-200 cursor-pointer"
                         >
                             <option value="">— Select discipline —</option>
                             <option value="Pre-Medical">Pre-Medical</option>
@@ -714,7 +714,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
 
                 {/* Remarks */}
                 <div>
-                    <label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
+                    <label className="text-[12px] font-black uppercase tracking-wider text-zinc-500 block mb-1.5">
                         Remarks <span className="text-zinc-300">(optional)</span>
                     </label>
                     <textarea
@@ -722,14 +722,14 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                         onChange={(e) => setRemarks(e.target.value)}
                         rows={2}
                         placeholder="Any additional notes about this transfer..."
-                        className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-medium text-sm resize-none"
+                        className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-medium text-lg resize-none"
                     />
                 </div>
             </div>
 
             {/* Warning if no class or campus selected */}
             {(!toClassId || !toCampusId) && (
-                <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl text-amber-700 dark:text-amber-400 text-xs font-semibold">
+                <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl text-amber-700 dark:text-amber-400 text-base font-semibold">
                     <AlertCircle className="h-4 w-4 flex-shrink-0" />
                     {!toCampusId ? 'Select a target campus to enable the transfer' : 'Select a target class to enable the transfer'}
                 </div>
@@ -739,7 +739,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
             <button
                 onClick={handleExecuteTransfer}
                 disabled={!toClassId || !toCampusId || isExecuting || loadingCampuses}
-                className="group w-full flex items-center justify-center gap-3 px-8 py-5 bg-gradient-to-r from-red-700 to-red-800 text-white rounded-2xl font-black text-base shadow-xl shadow-red-900/25 hover:shadow-red-900/40 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100"
+                className="group w-full flex items-center justify-center gap-3 px-8 py-5 bg-gradient-to-r from-red-700 to-red-800 text-white rounded-2xl font-black text-xl shadow-xl shadow-red-900/25 hover:shadow-red-900/40 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100"
             >
                 {isExecuting ? (
                     <><Loader2 className="h-5 w-5 animate-spin" />Processing Transfer...</>
@@ -748,7 +748,7 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                 )}
             </button>
 
-            <p className="text-center text-[11px] text-zinc-400 pb-4">
+            <p className="text-center text-[13px] text-zinc-400 pb-4">
                 The transfer will update the student's class record and create a new admission entry.
                 You can download the Transfer Order PDF after the transfer is complete.
             </p>
@@ -756,16 +756,16 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
             {/* Transfer History */}
             {transferHistory.length > 0 && (
                 <div className="bg-white dark:bg-zinc-950 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-4 shadow-sm">
-                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Transfer History</p>
+                    <p className="text-base font-black uppercase tracking-widest text-zinc-400">Transfer History</p>
                     <div className="space-y-3">
                         {transferHistory.map((log: any) => (
                             <div key={log.id} className="p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 rounded-xl flex items-center justify-between gap-4">
                                 <div className="space-y-1 min-w-0 flex-1">
                                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                        <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{log.note || 'Student Transferred'}</span>
-                                        <span className="text-[10px] text-zinc-400 shrink-0">{new Date(log.changed_at).toLocaleDateString()}</span>
+                                        <span className="text-base font-bold text-zinc-800 dark:text-zinc-200">{log.note || 'Student Transferred'}</span>
+                                        <span className="text-[12px] text-zinc-400 shrink-0">{new Date(log.changed_at).toLocaleDateString()}</span>
                                     </div>
-                                    <p className="text-[10px] text-zinc-400">Changed by {log.changed_by}</p>
+                                    <p className="text-[12px] text-zinc-400">Changed by {log.changed_by}</p>
                                 </div>
                                 <button
                                     onClick={() => handleDownloadOld(log)}
