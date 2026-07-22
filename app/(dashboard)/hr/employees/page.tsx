@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
   SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone,
 } from "lucide-react";
-import { hrService, EmployeeProfile, formatStaffCategory, STAFF_CATEGORY_OPTIONS } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, formatStaffCategory } from "@/lib/hr.service";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
 
 function initials(name: string) {
@@ -83,9 +83,9 @@ function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClic
                 <Briefcase className="h-2.5 w-2.5" />{employee.job_title}
               </span>
             )}
-            {employee.staff_category && (
+            {employee.staff_categories && (
               <span className="flex items-center gap-1 text-[10px] bg-violet-50 dark:bg-violet-950/40 border border-violet-100 dark:border-violet-900 text-violet-700 dark:text-violet-300 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
-                {formatStaffCategory(employee.staff_category)}
+                {formatStaffCategory(employee.staff_categories)}
               </span>
             )}
             {employee.departments?.name && (
@@ -120,11 +120,23 @@ const AUDIT_OPTIONS = [
 
 export default function EmployeesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const idParam = searchParams.get("id");
+
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (idParam) {
+      const parsedId = Number(idParam);
+      if (!isNaN(parsedId) && parsedId > 0) {
+        setSelectedId(parsedId);
+      }
+    }
+  }, [idParam]);
 
   const [search, setSearch] = useState("");
   const [campusFilter, setCampusFilter] = useState("");
@@ -168,9 +180,13 @@ export default function EmployeesPage() {
     return [...map.entries()].map(([value, label]) => ({ value, label }));
   }, [employees]);
 
-  const categoryOptions = useMemo(() =>
-    STAFF_CATEGORY_OPTIONS.map((c) => ({ value: c.value, label: c.label })),
-  []);
+  const categoryOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    employees.forEach((e) => {
+      if (e.staff_categories) map.set(String(e.staff_categories.id), e.staff_categories.name);
+    });
+    return [...map.entries()].map(([value, label]) => ({ value, label }));
+  }, [employees]);
 
   const hasFilters = campusFilter || departmentFilter || categoryFilter || auditFilter;
   const clearFilters = () => { setCampusFilter(""); setDepartmentFilter(""); setCategoryFilter(""); setAuditFilter(""); };
@@ -184,7 +200,7 @@ export default function EmployeesPage() {
       }
       if (campusFilter && String(emp.campuses?.id) !== campusFilter) return false;
       if (departmentFilter && String(emp.departments?.id) !== departmentFilter) return false;
-      if (categoryFilter && emp.staff_category !== categoryFilter) return false;
+      if (categoryFilter && String(emp.staff_category_id) !== categoryFilter) return false;
       if (auditFilter) {
         const missing = missingFields(emp);
         if (auditFilter === "missing_cnic" && !missing.includes("CNIC")) return false;

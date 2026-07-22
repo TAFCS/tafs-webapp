@@ -19,19 +19,6 @@ export interface StaffType {
   is_active: boolean;
 }
 
-export type StaffCategory =
-  | 'TEACHER'
-  | 'ASSISTANT_TEACHER'
-  | 'SPORTS_COACH'
-  | 'SCOUT_LEADER'
-  | 'ACADEMIC_COORDINATOR'
-  | 'ACADEMIC_ADMINISTRATOR'
-  | 'SENIOR_LEADERSHIP'
-  | 'ADMINISTRATIVE_STAFF'
-  | 'IT_STAFF'
-  | 'CREATIVE_STAFF'
-  | 'FINANCE_STAFF';
-
 export type CheckInSource = 'FIXED' | 'TIMETABLE';
 
 export const CHECK_IN_SOURCE_OPTIONS: { value: CheckInSource; label: string; description: string }[] = [
@@ -39,23 +26,16 @@ export const CHECK_IN_SOURCE_OPTIONS: { value: CheckInSource; label: string; des
   { value: 'TIMETABLE', label: 'Derived from timetable', description: 'Earliest/latest teaching block that weekday' },
 ];
 
-export const STAFF_CATEGORY_OPTIONS: { value: StaffCategory; label: string; description: string }[] = [
-  { value: 'TEACHER', label: 'TEACHER', description: 'Subject teachers and class/home-room teachers' },
-  { value: 'ASSISTANT_TEACHER', label: 'ASSISTANT TEACHER', description: 'Co-teachers and helper teachers' },
-  { value: 'SPORTS_COACH', label: 'SPORTS COACH', description: 'Taekwondo, gymnastics, and specialized activity coaches' },
-  { value: 'SCOUT_LEADER', label: 'SCOUT LEADER', description: 'Scout leaders' },
-  { value: 'ACADEMIC_COORDINATOR', label: 'ACADEMIC COORDINATOR', description: 'Coordinators, subject heads, academic assistants, deputy segment heads' },
-  { value: 'ACADEMIC_ADMINISTRATOR', label: 'ACADEMIC ADMINISTRATOR', description: 'Headmistress, principal, campus directress, sports manager, A-level manager' },
-  { value: 'SENIOR_LEADERSHIP', label: 'SENIOR LEADERSHIP', description: 'CEO, MD, group directresses, deputy directress' },
-  { value: 'ADMINISTRATIVE_STAFF', label: 'ADMINISTRATIVE STAFF', description: 'Office assistants, FDOs, admin assistants' },
-  { value: 'IT_STAFF', label: 'IT STAFF', description: 'IT manager and computer operators' },
-  { value: 'CREATIVE_STAFF', label: 'CREATIVE STAFF', description: 'Graphic designers' },
-  { value: 'FINANCE_STAFF', label: 'FINANCE STAFF', description: 'Finance directress and accounts staff' },
-];
+/** Stable codes used by timetable/Saturday logic (seeded categories). */
+export const TEACHER_CATEGORY_CODES = new Set(['TEACHER', 'ASSISTANT_TEACHER']);
 
-export function formatStaffCategory(value: string | null | undefined): string | null {
-  if (!value) return null;
-  return STAFF_CATEGORY_OPTIONS.find((o) => o.value === value)?.label ?? value.replace(/_/g, ' ').toUpperCase();
+export interface StaffCategory {
+  id: number;
+  department_id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  _count?: { employee_profiles: number };
 }
 
 /** Trim text; return null when empty so PATCH payloads can clear optional fields. */
@@ -64,8 +44,18 @@ export function optionalText(value: string): string | null {
   return trimmed === '' ? null : trimmed;
 }
 
-export function optionalStaffCategory(value: string): StaffCategory | null {
-  return value ? (value as StaffCategory) : null;
+export function optionalId(value: string): number | null {
+  if (!value) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function formatStaffCategory(
+  category: Pick<StaffCategory, 'name'> | string | null | undefined,
+): string | null {
+  if (!category) return null;
+  if (typeof category === 'string') return category.replace(/_/g, ' ').toUpperCase();
+  return category.name;
 }
 
 export interface EmployeeProfile {
@@ -89,7 +79,7 @@ export interface EmployeeProfile {
   personal_phone: string | null;
   personal_email: string | null;
   job_title: string | null;
-  staff_category: StaffCategory | null;
+  staff_category_id: number | null;
   job_description: string | null;
   notes: string | null;
   reporting_time: string | null;
@@ -119,6 +109,7 @@ export interface EmployeeProfile {
   } | null;
   departments?: Department | null;
   designations?: Designation | null;
+  staff_categories?: StaffCategory | null;
   staff_types?: StaffType | null;
   campuses?: { id: number; campus_name: string } | null;
   reporting_manager?: {
@@ -154,7 +145,7 @@ export interface EmployeeCreatePayload {
   personal_phone?: string | null;
   personal_email?: string | null;
   job_title?: string | null;
-  staff_category?: StaffCategory | null;
+  staff_category_id?: number | null;
   job_description?: string | null;
   notes?: string | null;
   reporting_time?: string | null;
@@ -187,6 +178,8 @@ export interface Department {
   name: string;
   description: string | null;
   designations?: Designation[];
+  staff_categories?: StaffCategory[];
+  _count?: { employee_profiles: number };
 }
 
 export interface Designation {
@@ -224,11 +217,12 @@ export interface CalendarDay {
   class_id?: number | null;
   section_id?: number | null;
   department_id?: number | null;
-  staff_category?: StaffCategory | null;
+  staff_category_id?: number | null;
   employee_id?: number | null;
   classes?: { id: number; description: string; class_code: string } | null;
   sections?: { id: number; description: string } | null;
   departments?: { id: number; name: string } | null;
+  staff_categories?: StaffCategory | null;
   employee?: { id: number; full_name: string | null; employee_code: string | null } | null;
 }
 
@@ -457,6 +451,32 @@ export const hrService = {
     await api.delete(`/v1/hr/departments/${id}`);
   },
 
+  // ── Staff Categories (subcategories) API ───────────────────────────────────
+  async createStaffCategory(
+    deptId: number,
+    payload: { code: string; name: string; description?: string },
+  ): Promise<StaffCategory> {
+    const { data } = await api.post<ApiEnvelope<StaffCategory>>(
+      `/v1/hr/departments/${deptId}/staff-categories`,
+      payload,
+    );
+    return data.data;
+  },
+  async updateStaffCategory(
+    deptId: number,
+    id: number,
+    payload: { code?: string; name?: string; description?: string },
+  ): Promise<StaffCategory> {
+    const { data } = await api.patch<ApiEnvelope<StaffCategory>>(
+      `/v1/hr/departments/${deptId}/staff-categories/${id}`,
+      payload,
+    );
+    return data.data;
+  },
+  async deleteStaffCategory(deptId: number, id: number): Promise<void> {
+    await api.delete(`/v1/hr/departments/${deptId}/staff-categories/${id}`);
+  },
+
   // ── Designations API ───────────────────────────────────────────────────────
   async createDesignation(deptId: number, payload: { title: string; description?: string }): Promise<Designation> {
     const { data } = await api.post<ApiEnvelope<Designation>>(`/v1/hr/departments/${deptId}/designations`, payload);
@@ -512,7 +532,7 @@ export const hrService = {
     class_id?: number;
     section_id?: number;
     department_id?: number;
-    staff_category?: StaffCategory;
+    staff_category_id?: number;
     employee_id?: number;
   }): Promise<CalendarDay> {
     const { data } = await api.post<ApiEnvelope<CalendarDay>>('/v1/hr/calendar', payload);

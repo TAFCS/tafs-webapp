@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CalendarDays, Info, Loader2, Search, Trash2 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus, OfferedClass } from "@/lib/campuses.service";
-import { hrService, EmployeeProfile } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
 import { saturdaySchedulesService, SaturdaySchedule } from "@/lib/leaves.service";
 
-const TEACHER_CATEGORIES = new Set(["TEACHER", "ASSISTANT_TEACHER"]);
+const TEACHER_CATEGORIES = TEACHER_CATEGORY_CODES;
 
 function isSaturday(dateStr: string): boolean {
   if (!dateStr) return false;
@@ -163,7 +163,7 @@ export default function SaturdaySchedulesPage() {
 
     return employees.filter((emp) => {
       if (emp.campus_id !== cid) return false;
-      if (!emp.staff_category || !TEACHER_CATEGORIES.has(emp.staff_category)) return false;
+      if (!emp.staff_categories?.code || !TEACHER_CATEGORIES.has(emp.staff_categories.code)) return false;
       if (section != null) {
         const hasSection = emp.employee_class_section_assignments?.some(
           (a) => a.class_id === section.classId && a.section_id === section.sectionId,

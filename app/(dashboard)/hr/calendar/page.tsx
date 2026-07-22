@@ -16,7 +16,7 @@ import {
   Pencil,
   RefreshCw,
 } from "lucide-react";
-import { hrService, CalendarDay, Department, StaffCategory, STAFF_CATEGORY_OPTIONS, formatStaffCategory } from "@/lib/hr.service";
+import { hrService, CalendarDay, Department, formatStaffCategory } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
 import { useAuthState } from "@/context/AuthContext";
 import { useAppSelector } from "@/store/hooks";
@@ -31,7 +31,7 @@ type FormState = {
   class_id: string;
   section_id: string;
   department_id: string;
-  staff_category: string;
+  staff_category_id: string;
   employee_id: string;
 };
 
@@ -42,14 +42,9 @@ const emptyForm = (): FormState => ({
   class_id: "",
   section_id: "",
   department_id: "",
-  staff_category: "",
+  staff_category_id: "",
   employee_id: "",
 });
-
-function parseStaffCategory(value: string): StaffCategory | undefined {
-  if (!value) return undefined;
-  return STAFF_CATEGORY_OPTIONS.some((o) => o.value === value) ? (value as StaffCategory) : undefined;
-}
 
 type ModalMode = "holiday" | "weekend-open";
 
@@ -157,10 +152,10 @@ export default function CalendarPage() {
       return day.employee.full_name ?? day.employee.employee_code ?? "Employee";
     }
     if (day.department_id && day.departments) {
-      const category = formatStaffCategory(day.staff_category);
+      const category = formatStaffCategory(day.staff_categories);
       return category ? `${day.departments.name} / ${category}` : day.departments.name;
     }
-    if (day.staff_category) return formatStaffCategory(day.staff_category) ?? day.staff_category;
+    if (day.staff_categories) return formatStaffCategory(day.staff_categories);
     return "Whole campus";
   };
 
@@ -189,7 +184,7 @@ export default function CalendarPage() {
       class_id: day.class_id ? String(day.class_id) : "",
       section_id: day.section_id ? String(day.section_id) : "",
       department_id: day.department_id ? String(day.department_id) : "",
-      staff_category: day.staff_category ?? "",
+      staff_category_id: day.staff_category_id ? String(day.staff_category_id) : "",
       employee_id: day.employee_id ? String(day.employee_id) : "",
     });
     setShowModal(true);
@@ -224,7 +219,7 @@ export default function CalendarPage() {
               }
             : {
                 department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
-                staff_category: parseStaffCategory(formData.staff_category),
+                staff_category_id: formData.staff_category_id ? parseInt(formData.staff_category_id, 10) : undefined,
                 employee_id: formData.employee_id ? parseInt(formData.employee_id, 10) : undefined,
               }),
         };
@@ -257,7 +252,7 @@ export default function CalendarPage() {
               }
             : {
                 department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
-                staff_category: parseStaffCategory(formData.staff_category),
+                staff_category_id: formData.staff_category_id ? parseInt(formData.staff_category_id, 10) : undefined,
                 employee_id: formData.employee_id ? parseInt(formData.employee_id, 10) : undefined,
               }),
         };
@@ -674,7 +669,7 @@ export default function CalendarPage() {
                             class_id: "",
                             section_id: "",
                             department_id: "",
-                            staff_category: "",
+                            staff_category_id: "",
                             employee_id: "",
                           }));
                         }
@@ -781,7 +776,7 @@ export default function CalendarPage() {
                         <select
                           className="w-full h-10 px-3 mt-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-sm"
                           value={formData.department_id}
-                          onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, department_id: e.target.value, staff_category_id: "" })}
                         >
                           <option value="">All departments</option>
                           {departments.map((d) => (
@@ -795,13 +790,14 @@ export default function CalendarPage() {
                         <label className="text-xs font-bold text-zinc-400 uppercase">Category (optional)</label>
                         <select
                           className="w-full h-10 px-3 mt-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-sm"
-                          value={formData.staff_category}
-                          onChange={(e) => setFormData({ ...formData, staff_category: e.target.value })}
+                          value={formData.staff_category_id}
+                          onChange={(e) => setFormData({ ...formData, staff_category_id: e.target.value })}
+                          disabled={!formData.department_id}
                         >
                           <option value="">All categories</option>
-                          {STAFF_CATEGORY_OPTIONS.map((c) => (
-                            <option key={c.value} value={c.value}>
-                              {c.label}
+                          {(departments.find((d) => String(d.id) === formData.department_id)?.staff_categories ?? []).map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
                             </option>
                           ))}
                         </select>

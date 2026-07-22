@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Plus, Trash2, X, BookOpen, User, DoorOpen, ChevronDown } from "lucide-react";
-import { hrService, EmployeeProfile } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
 import {
   TimetableSubject,
   UpsertSlotPayload,
   timetablesService,
 } from "@/lib/timetables.service";
 
-const TEACHER_CATEGORIES = new Set(["TEACHER", "ASSISTANT_TEACHER"]);
+const TEACHER_CATEGORIES = TEACHER_CATEGORY_CODES;
 
 export interface SlotEditorTarget {
   day_of_week: number;
@@ -94,7 +94,7 @@ export function SlotEditorModal({
 
   const teachers = useMemo(() => {
     return employees.filter((emp) => {
-      if (!emp.staff_category || !TEACHER_CATEGORIES.has(emp.staff_category)) return false;
+      if (!emp.staff_categories?.code || !TEACHER_CATEGORIES.has(emp.staff_categories.code)) return false;
       if (campusId && emp.campus_id && emp.campus_id !== campusId) return false;
       if (!teacherSearch.trim()) return true;
       const q = teacherSearch.trim().toLowerCase();

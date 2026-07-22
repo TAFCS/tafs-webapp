@@ -396,7 +396,7 @@ export default function StaffRegisterPage() {
                         {emp.departments?.name ?? "—"}
                       </td>
                       <td className="px-5 py-3 text-slate-500">
-                        {formatStaffCategory(emp.staff_category) ?? "—"}
+                        {formatStaffCategory(emp.staff_categories) ?? "—"}
                       </td>
                       <td className="px-5 py-3">
                         {emp.reporting_time ? (

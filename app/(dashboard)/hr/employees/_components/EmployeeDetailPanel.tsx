@@ -15,11 +15,10 @@ import {
   Department,
   WorkScheduleDay,
   formatStaffCategory,
-  STAFF_CATEGORY_OPTIONS,
   CHECK_IN_SOURCE_OPTIONS,
   CheckInSource,
   optionalText,
-  optionalStaffCategory,
+  optionalId,
 } from "@/lib/hr.service";
 import { EmployeePortalAccountTab } from "./EmployeePortalAccountTab";
 import { EmployeeBiometricTab } from "./EmployeeBiometricTab";
@@ -249,7 +248,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   });
   const [employmentForm, setEmploymentForm] = useState({
     employee_code: "", employee_code_dep: "", employee_code_number: "",
-    department_id: "", staff_category: "", job_title: "",
+    department_id: "", staff_category_id: "", job_title: "",
     campus_id: "", join_date: "", job_description: "",
   });
   const [scheduleForm, setScheduleForm] = useState({
@@ -282,7 +281,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       employee_code_dep: codeParts?.dep ?? "",
       employee_code_number: codeParts?.number ?? "",
       department_id: employee.department_id ? String(employee.department_id) : "",
-      staff_category: employee.staff_category ?? "",
+      staff_category_id: employee.staff_category_id ? String(employee.staff_category_id) : "",
       job_title: employee.job_title ?? "",
       campus_id: employee.campus_id ? String(employee.campus_id) : "",
       join_date: toDateInput(employee.join_date),
@@ -565,7 +564,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       employee_code_dep: optionalText(employmentForm.employee_code_dep),
                       employee_code_number: optionalText(employmentForm.employee_code_number),
                       department_id: employmentForm.department_id ? parseInt(employmentForm.department_id, 10) : undefined,
-                      staff_category: optionalStaffCategory(employmentForm.staff_category),
+                      staff_category_id: optionalId(employmentForm.staff_category_id),
                       job_title: optionalText(employmentForm.job_title),
                       campus_id: employmentForm.campus_id ? parseInt(employmentForm.campus_id, 10) : undefined,
                       join_date: optionalText(employmentForm.join_date),
@@ -577,7 +576,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           <span className="font-mono">{formatEmployeeCodeDisplay(emp)}</span>
                         } missing={!formatEmployeeCodeDisplay(emp)} />
                         <ReadField icon={Building2} label="Department" value={emp.departments?.name} missing={!emp.departments} />
-                        <ReadField icon={Briefcase} label="Category" value={formatStaffCategory(emp.staff_category)} missing={!emp.staff_category} />
+                        <ReadField icon={Briefcase} label="Category" value={formatStaffCategory(emp.staff_categories)} missing={!emp.staff_categories} />
                         <ReadField icon={Briefcase} label="Role" value={emp.job_title} missing={!emp.job_title} />
                         <ReadField icon={Building2} label="Campus" value={emp.campuses?.campus_name} missing={!emp.campuses} />
                         <ReadField icon={Calendar} label="Date of Joining" value={fmtDate(emp.join_date)} missing={!fmtDate(emp.join_date)} />
@@ -606,16 +605,27 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       <div><FieldLabel>Date of Joining</FieldLabel><input type="date" className={inputCls} value={employmentForm.join_date} onChange={e => setEmploymentForm(p => ({ ...p, join_date: e.target.value }))} /></div>
                       <div>
                         <FieldLabel>Department</FieldLabel>
-                        <select className={inputCls} value={employmentForm.department_id} onChange={e => setEmploymentForm(p => ({ ...p, department_id: e.target.value }))}>
+                        <select
+                          className={inputCls}
+                          value={employmentForm.department_id}
+                          onChange={e => setEmploymentForm(p => ({ ...p, department_id: e.target.value, staff_category_id: "" }))}
+                        >
                           <option value="">—</option>
                           {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                         </select>
                       </div>
                       <div>
                         <FieldLabel>Category</FieldLabel>
-                        <select className={inputCls} value={employmentForm.staff_category} onChange={e => setEmploymentForm(p => ({ ...p, staff_category: e.target.value }))}>
+                        <select
+                          className={inputCls}
+                          value={employmentForm.staff_category_id}
+                          onChange={e => setEmploymentForm(p => ({ ...p, staff_category_id: e.target.value }))}
+                          disabled={!employmentForm.department_id}
+                        >
                           <option value="">—</option>
-                          {STAFF_CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                          {(departments.find(d => String(d.id) === employmentForm.department_id)?.staff_categories ?? []).map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
                         </select>
                       </div>
                       <div>

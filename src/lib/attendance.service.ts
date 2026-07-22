@@ -33,7 +33,8 @@ export interface StaffRegisterRow {
     user_id: string | null;
     full_name: string | null;
     job_title: string | null;
-    staff_category: string | null;
+    staff_category_id: number | null;
+    staff_categories: { id: number; code: string; name: string } | null;
     employment_type: string | null;
     reporting_time: string | null;
     late_relaxation_minutes: number | null;
