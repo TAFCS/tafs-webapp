@@ -399,20 +399,14 @@ export default function SaturdaySchedulesPage() {
             </div>
             <div className="sm:col-span-2">
               <label className="text-xs text-zinc-500 block mb-1">Segment</label>
-              <label className="text-xs text-zinc-500 block mb-1">Segment</label>
               <select
                 value={segmentFilter}
-                value={segmentFilter}
                 onChange={(e) => {
-                  setSegmentFilter(e.target.value);
                   setSegmentFilter(e.target.value);
                   setSelectedIds(new Set());
                 }}
                 className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
               >
-                <option value="">All segments</option>
-                {availableSegments.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
                 <option value="">All segments</option>
                 {availableSegments.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
