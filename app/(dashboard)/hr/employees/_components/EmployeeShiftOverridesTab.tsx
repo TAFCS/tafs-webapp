@@ -69,7 +69,7 @@ export function EmployeeShiftOverridesTab({ employeeId, employeeName }: Props) {
     setSaveError(null);
     try {
       await shiftOverridesService.bulkCreate({
-        employee_id: employeeId,
+        employee_ids: [employeeId],
         dates: [...selectedDates],
         override_start_time: startTime.trim() || undefined,
         override_end_time: endTime.trim() || undefined,

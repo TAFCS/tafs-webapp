@@ -107,7 +107,7 @@ export default function DashboardPage() {
         if (item.href === "/admin/developer" || item.href === "/attendance/zk-device-logs") {
             return user?.role === "SUPER_ADMIN";
         }
-        if (item.href === "/hr/saturday-schedules") {
+        if (item.href === "/hr/saturday-schedules" || item.href === "/hr/shift-overrides") {
             return user?.role === "SUPER_ADMIN" || user?.role === "CAMPUS_ADMIN";
         }
         if (item.permissions) return item.permissions.some(hasPermission);
@@ -232,8 +232,8 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* HR live attendance widgets — always visible here, no payroll run required */}
-                    {activeModule.id === "hr" && (
+                    {/* Live attendance widgets — always visible here, no payroll run required */}
+                    {activeModule.id === "attendance" && (
                         <div className="space-y-8">
                             <div>
                                 <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.25em] mb-4">

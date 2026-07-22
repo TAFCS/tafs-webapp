@@ -9,10 +9,27 @@ interface Props {
 }
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/** Calendar months for the view-month dropdown: a year back through 6 months ahead. */
+function buildViewMonthOptions(): { value: string; label: string }[] {
+  const now = new Date();
+  const options: { value: string; label: string }[] = [];
+  for (let offset = -12; offset <= 6; offset++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1));
+    const value = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+    options.push({ value, label: `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}` });
+  }
+  return options;
+}
 
 export function MultiSelectMonthCalendar({ value, onChange, existingOverrideDates }: Props) {
   const [viewMonth, setViewMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const todayKey = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const viewMonthOptions = useMemo(() => buildViewMonthOptions(), []);
 
   const monthGrid = useMemo(() => {
     const [y, m] = viewMonth.split("-").map(Number);
@@ -40,12 +57,15 @@ export function MultiSelectMonthCalendar({ value, onChange, existingOverrideDate
     <div>
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-xs font-bold text-zinc-400 uppercase">Select day(s)</h4>
-        <input
-          type="month"
+        <select
           value={viewMonth}
           onChange={(e) => setViewMonth(e.target.value)}
           className="h-9 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-sm"
-        />
+        >
+          {viewMonthOptions.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
       </div>
       <div className="grid grid-cols-7 gap-1 mb-1">
         {WEEKDAYS.map((d) => (

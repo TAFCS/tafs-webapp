@@ -153,7 +153,7 @@ export interface ListShiftOverridesParams {
 }
 
 export interface CreateShiftOverridesParams {
-  employee_id: number;
+  employee_ids: number[];
   dates: string[];
   override_start_time?: string;
   override_end_time?: string;
