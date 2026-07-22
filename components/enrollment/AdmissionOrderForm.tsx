@@ -21,6 +21,8 @@ interface Student {
   campus_name?: string;
   class_name?: string;
   section_name?: string;
+  house_name?: string;
+  house_color?: string;
   segment_head?: string;
   address?: string;
   home_phone?: string;
@@ -197,6 +199,8 @@ export default function AdmissionOrderForm({ student }: AdmissionOrderFormProps)
           campus_name: student.campus_name,
           class_name: student.class_name,
           section_name: student.section_name,
+          house_name: student.house_name,
+          house_color: student.house_color,
           remarks: remarks,
           address: student.address,
           home_phone: student.home_phone,
@@ -292,7 +296,7 @@ export default function AdmissionOrderForm({ student }: AdmissionOrderFormProps)
       {/* Form Content */}
       <div className="p-8 space-y-8">
         {/* Quick Summary Banner */}
-        <div className="grid grid-cols-4 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100 items-center">
+        <div className="grid grid-cols-5 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100 items-center">
             <div className="flex flex-col">
                 <span className="text-[12px] text-gray-500 uppercase font-bold tracking-wider">Class</span>
                 <span className="font-semibold text-gray-800">{student.class_name || 'N/A'}</span>
@@ -300,6 +304,17 @@ export default function AdmissionOrderForm({ student }: AdmissionOrderFormProps)
             <div className="flex flex-col">
                 <span className="text-[12px] text-gray-500 uppercase font-bold tracking-wider">Section</span>
                 <span className="font-semibold text-gray-800">{student.section_name || 'N/A'}</span>
+            </div>
+            <div className="flex flex-col">
+                <span className="text-[12px] text-gray-500 uppercase font-bold tracking-wider">House</span>
+                <span className="font-semibold text-gray-800 flex items-center gap-1.5">
+                    {student.house_name ? (
+                        <>
+                            <span className="w-2.5 h-2.5 rounded-full shadow-sm shrink-0" style={{ backgroundColor: student.house_color || '#94a3b8' }} />
+                            {student.house_name}
+                        </>
+                    ) : 'N/A'}
+                </span>
             </div>
             <div className="flex flex-col">
                 <span className="text-[12px] text-gray-500 uppercase font-bold tracking-wider">Gender</span>
