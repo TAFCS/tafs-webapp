@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronRight,
   X,
+} from "lucide-react";
 import Link from "next/link";
 import { hrService, Department, StaffCategory, EmployeeProfile } from "@/lib/hr.service";
 
