@@ -259,7 +259,6 @@ export default function SaturdaySchedulesPage() {
       setLoading(false);
     }
   }, [campusId, month, segmentFilter]);
-  }, [campusId, month, segmentFilter]);
 
   useEffect(() => {
     if (canManage) load();
