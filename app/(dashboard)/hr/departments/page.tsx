@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronRight,
   X,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 import { hrService, Department, StaffCategory, EmployeeProfile } from "@/lib/hr.service";
@@ -39,6 +40,9 @@ export default function DepartmentsPage() {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [expandedCats, setExpandedCats] = useState<Set<number>>(new Set());
   const [expandedDeptEmps, setExpandedDeptEmps] = useState<Set<number>>(new Set());
+
+  const [catSearch, setCatSearch] = useState<Record<number, string>>({});
+  const [deptEmpSearch, setDeptEmpSearch] = useState<Record<number, string>>({});
 
   const [deptModal, setDeptModal] = useState<"create" | { edit: Department } | null>(null);
   const [deptForm, setDeptForm] = useState<DeptForm>(emptyDept);
@@ -310,10 +314,16 @@ export default function DepartmentsPage() {
                     key={dept.id}
                     className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden"
                   >
-                    <div className="flex items-start gap-3 p-5">
+                    <div
+                      onClick={() => toggleExpanded(dept.id)}
+                      className="flex items-start gap-3 p-5 cursor-pointer hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors"
+                    >
                       <button
                         type="button"
-                        onClick={() => toggleExpanded(dept.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleExpanded(dept.id);
+                        }}
                         className="mt-0.5 p-1 rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                         aria-label={isOpen ? "Collapse" : "Expand"}
                       >
@@ -326,7 +336,10 @@ export default function DepartmentsPage() {
                           </h3>
                           <button
                             type="button"
-                            onClick={() => toggleExpandedDeptEmps(dept.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpandedDeptEmps(dept.id);
+                            }}
                             className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full transition-colors ${
                               isDeptEmpsOpen
                                 ? "bg-primary/10 text-primary"
@@ -347,7 +360,7 @@ export default function DepartmentsPage() {
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
+                      <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => openCreateCat(dept)}
@@ -375,54 +388,81 @@ export default function DepartmentsPage() {
                       </div>
                     </div>
 
-                    {isDeptEmpsOpen && (
-                      <div className="border-t border-zinc-100 dark:border-zinc-800 bg-violet-50/30 dark:bg-violet-950/20 px-5 py-4 space-y-3">
-                        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                          <div className="flex items-center gap-2">
-                            <Users className="h-3.5 w-3.5 text-primary" />
-                            All Department Employees ({deptEmployees.length})
+                    {isDeptEmpsOpen && (() => {
+                      const deptQuery = (deptEmpSearch[dept.id] || "").trim().toLowerCase();
+                      const filteredDeptEmployees = deptQuery
+                        ? deptEmployees.filter((emp) =>
+                            [emp.full_name, emp.employee_code, emp.job_title].filter(Boolean).join(" ").toLowerCase().includes(deptQuery)
+                          )
+                        : deptEmployees;
+                      return (
+                        <div className="border-t border-zinc-100 dark:border-zinc-800 bg-violet-50/30 dark:bg-violet-950/20 px-5 py-4 space-y-3">
+                          <div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                            <div className="flex items-center gap-2">
+                              <Users className="h-3.5 w-3.5 text-primary" />
+                              All Department Employees ({filteredDeptEmployees.length})
+                            </div>
+                            <div className="relative w-44">
+                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-400 pointer-events-none" />
+                              <input
+                                type="text"
+                                placeholder="Search..."
+                                value={deptEmpSearch[dept.id] || ""}
+                                onChange={(e) => setDeptEmpSearch((p) => ({ ...p, [dept.id]: e.target.value }))}
+                                className="w-full h-7 pl-7 pr-6 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all placeholder:text-zinc-400 lowercase"
+                              />
+                              {deptEmpSearch[dept.id] && (
+                                <button
+                                  type="button"
+                                  onClick={() => setDeptEmpSearch((p) => ({ ...p, [dept.id]: "" }))}
+                                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-600"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
                           </div>
+                          {filteredDeptEmployees.length === 0 ? (
+                            <p className="text-xs text-zinc-400 italic">No matching employees found in this department.</p>
+                          ) : (
+                            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                              {filteredDeptEmployees.map((emp) => (
+                                <Link
+                                  key={emp.id}
+                                  href={`/hr/employees?id=${emp.id}`}
+                                  className="flex items-center gap-2.5 p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm hover:border-primary/50 hover:shadow transition-all group cursor-pointer"
+                                >
+                                  {emp.photo_url ? (
+                                    <img
+                                      src={emp.photo_url}
+                                      alt={emp.full_name || "Employee"}
+                                      className="h-8 w-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 flex-shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="h-8 w-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs flex-shrink-0">
+                                      {(emp.full_name || "E").charAt(0).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-semibold text-zinc-900 dark:text-white text-xs group-hover:text-primary transition-colors truncate">
+                                      {emp.full_name || emp.users?.full_name || "Unnamed Employee"}
+                                    </div>
+                                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate flex items-center gap-1.5 mt-0.5">
+                                      {emp.employee_code && (
+                                        <span className="font-mono bg-zinc-100 dark:bg-zinc-800 px-1 py-0.2 rounded text-[10px]">
+                                          {emp.employee_code}
+                                        </span>
+                                      )}
+                                      {emp.job_title && <span className="truncate">{emp.job_title}</span>}
+                                    </div>
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        {deptEmployees.length === 0 ? (
-                          <p className="text-xs text-zinc-400 italic">No employees found in this department.</p>
-                        ) : (
-                          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                            {deptEmployees.map((emp) => (
-                              <Link
-                                key={emp.id}
-                                href={`/hr/employees?id=${emp.id}`}
-                                className="flex items-center gap-2.5 p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm hover:border-primary/50 hover:shadow transition-all group cursor-pointer"
-                              >
-                                {emp.photo_url ? (
-                                  <img
-                                    src={emp.photo_url}
-                                    alt={emp.full_name || "Employee"}
-                                    className="h-8 w-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 flex-shrink-0"
-                                  />
-                                ) : (
-                                  <div className="h-8 w-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs flex-shrink-0">
-                                    {(emp.full_name || "E").charAt(0).toUpperCase()}
-                                  </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-semibold text-zinc-900 dark:text-white text-xs group-hover:text-primary transition-colors truncate">
-                                    {emp.full_name || emp.users?.full_name || "Unnamed Employee"}
-                                  </div>
-                                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate flex items-center gap-1.5 mt-0.5">
-                                    {emp.employee_code && (
-                                      <span className="font-mono bg-zinc-100 dark:bg-zinc-800 px-1 py-0.2 rounded text-[10px]">
-                                        {emp.employee_code}
-                                      </span>
-                                    )}
-                                    {emp.job_title && <span className="truncate">{emp.job_title}</span>}
-                                  </div>
-                                </div>
-                              </Link>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {isOpen && (
                       <div className="border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/30 px-5 py-4 space-y-2">
@@ -438,6 +478,12 @@ export default function DepartmentsPage() {
                               const catEmployees = employeesByCat.get(cat.id) ?? [];
                               const catCount = Math.max(cat._count?.employee_profiles ?? 0, catEmployees.length);
                               const isCatOpen = expandedCats.has(cat.id);
+                              const catQuery = (catSearch[cat.id] || "").trim().toLowerCase();
+                              const filteredCatEmployees = catQuery
+                                ? catEmployees.filter((emp) =>
+                                    [emp.full_name, emp.employee_code, emp.job_title].filter(Boolean).join(" ").toLowerCase().includes(catQuery)
+                                  )
+                                : catEmployees;
                               return (
                                 <div
                                   key={cat.id}
@@ -500,14 +546,37 @@ export default function DepartmentsPage() {
 
                                   {isCatOpen && (
                                     <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
-                                      <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                                        Assigned Employees ({catEmployees.length})
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                                          Assigned Employees ({filteredCatEmployees.length})
+                                        </div>
+                                        <div className="relative w-36 sm:w-44">
+                                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-400 pointer-events-none" />
+                                          <input
+                                            type="text"
+                                            placeholder="Filter..."
+                                            value={catSearch[cat.id] || ""}
+                                            onChange={(e) => setCatSearch((p) => ({ ...p, [cat.id]: e.target.value }))}
+                                            className="w-full h-6.5 pl-7 pr-5 text-[11px] bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20 transition-all placeholder:text-zinc-400"
+                                          />
+                                          {catSearch[cat.id] && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setCatSearch((p) => ({ ...p, [cat.id]: "" }))}
+                                              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-600"
+                                            >
+                                              <X className="h-3 w-3" />
+                                            </button>
+                                          )}
+                                        </div>
                                       </div>
-                                      {catEmployees.length === 0 ? (
-                                        <p className="text-xs text-zinc-400 italic py-1">No employees assigned to this subcategory.</p>
+                                      {filteredCatEmployees.length === 0 ? (
+                                        <p className="text-xs text-zinc-400 italic py-1">
+                                          {catQuery ? "No matching employees." : "No employees assigned to this subcategory."}
+                                        </p>
                                       ) : (
                                         <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
-                                          {catEmployees.map((emp) => (
+                                          {filteredCatEmployees.map((emp) => (
                                             <Link
                                               key={emp.id}
                                               href={`/hr/employees?id=${emp.id}`}
