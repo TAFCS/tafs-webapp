@@ -121,7 +121,12 @@ export interface EmployeeProfile {
     id: number;
     class_id: number;
     section_id: number;
-    classes?: { description: string; class_code: string };
+    classes?: {
+      description: string;
+      class_code: string;
+      segment_id: number | null;
+      segments?: { id: number; code: string; name: string; display_order: number } | null;
+    };
     sections?: { description: string };
   }[];
 }

@@ -91,7 +91,12 @@ export interface SaturdaySchedule {
       section_id: number;
       class_id: number;
       sections?: { description: string };
-      classes?: { description: string; class_code: string };
+      classes?: {
+        description: string;
+        class_code: string;
+        segment_id: number | null;
+        segments?: { id: number; code: string; name: string; display_order: number } | null;
+      };
     }[];
   };
   users: { id: string; full_name: string | null };
