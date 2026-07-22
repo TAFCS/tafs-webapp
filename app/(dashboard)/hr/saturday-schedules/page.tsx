@@ -41,6 +41,42 @@ function employeeSectionLabel(emp: EmployeeProfile): string {
   return `${cls}-${sec}`;
 }
 
+interface SegmentInfo {
+  id: number;
+  code: string;
+  name: string;
+  display_order: number;
+}
+
+const UNASSIGNED_SEGMENT: SegmentInfo = { id: 0, code: "UNASSIGNED", name: "No segment assigned", display_order: 999 };
+
+function employeeSegments(emp: EmployeeProfile): SegmentInfo[] {
+  const byId = new Map<number, SegmentInfo>();
+  for (const a of emp.employee_class_section_assignments ?? []) {
+    const s = a.classes?.segments;
+    if (s) byId.set(s.id, s);
+  }
+  return byId.size > 0 ? [...byId.values()] : [UNASSIGNED_SEGMENT];
+}
+
+interface SegmentInfo {
+  id: number;
+  code: string;
+  name: string;
+  display_order: number;
+}
+
+const UNASSIGNED_SEGMENT: SegmentInfo = { id: 0, code: "UNASSIGNED", name: "No segment assigned", display_order: 999 };
+
+function employeeSegments(emp: EmployeeProfile): SegmentInfo[] {
+  const byId = new Map<number, SegmentInfo>();
+  for (const a of emp.employee_class_section_assignments ?? []) {
+    const s = a.classes?.segments;
+    if (s) byId.set(s.id, s);
+  }
+  return byId.size > 0 ? [...byId.values()] : [UNASSIGNED_SEGMENT];
+}
+
 function getAdvisoryBanner(): { variant: "amber" | "yellow" | "blue"; message: string } | null {
   const today = new Date();
   const day = today.getDate();
@@ -71,35 +107,6 @@ function getAdvisoryBanner(): { variant: "amber" | "yellow" | "blue"; message: s
   return null;
 }
 
-interface SectionOption {
-  classId: number;
-  sectionId: number;
-  label: string;
-}
-
-function flattenSections(offered?: OfferedClass[]): SectionOption[] {
-  if (!offered) return [];
-  const options: SectionOption[] = [];
-  for (const cls of offered) {
-    for (const sec of cls.sections ?? []) {
-      if (!sec.is_active) continue;
-      options.push({
-        classId: cls.id,
-        sectionId: sec.id,
-        label: `${cls.description}-${sec.description}`,
-      });
-    }
-  }
-  return options.sort((a, b) => a.label.localeCompare(b.label));
-}
-
-function parseSectionFilter(value: string): { classId: number; sectionId: number } | null {
-  if (!value) return null;
-  const [classId, sectionId] = value.split(":").map((v) => parseInt(v, 10));
-  if (!classId || !sectionId) return null;
-  return { classId, sectionId };
-}
-
 export default function SaturdaySchedulesPage() {
   const { user } = useAuthState();
   const canManage = user?.role === "SUPER_ADMIN" || user?.role === "CAMPUS_ADMIN";
@@ -107,8 +114,8 @@ export default function SaturdaySchedulesPage() {
 
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [campusId, setCampusId] = useState<string>("");
-  const [sectionFilter, setSectionFilter] = useState<string>("");
-  const [campusDetail, setCampusDetail] = useState<Campus | null>(null);
+  const [segmentFilter, setSegmentFilter] = useState<string>("");
+  const [segmentFilter, setSegmentFilter] = useState<string>("");
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -138,11 +145,6 @@ export default function SaturdaySchedulesPage() {
   }, [isCampusAdmin, user?.campusId]);
 
   useEffect(() => {
-    if (!campusId) return;
-    campusesService.getById(Number(campusId)).then(setCampusDetail).catch(console.error);
-  }, [campusId]);
-
-  useEffect(() => {
     if (!canManage) return;
     setLoadingEmployees(true);
     hrService.listEmployees()
@@ -151,14 +153,42 @@ export default function SaturdaySchedulesPage() {
       .finally(() => setLoadingEmployees(false));
   }, [canManage]);
 
-  const sectionOptions = useMemo(
-    () => flattenSections(campusDetail?.offered_classes),
-    [campusDetail],
-  );
+  // Only teachers actually on the selected campus — the segment dropdown is
+  // built from this set so it never offers a segment with nobody in it.
+  const campusTeachers = useMemo(() => {
+    const cid = Number(campusId);
+    return employees.filter(
+      (emp) => emp.campus_id === cid && emp.staff_category && TEACHER_CATEGORIES.has(emp.staff_category),
+    );
+  }, [employees, campusId]);
+
+  const availableSegments = useMemo(() => {
+    const byId = new Map<number, SegmentInfo>();
+    for (const emp of campusTeachers) {
+      for (const s of employeeSegments(emp)) byId.set(s.id, s);
+    }
+    return [...byId.values()].sort((a, b) => a.display_order - b.display_order);
+  }, [campusTeachers]);
+  // Only teachers actually on the selected campus — the segment dropdown is
+  // built from this set so it never offers a segment with nobody in it.
+  const campusTeachers = useMemo(() => {
+    const cid = Number(campusId);
+    return employees.filter(
+      (emp) => emp.campus_id === cid && emp.staff_category && TEACHER_CATEGORIES.has(emp.staff_category),
+    );
+  }, [employees, campusId]);
+
+  const availableSegments = useMemo(() => {
+    const byId = new Map<number, SegmentInfo>();
+    for (const emp of campusTeachers) {
+      for (const s of employeeSegments(emp)) byId.set(s.id, s);
+    }
+    return [...byId.values()].sort((a, b) => a.display_order - b.display_order);
+  }, [campusTeachers]);
 
   const filteredTeachers = useMemo(() => {
-    const cid = Number(campusId);
-    const section = parseSectionFilter(sectionFilter);
+    const segmentId = segmentFilter ? Number(segmentFilter) : null;
+    const segmentId = segmentFilter ? Number(segmentFilter) : null;
     const q = search.trim().toLowerCase();
 
     return employees.filter((emp) => {
@@ -176,7 +206,38 @@ export default function SaturdaySchedulesPage() {
       }
       return true;
     });
-  }, [employees, campusId, sectionFilter, search]);
+  }, [campusTeachers, segmentFilter, search]);
+
+  // Group for display: segment header -> teachers, ordered by display_order.
+  // A teacher assigned across multiple segments appears under each of them —
+  // the checkbox state is keyed by employee id so that's harmless.
+  const teachersBySegment = useMemo(() => {
+    const groups = new Map<number, { segment: SegmentInfo; teachers: EmployeeProfile[] }>();
+    for (const emp of filteredTeachers) {
+      for (const s of employeeSegments(emp)) {
+        const bucket = groups.get(s.id) ?? { segment: s, teachers: [] };
+        bucket.teachers.push(emp);
+        groups.set(s.id, bucket);
+      }
+    }
+    return [...groups.values()].sort((a, b) => a.segment.display_order - b.segment.display_order);
+  }, [filteredTeachers]);
+  }, [campusTeachers, segmentFilter, search]);
+
+  // Group for display: segment header -> teachers, ordered by display_order.
+  // A teacher assigned across multiple segments appears under each of them —
+  // the checkbox state is keyed by employee id so that's harmless.
+  const teachersBySegment = useMemo(() => {
+    const groups = new Map<number, { segment: SegmentInfo; teachers: EmployeeProfile[] }>();
+    for (const emp of filteredTeachers) {
+      for (const s of employeeSegments(emp)) {
+        const bucket = groups.get(s.id) ?? { segment: s, teachers: [] };
+        bucket.teachers.push(emp);
+        groups.set(s.id, bucket);
+      }
+    }
+    return [...groups.values()].sort((a, b) => a.segment.display_order - b.segment.display_order);
+  }, [filteredTeachers]);
 
   const assignedCountByEmployee = useMemo(() => {
     const map = new Map<number, number>();
@@ -190,17 +251,19 @@ export default function SaturdaySchedulesPage() {
     if (!campusId) return;
     setLoading(true);
     setError(null);
-    const section = parseSectionFilter(sectionFilter);
+    const segmentId = segmentFilter ? Number(segmentFilter) : null;
+    const segmentId = segmentFilter ? Number(segmentFilter) : null;
     try {
       const data = await saturdaySchedulesService.list({
         month,
         campusId: Number(campusId),
-        ...(section ? { sectionId: section.sectionId } : {}),
       });
-      const filtered = section
+      const filtered = segmentId != null
+      const filtered = segmentId != null
         ? data.filter((item) =>
             item.employee_profiles.employee_class_section_assignments?.some(
-              (a) => a.class_id === section.classId && a.section_id === section.sectionId,
+              (a) => a.classes?.segment_id === segmentId,
+              (a) => a.classes?.segment_id === segmentId,
             ),
           )
         : data;
@@ -211,7 +274,8 @@ export default function SaturdaySchedulesPage() {
     } finally {
       setLoading(false);
     }
-  }, [campusId, month, sectionFilter]);
+  }, [campusId, month, segmentFilter]);
+  }, [campusId, month, segmentFilter]);
 
   useEffect(() => {
     if (canManage) load();
@@ -339,7 +403,8 @@ export default function SaturdaySchedulesPage() {
                 disabled={isCampusAdmin}
                 onChange={(e) => {
                   setCampusId(e.target.value);
-                  setSectionFilter("");
+                  setSegmentFilter("");
+                  setSegmentFilter("");
                   setSelectedIds(new Set());
                 }}
                 className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm disabled:opacity-60"
@@ -350,23 +415,24 @@ export default function SaturdaySchedulesPage() {
               </select>
             </div>
             <div className="sm:col-span-2">
-              <label className="text-xs text-zinc-500 block mb-1">Section</label>
+              <label className="text-xs text-zinc-500 block mb-1">Segment</label>
+              <label className="text-xs text-zinc-500 block mb-1">Segment</label>
               <select
-                value={sectionFilter}
+                value={segmentFilter}
+                value={segmentFilter}
                 onChange={(e) => {
-                  setSectionFilter(e.target.value);
+                  setSegmentFilter(e.target.value);
+                  setSegmentFilter(e.target.value);
                   setSelectedIds(new Set());
                 }}
                 className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
               >
-                <option value="">All sections</option>
-                {sectionOptions.map((s) => (
-                  <option
-                    key={`${s.classId}-${s.sectionId}`}
-                    value={`${s.classId}:${s.sectionId}`}
-                  >
-                    {s.label}
-                  </option>
+                <option value="">All segments</option>
+                {availableSegments.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                <option value="">All segments</option>
+                {availableSegments.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
             </div>
@@ -391,29 +457,70 @@ export default function SaturdaySchedulesPage() {
             ) : filteredTeachers.length === 0 ? (
               <p className="text-sm text-zinc-500 p-4">No teachers match the current filters.</p>
             ) : (
-              <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {filteredTeachers.map((emp) => {
-                  const assigned = assignedCountByEmployee.get(emp.id) ?? 0;
-                  const section = employeeSectionLabel(emp);
-                  const name = emp.full_name ?? emp.users?.full_name ?? `Employee #${emp.id}`;
-                  return (
-                    <li key={emp.id} className="flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(emp.id)}
-                        onChange={() => toggleEmployee(emp.id)}
-                        className="rounded border-zinc-300"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{name}</p>
-                        <p className="text-xs text-zinc-500">
-                          {section || "No class assignment"} · {assigned}/2 Saturdays
-                        </p>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {teachersBySegment.map(({ segment, teachers }) => (
+                  <div key={segment.id}>
+                    <div className="sticky top-0 px-3 py-1.5 text-[11px] font-bold uppercase text-zinc-500 bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-400">
+                      {segment.name} ({teachers.length})
+                    </div>
+                    <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {teachers.map((emp) => {
+                        const assigned = assignedCountByEmployee.get(emp.id) ?? 0;
+                        const section = employeeSectionLabel(emp);
+                        const name = emp.full_name ?? emp.users?.full_name ?? `Employee #${emp.id}`;
+                        return (
+                          <li key={emp.id} className="flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(emp.id)}
+                              onChange={() => toggleEmployee(emp.id)}
+                              className="rounded border-zinc-300"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{name}</p>
+                              <p className="text-xs text-zinc-500">
+                                {section || "No class assignment"} · {assigned}/2 Saturdays
+                              </p>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+              <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {teachersBySegment.map(({ segment, teachers }) => (
+                  <div key={segment.id}>
+                    <div className="sticky top-0 px-3 py-1.5 text-[11px] font-bold uppercase text-zinc-500 bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-400">
+                      {segment.name} ({teachers.length})
+                    </div>
+                    <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {teachers.map((emp) => {
+                        const assigned = assignedCountByEmployee.get(emp.id) ?? 0;
+                        const section = employeeSectionLabel(emp);
+                        const name = emp.full_name ?? emp.users?.full_name ?? `Employee #${emp.id}`;
+                        return (
+                          <li key={emp.id} className="flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(emp.id)}
+                              onChange={() => toggleEmployee(emp.id)}
+                              className="rounded border-zinc-300"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{name}</p>
+                              <p className="text-xs text-zinc-500">
+                                {section || "No class assignment"} · {assigned}/2 Saturdays
+                              </p>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
