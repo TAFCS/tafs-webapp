@@ -137,15 +137,29 @@ export default function SupportTicketsPage() {
       if (selectedRef.current === payload.ticket?.id) resync();
     };
 
-    const onMessage = (payload: { ticket?: { id: string }; message?: TicketMessage }) => {
+    const onMessage = (payload: { ticket?: SupportTicket; message?: TicketMessage }) => {
       if (payload.ticket && payload.message) {
+        const ticketId = payload.ticket.id;
+        const viewing = selectedRef.current === ticketId;
         dispatch(
           appendTicketMessage({
-            ticketId: payload.ticket.id,
+            ticketId,
             message: payload.message,
           }),
         );
-        dispatch(upsertQueueTicket(payload.ticket as SupportTicket));
+        // If staff is already in this thread, don't surface a red unread badge —
+        // clear locally and re-mark read on the server.
+        if (viewing) {
+          dispatch(
+            upsertQueueTicket({
+              ...payload.ticket,
+              unread_by_staff: 0,
+            } as SupportTicket),
+          );
+          dispatch(markTicketRead(ticketId));
+        } else {
+          dispatch(upsertQueueTicket(payload.ticket as SupportTicket));
+        }
       }
     };
 

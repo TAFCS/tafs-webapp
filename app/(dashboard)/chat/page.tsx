@@ -166,11 +166,19 @@ export default function ChatHubPage() {
             setConversations(prev => {
                 if (!Array.isArray(prev)) return [];
                 if (conversation.id === ANNOUNCEMENT_CONV_ID) return prev;
+                const viewingThis =
+                    currentFamilyId !== null &&
+                    currentFamilyId !== 0 &&
+                    conversation.family_id === currentFamilyId;
+                // Don't show unread while admin is already in this chat
+                const nextConv = viewingThis
+                    ? { ...conversation, unread_by_admin: 0 }
+                    : conversation;
                 const exists = prev.some(c => c.id === conversation.id);
                 if (exists) {
-                    return prev.map(c => c.id === conversation.id ? conversation : c);
+                    return prev.map(c => c.id === conversation.id ? nextConv : c);
                 }
-                return [conversation, ...prev];
+                return [nextConv, ...prev];
             });
 
             // Update active message list if this message belongs to the open conversation
