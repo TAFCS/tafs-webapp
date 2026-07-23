@@ -198,7 +198,13 @@ export default function ChatHubPage() {
                         );
                         if (optimisticIndex !== -1) {
                             const updated = [...prev];
-                            updated[optimisticIndex] = { ...message, status: "sent" };
+                            const prevMsg = updated[optimisticIndex];
+                            updated[optimisticIndex] = {
+                                ...message,
+                                status: "sent",
+                                // Don't clobber a live read receipt that arrived before this replace
+                                is_read: Boolean(message.is_read) || Boolean(prevMsg.is_read),
+                            };
                             return updated;
                         }
                     }
@@ -312,7 +318,11 @@ export default function ChatHubPage() {
                 setMessages(prev => {
                     const alreadyExists = prev.some(m => m.id === response.id);
                     if (alreadyExists) return prev.filter(m => m.id !== tempId);
-                    return prev.map(m => m.id === tempId ? { ...response, status: "sent", is_read: response.is_read ?? false } : m);
+                    return prev.map(m => m.id === tempId ? {
+                        ...response,
+                        status: "sent",
+                        is_read: Boolean(response.is_read) || Boolean(m.is_read),
+                    } : m);
                 });
             });
         } else if (!isAnnouncement) {
@@ -327,7 +337,11 @@ export default function ChatHubPage() {
                 const savedMessage = res.data;
                 setMessages(prev => {
                     if (prev.some(m => m.id === savedMessage.id)) return prev.filter(m => m.id !== tempId);
-                    return prev.map(m => m.id === tempId ? { ...savedMessage, status: "sent", is_read: savedMessage.is_read ?? false } : m);
+                    return prev.map(m => m.id === tempId ? {
+                        ...savedMessage,
+                        status: "sent",
+                        is_read: Boolean(savedMessage.is_read) || Boolean(m.is_read),
+                    } : m);
                 });
             } catch (err) {
                 console.error("[ChatHub] REST fallback failed:", err);
