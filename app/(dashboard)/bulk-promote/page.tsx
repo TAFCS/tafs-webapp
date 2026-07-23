@@ -40,6 +40,10 @@ type PromotionResult = {
   to_class_id?: number | null;
   from_academic_year?: string | null;
   to_academic_year?: string;
+  from_campus_id?: number | null;
+  to_campus_id?: number | null;
+  from_gr_number?: string | null;
+  to_gr_number?: string | null;
   graduated?: boolean;
   expelled?: boolean;
   left?: boolean;
@@ -96,6 +100,15 @@ function isALevelAcademicSystem(system?: string): boolean {
   return system?.toLowerCase().replace(/[^a-z]/g, "") === "alevel";
 }
 
+/** Match backend gr-number.util: KF-A / A-N / '' (Johar). */
+function campusGrPrefix(campus: { id: number; campus_name: string } | undefined): string {
+  if (!campus) return "";
+  const uname = campus.campus_name.toUpperCase();
+  if (uname.includes("KANEEZ FATIMA") || campus.id === 2) return "KF-A";
+  if (uname.includes("NORTH NAZIMABAD") || campus.id === 3) return "A-N";
+  return "";
+}
+
 function deriveClassOrder(code: string, description: string): number {
   // Concatenate code + description so "PN"+"Pre Nursery" → "pn pre nursery" → hits 'nursery'
   const label = (code + " " + description).toLowerCase().replace(/[^a-z0-9 ]/g, "");
@@ -118,6 +131,33 @@ function resolveClassName(id: number | null | undefined, map: Map<number, string
   return map.get(id) ?? `Class #${id}`;
 }
 
+function resolveCampusLabel(id: number | null | undefined, map: Map<number, string>): string {
+  if (id == null) return "—";
+  return map.get(id) ?? `#${id}`;
+}
+
+function formatCampusTransition(
+  fromId: number | null | undefined,
+  toId: number | null | undefined,
+  map: Map<number, string>,
+): string {
+  if (fromId == null && toId == null) return "—";
+  const from = resolveCampusLabel(fromId, map);
+  const to = resolveCampusLabel(toId, map);
+  if (fromId == null || toId == null || fromId === toId) return to !== "—" ? to : from;
+  return `${from} → ${to}`;
+}
+
+function formatGrTransition(
+  fromGr: string | null | undefined,
+  toGr: string | null | undefined,
+): string {
+  if (!fromGr && !toGr) return "—";
+  if (!fromGr) return toGr ?? "—";
+  if (!toGr || fromGr === toGr) return fromGr;
+  return `${fromGr} → ${toGr}`;
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function BulkPromotePage() {
@@ -133,6 +173,7 @@ export default function BulkPromotePage() {
   const [fromClassId, setFromClassId] = useState("");
   const [toClassId, setToClassId] = useState("");
   const [campusId, setCampusId] = useState("");
+  const [toCampusId, setToCampusId] = useState("");
   const [sectionId, setSectionId] = useState("");
   const [toSectionId, setToSectionId] = useState("");
   const [studentIdsRaw, setStudentIdsRaw] = useState("");
@@ -191,6 +232,12 @@ export default function BulkPromotePage() {
     return m;
   }, [classes]);
 
+  const campusMap = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const c of campuses) m.set(c.id, c.campus_code || c.campus_name || `#${c.id}`);
+    return m;
+  }, [campuses]);
+
   // ── Parsed IDs ──────────────────────────────────────────────────────────────
   const parsedStudentIds = useMemo(() => {
     return studentIdsRaw
@@ -222,9 +269,10 @@ export default function BulkPromotePage() {
   const targetSectionOptions = useMemo(() => {
     if (!toClassId || isGraduating || isExpelling || isLeaving) return [];
 
-    // Prefer campus-specific offerings when a campus filter is selected.
-    if (campusId) {
-      const campus = campuses.find((c) => String(c.id) === campusId);
+    // Prefer destination campus offerings when Target Campus is set, else source filter.
+    const preferredCampusId = toCampusId || campusId;
+    if (preferredCampusId) {
+      const campus = campuses.find((c) => String(c.id) === preferredCampusId);
       const offered = campus?.offered_classes?.find((c) => String(c.id) === toClassId);
       if (offered?.sections?.length) {
         return offered.sections
@@ -254,7 +302,7 @@ export default function BulkPromotePage() {
 
     // Last resort: global section catalog
     return sections.map((s) => ({ id: s.id, label: s.description }));
-  }, [toClassId, campusId, campuses, sections, isGraduating, isExpelling, isLeaving]);
+  }, [toClassId, campusId, toCampusId, campuses, sections, isGraduating, isExpelling, isLeaving]);
 
   const isPromotingToALevel = useMemo(
     () =>
@@ -266,41 +314,99 @@ export default function BulkPromotePage() {
     [isGraduating, isExpelling, isLeaving, selectedToClass],
   );
 
-  // O-Level → A-Level: auto-enable GR column; assign next available A- numbers on preview
+  const selectedToCampus = useMemo(
+    () => campuses.find((c) => String(c.id) === toCampusId),
+    [campuses, toCampusId],
+  );
+  const selectedSourceCampus = useMemo(
+    () => campuses.find((c) => String(c.id) === campusId),
+    [campuses, campusId],
+  );
+
+  // GKF/NN → Johar: destination empty-prefix, source has prefix (or filter is prefixed campus)
+  const needsJoharSeriesGr = useMemo(() => {
+    if (isPromotingToALevel || isGraduating || isExpelling || isLeaving) return false;
+    if (!toCampusId || !selectedToCampus) return false;
+    if (campusGrPrefix(selectedToCampus) !== "") return false;
+    // Source filter is a prefixed campus, or we'll check students on suggest
+    if (selectedSourceCampus && campusGrPrefix(selectedSourceCampus) !== "") return true;
+    // Target set to Johar while source filter is "all" — still enable when students are from GKF/NN
+    return !campusId;
+  }, [
+    isPromotingToALevel,
+    isGraduating,
+    isExpelling,
+    isLeaving,
+    toCampusId,
+    selectedToCampus,
+    selectedSourceCampus,
+    campusId,
+  ]);
+
+  const needsAutoGr = isPromotingToALevel || needsJoharSeriesGr;
+
+  // Auto-enable GR column for A-Level or cross-campus→Johar
   useEffect(() => {
-    if (!isPromotingToALevel) {
+    if (!needsAutoGr) {
       setGrOverrides({});
       return;
     }
     setShowGrOverrides(true);
-  }, [isPromotingToALevel, toClassId]);
+  }, [needsAutoGr, toClassId, toCampusId]);
 
-  const fetchALevelGrSuggestions = useCallback(async (students: PreviewStudent[]) => {
-    if (!students.length) return;
-    setGrSuggestionsLoading(true);
-    try {
-      const { data } = await api.post("/v1/students/gr-numbers/suggest-for-promotion", {
-        student_ccs: students.map((s) => s.cc),
-        a_level: true,
-      });
-      const assignments = (data?.data?.assignments ?? {}) as Record<string, string>;
-      const next: Record<number, string> = {};
-      for (const s of students) {
-        const gr = assignments[String(s.cc)];
-        if (gr) next[s.cc] = gr;
+  const fetchGrSuggestions = useCallback(
+    async (students: PreviewStudent[], opts: { aLevel: boolean; targetCampusId?: number }) => {
+      if (!students.length) return;
+      setGrSuggestionsLoading(true);
+      try {
+        const body: Record<string, unknown> = {
+          student_ccs: students.map((s) => s.cc),
+          a_level: opts.aLevel,
+        };
+        if (opts.targetCampusId) body.target_campus_id = opts.targetCampusId;
+        const { data } = await api.post("/v1/students/gr-numbers/suggest-for-promotion", body);
+        const assignments = (data?.data?.assignments ?? {}) as Record<string, string>;
+        const next: Record<number, string> = {};
+        for (const s of students) {
+          const gr = assignments[String(s.cc)];
+          if (gr) next[s.cc] = gr;
+        }
+        setGrOverrides(next);
+      } catch {
+        toast.error(
+          opts.aLevel
+            ? "Could not load suggested A-Level GR numbers."
+            : "Could not load suggested Johar GR numbers.",
+        );
+      } finally {
+        setGrSuggestionsLoading(false);
       }
-      setGrOverrides(next);
-    } catch {
-      toast.error("Could not load suggested A-Level GR numbers.");
-    } finally {
-      setGrSuggestionsLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
-    if (!isPromotingToALevel || !previewStudents?.length) return;
-    fetchALevelGrSuggestions(previewStudents);
-  }, [previewStudents, isPromotingToALevel, fetchALevelGrSuggestions]);
+    if (!previewStudents?.length) return;
+    if (isPromotingToALevel) {
+      fetchGrSuggestions(previewStudents, {
+        aLevel: true,
+        targetCampusId: toCampusId ? Number(toCampusId) : undefined,
+      });
+      return;
+    }
+    if (needsJoharSeriesGr && toCampusId) {
+      fetchGrSuggestions(previewStudents, {
+        aLevel: false,
+        targetCampusId: Number(toCampusId),
+      });
+    }
+  }, [
+    previewStudents,
+    isPromotingToALevel,
+    needsJoharSeriesGr,
+    toCampusId,
+    fetchGrSuggestions,
+  ]);
 
   // ── Live student ID resolution via search-simple ────────────────────────────
   useEffect(() => {
@@ -413,6 +519,7 @@ export default function BulkPromotePage() {
     setFromClassId("");
     setToClassId("");
     setCampusId("");
+    setToCampusId("");
     setSectionId("");
     setToSectionId("");
     setStudentIdsRaw("");
@@ -425,6 +532,8 @@ export default function BulkPromotePage() {
     setPreviewStudents(null);
     setPreviewError(null);
     setSourceAcademicYear("");
+    setGrOverrides({});
+    setShowGrOverrides(false);
   }, []);
 
   const validateForm = (): boolean => {
@@ -468,6 +577,7 @@ export default function BulkPromotePage() {
       payload.to = { class_id: Number(toClassId) };
     }
     if (campusId) payload.campus_id = Number(campusId);
+    if (toCampusId) payload.to_campus_id = Number(toCampusId);
     if (sectionId) payload.section_id = Number(sectionId);
     if (!isGraduating && toSectionId) payload.to_section_id = Number(toSectionId);
     if (parsedStudentIds.length > 0) payload.student_ids = parsedStudentIds;
@@ -597,7 +707,7 @@ export default function BulkPromotePage() {
           </div>
 
           {/* Filters row */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div className="space-y-2">
               <label htmlFor="source-academic-year" className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                 Source Year
@@ -625,6 +735,21 @@ export default function BulkPromotePage() {
                 <option value="">All campuses</option>
                 {campuses.map((c) => <option key={c.id} value={c.id}>{c.campus_name} ({c.campus_code})</option>)}
               </select>
+              <p className="text-[10px] text-zinc-400">Source campus (current).</p>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="target-campus" className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Target Campus</label>
+              <select
+                id="target-campus"
+                value={toCampusId}
+                onChange={(e) => setToCampusId(e.target.value)}
+                disabled={isGraduating || isExpelling || isLeaving}
+                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <option value="">Keep current campus</option>
+                {campuses.map((c) => <option key={c.id} value={c.id}>{c.campus_name} ({c.campus_code})</option>)}
+              </select>
+              <p className="text-[10px] text-zinc-400">e.g. GKF/NN → Johar.</p>
             </div>
             <div className="space-y-2">
               <label htmlFor="section-filter" className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Section Filter</label>
@@ -812,11 +937,29 @@ export default function BulkPromotePage() {
                             Promoting to A-Level — each student gets the next available GR in the campus A- series (not a prefix of their old O-Level GR). Review or edit below before submitting.
                           </p>
                         )}
-                        {isPromotingToALevel ? (
+                        {needsJoharSeriesGr && !isPromotingToALevel && (
+                          <p className="w-full text-xs text-amber-800 dark:text-amber-200">
+                            Moving to Johar — each student from GKF/NN gets the next available GR in Johar&apos;s no-prefix series. Campus will change to the target campus. Review or edit below before submitting.
+                          </p>
+                        )}
+                        {needsAutoGr ? (
                           <button
                             type="button"
                             disabled={grSuggestionsLoading || !previewStudents?.length}
-                            onClick={() => previewStudents && fetchALevelGrSuggestions(previewStudents)}
+                            onClick={() => {
+                              if (!previewStudents) return;
+                              if (isPromotingToALevel) {
+                                fetchGrSuggestions(previewStudents, {
+                                  aLevel: true,
+                                  targetCampusId: toCampusId ? Number(toCampusId) : undefined,
+                                });
+                              } else if (toCampusId) {
+                                fetchGrSuggestions(previewStudents, {
+                                  aLevel: false,
+                                  targetCampusId: Number(toCampusId),
+                                });
+                              }
+                            }}
                             className="rounded-lg border border-amber-300 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-200 hover:bg-amber-100/50 disabled:opacity-50"
                           >
                             {grSuggestionsLoading ? "Loading…" : "Refresh suggested GRs"}
@@ -938,6 +1081,8 @@ export default function BulkPromotePage() {
                     <th className="text-left px-4 py-3 font-medium">Reason</th>
                     <th className="text-left px-4 py-3 font-medium">From Class</th>
                     <th className="text-left px-4 py-3 font-medium">To Class</th>
+                    <th className="text-left px-4 py-3 font-medium">Campus</th>
+                    <th className="text-left px-4 py-3 font-medium">GR</th>
                     <th className="text-left px-4 py-3 font-medium">Academic Year</th>
                     <th className="text-left px-4 py-3 font-medium">Message</th>
                   </tr>
@@ -958,6 +1103,12 @@ export default function BulkPromotePage() {
                           : item.status === "left"
                           ? <span className="inline-flex items-center gap-1 text-amber-600"><LogOut className="h-3.5 w-3.5" />Left (data kept)</span>
                           : resolveClassName(item.to_class_id, classMap)}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-mono text-zinc-500">
+                        {formatCampusTransition(item.from_campus_id, item.to_campus_id, campusMap)}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-mono text-zinc-500">
+                        {formatGrTransition(item.from_gr_number, item.to_gr_number)}
                       </td>
                       <td className="px-4 py-3 text-xs font-mono text-zinc-500">
                         {item.from_academic_year ?? "—"}{item.to_academic_year ? ` → ${item.to_academic_year}` : ""}
