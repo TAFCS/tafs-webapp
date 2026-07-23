@@ -213,7 +213,11 @@ export default function ChatHubPage() {
 
         const handleMessagesRead = (data: { familyId: number; by: "GUARDIAN" | "ADMIN" }) => {
             if (data.by === "GUARDIAN" && selectedFamilyIdRef.current === data.familyId) {
-                setMessages(prev => prev.map(m => ({ ...m, is_read: true })));
+                setMessages(prev =>
+                    prev.map(m =>
+                        m.sender_type === "ADMIN" ? { ...m, is_read: true } : m
+                    )
+                );
             }
         };
 
@@ -261,6 +265,7 @@ export default function ChatHubPage() {
             media_metadata: mediaMetadata,
             created_at: new Date().toISOString(),
             status: "sending",
+            is_read: false,
             is_announcement: isAnnouncement,
             target_grade: announcementTarget?.grade,
             target_section: announcementTarget?.section,
@@ -299,7 +304,7 @@ export default function ChatHubPage() {
                 setMessages(prev => {
                     const alreadyExists = prev.some(m => m.id === response.id);
                     if (alreadyExists) return prev.filter(m => m.id !== tempId);
-                    return prev.map(m => m.id === tempId ? { ...response, status: "sent" } : m);
+                    return prev.map(m => m.id === tempId ? { ...response, status: "sent", is_read: response.is_read ?? false } : m);
                 });
             });
         } else if (!isAnnouncement) {
@@ -314,7 +319,7 @@ export default function ChatHubPage() {
                 const savedMessage = res.data;
                 setMessages(prev => {
                     if (prev.some(m => m.id === savedMessage.id)) return prev.filter(m => m.id !== tempId);
-                    return prev.map(m => m.id === tempId ? { ...savedMessage, status: "sent" } : m);
+                    return prev.map(m => m.id === tempId ? { ...savedMessage, status: "sent", is_read: savedMessage.is_read ?? false } : m);
                 });
             } catch (err) {
                 console.error("[ChatHub] REST fallback failed:", err);

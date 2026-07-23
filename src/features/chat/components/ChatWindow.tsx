@@ -45,9 +45,13 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
     const shouldSend = useRef(true);
     const scrollRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messageElsRef = useRef<Map<string, HTMLDivElement>>(new Map());
     const prevMessageTailRef = useRef<string | null>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const docInputRef = useRef<HTMLInputElement>(null);
+    const recordingTimeRef = useRef(0);
+    const replyingToRef = useRef<any>(null);
+    replyingToRef.current = replyingTo;
 
     const scrollToBottom = useCallback((smooth = false) => {
         const el = scrollRef.current;
@@ -57,6 +61,35 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
             behavior: smooth ? "smooth" : "instant",
         });
     }, []);
+
+    const scrollToMessage = useCallback((messageId?: string) => {
+        if (!messageId) return;
+        const el = messageElsRef.current.get(messageId);
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, []);
+
+    const buildReplyTo = useCallback((msg: any) => {
+        if (!msg) return undefined;
+        const type = msg.message_type ?? "TEXT";
+        const url =
+            msg.media_metadata?.url ??
+            (type === "IMAGE" || type === "DOCUMENT" || type === "VOICE" ? msg.content : undefined);
+        return {
+            id: msg.id,
+            content: msg.content,
+            senderName: msg.sender_type === "ADMIN" ? "You" : (msg.sender_name || "Parent"),
+            type,
+            ...(url ? { url } : {}),
+        };
+    }, []);
+
+    const replyPreviewLabel = (replyTo: any) => {
+        const type = (replyTo?.type ?? "").toString().toUpperCase();
+        if (type === "IMAGE") return "Photo";
+        if (type === "VOICE") return "Voice note";
+        if (type === "DOCUMENT") return "Document";
+        return replyTo?.content ?? "";
+    };
 
     const isAnnouncementChannel = familyId === 0;
 
@@ -194,7 +227,19 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                             headers: { 'Content-Type': 'multipart/form-data' }
                         });
                         if (response.data.url) {
-                            onSendMessage(response.data.url, "VOICE", { url: response.data.url, duration: recordingTime }, isAnnouncementChannel ? { grade: targetGrade, section: targetSection } : undefined);
+                            const metadata: any = {
+                                url: response.data.url,
+                                duration: recordingTimeRef.current,
+                            };
+                            const reply = buildReplyTo(replyingToRef.current);
+                            if (reply) metadata.replyTo = reply;
+                            onSendMessage(
+                                response.data.url,
+                                "VOICE",
+                                metadata,
+                                isAnnouncementChannel ? { grade: targetGrade, section: targetSection } : undefined,
+                            );
+                            setReplyingTo(null);
                         }
                     } catch (err) {
                         console.error("Failed to upload voice note:", err);
@@ -205,7 +250,14 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
             mediaRecorder.current.start();
             setIsRecording(true);
             setRecordingTime(0);
-            timerRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
+            recordingTimeRef.current = 0;
+            timerRef.current = setInterval(() => {
+                setRecordingTime(prev => {
+                    const next = prev + 1;
+                    recordingTimeRef.current = next;
+                    return next;
+                });
+            }, 1000);
         } catch (err) { console.error("Mic access denied:", err); }
     };
 
@@ -268,12 +320,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
 
         const metadata: any = {};
         if (replyingTo) {
-            metadata.replyTo = {
-                id: replyingTo.id,
-                content: replyingTo.content,
-                senderName: replyingTo.sender_type === "ADMIN" ? "You" : (replyingTo.sender_name || "Parent"),
-                type: replyingTo.message_type
-            };
+            metadata.replyTo = buildReplyTo(replyingTo);
         }
 
         if (pendingFiles.length > 0) {
@@ -478,26 +525,47 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                     </div>
                                 </div>
                             )}
-                            <div className="relative group/swipe px-4">
-                                {/* Reply Icon Indicator (visible on swipe) */}
-                                <div className="absolute left-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/swipe:opacity-10 transition-opacity pointer-events-none">
-                                    <Reply className="h-5 w-5 text-primary ml-2" />
-                                </div>
-
-                                <motion.div 
-                                    drag="x"
-                                    dragConstraints={{ left: 0, right: 100 }}
-                                    dragSnapToOrigin
-                                    dragElastic={0.05}
-                                    transition={{ type: "spring", stiffness: 1000, damping: 50 }}
-                                    onDragEnd={(e, info) => {
-                                        if (info.offset.x > 50) {
-                                            setReplyingTo(firstMsg);
-                                        }
-                                    }}
-                                    className={`flex ${isMe ? "justify-end" : "justify-start"} group/msg relative animate-in fade-in slide-in-from-bottom-2 duration-300`}
+                            <div
+                                className="relative group/swipe px-2 sm:px-4"
+                                ref={(el) => {
+                                    if (!el) return;
+                                    for (const m of clusterMessages) {
+                                        if (m?.id) messageElsRef.current.set(m.id, el);
+                                    }
+                                }}
+                            >
+                                <div
+                                    className={`flex items-center gap-1.5 ${isMe ? "justify-end" : "justify-start"} group/msg relative animate-in fade-in slide-in-from-bottom-2 duration-300`}
                                 >
-                                    <div className={`relative max-w-[75%] group flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+                                    {/* Reply for incoming (parent) messages — left of bubble when mine is right */}
+                                    {!isMe && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setReplyingTo(firstMsg)}
+                                            className="opacity-0 group-hover/msg:opacity-100 focus:opacity-100 p-2 rounded-xl text-zinc-400 hover:text-primary hover:bg-primary/10 transition-all shrink-0"
+                                            title="Reply"
+                                            aria-label="Reply to message"
+                                        >
+                                            <Reply className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                    <motion.div 
+                                        drag="x"
+                                        dragConstraints={{ left: 0, right: 80 }}
+                                        dragSnapToOrigin
+                                        dragElastic={0.05}
+                                        transition={{ type: "spring", stiffness: 1000, damping: 50 }}
+                                        onDragEnd={(e, info) => {
+                                            if (info.offset.x > 40) {
+                                                setReplyingTo(firstMsg);
+                                            }
+                                        }}
+                                        className="relative max-w-[75%] flex flex-col touch-pan-y cursor-grab active:cursor-grabbing"
+                                        style={{ touchAction: "pan-y" }}
+                                        onDoubleClick={() => setReplyingTo(firstMsg)}
+                                        title="Double-click or drag right to reply"
+                                    >
+                                    <div className={`relative flex flex-col ${isMe ? "items-end" : "items-start"}`}>
                                         {(isAnnouncement || !isMe) && (
                                             <div className={`flex items-center gap-1.5 mb-1.5 px-1 ${isMe ? "justify-end" : "justify-start"}`}>
                                                 {isAnnouncement && <ShieldCheck className="h-3 w-3 text-primary" />}
@@ -506,17 +574,33 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                                 </span>
                                             </div>
                                         )}
-                                        <div className="relative group/actions">
-                                            {cluster.id && cluster.status !== "sending" && (
-                                                <button onClick={() => onUnsend(cluster.id)} className="absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover/actions:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="h-4 w-4" /></button>
-                                            )}
+                                        <div className="relative">
                                             <div className={`p-4 rounded-3xl shadow-sm relative overflow-hidden ${isMe ? "bg-primary text-white rounded-tr-none shadow-blue-200/50 dark:shadow-none" : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tl-none border border-zinc-200/50 dark:border-zinc-800 shadow-zinc-200/50"}`}>
                                                 {/* Show replied message if any */}
                                                 {firstMsg.media_metadata?.replyTo && (
-                                                    <div className={`mb-3 p-3 rounded-2xl border-l-4 text-xs font-medium ${isMe ? "bg-white/10 border-white/50 text-white/90" : "bg-zinc-50/50 dark:bg-zinc-900/50 border-primary/50 text-zinc-500 dark:text-zinc-400"}`}>
-                                                        <p className={`font-black text-[9px] uppercase tracking-wider mb-1 ${isMe ? "text-white" : "text-primary"}`}>{firstMsg.media_metadata.replyTo.senderName}</p>
-                                                        <p className={`truncate ${isMe ? "text-white/80" : ""}`}>{firstMsg.media_metadata.replyTo.content}</p>
-                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => scrollToMessage(firstMsg.media_metadata.replyTo.id)}
+                                                        className={`mb-3 p-3 rounded-2xl border-l-4 text-xs font-medium w-full text-left ${isMe ? "bg-white/10 border-white/50 text-white/90" : "bg-zinc-50/50 dark:bg-zinc-900/50 border-primary/50 text-zinc-500 dark:text-zinc-400"}`}
+                                                    >
+                                                        <p className={`font-black text-[9px] uppercase tracking-wider mb-1 ${isMe ? "text-white" : "text-primary"}`}>
+                                                            {firstMsg.media_metadata.replyTo.senderName}
+                                                        </p>
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <p className={`truncate flex-1 ${isMe ? "text-white/80" : ""}`}>
+                                                                {replyPreviewLabel(firstMsg.media_metadata.replyTo)}
+                                                            </p>
+                                                            {(firstMsg.media_metadata.replyTo.type === "IMAGE" ||
+                                                                firstMsg.media_metadata.replyTo.type === "image") &&
+                                                                (firstMsg.media_metadata.replyTo.url || firstMsg.media_metadata.replyTo.content) && (
+                                                                <img
+                                                                    src={firstMsg.media_metadata.replyTo.url || firstMsg.media_metadata.replyTo.content}
+                                                                    alt=""
+                                                                    className="h-10 w-10 rounded-lg object-cover flex-shrink-0"
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    </button>
                                                 )}
                                                 {isGroup ? (
                                                     <div className={`grid gap-1.5 ${clusterMessages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} max-w-[400px]`}>
@@ -580,7 +664,32 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                             </div>
                                         )}
                                     </div>
-                                </motion.div>
+                                    </motion.div>
+                                    {/* Reply (+ unsend) for own messages */}
+                                    {isMe && (
+                                        <div className="opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 flex items-center gap-0.5 shrink-0 transition-all">
+                                            <button
+                                                type="button"
+                                                onClick={() => setReplyingTo(firstMsg)}
+                                                className="p-2 rounded-xl text-zinc-400 hover:text-primary hover:bg-primary/10 transition-all"
+                                                title="Reply"
+                                                aria-label="Reply to message"
+                                            >
+                                                <Reply className="h-4 w-4" />
+                                            </button>
+                                            {cluster.id && cluster.status !== "sending" && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onUnsend(cluster.id)}
+                                                    className="p-2 rounded-xl text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+                                                    title="Unsend"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     );
@@ -611,9 +720,10 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                         </button>
                                     </div>
                                     <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1 truncate font-medium">
-                                        {replyingTo.message_type === "IMAGE" ? "Image message" : 
-                                         replyingTo.message_type === "VOICE" ? "Voice message" : 
-                                         replyingTo.message_type === "DOCUMENT" ? "Document" : replyingTo.content}
+                                        {replyPreviewLabel({
+                                            type: replyingTo.message_type,
+                                            content: replyingTo.content,
+                                        })}
                                     </p>
                                 </div>
                             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { FileText, Loader2, Mic, Send, X, User, ShieldCheck, Phone } from "lucide-react";
+import { Check, CheckCheck, FileText, Loader2, Mic, Phone, Reply, Send, ShieldCheck, User, X } from "lucide-react";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
@@ -45,6 +45,33 @@ function inferMessageType(file: File): "IMAGE" | "VOICE" | "DOCUMENT" {
   if (file.type.startsWith("image/")) return "IMAGE";
   if (file.type.startsWith("audio/")) return "VOICE";
   return "DOCUMENT";
+}
+
+function buildReplyTo(msg: TicketMessage, viewerUserId?: string): Record<string, unknown> {
+  const type = msg.message_type ?? "TEXT";
+  const url =
+    (msg.media_metadata as { url?: string } | null | undefined)?.url ??
+    (type === "IMAGE" || type === "DOCUMENT" || type === "VOICE" ? msg.content : undefined);
+  const own = isOwnStaffMessage(msg, viewerUserId);
+  return {
+    id: msg.id,
+    content: msg.content,
+    type,
+    senderName: own
+      ? "You"
+      : msg.sender_type === "GUARDIAN"
+        ? (msg.sender_guardian?.full_name ?? "Parent")
+        : (msg.sender_user?.full_name ?? "Staff"),
+    ...(url ? { url } : {}),
+  };
+}
+
+function replyPreviewLabel(replyTo: Record<string, unknown> | null | undefined): string {
+  const type = String(replyTo?.type ?? "").toUpperCase();
+  if (type === "IMAGE") return "Photo";
+  if (type === "VOICE") return "Voice note";
+  if (type === "DOCUMENT") return "Document";
+  return String(replyTo?.content ?? "");
 }
 
 const isNewDay = (currentMsg: TicketMessage, prevMsg?: TicketMessage) => {
@@ -140,9 +167,11 @@ export function TicketThread({
   const dispatch = useDispatch<AppDispatch>();
   const { socket } = useSocket();
   const [reply, setReply] = useState("");
+  const [replyingTo, setReplyingTo] = useState<TicketMessage | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageElsRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const prevMessageTailRef = useRef<string | null>(null);
   const [parentTyping, setParentTyping] = useState(false);
   const [showClaim, setShowClaim] = useState(false);
@@ -168,6 +197,9 @@ export function TicketThread({
   const audioChunks = useRef<Blob[]>([]);
   const shouldSend = useRef(true);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingTimeRef = useRef(0);
+  const replyingToRef = useRef<TicketMessage | null>(null);
+  replyingToRef.current = replyingTo;
 
   const fetchFamilyStudents = async () => {
     if (!ticket.family_id) return;
@@ -286,8 +318,10 @@ export function TicketThread({
     if (!reply.trim() || composerDisabled) return;
     try {
       emitTyping(false);
-      await onSendMessage(reply.trim());
+      const metadata = replyingTo ? { replyTo: buildReplyTo(replyingTo, userId) } : undefined;
+      await onSendMessage(reply.trim(), metadata);
       setReply("");
+      setReplyingTo(null);
       if (textareaRef.current) {
         textareaRef.current.style.height = "40px";
       }
@@ -361,7 +395,10 @@ export function TicketThread({
       const media = res.data.data ?? res.data;
       const url = media.url as string;
       const messageType = inferMessageType(file);
-      await onSendMessage(url, { ...media, url }, messageType);
+      const metadata: Record<string, unknown> = { ...media, url };
+      if (replyingTo) metadata.replyTo = buildReplyTo(replyingTo, userId);
+      await onSendMessage(url, metadata, messageType);
+      setReplyingTo(null);
       toast.success(messageType === "VOICE" ? "Voice note sent" : "Attachment sent");
     } catch {
       toast.error("Upload failed");
@@ -392,7 +429,15 @@ export function TicketThread({
             });
             const media = res.data.data ?? res.data;
             const url = media.url as string;
-            await onSendMessage(url, { ...media, url, duration: recordingTime }, "VOICE");
+            const metadata: Record<string, unknown> = {
+              ...media,
+              url,
+              duration: recordingTimeRef.current,
+            };
+            const replyTarget = replyingToRef.current;
+            if (replyTarget) metadata.replyTo = buildReplyTo(replyTarget, userId);
+            await onSendMessage(url, metadata, "VOICE");
+            setReplyingTo(null);
             toast.success("Voice note sent");
           } catch {
             toast.error("Failed to upload voice note");
@@ -405,7 +450,14 @@ export function TicketThread({
       mediaRecorder.current.start();
       setIsRecording(true);
       setRecordingTime(0);
-      timerRef.current = setInterval(() => setRecordingTime((prev) => prev + 1), 1000);
+      recordingTimeRef.current = 0;
+      timerRef.current = setInterval(() => {
+        setRecordingTime((prev) => {
+          const next = prev + 1;
+          recordingTimeRef.current = next;
+          return next;
+        });
+      }, 1000);
     } catch {
       toast.error("Microphone access denied");
     }
@@ -639,7 +691,13 @@ export function TicketThread({
           const showDateHeader = isNewDay(msg, prevMsg);
 
           return (
-            <div key={msg.id} className="w-full flex flex-col gap-3">
+            <div
+              key={msg.id}
+              className="w-full flex flex-col gap-3"
+              ref={(el) => {
+                if (el) messageElsRef.current.set(msg.id, el);
+              }}
+            >
               {showDateHeader && (
                 <div className="flex justify-center my-3 w-full">
                   <span className="px-3 py-1 bg-zinc-200/80 dark:bg-zinc-800/80 text-[10px] font-black uppercase text-zinc-500 rounded-full select-none">
@@ -647,7 +705,19 @@ export function TicketThread({
                   </span>
                 </div>
               )}
+              <div className={`flex items-center gap-1.5 group/msg ${onRight ? "justify-end" : "justify-start"}`}>
+                {!onRight && canCompose && (
+                  <button
+                    type="button"
+                    onClick={() => setReplyingTo(msg)}
+                    className="opacity-0 group-hover/msg:opacity-100 p-1.5 rounded-lg text-zinc-400 hover:text-primary hover:bg-primary/10 transition-all shrink-0"
+                    title="Reply"
+                  >
+                    <Reply className="h-3.5 w-3.5" />
+                  </button>
+                )}
               <div
+                onDoubleClick={() => canCompose && setReplyingTo(msg)}
                 className={`max-w-[80%] p-3 rounded-2xl text-sm ${
                   onRight
                     ? "ml-auto bg-primary text-white"
@@ -689,12 +759,54 @@ export function TicketThread({
                     </>
                   )}
                 </p>
+                {!!msg.media_metadata?.replyTo && (() => {
+                  const replyTo = msg.media_metadata.replyTo as Record<string, unknown>;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const id = String(replyTo.id ?? "");
+                        messageElsRef.current.get(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }}
+                      className={`mb-2 w-full text-left p-2 rounded-xl border-l-4 text-xs ${
+                        onRight
+                          ? "bg-white/10 border-white/50 text-white/90"
+                          : "bg-zinc-50 dark:bg-zinc-900/50 border-primary/50 text-zinc-500"
+                      }`}
+                    >
+                      <p className={`font-black text-[9px] uppercase mb-0.5 ${onRight ? "text-white" : "text-primary"}`}>
+                        {String(replyTo.senderName ?? "Message")}
+                      </p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="truncate flex-1">{replyPreviewLabel(replyTo)}</p>
+                        {String(replyTo.type ?? "").toUpperCase() === "IMAGE" &&
+                          Boolean(replyTo.url || replyTo.content) && (
+                          <img
+                            src={String(replyTo.url || replyTo.content)}
+                            alt=""
+                            className="h-8 w-8 rounded object-cover shrink-0"
+                          />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })()}
                 {msg.message_type === "TEXT" && (
                   <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                 )}
                 {renderMedia(msg)}
-                <div className="flex gap-2 mt-1 text-[10px] opacity-70 flex-wrap items-center">
+                <div className={`flex gap-2 mt-1 text-[10px] opacity-70 flex-wrap items-center ${onRight ? "justify-end" : ""}`}>
                   <span>{format(new Date(msg.created_at), "h:mm a")}</span>
+                  {ownMessage && msg.status === "APPROVED" && (
+                    msg.is_read ? (
+                      <CheckCheck className="h-3 w-3 text-blue-300" />
+                    ) : (
+                      <Check className={`h-3 w-3 ${onRight ? "text-white/50" : "text-zinc-400"}`} />
+                    )
+                  )}
+                  {ownMessage && msg.status === "PENDING" && (
+                    <Check className={`h-3 w-3 ${onRight ? "text-white/50" : "text-zinc-400"}`} />
+                  )}
                   {msg.sender_type === "STAFF" &&
                     msg.status !== "APPROVED" &&
                     !(isSuperAdmin && ownMessage) && (
@@ -745,6 +857,17 @@ export function TicketThread({
                   </div>
                 )}
               </div>
+                {onRight && canCompose && (
+                  <button
+                    type="button"
+                    onClick={() => setReplyingTo(msg)}
+                    className="opacity-0 group-hover/msg:opacity-100 p-1.5 rounded-lg text-zinc-400 hover:text-primary hover:bg-primary/10 transition-all shrink-0"
+                    title="Reply"
+                  >
+                    <Reply className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
@@ -757,6 +880,34 @@ export function TicketThread({
             <p className="absolute -top-7 left-4 text-[11px] font-semibold text-zinc-500 animate-pulse">
               Parent is typing…
             </p>
+          )}
+          {replyingTo && (
+            <div className="mb-2 flex items-start gap-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-3 py-2">
+              <div className="w-1 self-stretch rounded-full bg-primary shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-wider text-primary">
+                  Replying to{" "}
+                  {isOwnStaffMessage(replyingTo, userId)
+                    ? "yourself"
+                    : replyingTo.sender_type === "GUARDIAN"
+                      ? (replyingTo.sender_guardian?.full_name ?? "Parent")
+                      : (replyingTo.sender_user?.full_name ?? "Staff")}
+                </p>
+                <p className="text-xs text-zinc-500 truncate mt-0.5">
+                  {replyPreviewLabel({
+                    type: replyingTo.message_type,
+                    content: replyingTo.content,
+                  })}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReplyingTo(null)}
+                className="p-1 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <X className="h-3.5 w-3.5 text-zinc-500" />
+              </button>
+            </div>
           )}
           <div className="flex gap-2 items-center">
             <div className="flex items-center gap-1 shrink-0">

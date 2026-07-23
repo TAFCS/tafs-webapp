@@ -41,6 +41,7 @@ export interface TicketMessage {
   review_comment?: string | null;
   media_metadata?: Record<string, unknown> | null;
   created_at: string;
+  is_read?: boolean;
   sender_user?: { id: string; full_name: string; role: string };
   sender_guardian?: { full_name: string };
 }
@@ -360,6 +361,14 @@ const supportTicketsSlice = createSlice({
       if (q) q.unread_by_staff = 0;
       if (state.selectedTicket?.id === id) state.selectedTicket.unread_by_staff = 0;
     },
+    /** Parent read the ticket → our (STAFF) messages show blue double-ticks. */
+    markOwnTicketMessagesRead(state, action: PayloadAction<string>) {
+      const ticketId = action.payload;
+      if (state.selectedTicket?.id !== ticketId || !state.selectedTicket.messages) return;
+      state.selectedTicket.messages = state.selectedTicket.messages.map((m) =>
+        m.sender_type === 'STAFF' ? { ...m, is_read: true } : m,
+      );
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -516,5 +525,6 @@ export const {
   updateMessageReviewStatus,
   addPendingApproval,
   markTicketUnreadZero,
+  markOwnTicketMessagesRead,
 } = supportTicketsSlice.actions;
 export default supportTicketsSlice.reducer;

@@ -16,6 +16,7 @@ import {
   fetchPendingApprovals,
   fetchTicketDetail,
   markTicketRead,
+  markOwnTicketMessagesRead,
   removeOpenQueueTicket,
   sendTicketMessage,
   setQueueTab,
@@ -188,6 +189,14 @@ export default function SupportTicketsPage() {
       }
     };
 
+    const onMessagesRead = (payload: { ticketId?: string; by?: string }) => {
+      if (!payload.ticketId || payload.ticketId !== selectedRef.current) return;
+      // Parent opened the ticket → mark our STAFF messages as read (blue ticks)
+      if (payload.by === "PARENT") {
+        dispatch(markOwnTicketMessagesRead(payload.ticketId));
+      }
+    };
+
     socket.on("connect", resync);
     socket.on("ticketCreated", onCreated);
     socket.on("ticketClaimed", onClaimed);
@@ -197,6 +206,7 @@ export default function SupportTicketsPage() {
     socket.on("replyPendingApproval", onPendingApproval);
     socket.on("replyReviewed", onReviewed);
     socket.on("ticketMessageReceived", onMessage);
+    socket.on("ticketMessagesRead", onMessagesRead);
 
     return () => {
       socket.off("connect", resync);
@@ -208,6 +218,7 @@ export default function SupportTicketsPage() {
       socket.off("replyPendingApproval", onPendingApproval);
       socket.off("replyReviewed", onReviewed);
       socket.off("ticketMessageReceived", onMessage);
+      socket.off("ticketMessagesRead", onMessagesRead);
     };
   }, [socket, loadQueue, dispatch, user?.role, hasPermission]);
 
