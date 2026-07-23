@@ -5,11 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Wallet, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Lock,
   Trash2, AlertTriangle, Building2, Calendar, LayoutGrid, List, Download,
+  FlaskConical, FileText, HandCoins,
 } from "lucide-react";
 import { hrService, PayrollRun, PayrollRunLine } from "@/lib/hr.service";
 import { PayrollLineDetailModal } from "../_components/PayrollLineDetailModal";
 import { PayrollMatrixView } from "../_components/PayrollMatrixView";
 import { AttendanceTagBadges } from "../_components/AttendanceTagBadges";
+import { SettlePaymentModal } from "../_components/SettlePaymentModal";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -58,7 +60,7 @@ export default function PayrollRunDetailPage() {
   const [tab, setTab] = useState<"lines" | "matrix">("lines");
   const [deleting, setDeleting] = useState(false);
   const [disbursingAll, setDisbursingAll] = useState(false);
-  const [disbursingLineId, setDisbursingLineId] = useState<number | null>(null);
+  const [settlingLine, setSettlingLine] = useState<PayrollRunLine | null>(null);
   const [exporting, setExporting] = useState(false);
 
   const fetchRun = async () => {
@@ -129,25 +131,17 @@ export default function PayrollRunDetailPage() {
     }
   };
 
-  const handleDisburseLine = async (line: PayrollRunLine) => {
-    if (!run) return;
-    setDisbursingLineId(line.employee_id);
-    setError(null);
-    try {
-      await hrService.disbursePayrollLine(run.id, line.employee_id);
-      await fetchRun();
-      setSuccess("Employee line marked as disbursed.");
-    } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.message || "Failed to mark line as disbursed.");
-    } finally {
-      setDisbursingLineId(null);
-    }
+  const handleSettled = async (updatedLine: PayrollRunLine) => {
+    setSuccess(`${updatedLine.employee_profiles?.full_name ?? "Employee"} settled — payslip generated.`);
+    await fetchRun();
   };
 
   const handleDelete = async () => {
     if (!run) return;
-    if (!confirm("Delete this draft payroll run? This cannot be undone.")) return;
+    const confirmMsg = run.is_test
+      ? "Delete this test payroll run? This cannot be undone — you can generate a fresh one afterwards."
+      : "Delete this draft payroll run? This cannot be undone.";
+    if (!confirm(confirmMsg)) return;
     setDeleting(true);
     setError(null);
     try {
@@ -217,6 +211,11 @@ export default function PayrollRunDetailPage() {
               <div className="flex items-center gap-2 mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 <Building2 className="h-3.5 w-3.5" />
                 {run.campuses?.campus_name ?? `Campus #${run.campus_id}`}
+                {run.is_test && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ml-2 bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400">
+                    <FlaskConical className="h-3 w-3" /> Test
+                  </span>
+                )}
                 <span
                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ml-2 ${
                     isFinal
@@ -239,10 +238,11 @@ export default function PayrollRunDetailPage() {
           >
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Excel
           </button>
-          {!isFinal && (
+          {(!isFinal || run.is_test) && (
             <button
               onClick={handleDelete}
               disabled={deleting}
+              title={isFinal && run.is_test ? "Test runs can be deleted even after finalizing" : undefined}
               className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-rose-200 dark:border-rose-900/30 text-rose-600 text-sm font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all disabled:opacity-50"
             >
               {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Delete
@@ -366,8 +366,7 @@ export default function PayrollRunDetailPage() {
                     key={line.id}
                     line={line}
                     isFinal={isFinal}
-                    disbursing={disbursingLineId === line.employee_id}
-                    onDisburse={() => handleDisburseLine(line)}
+                    onSettle={() => setSettlingLine(line)}
                     onClick={() => { setSelectedLine(line); setSelectedDate(undefined); }}
                   />
                 ))}
@@ -397,6 +396,15 @@ export default function PayrollRunDetailPage() {
           }}
         />
       )}
+
+      {settlingLine && run && (
+        <SettlePaymentModal
+          runId={run.id}
+          line={settlingLine}
+          onClose={() => setSettlingLine(null)}
+          onSettled={handleSettled}
+        />
+      )}
     </div>
   );
 }
@@ -405,14 +413,12 @@ function PayrollLineRow({
   line,
   onClick,
   isFinal,
-  onDisburse,
-  disbursing,
+  onSettle,
 }: {
   line: PayrollRunLine;
   onClick: () => void;
   isFinal?: boolean;
-  onDisburse?: () => void;
-  disbursing?: boolean;
+  onSettle?: () => void;
 }) {
   const emp = line.employee_profiles;
   const name = emp?.full_name ?? `Employee #${line.employee_id}`;
@@ -481,16 +487,28 @@ function PayrollLineRow({
       {isFinal && (
         <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
           {line.disbursed_at ? (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
-              {new Date(line.disbursed_at).toLocaleDateString()}
-            </span>
+            <div className="flex items-center justify-end gap-2">
+              {line.payroll_settlements?.payslip_pdf_url && (
+                <a
+                  href={line.payroll_settlements.payslip_pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="View payslip"
+                  className="text-zinc-400 hover:text-primary"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                </a>
+              )}
+              <button onClick={onSettle} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 hover:opacity-80">
+                {new Date(line.disbursed_at).toLocaleDateString()}
+              </button>
+            </div>
           ) : (
             <button
-              onClick={onDisburse}
-              disabled={disbursing}
-              className="text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+              onClick={onSettle}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
             >
-              {disbursing ? "Saving…" : "Mark disbursed"}
+              <HandCoins className="h-3.5 w-3.5" /> Settle Payment
             </button>
           )}
         </td>

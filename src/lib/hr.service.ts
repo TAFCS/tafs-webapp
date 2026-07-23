@@ -348,11 +348,31 @@ export interface AttendanceLineBase {
   };
 }
 
+export type OvertimeRateType = 'PER_MINUTE' | 'PER_HOUR' | 'PER_DAY';
+
+export interface PayrollSettlement {
+  id: number;
+  payroll_run_line_id: number;
+  overtime_rate_type: OvertimeRateType | null;
+  overtime_rate_amount: number | null;
+  overtime_minutes: number;
+  overtime_reward_amount: number;
+  /** Internal bookkeeping only — never rendered on the payslip. Still returned here for admin visibility. */
+  cash_bonus_amount: number;
+  net_paid: number;
+  payslip_pdf_url: string | null;
+  settled_at: string;
+  settled_by: string;
+  settlement_notes: string | null;
+}
+
 export interface PayrollRunLine extends AttendanceLineBase {
   id: number;
   payroll_run_id: number;
   scheduled_working_days: number;
   total_calendar_days: number;
+  total_overtime_minutes: number;
+  scheduled_minutes_per_day: number;
   monthly_pay: number;
   daily_rate: number;
   per_minute_rate: number;
@@ -365,6 +385,7 @@ export interface PayrollRunLine extends AttendanceLineBase {
   disbursed_at?: string | null;
   disbursed_by?: string | null;
   disbursement_notes?: string | null;
+  payroll_settlements?: PayrollSettlement | null;
 }
 
 export interface AttendanceMatrix {
@@ -385,6 +406,7 @@ export interface PayrollRun {
   generated_at: string;
   finalized_at: string | null;
   notes: string | null;
+  is_test: boolean;
   campuses?: { id: number; campus_name: string };
   payroll_run_lines?: PayrollRunLine[];
   _count?: { payroll_run_lines: number };
@@ -396,6 +418,20 @@ export interface GeneratePayrollRunPayload {
   year: number;
   month: number;
   notes?: string;
+  /** Presence of this makes the run a TEST run scoped to just these employees. */
+  employee_ids?: number[];
+}
+
+export interface OvertimeRewardPayload {
+  rate_type: OvertimeRateType;
+  rate_amount: number;
+}
+
+export interface SettlePayrollLinePayload {
+  disbursed_at?: string;
+  notes?: string;
+  overtime?: OvertimeRewardPayload;
+  cash_bonus_amount?: number;
 }
 
 interface ApiEnvelope<T> {
@@ -693,6 +729,23 @@ export const hrService = {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>(
       `/v1/hr/payroll/runs/${runId}/disburse-all`,
       payload ?? {},
+    );
+    return data.data;
+  },
+  async settlePayrollLine(
+    runId: number,
+    employeeId: number,
+    payload: SettlePayrollLinePayload,
+  ): Promise<PayrollRunLine> {
+    const { data } = await api.post<ApiEnvelope<PayrollRunLine>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/settle`,
+      payload,
+    );
+    return data.data;
+  },
+  async getPayslip(runId: number, employeeId: number): Promise<{ pdf_url: string }> {
+    const { data } = await api.get<ApiEnvelope<{ pdf_url: string }>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/payslip`,
     );
     return data.data;
   },

@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Wallet, Plus, Loader2, AlertCircle, CheckCircle2, X, ChevronDown,
-  Building2, Users, AlertTriangle, Calendar,
+  Building2, Users, AlertTriangle, Calendar, FlaskConical, Search,
 } from "lucide-react";
-import { hrService, PayrollRun, GeneratePayrollRunPayload } from "@/lib/hr.service";
+import { hrService, PayrollRun, GeneratePayrollRunPayload, EmployeeProfile } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
+
+/** Known QA fixtures — surfaced first in the test-mode employee picker. */
+const KNOWN_TEST_EMPLOYEE_CODES = ["EMP-MHM-001", "TEST-HASHIR-001"];
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -42,6 +45,14 @@ function StatusBadge({ status }: { status: PayrollRun["status"] }) {
   );
 }
 
+function TestBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400">
+      <FlaskConical className="h-3 w-3" /> Test
+    </span>
+  );
+}
+
 export default function PayrollPage() {
   const router = useRouter();
   const [runs, setRuns] = useState<PayrollRun[]>([]);
@@ -59,6 +70,11 @@ export default function PayrollPage() {
     month: now.getMonth() + 1,
     notes: "",
   });
+  const [isTest, setIsTest] = useState(false);
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
+  const [employeeSearch, setEmployeeSearch] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
@@ -77,6 +93,42 @@ export default function PayrollPage() {
   };
 
   useEffect(() => {
+    if (!isTest || employees.length > 0) return;
+    setEmployeesLoading(true);
+    hrService
+      .listEmployees()
+      .then((list) => setEmployees(list))
+      .catch((err) => console.error(err))
+      .finally(() => setEmployeesLoading(false));
+  }, [isTest, employees.length]);
+
+  const campusEmployees = useMemo(
+    () => employees.filter((e) => e.campus_id === form.campus_id && e.monthly_pay != null),
+    [employees, form.campus_id],
+  );
+  const filteredEmployees = useMemo(() => {
+    const q = employeeSearch.trim().toLowerCase();
+    const list = !q
+      ? campusEmployees
+      : campusEmployees.filter(
+          (e) =>
+            (e.full_name ?? "").toLowerCase().includes(q) ||
+            (e.employee_code ?? "").toLowerCase().includes(q),
+        );
+    // Known QA fixtures always float to the top so they're easy to find.
+    return [...list].sort((a, b) => {
+      const aKnown = KNOWN_TEST_EMPLOYEE_CODES.includes(a.employee_code ?? "") ? 0 : 1;
+      const bKnown = KNOWN_TEST_EMPLOYEE_CODES.includes(b.employee_code ?? "") ? 0 : 1;
+      if (aKnown !== bKnown) return aKnown - bKnown;
+      return (a.full_name ?? "").localeCompare(b.full_name ?? "");
+    });
+  }, [campusEmployees, employeeSearch]);
+
+  const toggleEmployee = (id: number) => {
+    setSelectedEmployeeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -86,17 +138,32 @@ export default function PayrollPage() {
     return () => clearTimeout(t);
   }, [success]);
 
+  const closeModal = () => {
+    setShowModal(false);
+    setIsTest(false);
+    setSelectedEmployeeIds([]);
+    setEmployeeSearch("");
+  };
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.campus_id) {
       setError("Select a campus first.");
       return;
     }
+    if (isTest && selectedEmployeeIds.length === 0) {
+      setError("Select at least one employee for the test run.");
+      return;
+    }
     setGenerating(true);
     setError(null);
     try {
-      const run = await hrService.generatePayrollRun({ ...form, notes: form.notes || undefined });
-      setShowModal(false);
+      const run = await hrService.generatePayrollRun({
+        ...form,
+        notes: form.notes || undefined,
+        employee_ids: isTest ? selectedEmployeeIds : undefined,
+      });
+      closeModal();
       router.push(`/hr/payroll/${run.id}`);
     } catch (err: any) {
       console.error(err);
@@ -177,7 +244,10 @@ export default function PayrollPage() {
                   <Calendar className="h-4 w-4 text-primary" />
                   {formatPeriod(run.period_start, run.period_end)}
                 </div>
-                <StatusBadge status={run.status} />
+                <div className="flex items-center gap-1.5">
+                  {run.is_test && <TestBadge />}
+                  <StatusBadge status={run.status} />
+                </div>
               </div>
 
               <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 mb-3">
@@ -208,7 +278,7 @@ export default function PayrollPage() {
       {/* Generate Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className={`bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${isTest ? "max-w-lg" : "max-w-md"}`}>
             <form onSubmit={handleGenerate}>
               <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
                 <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Generate Payroll Run</h3>
@@ -278,12 +348,93 @@ export default function PayrollPage() {
                 <p className="text-[11px] text-zinc-400 dark:text-zinc-600 italic">
                   Re-generating an existing draft for the same campus + month replaces it with freshly recomputed numbers — it won't create a duplicate.
                 </p>
+
+                {/* Test mode */}
+                <div className="rounded-xl border border-violet-200 dark:border-violet-900/40 bg-violet-50/50 dark:bg-violet-950/10 p-3.5 space-y-3">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="flex items-center gap-2 text-sm font-semibold text-violet-800 dark:text-violet-300">
+                      <FlaskConical className="h-4 w-4" /> Test run
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={isTest}
+                      onChange={(e) => {
+                        setIsTest(e.target.checked);
+                        if (!e.target.checked) setSelectedEmployeeIds([]);
+                      }}
+                      className="h-4 w-4 accent-violet-600"
+                    />
+                  </label>
+                  <p className="text-[11px] text-violet-700/80 dark:text-violet-400/80">
+                    Scoped to hand-picked employees instead of the whole campus. Behaves exactly like a real run — generate, finalize, settle — but never collides with the real campus run for this period, and can be freely deleted/regenerated even after finalizing.
+                  </p>
+
+                  {isTest && (
+                    <div className="space-y-2 pt-1">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                        <input
+                          type="text"
+                          placeholder="Search employees by name or code…"
+                          value={employeeSearch}
+                          onChange={(e) => setEmployeeSearch(e.target.value)}
+                          className="w-full h-9 pl-8 pr-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 text-xs focus:border-primary"
+                        />
+                      </div>
+                      <div className="max-h-44 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">
+                        {employeesLoading ? (
+                          <div className="p-4 flex items-center justify-center text-xs text-zinc-400">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> Loading employees…
+                          </div>
+                        ) : filteredEmployees.length === 0 ? (
+                          <p className="p-4 text-center text-xs text-zinc-400">
+                            No payable employees found on this campus.
+                          </p>
+                        ) : (
+                          filteredEmployees.map((emp) => {
+                            const isKnown = KNOWN_TEST_EMPLOYEE_CODES.includes(emp.employee_code ?? "");
+                            const checked = selectedEmployeeIds.includes(emp.id);
+                            return (
+                              <label
+                                key={emp.id}
+                                className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleEmployee(emp.id)}
+                                  className="h-3.5 w-3.5 accent-violet-600 flex-shrink-0"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate">
+                                    {emp.full_name ?? `Employee #${emp.id}`}
+                                    {isKnown && (
+                                      <span className="ml-1.5 text-[9px] font-bold text-violet-600 dark:text-violet-400 uppercase">
+                                        QA fixture
+                                      </span>
+                                    )}
+                                  </p>
+                                  <p className="text-[10px] text-zinc-400 font-mono">{emp.employee_code ?? "—"}</p>
+                                </div>
+                              </label>
+                            );
+                          })
+                        )}
+                      </div>
+                      {selectedEmployeeIds.length > 0 && (
+                        <p className="text-[11px] text-violet-700 dark:text-violet-400 font-semibold">
+                          {selectedEmployeeIds.length} employee(s) selected
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="p-6 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 flex justify-end space-x-3">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={closeModal}
                   className="px-5 h-11 rounded-xl text-zinc-600 dark:text-zinc-400 font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 text-sm"
                 >
                   Cancel
@@ -291,10 +442,14 @@ export default function PayrollPage() {
                 <button
                   type="submit"
                   disabled={generating}
-                  className="px-6 h-11 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white font-semibold rounded-xl text-sm flex items-center gap-2 disabled:opacity-50"
+                  className={`px-6 h-11 text-white font-semibold rounded-xl text-sm flex items-center gap-2 disabled:opacity-50 ${
+                    isTest
+                      ? "bg-violet-600 hover:bg-violet-700"
+                      : "bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900"
+                  }`}
                 >
                   {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {generating ? "Generating…" : "Generate"}
+                  {generating ? "Generating…" : isTest ? "Generate Test Run" : "Generate"}
                 </button>
               </div>
             </form>
