@@ -118,6 +118,7 @@ export default function SupportTicketsPage() {
       loadQueue();
       if (selectedRef.current) {
         dispatch(fetchTicketDetail(selectedRef.current));
+        dispatch(markTicketRead(selectedRef.current));
         socket.emit("enterTicket", { ticketId: selectedRef.current });
       }
       if (user?.role === "SUPER_ADMIN") dispatch(fetchPendingApprovals());
