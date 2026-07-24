@@ -131,8 +131,8 @@ export function EmployeeClassAssignmentsEditor({
     onRowsChange(rows.filter((r) => r.id !== id));
   };
 
-  const updateClassRow = (id: string, field: "class_id" | "section_ids", value: number | "" | number[]) => {
-    onRowsChange(rows.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+  const patchClassRow = (id: string, patch: Partial<Pick<ClassSectionRow, "class_id" | "section_ids">>) => {
+    onRowsChange(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   };
 
   const toggleSection = (rowId: string, sectionId: number) => {
@@ -209,8 +209,9 @@ export function EmployeeClassAssignmentsEditor({
                     value={row.class_id}
                     onChange={(e) => {
                       const newClassId = e.target.value ? Number(e.target.value) : "";
-                      updateClassRow(row.id, "class_id", newClassId);
-                      updateClassRow(row.id, "section_ids", []);
+                      // Single update: previous double updateClassRow call raced and
+                      // kept the old class_id while only clearing sections.
+                      patchClassRow(row.id, { class_id: newClassId, section_ids: [] });
                     }}
                   >
                     <option value="">-- Select Class --</option>
