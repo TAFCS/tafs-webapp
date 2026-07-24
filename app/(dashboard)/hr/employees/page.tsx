@@ -77,6 +77,7 @@ function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClic
             )}
             {employee.cnic && <span className="text-[11px] text-zinc-400 font-mono">{employee.cnic}</span>}
           </div>
+          {/* Status + Role */}
           <div className="mt-2 flex flex-wrap gap-1.5">
             <span className={`text-[10px] border rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight ${employeeStatusBadgeClass(employee.employment_status)}`}>
               {employee.employment_status ?? "ACTIVE"}
@@ -86,27 +87,36 @@ function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClic
                 <Briefcase className="h-2.5 w-2.5" />{employee.job_title}
               </span>
             )}
-            {employee.staff_categories && (
-              <span className="flex items-center gap-1 text-[10px] bg-violet-50 dark:bg-violet-950/40 border border-violet-100 dark:border-violet-900 text-violet-700 dark:text-violet-300 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+          </div>
+
+          {/* Category */}
+          {employee.staff_categories && (
+            <div className="mt-1.5">
+              <span className="inline-flex items-center gap-1 text-[10px] bg-violet-50 dark:bg-violet-950/40 border border-violet-100 dark:border-violet-900 text-violet-700 dark:text-violet-300 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
                 {formatStaffCategory(employee.staff_categories)}
               </span>
-            )}
-            {employee.departments?.name && (
-              <span className="flex items-center gap-1 text-[10px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
-                <Building2 className="h-2.5 w-2.5" />{employee.departments.name}
-              </span>
-            )}
-            {employee.campuses?.campus_name && (
-              <span className="flex items-center gap-1 text-[10px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
-                <Building2 className="h-2.5 w-2.5" />{employee.campuses.campus_name}
-              </span>
-            )}
-            {employee.personal_phone && (
-              <span className="flex items-center gap-1 text-[10px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-md px-1.5 py-0.5 font-bold tracking-tight">
-                <Phone className="h-2.5 w-2.5" />{employee.personal_phone}
-              </span>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Location / contact info */}
+          {(employee.departments?.name || employee.campuses?.campus_name || employee.personal_phone) && (
+            <div className="mt-1.5 space-y-0.5">
+              {(employee.departments?.name || employee.campuses?.campus_name) && (
+                <div className="flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <Building2 className="h-3 w-3 shrink-0 text-zinc-400" />
+                  <span className="truncate">
+                    {[employee.departments?.name, employee.campuses?.campus_name].filter(Boolean).join(" · ")}
+                  </span>
+                </div>
+              )}
+              {employee.personal_phone && (
+                <div className="flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <Phone className="h-3 w-3 shrink-0 text-zinc-400" />
+                  <span>{employee.personal_phone}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </button>
