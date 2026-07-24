@@ -50,7 +50,7 @@ interface StudentProfile {
   student_full_name: string;
   gr_number: string;
   campus: string;
-  class_id: number;
+  class_id: number | null;
   grade_and_section: string;
   campus_id?: number;
   section_id?: number;
@@ -562,6 +562,10 @@ export default function FeeChallanGenerator() {
   const handleSaveVoucher = async () => {
     if (!student || !selectedBank)
       return toast.error("Select student and bank.");
+    if (!student.class_id)
+      return toast.error(
+        "This student has no class assigned and no graduated-class record, so a voucher cannot be generated.",
+      );
     setIsSavingVoucher(true);
 
     // FORCE fresh arrears catch to ensure PDF has latest data
@@ -590,7 +594,7 @@ export default function FeeChallanGenerator() {
       const formData = new FormData();
       formData.append("student_id", student.cc.toString());
       formData.append("campus_id", (student.campus_id || 1).toString());
-      formData.append("class_id", student.class_id.toString());
+      formData.append("class_id", student.class_id!.toString());
       if (student.section_id)
         formData.append("section_id", student.section_id.toString());
       formData.append("bank_account_id", selectedBank.id.toString());
@@ -680,6 +684,12 @@ export default function FeeChallanGenerator() {
     fees: StudentFee[];
   }, includeReprintFee = false) => {
     if (!student || !selectedBank) return;
+    if (!student.class_id) {
+      toast.error(
+        "This student has no class assigned and no graduated-class record, so a voucher cannot be generated.",
+      );
+      return;
+    }
     setGeneratingGroupDate(group.fee_date);
 
     // FORCE fresh arrears fetch before generation for this group
@@ -704,7 +714,7 @@ export default function FeeChallanGenerator() {
       const formData = new FormData();
       formData.append("student_id", student.cc.toString());
       formData.append("campus_id", (student.campus_id || 1).toString());
-      formData.append("class_id", student.class_id.toString());
+      formData.append("class_id", student.class_id!.toString());
       if (student.section_id)
         formData.append("section_id", student.section_id.toString());
       formData.append("bank_account_id", selectedBank.id.toString());
