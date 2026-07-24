@@ -24,11 +24,11 @@ export type CheckInSource = 'FIXED' | 'TIMETABLE';
 export type EmployeeStatus = 'ACTIVE' | 'TERMINATED' | 'PERMANENT' | 'LEFT' | 'FAMILY';
 
 export const EMPLOYEE_STATUS_OPTIONS: { value: EmployeeStatus; label: string }[] = [
-  { value: 'ACTIVE', label: 'Active' },
-  { value: 'PERMANENT', label: 'Permanent' },
-  { value: 'FAMILY', label: 'Family' },
-  { value: 'LEFT', label: 'Left' },
-  { value: 'TERMINATED', label: 'Terminated' },
+  { value: 'ACTIVE', label: 'ACTIVE' },
+  { value: 'PERMANENT', label: 'PERMANENT' },
+  { value: 'FAMILY', label: 'FAMILY' },
+  { value: 'LEFT', label: 'LEFT' },
+  { value: 'TERMINATED', label: 'TERMINATED' },
 ];
 
 export function employeeStatusBadgeClass(status: EmployeeStatus | string | null | undefined): string {

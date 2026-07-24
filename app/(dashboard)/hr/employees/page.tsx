@@ -278,7 +278,7 @@ function EmployeesContent() {
         <FilterSelect label="All Campuses" value={campusFilter} onChange={setCampusFilter} options={campusOptions} icon={<Building2 className="h-3.5 w-3.5" />} />
         <FilterSelect label="All Departments" value={departmentFilter} onChange={setDepartmentFilter} options={departmentOptions} icon={<Building2 className="h-3.5 w-3.5" />} />
         <FilterSelect
-          label="All Statuses"
+          label="ALL STATUSES"
           value={statusFilter}
           onChange={setStatusFilter}
           options={EMPLOYEE_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
