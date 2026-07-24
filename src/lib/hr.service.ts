@@ -21,6 +21,33 @@ export interface StaffType {
 
 export type CheckInSource = 'FIXED' | 'TIMETABLE';
 
+export type EmployeeStatus = 'ACTIVE' | 'TERMINATED' | 'PERMANENT' | 'LEFT' | 'FAMILY';
+
+export const EMPLOYEE_STATUS_OPTIONS: { value: EmployeeStatus; label: string }[] = [
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'PERMANENT', label: 'Permanent' },
+  { value: 'FAMILY', label: 'Family' },
+  { value: 'LEFT', label: 'Left' },
+  { value: 'TERMINATED', label: 'Terminated' },
+];
+
+export function employeeStatusBadgeClass(status: EmployeeStatus | string | null | undefined): string {
+  switch (status) {
+    case 'ACTIVE':
+      return 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900';
+    case 'PERMANENT':
+      return 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900';
+    case 'FAMILY':
+      return 'bg-violet-50 text-violet-700 border-violet-100 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900';
+    case 'LEFT':
+      return 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700';
+    case 'TERMINATED':
+      return 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900';
+    default:
+      return 'bg-zinc-50 text-zinc-500 border-zinc-100 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700';
+  }
+}
+
 export const CHECK_IN_SOURCE_OPTIONS: { value: CheckInSource; label: string; description: string }[] = [
   { value: 'FIXED', label: 'Fixed times', description: 'Use reporting/leaving times on this profile' },
   { value: 'TIMETABLE', label: 'Derived from timetable', description: 'Earliest/latest teaching block that weekday' },
@@ -65,6 +92,7 @@ export interface EmployeeProfile {
   cnic: string | null;
   join_date: string | null;
   employment_type: string | null;
+  employment_status: EmployeeStatus;
   department_id: number | null;
   designation_id: number | null;
   reporting_manager_id: number | null;
@@ -145,6 +173,7 @@ export interface EmployeeCreatePayload {
   cnic?: string | null;
   join_date?: string | null;
   employment_type?: string | null;
+  employment_status?: EmployeeStatus;
   department_id?: number;
   designation_id?: number;
   reporting_manager_id?: number;
@@ -456,6 +485,10 @@ export const hrService = {
   },
   async updateEmployee(id: number, payload: Partial<EmployeeCreatePayload>): Promise<EmployeeProfile> {
     const { data } = await api.patch<ApiEnvelope<EmployeeProfile>>(`/v1/hr/employees/${id}`, payload);
+    return data.data;
+  },
+  async updateEmployeeStatus(id: number, status: EmployeeStatus): Promise<EmployeeProfile> {
+    const { data } = await api.patch<ApiEnvelope<EmployeeProfile>>(`/v1/hr/employees/${id}/status`, { status });
     return data.data;
   },
   async updateEmployeeAccount(id: number, payload: EmployeeAccountUpdatePayload) {

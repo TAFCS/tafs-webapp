@@ -8,8 +8,10 @@ import {
 } from "lucide-react";
 import {
   hrService, EmployeeCreatePayload, Department, StaffCategory,
-  WorkScheduleDay, CHECK_IN_SOURCE_OPTIONS, CheckInSource, optionalText, optionalId
+  WorkScheduleDay, CHECK_IN_SOURCE_OPTIONS, CheckInSource, optionalText, optionalId,
+  EMPLOYEE_STATUS_OPTIONS, EmployeeStatus,
 } from "@/lib/hr.service";
+import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus, OfferedClass, SectionInfo } from "@/lib/campuses.service";
 import api from "@/lib/api";
 import {
@@ -122,6 +124,7 @@ interface FormData {
   job_description: string;
   join_date: string;
   employment_type: string;
+  employment_status: EmployeeStatus;
   reporting_manager_id: string;
   campus_id: string;
   notes: string;
@@ -146,6 +149,7 @@ const EMPTY_FORM: FormData = {
   spouse_name: "", spouse_cnic: "", spouse_photo_url: "",
   employee_code: "", employee_code_dep: "", employee_code_number: "", department_id: "", staff_category_id: "",
   job_title: "", job_description: "", join_date: "", employment_type: "Full-time",
+  employment_status: "ACTIVE",
   reporting_manager_id: "", campus_id: "", notes: "",
   reporting_time: "", leaving_time: "", check_in_source: "FIXED", late_relaxation_minutes: "",
   days_per_week: "5", monthly_pay: "", account_number: "", bank_name: "", user_id: "",
@@ -404,6 +408,8 @@ interface EmployeeFormProps {
 export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuthState();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const isEdit = !!employeeId;
   const justCreated = searchParams.get('created') === '1';
 
@@ -556,6 +562,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       job_description: emp.job_description ?? "",
       join_date: emp.join_date ? new Date(emp.join_date).toISOString().split("T")[0] : "",
       employment_type: emp.employment_type ?? "Full-time",
+      employment_status: emp.employment_status ?? "ACTIVE",
       reporting_manager_id: emp.reporting_manager_id ? String(emp.reporting_manager_id) : "",
       campus_id: emp.campus_id ? String(emp.campus_id) : "",
       notes: emp.notes ?? "",
@@ -725,6 +732,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       job_description: optionalText(formData.job_description),
       join_date: optionalText(formData.join_date),
       employment_type: optionalText(formData.employment_type),
+      ...(isSuperAdmin && !isEdit ? { employment_status: formData.employment_status } : {}),
       reporting_manager_id: formData.reporting_manager_id ? parseInt(formData.reporting_manager_id, 10) : undefined,
       campus_id: formData.campus_id ? parseInt(formData.campus_id, 10) : undefined,
       notes: optionalText(formData.notes),
@@ -991,6 +999,22 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                   <option value="Part-time">Part-time</option>
                   <option value="Contract">Contract</option>
                   <option value="Temporary">Temporary</option>
+                </select>
+              </div>
+            )}
+
+            {/* Employment Status — SUPER_ADMIN create only */}
+            {isUnlocked && isSuperAdmin && !isEdit && (
+              <div className="space-y-1.5">
+                <FieldLabel>Employment Status</FieldLabel>
+                <select
+                  className={selectCls}
+                  value={formData.employment_status}
+                  onChange={e => setFormData(p => ({ ...p, employment_status: e.target.value as EmployeeStatus }))}
+                >
+                  {EMPLOYEE_STATUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
                 </select>
               </div>
             )}

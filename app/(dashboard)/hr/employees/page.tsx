@@ -6,7 +6,7 @@ import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
   SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone,
 } from "lucide-react";
-import { hrService, EmployeeProfile, formatStaffCategory } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, employeeStatusBadgeClass } from "@/lib/hr.service";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
 
 function initials(name: string) {
@@ -78,6 +78,9 @@ function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClic
             {employee.cnic && <span className="text-[11px] text-zinc-400 font-mono">{employee.cnic}</span>}
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className={`text-[10px] border rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight ${employeeStatusBadgeClass(employee.employment_status)}`}>
+              {employee.employment_status ?? "ACTIVE"}
+            </span>
             {employee.job_title && (
               <span className="flex items-center gap-1 text-[10px] bg-primary/10 text-primary rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
                 <Briefcase className="h-2.5 w-2.5" />{employee.job_title}
@@ -142,6 +145,7 @@ function EmployeesContent() {
   const [campusFilter, setCampusFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [auditFilter, setAuditFilter] = useState("");
 
   const fetchData = async () => {
@@ -198,6 +202,7 @@ function EmployeesContent() {
       if (campusFilter && String(emp.campus_id) !== campusFilter && String(emp.campuses?.id) !== campusFilter) return false;
       if (departmentFilter && String(emp.department_id) !== departmentFilter && String(emp.departments?.id) !== departmentFilter) return false;
       if (categoryFilter && String(emp.staff_category_id) !== categoryFilter && String(emp.staff_categories?.id) !== categoryFilter) return false;
+      if (statusFilter && (emp.employment_status ?? "ACTIVE") !== statusFilter) return false;
 
       if (q) {
         const name = (emp.full_name || emp.users?.full_name || "").toLowerCase();
@@ -217,7 +222,7 @@ function EmployeesContent() {
       }
       return true;
     });
-  }, [employees, search, campusFilter, departmentFilter, categoryFilter, auditFilter]);
+  }, [employees, search, campusFilter, departmentFilter, categoryFilter, statusFilter, auditFilter]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -272,12 +277,18 @@ function EmployeesContent() {
 
         <FilterSelect label="All Campuses" value={campusFilter} onChange={setCampusFilter} options={campusOptions} icon={<Building2 className="h-3.5 w-3.5" />} />
         <FilterSelect label="All Departments" value={departmentFilter} onChange={setDepartmentFilter} options={departmentOptions} icon={<Building2 className="h-3.5 w-3.5" />} />
+        <FilterSelect
+          label="All Statuses"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={EMPLOYEE_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+        />
         <FilterSelect label="All Categories" value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} />
         <FilterSelect label="Data Audit" value={auditFilter} onChange={setAuditFilter} options={AUDIT_OPTIONS} icon={<SlidersHorizontal className="h-3.5 w-3.5" />} />
 
-        {(search || campusFilter || departmentFilter || categoryFilter || auditFilter) && (
+        {(search || campusFilter || departmentFilter || categoryFilter || statusFilter || auditFilter) && (
           <button
-            onClick={() => { setSearch(""); setCampusFilter(""); setDepartmentFilter(""); setCategoryFilter(""); setAuditFilter(""); }}
+            onClick={() => { setSearch(""); setCampusFilter(""); setDepartmentFilter(""); setCategoryFilter(""); setStatusFilter(""); setAuditFilter(""); }}
             className="h-9 px-3 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
           >
             Clear Filters

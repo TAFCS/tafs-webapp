@@ -17,9 +17,13 @@ import {
   formatStaffCategory,
   CHECK_IN_SOURCE_OPTIONS,
   CheckInSource,
+  EMPLOYEE_STATUS_OPTIONS,
+  employeeStatusBadgeClass,
+  EmployeeStatus,
   optionalText,
   optionalId,
 } from "@/lib/hr.service";
+import { useAuthState } from "@/context/AuthContext";
 import { EmployeePortalAccountTab } from "./EmployeePortalAccountTab";
 import { EmployeeBiometricTab } from "./EmployeeBiometricTab";
 import { EmployeeShiftOverridesTab } from "./EmployeeShiftOverridesTab";
@@ -222,10 +226,13 @@ interface Props {
 
 export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted }: Props) {
   const router = useRouter();
+  const { user } = useAuthState();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const [emp, setEmp] = useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<TabId>("profile");
   const [deleting, setDeleting] = useState(false);
+  const [savingStatus, setSavingStatus] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const { campuses, allClasses, allSections, loading: classLookupsLoading } = useClassAssignmentLookups();
 
@@ -374,6 +381,27 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       alert(err?.response?.data?.message || "Failed to delete employee profile.");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleStatusChange = async (next: EmployeeStatus) => {
+    if (!emp || next === (emp.employment_status ?? "ACTIVE")) return;
+    if (next === "TERMINATED" || next === "LEFT") {
+      const ok = confirm(
+        `Set status to ${next}? This will deactivate the employee’s portal login if one is linked.`,
+      );
+      if (!ok) return;
+    }
+    setSavingStatus(true);
+    try {
+      const updated = await hrService.updateEmployeeStatus(emp.id, next);
+      setEmp(updated);
+      syncForms(updated);
+      onUpdated();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Failed to update employee status.");
+    } finally {
+      setSavingStatus(false);
     }
   };
 
@@ -583,6 +611,35 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                 )}
 
                 {tab === "employment" && (
+                  <div className="space-y-4">
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Employment Status</p>
+                          <p className="text-xs text-zinc-500 mt-0.5">
+                            {isSuperAdmin
+                              ? "Only super admins can change status."
+                              : "Status is read-only for your role."}
+                          </p>
+                        </div>
+                        {isSuperAdmin ? (
+                          <select
+                            className={inputCls + " sm:w-48"}
+                            value={emp.employment_status ?? "ACTIVE"}
+                            disabled={savingStatus}
+                            onChange={(e) => handleStatusChange(e.target.value as EmployeeStatus)}
+                          >
+                            {EMPLOYEE_STATUS_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className={`inline-flex text-xs border rounded-lg px-2.5 py-1.5 font-bold uppercase tracking-tight ${employeeStatusBadgeClass(emp.employment_status)}`}>
+                            {emp.employment_status ?? "ACTIVE"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   <EditableCard
                     title="Employment details"
                     editing={editEmployment}
@@ -603,6 +660,11 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     }, setSavingEmployment, setSavedEmployment, () => setEditEmployment(false))}
                     readContent={
                       <>
+                        <ReadField icon={Shield} label="Status" value={
+                          <span className={`inline-flex text-[11px] border rounded-md px-1.5 py-0.5 font-bold uppercase ${employeeStatusBadgeClass(emp.employment_status)}`}>
+                            {emp.employment_status ?? "ACTIVE"}
+                          </span>
+                        } />
                         <ReadField icon={CreditCard} label="Employee Code" value={
                           <span className="font-mono">{formatEmployeeCodeDisplay(emp)}</span>
                         } missing={!formatEmployeeCodeDisplay(emp)} />
@@ -674,6 +736,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       <div className="sm:col-span-2"><FieldLabel>Job Description</FieldLabel><textarea rows={2} className={textareaCls} value={employmentForm.job_description} onChange={e => setEmploymentForm(p => ({ ...p, job_description: e.target.value }))} /></div>
                     </div>
                   </EditableCard>
+                  </div>
                 )}
 
                 {tab === "schedule" && (
