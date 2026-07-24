@@ -35,6 +35,8 @@ const CHANGE_TYPE_STYLES: Record<string, { bg: string; text: string }> = {
   REASSIGNED: { bg: "bg-zinc-100 border-zinc-200", text: "text-zinc-700" },
   HOUSE_CHANGED: { bg: "bg-violet-50 border-violet-200", text: "text-violet-700" },
   GRADUATED: { bg: "bg-purple-50 border-purple-200", text: "text-purple-700" },
+  EXPELLED: { bg: "bg-rose-50 border-rose-200", text: "text-rose-700" },
+  LEFT: { bg: "bg-orange-50 border-orange-200", text: "text-orange-700" },
 };
 
 function HouseDot({ house }: { house: HouseRef | null }) {
@@ -63,56 +65,40 @@ function PeriodRow({ period }: { period: ProgressionPeriod }) {
     : `${formatDate(period.valid_from)} → ${formatDate(period.valid_to!)}`;
 
   return (
-    <div className="relative pl-7 pb-5 last:pb-0">
-      <div
-        className={`absolute left-[-5px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm ${
-          isOpen ? "bg-emerald-500" : "bg-zinc-400"
-        }`}
-      />
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="text-[13px] font-semibold text-zinc-800 tabular-nums">
-          {dateRange}
-        </span>
+    <tr className="border-b border-zinc-100 last:border-0">
+      <td className="py-2.5 pr-4 text-[13px] font-semibold text-zinc-800 tabular-nums whitespace-nowrap">
+        {dateRange}
+      </td>
+      <td className="py-2.5 pr-4">
         <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-bold uppercase tracking-wide ${style.bg} ${style.text}`}
+          className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-bold uppercase tracking-wide whitespace-nowrap ${style.bg} ${style.text}`}
         >
           {period.change_type.replace(/_/g, " ")}
         </span>
-      </div>
-
-      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px] text-zinc-700">
-        {period.classes && (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-[11px] font-semibold text-indigo-700">
-            {period.classes.class_code} — {period.classes.description}
-          </span>
-        )}
-        {period.sections && (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-sky-50 border border-sky-200 text-[11px] font-semibold text-sky-700">
-            {period.sections.description}
-          </span>
-        )}
-        {period.houses && (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-violet-50 border border-violet-200 text-[11px] font-semibold text-violet-700">
+      </td>
+      <td className="py-2.5 pr-4 text-[13px] text-zinc-700">
+        {period.classes ? period.classes.description : "—"}
+      </td>
+      <td className="py-2.5 pr-4 text-[13px] text-zinc-700">
+        {period.sections ? period.sections.description : "—"}
+      </td>
+      <td className="py-2.5 pr-4 text-[13px] text-zinc-700">
+        {period.houses ? (
+          <span className="inline-flex items-center gap-1.5">
             <HouseDot house={period.houses} />
             {period.houses.house_name || "House"}
           </span>
+        ) : (
+          "—"
         )}
-        {period.campuses && (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-zinc-50 border border-zinc-200 text-[11px] font-semibold text-zinc-600">
-            {period.campuses.campus_name}
-          </span>
-        )}
-        {!period.classes && !period.sections && !period.houses && (
-          <span className="text-[12px] text-zinc-400 italic">No placement details</span>
-        )}
-      </div>
-
-      {period.changed_by && (
-        <div className="mt-1 text-[11px] text-zinc-400">
-          Moved by {period.changed_by}
-        </div>
-      )}
-    </div>
+      </td>
+      <td className="py-2.5 pr-4 text-[13px] text-zinc-700">
+        {period.campuses ? period.campuses.campus_name : "—"}
+      </td>
+      <td className="py-2.5 text-[12px] text-zinc-400">
+        {period.changed_by || "—"}
+      </td>
+    </tr>
   );
 }
 
@@ -164,12 +150,39 @@ export function AcademicProgressionTab({ cc }: { cc: number }) {
   }
 
   return (
-    <div className="px-6 py-5">
-      <div className="relative border-l-2 border-zinc-200 ml-3">
-        {periods.map((period) => (
-          <PeriodRow key={period.id} period={period} />
-        ))}
-      </div>
+    <div className="px-6 py-5 overflow-x-auto">
+      <table className="w-full min-w-[640px] border-collapse">
+        <thead>
+          <tr className="border-b border-zinc-200 text-left">
+            <th className="py-2 pr-4 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
+              Period
+            </th>
+            <th className="py-2 pr-4 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
+              Status
+            </th>
+            <th className="py-2 pr-4 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
+              Class
+            </th>
+            <th className="py-2 pr-4 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
+              Section
+            </th>
+            <th className="py-2 pr-4 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
+              House
+            </th>
+            <th className="py-2 pr-4 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
+              Campus
+            </th>
+            <th className="py-2 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
+              Moved By
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {periods.map((period) => (
+            <PeriodRow key={period.id} period={period} />
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
