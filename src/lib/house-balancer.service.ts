@@ -103,21 +103,23 @@ export const houseBalancerService = {
         return data.data;
     },
 
-    async previewCampus(campusId: number): Promise<CampusHouseBalancerPreview> {
+    async previewCampus(campusId: number, classId?: number): Promise<CampusHouseBalancerPreview> {
         const { data } = await api.post<ApiEnvelope<CampusHouseBalancerPreview>>(
             '/v1/house-balancer/preview-campus',
-            { campus_id: campusId },
+            { campus_id: campusId, ...(classId ? { class_id: classId } : {}) },
         );
         return data.data;
     },
 
     async applyCampus(
         preview: CampusHouseBalancerPreview,
+        classId?: number,
     ): Promise<CampusHouseBalancerApplyResult> {
         const { data } = await api.post<ApiEnvelope<CampusHouseBalancerApplyResult>>(
             '/v1/house-balancer/apply-campus',
             {
                 campus_id: preview.campus.id,
+                ...(classId ? { class_id: classId } : {}),
                 campus_fingerprint: preview.campus_fingerprint,
                 groups: preview.groups.map((group) => ({
                     class_id: group.class.id,

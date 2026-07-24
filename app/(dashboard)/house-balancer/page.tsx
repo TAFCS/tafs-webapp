@@ -84,21 +84,18 @@ export default function HouseBalancerPage() {
             toast.error("Select a campus first.");
             return;
         }
-        if (selectedClassId && !selectedSectionId) {
-            toast.error("Select a section, or clear the class to shuffle the whole campus.");
-            return;
-        }
         setIsPreviewing(true);
         setError(null);
         try {
-            if (!selectedClassId) {
+            if (!selectedSectionId) {
                 const data = await houseBalancerService.previewCampus(
                     Number(selectedCampusId),
+                    selectedClassId ? Number(selectedClassId) : undefined,
                 );
                 setCampusPreview(data);
                 setPreview(null);
                 toast.success(
-                    `Campus preview ready for ${data.total_students} student(s) across ${data.group_count} class/section group(s)`,
+                    `Preview ready for ${data.total_students} student(s) across ${data.group_count} class/section group(s)`,
                 );
             } else {
                 const data = await houseBalancerService.preview({
@@ -126,7 +123,10 @@ export default function HouseBalancerPage() {
         setIsApplying(true);
         try {
             if (campusPreview) {
-                const result = await houseBalancerService.applyCampus(campusPreview);
+                const result = await houseBalancerService.applyCampus(
+                    campusPreview,
+                    selectedClassId ? Number(selectedClassId) : undefined,
+                );
                 toast.success(
                     `Applied house assignments for ${result.total_students} student(s) across ${result.group_count} class/section group(s)`,
                 );
@@ -191,8 +191,7 @@ export default function HouseBalancerPage() {
                         House Balancer
                     </h1>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                        Select only a campus to balance every populated class/section at once,
-                        or optionally choose a class and section for a targeted shuffle.
+                        Select a campus to balance all class/sections, or choose a class to balance all its sections, or choose a specific section for a targeted shuffle.
                     </p>
                 </div>
             </div>
@@ -258,7 +257,7 @@ export default function HouseBalancerPage() {
                         }}
                         className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
                     >
-                        <option value="">Select section</option>
+                        <option value="">All sections (class-wide)</option>
                         {sections.map((s) => (
                             <option key={s.id} value={s.id}>
                                 {s.description}
@@ -276,7 +275,6 @@ export default function HouseBalancerPage() {
                     onClick={generatePreview}
                     disabled={
                         !selectedCampusId ||
-                        (!!selectedClassId && !selectedSectionId) ||
                         isPreviewing ||
                         isLoading
                     }
