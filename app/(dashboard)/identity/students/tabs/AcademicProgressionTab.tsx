@@ -77,7 +77,11 @@ function PeriodRow({ period }: { period: ProgressionPeriod }) {
         </span>
       </td>
       <td className="py-2.5 pr-4 text-[13px] text-zinc-700">
-        {period.classes ? period.classes.description : "—"}
+        {period.classes
+          ? period.change_type === "GRADUATED"
+            ? `Graduated from ${period.classes.description}`
+            : period.classes.description
+          : "—"}
       </td>
       <td className="py-2.5 pr-4 text-[13px] text-zinc-700">
         {period.sections ? period.sections.description : "—"}

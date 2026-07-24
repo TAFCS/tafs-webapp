@@ -265,11 +265,15 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                     <div>
                         <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none mb-1">Graduation Status</p>
                         <p className="text-sm font-bold text-indigo-900/80 leading-tight">
-                            {student.graduated_from_class?.description 
-                                ? <>This student graduated from <span className="text-indigo-700 font-black">{student.graduated_from_class.description}</span>.</>
+                            {student.graduated_from_class?.description
+                                ? <>This student graduated from <span className="text-indigo-700 font-black">{student.graduated_from_class.description}</span></>
                                 : student.graduated_from_class_id
-                                ? <>This student graduated from class ID <span className="text-indigo-700 font-black">{student.graduated_from_class_id}</span>.</>
-                                : "This student has graduated from the institution."
+                                ? <>This student graduated from class ID <span className="text-indigo-700 font-black">{student.graduated_from_class_id}</span></>
+                                : <>This student has graduated from the institution</>
+                            }
+                            {student.graduated_at
+                                ? <> on <span className="text-indigo-700 font-black">{new Date(student.graduated_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span>.</>
+                                : "."
                             }
                         </p>
                     </div>

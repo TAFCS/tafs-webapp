@@ -232,6 +232,9 @@ interface StudentCore {
     guardian_relationship?: string | null;
     cnic?: string | null;
     primary_guardian_cnic?: string | null;
+    graduated_from_class_id?: number | null;
+    graduated_from_class_description?: string | null;
+    graduated_at?: string | null;
 }
 
 interface Student {
@@ -309,7 +312,15 @@ function StudentCard({ student, onClick }: { student: Student; onClick: () => vo
                                 <Building2 className="h-2.5 w-2.5 text-zinc-400" />{c.campus_name}
                             </span>
                         )}
-                        {c.class_description ? (
+                        {c.enrollment_status === "GRADUATED" ? (
+                            c.graduated_from_class_description && (
+                                <span className="flex items-center gap-1 text-[10px] bg-violet-50 border border-violet-100 text-violet-600 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                                    <BookOpen className="h-2.5 w-2.5 text-violet-400" />
+                                    Graduated from {c.graduated_from_class_description}
+                                    {c.graduated_at && ` · ${new Date(c.graduated_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
+                                </span>
+                            )
+                        ) : c.class_description ? (
                             <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
                                 <BookOpen className="h-2.5 w-2.5 text-zinc-400" />{c.class_description}
                             </span>
