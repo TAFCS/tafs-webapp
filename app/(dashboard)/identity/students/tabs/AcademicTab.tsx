@@ -44,20 +44,41 @@ const getAcademicYears = () => {
 export function AcademicTab({ student, onReload }: { student: any; onReload: () => void }) {
     const [studentYear, setStudentYear] = useState(student.academic_year || "");
     const [studentDoa, setStudentDoa] = useState(student.date_of_admission ? new Date(student.date_of_admission).toISOString().split("T")[0] : "");
+    const [studentHouseId, setStudentHouseId] = useState<string>(student.house_id != null ? String(student.house_id) : "");
+    const [housesList, setHousesList] = useState<Array<{ id: number; house_name: string; house_color: string }>>([]);
     const [savingGeneral, setSavingGeneral] = useState(false);
     const [savedGeneral, setSavedGeneral] = useState(false);
     const [editGeneral, setEditGeneral] = useState(false);
+
+    const houseName = student.house_name || student.houses?.house_name || null;
+    const houseColor = student.house_color || student.houses?.house_color || null;
 
     // Sync state
     useEffect(() => {
         setStudentYear(student.academic_year || "");
         setStudentDoa(student.date_of_admission ? new Date(student.date_of_admission).toISOString().split("T")[0] : "");
+        setStudentHouseId(student.house_id != null ? String(student.house_id) : "");
     }, [student]);
+
+    useEffect(() => {
+        if (editGeneral && student?.cc && housesList.length === 0) {
+            api.get(`/v1/enrollments/${student.cc}/suggestions`)
+                .then(res => {
+                    const houses = res?.data?.data?.all_houses || res?.data?.all_houses || [];
+                    setHousesList(houses);
+                })
+                .catch(() => {});
+        }
+    }, [editGeneral, student?.cc, housesList.length]);
 
     const handleSaveGeneral = async () => {
         setSavingGeneral(true);
         try {
-            await api.patch(`/v1/staff-editing/students/${student.cc}`, { academic_year: studentYear, doa: studentDoa });
+            await api.patch(`/v1/staff-editing/students/${student.cc}`, {
+                academic_year: studentYear,
+                doa: studentDoa,
+                house_id: studentHouseId ? Number(studentHouseId) : null,
+            });
             setSavedGeneral(true);
             setTimeout(() => setSavedGeneral(false), 2000);
             setEditGeneral(false);
@@ -185,12 +206,12 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
                 </h3>
 
                 {editGeneral ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <Field label="Current Academic Year">
                             <select
                                 value={studentYear}
                                 onChange={e => setStudentYear(e.target.value)}
-                                className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all cursor-pointer"
+                                className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all cursor-pointer"
                             >
                                 <option value="">Select Academic Year</option>
                                 {getAcademicYears().map(year => (
@@ -198,13 +219,50 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
                                 ))}
                             </select>
                         </Field>
-                        <Field label="Date of Admission"><input type="date" value={studentDoa} onChange={e => setStudentDoa(e.target.value)} className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-500" /></Field>
+                        <Field label="House">
+                            <select
+                                value={studentHouseId}
+                                onChange={e => setStudentHouseId(e.target.value)}
+                                className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all cursor-pointer"
+                            >
+                                <option value="">Select House</option>
+                                {housesList.map(h => (
+                                    <option key={h.id} value={String(h.id)}>
+                                        {h.house_name}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+                        <Field label="Date of Admission">
+                            <input
+                                type="date"
+                                value={studentDoa}
+                                onChange={e => setStudentDoa(e.target.value)}
+                                className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-indigo-500 transition-all"
+                            />
+                        </Field>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
                             <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Current Academic Year</p>
                             <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1">{student.academic_year || "N/A"}</p>
+                        </div>
+                        <div>
+                            <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">House</p>
+                            <div className="mt-1 flex items-center gap-2">
+                                {houseName ? (
+                                    <span className="inline-flex items-center gap-2 text-[14px] font-semibold text-zinc-800 dark:text-zinc-200">
+                                        <span
+                                            className="h-3 w-3 rounded-full shrink-0 shadow-sm border border-black/10 dark:border-white/10"
+                                            style={{ backgroundColor: houseColor || "#94a3b8" }}
+                                        />
+                                        <span>{houseName}</span>
+                                    </span>
+                                ) : (
+                                    <span className="text-[14px] font-semibold text-zinc-400">N/A</span>
+                                )}
+                            </div>
                         </div>
                         <div>
                             <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Date of Admission</p>
