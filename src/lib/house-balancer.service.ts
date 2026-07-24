@@ -14,6 +14,14 @@ export interface HouseAssignmentPreview {
     proposed_house: HouseInfo;
 }
 
+export interface HouseMove {
+    student_id: number;
+    student_cc: number;
+    student_name: string;
+    old_house: HouseInfo | null;
+    new_house: HouseInfo;
+}
+
 export interface HouseBalancerPreview {
     campus: { id: number; campus_name: string; campus_code: string };
     class: { id: number; description: string; class_code: string };
@@ -35,6 +43,8 @@ export interface HouseBalancerApplyResult {
     after_counts: Record<number, number>;
     houses: HouseInfo[];
     assignments: Array<{ student_id: number; house_id: number }>;
+    moves: HouseMove[];
+    moves_count: number;
 }
 
 export interface CampusHouseBalanceGroup {
@@ -67,6 +77,29 @@ export interface CampusHouseBalancerApplyResult {
         before_counts: Record<number, number>;
         after_counts: Record<number, number>;
     }>;
+    moves: HouseMove[];
+    moves_count: number;
+}
+
+export interface HouseRebalanceHistoryItem {
+    id: number;
+    action: string;
+    entity_id: string;
+    changed_by: string;
+    changed_at: string;
+    note: string | null;
+    moves_count: number;
+}
+
+export interface HouseRebalanceHistoryList {
+    total: number;
+    limit: number;
+    offset: number;
+    items: HouseRebalanceHistoryItem[];
+}
+
+export interface HouseRebalanceHistoryDetail extends HouseRebalanceHistoryItem {
+    moves: HouseMove[];
 }
 
 export interface HouseBalancerScope {
@@ -131,6 +164,29 @@ export const houseBalancerService = {
                     })),
                 })),
             },
+        );
+        return data.data;
+    },
+
+    async listHistory(
+        campusId: number,
+        limit = 20,
+        offset = 0,
+    ): Promise<HouseRebalanceHistoryList> {
+        const query = new URLSearchParams({
+            campus_id: String(campusId),
+            limit: String(limit),
+            offset: String(offset),
+        });
+        const { data } = await api.get<ApiEnvelope<HouseRebalanceHistoryList>>(
+            `/v1/house-balancer/history?${query.toString()}`,
+        );
+        return data.data;
+    },
+
+    async getHistory(id: number): Promise<HouseRebalanceHistoryDetail> {
+        const { data } = await api.get<ApiEnvelope<HouseRebalanceHistoryDetail>>(
+            `/v1/house-balancer/history/${id}`,
         );
         return data.data;
     },

@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
     AlertCircle,
     ArrowLeft,
     CheckCircle,
+    History,
     Loader2,
     RefreshCw,
     Shuffle,
@@ -20,9 +21,50 @@ import {
     CampusHouseBalanceGroup,
     HouseInfo,
     HouseAssignmentPreview,
+    HouseMove,
+    HouseRebalanceHistoryItem,
+    HouseRebalanceHistoryDetail,
     houseBalancerService,
 } from "@/lib/house-balancer.service";
 import { extractApiErrorMessage } from "@/lib/section-allocation";
+
+type ApplyResultView = {
+    title: string;
+    subtitle: string;
+    moves: HouseMove[];
+    moves_count: number;
+};
+
+function assignmentChanged(row: HouseAssignmentPreview): boolean {
+    return (row.current_house?.id ?? null) !== row.proposed_house.id;
+}
+
+function countAssignmentChanges(assignments: HouseAssignmentPreview[]): number {
+    return assignments.filter(assignmentChanged).length;
+}
+
+function formatHistoryScope(entityId: string, action: string): string {
+    if (action === "CAMPUS_REBALANCED") {
+        const classMatch = entityId.match(/^campus:(\d+):class:(\d+)$/);
+        if (classMatch) return `Campus #${classMatch[1]} · Class #${classMatch[2]}`;
+        const campusMatch = entityId.match(/^campus:(\d+)$/);
+        if (campusMatch) return `Campus #${campusMatch[1]} (all classes)`;
+        return entityId;
+    }
+    const sectionMatch = entityId.match(/^(\d+):(\d+):(\d+)$/);
+    if (sectionMatch) {
+        return `Campus #${sectionMatch[1]} · Class #${sectionMatch[2]} · Section #${sectionMatch[3]}`;
+    }
+    return entityId;
+}
+
+function formatWhen(value: string): string {
+    try {
+        return new Date(value).toLocaleString();
+    } catch {
+        return value;
+    }
+}
 
 export default function HouseBalancerPage() {
     const user = useAppSelector((s) => s.auth.user);
@@ -38,6 +80,14 @@ export default function HouseBalancerPage() {
     const [preview, setPreview] = useState<HouseBalancerPreview | null>(null);
     const [campusPreview, setCampusPreview] =
         useState<CampusHouseBalancerPreview | null>(null);
+    const [applyResult, setApplyResult] = useState<ApplyResultView | null>(null);
+    const [historyItems, setHistoryItems] = useState<HouseRebalanceHistoryItem[]>([]);
+    const [historyTotal, setHistoryTotal] = useState(0);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [expandedHistoryId, setExpandedHistoryId] = useState<number | null>(null);
+    const [historyDetail, setHistoryDetail] =
+        useState<HouseRebalanceHistoryDetail | null>(null);
+    const [isLoadingHistoryDetail, setIsLoadingHistoryDetail] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isPreviewing, setIsPreviewing] = useState(false);
     const [isApplying, setIsApplying] = useState(false);
@@ -57,10 +107,36 @@ export default function HouseBalancerPage() {
         }
     };
 
+    const loadHistory = useCallback(async (campusId: number) => {
+        setIsLoadingHistory(true);
+        try {
+            const data = await houseBalancerService.listHistory(campusId);
+            setHistoryItems(data.items);
+            setHistoryTotal(data.total);
+        } catch (err) {
+            console.error(err);
+            setHistoryItems([]);
+            setHistoryTotal(0);
+        } finally {
+            setIsLoadingHistory(false);
+        }
+    }, []);
+
     useEffect(() => {
         if (canView) loadCampuses();
         else setIsLoading(false);
     }, [canView]);
+
+    useEffect(() => {
+        setExpandedHistoryId(null);
+        setHistoryDetail(null);
+        if (!selectedCampusId) {
+            setHistoryItems([]);
+            setHistoryTotal(0);
+            return;
+        }
+        void loadHistory(Number(selectedCampusId));
+    }, [selectedCampusId, loadHistory]);
 
     const selectedCampus = useMemo(
         () => campuses.find((c) => c.id === Number(selectedCampusId)),
@@ -86,6 +162,7 @@ export default function HouseBalancerPage() {
         }
         setIsPreviewing(true);
         setError(null);
+        setApplyResult(null);
         try {
             if (!selectedSectionId) {
                 const data = await houseBalancerService.previewCampus(
@@ -130,6 +207,12 @@ export default function HouseBalancerPage() {
                 toast.success(
                     `Applied house assignments for ${result.total_students} student(s) across ${result.group_count} class/section group(s)`,
                 );
+                setApplyResult({
+                    title: "Applied — house changes",
+                    subtitle: `${result.campus.campus_name} · ${result.moves_count} student(s) changed house across ${result.group_count} group(s)`,
+                    moves: result.moves ?? [],
+                    moves_count: result.moves_count ?? 0,
+                });
             } else if (preview) {
                 const result = await houseBalancerService.apply({
                     campus_id: Number(selectedCampusId),
@@ -144,8 +227,17 @@ export default function HouseBalancerPage() {
                 toast.success(
                     `Applied house assignments for ${result.student_count} student(s)`,
                 );
+                setApplyResult({
+                    title: "Applied — house changes",
+                    subtitle: `${result.campus.campus_name} · ${result.class.description} · Section ${result.section.description} · ${result.moves_count} change(s)`,
+                    moves: result.moves ?? [],
+                    moves_count: result.moves_count ?? 0,
+                });
             }
             clearPreview();
+            if (selectedCampusId) {
+                void loadHistory(Number(selectedCampusId));
+            }
         } catch (err: unknown) {
             const response = (err as {
                 response?: { data?: { message?: { code?: string } | string; code?: string } };
@@ -164,6 +256,25 @@ export default function HouseBalancerPage() {
             }
         } finally {
             setIsApplying(false);
+        }
+    };
+
+    const toggleHistoryRow = async (id: number) => {
+        if (expandedHistoryId === id) {
+            setExpandedHistoryId(null);
+            setHistoryDetail(null);
+            return;
+        }
+        setExpandedHistoryId(id);
+        setIsLoadingHistoryDetail(true);
+        setHistoryDetail(null);
+        try {
+            setHistoryDetail(await houseBalancerService.getHistory(id));
+        } catch (err) {
+            toast.error(extractApiErrorMessage(err, "Failed to load rebalance details"));
+            setExpandedHistoryId(null);
+        } finally {
+            setIsLoadingHistoryDetail(false);
         }
     };
 
@@ -212,6 +323,7 @@ export default function HouseBalancerPage() {
                             setSelectedCampusId(e.target.value ? Number(e.target.value) : "");
                             setSelectedClassId("");
                             setSelectedSectionId("");
+                            setApplyResult(null);
                             clearPreview();
                         }}
                         className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
@@ -233,6 +345,7 @@ export default function HouseBalancerPage() {
                         onChange={(e) => {
                             setSelectedClassId(e.target.value ? Number(e.target.value) : "");
                             setSelectedSectionId("");
+                            setApplyResult(null);
                             clearPreview();
                         }}
                         className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
@@ -253,6 +366,7 @@ export default function HouseBalancerPage() {
                         disabled={!selectedClassId}
                         onChange={(e) => {
                             setSelectedSectionId(e.target.value ? Number(e.target.value) : "");
+                            setApplyResult(null);
                             clearPreview();
                         }}
                         className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
@@ -305,6 +419,23 @@ export default function HouseBalancerPage() {
                 </div>
             ) : null}
 
+            {applyResult && (
+                <div className="overflow-hidden rounded-xl border border-emerald-200 bg-white dark:border-emerald-900 dark:bg-slate-900">
+                    <div className="border-b border-emerald-100 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/40">
+                        <h2 className="font-semibold text-emerald-900 dark:text-emerald-200">
+                            {applyResult.title}
+                        </h2>
+                        <p className="mt-1 text-sm text-emerald-800/80 dark:text-emerald-300/80">
+                            {applyResult.subtitle}
+                        </p>
+                    </div>
+                    <MovesTable
+                        moves={applyResult.moves}
+                        emptyLabel="No students changed house in this rebalance."
+                    />
+                </div>
+            )}
+
             {preview && (
                 <div className="space-y-4">
                     <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
@@ -316,6 +447,9 @@ export default function HouseBalancerPage() {
                             </span>
                             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold dark:bg-slate-800">
                                 {preview.student_count} students
+                            </span>
+                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                                {countAssignmentChanges(preview.assignments)} house changes
                             </span>
                         </div>
 
@@ -348,39 +482,7 @@ export default function HouseBalancerPage() {
                     </div>
 
                     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full text-sm">
-                                <thead className="bg-slate-50 text-left text-slate-500 dark:bg-slate-950 dark:text-slate-400">
-                                    <tr>
-                                        <th className="px-4 py-3 font-medium">CC</th>
-                                        <th className="px-4 py-3 font-medium">Student</th>
-                                        <th className="px-4 py-3 font-medium">Current House</th>
-                                        <th className="px-4 py-3 font-medium">Proposed House</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {preview.assignments.map((row) => (
-                                        <tr
-                                            key={row.student_id}
-                                            className="border-t border-slate-100 dark:border-slate-800"
-                                        >
-                                            <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
-                                                {row.student_cc}
-                                            </td>
-                                            <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">
-                                                {row.student_name}
-                                            </td>
-                                            <td className="px-4 py-2">
-                                                <HouseChip house={row.current_house} />
-                                            </td>
-                                            <td className="px-4 py-2">
-                                                <HouseChip house={row.proposed_house} />
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <AssignmentTable assignments={preview.assignments} />
                     </div>
                 </div>
             )}
@@ -394,6 +496,14 @@ export default function HouseBalancerPage() {
                             <span>
                                 {campusPreview.total_students} students across{" "}
                                 {campusPreview.group_count} class/section groups
+                            </span>
+                            <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-semibold dark:bg-indigo-950">
+                                {campusPreview.groups.reduce(
+                                    (total, group) =>
+                                        total + countAssignmentChanges(group.assignments),
+                                    0,
+                                )}{" "}
+                                house changes
                             </span>
                         </div>
                         <p className="mt-2 text-xs text-indigo-700/80 dark:text-indigo-300/80">
@@ -411,6 +521,85 @@ export default function HouseBalancerPage() {
                     ))}
                 </div>
             )}
+
+            {selectedCampusId ? (
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                    <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                        <div className="flex items-center gap-2">
+                            <History className="h-4 w-4 text-slate-500" />
+                            <h2 className="font-semibold text-slate-900 dark:text-white">
+                                Rebalance history
+                            </h2>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold dark:bg-slate-800">
+                                {historyTotal}
+                            </span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => loadHistory(Number(selectedCampusId))}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-300"
+                        >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Refresh
+                        </button>
+                    </div>
+
+                    {isLoadingHistory ? (
+                        <div className="flex items-center gap-2 px-4 py-6 text-sm text-slate-500">
+                            <Loader2 className="h-4 w-4 animate-spin" /> Loading history…
+                        </div>
+                    ) : historyItems.length === 0 ? (
+                        <p className="px-4 py-6 text-sm text-slate-500">
+                            No rebalance runs recorded for this campus yet.
+                        </p>
+                    ) : (
+                        <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {historyItems.map((item) => {
+                                const open = expandedHistoryId === item.id;
+                                return (
+                                    <li key={item.id}>
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleHistoryRow(item.id)}
+                                            className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-950"
+                                        >
+                                            <div>
+                                                <div className="text-sm font-medium text-slate-900 dark:text-white">
+                                                    {formatHistoryScope(item.entity_id, item.action)}
+                                                </div>
+                                                <div className="mt-1 text-xs text-slate-500">
+                                                    {formatWhen(item.changed_at)} · {item.changed_by}
+                                                    {item.action === "CAMPUS_REBALANCED"
+                                                        ? " · Campus-wide"
+                                                        : " · Section"}
+                                                </div>
+                                            </div>
+                                            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold dark:bg-slate-800">
+                                                {item.moves_count} move{item.moves_count === 1 ? "" : "s"}
+                                            </span>
+                                        </button>
+                                        {open && (
+                                            <div className="border-t border-slate-100 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-950/40">
+                                                {isLoadingHistoryDetail ? (
+                                                    <div className="flex items-center gap-2 px-4 py-4 text-sm text-slate-500">
+                                                        <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                                                        Loading moves…
+                                                    </div>
+                                                ) : historyDetail?.id === item.id ? (
+                                                    <MovesTable
+                                                        moves={historyDetail.moves}
+                                                        emptyLabel="No per-student moves stored for this run (older logs may only have a summary)."
+                                                    />
+                                                ) : null}
+                                            </div>
+                                        )}
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
+                </div>
+            ) : null}
 
             {confirmApply && (preview || campusPreview) && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -471,6 +660,7 @@ function CampusGroupPreview({
     group: CampusHouseBalanceGroup;
     houses: HouseInfo[];
 }) {
+    const changeCount = countAssignmentChanges(group.assignments);
     return (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
             <div className="p-4">
@@ -478,9 +668,14 @@ function CampusGroupPreview({
                     <h2 className="font-semibold text-slate-900 dark:text-white">
                         {group.class.description} · Section {group.section.description}
                     </h2>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold dark:bg-slate-800">
-                        {group.student_count} students
-                    </span>
+                    <div className="flex flex-wrap gap-2">
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold dark:bg-slate-800">
+                            {group.student_count} students
+                        </span>
+                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                            {changeCount} house changes
+                        </span>
+                    </div>
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     {houses.map((house) => (
@@ -506,9 +701,15 @@ function CampusGroupPreview({
                 </div>
             </div>
 
-            <details className="border-t border-slate-200 dark:border-slate-800">
+            <details
+                open={changeCount > 0}
+                className="border-t border-slate-200 dark:border-slate-800"
+            >
                 <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-indigo-600 hover:bg-slate-50 dark:text-indigo-300 dark:hover:bg-slate-950">
-                    View {group.student_count} student assignments
+                    View {changeCount} house change{changeCount === 1 ? "" : "s"}
+                    {changeCount !== group.student_count
+                        ? ` (${group.student_count} students total)`
+                        : ""}
                 </summary>
                 <AssignmentTable assignments={group.assignments} />
             </details>
@@ -521,6 +722,82 @@ function AssignmentTable({
 }: {
     assignments: HouseAssignmentPreview[];
 }) {
+    const [showAll, setShowAll] = useState(false);
+    const changed = useMemo(
+        () => assignments.filter(assignmentChanged),
+        [assignments],
+    );
+    const rows = showAll ? assignments : changed;
+
+    return (
+        <div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+                <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    {changed.length} house change{changed.length === 1 ? "" : "s"}
+                    {showAll ? ` · showing all ${assignments.length}` : ""}
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setShowAll((value) => !value)}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-300"
+                >
+                    {showAll ? "Show changes only" : "Show all students"}
+                </button>
+            </div>
+            <div className="max-h-96 overflow-auto">
+                {rows.length === 0 ? (
+                    <p className="px-4 py-6 text-sm text-slate-500">
+                        No house changes in this preview.
+                    </p>
+                ) : (
+                    <table className="min-w-full text-sm">
+                        <thead className="sticky top-0 bg-slate-50 text-left text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+                            <tr>
+                                <th className="px-4 py-3 font-medium">CC</th>
+                                <th className="px-4 py-3 font-medium">Student</th>
+                                <th className="px-4 py-3 font-medium">Current House</th>
+                                <th className="px-4 py-3 font-medium">Proposed House</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map((row) => (
+                                <tr
+                                    key={row.student_id}
+                                    className="border-t border-slate-100 dark:border-slate-800"
+                                >
+                                    <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
+                                        {row.student_cc}
+                                    </td>
+                                    <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">
+                                        {row.student_name}
+                                    </td>
+                                    <td className="px-4 py-2">
+                                        <HouseChip house={row.current_house} />
+                                    </td>
+                                    <td className="px-4 py-2">
+                                        <HouseChip house={row.proposed_house} />
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function MovesTable({
+    moves,
+    emptyLabel,
+}: {
+    moves: HouseMove[];
+    emptyLabel: string;
+}) {
+    if (moves.length === 0) {
+        return <p className="px-4 py-6 text-sm text-slate-500">{emptyLabel}</p>;
+    }
+
     return (
         <div className="max-h-96 overflow-auto">
             <table className="min-w-full text-sm">
@@ -528,12 +805,12 @@ function AssignmentTable({
                     <tr>
                         <th className="px-4 py-3 font-medium">CC</th>
                         <th className="px-4 py-3 font-medium">Student</th>
-                        <th className="px-4 py-3 font-medium">Current House</th>
-                        <th className="px-4 py-3 font-medium">Proposed House</th>
+                        <th className="px-4 py-3 font-medium">Old House</th>
+                        <th className="px-4 py-3 font-medium">New House</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {assignments.map((row) => (
+                    {moves.map((row) => (
                         <tr
                             key={row.student_id}
                             className="border-t border-slate-100 dark:border-slate-800"
@@ -545,10 +822,10 @@ function AssignmentTable({
                                 {row.student_name}
                             </td>
                             <td className="px-4 py-2">
-                                <HouseChip house={row.current_house} />
+                                <HouseChip house={row.old_house} />
                             </td>
                             <td className="px-4 py-2">
-                                <HouseChip house={row.proposed_house} />
+                                <HouseChip house={row.new_house} />
                             </td>
                         </tr>
                     ))}

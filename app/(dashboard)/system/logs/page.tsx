@@ -33,6 +33,9 @@ function ActionBadge({ action }: { action: string }) {
   if (act === "REQUESTED")     cls = "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200";
   if (act === "APPROVED")      cls = "bg-emerald-50 text-emerald-700 border-emerald-200";
   if (act === "REJECTED")      cls = "bg-rose-50 text-rose-700 border-rose-200";
+  if (act === "REBALANCED" || act === "CAMPUS_REBALANCED") {
+    cls = "bg-indigo-50 text-indigo-700 border-indigo-200";
+  }
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase border tracking-wider ${cls}`}>
       {action.replace(/_/g, " ")}
@@ -40,7 +43,149 @@ function ActionBadge({ action }: { action: string }) {
   );
 }
 
-const BASE_SECTIONS = ["", "student", "finance", "communication", "hr", "attendance", "school-setup", "system"] as const;
+function parseHouseRebalancePayload(newValue?: string | null): {
+  moves_count: number;
+  student_count?: number;
+  group_count?: number;
+  scope?: {
+    campus_name?: string | null;
+    class_name?: string | null;
+    section_name?: string | null;
+  };
+  houses?: Array<{ id: number; house_name: string | null; house_color: string | null }>;
+  before_counts?: Record<string, number>;
+  after_counts?: Record<string, number>;
+} | null {
+  if (!newValue || !newValue.trim().startsWith("{")) return null;
+  try {
+    const parsed = JSON.parse(newValue) as {
+      moves_count?: number;
+      moves?: unknown[];
+      student_count?: number;
+      group_count?: number;
+      scope?: {
+        campus_name?: string | null;
+        class_name?: string | null;
+        section_name?: string | null;
+      };
+      houses?: Array<{ id: number; house_name: string | null; house_color: string | null }>;
+      before_counts?: Record<string, number>;
+      after_counts?: Record<string, number>;
+    };
+    const moves_count =
+      typeof parsed.moves_count === "number"
+        ? parsed.moves_count
+        : Array.isArray(parsed.moves)
+          ? parsed.moves.length
+          : 0;
+    return {
+      moves_count,
+      student_count: parsed.student_count,
+      group_count: parsed.group_count,
+      scope: parsed.scope,
+      houses: parsed.houses,
+      before_counts: parsed.before_counts,
+      after_counts: parsed.after_counts,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function LogDetails({ log }: { log: AuditLog }) {
+  const isHouseRebalance =
+    log.entity_type === "HOUSE" &&
+    (log.action === "REBALANCED" || log.action === "CAMPUS_REBALANCED");
+
+  if (isHouseRebalance) {
+    const parsed = parseHouseRebalancePayload(log.new_value);
+    const scopeParts = [
+      parsed?.scope?.campus_name,
+      parsed?.scope?.class_name,
+      parsed?.scope?.section_name
+        ? `Section ${parsed.scope.section_name}`
+        : null,
+    ].filter(Boolean);
+
+    return (
+      <div className="flex flex-col gap-1.5">
+        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+          House rebalance
+          {parsed ? (
+            <>
+              {" · "}
+              <span className="text-indigo-600 dark:text-indigo-300">
+                {parsed.moves_count} student move{parsed.moves_count === 1 ? "" : "s"}
+              </span>
+            </>
+          ) : null}
+        </p>
+        {scopeParts.length > 0 ? (
+          <p className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
+            {scopeParts.join(" · ")}
+            {parsed?.student_count != null
+              ? ` · ${parsed.student_count} students`
+              : ""}
+            {parsed?.group_count != null
+              ? ` · ${parsed.group_count} groups`
+              : ""}
+          </p>
+        ) : null}
+        {parsed?.houses && parsed.before_counts && parsed.after_counts ? (
+          <div className="flex flex-wrap gap-1.5">
+            {parsed.houses.map((house) => {
+              const before = parsed.before_counts?.[String(house.id)] ?? 0;
+              const after = parsed.after_counts?.[String(house.id)] ?? 0;
+              return (
+                <span
+                  key={house.id}
+                  className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                >
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: house.house_color || "#94a3b8" }}
+                  />
+                  {house.house_name || `House #${house.id}`}
+                  <span className="text-zinc-400">{before}</span>
+                  <ArrowRight className="h-2.5 w-2.5 text-zinc-300" />
+                  <span className="text-emerald-600 dark:text-emerald-400">{after}</span>
+                </span>
+              );
+            })}
+          </div>
+        ) : log.note ? (
+          <p className="text-[10px] text-zinc-400 dark:text-zinc-500 line-clamp-3">
+            {log.note}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (log.field) {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-1 text-xs whitespace-nowrap">
+          <span className="font-semibold text-zinc-600 dark:text-zinc-400">{friendlyField(log.field)}:</span>
+          {log.old_value && <span className="line-through text-rose-400">{log.old_value}</span>}
+          <ArrowRight className="h-3 w-3 text-zinc-300 shrink-0" />
+          {log.new_value && <span className="text-emerald-600 dark:text-emerald-400">{log.new_value}</span>}
+        </div>
+        {log.note && (
+          <p className="text-[10px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">{log.note}</p>
+        )}
+      </div>
+    );
+  }
+
+  if (log.note) {
+    return <p className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{log.note}</p>;
+  }
+
+  return <span className="text-xs text-zinc-300 dark:text-zinc-600">—</span>;
+}
+
+const BASE_SECTIONS = ["", "house-balancer", "student", "finance", "communication", "hr", "attendance", "school-setup", "system"] as const;
 
 export default function SystemLogsPage() {
   const { user } = useAuthState();
@@ -230,23 +375,7 @@ export default function SystemLogsPage() {
                         <ActionBadge action={log.action} />
                       </td>
                       <td className="px-4 py-3 min-w-[320px]">
-                        {log.field ? (
-                          <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-1 text-xs whitespace-nowrap">
-                              <span className="font-semibold text-zinc-600 dark:text-zinc-400">{friendlyField(log.field)}:</span>
-                              {log.old_value && <span className="line-through text-rose-400">{log.old_value}</span>}
-                              <ArrowRight className="h-3 w-3 text-zinc-300 shrink-0" />
-                              {log.new_value && <span className="text-emerald-600 dark:text-emerald-400">{log.new_value}</span>}
-                            </div>
-                            {log.note && (
-                              <p className="text-[10px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">{log.note}</p>
-                            )}
-                          </div>
-                        ) : log.note ? (
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{log.note}</p>
-                        ) : (
-                          <span className="text-xs text-zinc-300 dark:text-zinc-600">—</span>
-                        )}
+                        <LogDetails log={log} />
                       </td>
                     </tr>
                   );

@@ -1,4 +1,5 @@
 export const SECTION_COLORS: Record<string, { text: string; bg: string; border: string; dot: string }> = {
+  'house-balancer': { text: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-200', dot: 'bg-violet-500' },
   student:        { text: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-200',   dot: 'bg-blue-500' },
   finance:        { text: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', dot: 'bg-emerald-500' },
   communication:  { text: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-violet-200',  dot: 'bg-violet-500' },
@@ -14,6 +15,7 @@ export function getSectionColor(section?: string | null) {
 }
 
 export const SECTION_LABELS: Record<string, string> = {
+  'house-balancer': 'House Rebalancer',
   student:        'Students',
   finance:        'Finance',
   communication:  'Communications',

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { auditLogsService, AuditLog } from "@/lib/audit-logs.service";
+import api from "@/lib/api";
 import {
   Ban,
   Clock3,
@@ -16,6 +17,12 @@ import {
   RefreshCw,
   ArrowLeftRight,
 } from "lucide-react";
+
+type HouseInfo = {
+  id: number;
+  house_name: string | null;
+  house_color: string | null;
+};
 
 function formatDate(value?: string | null) {
   if (!value) return "Date not available";
@@ -84,6 +91,7 @@ function colorByType(log: AuditLog) {
 
 function friendlyField(field?: string | null) {
   if (!field) return "";
+  if (field === "student.house_id" || field === "house_id") return "House";
   return field
     .replace("student.", "")
     .replace("guardian.", "")
@@ -92,8 +100,45 @@ function friendlyField(field?: string | null) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function isHouseField(field?: string | null) {
+  return field === "student.house_id" || field === "house_id";
+}
+
+function HouseChip({
+  house,
+  fallbackId,
+  tone,
+}: {
+  house: HouseInfo | null | undefined;
+  fallbackId?: string | null;
+  tone: "old" | "new" | "none";
+}) {
+  const toneClass =
+    tone === "old"
+      ? "line-through text-rose-500 bg-rose-50/50"
+      : tone === "new"
+        ? "text-emerald-700 bg-emerald-50/50 font-semibold"
+        : "text-zinc-500 bg-zinc-50";
+
+  if (!house && (fallbackId == null || fallbackId === "")) {
+    return <span className="text-zinc-400 italic">None</span>;
+  }
+
+  const label = house?.house_name || (fallbackId ? `House #${fallbackId}` : "House");
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 ${toneClass}`}>
+      <span
+        className="h-2.5 w-2.5 shrink-0 rounded-full"
+        style={{ backgroundColor: house?.house_color || "#94a3b8" }}
+      />
+      {label}
+    </span>
+  );
+}
+
 export function StudentLogsTab({ studentId }: { studentId: number }) {
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [housesById, setHousesById] = useState<Map<number, HouseInfo>>(new Map());
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [offset, setOffset] = useState(0);
@@ -102,12 +147,38 @@ export function StudentLogsTab({ studentId }: { studentId: number }) {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    auditLogsService
-      .list({ student_id: studentId, entity_type: 'STUDENT,GUARDIAN,FAMILY,TRANSFER', limit: LIMIT, offset })
-      .then((res) => {
+    Promise.all([
+      auditLogsService.list({
+        student_id: studentId,
+        entity_type: "STUDENT,GUARDIAN,FAMILY,TRANSFER",
+        limit: LIMIT,
+        offset,
+      }),
+      api.get(`/v1/students/${studentId}/house-history`).catch(() => null),
+      api.get(`/v1/enrollments/${studentId}/suggestions`).catch(() => null),
+    ])
+      .then(([res, houseHistoryRes, suggestionsRes]) => {
         if (!active) return;
         setLogs(res.data || []);
         setTotal(res.total || 0);
+
+        const map = new Map<number, HouseInfo>();
+        const historyRows = houseHistoryRes?.data?.data ?? [];
+        for (const row of historyRows) {
+          if (row?.from_house?.id != null) map.set(row.from_house.id, row.from_house);
+          if (row?.to_house?.id != null) map.set(row.to_house.id, row.to_house);
+        }
+        const allHouses = suggestionsRes?.data?.data?.all_houses ?? [];
+        for (const house of allHouses) {
+          if (house?.id != null) {
+            map.set(house.id, {
+              id: house.id,
+              house_name: house.house_name ?? null,
+              house_color: house.house_color ?? null,
+            });
+          }
+        }
+        setHousesById(map);
       })
       .catch((err) => {
         console.error("Failed to load audit logs", err);
@@ -119,6 +190,16 @@ export function StudentLogsTab({ studentId }: { studentId: number }) {
       active = false;
     };
   }, [studentId, offset]);
+
+  const resolveHouse = useMemo(
+    () => (raw?: string | null) => {
+      if (raw == null || raw === "") return null;
+      const id = Number(raw);
+      if (!Number.isFinite(id)) return null;
+      return housesById.get(id) ?? null;
+    },
+    [housesById],
+  );
 
   if (loading) {
     return (
@@ -145,6 +226,7 @@ export function StudentLogsTab({ studentId }: { studentId: number }) {
         {logs.map((log) => {
           const Icon = getIcon(log);
           const colorClass = colorByType(log);
+          const houseChange = isHouseField(log.field);
 
           return (
             <div
@@ -175,16 +257,46 @@ export function StudentLogsTab({ studentId }: { studentId: number }) {
                   {log.old_value || log.new_value ? (
                     log.action !== "STATUS_CHANGED" && (
                       <p className="mt-1.5 text-xs text-zinc-500 font-medium">
-                        {log.old_value !== null && log.old_value !== "" ? (
-                          <span className="line-through text-rose-400 bg-rose-50/50 px-1 rounded">{log.old_value}</span>
+                        {houseChange ? (
+                          <>
+                            <HouseChip
+                              house={resolveHouse(log.old_value)}
+                              fallbackId={log.old_value}
+                              tone={log.old_value ? "old" : "none"}
+                            />
+                            <span className="mx-1 text-zinc-300">→</span>
+                            {log.new_value ? (
+                              <HouseChip
+                                house={resolveHouse(log.new_value)}
+                                fallbackId={log.new_value}
+                                tone="new"
+                              />
+                            ) : (
+                              <span className="text-rose-400 bg-rose-50/50 px-1 rounded font-semibold">
+                                Removed
+                              </span>
+                            )}
+                          </>
                         ) : (
-                          <span className="text-zinc-400 italic">None</span>
-                        )}
-                        <span className="mx-1 text-zinc-300">→</span>
-                        {log.new_value !== null && log.new_value !== "" ? (
-                          <span className="text-emerald-600 bg-emerald-50/50 px-1 rounded font-semibold">{log.new_value}</span>
-                        ) : (
-                          <span className="text-rose-400 bg-rose-50/50 px-1 rounded font-semibold">Removed</span>
+                          <>
+                            {log.old_value !== null && log.old_value !== "" ? (
+                              <span className="line-through text-rose-400 bg-rose-50/50 px-1 rounded">
+                                {log.old_value}
+                              </span>
+                            ) : (
+                              <span className="text-zinc-400 italic">None</span>
+                            )}
+                            <span className="mx-1 text-zinc-300">→</span>
+                            {log.new_value !== null && log.new_value !== "" ? (
+                              <span className="text-emerald-600 bg-emerald-50/50 px-1 rounded font-semibold">
+                                {log.new_value}
+                              </span>
+                            ) : (
+                              <span className="text-rose-400 bg-rose-50/50 px-1 rounded font-semibold">
+                                Removed
+                              </span>
+                            )}
+                          </>
                         )}
                       </p>
                     )
