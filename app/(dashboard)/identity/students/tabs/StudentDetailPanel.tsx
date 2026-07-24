@@ -13,6 +13,7 @@ import { GuardiansTab } from "./GuardiansTab";
 import { LifecycleActionModal } from "./LifecycleActionModal";
 import { AdmissionOrderTab } from "./AdmissionOrderTab";
 import { TransferOrderTab } from "./TransferOrderTab";
+import { LeavingCertificateTab } from "./LeavingCertificateTab";
 import { StudentLogsTab } from "./StudentLogsTab";
 import { DangerZoneTab } from "./DangerZoneTab";
 import { AcademicProgressionTab } from "./AcademicProgressionTab";
@@ -64,7 +65,7 @@ const TABS = [
     { id: "logs",       label: "Logs",        icon: History },
 ] as const;
 
-type TabId = typeof TABS[number]["id"] | "admission_order" | "transfer_order" | "danger_zone";
+type TabId = typeof TABS[number]["id"] | "admission_order" | "transfer_order" | "leaving_certificate" | "danger_zone";
 
 interface Props {
     cc: number | null;
@@ -290,6 +291,15 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                     </>
                                 )}
                                 <button
+                                    onClick={() => setTab("leaving_certificate")}
+                                    className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "leaving_certificate" ? "bg-red-600 text-white shadow-lg shadow-red-100" : "text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 border border-red-100/50"}`}
+                                    title="Leaving Certificate (SLC)"
+                                >
+                                    <FileText className="h-3.5 w-3.5" />
+                                    <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Leaving Certificate</span>
+                                </button>
+                                <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
+                                <button
                                     onClick={() => setTab("danger_zone")}
                                     className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "danger_zone" ? "bg-rose-600 text-white shadow-lg shadow-rose-200" : "text-rose-400 bg-rose-50 hover:bg-rose-100 hover:text-rose-600 border border-rose-100/50"}`}
                                     title="Deletion Zone"
@@ -355,6 +365,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                 {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} />}
                                 {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
                                 {tab === "transfer_order" && <TransferOrderTab cc={student.cc} />}
+                                {tab === "leaving_certificate" && <LeavingCertificateTab cc={student.cc} />}
                                 {tab === "logs" && <StudentLogsTab studentId={student.cc} />}
                                 {tab === "danger_zone" && <DangerZoneTab student={student} />}
                             </div>
