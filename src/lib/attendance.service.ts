@@ -40,7 +40,6 @@ export interface StaffRegisterRow {
     late_relaxation_minutes: number | null;
     users: { id: string; full_name: string; role: string; email: string } | null;
     departments: { id: number; name: string } | null;
-    designations: { id: number; title: string } | null;
   };
   record: StaffAttendanceRecord | null;
   is_working_day?: boolean;

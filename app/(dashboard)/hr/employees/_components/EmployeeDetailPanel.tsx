@@ -733,7 +733,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           {campuses.map(c => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
                         </select>
                       </div>
-                      <div className="sm:col-span-2"><FieldLabel>Job Description</FieldLabel><textarea rows={2} className={textareaCls} value={employmentForm.job_description} onChange={e => setEmploymentForm(p => ({ ...p, job_description: e.target.value }))} /></div>
+                      <div className="sm:col-span-2"><FieldLabel>Job Description</FieldLabel><textarea rows={2} className={`${textareaCls} uppercase`} value={employmentForm.job_description} onChange={e => setEmploymentForm(p => ({ ...p, job_description: e.target.value.toUpperCase() }))} /></div>
                     </div>
                   </EditableCard>
                   </div>

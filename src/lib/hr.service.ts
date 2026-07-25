@@ -11,14 +11,6 @@ function downloadBlob(data: BlobPart, filename: string): void {
   window.URL.revokeObjectURL(url);
 }
 
-export interface StaffType {
-  id: number;
-  code: string;
-  name: string;
-  description: string | null;
-  is_active: boolean;
-}
-
 export type CheckInSource = 'FIXED' | 'TIMETABLE';
 
 export type EmployeeStatus = 'ACTIVE' | 'TERMINATED' | 'PERMANENT' | 'LEFT' | 'FAMILY';
@@ -221,16 +213,8 @@ export interface Department {
   id: number;
   name: string;
   description: string | null;
-  designations?: Designation[];
   staff_categories?: StaffCategory[];
   _count?: { employee_profiles: number };
-}
-
-export interface Designation {
-  id: number;
-  department_id: number;
-  title: string;
-  description: string | null;
 }
 
 export interface PolicyRule {
@@ -519,27 +503,6 @@ export const hrService = {
     return data.data;
   },
 
-  // ── Staff Types API ────────────────────────────────────────────────────────
-  async listStaffTypes(): Promise<StaffType[]> {
-    const { data } = await api.get<ApiEnvelope<StaffType[]>>('/v1/hr/staff-types');
-    return data.data;
-  },
-  async getStaffType(id: number): Promise<StaffType> {
-    const { data } = await api.get<ApiEnvelope<StaffType>>(`/v1/hr/staff-types/${id}`);
-    return data.data;
-  },
-  async createStaffType(payload: { code: string; name: string; description?: string; is_active?: boolean }): Promise<StaffType> {
-    const { data } = await api.post<ApiEnvelope<StaffType>>('/v1/hr/staff-types', payload);
-    return data.data;
-  },
-  async updateStaffType(id: number, payload: { code?: string; name?: string; description?: string; is_active?: boolean }): Promise<StaffType> {
-    const { data } = await api.patch<ApiEnvelope<StaffType>>(`/v1/hr/staff-types/${id}`, payload);
-    return data.data;
-  },
-  async deleteStaffType(id: number): Promise<void> {
-    await api.delete(`/v1/hr/staff-types/${id}`);
-  },
-
   // ── Departments API ────────────────────────────────────────────────────────
   async listDepartments(): Promise<Department[]> {
     const { data } = await api.get<ApiEnvelope<Department[]>>('/v1/hr/departments');
@@ -581,19 +544,6 @@ export const hrService = {
   },
   async deleteStaffCategory(deptId: number, id: number): Promise<void> {
     await api.delete(`/v1/hr/departments/${deptId}/staff-categories/${id}`);
-  },
-
-  // ── Designations API ───────────────────────────────────────────────────────
-  async createDesignation(deptId: number, payload: { title: string; description?: string }): Promise<Designation> {
-    const { data } = await api.post<ApiEnvelope<Designation>>(`/v1/hr/departments/${deptId}/designations`, payload);
-    return data.data;
-  },
-  async updateDesignation(deptId: number, id: number, payload: { title?: string; description?: string }): Promise<Designation> {
-    const { data } = await api.patch<ApiEnvelope<Designation>>(`/v1/hr/departments/${deptId}/designations/${id}`, payload);
-    return data.data;
-  },
-  async deleteDesignation(deptId: number, id: number): Promise<void> {
-    await api.delete(`/v1/hr/departments/${deptId}/designations/${id}`);
   },
 
   // ── Policies API ───────────────────────────────────────────────────────────

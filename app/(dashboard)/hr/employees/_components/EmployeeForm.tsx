@@ -986,6 +986,19 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
               </div>
             )}
 
+            {/* Job Description */}
+            {isUnlocked && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <FieldLabel>Job Description</FieldLabel>
+                <textarea
+                  placeholder="e.g. RESPONSIBLE FOR TEACHING URDU TO GRADES 6-8 AND SUPERVISING CLASS ACTIVITIES"
+                  className={`${inputCls} min-h-[80px] resize-y`}
+                  value={formData.job_description}
+                  onChange={e => setFormData(p => ({ ...p, job_description: e.target.value.toUpperCase() }))}
+                />
+              </div>
+            )}
+
             {/* Employment Type */}
             {isUnlocked && (
               <div className="space-y-1.5">
