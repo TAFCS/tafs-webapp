@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
-  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone,
+  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download,
 } from "lucide-react";
 import { hrService, EmployeeProfile, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, employeeStatusBadgeClass } from "@/lib/hr.service";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
@@ -138,6 +138,7 @@ function EmployeesContent() {
 
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -157,6 +158,20 @@ function EmployeesContent() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [auditFilter, setAuditFilter] = useState("");
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    setError(null);
+    try {
+      await hrService.exportMasterEmployeesExcel();
+      setSuccess("Master Employee Excel exported successfully.");
+    } catch (err) {
+      console.error(err);
+      setError("Failed to export Master Employee Excel.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -248,6 +263,20 @@ function EmployeesContent() {
               {loading ? "Manage workforce records and profile configurations" : <span><strong className="text-zinc-700 dark:text-zinc-300">{filteredEmployees.length}</strong> of {employees.length} employees</span>}
             </p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportExcel}
+            disabled={exporting}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-semibold rounded-2xl shadow-sm transition-all disabled:opacity-50"
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            <span>{exporting ? "Exporting..." : "Export Master Excel"}</span>
+          </button>
         </div>
       </div>
 

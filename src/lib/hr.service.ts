@@ -475,6 +475,11 @@ export const hrService = {
     const { data } = await api.get<ApiEnvelope<EmployeeProfile[]>>('/v1/hr/employees');
     return data.data;
   },
+  async exportMasterEmployeesExcel(): Promise<void> {
+    const res = await api.get('/v1/hr/employees/export-master-excel', { responseType: 'blob' });
+    const filename = `TAFS_Master_Employee_Database_${new Date().toISOString().split('T')[0]}.xlsx`;
+    downloadBlob(res.data, filename);
+  },
   async getEmployee(id: number): Promise<EmployeeProfile> {
     const { data } = await api.get<ApiEnvelope<EmployeeProfile>>(`/v1/hr/employees/${id}`);
     return data.data;
