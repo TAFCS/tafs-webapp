@@ -94,7 +94,6 @@ export interface EmployeeProfile {
   employment_type: string | null;
   employment_status: EmployeeStatus;
   department_id: number | null;
-  designation_id: number | null;
   reporting_manager_id: number | null;
   // Extended fields
   employee_code: string | null;
@@ -116,7 +115,6 @@ export interface EmployeeProfile {
   check_in_source: CheckInSource;
   late_relaxation_minutes: number | null;
   monthly_pay: number | null;
-  staff_type_id: number | null;
   campus_id: number | null;
   days_per_week: number | null;
   photo_url: string | null;
@@ -144,9 +142,7 @@ export interface EmployeeProfile {
     allowed_class_ids?: number[];
   } | null;
   departments?: Department | null;
-  designations?: Designation | null;
   staff_categories?: StaffCategory | null;
-  staff_types?: StaffType | null;
   campuses?: { id: number; campus_name: string } | null;
   reporting_manager?: {
     id: number;
@@ -175,7 +171,6 @@ export interface EmployeeCreatePayload {
   employment_type?: string | null;
   employment_status?: EmployeeStatus;
   department_id?: number;
-  designation_id?: number;
   reporting_manager_id?: number;
   employee_code?: string | null;
   employee_code_dep?: string | null;
@@ -196,7 +191,6 @@ export interface EmployeeCreatePayload {
   check_in_source?: CheckInSource;
   late_relaxation_minutes?: number;
   monthly_pay?: number;
-  staff_type_id?: number;
   campus_id?: number;
   days_per_week?: number;
   photo_url?: string | null;
