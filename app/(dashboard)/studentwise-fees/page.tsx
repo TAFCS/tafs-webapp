@@ -1223,23 +1223,36 @@ function StudentwiseFeeEditor() {
             return;
         }
 
-        const firstType = feeTypes.find(f => f.id === 1) ?? feeTypes[0];
-        const feeId = firstType.id;
-
-        // Pick the first month slot (in academic order) not already used as
-        // target_month for this fee type — so the new row gets a unique identity.
         const tsm = selectedClass?.term_start_month ?? 8;
         const MONTH_NUM_ORDER = Array.from({ length: 12 }, (_, i) => ((tsm - 1 + i) % 12) + 1);
-        const usedTargetMonths = new Set(
-            rows.filter(r => r.feeId === feeId).map(r => r.target_month)
-        );
-        const unusedMonthNum = MONTH_NUM_ORDER.find(m => !usedTargetMonths.has(m));
 
-        if (unusedMonthNum === undefined) {
-            toast.error(`All 12 month slots for "${firstType.description}" are already used. Delete an existing row first.`);
+        // Pick the first month slot (in academic order) not already used as
+        // target_month for a fee type — so the new row gets a unique identity.
+        // Default to MTF (id 1); if all 12 of its month slots are taken, fall
+        // back to the next fee type that still has a free slot.
+        const preferredType = feeTypes.find(f => f.id === 1) ?? feeTypes[0];
+        const candidateTypes = [preferredType, ...feeTypes.filter(f => f.id !== preferredType.id)];
+
+        let chosenType: FeeTypeInfo | undefined;
+        let unusedMonthNum: number | undefined;
+        for (const candidate of candidateTypes) {
+            const usedTargetMonths = new Set(
+                rows.filter(r => r.feeId === candidate.id).map(r => r.target_month)
+            );
+            const freeMonth = MONTH_NUM_ORDER.find(m => !usedTargetMonths.has(m));
+            if (freeMonth !== undefined) {
+                chosenType = candidate;
+                unusedMonthNum = freeMonth;
+                break;
+            }
+        }
+
+        if (!chosenType || unusedMonthNum === undefined) {
+            toast.error("All 12 month slots are already used for every fee type. Delete an existing row first.");
             return;
         }
 
+        const feeId = chosenType.id;
         const unusedMonthName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === unusedMonthNum) ?? "August";
         // Default amount to the class schedule amount for this fee type (if known)
         const presetAmount = feeToAmountMap[feeId] || "0";
@@ -1247,8 +1260,8 @@ function StudentwiseFeeEditor() {
         const newRow: SpreadsheetRow = {
             __id: Math.random().toString(36).substring(7),
             feeId,
-            feeDescription: firstType.description,
-            freq: firstType.freq,
+            feeDescription: chosenType.description,
+            freq: chosenType.freq,
             initialMonth: unusedMonthName,
             month: unusedMonthName,
             target_month: unusedMonthNum,
