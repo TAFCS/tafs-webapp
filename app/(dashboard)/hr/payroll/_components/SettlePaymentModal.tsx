@@ -50,7 +50,7 @@ export function SettlePaymentModal({ runId, line, onClose, onSettled }: Props) {
   const [result, setResult] = useState<PayrollRunLine | null>(null);
 
   const overtimeMinutes = line.total_overtime_minutes ?? 0;
-  const scheduledMinutesPerDay = line.scheduled_minutes_per_day || 480;
+  const overtimeDays = line.overtime_days ?? 0;
 
   const previewReward = useMemo(() => {
     if (!addOvertime) return 0;
@@ -58,8 +58,8 @@ export function SettlePaymentModal({ runId, line, onClose, onSettled }: Props) {
     if (!rate || rate < 0) return 0;
     if (rateType === "PER_MINUTE") return rate * overtimeMinutes;
     if (rateType === "PER_HOUR") return (rate * overtimeMinutes) / 60;
-    return (rate * overtimeMinutes) / scheduledMinutesPerDay;
-  }, [addOvertime, rateType, rateAmount, overtimeMinutes, scheduledMinutesPerDay]);
+    return rate * overtimeDays;
+  }, [addOvertime, rateType, rateAmount, overtimeMinutes, overtimeDays]);
 
   const previewNetPaid = Number(line.net_pay) + previewReward;
 
@@ -227,7 +227,10 @@ export function SettlePaymentModal({ runId, line, onClose, onSettled }: Props) {
                       </div>
                     </div>
                     <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                      {formatMinutes(overtimeMinutes)} of overtime → reward ≈ <strong>{formatPkr(previewReward)}</strong>
+                      {rateType === "PER_DAY"
+                        ? `${overtimeDays} day(s) worked overtime`
+                        : `${formatMinutes(overtimeMinutes)} of overtime`}
+                      {" "}→ reward ≈ <strong>{formatPkr(previewReward)}</strong>
                     </p>
                   </div>
                 )}

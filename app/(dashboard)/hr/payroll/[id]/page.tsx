@@ -12,6 +12,7 @@ import { PayrollLineDetailModal } from "../_components/PayrollLineDetailModal";
 import { PayrollMatrixView } from "../_components/PayrollMatrixView";
 import { AttendanceTagBadges } from "../_components/AttendanceTagBadges";
 import { SettlePaymentModal } from "../_components/SettlePaymentModal";
+import { FlagReviewPanel } from "../_components/FlagReviewPanel";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -51,7 +52,11 @@ export default function PayrollRunDetailPage() {
   const id = Number(params.id);
 
   const [run, setRun] = useState<PayrollRun | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Only the very first fetch shows the full-page spinner. Every mutation
+  // below (settle, finalize, disburse, flag decisions) applies the server's
+  // response directly onto `run` in place instead of refetching, so nothing
+  // after mount ever unmounts the page or flashes stale content.
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [finalizing, setFinalizing] = useState(false);
@@ -64,7 +69,7 @@ export default function PayrollRunDetailPage() {
   const [exporting, setExporting] = useState(false);
 
   const fetchRun = async () => {
-    setLoading(true);
+    setInitialLoading(true);
     setError(null);
     try {
       const data = await hrService.getPayrollRun(id);
@@ -73,7 +78,7 @@ export default function PayrollRunDetailPage() {
       console.error(err);
       setError("Failed to load this payroll run.");
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -96,6 +101,10 @@ export default function PayrollRunDetailPage() {
   const totalDeductions = lines.reduce((sum, l) => sum + Number(l.total_deductions), 0);
   const totalNet = lines.reduce((sum, l) => sum + Number(l.net_pay), 0);
   const undisbursedCount = lines.filter((l) => !l.disbursed_at).length;
+  const pendingFlags = lines.reduce(
+    (sum, l) => sum + (l.payroll_flags?.filter((f) => f.status === "PENDING").length ?? 0),
+    0,
+  );
 
   const handleFinalize = async () => {
     if (!run) return;
@@ -131,9 +140,23 @@ export default function PayrollRunDetailPage() {
     }
   };
 
-  const handleSettled = async (updatedLine: PayrollRunLine) => {
+  const handleSettled = (updatedLine: PayrollRunLine) => {
     setSuccess(`${updatedLine.employee_profiles?.full_name ?? "Employee"} settled — payslip generated.`);
-    await fetchRun();
+    // Merge the single updated line in place rather than refetching the
+    // whole run — a full refetch would flip initialLoading and unmount the
+    // still-open settle modal underneath the user.
+    setRun((prev) =>
+      prev
+        ? {
+            ...prev,
+            payroll_run_lines: prev.payroll_run_lines?.map((l) => (l.id === updatedLine.id ? updatedLine : l)),
+          }
+        : prev,
+    );
+  };
+
+  const handleFlagsDecided = (updated: PayrollRun) => {
+    setRun(updated);
   };
 
   const handleDelete = async () => {
@@ -168,7 +191,7 @@ export default function PayrollRunDetailPage() {
     }
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="max-w-6xl mx-auto flex flex-col items-center justify-center py-32 space-y-4">
         <Loader2 className="h-10 w-10 text-primary animate-spin" />
@@ -251,8 +274,14 @@ export default function PayrollRunDetailPage() {
           {!isFinal && (
             <button
               onClick={handleFinalize}
-              disabled={finalizing || totalUnresolved > 0}
-              title={totalUnresolved > 0 ? `Resolve ${totalUnresolved} unresolved attendance day(s) first` : undefined}
+              disabled={finalizing || totalUnresolved > 0 || pendingFlags > 0}
+              title={
+                totalUnresolved > 0
+                  ? `Resolve ${totalUnresolved} unresolved attendance day(s) first`
+                  : pendingFlags > 0
+                    ? `Decide ${pendingFlags} pending flag(s) first`
+                    : undefined
+              }
               className="inline-flex items-center gap-1.5 h-10 px-5 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-sm font-semibold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {finalizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Finalize
@@ -293,6 +322,8 @@ export default function PayrollRunDetailPage() {
           </p>
         </div>
       )}
+
+      {!isFinal && <FlagReviewPanel run={run} lines={lines} onDecided={handleFlagsDecided} />}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

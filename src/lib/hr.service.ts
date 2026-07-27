@@ -373,12 +373,30 @@ export interface PayrollSettlement {
   settlement_notes: string | null;
 }
 
+export type PayrollFlagType = 'SANDWICH' | 'CONSECUTIVE_LATE';
+export type PayrollFlagStatus = 'PENDING' | 'APPLIED' | 'EXEMPTED';
+
+export interface PayrollFlag {
+  id: number;
+  payroll_run_id: number;
+  employee_id: number;
+  flag_type: PayrollFlagType;
+  anchor_date: string;
+  dates: string[];
+  deduction_days: number;
+  deduction_amount: number;
+  status: PayrollFlagStatus;
+  decided_by: string | null;
+  decided_at: string | null;
+}
+
 export interface PayrollRunLine extends AttendanceLineBase {
   id: number;
   payroll_run_id: number;
   scheduled_working_days: number;
   total_calendar_days: number;
   total_overtime_minutes: number;
+  overtime_days: number;
   scheduled_minutes_per_day: number;
   monthly_pay: number;
   daily_rate: number;
@@ -387,12 +405,15 @@ export interface PayrollRunLine extends AttendanceLineBase {
   half_day_deduction: number;
   late_deduction: number;
   break_deduction: number;
+  sandwich_deduction: number;
+  consecutive_late_deduction: number;
   total_deductions: number;
   net_pay: number;
   disbursed_at?: string | null;
   disbursed_by?: string | null;
   disbursement_notes?: string | null;
   payroll_settlements?: PayrollSettlement | null;
+  payroll_flags?: PayrollFlag[];
 }
 
 export interface AttendanceMatrix {
@@ -728,6 +749,18 @@ export const hrService = {
   async getPayslip(runId: number, employeeId: number): Promise<{ pdf_url: string }> {
     const { data } = await api.get<ApiEnvelope<{ pdf_url: string }>>(
       `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/payslip`,
+    );
+    return data.data;
+  },
+  async decidePayrollFlag(
+    runId: number,
+    employeeId: number,
+    flagId: number,
+    status: 'APPLIED' | 'EXEMPTED',
+  ): Promise<PayrollRun> {
+    const { data } = await api.patch<ApiEnvelope<PayrollRun>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/flags/${flagId}`,
+      { status },
     );
     return data.data;
   },
