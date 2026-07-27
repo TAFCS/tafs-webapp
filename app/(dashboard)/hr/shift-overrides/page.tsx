@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, CalendarClock, CalendarOff, CheckCircle2, Loader2, Search } from "lucide-react";
+import { AlertCircle, CalendarClock, CalendarOff, CheckCircle2, Loader2, Search, Trash2 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus } from "@/lib/campuses.service";
-import { hrService, EmployeeProfile, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
-import { shiftOverridesService } from "@/lib/leaves.service";
+import { hrService, EmployeeProfile, CalendarDay, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
+import { shiftOverridesService, ShiftOverride } from "@/lib/leaves.service";
 import { MultiSelectMonthCalendar } from "../employees/_components/MultiSelectMonthCalendar";
 
 const ALL_CAMPUSES = "ALL";
@@ -66,6 +66,14 @@ export default function ShiftOverridesPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const [existingCalendarDays, setExistingCalendarDays] = useState<CalendarDay[]>([]);
+  const [existingShiftOverrides, setExistingShiftOverrides] = useState<ShiftOverride[]>([]);
+  const [loadingExisting, setLoadingExisting] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+
+  const singleEmployeeId = selectedIds.size === 1 ? [...selectedIds][0] : null;
+  const singleEmployee = singleEmployeeId != null ? employees.find((e) => e.id === singleEmployeeId) : null;
+
   useEffect(() => {
     campusesService.list().then((list) => {
       setCampuses(list);
@@ -85,6 +93,74 @@ export default function ShiftOverridesPage() {
       .catch(console.error)
       .finally(() => setLoadingEmployees(false));
   }, [canManage]);
+
+  const loadExisting = async (employeeId: number) => {
+    setLoadingExisting(true);
+    try {
+      if (mode === "TIME") {
+        const rows = await shiftOverridesService.list({ employee_id: employeeId });
+        setExistingShiftOverrides(rows);
+      } else {
+        const rows = await hrService.listCalendarDays(undefined, "STAFF", employeeId);
+        setExistingCalendarDays(rows);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingExisting(false);
+    }
+  };
+
+  // Once exactly one employee is selected, surface what's already been overridden
+  // for them so the admin isn't flying blind on top of prior overrides.
+  useEffect(() => {
+    if (singleEmployeeId == null) {
+      setExistingCalendarDays([]);
+      setExistingShiftOverrides([]);
+      return;
+    }
+    loadExisting(singleEmployeeId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [singleEmployeeId, mode]);
+
+  const existingOverrideDates = useMemo(() => {
+    if (mode === "TIME") return new Set(existingShiftOverrides.map((o) => o.date.slice(0, 10)));
+    return new Set(existingCalendarDays.map((d) => d.date.slice(0, 10)));
+  }, [mode, existingShiftOverrides, existingCalendarDays]);
+
+  const handleDeleteShiftOverride = async (id: number) => {
+    if (deletingIds.has(id)) return;
+    setDeletingIds((prev) => new Set(prev).add(id));
+    // Optimistically drop it from the list immediately so a second click on the
+    // same row can't fire a second DELETE for an id that's already gone.
+    setExistingShiftOverrides((prev) => prev.filter((o) => o.id !== id));
+    try {
+      await shiftOverridesService.remove(id);
+    } catch (err: any) {
+      if (err?.response?.status !== 404) {
+        setError("Failed to delete override — please refresh and try again.");
+      }
+    } finally {
+      setDeletingIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+      if (singleEmployeeId != null) loadExisting(singleEmployeeId);
+    }
+  };
+
+  const handleDeleteCalendarDay = async (id: number) => {
+    if (deletingIds.has(id)) return;
+    setDeletingIds((prev) => new Set(prev).add(id));
+    setExistingCalendarDays((prev) => prev.filter((d) => d.id !== id));
+    try {
+      await hrService.deleteCalendarDay(id);
+    } catch (err: any) {
+      if (err?.response?.status !== 404) {
+        setError("Failed to delete override — please refresh and try again.");
+      }
+    } finally {
+      setDeletingIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+      if (singleEmployeeId != null) loadExisting(singleEmployeeId);
+    }
+  };
 
   // Every active employee on the selected campus (or every campus, when "All
   // Campuses" is picked) — not just teachers, since off-time overrides can
@@ -397,8 +473,70 @@ export default function ShiftOverridesPage() {
             {mode === "TIME" ? "Override time" : "Override day type"}
           </h2>
 
+          {singleEmployeeId != null && (
+            <div className="rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-400 uppercase">
+                  Existing {mode === "TIME" ? "shift" : "holiday"} overrides for {singleEmployee?.full_name ?? singleEmployee?.users?.full_name ?? `Employee #${singleEmployeeId}`}
+                </p>
+                {loadingExisting && <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-600" />}
+              </div>
+              {!loadingExisting && mode === "TIME" && existingShiftOverrides.length === 0 && (
+                <p className="text-xs text-zinc-500">No existing shift overrides for this employee.</p>
+              )}
+              {!loadingExisting && mode === "HOLIDAY" && existingCalendarDays.length === 0 && (
+                <p className="text-xs text-zinc-500">No existing holiday overrides for this employee.</p>
+              )}
+              <ul className="space-y-1 max-h-40 overflow-y-auto">
+                {mode === "TIME"
+                  ? existingShiftOverrides
+                      .slice()
+                      .sort((a, b) => a.date.localeCompare(b.date))
+                      .map((o) => (
+                        <li key={o.id} className="flex items-center justify-between gap-2 text-xs bg-white dark:bg-zinc-900 rounded-md px-2 py-1.5 border border-amber-100 dark:border-amber-900/30">
+                          <span className="font-semibold text-zinc-700 dark:text-zinc-200">{o.date.slice(0, 10)}</span>
+                          <span className="text-zinc-500 flex-1 truncate">
+                            {o.override_start_time ?? "—"} – {o.override_end_time ?? "—"}
+                            {o.reason ? ` · ${o.reason}` : ""}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteShiftOverride(o.id)}
+                            disabled={deletingIds.has(o.id)}
+                            className="text-zinc-400 hover:text-rose-600 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                            aria-label="Delete override"
+                          >
+                            {deletingIds.has(o.id) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                          </button>
+                        </li>
+                      ))
+                  : existingCalendarDays
+                      .slice()
+                      .sort((a, b) => a.date.localeCompare(b.date))
+                      .map((d) => (
+                        <li key={d.id} className="flex items-center justify-between gap-2 text-xs bg-white dark:bg-zinc-900 rounded-md px-2 py-1.5 border border-amber-100 dark:border-amber-900/30">
+                          <span className="font-semibold text-zinc-700 dark:text-zinc-200">{d.date.slice(0, 10)}</span>
+                          <span className="text-zinc-500 flex-1 truncate">
+                            {d.day_type === "HOLIDAY" ? "Holiday (day off)" : "Working day"}
+                            {d.description ? ` · ${d.description}` : ""}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCalendarDay(d.id)}
+                            disabled={deletingIds.has(d.id)}
+                            className="text-zinc-400 hover:text-rose-600 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                            aria-label="Delete override"
+                          >
+                            {deletingIds.has(d.id) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                          </button>
+                        </li>
+                      ))}
+              </ul>
+            </div>
+          )}
+
           <form onSubmit={handleApply} className="space-y-4">
-            <MultiSelectMonthCalendar value={selectedDates} onChange={setSelectedDates} />
+            <MultiSelectMonthCalendar value={selectedDates} onChange={setSelectedDates} existingOverrideDates={existingOverrideDates} />
 
             {mode === "TIME" ? (
               <div className="grid grid-cols-2 gap-3">

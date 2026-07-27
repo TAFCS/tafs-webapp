@@ -595,9 +595,12 @@ export const hrService = {
     await api.delete(`/v1/hr/policies/${setId}/rules/${id}`);
   },
 
-  async listCalendarDays(campusId: number, appliesTo?: string): Promise<CalendarDay[]> {
-    const query = appliesTo ? `&appliesTo=${appliesTo}` : '';
-    const { data } = await api.get<ApiEnvelope<CalendarDay[]>>(`/v1/hr/calendar?campusId=${campusId}${query}`);
+  async listCalendarDays(campusId?: number, appliesTo?: string, employeeId?: number): Promise<CalendarDay[]> {
+    const params = new URLSearchParams();
+    if (campusId != null) params.set('campusId', String(campusId));
+    if (appliesTo) params.set('appliesTo', appliesTo);
+    if (employeeId != null) params.set('employeeId', String(employeeId));
+    const { data } = await api.get<ApiEnvelope<CalendarDay[]>>(`/v1/hr/calendar?${params.toString()}`);
     return data.data;
   },
   async createCalendarDay(payload: {
