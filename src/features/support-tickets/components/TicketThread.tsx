@@ -35,28 +35,32 @@ function mediaUrl(msg: TicketMessage): string {
 }
 
 /** Render plain text with clickable http(s)/www links. */
-function renderLinkedText(content: string, onRight: boolean) {
-  const parts = content.split(/(https?:\/\/[^\s<]+)|(www\.[^\s<]+)/gi);
-  return parts.filter((part) => part.length > 0).map((part, i) => {
-    if (/^(https?:\/\/|www\.)/i.test(part)) {
-      const href = /^https?:\/\//i.test(part) ? part : `https://${part}`;
-      return (
-        <a
-          key={i}
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`underline break-all font-semibold ${
-            onRight ? "text-white/95 decoration-white/70" : "text-primary"
-          }`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {part}
-        </a>
-      );
-    }
-    return <span key={i}>{part}</span>;
-  });
+function renderLinkedText(content: string | null | undefined, onRight: boolean) {
+  const text = content ?? "";
+  // Capturing-group splits can insert `undefined` for non-matching alternatives.
+  const parts = text.split(/(https?:\/\/[^\s<]+)|(www\.[^\s<]+)/gi);
+  return parts
+    .filter((part): part is string => typeof part === "string" && part.length > 0)
+    .map((part, i) => {
+      if (/^(https?:\/\/|www\.)/i.test(part)) {
+        const href = /^https?:\/\//i.test(part) ? part : `https://${part}`;
+        return (
+          <a
+            key={i}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`underline break-all font-semibold ${
+              onRight ? "text-white/95 decoration-white/70" : "text-primary"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
 }
 
 function voiceAudioSrc(url: string): string {

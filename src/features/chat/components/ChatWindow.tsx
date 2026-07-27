@@ -342,10 +342,14 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
     );
 
     const renderMessageContent = (content: string, isMe: boolean) => {
-        const parts = content.split(
+        const text = content ?? "";
+        // Capturing-group splits can insert `undefined` for non-matching alternatives.
+        const parts = text.split(
             /(@\[.*?\]\(student:\d+\))|(https?:\/\/[^\s<]+)|(www\.[^\s<]+)/gi,
         );
-        return parts.filter((part) => part.length > 0).map((part, i) => {
+        return parts
+            .filter((part): part is string => typeof part === "string" && part.length > 0)
+            .map((part, i) => {
             const match = part.match(/@\[(.*?)\]\(student:(\d+)\)/);
             if (match) {
                 return (
