@@ -342,8 +342,10 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
     );
 
     const renderMessageContent = (content: string, isMe: boolean) => {
-        const parts = content.split(/(@\[.*?\]\(student:\d+\))/g);
-        return parts.map((part, i) => {
+        const parts = content.split(
+            /(@\[.*?\]\(student:\d+\))|(https?:\/\/[^\s<]+)|(www\.[^\s<]+)/gi,
+        );
+        return parts.filter((part) => part.length > 0).map((part, i) => {
             const match = part.match(/@\[(.*?)\]\(student:(\d+)\)/);
             if (match) {
                 return (
@@ -352,7 +354,22 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                     </span>
                 );
             }
-            return part;
+            if (/^(https?:\/\/|www\.)/i.test(part)) {
+                const href = /^https?:\/\//i.test(part) ? part : `https://${part}`;
+                return (
+                    <a
+                        key={i}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`underline break-all font-semibold ${isMe ? "text-white/95 decoration-white/70" : "text-primary"}`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {part}
+                    </a>
+                );
+            }
+            return <span key={i}>{part}</span>;
         });
     };
 

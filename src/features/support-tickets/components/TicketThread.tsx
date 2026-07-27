@@ -34,6 +34,31 @@ function mediaUrl(msg: TicketMessage): string {
   return meta?.url ?? msg.content;
 }
 
+/** Render plain text with clickable http(s)/www links. */
+function renderLinkedText(content: string, onRight: boolean) {
+  const parts = content.split(/(https?:\/\/[^\s<]+)|(www\.[^\s<]+)/gi);
+  return parts.filter((part) => part.length > 0).map((part, i) => {
+    if (/^(https?:\/\/|www\.)/i.test(part)) {
+      const href = /^https?:\/\//i.test(part) ? part : `https://${part}`;
+      return (
+        <a
+          key={i}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`underline break-all font-semibold ${
+            onRight ? "text-white/95 decoration-white/70" : "text-primary"
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 function voiceAudioSrc(url: string): string {
   if (url.includes("digitaloceanspaces.com")) {
     return `/api/v1/chat/media/proxy?key=${url.split("digitaloceanspaces.com/")[1]}`;
@@ -792,7 +817,9 @@ export function TicketThread({
                   );
                 })()}
                 {msg.message_type === "TEXT" && (
-                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  <p className="whitespace-pre-wrap break-words">
+                    {renderLinkedText(msg.content, onRight)}
+                  </p>
                 )}
                 {renderMedia(msg)}
                 <div className={`flex gap-2 mt-1 text-[10px] opacity-70 flex-wrap items-center ${onRight ? "justify-end" : ""}`}>
