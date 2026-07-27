@@ -341,11 +341,17 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
         s.cc.toString().includes(mentionSearch)
     );
 
+    const isLinkPart = (part: string) =>
+        /^(https?:\/\/|www\.)/i.test(part) ||
+        /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?:\/\S*)?$/i.test(
+            part,
+        );
+
     const renderMessageContent = (content: string, isMe: boolean) => {
         const text = content ?? "";
         // Capturing-group splits can insert `undefined` for non-matching alternatives.
         const parts = text.split(
-            /(@\[.*?\]\(student:\d+\))|(https?:\/\/[^\s<]+)|(www\.[^\s<]+)/gi,
+            /(@\[.*?\]\(student:\d+\))|(https?:\/\/[^\s<]+)|(www\.[^\s<]+)|((?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?:\/[^\s<]*)?)/gi,
         );
         return parts
             .filter((part): part is string => typeof part === "string" && part.length > 0)
@@ -358,8 +364,12 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                     </span>
                 );
             }
-            if (/^(https?:\/\/|www\.)/i.test(part)) {
-                const href = /^https?:\/\//i.test(part) ? part : `https://${part}`;
+            if (isLinkPart(part)) {
+                const href = /^https?:\/\//i.test(part)
+                    ? part
+                    : part.toLowerCase().startsWith("www.")
+                      ? `https://${part}`
+                      : `https://${part}`;
                 return (
                     <a
                         key={i}

@@ -34,16 +34,26 @@ function mediaUrl(msg: TicketMessage): string {
   return meta?.url ?? msg.content;
 }
 
-/** Render plain text with clickable http(s)/www links. */
+/** Render plain text with clickable http(s)/www/bare-domain links. */
 function renderLinkedText(content: string | null | undefined, onRight: boolean) {
   const text = content ?? "";
   // Capturing-group splits can insert `undefined` for non-matching alternatives.
-  const parts = text.split(/(https?:\/\/[^\s<]+)|(www\.[^\s<]+)/gi);
+  const parts = text.split(
+    /(https?:\/\/[^\s<]+)|(www\.[^\s<]+)|((?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?:\/[^\s<]*)?)/gi,
+  );
+  const isLinkPart = (part: string) =>
+    /^(https?:\/\/|www\.)/i.test(part) ||
+    /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?:\/\S*)?$/i.test(
+      part,
+    );
+
   return parts
     .filter((part): part is string => typeof part === "string" && part.length > 0)
     .map((part, i) => {
-      if (/^(https?:\/\/|www\.)/i.test(part)) {
-        const href = /^https?:\/\//i.test(part) ? part : `https://${part}`;
+      if (isLinkPart(part)) {
+        const href = /^https?:\/\//i.test(part)
+          ? part
+          : `https://${part}`;
         return (
           <a
             key={i}
