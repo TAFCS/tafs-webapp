@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, Download, LayoutGrid, List, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, Download, LayoutGrid, List, Loader2, Search, X } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
@@ -157,9 +157,35 @@ export function AttendanceCycleWidget() {
     const [error, setError] = useState<string | null>(null);
     const [selectedLine, setSelectedLine] = useState<AttendanceLineBase | null>(null);
     const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
+    const [search, setSearch] = useState("");
 
-    const { periodStart, periodEnd, label } = cycleWindow(cycle);
+    const cycleDefault = cycleWindow(cycle);
+    // Admin can override the auto-selected cycle dates; null means "use the cycle default".
+    const [customStart, setCustomStart] = useState<string | null>(null);
+    const [customEnd, setCustomEnd] = useState<string | null>(null);
+    const periodStart = customStart ?? cycleDefault.periodStart;
+    const periodEnd = customEnd ?? cycleDefault.periodEnd;
+    const label = customStart || customEnd ? `${periodStart} – ${periodEnd}` : cycleDefault.label;
     const isCurrentCycle = cycle.year === currentCycleKey().year && cycle.month === currentCycleKey().month;
+
+    const filteredLines = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return lines;
+        return lines.filter((line) => {
+            const emp = line.employee_profiles;
+            const haystack = [
+                emp?.full_name,
+                emp?.employee_code,
+                emp?.job_title,
+                line.campus_name,
+                String(line.employee_id),
+            ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
+            return haystack.includes(q);
+        });
+    }, [lines, search]);
 
     useEffect(() => { dispatch(fetchCampuses()); }, [dispatch]);
     useEffect(() => {
@@ -208,23 +234,61 @@ export function AttendanceCycleWidget() {
                     <h2 className="text-sm font-bold text-zinc-700 dark:text-zinc-200">{label}</h2>
                     <div className="flex items-center gap-1">
                         <button
-                            onClick={() => setCycle((c) => shiftCycle(c, -1))}
+                            onClick={() => { setCustomStart(null); setCustomEnd(null); setCycle((c) => shiftCycle(c, -1)); }}
                             className="h-7 w-7 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
                             aria-label="Previous cycle"
                         >
                             <ChevronLeft className="h-3.5 w-3.5" />
                         </button>
                         <button
-                            onClick={() => setCycle((c) => shiftCycle(c, 1))}
-                            disabled={isCurrentCycle}
+                            onClick={() => { setCustomStart(null); setCustomEnd(null); setCycle((c) => shiftCycle(c, 1)); }}
+                            disabled={isCurrentCycle && !customStart && !customEnd}
                             className="h-7 w-7 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             aria-label="Next cycle"
                         >
                             <ChevronRight className="h-3.5 w-3.5" />
                         </button>
                     </div>
+                    <div className="flex items-center gap-1.5 ml-1">
+                        <input
+                            type="date"
+                            value={periodStart}
+                            max={periodEnd}
+                            onChange={(e) => setCustomStart(e.target.value)}
+                            className="h-8 px-2 border rounded-lg text-xs bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            aria-label="Period start date"
+                        />
+                        <span className="text-zinc-400 text-xs">to</span>
+                        <input
+                            type="date"
+                            value={periodEnd}
+                            min={periodStart}
+                            onChange={(e) => setCustomEnd(e.target.value)}
+                            className="h-8 px-2 border rounded-lg text-xs bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            aria-label="Period end date"
+                        />
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search by name, code, role, campus..."
+                            className="h-9 w-64 pl-8 pr-8 border rounded-xl text-sm bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        />
+                        {search && (
+                            <button
+                                onClick={() => setSearch("")}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                                aria-label="Clear search"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        )}
+                    </div>
                     <select
                         value={campusId}
                         onChange={(e) => setCampusId(e.target.value)}
@@ -280,14 +344,14 @@ export function AttendanceCycleWidget() {
                 </div>
             ) : tab === "lines" ? (
                 <EmployeeLinesTable
-                    lines={lines}
+                    lines={filteredLines}
                     onOpenLine={(line) => { setSelectedLine(line); setSelectedDate(undefined); }}
                 />
             ) : (
                 <PayrollMatrixView
                     periodStart={periodStart}
                     periodEnd={periodEnd}
-                    lines={lines}
+                    lines={filteredLines}
                     onOpenLine={(line, date) => { setSelectedLine(line); setSelectedDate(date); }}
                 />
             )}
