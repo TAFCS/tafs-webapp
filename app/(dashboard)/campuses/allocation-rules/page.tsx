@@ -45,6 +45,50 @@ const GENDER_OPTIONS: Array<{ value: SectionGenderMode; label: string }> = [
     { value: "GIRLS_ONLY", label: "Girls only" },
 ];
 
+const ENROLLMENT_STATUS_STYLES: Record<string, { cls: string; label: string }> = {
+    ENROLLED: {
+        cls: "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900",
+        label: "Enrolled",
+    },
+    SOFT_ADMISSION: {
+        cls: "bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+        label: "Soft Admission",
+    },
+    QUICK_ADMISSION: {
+        cls: "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",
+        label: "Quick Admission",
+    },
+    UNCONFIRMED: {
+        cls: "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",
+        label: "Quick Admission",
+    },
+    GRADUATED: {
+        cls: "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900",
+        label: "Graduated",
+    },
+    EXPELLED: {
+        cls: "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900",
+        label: "Expelled",
+    },
+    LEFT: {
+        cls: "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",
+        label: "Left",
+    },
+};
+
+function formatEnrollmentStatus(status: string | null | undefined) {
+    if (!status) {
+        return { cls: ENROLLMENT_STATUS_STYLES.SOFT_ADMISSION.cls, label: "Unknown" };
+    }
+    return (
+        ENROLLMENT_STATUS_STYLES[status]
+        ?? {
+            cls: ENROLLMENT_STATUS_STYLES.SOFT_ADMISSION.cls,
+            label: status.replace(/_/g, " "),
+        }
+    );
+}
+
 function toDraft(section: OfferedSection): DraftRule {
     return {
         student_capacity:
@@ -252,6 +296,9 @@ export default function SectionAllocationRulesPage() {
     };
 
     const managedSection = sections.find((section) => section.id === managingSectionId);
+    const rosterEnrolledCount = roster.filter(
+        (student) => student.enrollment_status === "ENROLLED",
+    ).length;
     const filteredRoster = roster.filter((student) => {
         const query = rosterSearch.trim().toLowerCase();
         if (!query) return true;
@@ -259,6 +306,7 @@ export default function SectionAllocationRulesPage() {
             student.student_full_name?.toLowerCase().includes(query)
             || String(student.cc).includes(query)
             || student.gr_number?.toLowerCase().includes(query)
+            || student.enrollment_status?.toLowerCase().includes(query)
         );
     });
 
@@ -490,7 +538,7 @@ export default function SectionAllocationRulesPage() {
                                             className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-950"
                                         >
                                             <Users className="h-4 w-4" />
-                                            Manage {section.enrolled_count ?? 0} allocated student(s)
+                                            Manage {section.enrolled_count ?? 0} enrolled student(s)
                                         </button>
                                     </div>
                                 )}
@@ -509,10 +557,18 @@ export default function SectionAllocationRulesPage() {
                                     Manage Section {managedSection.description} Students
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-500">
-                                    {selectedCampus?.campus_name} · {selectedClass?.description} · {roster.length} enrolled student(s)
+                                    {selectedCampus?.campus_name} · {selectedClass?.description}
+                                    {!isRosterLoading && (
+                                        <>
+                                            {" · "}
+                                            {roster.length} assigned
+                                            {" · "}
+                                            {rosterEnrolledCount} enrolled
+                                        </>
+                                    )}
                                 </p>
                                 <p className="mt-1 text-xs text-slate-400">
-                                    Move existing students to another configured section. Capacity and gender rules are checked by the server.
+                                    Shows all students assigned to this section. Only enrolled students count toward capacity. Move between configured sections; capacity and gender rules are checked by the server.
                                 </p>
                             </div>
                             <button
@@ -540,12 +596,12 @@ export default function SectionAllocationRulesPage() {
                             {isRosterLoading ? (
                                 <div className="flex items-center justify-center gap-2 p-12 text-slate-500">
                                     <Loader2 className="h-5 w-5 animate-spin" />
-                                    Loading allocated students…
+                                    Loading assigned students…
                                 </div>
                             ) : filteredRoster.length === 0 ? (
                                 <div className="p-12 text-center text-slate-500">
                                     {roster.length === 0
-                                        ? "No enrolled students are allocated to this section."
+                                        ? "No students are assigned to this section."
                                         : "No students match your search."}
                                 </div>
                             ) : (
@@ -553,13 +609,18 @@ export default function SectionAllocationRulesPage() {
                                     <thead className="sticky top-0 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950">
                                         <tr>
                                             <th className="px-4 py-3">Student</th>
+                                            <th className="px-4 py-3">Status</th>
                                             <th className="px-4 py-3">Gender</th>
                                             <th className="px-4 py-3">Destination section</th>
                                             <th className="px-4 py-3 text-right">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {filteredRoster.map((student) => (
+                                        {filteredRoster.map((student) => {
+                                            const statusInfo = formatEnrollmentStatus(
+                                                student.enrollment_status,
+                                            );
+                                            return (
                                             <tr
                                                 key={student.cc}
                                                 className="border-t border-slate-100 dark:border-slate-800"
@@ -572,6 +633,13 @@ export default function SectionAllocationRulesPage() {
                                                         CC {student.cc}
                                                         {student.gr_number ? ` · GR ${student.gr_number}` : ""}
                                                     </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span
+                                                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusInfo.cls}`}
+                                                    >
+                                                        {statusInfo.label}
+                                                    </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                                                     {student.gender || "Unknown"}
@@ -629,7 +697,8 @@ export default function SectionAllocationRulesPage() {
                                                     </button>
                                                 </td>
                                             </tr>
-                                        ))}
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             )}

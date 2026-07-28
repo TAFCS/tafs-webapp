@@ -45,7 +45,6 @@ export const studentsService = {
             {
                 params: {
                     ...params,
-                    status: 'ENROLLED',
                     fields: 'core,demographic',
                     limit: 500,
                     page: 1,

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
-import { Camera, Loader2, CheckCircle2, AlertCircle, X, Eye } from "lucide-react";
+import { Camera, Loader2, CheckCircle2, AlertCircle, X, Eye, Trash2, User } from "lucide-react";
 import api from "@/lib/api";
 
 interface PhotoUploadProps {
@@ -8,13 +8,14 @@ interface PhotoUploadProps {
   guardianId?: number; // For guardian
   employeeId?: number; // For employee
   type?: "standard" | "blue_bg"; // For student subtypes
-  currentUrl?: string;
+  currentUrl?: string | null;
   label: string;
   onSuccess: (url: string) => void;
 }
 
 export function PhotoUpload({ cc, guardianId, employeeId, type, currentUrl, label, onSuccess }: PhotoUploadProps) {
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,10 +58,35 @@ export function PhotoUpload({ cc, guardianId, employeeId, type, currentUrl, labe
     }
   };
 
+  const handleRemove = async () => {
+    setDeleting(true);
+    setError(null);
+
+    try {
+      let endpoint = "";
+      if (cc) {
+        endpoint = `/v1/media/student/${cc}/photo/${type || "standard"}`;
+      } else if (guardianId) {
+        endpoint = `/v1/media/guardian/${guardianId}/photo`;
+      } else if (employeeId) {
+        endpoint = `/v1/media/employee/${employeeId}/photo`;
+      }
+
+      if (endpoint) {
+        await api.delete(endpoint);
+      }
+      onSuccess("");
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to remove photo");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-2">
       <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{label}</label>
-      <div className="relative group w-24 h-32 bg-zinc-100 rounded-xl border-2 border-dashed border-zinc-200 flex flex-col items-center justify-center overflow-hidden transition-all hover:border-primary/50">
+      <div className="relative group w-24 h-32 bg-zinc-100 dark:bg-zinc-900 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex flex-col items-center justify-center overflow-hidden transition-all hover:border-primary/50">
         {currentUrl ? (
           <>
             <img 
@@ -68,22 +94,30 @@ export function PhotoUpload({ cc, guardianId, employeeId, type, currentUrl, labe
               alt={label} 
               className="w-full h-full object-cover" 
             />
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
               <button 
                 type="button"
                 onClick={() => setIsViewerOpen(true)}
                 className="p-1.5 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 hover:scale-105 active:scale-95 transition-all shadow-md"
                 title="View Full"
               >
-                <Eye className="h-4 w-4" />
+                <Eye className="h-3.5 w-3.5" />
               </button>
               <button 
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="p-1.5 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 hover:scale-105 active:scale-95 transition-all shadow-md"
-                title="Upload Photo"
+                title="Change Photo"
               >
-                <Camera className="h-4 w-4" />
+                <Camera className="h-3.5 w-3.5" />
+              </button>
+              <button 
+                type="button"
+                onClick={handleRemove}
+                className="p-1.5 bg-rose-500/80 backdrop-blur-md rounded-full text-white hover:bg-rose-600 hover:scale-105 active:scale-95 transition-all shadow-md"
+                title="Remove Photo"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
           </>
@@ -91,25 +125,31 @@ export function PhotoUpload({ cc, guardianId, employeeId, type, currentUrl, labe
           <button 
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center gap-1 text-zinc-400 hover:text-primary transition-colors"
+            className="w-full h-full flex flex-col items-center justify-center text-zinc-400 hover:text-primary transition-colors bg-zinc-100 dark:bg-zinc-800/40 group/btn relative p-2"
+            title="Click to upload photograph"
           >
-            {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
-            <span className="text-[10px] font-bold uppercase">Upload</span>
+            <div className="relative flex flex-col items-center justify-center">
+              <User className="h-14 w-14 text-zinc-300 dark:text-zinc-600 group-hover/btn:text-zinc-400 transition-colors" />
+              <div className="absolute -bottom-1 -right-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-1 rounded-full text-zinc-500 shadow-xs">
+                {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+              </div>
+            </div>
+            <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 mt-2">Upload Photo</span>
           </button>
         )}
 
         {/* Status Overlays */}
-        {uploading && (
-          <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+        {(uploading || deleting) && (
+          <div className="absolute inset-0 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-[2px] flex items-center justify-center z-10">
             <Loader2 className="h-5 w-5 text-primary animate-spin" />
           </div>
         )}
 
         {error && (
-          <div className="absolute bottom-0 inset-x-0 bg-red-500 text-white text-[8px] p-1 flex items-center gap-1">
-            <AlertCircle className="h-2 w-2" />
+          <div className="absolute bottom-0 inset-x-0 bg-red-500 text-white text-[8px] p-1 flex items-center gap-1 z-20">
+            <AlertCircle className="h-2.5 w-2.5 shrink-0" />
             <span className="truncate">{error}</span>
-            <button onClick={() => setError(null)} className="ml-auto"><X className="h-2 w-2" /></button>
+            <button onClick={() => setError(null)} className="ml-auto p-0.5"><X className="h-2.5 w-2.5" /></button>
           </div>
         )}
       </div>
@@ -142,3 +182,4 @@ export function PhotoUpload({ cc, guardianId, employeeId, type, currentUrl, labe
     </div>
   );
 }
+
