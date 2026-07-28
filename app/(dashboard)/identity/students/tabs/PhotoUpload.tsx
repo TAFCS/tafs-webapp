@@ -73,7 +73,19 @@ export function PhotoUpload({ cc, guardianId, employeeId, type, currentUrl, labe
       }
 
       if (endpoint) {
-        await api.delete(endpoint);
+        try {
+          await api.delete(endpoint);
+        } catch (delErr: any) {
+          // If DELETE endpoint is not yet deployed on backend (e.g. 404/405), fallback to patch
+          if (cc) {
+            const field = type === "blue_bg" ? "photo_blue_bg_url" : "photograph_url";
+            await api.patch(`/v1/staff-editing/students/${cc}`, { [field]: null });
+          } else if (guardianId) {
+            await api.patch(`/v1/staff-editing/guardians/${guardianId}`, { photo_url: null });
+          } else {
+            throw delErr;
+          }
+        }
       }
       onSuccess("");
     } catch (err: any) {
