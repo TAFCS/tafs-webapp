@@ -843,6 +843,17 @@ function StudentwiseFeeEditor() {
         }
     }, [studentId, selectedYear, fetchInstallmentPlans]);
 
+    // Installment heads are ordinary student_fees rows, so voucher creation/deletion and
+    // deposit/reversal move them through NOT_ISSUED → ISSUED → PARTIALLY_PAID/PAID exactly
+    // like every other head. The plan card below reads its own endpoint, though, so a
+    // refresh that only reloaded the fee schedule left it showing a stale badge (e.g. still
+    // "Issued" after the covering voucher was deleted). Always reload both together.
+    const refreshStudentFeeData = useCallback(async (forceApplyTemplate?: boolean) => {
+        await fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear, undefined, forceApplyTemplate);
+        const cc = parseInt(studentId.match(/\d+$/)?.[0] ?? "0");
+        if (cc > 0) await fetchInstallmentPlans(cc, selectedYear);
+    }, [selectedClassId, selectedCampusId, studentId, selectedYear, fetchFeeSchedule, fetchInstallmentPlans]);
+
     const handleAddDiscount = async () => {
         if (!studentId) return;
         const numericMatch = studentId.match(/\d+$/);
@@ -1099,7 +1110,7 @@ function StudentwiseFeeEditor() {
             setShowResetModal(false);
             // Reload the fee schedule to reflect cleared statuses
             if (selectedClassId !== "") {
-                await fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
+                await refreshStudentFeeData();
             }
         } catch (err: any) {
             toast.error(err.response?.data?.message || "Reset failed. Please try again.");
@@ -1194,7 +1205,7 @@ function StudentwiseFeeEditor() {
             // persisted state. Without this, a second edit+save on a newly-added
             // row would shift its target_month and create a duplicate.
             if (selectedClassId !== "") {
-                await fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
+                await refreshStudentFeeData();
             }
         } catch (err: any) {
             const msg = err.response?.data?.message || "Failed to save data. Please verify all fields.";
@@ -1415,7 +1426,7 @@ function StudentwiseFeeEditor() {
                 setBundleNameInput("");
                 setSelectedForBundling([]);
                 if (selectedClassId !== "") {
-                    fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
+                    refreshStudentFeeData();
                 }
             } catch (err: any) {
                 toast.error(err.response?.data?.message || "Failed to create bundle.");
@@ -1447,7 +1458,7 @@ function StudentwiseFeeEditor() {
             toast.success("Bundle dissolved successfully.");
             // Refresh
             if (selectedClassId !== "") {
-                fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
+                refreshStudentFeeData();
             }
         } catch (err: any) {
             toast.error(err.response?.data?.message || "Failed to dissolve bundle.");
@@ -1713,7 +1724,7 @@ function StudentwiseFeeEditor() {
 
                     <div className="flex gap-3">
                         {selectedClassId !== "" && (
-                            <button onClick={() => fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear)} disabled={isLoading} title="Refresh/Reload"
+                            <button onClick={() => refreshStudentFeeData()} disabled={isLoading} title="Refresh/Reload"
                                 className="inline-flex items-center gap-2 h-11 px-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-medium text-zinc-700 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all shadow-sm disabled:opacity-50"
                             >
                                 <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} /> Refresh
@@ -2117,7 +2128,7 @@ function StudentwiseFeeEditor() {
                             ) : (
                                 <>
                                     <button
-                                        onClick={() => fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear, undefined, true)}
+                                        onClick={() => refreshStudentFeeData(true)}
                                         className="px-6 py-2.5 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg active:scale-95 flex items-center gap-2"
                                     >
                                         <RefreshCw className="h-3.5 w-3.5" />
@@ -3000,12 +3011,7 @@ function StudentwiseFeeEditor() {
             <InstallmentModal
                 isOpen={isInstallmentModalOpen}
                 onClose={() => setIsInstallmentModalOpen(false)}
-                onSuccess={() => {
-                    fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
-                    const match = studentId.match(/\d+$/);
-                    const cc = match ? parseInt(match[0]) : 0;
-                    if (cc > 0) fetchInstallmentPlans(cc, selectedYear);
-                }}
+                onSuccess={() => { refreshStudentFeeData(); }}
                 studentId={Number(studentId)}
                 studentName={searchQuery.split(/\s\(/)[0] || "Student"}
                 existingFees={rows}
