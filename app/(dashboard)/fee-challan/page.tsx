@@ -24,6 +24,7 @@ import {
   Layers,
   X,
   RefreshCw,
+  Bell,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -202,6 +203,9 @@ export default function FeeChallanGenerator() {
   const [applyLateFee, setApplyLateFee] = useState(true);
   const [lateFeeAmount, setLateFeeAmount] = useState(1000);
   const [waiveSurcharge, setWaiveSurcharge] = useState(false);
+  // Instant "voucher issued" push to the parents at generation time. Turning it off
+  // only suppresses that one push — the scheduled due/overdue/expiry reminders still go out.
+  const [sendNotification, setSendNotification] = useState(true);
   const [applyReprintFee, setApplyReprintFee] = useState(false);
   const [reprintFeeAmount, setReprintFeeAmount] = useState(100);
   // Per fee_date, since Part 3 can show multiple independent voucher-group cards
@@ -609,6 +613,7 @@ export default function FeeChallanGenerator() {
       formData.append("reprint_fee_charge", applyReprintFee.toString());
       formData.append("reprint_fee_amount", (reprintFeeAmount || 100).toString());
       formData.append("waive_surcharge", waiveSurcharge.toString());
+      formData.append("send_notification", sendNotification.toString());
       formData.append(
         "waived_by",
         (user?.fullName || user?.username || "Administrator").toString(),
@@ -730,6 +735,7 @@ export default function FeeChallanGenerator() {
       formData.append("reprint_fee_charge", (includeReprintFee && !!groupReprint?.apply).toString());
       formData.append("reprint_fee_amount", (groupReprint?.amount || 100).toString());
       formData.append("waive_surcharge", waiveSurcharge.toString());
+      formData.append("send_notification", sendNotification.toString());
       formData.append(
         "waived_by",
         (user?.fullName || user?.username || "Administrator").toString(),
@@ -1226,6 +1232,22 @@ export default function FeeChallanGenerator() {
                         <button onClick={() => setWaiveSurcharge(false)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!waiveSurcharge ? "bg-white text-emerald-600 shadow-xl" : "text-zinc-400"}`}>Charge</button>
                       </div>
                     </div>
+
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3">
+                        <Bell className="h-4 w-4 text-primary" />
+                        <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Parent Notification</h3>
+                      </div>
+                      <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50">
+                        <button onClick={() => setSendNotification(true)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${sendNotification ? "bg-white text-primary shadow-xl" : "text-zinc-400"}`}>Notify Now</button>
+                        <button onClick={() => setSendNotification(false)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!sendNotification ? "bg-white text-zinc-500 shadow-xl" : "text-zinc-400"}`}>Don&apos;t Notify</button>
+                      </div>
+                      <p className="text-[11px] font-medium text-zinc-500 ml-1">
+                        {sendNotification
+                          ? "Parents get an app notification the moment this voucher is generated."
+                          : "No notification at generation. Due, overdue and expiry reminders are still sent on schedule."}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1263,6 +1285,18 @@ export default function FeeChallanGenerator() {
                 </div>
               </div>
               <div className="flex items-center gap-4">
+                {/* Mirrors the Step 2 "Parent Notification" setting so the admin can flip it
+                    right where Generate is clicked — applies to every generate button below. */}
+                <button
+                  onClick={() => setSendNotification(!sendNotification)}
+                  title={sendNotification
+                    ? "Parents will be notified in the app the moment each voucher is generated"
+                    : "No notification at generation. Due, overdue and expiry reminders are still sent on schedule."}
+                  className={`px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border ${sendNotification ? "bg-primary/10 text-primary border-primary/20" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border-zinc-200 dark:border-zinc-700"}`}
+                >
+                  <Bell className="h-4 w-4" />
+                  {sendNotification ? "Notify Parents: On" : "Notify Parents: Off"}
+                </button>
                 <button
                   onClick={() => setCurrentStep(2)}
                   className="px-6 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all flex items-center gap-2"

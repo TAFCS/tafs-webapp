@@ -20,6 +20,9 @@ export interface BulkFilters {
     lateFeeAmount: number;
     skipAlreadyIssued: boolean;
     waiveSurcharge: boolean;
+    /** Push the "voucher issued" alert to each family the moment their voucher is
+     *  created. Off still leaves the scheduled due/overdue/expiry reminders running. */
+    sendNotification: boolean;
     jobType?: 'BULK' | 'BATCH';
     student_ccs?: number[];
 }
@@ -117,6 +120,7 @@ export const startBulkJob = createAsyncThunk(
                     late_fee_amount: filters.lateFeeAmount,
                     skip_already_issued: filters.skipAlreadyIssued,
                     waive_surcharge: filters.waiveSurcharge,
+                    send_notification: filters.sendNotification,
                     job_type: filters.jobType || 'BULK',
                     student_ccs: studentCCs,
                 }
@@ -228,6 +232,7 @@ const initialState: BulkVoucherState = {
         lateFeeAmount: 1000,
         skipAlreadyIssued: true,
         waiveSurcharge: false,
+        sendNotification: true,
         jobType: 'BULK',
     },
     previewStudents: [],
