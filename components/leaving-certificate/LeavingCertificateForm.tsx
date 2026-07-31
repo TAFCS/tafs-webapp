@@ -12,6 +12,11 @@ interface LeavingCertificateFormProps {
 export default function LeavingCertificateForm({ data: initialData }: LeavingCertificateFormProps) {
     const [formData, setFormData] = useState<LeavingCertificateData>(initialData);
     const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+    const [logoBase64, setLogoBase64] = useState<string | null>(null);
+    const [tafsalLogoBase64, setTafsalLogoBase64] = useState<string | null>(null);
+    const [tafssLogoBase64, setTafssLogoBase64] = useState<string | null>(null);
+    const [tafsolLogoBase64, setTafsolLogoBase64] = useState<string | null>(null);
+    const [rightLogoBase64, setRightLogoBase64] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
@@ -20,6 +25,71 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
 
     useEffect(() => {
         let isMounted = true;
+        fetch('/logo.png')
+            .then(res => res.blob())
+            .then(blob => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    if (isMounted && typeof reader.result === 'string') {
+                        setLogoBase64(reader.result);
+                    }
+                };
+                reader.readAsDataURL(blob);
+            })
+            .catch(() => {});
+
+        fetch('/logo-tafsal.png')
+            .then(res => res.blob())
+            .then(blob => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    if (isMounted && typeof reader.result === 'string') {
+                        setTafsalLogoBase64(reader.result);
+                    }
+                };
+                reader.readAsDataURL(blob);
+            })
+            .catch(() => {});
+
+        fetch('/logo-tafss.png')
+            .then(res => res.blob())
+            .then(blob => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    if (isMounted && typeof reader.result === 'string') {
+                        setTafssLogoBase64(reader.result);
+                    }
+                };
+                reader.readAsDataURL(blob);
+            })
+            .catch(() => {});
+
+        fetch('/logo-tafsol.png')
+            .then(res => res.blob())
+            .then(blob => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    if (isMounted && typeof reader.result === 'string') {
+                        setTafsolLogoBase64(reader.result);
+                    }
+                };
+                reader.readAsDataURL(blob);
+            })
+            .catch(() => {});
+
+        fetch('/logo-each-one-teach-one.png')
+            .then(res => res.blob())
+            .then(blob => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    if (isMounted && typeof reader.result === 'string') {
+                        setRightLogoBase64(reader.result);
+                    }
+                };
+                reader.readAsDataURL(blob);
+            })
+            .catch(() => {});
+
         if (initialData?.photograph_url) {
             const url = initialData.photograph_url;
             fetch(url)
@@ -43,9 +113,25 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
     const handleDownloadPDF = useCallback(async () => {
         setIsGenerating(true);
         try {
+            const prefix = (formData.header_prefix || '').trim().toUpperCase();
+            const title = (formData.header_title || '').toUpperCase();
+            const isTafsal = prefix === 'TAFSAL' || title.includes('TAFSAL');
+            const isTafss = prefix === 'TAFSS' || title.includes('TAFSS');
+            const isTafsol = prefix === 'TAFSOL' || title.includes('TAFSOL');
+
+            const leftLogo = isTafsal
+                ? (tafsalLogoBase64 || '/logo-tafsal.png')
+                : isTafss
+                ? (tafssLogoBase64 || '/logo-tafss.png')
+                : isTafsol
+                ? (tafsolLogoBase64 || '/logo-tafsol.png')
+                : (logoBase64 || '/logo.png');
+
             const pdfData: LeavingCertificateData = {
                 ...formData,
                 photograph_url: photoBase64 || formData.photograph_url || null,
+                logo_url: leftLogo,
+                right_logo_url: rightLogoBase64 || formData.right_logo_url || '/logo-each-one-teach-one.png',
             };
 
             const doc = <LeavingCertificatePDF data={pdfData} />;
@@ -64,7 +150,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
         } finally {
             setIsGenerating(false);
         }
-    }, [formData, photoBase64]);
+    }, [formData, photoBase64, logoBase64, tafsalLogoBase64, tafssLogoBase64, tafsolLogoBase64, rightLogoBase64]);
 
     return (
         <div className="max-w-4xl mx-auto bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">

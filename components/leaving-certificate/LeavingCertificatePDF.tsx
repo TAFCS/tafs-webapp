@@ -79,6 +79,8 @@ export interface LeavingCertificateData {
     day?: string;
     date?: string;
     photograph_url?: string | null;
+    logo_url?: string | null;
+    right_logo_url?: string | null;
     campus_address?: string;
 }
 
@@ -300,20 +302,35 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
     const isChristian = religionStr === 'CHRISTIAN' || religionStr === 'CHRISTIANITY';
     const isOtherReligion = Boolean(religionStr) && !isMuslim && !isChristian;
 
+    const prefix = (data.header_prefix || '').trim().toUpperCase();
+    const title = (data.header_title || '').toUpperCase();
+    const isTafsal = prefix === 'TAFSAL' || title.includes('TAFSAL');
+    const isTafss = prefix === 'TAFSS' || title.includes('TAFSS');
+    const isTafsol = prefix === 'TAFSOL' || title.includes('TAFSOL');
+    const defaultLeftLogo = isTafsal
+        ? '/logo-tafsal.png'
+        : isTafss
+        ? '/logo-tafss.png'
+        : isTafsol
+        ? '/logo-tafsol.png'
+        : '/logo.png';
+
     return (
         <Document title={`TAFS_Leaving_Certificate_${data.cc || ''}`}>
             <Page size="A4" style={styles.page}>
                 {/* Header Logos */}
                 <View style={styles.header}>
-                    <View style={{ width: 120, alignItems: 'flex-start' }}>
-                        <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#1a365d' }}>
-                          THE AMERICAN FOUNDATION SCHOOL
-                        </Text>
+                    <View style={{ width: 220, height: 75, justifyContent: 'center', alignItems: 'flex-start' }}>
+                        <Image
+                            src={data.logo_url || defaultLeftLogo}
+                            style={isTafsal ? { width: 200, height: 72, objectFit: 'contain' } : { width: 210, height: 68, objectFit: 'contain' }}
+                        />
                     </View>
-                    <View style={{ width: 140, alignItems: 'flex-end' }}>
-                        <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', textAlign: 'right', color: '#1a365d' }}>
-                          THE AMERICAN FOUNDATION
-                        </Text>
+                    <View style={{ width: 220, height: 75, justifyContent: 'center', alignItems: 'flex-end' }}>
+                        <Image
+                            src={data.right_logo_url || '/logo-each-one-teach-one.png'}
+                            style={{ width: 210, height: 62, objectFit: 'contain' }}
+                        />
                     </View>
                 </View>
 
