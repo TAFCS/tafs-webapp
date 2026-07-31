@@ -60,11 +60,16 @@ export const getMonthYearLabel = (m: number, academicYear: string) => {
 export interface FeeItemData {
     id?: number;
     amount_before_discount: number | string;
-    amount: number | string; // amount after system discount but before ad-hoc
+    amount_after_discount?: number | string | null; // after system discount, before scholarship
+    amount: number | string; // FINAL amount — after system discount AND scholarship (before ad-hoc)
     is_discount?: boolean;
     discount_type_id?: number | null;
     discount_presets?: { title?: string | null } | null;
     discount_title?: string | null;
+    scholarship_percentage?: number | string | null; // MTF-only (fee_type_id=1)
+    scholarship_type_id?: number | null;
+    scholarship_presets?: { title?: string | null } | null;
+    scholarship_title?: string | null;
     month?: number | null;
     target_month?: number | null;
     academic_year?: string | null;
@@ -151,8 +156,21 @@ export function groupFees(
             return Number(item.discount_amount || 0);
         }
         const adHocDiscount = (appliedDiscounts[item.id] || []).reduce((sum, d) => sum + d.amount, 0);
-        const systemDiscount = Math.max(0, Number(item.amount_before_discount) - Number(item.amount || item.amount_before_discount));
+        const amountAfterDiscount = Number(item.amount_after_discount ?? item.amount ?? item.amount_before_discount);
+        const systemDiscount = Math.max(0, Number(item.amount_before_discount) - amountAfterDiscount);
         return adHocDiscount + systemDiscount;
+    };
+
+    // Scholarship is always the gap between amount_after_discount and the final
+    // amount — MTF-only, applied after discount (see fee-utils/student_fees docs).
+    const getScholarship = (item: any): number => {
+        if (isDiscountRow(item)) return 0;
+        if (options.isVoucherHeads) {
+            return Number(item.scholarship_amount || 0);
+        }
+        const amountAfterDiscount = Number(item.amount_after_discount ?? item.amount ?? item.amount_before_discount ?? 0);
+        const finalAmount = Number(item.amount ?? item.amount_before_discount ?? 0);
+        return Math.max(0, amountAfterDiscount - finalAmount);
     };
 
     const getNetAmount = (item: any): number => {
@@ -193,7 +211,13 @@ export function groupFees(
                 month: item.student_fees?.month,
                 target_month: item.student_fees?.target_month,
                 academic_year: item.student_fees?.academic_year,
-                discount_label: item.discount_label
+                discount_label: item.discount_label,
+                scholarship_percentage: item.student_fees?.scholarship_percentage ?? null,
+                scholarship_title:
+                    item.scholarship_label ||
+                    item.student_fees?.scholarship_presets?.title ||
+                    item.student_fees?.scholarship_title ||
+                    null,
             };
         }
         return {
@@ -206,7 +230,12 @@ export function groupFees(
             month: item.month,
             target_month: item.target_month,
             academic_year: item.academic_year,
-            discount_label: (appliedDiscounts[item.id] || []).map(d => d.title).join(", ")
+            discount_label: (appliedDiscounts[item.id] || []).map(d => d.title).join(", "),
+            scholarship_percentage: item.scholarship_percentage ?? null,
+            scholarship_title:
+                item.scholarship_presets?.title ||
+                item.scholarship_title ||
+                null,
         };
     };
 
@@ -216,6 +245,7 @@ export function groupFees(
             let groupGross = 0;
             let groupNet = 0;
             let groupDiscount = 0;
+            let groupScholarship = 0;
             let groupLabels: string[] = [];
             let groupMonths: { month: number, academicYear: string }[] = [];
 
@@ -226,6 +256,7 @@ export function groupFees(
                     groupGross += getGrossAmount(item);
                     groupNet += getNetAmount(item);
                     groupDiscount += getDiscount(item);
+                    groupScholarship += getScholarship(item);
 
                     const m = data.target_month || data.month;
                     if (m) groupMonths.push({ month: m, academicYear: data.academic_year || "" });
@@ -246,6 +277,8 @@ export function groupFees(
                 netAmount: groupNet,
                 discount: groupDiscount,
                 discountLabel: [...new Set(groupLabels.filter(Boolean))].join(", "),
+                amountAfterDiscount: groupGross - groupDiscount,
+                scholarship: groupScholarship,
                 priority: Math.min(...group.feeIds.map(id => items.find(f => f.id === id)?.fee_types?.priority_order ?? 999)),
                 feeIds: group.feeIds,
                 isGrouped: true,
@@ -268,6 +301,7 @@ export function groupFees(
             let groupGross = 0;
             let groupNet = 0;
             let groupDiscount = 0;
+            let groupScholarship = 0;
             let groupLabels: string[] = [];
             let groupMonths: { month: number, academicYear: string }[] = [];
             const bundleName = group[0].student_fee_bundles?.bundle_name || `Bundle ${bundleId}`;
@@ -277,6 +311,7 @@ export function groupFees(
                 groupGross += getGrossAmount(item);
                 groupNet += getNetAmount(item);
                 groupDiscount += getDiscount(item);
+                groupScholarship += getScholarship(item);
 
                 const m = data.target_month || data.month;
                 if (m) groupMonths.push({ month: m, academicYear: data.academic_year || "" });
@@ -296,6 +331,8 @@ export function groupFees(
                 netAmount: groupNet,
                 discount: groupDiscount,
                 discountLabel: [...new Set(groupLabels.filter(Boolean))].join(", "),
+                amountAfterDiscount: groupGross - groupDiscount,
+                scholarship: groupScholarship,
                 priority: Math.min(...group.map(f => getFeeData(f).fee_types?.priority_order ?? 999)),
                 feeIds: group.map(f => f.id),
                 isGrouped: true,
@@ -363,9 +400,12 @@ export function groupFees(
                     let rangeGross = 0;
                     let rangeNet = 0;
                     let rangeDiscount = 0;
+                    let rangeScholarship = 0;
                     let rangeLabels: string[] = [];
                     let rangeOrigAmount = 0;
                     let rangeMonths: { month: number, academicYear: string }[] = [];
+                    let rangeScholarshipPct: number | null = null;
+                    let rangeScholarshipTitle: string | null = null;
 
                     range.forEach(f => {
                         const data = getFeeData(f);
@@ -375,6 +415,7 @@ export function groupFees(
                         rangeGross += getGrossAmount(f);
                         rangeNet += net;
                         rangeDiscount += getDiscount(f);
+                        rangeScholarship += getScholarship(f);
                         rangeOrigAmount += Number(f.amount || f.amount_before_discount || 0);
 
                         const m = data.target_month || data.month;
@@ -383,6 +424,10 @@ export function groupFees(
                         if (data.discount_label) rangeLabels.push(data.discount_label);
                         if (!options.isVoucherHeads && Number(f.amount_before_discount) > Number(f.amount || f.amount_before_discount)) {
                             rangeLabels.push("Profile Disc");
+                        }
+                        if (data.scholarship_percentage != null && rangeScholarshipPct == null) {
+                            rangeScholarshipPct = Number(data.scholarship_percentage);
+                            rangeScholarshipTitle = data.scholarship_title;
                         }
                         alreadyHandledIds.add(f.id);
                     });
@@ -399,6 +444,10 @@ export function groupFees(
                         netAmount: rangeNet,
                         discount: isPartial ? 0 : rangeDiscount,
                         discountLabel: isPartial ? "" : [...new Set(rangeLabels.filter(Boolean))].join(", "),
+                        amountAfterDiscount: isPartial ? rangeNet : (rangeGross - rangeDiscount),
+                        scholarship: isPartial ? 0 : rangeScholarship,
+                        scholarshipPercentage: isPartial ? null : rangeScholarshipPct,
+                        scholarshipLabel: isPartial ? "" : (rangeScholarshipTitle || (rangeScholarship > 0 ? "Scholarship" : "")),
                         priority: Math.min(...range.map(f => getFeeData(f).fee_types?.priority_order ?? 999)),
                         feeIds: range.map(f => f.id),
                         isGrouped: true,
@@ -445,13 +494,20 @@ export function groupFees(
 
             const isPartial = !discountRow && (netAmount < Number(item.amount || item.amount_before_discount));
             const balancePrefix = isPartial ? 'BALANCE PAYMENT OF — ' : '';
+            const grossDisplay = discountRow ? Math.abs(netAmount) : (isPartial ? netAmount : getGrossAmount(item));
+            const discountDisplay = discountRow ? Math.abs(netAmount) : (isPartial ? 0 : getDiscount(item));
+            const scholarshipDisplay = discountRow || isPartial ? 0 : getScholarship(item);
 
             results.push({
                 description: `${balancePrefix}${desc}`,
-                amount: discountRow ? Math.abs(netAmount) : (isPartial ? netAmount : getGrossAmount(item)),
+                amount: grossDisplay,
                 netAmount: netAmount,
-                discount: discountRow ? Math.abs(netAmount) : (isPartial ? 0 : getDiscount(item)),
+                discount: discountDisplay,
                 discountLabel: isPartial ? "" : [...new Set(headLabels.filter(Boolean))].join(", "),
+                amountAfterDiscount: discountRow ? Math.abs(netAmount) : (isPartial ? netAmount : grossDisplay - discountDisplay),
+                scholarship: scholarshipDisplay,
+                scholarshipPercentage: isPartial ? null : (data.scholarship_percentage != null ? Number(data.scholarship_percentage) : null),
+                scholarshipLabel: isPartial ? "" : (data.scholarship_title || (scholarshipDisplay > 0 ? "Scholarship" : "")),
                 priority: data.fee_types?.priority_order ?? 999,
                 feeIds: [item.id],
                 isGrouped: false,

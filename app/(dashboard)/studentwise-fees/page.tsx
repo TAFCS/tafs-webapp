@@ -45,8 +45,10 @@ interface SpreadsheetRow {
     initialMonth: string; // The original month reference
     month: string;        // The editable period
     target_month: number; // The backing target month (numerical)
-    amount: string;
+    amount: string; // amount AFTER system discount, BEFORE scholarship (sent as `amount` in the bulk-save payload)
     originalAmount: string; // The original template amount from class-wise schedule
+    scholarshipPercentage?: string; // MTF-only (feeId === 1), 0-100
+    scholarshipTypeId?: number | null;
     fee_date?: string;    // Optional exact date (YYYY-MM-DD) for multi-voucher-per-month
     isGroupStart?: boolean;
     groupSize?: number;
@@ -109,7 +111,7 @@ function calendarYear(academicYearStart: number, monthNum: number): number {
     return monthNum >= 8 ? academicYearStart : academicYearStart + 1;
 }
 
-const COLS = ["Select", "Actions", "#", "Fee Type", "Frequency", "Month", "Fee Date", "Adjustments", "Status", "Amount"] as const;
+const COLS = ["Select", "Actions", "#", "Fee Type", "Frequency", "Month", "Fee Date", "Adjustments", "Status", "Amount", "Scholarship %"] as const;
 const COL_SELECT = 0;
 const COL_ACTIONS = 1;
 const COL_NUM = 2;
@@ -120,6 +122,7 @@ const COL_FEE_DATE = 6;
 const COL_ADJUSTMENTS = 7;
 const COL_STATUS = 8;
 const COL_AMOUNT = 9;
+const COL_SCHOLARSHIP = 10;
 
 function sortMonths(months: unknown): string[] {
     let arr = months;
@@ -330,6 +333,14 @@ function StudentwiseFeeEditor() {
     }>({ discount_type_id: "", custom_title: "", amount: "", fee_date: "", target_month: 8 });
     const [isSavingDiscount, setIsSavingDiscount] = useState(false);
     const [isDeletingDiscountId, setIsDeletingDiscountId] = useState<number | null>(null);
+    const [scholarshipPresets, setScholarshipPresets] = useState<DiscountPreset[]>([]);
+    const [showScholarshipModal, setShowScholarshipModal] = useState(false);
+    const [scholarshipForm, setScholarshipForm] = useState<{
+        scholarship_type_id: number | "";
+        custom_title: string;
+        scholarship_percentage: string;
+    }>({ scholarship_type_id: "", custom_title: "", scholarship_percentage: "" });
+    const [isSavingScholarship, setIsSavingScholarship] = useState(false);
     const [feeToAmountMap, setFeeToAmountMap] = useState<Record<number, string>>({});
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -692,8 +703,16 @@ function StudentwiseFeeEditor() {
                     initialMonth: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === sf.target_month) || "August",
                     month: Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === sf.month) || "August",
                     target_month: sf.target_month,
-                    amount: sf.amount?.toString() || sf.amount_before_discount?.toString() || "0",
+                    // `amount` here is the amount AFTER any system discount but BEFORE
+                    // scholarship — editing it directly is how a genuine per-row discount
+                    // is applied (same as before scholarships existed). When a scholarship
+                    // percentage is set, the grid also shows a separate, editable "Final
+                    // Amount" field (see the Amount column render) that reverse-computes
+                    // this value from whatever final figure is typed in.
+                    amount: sf.amount_after_discount?.toString() || sf.amount?.toString() || sf.amount_before_discount?.toString() || "0",
                     originalAmount: sf.amount_before_discount?.toString() || sf.amount?.toString() || "0",
+                    scholarshipPercentage: sf.scholarship_percentage != null ? sf.scholarship_percentage.toString() : "",
+                    scholarshipTypeId: sf.scholarship_type_id ?? null,
                     fee_date: sf.fee_date ? new Date(sf.fee_date).toISOString().split('T')[0] : undefined,
                     bundle_id: sf.bundle_id,
                     bundle_name: sf.student_fee_bundles?.bundle_name,
@@ -822,6 +841,13 @@ function StudentwiseFeeEditor() {
             .catch(() => {/* silently ignore */});
     }, []);
 
+    // ── Scholarship presets fetch ───────────────────────────────────────────
+    useEffect(() => {
+        api.get('/v1/scholarship-presets', { params: { active: 'true' } })
+            .then(res => setScholarshipPresets(res.data?.data || res.data || []))
+            .catch(() => {/* silently ignore */});
+    }, []);
+
     // ── Caution fee history fetch (class_id 14 / O-3 only — REFUNDABLE/ADJUSTABLE CAUTION FEE) ──
     useEffect(() => {
         const match = studentId.match(/\d+$/);
@@ -915,6 +941,50 @@ function StudentwiseFeeEditor() {
             toast.error(Array.isArray(msg) ? msg.join("; ") : (msg || "Failed to add discount."));
         } finally {
             setIsSavingDiscount(false);
+        }
+    };
+
+    // "Universal" scholarship setter — writes one percentage onto every existing
+    // MTF (fee_type_id=1) row for this student + academic year in one action,
+    // since a student's scholarship is normally constant for the whole year.
+    const handleApplyScholarship = async () => {
+        if (!studentId) return;
+        const numericMatch = studentId.match(/\d+$/);
+        const ccVal = numericMatch ? parseInt(numericMatch[0]) : 0;
+
+        const pct = parseFloat(scholarshipForm.scholarship_percentage);
+        if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+            toast.error("Please enter a valid scholarship percentage (0-100).");
+            return;
+        }
+
+        const payload: any = {
+            student_id: ccVal,
+            academic_year: selectedYear,
+            scholarship_percentage: pct,
+        };
+        if (scholarshipForm.scholarship_type_id !== "") {
+            payload.scholarship_type_id = scholarshipForm.scholarship_type_id;
+        } else if (scholarshipForm.custom_title) {
+            payload.custom_title = scholarshipForm.custom_title;
+        } else {
+            toast.error("Please select a scholarship preset or enter a custom title.");
+            return;
+        }
+
+        setIsSavingScholarship(true);
+        try {
+            const res = await api.post('/v1/student-fees/apply-scholarship', payload);
+            const updatedCount = res.data?.data?.updated ?? 0;
+            toast.success(`Scholarship of ${pct}% applied to ${updatedCount} MTF fee row(s).`);
+            setShowScholarshipModal(false);
+            // Refetch so the grid reflects the newly-applied percentage and recomputed amounts.
+            await refreshStudentFeeData();
+        } catch (err: any) {
+            const msg = err.response?.data?.message;
+            toast.error(Array.isArray(msg) ? msg.join("; ") : (msg || "Failed to apply scholarship."));
+        } finally {
+            setIsSavingScholarship(false);
         }
     };
 
@@ -1167,6 +1237,15 @@ function StudentwiseFeeEditor() {
         try {
             const items = rows.map((row) => {
                 const monthNum = MONTH_TO_NUM[row.month] || 8;
+                // Scholarships are MTF-only (fee_type_id=1) — never send them for other rows,
+                // even if a stale value lingers in state from a fee-type switch.
+                const scholarshipPct = row.feeId === 1 && row.scholarshipPercentage
+                    ? parseFloat(row.scholarshipPercentage)
+                    : undefined;
+                const hasValidPct = scholarshipPct != null && !Number.isNaN(scholarshipPct) && scholarshipPct > 0;
+                // row.amount is the amount AFTER discount, BEFORE scholarship — the API
+                // computes the final (post-scholarship) amount server-side from this value
+                // and scholarship_percentage.
                 return {
                     fee_type_id: row.feeId,
                     month: monthNum,
@@ -1175,6 +1254,8 @@ function StudentwiseFeeEditor() {
                     amount_before_discount: parseFloat(row.originalAmount || row.amount || "0"),
                     academic_year: selectedYear,
                     ...(row.fee_date ? { fee_date: row.fee_date } : {}),
+                    ...(hasValidPct ? { scholarship_percentage: scholarshipPct } : {}),
+                    ...(hasValidPct && row.scholarshipTypeId ? { scholarship_type_id: row.scholarshipTypeId } : {}),
                 };
             });
 
@@ -2069,6 +2150,16 @@ function StudentwiseFeeEditor() {
                                 Add Discount
                             </button>
                         )}
+                        {studentId && (
+                            <button
+                                onClick={() => setShowScholarshipModal(true)}
+                                title="Sets one percentage on every existing MTF (Monthly Tuition Fee) row for this student and academic year"
+                                className="inline-flex items-center gap-2 px-6 h-10 bg-white dark:bg-zinc-900 border border-fuchsia-200 dark:border-fuchsia-800 rounded-xl text-xs font-black uppercase tracking-widest text-fuchsia-600 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/30 transition-all active:scale-95 shadow-sm"
+                            >
+                                <GraduationCap className="h-3.5 w-3.5 text-fuchsia-500" />
+                                Set Scholarship (All MTF)
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
@@ -2192,13 +2283,28 @@ function StudentwiseFeeEditor() {
                                     <th className="w-32 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-primary/70 uppercase tracking-widest">Fee Date</th>
                                     <th className="w-48 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Adjustments</th>
                                     <th className="w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Status</th>
-                                    <th className="min-w-[120px] border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Amount (Rs.)</th>
+                                    <th
+                                        className="min-w-[120px] border-r border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest"
+                                        title="Amount after any discount, before scholarship. For MTF rows with a scholarship, a second 'Final' field appears below showing the actual to-be-received amount."
+                                    >
+                                        Amount (Rs.)
+                                    </th>
+                                    <th className="w-28 border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Scholarship %</th>
                                 </tr>
                             </thead>
                             <tbody ref={tbodyRef} onMouseDown={() => recentlyAddedId && setRecentlyAddedId(null)}>
                                 {rows.map((row, rIdx) => {
                                     const aCell = (c: number) => isCellActive(rIdx, c);
                                     const isLocked = isRowLocked(row);
+                                    // row.amount is the amount AFTER discount, BEFORE scholarship —
+                                    // editing it directly is how a genuine per-row discount is set.
+                                    // The FINAL (to-be-received) amount is derived forward from it.
+                                    const scholarshipPctNum = Number(row.feeId) === 1 ? parseFloat(row.scholarshipPercentage || "0") : 0;
+                                    const hasScholarshipPct = scholarshipPctNum > 0 && scholarshipPctNum < 100;
+                                    const beforeScholarshipAmount = parseFloat(row.amount || "0");
+                                    const finalAmountNum = hasScholarshipPct
+                                        ? beforeScholarshipAmount * (1 - scholarshipPctNum / 100)
+                                        : beforeScholarshipAmount;
                                     const isCurrentRowActive = activeCell?.row === rIdx;
                                     const groupSeparator = row.isGroupStart && rIdx > 0 ? "border-t-2 border-zinc-100" : "";
                                     const lockedBg = row.status === "PAID" ? "bg-emerald-50/10 dark:bg-emerald-950/20" : "bg-amber-50/20 dark:bg-amber-950/20";
@@ -2381,19 +2487,65 @@ function StudentwiseFeeEditor() {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td data-row={rIdx} data-col={COL_AMOUNT} className={`p-0 border-b border-zinc-100 ${aCell(COL_AMOUNT) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
-                                                <div className="relative h-10 flex items-center">
-                                                    <span className="pl-5 text-[10px] font-bold text-zinc-300">Rs.</span>
-                                                    <input
-                                                        data-row={rIdx} data-col={COL_AMOUNT}
-                                                        type="number"
-                                                        value={row.amount}
-                                                        disabled={isLocked}
-                                                        onChange={(e) => updateRow(rIdx, "amount", e.target.value)}
-                                                        onFocus={() => setActiveCell({ row: rIdx, col: COL_AMOUNT })}
-                                                        className={`w-full h-full px-5 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-200 ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
-                                                    />
+                                            <td data-row={rIdx} data-col={COL_AMOUNT} className={`p-0 border-r border-b border-zinc-100 ${aCell(COL_AMOUNT) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
+                                                <div className={`flex flex-col ${hasScholarshipPct ? "py-1" : ""}`}>
+                                                    <div className="relative h-10 flex items-center">
+                                                        <span className="pl-5 text-[10px] font-bold text-zinc-300">Rs.</span>
+                                                        <input
+                                                            data-row={rIdx} data-col={COL_AMOUNT}
+                                                            type="number"
+                                                            value={row.amount}
+                                                            disabled={isLocked}
+                                                            onChange={(e) => updateRow(rIdx, "amount", e.target.value)}
+                                                            onFocus={() => setActiveCell({ row: rIdx, col: COL_AMOUNT })}
+                                                            title={hasScholarshipPct ? "Amount after discount, before scholarship" : undefined}
+                                                            className={`w-full h-full px-5 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-200 ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
+                                                        />
+                                                    </div>
+                                                    {hasScholarshipPct && (
+                                                        <div className="relative h-7 flex items-center border-t border-fuchsia-100 dark:border-fuchsia-900/40 mt-0.5">
+                                                            <span className="pl-5 text-[8px] font-black text-fuchsia-500 uppercase tracking-wide shrink-0">Final:</span>
+                                                            <input
+                                                                type="number"
+                                                                disabled={isLocked}
+                                                                value={Number.isFinite(finalAmountNum) ? Number(finalAmountNum.toFixed(2)) : ""}
+                                                                title="Final amount after scholarship — editing this back-computes the amount above"
+                                                                onChange={(e) => {
+                                                                    const enteredFinal = parseFloat(e.target.value);
+                                                                    if (Number.isNaN(enteredFinal)) return;
+                                                                    const newBeforeScholarship = enteredFinal / (1 - scholarshipPctNum / 100);
+                                                                    updateRow(rIdx, "amount", newBeforeScholarship.toFixed(2));
+                                                                }}
+                                                                className={`w-full h-full pl-2 pr-5 text-right font-mono font-black text-[12px] outline-none bg-transparent text-fuchsia-600 dark:text-fuchsia-400 placeholder:text-zinc-200 ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
+                                            </td>
+                                            {/* Scholarship % — MTF only (fee_type_id=1); enforced server-side too. */}
+                                            <td data-row={rIdx} data-col={COL_SCHOLARSHIP} className={`p-0 border-b border-zinc-100 ${aCell(COL_SCHOLARSHIP) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
+                                                {Number(row.feeId) === 1 ? (
+                                                    <div className="relative h-10 flex items-center">
+                                                        <input
+                                                            data-row={rIdx} data-col={COL_SCHOLARSHIP}
+                                                            type="number"
+                                                            min={0}
+                                                            max={100}
+                                                            step="0.01"
+                                                            value={row.scholarshipPercentage || ""}
+                                                            disabled={isLocked}
+                                                            placeholder="0"
+                                                            onChange={(e) => updateRow(rIdx, "scholarshipPercentage", e.target.value)}
+                                                            onFocus={() => setActiveCell({ row: rIdx, col: COL_SCHOLARSHIP })}
+                                                            className={`w-full h-full pl-5 pr-6 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-violet-700 dark:text-violet-300 placeholder:text-zinc-200 ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
+                                                        />
+                                                        <span className="absolute right-3 text-[10px] font-bold text-zinc-300 pointer-events-none">%</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="h-10 flex items-center justify-end pr-5">
+                                                        <span className="text-[10px] font-bold text-zinc-200">—</span>
+                                                    </div>
+                                                )}
                                             </td>
                                         </tr>
                                     );
@@ -2654,8 +2806,8 @@ function StudentwiseFeeEditor() {
                                         type="text"
                                         placeholder="e.g. Staff Sibling Discount"
                                         value={discountForm.custom_title}
-                                        onChange={e => setDiscountForm(f => ({ ...f, custom_title: e.target.value }))}
-                                        className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-violet-400/30"
+                                        onChange={e => setDiscountForm(f => ({ ...f, custom_title: e.target.value.toUpperCase() }))}
+                                        className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-violet-400/30 uppercase"
                                     />
                                 </div>
                             )}
@@ -2705,6 +2857,87 @@ function StudentwiseFeeEditor() {
                                 className="h-10 px-5 bg-zinc-100 dark:bg-zinc-900 text-zinc-600 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-zinc-200 transition-all active:scale-95"
                             >
                                 Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Universal Scholarship Modal — sets one percentage on every existing MTF row */}
+            {showScholarshipModal && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-md mx-4 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-zinc-100 dark:border-zinc-800">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 bg-fuchsia-100 dark:bg-fuchsia-900 rounded-2xl flex items-center justify-center">
+                                    <GraduationCap className="h-4 w-4 text-fuchsia-600" />
+                                </div>
+                                <div>
+                                    <p className="font-black text-zinc-900 dark:text-zinc-100">Set Scholarship</p>
+                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Applies to every MTF row · {selectedYear}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowScholarshipModal(false)} className="h-8 w-8 rounded-xl flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-all">
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                                Writes this percentage onto every existing Monthly Tuition Fee row for this student in {selectedYear} — a one-time bulk update. Fee heads added later in the year won't inherit it automatically; re-run this if needed.
+                            </p>
+                            <div>
+                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Scholarship Preset</label>
+                                <select
+                                    value={scholarshipForm.scholarship_type_id}
+                                    onChange={e => setScholarshipForm(f => ({ ...f, scholarship_type_id: e.target.value === "" ? "" : Number(e.target.value), custom_title: "" }))}
+                                    className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-fuchsia-400/30"
+                                >
+                                    <option value="">— Custom / No Preset —</option>
+                                    {scholarshipPresets.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                                </select>
+                            </div>
+                            {scholarshipForm.scholarship_type_id === "" && (
+                                <div>
+                                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Custom Title</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Merit Scholarship"
+                                        value={scholarshipForm.custom_title}
+                                        onChange={e => setScholarshipForm(f => ({ ...f, custom_title: e.target.value.toUpperCase() }))}
+                                        className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-fuchsia-400/30 uppercase"
+                                    />
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Scholarship Percentage</label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        max={100}
+                                        step="0.01"
+                                        placeholder="0"
+                                        value={scholarshipForm.scholarship_percentage}
+                                        onChange={e => setScholarshipForm(f => ({ ...f, scholarship_percentage: e.target.value }))}
+                                        className="w-full h-10 pl-4 pr-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-mono font-medium text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-fuchsia-400/30"
+                                    />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] font-bold text-zinc-300">%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 pb-6 flex items-center gap-3">
+                            <button
+                                onClick={handleApplyScholarship}
+                                disabled={isSavingScholarship}
+                                className="flex-1 h-10 bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg shadow-fuchsia-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isSavingScholarship ? <Loader2 className="h-4 w-4 animate-spin" /> : <><GraduationCap className="h-3.5 w-3.5" /> Apply to All MTF</>}
+                            </button>
+                            <button
+                                onClick={() => setShowScholarshipModal(false)}
+                                className="h-10 px-5 bg-zinc-100 dark:bg-zinc-900 text-zinc-600 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-zinc-200 transition-all active:scale-95"
+                            >
+                                Cancel
                             </button>
                         </div>
                     </div>
