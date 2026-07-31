@@ -88,9 +88,21 @@ export default function SupportTicketsPage() {
   }, [dispatch, user]);
 
   useEffect(() => {
-    if (!hasPermission) return;
+    if (!hasPermission || !user) return;
+    // Prevent a race: we sometimes start loading the queue for the default
+    // tab (e.g. my-queue) and then immediately switch the tab based on role
+    // (oversight/closed). The async responses can come back out-of-order and
+    // leave the UI empty until a full reload.
+    const expectedTab =
+      user.role === "SUPER_ADMIN"
+        ? "oversight"
+        : user.role === "CAMPUS_ADMIN"
+          ? "closed"
+          : queueTab;
+
+    if (expectedTab !== queueTab) return;
     loadQueue();
-  }, [loadQueue, hasPermission]);
+  }, [loadQueue, hasPermission, user, queueTab]);
 
   useEffect(() => {
     if (user?.role === "SUPER_ADMIN") {
@@ -99,9 +111,16 @@ export default function SupportTicketsPage() {
   }, [dispatch, user?.role]);
 
   useEffect(() => {
-    if (!selectedTicketId || !hasPermission || !socket) return;
+    if (!selectedTicketId || !hasPermission) return;
+    // Thread detail does not depend on the socket being initialized.
+    // If we gate this behind `socket`, the first open can render an empty
+    // placeholder until a manual reload (when socket becomes ready).
     dispatch(fetchTicketDetail(selectedTicketId));
     dispatch(markTicketRead(selectedTicketId));
+  }, [selectedTicketId, dispatch, hasPermission]);
+
+  useEffect(() => {
+    if (!selectedTicketId || !hasPermission || !socket) return;
     const join = () => socket.emit("enterTicket", { ticketId: selectedTicketId });
     join();
     socket.on("connect", join);
@@ -109,7 +128,7 @@ export default function SupportTicketsPage() {
       socket.off("connect", join);
       socket.emit("leaveTicket", { ticketId: selectedTicketId });
     };
-  }, [selectedTicketId, dispatch, socket, hasPermission]);
+  }, [selectedTicketId, socket, hasPermission]);
 
   useEffect(() => {
     if (!socket || !hasPermission) return;
