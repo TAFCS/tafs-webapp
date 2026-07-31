@@ -276,6 +276,15 @@ function StudentwiseFeeEditor() {
             const prevYear = `${parseInt(parts[0]) - 1}-${parseInt(parts[1]) - 1}`;
 
             const { data } = await api.get(`/v1/student-fees/student/${sid}/schedule`, { params: { academic_year: prevYear } });
+            if (data?.data?.is_template) {
+                setProjections({
+                    newTuitionMonthly: 0,
+                    newAnnualMonthly: 0,
+                    hasPriorYear: false,
+                    isLoading: false,
+                });
+                return;
+            }
             const prevFees = data?.data?.fees || [];
 
             const suggestions = calculateFeeSuggestions(prevFees);
@@ -540,7 +549,7 @@ function StudentwiseFeeEditor() {
         setIsTemplatePending(false); if (!forceApplyTemplate) setPendingTemplateRows([]);
         try {
             // 1. ALWAYS Fetch the class-wide fee template for amount lookups
-            const params: any = { class_id: classId };
+            const params: any = { class_id: classId, academic_year: academicYear };
             if (campusId) params.campus_id = campusId;
             const { data: templateData } = await api.get("/v1/class-fee-schedule/by-class", { params, signal });
             const feeRows: ClassFeeRow[] = Array.isArray(templateData?.data) ? templateData.data : [];
@@ -609,12 +618,15 @@ function StudentwiseFeeEditor() {
                     const prevYearStr = getPreviousYear(academicYear);
                     if (prevYearStr && studentId) {
                         const { data: prevData } = await api.get(`/v1/student-fees/student/${studentId}/schedule`, { params: { academic_year: prevYearStr } });
-                        const prevFees = prevData?.data?.fees || [];
-
-                        const suggestions = calculateFeeSuggestions(prevFees);
-                        if (suggestions.hasPriorYear) {
-                            suggestedTuition = suggestions.newTuitionMonthly;
-                            suggestedAnnual = suggestions.newAnnualMonthly * 12;
+                        // Only use real saved fees for +10% suggestions — never class templates
+                        // (templates use fee_id not fee_type_id and would zero out tuition/annual).
+                        if (!prevData?.data?.is_template) {
+                            const prevFees = prevData?.data?.fees || [];
+                            const suggestions = calculateFeeSuggestions(prevFees);
+                            if (suggestions.hasPriorYear) {
+                                suggestedTuition = suggestions.newTuitionMonthly;
+                                suggestedAnnual = suggestions.newAnnualMonthly * 12;
+                            }
                         }
                     }
                 } catch (e) { console.error("Suggestion fetch failed", e); }

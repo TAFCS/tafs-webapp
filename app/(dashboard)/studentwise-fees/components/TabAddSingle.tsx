@@ -38,13 +38,17 @@ export function TabAddSingle() {
         if (!ftId || !scope.classId || !scope.campusId) return;
         try {
             const { data } = await api.get("/v1/class-fee-schedule/by-class", {
-                params: { class_id: scope.classId, campus_id: scope.campusId },
+                params: {
+                    class_id: scope.classId,
+                    campus_id: scope.campusId,
+                    academic_year: academicYear,
+                },
             });
             const rows: any[] = Array.isArray(data?.data) ? data.data : [];
             const match = rows.find((r: any) => r.fee_id === Number(ftId));
             if (match) setAmount(match.amount);
         } catch { /* leave blank if not found */ }
-    }, [scope.classId, scope.campusId]);
+    }, [scope.classId, scope.campusId, academicYear]);
 
     const handlePreview = async () => {
         if (!scope.campusId || !feeTypeId || !feeDate || !academicYear) {

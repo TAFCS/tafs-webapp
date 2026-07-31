@@ -523,14 +523,25 @@ export function calculateFeeSuggestions(prevFees: any[]) {
         };
     }
 
+    const feeTypeId = (f: any) => f.fee_type_id ?? f.fee_id;
+
     // Tuition = Fee Type 1
-    const tuitionRows = prevFees.filter((f: any) => f.fee_type_id === 1);
+    const tuitionRows = prevFees.filter((f: any) => feeTypeId(f) === 1);
 
     // Annual = Fee Type 4 (either primary or through installment tracking)
     const annualRows = prevFees.filter((f: any) =>
-        f.fee_type_id === 4 ||
+        feeTypeId(f) === 4 ||
         (f.installment_amount && f.installment_id && f.student_fee_installments?.fee_type_id === 4)
     );
+
+    // No usable prior tuition/annual → treat as no prior year (e.g. empty template payload)
+    if (tuitionRows.length === 0 && annualRows.length === 0) {
+        return {
+            newTuitionMonthly: 0,
+            newAnnualMonthly: 0,
+            hasPriorYear: false
+        };
+    }
 
     const tuitionTotalClean = tuitionRows.reduce((a: number, b: any) => {
         const total = parseFloat(b.amount || "0");
