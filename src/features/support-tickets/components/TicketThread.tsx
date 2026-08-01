@@ -1,21 +1,113 @@
 "use client";
 
 import { format } from "date-fns";
-import { Check, CheckCheck, FileText, Loader2, Mic, Phone, Reply, Send, ShieldCheck, User, X } from "lucide-react";
+import { Check, CheckCheck, ChevronDown, Copy, FileText, Loader2, Mic, Phone, Reply, Send, ShieldCheck, Trash2, User, X } from "lucide-react";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
 import { useSocket } from "@/context/SocketContext";
 import type { AppDispatch } from "@/store/store";
-import type { SupportTicket, TicketMessage } from "@/store/slices/supportTicketsSlice";
-import { claimTicket, closeTicket, reviewTicketMessage } from "@/store/slices/supportTicketsSlice";
+import type { SupportTicket, TicketEvent, TicketMessage } from "@/store/slices/supportTicketsSlice";
+import { claimTicket, closeTicket, deleteTicketMessage, reviewTicketMessage } from "@/store/slices/supportTicketsSlice";
 import { categoryLabel, statusLabel, ticketRequesterLabel } from "@/features/support-tickets/supportTicketLabels";
 import { ClaimTransferModal } from "./ClaimTransferModal";
 import { ForwardTicketModal } from "./ForwardTicketModal";
 
+function flattenUploadPayload(raw: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  if (!raw || typeof raw !== "object") return {};
+  const nested =
+    raw.metadata && typeof raw.metadata === "object"
+      ? (raw.metadata as Record<string, unknown>)
+      : {};
+  const { metadata: _m, data: _d, ...rest } = raw;
+  return { ...nested, ...rest, ...(raw.url ? { url: raw.url } : {}) };
+}
+
+function getImageDimensions(file: File): Promise<{ width?: number; height?: number }> {
+  if (!file.type.startsWith("image/")) return Promise.resolve({});
+  return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(objectUrl);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve({});
+    };
+    img.src = objectUrl;
+  });
+}
+
+function copyableTicketText(msg: TicketMessage): string | null {
+  const type = (msg.message_type ?? "").toString().toUpperCase();
+  if (type === "TEXT") {
+    const text = (msg.content ?? "").toString();
+    return text.trim() ? text : null;
+  }
+  if (type === "IMAGE" || type === "DOCUMENT") {
+    const meta = msg.media_metadata as { url?: string; caption?: string } | null | undefined;
+    const url = meta?.url;
+    const content = (msg.content ?? "").toString();
+    if (url && content && content !== url) return content;
+    const caption = (meta?.caption ?? "").toString();
+    if (caption.trim()) return caption;
+    return null;
+  }
+  return null;
+}
+
+function eventLabel(event: TicketEvent): string {
+  switch (event.event_type) {
+    case "CREATED":
+      return "Ticket opened";
+    case "CLAIMED":
+      return "Claimed";
+    case "TRANSFERRED":
+      return "Transferred";
+    case "FORWARDED":
+      return "Forwarded";
+    case "REPLY_SUBMITTED":
+      return "Reply submitted for review";
+    case "REPLY_APPROVED":
+      return "Reply approved";
+    case "REPLY_REJECTED":
+      return "Reply rejected";
+    case "CLOSED_BY_STAFF":
+      return "Closed by staff";
+    case "CLOSED_BY_PARENT":
+      return "Closed by parent";
+    default:
+      return event.event_type;
+  }
+}
+
+function eventActorName(event: TicketEvent): string | null {
+  return (
+    event.actor_user?.full_name ??
+    event.actor_guardian?.full_name ??
+    null
+  );
+}
+
+function closingNoteFromEvents(events: TicketEvent[] | undefined): string | null {
+  if (!events?.length) return null;
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const e = events[i];
+    if (
+      (e.event_type === "CLOSED_BY_STAFF" || e.event_type === "CLOSED_BY_PARENT") &&
+      e.note?.trim()
+    ) {
+      return e.note.trim();
+    }
+  }
+  return null;
+}
+
 interface TicketThreadProps {
-  ticket: SupportTicket & { messages?: TicketMessage[]; description?: string };
+  ticket: SupportTicket & { messages?: TicketMessage[]; events?: TicketEvent[]; description?: string };
   userId?: string;
   userRole?: string;
   isSending?: boolean;
@@ -207,6 +299,14 @@ export function TicketThread({
   const { socket } = useSocket();
   const [reply, setReply] = useState("");
   const [replyingTo, setReplyingTo] = useState<TicketMessage | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    text: string | null;
+    messageId: string;
+    canDelete: boolean;
+  } | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -231,6 +331,7 @@ export function TicketThread({
   const [showStudentDetails, setShowStudentDetails] = useState(false);
   const [familyStudents, setFamilyStudents] = useState<any[]>([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+  const [headerDetailsOpen, setHeaderDetailsOpen] = useState(false);
 
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
@@ -255,6 +356,10 @@ export function TicketThread({
     }
   };
 
+  useEffect(() => {
+    setHeaderDetailsOpen(false);
+  }, [ticket.id]);
+
   const isClosed = ticket.status === "CLOSED";
   const isFinance = ticket.category === "FINANCIAL";
   const isUnclaimedFinance = isFinance && !ticket.current_assignee_id;
@@ -266,6 +371,8 @@ export function TicketThread({
     () => [...(ticket.messages ?? [])].reverse(),
     [ticket.messages],
   );
+  const events = ticket.events ?? [];
+  const closingNote = closingNoteFromEvents(events) ?? ticket.closing_note?.trim() ?? null;
   const senderColorMap = buildSenderColorMap(messages);
   const composerDisabled = isSending || uploading;
 
@@ -428,13 +535,14 @@ export function TicketThread({
     try {
       const form = new FormData();
       form.append("file", file);
+      const dims = file.type.startsWith("image/") ? await getImageDimensions(file) : {};
       const res = await api.post("v1/support-tickets/media", form, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      const media = res.data.data ?? res.data;
+      const media = flattenUploadPayload((res.data.data ?? res.data) as Record<string, unknown>);
       const url = media.url as string;
       const messageType = inferMessageType(file);
-      const metadata: Record<string, unknown> = { ...media, url };
+      const metadata: Record<string, unknown> = { ...media, ...dims, url };
       if (replyingTo) metadata.replyTo = buildReplyTo(replyingTo, userId);
       await onSendMessage(url, metadata, messageType);
       setReplyingTo(null);
@@ -466,7 +574,7 @@ export function TicketThread({
             const res = await api.post("v1/support-tickets/media", form, {
               headers: { "Content-Type": "multipart/form-data" },
             });
-            const media = res.data.data ?? res.data;
+            const media = flattenUploadPayload((res.data.data ?? res.data) as Record<string, unknown>);
             const url = media.url as string;
             const metadata: Record<string, unknown> = {
               ...media,
@@ -538,9 +646,19 @@ export function TicketThread({
     if (!isPlayableUrl) return null;
 
     if (msg.message_type === "IMAGE") {
+      const meta = msg.media_metadata as { width?: number; height?: number } | null | undefined;
       return (
         <a href={url} target="_blank" rel="noreferrer">
-          <img src={url} alt="Attachment" className="mt-2 max-w-full rounded-lg max-h-48 object-cover" />
+          <img
+            src={url}
+            alt="Attachment"
+            className="mt-2 max-w-full rounded-lg max-h-64 w-auto h-auto object-contain bg-black/5 dark:bg-white/5"
+            style={
+              meta?.width && meta?.height
+                ? { aspectRatio: `${meta.width} / ${meta.height}` }
+                : undefined
+            }
+          />
         </a>
       );
     }
@@ -665,54 +783,113 @@ export function TicketThread({
           </div>
         </div>
 
-        {/* Row 2: Student info — compact inline card */}
-        {ticket.students && (
-          <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-100 dark:border-zinc-800">
-            <div className="h-7 w-7 rounded-md overflow-hidden bg-zinc-200 dark:bg-zinc-800 flex-shrink-0">
-              {(ticket.students.photograph_url || ticket.students.photo_blue_bg_url) ? (
-                <img
-                  src={ticket.students.photograph_url || ticket.students.photo_blue_bg_url || ""}
-                  alt={ticket.students.full_name}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center">
-                  <User className="h-3 w-3 text-zinc-400" />
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-              <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">{ticket.students.full_name}</span>
-              <span className="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-[9px] font-black">CC: {ticket.students.cc}</span>
-              {ticket.students.gr_number && (
-                <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded text-[9px] font-black">GR: {ticket.students.gr_number}</span>
-              )}
+        {/* Row 2: Student one-liner + details expander */}
+        <div className="mt-2 flex items-center gap-2">
+          {ticket.students && (
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate min-w-0 flex-1">
+              <span className="font-semibold text-zinc-700 dark:text-zinc-300">{ticket.students.full_name}</span>
+              <span className="text-zinc-400"> · CC {ticket.students.cc}</span>
               {ticket.students.classes?.description && (
-                <span className="text-[10px] text-zinc-400">{ticket.students.classes.description} {ticket.students.sections?.description}</span>
-              )}
-              {ticket.students.campuses?.campus_name && (
-                <span className="text-[10px] text-zinc-400">· {ticket.students.campuses.campus_name}</span>
-              )}
-              {(ticket.students.primary_phone || ticket.students.whatsapp_number) && (
-                <span className="text-[10px] text-zinc-400 flex items-center gap-1">
-                  <Phone className="h-2.5 w-2.5" />
-                  {ticket.students.primary_phone || ticket.students.whatsapp_number}
-                  {ticket.students.whatsapp_number && ticket.students.whatsapp_number !== ticket.students.primary_phone && (
-                    <span className="px-1 bg-green-500/10 text-green-600 rounded text-[8px] font-black">WA</span>
-                  )}
+                <span className="text-zinc-400">
+                  {" "}· {ticket.students.classes.description}
+                  {ticket.students.sections?.description
+                    ? ` ${ticket.students.sections.description}`
+                    : ""}
                 </span>
               )}
-            </div>
-          </div>
-        )}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => setHeaderDetailsOpen((o) => !o)}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 shrink-0"
+            aria-expanded={headerDetailsOpen}
+          >
+            Details
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${headerDetailsOpen ? "rotate-180" : ""}`} />
+          </button>
+        </div>
 
-        {/* Row 3: Original description */}
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900/40 rounded-lg px-3 py-1.5 leading-relaxed">
-          {ticket.description}
-        </p>
+        {headerDetailsOpen && (
+          <>
+            {ticket.students && (
+              <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-100 dark:border-zinc-800">
+                <div className="h-7 w-7 rounded-md overflow-hidden bg-zinc-200 dark:bg-zinc-800 flex-shrink-0">
+                  {(ticket.students.photograph_url || ticket.students.photo_blue_bg_url) ? (
+                    <img
+                      src={ticket.students.photograph_url || ticket.students.photo_blue_bg_url || ""}
+                      alt={ticket.students.full_name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center">
+                      <User className="h-3 w-3 text-zinc-400" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                  <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">{ticket.students.full_name}</span>
+                  <span className="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-[9px] font-black">CC: {ticket.students.cc}</span>
+                  {ticket.students.gr_number && (
+                    <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded text-[9px] font-black">GR: {ticket.students.gr_number}</span>
+                  )}
+                  {ticket.students.classes?.description && (
+                    <span className="text-[10px] text-zinc-400">{ticket.students.classes.description} {ticket.students.sections?.description}</span>
+                  )}
+                  {ticket.students.campuses?.campus_name && (
+                    <span className="text-[10px] text-zinc-400">· {ticket.students.campuses.campus_name}</span>
+                  )}
+                  {(ticket.students.primary_phone || ticket.students.whatsapp_number) && (
+                    <span className="text-[10px] text-zinc-400 flex items-center gap-1">
+                      <Phone className="h-2.5 w-2.5" />
+                      {ticket.students.primary_phone || ticket.students.whatsapp_number}
+                      {ticket.students.whatsapp_number && ticket.students.whatsapp_number !== ticket.students.primary_phone && (
+                        <span className="px-1 bg-green-500/10 text-green-600 rounded text-[8px] font-black">WA</span>
+                      )}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900/40 rounded-lg px-3 py-1.5 leading-relaxed">
+              {ticket.description}
+            </p>
+          </>
+        )}
       </div>
 
       <div ref={messagesScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 relative">
+        {events.length > 0 && (
+          <div className="mb-2 space-y-1.5">
+            {events.map((event) => {
+              const actor = eventActorName(event);
+              const transferTo = event.to_user?.full_name;
+              return (
+                <div
+                  key={event.id}
+                  className="flex justify-center"
+                >
+                  <div className="max-w-[90%] px-3 py-1.5 rounded-full bg-zinc-200/70 dark:bg-zinc-800/70 text-[10px] text-zinc-600 dark:text-zinc-300 text-center">
+                    <span className="font-bold">{eventLabel(event)}</span>
+                    {actor && <span> · {actor}</span>}
+                    {transferTo && event.event_type !== "CREATED" && (
+                      <span> → {transferTo}</span>
+                    )}
+                    {event.note?.trim() && (
+                      <span className="block mt-0.5 font-medium text-zinc-500 dark:text-zinc-400 normal-case tracking-normal">
+                        “{event.note.trim()}”
+                      </span>
+                    )}
+                    <span className="ml-1 opacity-70">
+                      {format(new Date(event.created_at), "MMM d, h:mm a")}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-zinc-400 gap-2">
             <p className="text-sm font-medium">No messages yet</p>
@@ -757,6 +934,53 @@ export function TicketThread({
                 )}
               <div
                 onDoubleClick={() => canCompose && setReplyingTo(msg)}
+                onContextMenu={(e) => {
+                  const text = copyableTicketText(msg);
+                  const canDelete = isOwnStaffMessage(msg, userId);
+                  if (!text && !canDelete) return;
+                  e.preventDefault();
+                  setContextMenu({
+                    x: e.clientX,
+                    y: e.clientY,
+                    text,
+                    messageId: msg.id,
+                    canDelete,
+                  });
+                }}
+                onTouchStart={(e) => {
+                  const touch = e.touches[0];
+                  const text = copyableTicketText(msg);
+                  const canDelete = isOwnStaffMessage(msg, userId);
+                  if (!touch || (!text && !canDelete)) return;
+                  if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                  longPressTimer.current = setTimeout(() => {
+                    setContextMenu({
+                      x: touch.clientX,
+                      y: touch.clientY,
+                      text,
+                      messageId: msg.id,
+                      canDelete,
+                    });
+                  }, 500);
+                }}
+                onTouchEnd={() => {
+                  if (longPressTimer.current) {
+                    clearTimeout(longPressTimer.current);
+                    longPressTimer.current = null;
+                  }
+                }}
+                onTouchMove={() => {
+                  if (longPressTimer.current) {
+                    clearTimeout(longPressTimer.current);
+                    longPressTimer.current = null;
+                  }
+                }}
+                onTouchCancel={() => {
+                  if (longPressTimer.current) {
+                    clearTimeout(longPressTimer.current);
+                    longPressTimer.current = null;
+                  }
+                }}
                 className={`max-w-[80%] p-3 rounded-2xl text-sm ${
                   onRight
                     ? "ml-auto bg-primary text-white"
@@ -1050,9 +1274,16 @@ export function TicketThread({
         <div className="p-4 border-t bg-white dark:bg-zinc-950 shrink-0">
           <div className="px-3.5 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700">
             <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">This query is closed</p>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Messaging is disabled. You can still review the conversation history.
-            </p>
+            {closingNote ? (
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-300 mt-1 leading-relaxed">
+                <span className="font-semibold text-zinc-500 dark:text-zinc-400">Closing note: </span>
+                {closingNote}
+              </p>
+            ) : (
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                Messaging is disabled. You can still review the conversation history.
+              </p>
+            )}
           </div>
         </div>
       ) : null}
@@ -1163,6 +1394,66 @@ export function TicketThread({
             </div>
           </div>
         </div>
+      )}
+
+      {contextMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-[110]"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu(null);
+            }}
+          />
+          <div
+            className="fixed z-[120] min-w-[140px] rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl py-1"
+            style={{
+              left: Math.min(contextMenu.x, window.innerWidth - 160),
+              top: Math.min(contextMenu.y, window.innerHeight - 100),
+            }}
+          >
+            {contextMenu.text && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(contextMenu.text!);
+                  } catch {
+                    toast.error("Failed to copy");
+                  } finally {
+                    setContextMenu(null);
+                  }
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                <Copy className="h-4 w-4" />
+                Copy
+              </button>
+            )}
+            {contextMenu.canDelete && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const messageId = contextMenu.messageId;
+                  setContextMenu(null);
+                  try {
+                    const result = await dispatch(deleteTicketMessage(messageId));
+                    if (deleteTicketMessage.rejected.match(result)) {
+                      toast.error((result.payload as string) || "Failed to delete");
+                    }
+                  } catch {
+                    toast.error("Failed to delete");
+                  }
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </button>
+            )}
+          </div>
+        </>
       )}
 
       {showClaim && (

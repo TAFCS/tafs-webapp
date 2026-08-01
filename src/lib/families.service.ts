@@ -42,6 +42,7 @@ export interface FamilyGuardian {
   id: number;
   full_name: string;
   primary_phone: string | null;
+  primary_phone_country_code?: string | null;
   email_address: string | null;
   cnic: string | null;
   occupation: string | null;
@@ -49,6 +50,8 @@ export interface FamilyGuardian {
   additional_phones?: any[] | null;
   is_primary_contact?: boolean;
   is_emergency_contact?: boolean;
+  whatsapp_number?: string | null;
+  whatsapp_country_code?: string | null;
 }
 
 export interface FamilyDetail extends Family {

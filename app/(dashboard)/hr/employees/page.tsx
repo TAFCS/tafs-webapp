@@ -4,10 +4,14 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
-  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download,
+  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers,
 } from "lucide-react";
 import { hrService, EmployeeProfile, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, employeeStatusBadgeClass } from "@/lib/hr.service";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
+
+const toggleId = <T extends string | number>(prev: T[], id: T): T[] =>
+  prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
 
 function initials(name: string) {
   return name.split(" ").filter(Boolean).map(n => n[0]).slice(0, 2).join("").toUpperCase();
@@ -153,9 +157,9 @@ function EmployeesContent() {
   }, [idParam]);
 
   const [search, setSearch] = useState("");
-  const [campusFilter, setCampusFilter] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [campusIds, setCampusIds] = useState<number[]>([]);
+  const [departmentIds, setDepartmentIds] = useState<number[]>([]);
+  const [categoryIds, setCategoryIds] = useState<number[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [auditFilter, setAuditFilter] = useState("");
 
@@ -198,35 +202,37 @@ function EmployeesContent() {
   }, [success]);
 
   const campusOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    employees.forEach(e => { if (e.campuses) map.set(String(e.campuses.id), e.campuses.campus_name); });
-    return [...map.entries()].map(([value, label]) => ({ value, label }));
+    const map = new Map<number, string>();
+    employees.forEach(e => { if (e.campuses) map.set(e.campuses.id, e.campuses.campus_name); });
+    return [...map.entries()].map(([id, label]) => ({ id, label }));
   }, [employees]);
 
   const departmentOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    employees.forEach(e => { if (e.departments) map.set(String(e.departments.id), e.departments.name); });
-    return [...map.entries()].map(([value, label]) => ({ value, label }));
+    const map = new Map<number, string>();
+    employees.forEach(e => { if (e.departments) map.set(e.departments.id, e.departments.name); });
+    return [...map.entries()].map(([id, label]) => ({ id, label }));
   }, [employees]);
 
   const categoryOptions = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<number, string>();
     employees.forEach((e) => {
       if (e.staff_categories) {
         const cat = e.staff_categories;
-        const name = cat.name || cat.code;
-        map.set(String(cat.id), name);
+        map.set(cat.id, cat.name || cat.code);
       }
     });
-    return [...map.entries()].map(([value, label]) => ({ value, label }));
+    return [...map.entries()].map(([id, label]) => ({ id, label }));
   }, [employees]);
 
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase();
     return employees.filter(emp => {
-      if (campusFilter && String(emp.campus_id) !== campusFilter && String(emp.campuses?.id) !== campusFilter) return false;
-      if (departmentFilter && String(emp.department_id) !== departmentFilter && String(emp.departments?.id) !== departmentFilter) return false;
-      if (categoryFilter && String(emp.staff_category_id) !== categoryFilter && String(emp.staff_categories?.id) !== categoryFilter) return false;
+      const empCampusId = emp.campus_id ?? emp.campuses?.id;
+      const empDeptId = emp.department_id ?? emp.departments?.id;
+      const empCatId = emp.staff_category_id ?? emp.staff_categories?.id;
+      if (campusIds.length > 0 && (empCampusId == null || !campusIds.includes(empCampusId))) return false;
+      if (departmentIds.length > 0 && (empDeptId == null || !departmentIds.includes(empDeptId))) return false;
+      if (categoryIds.length > 0 && (empCatId == null || !categoryIds.includes(empCatId))) return false;
       if (statusFilter && (emp.employment_status ?? "ACTIVE") !== statusFilter) return false;
 
       if (q) {
@@ -247,7 +253,7 @@ function EmployeesContent() {
       }
       return true;
     });
-  }, [employees, search, campusFilter, departmentFilter, categoryFilter, statusFilter, auditFilter]);
+  }, [employees, search, campusIds, departmentIds, categoryIds, statusFilter, auditFilter]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -314,20 +320,50 @@ function EmployeesContent() {
           )}
         </div>
 
-        <FilterSelect label="All Campuses" value={campusFilter} onChange={setCampusFilter} options={campusOptions} icon={<Building2 className="h-3.5 w-3.5" />} />
-        <FilterSelect label="All Departments" value={departmentFilter} onChange={setDepartmentFilter} options={departmentOptions} icon={<Building2 className="h-3.5 w-3.5" />} />
+        <div className="w-[180px]">
+          <FilterDropdown
+            label="Campus"
+            icon={Building2}
+            value={campusIds}
+            options={campusOptions}
+            placeholder="All Campuses"
+            onToggle={(id) => setCampusIds((prev) => toggleId(prev, id))}
+            onClear={() => setCampusIds([])}
+          />
+        </div>
+        <div className="w-[180px]">
+          <FilterDropdown
+            label="Department"
+            icon={Building2}
+            value={departmentIds}
+            options={departmentOptions}
+            placeholder="All Departments"
+            onToggle={(id) => setDepartmentIds((prev) => toggleId(prev, id))}
+            onClear={() => setDepartmentIds([])}
+          />
+        </div>
+        <div className="w-[180px]">
+          <FilterDropdown
+            label="Category"
+            icon={Layers}
+            value={categoryIds}
+            options={categoryOptions}
+            placeholder="All Categories"
+            onToggle={(id) => setCategoryIds((prev) => toggleId(prev, id))}
+            onClear={() => setCategoryIds([])}
+          />
+        </div>
         <FilterSelect
           label="ALL STATUSES"
           value={statusFilter}
           onChange={setStatusFilter}
           options={EMPLOYEE_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
         />
-        <FilterSelect label="All Categories" value={categoryFilter} onChange={setCategoryFilter} options={categoryOptions} />
         <FilterSelect label="Data Audit" value={auditFilter} onChange={setAuditFilter} options={AUDIT_OPTIONS} icon={<SlidersHorizontal className="h-3.5 w-3.5" />} />
 
-        {(search || campusFilter || departmentFilter || categoryFilter || statusFilter || auditFilter) && (
+        {(search || campusIds.length > 0 || departmentIds.length > 0 || categoryIds.length > 0 || statusFilter || auditFilter) && (
           <button
-            onClick={() => { setSearch(""); setCampusFilter(""); setDepartmentFilter(""); setCategoryFilter(""); setStatusFilter(""); setAuditFilter(""); }}
+            onClick={() => { setSearch(""); setCampusIds([]); setDepartmentIds([]); setCategoryIds([]); setStatusFilter(""); setAuditFilter(""); }}
             className="h-9 px-3 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
           >
             Clear Filters

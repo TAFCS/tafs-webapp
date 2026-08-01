@@ -7,6 +7,28 @@ import { PhotoUpload } from "./PhotoUpload";
 
 const isNA = (v: any) => v === "N/A" || v === "021-N/A";
 
+function composePhone(countryCode: string | null | undefined, national: string | null | undefined): string {
+    if (isNA(national)) return "N/A";
+    const n = (national ?? "").trim();
+    if (!n) return "";
+    if (n.startsWith("+")) return n;
+    const code = ((countryCode ?? "+92").trim() || "+92");
+    if (n.startsWith(code)) return n;
+    const digits = n.replace(/\D/g, "");
+    return digits ? `${code}${digits}` : "";
+}
+
+/** Strip dialling code from legacy rows that embedded it in the national field. */
+function nationalDigits(phone: string | null | undefined, countryCode?: string | null): string {
+    if (isNA(phone)) return "N/A";
+    let n = (phone ?? "").trim();
+    if (!n) return "";
+    const code = ((countryCode ?? "+92").trim() || "+92");
+    if (n.startsWith(code)) n = n.slice(code.length);
+    else if (n.startsWith("+")) n = n.replace(/^\+\d{1,4}/, "");
+    return n.replace(/\D/g, "");
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
@@ -37,33 +59,58 @@ function Input({ value, onChange, placeholder, type = "text", className = "", sh
     );
 }
 
-function PhoneInput({ value, onChange, placeholder, className = "" }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) {
-    const handlePhoneChange = (v: string) => {
-        if (v === "N/A") return;
-        if (!v.startsWith("+92")) {
-            onChange("+92");
-            return;
-        }
-        const rest = v.slice(3).replace(/\D/g, "").slice(0, 10);
-        onChange("+92" + rest);
-    };
+function PhoneInput({
+    countryCode = "+92",
+    onCountryCodeChange,
+    value,
+    onChange,
+    placeholder,
+    className = "",
+    allowNA = true,
+}: {
+    countryCode?: string;
+    onCountryCodeChange?: (v: string) => void;
+    value: string;
+    onChange: (v: string) => void;
+    placeholder?: string;
+    className?: string;
+    allowNA?: boolean;
+}) {
+    const code = countryCode || "+92";
+    const national = isNA(value) ? "N/A" : nationalDigits(value, code);
 
     return (
         <div className={`relative flex items-center ${className}`}>
-            <input
-                type="text"
-                value={isNA(value) ? "N/A" : (value?.startsWith("+92") ? value : ("+92" + (value || "")))}
-                onChange={e => handlePhoneChange(e.target.value)}
-                placeholder={placeholder}
-                className="w-full h-9 pl-3 pr-10 text-[13px] font-medium text-zinc-800 bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-mono"
-            />
-            <button
-                type="button"
-                onClick={() => onChange(isNA(value) ? "+92" : "N/A")}
-                className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${isNA(value) ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
-            >
-                N/A
-            </button>
+            <div className="flex w-full h-9 border border-zinc-200 rounded-xl overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 bg-white">
+                <input
+                    type="text"
+                    value={code}
+                    onChange={e => onCountryCodeChange?.(e.target.value)}
+                    placeholder="+92"
+                    disabled={isNA(value)}
+                    className="w-14 shrink-0 px-1.5 text-[12px] font-semibold text-zinc-500 bg-zinc-50 border-0 border-r border-zinc-200 outline-none text-center disabled:opacity-50"
+                />
+                <input
+                    type="text"
+                    value={national}
+                    onChange={e => {
+                        if (isNA(value)) return;
+                        onChange(e.target.value.replace(/\D/g, "").slice(0, 15));
+                    }}
+                    placeholder={placeholder}
+                    disabled={isNA(value)}
+                    className={`flex-1 min-w-0 px-3 text-[13px] font-medium text-zinc-800 bg-white border-0 outline-none font-mono disabled:opacity-50 ${allowNA ? "pr-10" : ""}`}
+                />
+            </div>
+            {allowNA && (
+                <button
+                    type="button"
+                    onClick={() => onChange(isNA(value) ? "" : "N/A")}
+                    className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${isNA(value) ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
+                >
+                    N/A
+                </button>
+            )}
         </div>
     );
 }
@@ -105,7 +152,9 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
     const isInfoDirty = (local.full_name || "") !== (guardian.full_name || "") ||
         (local.cnic || "") !== (guardian.cnic || "") ||
         (local.primary_phone || "") !== (guardian.primary_phone || "") ||
+        (local.primary_phone_country_code || "") !== (guardian.primary_phone_country_code || "") ||
         (local.whatsapp_number || "") !== (guardian.whatsapp_number || "") ||
+        (local.whatsapp_country_code || "") !== (guardian.whatsapp_country_code || "") ||
         (local.occupation || "") !== (guardian.occupation || "") ||
         (local.email_address || "") !== (guardian.email_address || "") ||
         JSON.stringify(local.additional_phones || []) !== JSON.stringify(guardian.additional_phones || []);
@@ -120,12 +169,28 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
         try {
             const promises = [];
             if (isInfoDirty) {
+                const phoneDirty =
+                    (local.primary_phone || "") !== (guardian.primary_phone || "") ||
+                    (local.primary_phone_country_code || "+92") !== (guardian.primary_phone_country_code || "+92");
+                const whatsappDirty =
+                    (local.whatsapp_number || "") !== (guardian.whatsapp_number || "") ||
+                    (local.whatsapp_country_code || "+92") !== (guardian.whatsapp_country_code || "+92");
                 promises.push(
                     api.patch(`/v1/staff-editing/guardians/${guardian.guardian_id}`, {
                         full_name: local.full_name,
                         cnic: local.cnic,
-                        primary_phone: local.primary_phone,
-                        whatsapp_number: local.whatsapp_number,
+                        primary_phone: phoneDirty
+                            ? (isNA(local.primary_phone) ? "N/A" : nationalDigits(local.primary_phone, local.primary_phone_country_code))
+                            : local.primary_phone,
+                        primary_phone_country_code: phoneDirty
+                            ? (local.primary_phone_country_code || "+92")
+                            : local.primary_phone_country_code,
+                        whatsapp_number: whatsappDirty
+                            ? (isNA(local.whatsapp_number) ? "N/A" : nationalDigits(local.whatsapp_number, local.whatsapp_country_code))
+                            : local.whatsapp_number,
+                        whatsapp_country_code: whatsappDirty
+                            ? (local.whatsapp_country_code || "+92")
+                            : local.whatsapp_country_code,
                         occupation: local.occupation,
                         email_address: local.email_address,
                         additional_phones: local.additional_phones || [],
@@ -184,14 +249,23 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                         {isEmergency && <span className="text-[9px] font-black px-1.5 py-0.5 bg-rose-600 text-white rounded-md uppercase">Emergency Contact</span>}
                         {local.cnic && <span className="flex items-center gap-1 text-[10px] text-zinc-500 font-medium bg-zinc-100 px-1.5 py-0.5 rounded-md"><User className="h-2.5 w-2.5" />{local.cnic}</span>}
                         {local.primary_phone && (
-                            <span className={`flex items-center gap-1 text-[10px] font-bold ${isEmergency && !(local.additional_phones || []).some((p: any) => p.label?.toUpperCase().includes("EMERGENCY")) ? "text-rose-600" : "text-zinc-400"}`}>
-                                <Phone className="h-2.5 w-2.5" />{local.primary_phone}
-                            </span>
+                            <a
+                                href={isNA(local.primary_phone) ? undefined : `tel:${composePhone(local.primary_phone_country_code, local.primary_phone)}`}
+                                onClick={e => e.stopPropagation()}
+                                className={`flex items-center gap-1 text-[10px] font-bold ${isEmergency && !(local.additional_phones || []).some((p: any) => p.label?.toUpperCase().includes("EMERGENCY")) ? "text-rose-600" : "text-zinc-400"}`}
+                            >
+                                <Phone className="h-2.5 w-2.5" />{composePhone(local.primary_phone_country_code, local.primary_phone)}
+                            </a>
                         )}
                         {(local.additional_phones || []).filter((p: any) => p.label?.toUpperCase().includes("EMERGENCY")).map((p: any, i: number) => (
-                            <span key={i} className="flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
-                                <Phone className="h-2.5 w-2.5" />{p.number} ({p.label.replace(/\(EMERGENCY\)/gi, "").trim() || "Work"})
-                            </span>
+                            <a
+                                key={i}
+                                href={isNA(p.number) ? undefined : `tel:${composePhone(p.country_code, p.number)}`}
+                                onClick={e => e.stopPropagation()}
+                                className="flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md"
+                            >
+                                <Phone className="h-2.5 w-2.5" />{composePhone(p.country_code, p.number)} ({p.label.replace(/\(EMERGENCY\)/gi, "").trim() || "Work"})
+                            </a>
                         ))}
                     </div>
                 </div>
@@ -263,8 +337,22 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                             <div className="col-span-2"><Field label="Full Name"><Input value={local.full_name ?? ""} onChange={v => set("full_name", v)} showNA /></Field></div>
                             <Field label="CNIC"><Input value={local.cnic ?? ""} onChange={v => set("cnic", formatCNIC(v))} placeholder="xxxxx-xxxxxxx-x" /></Field>
                             <Field label="Occupation"><Input value={local.occupation ?? ""} onChange={v => set("occupation", v)} /></Field>
-                            <Field label="Phone"><PhoneInput value={local.primary_phone ?? ""} onChange={v => set("primary_phone", v)} /></Field>
-                            <Field label="WhatsApp"><PhoneInput value={local.whatsapp_number ?? ""} onChange={v => set("whatsapp_number", v)} /></Field>
+                            <Field label="Phone">
+                                <PhoneInput
+                                    countryCode={local.primary_phone_country_code || "+92"}
+                                    onCountryCodeChange={v => set("primary_phone_country_code", v)}
+                                    value={local.primary_phone ?? ""}
+                                    onChange={v => set("primary_phone", v)}
+                                />
+                            </Field>
+                            <Field label="WhatsApp">
+                                <PhoneInput
+                                    countryCode={local.whatsapp_country_code || "+92"}
+                                    onCountryCodeChange={v => set("whatsapp_country_code", v)}
+                                    value={local.whatsapp_number ?? ""}
+                                    onChange={v => set("whatsapp_number", v)}
+                                />
+                            </Field>
                             <div className="col-span-2"><Field label="Email"><Input type="email" value={local.email_address ?? ""} onChange={v => set("email_address", v)} /></Field></div>
                         </div>
 
@@ -276,7 +364,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                                     onClick={() => {
                                         const current = local.additional_phones || [];
                                         if (current.length >= 10) return;
-                                        set("additional_phones", [...current, { label: "", number: "+92" }]);
+                                        set("additional_phones", [...current, { label: "", number: "", country_code: "+92" }]);
                                     }}
                                     disabled={(local.additional_phones || []).length >= 10}
                                     className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
@@ -300,6 +388,12 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                                         </div>
                                         <div className="flex-[1.5]">
                                             <PhoneInput
+                                                countryCode={ph.country_code || "+92"}
+                                                onCountryCodeChange={v => {
+                                                    const updated = [...(local.additional_phones || [])];
+                                                    updated[idx] = { ...updated[idx], country_code: v };
+                                                    set("additional_phones", updated);
+                                                }}
                                                 value={ph.number}
                                                 onChange={v => {
                                                     const updated = [...(local.additional_phones || [])];
@@ -332,7 +426,9 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
 }
 
 const EMPTY_GUARDIAN = {
-    full_name: "", cnic: "", relationship: "GUARDIAN", primary_phone: "+92", whatsapp_number: "+92",
+    full_name: "", cnic: "", relationship: "GUARDIAN",
+    primary_phone: "", primary_phone_country_code: "+92",
+    whatsapp_number: "", whatsapp_country_code: "+92",
     occupation: "", email_address: "", is_primary_contact: false, is_emergency_contact: false,
     additional_phones: []
 };
@@ -413,7 +509,8 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
 
     // Unified Family Address state
     const [familyAddress, setFamilyAddress] = useState<any>({
-        house_appt_name: "", area_block: "", city: "", postal_code: "", province: "", country: "", work_phone: ""
+        house_appt_name: "", area_block: "", city: "", postal_code: "", province: "", country: "",
+        work_phone: "", work_phone_country_code: "+92",
     });
     const [savingAddr, setSavingAddr] = useState(false);
     const [savedAddr, setSavedAddr] = useState(false);
@@ -460,6 +557,8 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
             // Populate family address from first guardian if not set or when student changes
             if (student.guardians.length > 0) {
                 const g = student.guardians[0];
+                const homePhone = student.home_phone || g.work_phone || "";
+                const homeCode = g.work_phone_country_code || "+92";
                 setFamilyAddress({
                     house_appt_name: g.house_appt_name || "",
                     area_block: g.area_block || "",
@@ -467,7 +566,10 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                     postal_code: g.postal_code || "",
                     province: g.province || "",
                     country: g.country || "",
-                    work_phone: student.home_phone || g.work_phone || ""
+                    work_phone: nationalDigits(homePhone, homeCode),
+                    work_phone_country_code: homePhone?.startsWith("+") && !homePhone.startsWith(homeCode)
+                        ? (homePhone.match(/^\+\d{1,4}/)?.[0] || homeCode)
+                        : homeCode,
                 });
                 setIsAddrDirty(false);
             }
@@ -478,7 +580,14 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
         if (!newG.full_name || !newG.relationship) return alert("Full name and relationship are required");
         setSaving(true);
         try {
-            const { data } = await api.post(`/v1/staff-editing/students/${student.cc}/guardians`, newG);
+            const payload = {
+                ...newG,
+                primary_phone: isNA(newG.primary_phone) ? "N/A" : nationalDigits(newG.primary_phone, newG.primary_phone_country_code),
+                primary_phone_country_code: newG.primary_phone_country_code || "+92",
+                whatsapp_number: isNA(newG.whatsapp_number) ? "N/A" : nationalDigits(newG.whatsapp_number, newG.whatsapp_country_code),
+                whatsapp_country_code: newG.whatsapp_country_code || "+92",
+            };
+            const { data } = await api.post(`/v1/staff-editing/students/${student.cc}/guardians`, payload);
             const guardianId = data?.data?.guardian_id || data?.data?.id;
 
             // Upload Photo if exists
@@ -516,8 +625,10 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
     const saveFamilyAddress = async () => {
         setSavingAddr(true);
         try {
+            const { work_phone_country_code, work_phone, ...rest } = familyAddress;
             await api.patch(`/v1/staff-editing/students/${student.cc}/family-address`, {
-                ...familyAddress,
+                ...rest,
+                work_phone: isNA(work_phone) ? "N/A" : composePhone(work_phone_country_code, work_phone),
                 bulk_sync: syncToHousehold
             });
             setSavedAddr(true);
@@ -859,11 +970,21 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                                     )}
 
                                     <Field label="Phone">
-                                        <PhoneInput value={newG.primary_phone || ""} onChange={v => set("primary_phone", v)} />
+                                        <PhoneInput
+                                            countryCode={newG.primary_phone_country_code || "+92"}
+                                            onCountryCodeChange={v => set("primary_phone_country_code", v)}
+                                            value={newG.primary_phone || ""}
+                                            onChange={v => set("primary_phone", v)}
+                                        />
                                     </Field>
 
                                     <Field label="WhatsApp">
-                                        <PhoneInput value={newG.whatsapp_number || ""} onChange={v => set("whatsapp_number", v)} />
+                                        <PhoneInput
+                                            countryCode={newG.whatsapp_country_code || "+92"}
+                                            onCountryCodeChange={v => set("whatsapp_country_code", v)}
+                                            value={newG.whatsapp_number || ""}
+                                            onChange={v => set("whatsapp_number", v)}
+                                        />
                                     </Field>
 
                                     <Field label="Occupation">
@@ -956,7 +1077,12 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                                         </div>
                                         <div className="col-span-1 md:col-span-2">
                                             <Field label="Family Home Phone #">
-                                                <PhoneInput value={familyAddress.work_phone} onChange={v => setAddr("work_phone", v)} />
+                                                <PhoneInput
+                                                    countryCode={familyAddress.work_phone_country_code || "+92"}
+                                                    onCountryCodeChange={v => setAddr("work_phone_country_code", v)}
+                                                    value={familyAddress.work_phone}
+                                                    onChange={v => setAddr("work_phone", v)}
+                                                />
                                             </Field>
                                         </div>
                                     </div>
@@ -990,10 +1116,12 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                                     <div className="col-span-2">
                                         <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Family Home Phone #</p>
                                         <p className="text-[14px] font-semibold text-zinc-800 dark:text-zinc-200 mt-1 flex items-center gap-2">
-                                            {isNA(familyAddress.work_phone) ? (
+                                            {isNA(familyAddress.work_phone) || !familyAddress.work_phone ? (
                                                 <span className="px-1.5 py-0.5 text-[9px] font-black bg-indigo-600 text-white rounded-md uppercase">N/A</span>
                                             ) : (
-                                                familyAddress.work_phone
+                                                <a href={`tel:${composePhone(familyAddress.work_phone_country_code, familyAddress.work_phone)}`} className="hover:underline">
+                                                    {composePhone(familyAddress.work_phone_country_code, familyAddress.work_phone)}
+                                                </a>
                                             )}
                                         </p>
                                     </div>

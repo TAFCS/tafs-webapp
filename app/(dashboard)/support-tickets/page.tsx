@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, Suspense } from "react";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSocket } from "@/context/SocketContext";
@@ -18,6 +18,7 @@ import {
   markTicketRead,
   markOwnTicketMessagesRead,
   removeOpenQueueTicket,
+  removeTicketMessage,
   sendTicketMessage,
   setQueueTab,
   setSelectedTicketId,
@@ -65,6 +66,10 @@ export default function SupportTicketsPage() {
   const selectedRef = useRef<string | null>(null);
   selectedRef.current = selectedTicketId;
   const roleDefaultApplied = useRef(false);
+  const initialRoleTabSettled = useRef(false);
+  // Becomes true only after the role-default tab (if any) has landed in Redux —
+  // then the first fetch runs. Stays true so later manual tab switches still fetch.
+  const [roleReady, setRoleReady] = useState(false);
 
   const hasPermission = canViewSupportTickets(user);
 
@@ -83,26 +88,34 @@ export default function SupportTicketsPage() {
   useEffect(() => {
     if (!user || roleDefaultApplied.current) return;
     roleDefaultApplied.current = true;
-    if (user.role === "SUPER_ADMIN") dispatch(setQueueTab("oversight"));
-    else if (user.role === "CAMPUS_ADMIN") dispatch(setQueueTab("closed"));
+    if (user.role === "SUPER_ADMIN") {
+      dispatch(setQueueTab("oversight"));
+    } else if (user.role === "CAMPUS_ADMIN") {
+      dispatch(setQueueTab("closed"));
+    } else {
+      initialRoleTabSettled.current = true;
+      setRoleReady(true);
+    }
   }, [dispatch, user]);
 
   useEffect(() => {
-    if (!hasPermission || !user) return;
-    // Prevent a race: we sometimes start loading the queue for the default
-    // tab (e.g. my-queue) and then immediately switch the tab based on role
-    // (oversight/closed). The async responses can come back out-of-order and
-    // leave the UI empty until a full reload.
-    const expectedTab =
+    if (!user || !roleDefaultApplied.current || initialRoleTabSettled.current) return;
+    const roleDefault: typeof queueTab | null =
       user.role === "SUPER_ADMIN"
         ? "oversight"
         : user.role === "CAMPUS_ADMIN"
           ? "closed"
-          : queueTab;
+          : null;
+    if (!roleDefault || queueTab === roleDefault) {
+      initialRoleTabSettled.current = true;
+      setRoleReady(true);
+    }
+  }, [user, queueTab]);
 
-    if (expectedTab !== queueTab) return;
+  useEffect(() => {
+    if (!hasPermission || !user || !roleReady) return;
     loadQueue();
-  }, [loadQueue, hasPermission, user, queueTab]);
+  }, [loadQueue, hasPermission, user, queueTab, roleReady]);
 
   useEffect(() => {
     if (user?.role === "SUPER_ADMIN") {
@@ -231,6 +244,21 @@ export default function SupportTicketsPage() {
       }
     };
 
+    const onMessageDeleted = (payload: {
+      ticketId?: string;
+      messageId?: string;
+      ticket?: SupportTicket;
+    }) => {
+      if (!payload.messageId || !payload.ticketId) return;
+      dispatch(
+        removeTicketMessage({
+          ticketId: payload.ticketId,
+          messageId: payload.messageId,
+          ticket: payload.ticket,
+        }),
+      );
+    };
+
     socket.on("connect", resync);
     socket.on("ticketCreated", onCreated);
     socket.on("ticketClaimed", onClaimed);
@@ -241,6 +269,7 @@ export default function SupportTicketsPage() {
     socket.on("replyReviewed", onReviewed);
     socket.on("ticketMessageReceived", onMessage);
     socket.on("ticketMessagesRead", onMessagesRead);
+    socket.on("ticketMessageDeleted", onMessageDeleted);
 
     return () => {
       socket.off("connect", resync);
@@ -253,6 +282,7 @@ export default function SupportTicketsPage() {
       socket.off("replyReviewed", onReviewed);
       socket.off("ticketMessageReceived", onMessage);
       socket.off("ticketMessagesRead", onMessagesRead);
+      socket.off("ticketMessageDeleted", onMessageDeleted);
     };
   }, [socket, loadQueue, dispatch, user?.role, hasPermission]);
 

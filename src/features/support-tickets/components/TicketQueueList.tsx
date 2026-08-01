@@ -136,10 +136,12 @@ function TicketCard({
   ticket,
   isSelected,
   onSelect,
+  preferClosingNote = false,
 }: {
   ticket: SupportTicket;
   isSelected: boolean;
   onSelect: () => void;
+  preferClosingNote?: boolean;
 }) {
   return (
     <button
@@ -170,7 +172,9 @@ function TicketCard({
         {ticket.subtopic && ` · ${ticket.subtopic}`}
       </p>
       <p className="text-[12px] text-zinc-400 dark:text-zinc-500 truncate">
-        {ticket.last_message_snippet || ticket.description}
+        {preferClosingNote && ticket.closing_note
+          ? ticket.closing_note
+          : ticket.last_message_snippet || ticket.description}
       </p>
     </button>
   );
@@ -212,7 +216,8 @@ export function TicketQueueList({
             (t.students?.full_name?.toLowerCase().includes(q)) ||
             (t.families?.household_name?.toLowerCase().includes(q)) ||
             (t.subtopic?.toLowerCase().includes(q)) ||
-            (t.last_message_snippet?.toLowerCase().includes(q))
+            (t.last_message_snippet?.toLowerCase().includes(q)) ||
+            (t.closing_note?.toLowerCase().includes(q))
           );
         })
       : tickets;
@@ -322,6 +327,7 @@ export function TicketQueueList({
                   ticket={ticket}
                   isSelected={selectedId === ticket.id}
                   onSelect={() => onSelect(ticket.id)}
+                  preferClosingNote={activeTab === "closed"}
                 />
               ))}
             {!isLoading && filtered.length === 0 && (

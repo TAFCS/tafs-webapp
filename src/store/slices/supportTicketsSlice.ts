@@ -1,6 +1,27 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import api from '../../lib/api';
 
+export interface TicketEvent {
+  id: number;
+  ticket_id: string;
+  event_type:
+    | 'CREATED'
+    | 'CLAIMED'
+    | 'TRANSFERRED'
+    | 'FORWARDED'
+    | 'REPLY_SUBMITTED'
+    | 'REPLY_APPROVED'
+    | 'REPLY_REJECTED'
+    | 'CLOSED_BY_STAFF'
+    | 'CLOSED_BY_PARENT';
+  note?: string | null;
+  created_at: string;
+  actor_user?: { id: string; full_name: string } | null;
+  actor_guardian?: { id: number; full_name: string } | null;
+  from_user?: { id: string; full_name: string } | null;
+  to_user?: { id: string; full_name: string } | null;
+}
+
 export interface SupportTicket {
   id: string;
   family_id: number;
@@ -12,6 +33,8 @@ export interface SupportTicket {
   current_assignee_id?: string | null;
   last_message_at: string;
   last_message_snippet?: string | null;
+  /** Present on closed-queue items when a closing note was saved. */
+  closing_note?: string | null;
   unread_by_staff: number;
   unread_by_parent: number;
   families?: { id: number; household_name: string };
@@ -62,7 +85,7 @@ interface SupportTicketsState {
   queueItems: SupportTicket[];
   closedItems: SupportTicket[];
   selectedTicketId: string | null;
-  selectedTicket: (SupportTicket & { messages?: TicketMessage[]; events?: unknown[] }) | null;
+  selectedTicket: (SupportTicket & { messages?: TicketMessage[]; events?: TicketEvent[] }) | null;
   pendingApprovals: PendingApproval[];
   isLoadingQueue: boolean;
   isLoadingDetail: boolean;
@@ -72,6 +95,8 @@ interface SupportTicketsState {
   detailError: string | null;
   actionError: string | null;
   detailRequestId: string;
+  /** Ignores out-of-order queue responses the same way detailRequestId does for ticket detail. */
+  queueRequestId: string;
 }
 
 const initialState: SupportTicketsState = {
@@ -89,6 +114,7 @@ const initialState: SupportTicketsState = {
   detailError: null,
   actionError: null,
   detailRequestId: '',
+  queueRequestId: '',
 };
 
 function apiError(err: unknown, fallback: string): string {
@@ -215,6 +241,18 @@ export const reviewTicketMessage = createAsyncThunk(
   },
 );
 
+export const deleteTicketMessage = createAsyncThunk(
+  'supportTickets/deleteTicketMessage',
+  async (messageId: string, { rejectWithValue }) => {
+    try {
+      const res = await api.delete(`v1/support-tickets/messages/${messageId}`);
+      return res.data.data ?? res.data;
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Delete failed'));
+    }
+  },
+);
+
 export const claimTicket = createAsyncThunk(
   'supportTickets/claimTicket',
   async (ticketId: string, { rejectWithValue }) => {
@@ -336,6 +374,29 @@ const supportTicketsSlice = createSlice({
         last_message_snippet: snippet,
       } as SupportTicket);
     },
+    removeTicketMessage(
+      state,
+      action: PayloadAction<{ ticketId: string; messageId: string; ticket?: SupportTicket }>,
+    ) {
+      const { ticketId, messageId, ticket } = action.payload;
+      if (state.selectedTicket?.id === ticketId && state.selectedTicket.messages) {
+        state.selectedTicket.messages = state.selectedTicket.messages.filter(
+          (m) => m.id !== messageId,
+        );
+      }
+      state.pendingApprovals = state.pendingApprovals.filter((p) => p.id !== messageId);
+      if (ticket) {
+        patchQueueTicket(state, ticket);
+        if (state.selectedTicket?.id === ticketId) {
+          state.selectedTicket = {
+            ...state.selectedTicket,
+            ...ticket,
+            messages: state.selectedTicket.messages,
+            events: state.selectedTicket.events,
+          };
+        }
+      }
+    },
     updateMessageReviewStatus(
       state,
       action: PayloadAction<{ messageId: string; status: string; reviewComment?: string }>,
@@ -372,59 +433,71 @@ const supportTicketsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchMyQueue.pending, (state) => {
+      .addCase(fetchMyQueue.pending, (state, action) => {
         state.isLoadingQueue = true;
         state.queueError = null;
+        state.queueRequestId = action.meta.requestId;
       })
       .addCase(fetchMyQueue.fulfilled, (state, action) => {
+        if (action.meta.requestId !== state.queueRequestId) return;
         state.isLoadingQueue = false;
         state.queueItems = action.payload.slice().sort(
           (a: SupportTicket, b: SupportTicket) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
         );
       })
       .addCase(fetchMyQueue.rejected, (state, action) => {
+        if (action.meta.requestId !== state.queueRequestId) return;
         state.isLoadingQueue = false;
         state.queueError = (action.payload as string) ?? 'Failed to load queue';
       })
-      .addCase(fetchFinanceQueue.pending, (state) => {
+      .addCase(fetchFinanceQueue.pending, (state, action) => {
         state.isLoadingQueue = true;
         state.queueError = null;
+        state.queueRequestId = action.meta.requestId;
       })
       .addCase(fetchFinanceQueue.fulfilled, (state, action) => {
+        if (action.meta.requestId !== state.queueRequestId) return;
         state.isLoadingQueue = false;
         state.queueItems = action.payload.slice().sort(
           (a: SupportTicket, b: SupportTicket) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
         );
       })
       .addCase(fetchFinanceQueue.rejected, (state, action) => {
+        if (action.meta.requestId !== state.queueRequestId) return;
         state.isLoadingQueue = false;
         state.queueError = (action.payload as string) ?? 'Failed to load finance queue';
       })
-      .addCase(fetchOversightQueue.pending, (state) => {
+      .addCase(fetchOversightQueue.pending, (state, action) => {
         state.isLoadingQueue = true;
         state.queueError = null;
+        state.queueRequestId = action.meta.requestId;
       })
       .addCase(fetchOversightQueue.fulfilled, (state, action) => {
+        if (action.meta.requestId !== state.queueRequestId) return;
         state.isLoadingQueue = false;
         state.queueItems = action.payload.slice().sort(
           (a: SupportTicket, b: SupportTicket) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
         );
       })
       .addCase(fetchOversightQueue.rejected, (state, action) => {
+        if (action.meta.requestId !== state.queueRequestId) return;
         state.isLoadingQueue = false;
         state.queueError = (action.payload as string) ?? 'Failed to load oversight queue';
       })
-      .addCase(fetchClosedTickets.pending, (state) => {
+      .addCase(fetchClosedTickets.pending, (state, action) => {
         state.isLoadingQueue = true;
         state.queueError = null;
+        state.queueRequestId = action.meta.requestId;
       })
       .addCase(fetchClosedTickets.fulfilled, (state, action) => {
+        if (action.meta.requestId !== state.queueRequestId) return;
         state.isLoadingQueue = false;
         state.closedItems = action.payload.slice().sort(
           (a: SupportTicket, b: SupportTicket) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
         );
       })
       .addCase(fetchClosedTickets.rejected, (state, action) => {
+        if (action.meta.requestId !== state.queueRequestId) return;
         state.isLoadingQueue = false;
         state.queueError = (action.payload as string) ?? 'Failed to load closed tickets';
       })
@@ -509,6 +582,26 @@ const supportTicketsSlice = createSlice({
           },
           type: '',
         });
+      })
+      .addCase(deleteTicketMessage.fulfilled, (state, action) => {
+        const payload = action.payload as {
+          messageId?: string;
+          ticket?: SupportTicket;
+        };
+        const messageId = payload.messageId ?? (action.meta.arg as string);
+        const ticketId =
+          payload.ticket?.id ??
+          state.selectedTicket?.id ??
+          '';
+        if (!messageId || !ticketId) return;
+        supportTicketsSlice.caseReducers.removeTicketMessage(state, {
+          payload: {
+            ticketId,
+            messageId,
+            ticket: payload.ticket,
+          },
+          type: '',
+        });
       });
   },
 });
@@ -522,6 +615,7 @@ export const {
   upsertQueueTicket,
   removeOpenQueueTicket,
   appendTicketMessage,
+  removeTicketMessage,
   updateMessageReviewStatus,
   addPendingApproval,
   markTicketUnreadZero,

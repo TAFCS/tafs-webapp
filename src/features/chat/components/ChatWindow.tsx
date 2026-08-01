@@ -1,12 +1,54 @@
 "use client";
 
-import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe, Download, Reply, WifiOff, RefreshCcw, Check, CheckCheck } from "lucide-react";
+import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe, Download, Reply, WifiOff, RefreshCcw, Check, CheckCheck, Copy } from "lucide-react";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { format, isSameDay } from "date-fns";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import api from "@/lib/api";
 import { AnnouncementSelectors } from "./AnnouncementSelectors";
 import { useSocket } from "@/context/SocketContext";
+
+function flattenUploadPayload(raw: any): Record<string, unknown> {
+    if (!raw || typeof raw !== "object") return {};
+    const nested = raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {};
+    const { metadata: _m, data: _d, ...rest } = raw;
+    return { ...nested, ...rest, ...(raw.url ? { url: raw.url } : {}) };
+}
+
+function getImageDimensions(file: File): Promise<{ width?: number; height?: number }> {
+    if (!file.type.startsWith("image/")) return Promise.resolve({});
+    return new Promise((resolve) => {
+        const objectUrl = URL.createObjectURL(file);
+        const img = new window.Image();
+        img.onload = () => {
+            resolve({ width: img.naturalWidth, height: img.naturalHeight });
+            URL.revokeObjectURL(objectUrl);
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve({});
+        };
+        img.src = objectUrl;
+    });
+}
+
+function copyableMessageText(msg: any): string | null {
+    if (!msg) return null;
+    const type = (msg.message_type ?? "").toString().toUpperCase();
+    if (type === "TEXT") {
+        const text = (msg.content ?? "").toString();
+        return text.trim() ? text : null;
+    }
+    if (type === "IMAGE" || type === "DOCUMENT") {
+        const url = msg.media_metadata?.url;
+        const content = (msg.content ?? "").toString();
+        if (url && content && content !== url) return content;
+        const caption = (msg.media_metadata?.caption ?? "").toString();
+        if (caption.trim()) return caption;
+        return null;
+    }
+    return null;
+}
 
 interface ChatWindowProps {
     familyId: number | null;
@@ -38,6 +80,8 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
     const [targetGrade, setTargetGrade] = useState<string | null>(null);
     const [targetSection, setTargetSection] = useState<string | null>(null);
     const [replyingTo, setReplyingTo] = useState<any>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number; text: string } | null>(null);
+    const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const mediaRecorder = useRef<MediaRecorder | null>(null);
     const audioChunks = useRef<Blob[]>([]);
@@ -121,6 +165,30 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
         });
     };
 
+    const openCopyMenu = useCallback((e: { clientX: number; clientY: number; preventDefault: () => void }, msg: any) => {
+        const text = copyableMessageText(msg);
+        if (!text) return;
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, text });
+    }, []);
+
+    const handleCopyText = useCallback(async (text: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (err) {
+            console.error("Failed to copy:", err);
+        } finally {
+            setContextMenu(null);
+        }
+    }, []);
+
+    const clearLongPress = useCallback(() => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    }, []);
+
     const uploadAndSendPending = async (caption?: string, existingMetadata?: any) => {
         const batchId = Date.now().toString();
         const filesToUpload = [...pendingFiles];
@@ -132,11 +200,15 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
             formData.append('file', item.file);
 
             try {
+                const dims = item.type === "IMAGE" ? await getImageDimensions(item.file) : {};
                 const response = await api.post('/v1/chat/media', formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 if (response.data.url) {
+                    const uploaded = flattenUploadPayload(response.data);
                     const metadata = { 
+                        ...uploaded,
+                        ...dims,
                         url: response.data.url,
                         batchId,
                         caption: i === 0 ? caption : undefined,
@@ -227,7 +299,9 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                             headers: { 'Content-Type': 'multipart/form-data' }
                         });
                         if (response.data.url) {
+                            const uploaded = flattenUploadPayload(response.data);
                             const metadata: any = {
+                                ...uploaded,
                                 url: response.data.url,
                                 duration: recordingTimeRef.current,
                             };
@@ -594,6 +668,18 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                         className="relative max-w-[75%] flex flex-col touch-pan-y cursor-grab active:cursor-grabbing"
                                         style={{ touchAction: "pan-y" }}
                                         onDoubleClick={() => setReplyingTo(firstMsg)}
+                                        onContextMenu={(e) => openCopyMenu(e, firstMsg)}
+                                        onTouchStart={(e) => {
+                                            const touch = e.touches[0];
+                                            if (!touch || !copyableMessageText(firstMsg)) return;
+                                            clearLongPress();
+                                            longPressTimer.current = setTimeout(() => {
+                                                setContextMenu({ x: touch.clientX, y: touch.clientY, text: copyableMessageText(firstMsg)! });
+                                            }, 500);
+                                        }}
+                                        onTouchEnd={clearLongPress}
+                                        onTouchMove={clearLongPress}
+                                        onTouchCancel={clearLongPress}
                                         title="Double-click or drag right to reply"
                                     >
                                     <div className={`relative flex flex-col ${isMe ? "items-end" : "items-start"}`}>
@@ -635,17 +721,35 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                                 )}
                                                 {isGroup ? (
                                                     <div className={`grid gap-1.5 ${clusterMessages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} max-w-[400px]`}>
-                                                        {clusterMessages.map((m: any) => (
-                                                            <div key={m.id} className="relative cursor-pointer rounded-xl overflow-hidden shadow-md" onClick={() => setPreviewImage(m.media_metadata?.url || m.content)}>
-                                                                <img src={m.media_metadata?.url || m.content} className="w-full h-full object-cover min-h-[150px]" />
+                                                        {clusterMessages.map((m: any) => {
+                                                            const w = m.media_metadata?.width;
+                                                            const h = m.media_metadata?.height;
+                                                            return (
+                                                            <div key={m.id} className="relative cursor-pointer rounded-xl overflow-hidden shadow-md bg-black/5 dark:bg-white/5" onClick={() => setPreviewImage(m.media_metadata?.url || m.content)}>
+                                                                <img
+                                                                    src={m.media_metadata?.url || m.content}
+                                                                    alt=""
+                                                                    className="w-full max-h-[280px] object-contain"
+                                                                    style={w && h ? { aspectRatio: `${w} / ${h}` } : undefined}
+                                                                />
                                                             </div>
-                                                        ))}
+                                                            );
+                                                        })}
                                                     </div>
                                                 ) : firstMsg.message_type === "VOICE" ? (
                                                     <audio src={firstMsg.content.includes('digitaloceanspaces.com') ? `/api/v1/chat/media/proxy?key=${firstMsg.content.split('digitaloceanspaces.com/')[1]}` : firstMsg.content} controls className="max-w-full h-10 scale-90 origin-left" />
                                                 ) : firstMsg.message_type === "IMAGE" ? (
-                                                    <div className="rounded-xl overflow-hidden cursor-pointer" onClick={() => setPreviewImage(firstMsg.content)}>
-                                                        <img src={firstMsg.media_metadata?.url || firstMsg.content} className="max-w-full max-h-[450px] object-cover" />
+                                                    <div className="rounded-xl overflow-hidden cursor-pointer bg-black/5 dark:bg-white/5" onClick={() => setPreviewImage(firstMsg.media_metadata?.url || firstMsg.content)}>
+                                                        <img
+                                                            src={firstMsg.media_metadata?.url || firstMsg.content}
+                                                            alt=""
+                                                            className="max-w-full max-h-[450px] w-auto h-auto object-contain"
+                                                            style={
+                                                                firstMsg.media_metadata?.width && firstMsg.media_metadata?.height
+                                                                    ? { aspectRatio: `${firstMsg.media_metadata.width} / ${firstMsg.media_metadata.height}` }
+                                                                    : undefined
+                                                            }
+                                                        />
                                                     </div>
                                                 ) : firstMsg.message_type === "DOCUMENT" ? (
                                                     <div className="flex items-center gap-4 p-2 min-w-[240px]">
@@ -926,6 +1030,25 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
             </div>
 
             {/* Modals */}
+            {contextMenu && (
+                <>
+                    <div className="fixed inset-0 z-[110]" onClick={() => setContextMenu(null)} onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }} />
+                    <div
+                        className="fixed z-[120] min-w-[140px] rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl py-1 animate-in fade-in zoom-in-95"
+                        style={{ left: Math.min(contextMenu.x, window.innerWidth - 160), top: Math.min(contextMenu.y, window.innerHeight - 60) }}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => handleCopyText(contextMenu.text)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        >
+                            <Copy className="h-4 w-4" />
+                            Copy
+                        </button>
+                    </div>
+                </>
+            )}
+
             {previewImage && (
                 <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-8 animate-in fade-in" onClick={() => setPreviewImage(null)}>
                     <button className="absolute top-8 right-8 p-3 bg-white/10 rounded-2xl text-white"><X className="h-8 w-8" /></button>
