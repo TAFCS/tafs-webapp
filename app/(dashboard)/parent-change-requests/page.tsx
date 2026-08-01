@@ -218,7 +218,9 @@ export default function ParentChangeRequestsPage() {
     const getFieldIcon = (key: string) => {
         switch (key) {
             case 'primary_phone': return <Phone className="h-4 w-4" />;
+            case 'primary_phone_country_code': return <Phone className="h-4 w-4" />;
             case 'whatsapp_number': return <Phone className="h-4 w-4 text-green-500" />;
+            case 'whatsapp_country_code': return <Phone className="h-4 w-4 text-green-500" />;
             case 'email_address': return <Mail className="h-4 w-4" />;
             case 'cnic': return <Badge className="h-4 w-4" />;
             case 'occupation': return <Briefcase className="h-4 w-4" />;
@@ -592,7 +594,14 @@ export default function ParentChangeRequestsPage() {
                                                 </div>
                                                 <div className="text-zinc-500 font-medium flex items-center gap-2">
                                                     <Phone className="h-3.5 w-3.5" />
-                                                    {selectedRequest.guardians?.primary_phone || 'No Phone'}
+                                                    {(() => {
+                                                        const g = selectedRequest.guardians;
+                                                        if (!g?.primary_phone) return 'No Phone';
+                                                        const code = g.primary_phone_country_code || '+92';
+                                                        const n = String(g.primary_phone).trim();
+                                                        if (n.startsWith('+')) return n;
+                                                        return `${code}${n.replace(/\D/g, '')}`;
+                                                    })()}
                                                 </div>
                                             </div>
                                         </div>

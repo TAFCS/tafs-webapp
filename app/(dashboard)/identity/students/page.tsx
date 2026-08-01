@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Home, Download, Loader2 } from "lucide-react";
+import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Download, Loader2, CheckCircle2, Camera } from "lucide-react";
 import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
@@ -11,6 +11,7 @@ import { fetchSections } from "@/src/store/slices/sectionsSlice";
 import Image from "next/image";
 import { StudentDetailPanel } from "./tabs/StudentDetailPanel";
 import toast from "react-hot-toast";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
 
 // ── Column Configuration for Excel Export ──────────────────────────────────
 interface ColumnOption {
@@ -380,11 +381,11 @@ function DirectoryContent() {
 
     // Filters
     const [search, setSearch]         = useState("");
-    const [campusId, setCampusId]     = useState("");
-    const [classId, setClassId]       = useState("");
-    const [sectionId, setSectionId]   = useState("");
-    const [houseId, setHouseId]       = useState("");
-    const [status, setStatus]         = useState("");
+    const [campusIds, setCampusIds]   = useState<number[]>([]);
+    const [classIds, setClassIds]     = useState<number[]>([]);
+    const [sectionIds, setSectionIds] = useState<number[]>([]);
+    const [houseIds, setHouseIds]     = useState<number[]>([]);
+    const [statuses, setStatuses]     = useState<string[]>([]);
     const [auditType, setAuditType]   = useState("");
     const [photoFilter, setPhotoFilter] = useState("");
     const [page, setPage]             = useState(1);
@@ -419,9 +420,21 @@ function DirectoryContent() {
         }
     }, []);
 
+    const buildFilterParams = useCallback(() => {
+        const params: Record<string, string | number> = { page, search };
+        if (campusIds.length > 0) params.campus_id = campusIds.join(",");
+        if (classIds.length > 0) params.class_id = classIds.join(",");
+        if (sectionIds.length > 0) params.section_id = sectionIds.join(",");
+        if (houseIds.length > 0) params.house_id = houseIds.join(",");
+        if (statuses.length > 0) params.status = statuses.join(",");
+        if (auditType) params.audit_type = auditType;
+        if (photoFilter) params.has_photo = photoFilter;
+        return params;
+    }, [page, search, campusIds, classIds, sectionIds, houseIds, statuses, auditType, photoFilter]);
+
     const triggerFetch = useCallback(() => {
-        fetchStudents({ page, search, campus_id: campusId, class_id: classId, section_id: sectionId, house_id: houseId, status, audit_type: auditType, has_photo: photoFilter });
-    }, [page, search, campusId, classId, sectionId, houseId, status, auditType, photoFilter, fetchStudents]);
+        fetchStudents(buildFilterParams());
+    }, [buildFilterParams, fetchStudents]);
 
     // Debounced search
     useEffect(() => {
@@ -432,25 +445,28 @@ function DirectoryContent() {
     }, [search]);
 
     // Instant on filter/page change
-    useEffect(() => { triggerFetch(); }, [page, campusId, classId, sectionId, houseId, status, auditType, photoFilter, triggerFetch]);
+    useEffect(() => { triggerFetch(); }, [page, campusIds, classIds, sectionIds, houseIds, statuses, auditType, photoFilter, triggerFetch]);
 
-    const hasFilters = campusId || classId || sectionId || houseId || status || auditType || photoFilter;
-    const clearFilters = () => { setCampusId(""); setClassId(""); setSectionId(""); setHouseId(""); setStatus(""); setAuditType(""); setPhotoFilter(""); setPage(1); };
+    const hasFilters = campusIds.length > 0 || classIds.length > 0 || sectionIds.length > 0 || houseIds.length > 0 || statuses.length > 0 || auditType || photoFilter;
+    const clearFilters = () => {
+        setCampusIds([]);
+        setClassIds([]);
+        setSectionIds([]);
+        setHouseIds([]);
+        setStatuses([]);
+        setAuditType("");
+        setPhotoFilter("");
+        setPage(1);
+    };
 
     const handleExportExcel = async (selectedColumns: string[]) => {
         setIsExporting(true);
         try {
             const params: Record<string, string | number> = {
-                search,
-                campus_id: campusId,
-                class_id: classId,
-                section_id: sectionId,
-                house_id: houseId,
-                status,
-                audit_type: auditType,
-                has_photo: photoFilter,
+                ...buildFilterParams(),
                 columns: selectedColumns.join(','),
             };
+            delete params.page;
             const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== "" && v !== 0));
             const response = await api.get("/v1/students/export", {
                 params: clean,
@@ -473,16 +489,16 @@ function DirectoryContent() {
         }
     };
 
-    const campusOptions  = campuses.map((c: any) => ({ value: String(c.id), label: c.campus_name }));
-    const classOptions   = classes.map((c: any) => ({ value: String(c.id), label: c.description }));
-    const sectionOptions = sections.map((s: any) => ({ value: String(s.id), label: s.description }));
+    const campusOptions  = campuses.map((c: any) => ({ id: c.id as number, label: c.campus_name as string }));
+    const classOptions   = classes.map((c: any) => ({ id: c.id as number, label: c.description as string }));
+    const sectionOptions = sections.map((s: any) => ({ id: s.id as number, label: s.description as string }));
     const statusOptions  = [
-        { value: "QUICK_ADMISSION", label: "Quick Admission" },
-        { value: "ENROLLED", label: "Enrolled" },
-        { value: "SOFT_ADMISSION", label: "Soft Admission" },
-        { value: "EXPELLED", label: "Expelled" },
-        { value: "GRADUATED", label: "Graduated" },
-        { value: "LEFT", label: "Left" },
+        { id: "QUICK_ADMISSION", label: "Quick Admission" },
+        { id: "ENROLLED", label: "Enrolled" },
+        { id: "SOFT_ADMISSION", label: "Soft Admission" },
+        { id: "EXPELLED", label: "Expelled" },
+        { id: "GRADUATED", label: "Graduated" },
+        { id: "LEFT", label: "Left" },
     ];
     const auditOptions = [
         { value: "missing_guardian", label: "Missing Guardians" },
@@ -493,6 +509,9 @@ function DirectoryContent() {
         { value: "true", label: "Has Photo" },
         { value: "false", label: "No Photo" },
     ];
+
+    const toggleId = <T extends string | number>(prev: T[], id: T): T[] =>
+        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
 
     return (
         <div className="space-y-6">
@@ -507,9 +526,9 @@ function DirectoryContent() {
             </div>
 
             {/* Search + Filters */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="space-y-3">
                 {/* Search */}
-                <div className="relative flex-1 min-w-[260px]">
+                <div className="relative flex-1 min-w-[260px] max-w-xl">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                     <input
                         type="text"
@@ -526,11 +545,54 @@ function DirectoryContent() {
                 </div>
 
                 {/* Filter dropdowns */}
-                <div className="flex items-center gap-2 flex-wrap">
-                    <SlidersHorizontal className="h-4 w-4 text-zinc-400 shrink-0" />
-                    <FilterSelect label="All Campuses" value={campusId} onChange={v => { setCampusId(v); setPage(1); }} options={campusOptions} />
+                <div className="flex items-end gap-2 flex-wrap">
+                    <SlidersHorizontal className="h-4 w-4 text-zinc-400 shrink-0 mb-3.5" />
+                    <div className="w-[180px]">
+                        <FilterDropdown
+                            label="Campus"
+                            icon={Building2}
+                            value={campusIds}
+                            options={campusOptions}
+                            placeholder="All Campuses"
+                            onToggle={id => { setCampusIds(prev => toggleId(prev, id)); setPage(1); }}
+                            onClear={() => { setCampusIds([]); setPage(1); }}
+                        />
+                    </div>
+                    <div className="w-[180px]">
+                        <FilterDropdown
+                            label="Class"
+                            icon={GraduationCap}
+                            value={classIds}
+                            options={classOptions}
+                            placeholder="All Classes"
+                            onToggle={id => { setClassIds(prev => toggleId(prev, id)); setPage(1); }}
+                            onClear={() => { setClassIds([]); setPage(1); }}
+                        />
+                    </div>
+                    <div className="w-[160px]">
+                        <FilterDropdown
+                            label="Section"
+                            icon={Layers}
+                            value={sectionIds}
+                            options={sectionOptions}
+                            placeholder="All Sections"
+                            onToggle={id => { setSectionIds(prev => toggleId(prev, id)); setPage(1); }}
+                            onClear={() => { setSectionIds([]); setPage(1); }}
+                        />
+                    </div>
+                    <div className="w-[180px]">
+                        <FilterDropdown
+                            label="Status"
+                            icon={CheckCircle2}
+                            value={statuses}
+                            options={statusOptions}
+                            placeholder="All Statuses"
+                            onToggle={id => { setStatuses(prev => toggleId(prev, id)); setPage(1); }}
+                            onClear={() => { setStatuses([]); setPage(1); }}
+                        />
+                    </div>
 
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-2 pb-0.5">
                         <FilterSelect
                             label="Data Audit"
                             value={auditType}
@@ -538,27 +600,29 @@ function DirectoryContent() {
                             options={auditOptions}
                             icon={<div className={`h-2 w-2 rounded-full ${auditType ? "bg-rose-500 animate-pulse" : "bg-zinc-300"}`} />}
                         />
-                    </div>
+                        <FilterSelect
+                            label="All Photos"
+                            value={photoFilter}
+                            onChange={v => { setPhotoFilter(v); setPage(1); }}
+                            options={photoOptions}
+                            icon={<Camera className="h-3.5 w-3.5" />}
+                        />
 
-                    <FilterSelect label="All Classes"  value={classId}  onChange={v => { setClassId(v);  setPage(1); }} options={classOptions} />
-                    <FilterSelect label="All Sections" value={sectionId} onChange={v => { setSectionId(v); setPage(1); }} options={sectionOptions} />
-                    <FilterSelect label="All Statuses" value={status}   onChange={v => { setStatus(v);   setPage(1); }} options={statusOptions} />
-                    <FilterSelect label="All Photos"   value={photoFilter} onChange={v => { setPhotoFilter(v); setPage(1); }} options={photoOptions} />
-                    
-                    <button
-                        onClick={() => setIsExportModalOpen(true)}
-                        disabled={isExporting}
-                        className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                        Download Excel
-                    </button>
-
-                    {hasFilters && (
-                        <button onClick={clearFilters} className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors">
-                            <X className="h-3 w-3" /> Clear
+                        <button
+                            onClick={() => setIsExportModalOpen(true)}
+                            disabled={isExporting}
+                            className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            Download Excel
                         </button>
-                    )}
+
+                        {hasFilters && (
+                            <button onClick={clearFilters} className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors">
+                                <X className="h-3 w-3" /> Clear
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
