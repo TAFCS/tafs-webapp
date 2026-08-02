@@ -36,15 +36,17 @@ export const studentsService = {
     },
 
     async listSectionRoster(params: {
-        campus_id: number;
-        class_id: number;
-        section_id: number;
+        campus_id?: string | number;
+        class_id?: string | number;
+        section_id: number | string;
     }): Promise<SectionRosterStudent[]> {
         const { data } = await api.get<PaginatedEnvelope<SectionRosterStudent>>(
             '/v1/students',
             {
                 params: {
-                    ...params,
+                    campus_id: params.campus_id,
+                    class_id: params.class_id,
+                    section_id: params.section_id,
                     fields: 'core,demographic',
                     limit: 500,
                     page: 1,

@@ -16,7 +16,7 @@ import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchSections } from "@/store/slices/sectionsSlice";
 import { fetchVouchers, VoucherFilters, VoucherItem } from "@/store/slices/vouchersSlice";
 import toast from "react-hot-toast";
-import { FilterDropdown, FilterDropdownOption } from "@/components/filters/FilterDropdown";
+import { FilterDropdown, type FilterDropdownOption } from "@/components/filters/FilterDropdown";
 
 
 // ─── Constants ──────────────────────────────────────────────────────────────

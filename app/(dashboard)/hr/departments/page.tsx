@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { hrService, Department, StaffCategory, EmployeeProfile } from "@/lib/hr.service";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId } from "@/components/filters/filter-params";
 
 type DeptForm = { name: string; description: string };
 type CatForm = { code: string; name: string; description: string };
@@ -42,7 +44,7 @@ export default function DepartmentsPage() {
   const [expandedCats, setExpandedCats] = useState<Set<number>>(new Set());
   const [expandedDeptEmps, setExpandedDeptEmps] = useState<Set<number>>(new Set());
 
-  const [selectedCampus, setSelectedCampus] = useState<string>("");
+  const [selectedCampusIds, setSelectedCampusIds] = useState<number[]>([]);
   const [catSearch, setCatSearch] = useState<Record<number, string>>({});
   const [deptEmpSearch, setDeptEmpSearch] = useState<Record<number, string>>({});
 
@@ -85,21 +87,22 @@ export default function DepartmentsPage() {
   }, [load]);
 
   const campusOptions = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<number, string>();
     employees.forEach((e) => {
       if (e.campuses?.id && e.campuses?.campus_name) {
-        map.set(String(e.campuses.id), e.campuses.campus_name);
+        map.set(e.campuses.id, e.campuses.campus_name);
       }
     });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    return Array.from(map.entries()).map(([id, name]) => ({ id, label: name }));
   }, [employees]);
 
   const filteredEmployees = useMemo(() => {
-    if (!selectedCampus) return employees;
-    return employees.filter(
-      (emp) => String(emp.campus_id ?? emp.campuses?.id) === selectedCampus
-    );
-  }, [employees, selectedCampus]);
+    if (selectedCampusIds.length === 0) return employees;
+    return employees.filter((emp) => {
+      const cid = emp.campus_id ?? emp.campuses?.id;
+      return cid != null && selectedCampusIds.includes(cid);
+    });
+  }, [employees, selectedCampusIds]);
 
   const employeesByCat = useMemo(() => {
     const map = new Map<number, EmployeeProfile[]>();
@@ -317,23 +320,16 @@ export default function DepartmentsPage() {
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                <select
-                  value={selectedCampus}
-                  onChange={(e) => setSelectedCampus(e.target.value)}
-                  className="h-9 pl-9 pr-8 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl appearance-none outline-none hover:border-zinc-300 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all cursor-pointer"
-                >
-                  <option value="">All Campuses</option>
-                  {campusOptions.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
-              </div>
+            <div className="w-[200px]">
+              <FilterDropdown
+                label="Campus"
+                icon={Building2}
+                value={selectedCampusIds}
+                options={campusOptions}
+                placeholder="All Campuses"
+                onToggle={(id) => setSelectedCampusIds((prev) => toggleId(prev, id))}
+                onClear={() => setSelectedCampusIds([])}
+              />
             </div>
           </div>
 
@@ -347,7 +343,7 @@ export default function DepartmentsPage() {
                 const isOpen = expanded.has(dept.id);
                 const isDeptEmpsOpen = expandedDeptEmps.has(dept.id);
                 const deptEmployees = employeesByDept.get(dept.id) ?? [];
-                const empCount = selectedCampus
+                const empCount = selectedCampusIds.length > 0
                   ? deptEmployees.length
                   : Math.max(dept._count?.employee_profiles ?? 0, deptEmployees.length);
                 const cats = dept.staff_categories ?? [];
@@ -518,7 +514,7 @@ export default function DepartmentsPage() {
                           <div className="grid gap-3 sm:grid-cols-2">
                             {cats.map((cat) => {
                               const catEmployees = employeesByCat.get(cat.id) ?? [];
-                              const catCount = selectedCampus
+                              const catCount = selectedCampusIds.length > 0
                                 ? catEmployees.length
                                 : Math.max(cat._count?.employee_profiles ?? 0, catEmployees.length);
                               const isCatOpen = expandedCats.has(cat.id);

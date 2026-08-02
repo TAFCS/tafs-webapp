@@ -32,9 +32,9 @@ interface ApiEnvelope<T> {
 }
 
 export interface ListLeaveRequestsParams {
-  campusId?: number;
+  campusId?: string;
   leaveTypeCode?: string;
-  status?: LeaveRequestStatus;
+  status?: string;
   fromDate?: string;
   toDate?: string;
 }
@@ -104,7 +104,7 @@ export interface SaturdaySchedule {
 
 export interface ListSaturdaySchedulesParams {
   month: string;
-  campusId?: number;
+  campusId?: string;
   sectionId?: number;
   employeeId?: number;
 }

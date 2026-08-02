@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  Building2,
+  Briefcase,
   CalendarOff,
   CheckCircle2,
   ClipboardCheck,
@@ -19,6 +21,8 @@ import {
   StaffAttendanceStatus,
   StaffRegisterRow,
 } from "@/lib/attendance.service";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId, serializeIds } from "@/components/filters/filter-params";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -77,10 +81,10 @@ export default function StaffRegisterPage() {
     user?.permissions?.includes("attendance.staff.mark") ||
     user?.role === "SUPER_ADMIN";
 
-  const [campusId, setCampusId] = useState<string>(
-    user?.campusId ? String(user.campusId) : "",
+  const [campusIds, setCampusIds] = useState<number[]>(
+    user?.campusId ? [user.campusId] : [],
   );
-  const [deptId, setDeptId] = useState<string>("");
+  const [departmentIds, setDepartmentIds] = useState<number[]>([]);
   const [date, setDate] = useState(todayIso());
   const [departments, setDepartments] = useState<Department[]>([]);
   const [rows, setRows] = useState<StaffRegisterRow[]>([]);
@@ -91,14 +95,36 @@ export default function StaffRegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const isInstitutionWide = !user?.campusId;
+
   useEffect(() => {
     dispatch(fetchCampuses());
     hrService.listDepartments().then(setDepartments).catch(console.error);
   }, [dispatch]);
 
   useEffect(() => {
-    if (!campusId && user?.campusId) setCampusId(String(user.campusId));
-  }, [user?.campusId, campusId]);
+    if (!isInstitutionWide && user?.campusId) {
+      setCampusIds([user.campusId]);
+    }
+  }, [isInstitutionWide, user?.campusId]);
+
+  const effectiveCampusIds = useMemo(() => {
+    if (campusIds.length > 0) return campusIds;
+    if (user?.campusId) return [user.campusId];
+    return [];
+  }, [campusIds, user?.campusId]);
+
+  const bulkCampusId = effectiveCampusIds[0] ?? user?.campusId ?? null;
+
+  const campusOptions = useMemo(
+    () => campuses.map((c) => ({ id: c.id, label: c.campus_name })),
+    [campuses],
+  );
+
+  const departmentOptions = useMemo(
+    () => departments.map((d) => ({ id: d.id, label: d.name })),
+    [departments],
+  );
 
   const applyRows = useCallback((data: StaffRegisterRow[]) => {
     setRows(data);
@@ -117,15 +143,15 @@ export default function StaffRegisterPage() {
   }, []);
 
   const loadRegister = useCallback(async () => {
-    if (!campusId || !date) return;
+    if (effectiveCampusIds.length === 0 || !date) return;
     setLoading(true);
     setError(null);
     setSuccess(null);
     try {
       const data = await attendanceService.getStaffRegister({
         date,
-        campus_id: Number(campusId),
-        ...(deptId ? { department_id: Number(deptId) } : {}),
+        campus_id: serializeIds(effectiveCampusIds),
+        department_id: serializeIds(departmentIds),
       });
       applyRows(data);
     } catch {
@@ -133,7 +159,7 @@ export default function StaffRegisterPage() {
     } finally {
       setLoading(false);
     }
-  }, [campusId, date, deptId, applyRows]);
+  }, [effectiveCampusIds, date, departmentIds, applyRows]);
 
   useEffect(() => {
     loadRegister();
@@ -150,7 +176,6 @@ export default function StaffRegisterPage() {
     setNotes((prev) => ({ ...prev, [employeeId]: value }));
   };
 
-  // Mark everyone with one status (bulk shortcut)
   const markAll = (status: StaffAttendanceStatus) => {
     if (!canMark) return;
     const next: Record<number, StaffAttendanceStatus> = { ...marks };
@@ -160,15 +185,15 @@ export default function StaffRegisterPage() {
     setMarks(next);
   };
 
-  // Filtered rows for display (deptId filter is server-side, but also apply here so
-  // department change doesn't require extra round-trip)
   const displayRows = useMemo(() => {
-    if (!deptId) return rows;
-    return rows.filter((r) => String(r.employee.departments?.id) === deptId);
-  }, [rows, deptId]);
+    if (departmentIds.length === 0) return rows;
+    return rows.filter(
+      (r) => r.employee.departments?.id != null && departmentIds.includes(r.employee.departments.id),
+    );
+  }, [rows, departmentIds]);
 
   const handleSave = async () => {
-    if (!canMark || !campusId) return;
+    if (!canMark || bulkCampusId == null) return;
     const workingRows = rows.filter((r) => r.is_working_day !== false);
     const records = workingRows.map((r) => ({
       employee_id: r.employee.id,
@@ -181,13 +206,13 @@ export default function StaffRegisterPage() {
     try {
       await attendanceService.bulkMarkStaff({
         date,
-        campus_id: Number(campusId),
+        campus_id: bulkCampusId,
         records,
       });
       const data = await attendanceService.getStaffRegister({
         date,
-        campus_id: Number(campusId),
-        ...(deptId ? { department_id: Number(deptId) } : {}),
+        campus_id: serializeIds(effectiveCampusIds),
+        department_id: serializeIds(departmentIds),
       });
       applyRows(data);
       setSuccess(`Attendance saved for ${records.length} staff members.`);
@@ -279,37 +304,43 @@ export default function StaffRegisterPage() {
         <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
           Filters
         </p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div>
-            <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">
-              Campus <span className="text-rose-500">*</span>
-            </label>
-            <select
-              value={campusId}
-              onChange={(e) => { setCampusId(e.target.value); setDeptId(""); }}
-              className={`w-full ${sel}`}
-            >
-              <option value="">Select campus...</option>
-              {campuses.map((c) => (
-                <option key={c.id} value={c.id}>{c.campus_name}</option>
-              ))}
-            </select>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+          {isInstitutionWide ? (
+            <FilterDropdown
+              label="Campus *"
+              icon={Building2}
+              value={campusIds}
+              options={campusOptions}
+              placeholder="Select campus..."
+              onToggle={(id) => {
+                setCampusIds((prev) => toggleId(prev, id));
+                setDepartmentIds([]);
+              }}
+              onClear={() => {
+                setCampusIds([]);
+                setDepartmentIds([]);
+              }}
+            />
+          ) : (
+            <div>
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1 mb-1.5">
+                <Building2 className="h-3 w-3" /> Campus
+              </label>
+              <div className="h-11 flex items-center px-4 rounded-xl text-sm border border-zinc-200 bg-zinc-50 text-zinc-700 font-semibold">
+                {campuses.find((c) => c.id === user?.campusId)?.campus_name ?? "Your campus"}
+              </div>
+            </div>
+          )}
 
-          <div>
-            <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Department</label>
-            <select
-              value={deptId}
-              onChange={(e) => setDeptId(e.target.value)}
-              disabled={!campusId}
-              className={`w-full ${sel} disabled:opacity-40`}
-            >
-              <option value="">All departments</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-          </div>
+          <FilterDropdown
+            label="Department"
+            icon={Briefcase}
+            value={departmentIds}
+            options={departmentOptions}
+            placeholder="All departments"
+            onToggle={(id) => setDepartmentIds((prev) => toggleId(prev, id))}
+            onClear={() => setDepartmentIds([])}
+          />
 
           <div>
             <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Date</label>
@@ -321,7 +352,6 @@ export default function StaffRegisterPage() {
             />
           </div>
 
-          {/* Quick mark all */}
           {canMark && rows.length > 0 && (
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">
@@ -346,7 +376,7 @@ export default function StaffRegisterPage() {
       </div>
 
       {/* Grid */}
-      {!campusId ? (
+      {effectiveCampusIds.length === 0 ? (
         <p className="text-sm text-slate-500 text-center py-14">
           Select a campus to load the staff register.
         </p>
@@ -358,7 +388,7 @@ export default function StaffRegisterPage() {
       ) : displayRows.length === 0 ? (
         <p className="text-sm text-slate-500 text-center py-14">
           No staff profiles linked to this campus
-          {deptId ? " and department" : ""}.
+          {departmentIds.length > 0 ? " and department" : ""}.
         </p>
       ) : (
         <>
@@ -459,7 +489,6 @@ export default function StaffRegisterPage() {
             </table>
           </div>
 
-          {/* Save bar */}
           {canMark && (
             <div className="flex items-center justify-between bg-white border rounded-xl px-5 py-3 shadow-sm">
               <p className="text-sm text-slate-500">

@@ -8,29 +8,23 @@ import {
     Calendar,
     CreditCard,
     FileText,
-    ArrowUpRight,
-    CheckCircle2,
-    AlertCircle,
-    UserCircle,
-    UserSearch,
     X,
     Plus,
-    Filter,
     Clock,
     DollarSign,
-    TrendingUp,
-    Check,
     AlertTriangle,
-    Undo,
     Trash2,
     Building,
     FileSignature,
-    CheckSquare
+    Building2,
+    CheckCircle2,
 } from "lucide-react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId, serializeIds } from "@/components/filters/filter-params";
 
 interface StudentBrief {
     cc: number;
@@ -77,8 +71,8 @@ export default function PostdatedChequesPage() {
     const [submitting, setSubmitting] = useState(false);
 
     // Filters & Search
-    const [statusFilter, setStatusFilter] = useState<string>("");
-    const [campusFilter, setCampusFilter] = useState<string>("");
+    const [statusFilters, setStatusFilters] = useState<string[]>([]);
+    const [campusIds, setCampusIds] = useState<number[]>([]);
     const [studentSearchQuery, setStudentSearchQuery] = useState("");
     const [selectedStudentFilter, setSelectedStudentFilter] = useState<StudentBrief | null>(null);
     const [fromDateFilter, setFromDateFilter] = useState("");
@@ -114,7 +108,6 @@ export default function PostdatedChequesPage() {
 
     useEffect(() => {
         fetchCampuses();
-        fetchCheques();
 
         const handleClickOutside = (e: MouseEvent) => {
             if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
@@ -164,11 +157,14 @@ export default function PostdatedChequesPage() {
     const fetchCheques = async () => {
         setIsLoading(true);
         try {
-            let url = "/v1/postdated-cheques";
-            if (quickFilter === "due") {
-                url = "/v1/postdated-cheques/due";
-            }
-            const { data } = await api.get(url);
+            const today = new Date().toISOString().split("T")[0];
+            const params = {
+                campus_id: serializeIds(campusIds),
+                status: quickFilter === "due" ? "PENDING" : serializeIds(statusFilters),
+                from_date: fromDateFilter || undefined,
+                to_date: toDateFilter || (quickFilter === "due" ? today : undefined),
+            };
+            const { data } = await api.get("/v1/postdated-cheques", { params });
             if (data?.data) {
                 setCheques(data.data);
             }
@@ -180,10 +176,11 @@ export default function PostdatedChequesPage() {
         }
     };
 
-    // Refetch when quick filter changes
+    // Refetch when server-side filters change
     useEffect(() => {
         fetchCheques();
-    }, [quickFilter]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [quickFilter, campusIds, statusFilters, fromDateFilter, toDateFilter]);
 
     const handleCreateCheque = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -284,23 +281,20 @@ export default function PostdatedChequesPage() {
         setModalNotes("");
     };
 
-    // Client-side filtering logic
+    // Client-side student filter only (campus/status/dates go to the API)
     const filteredCheques = cheques.filter(c => {
-        // Status filter
-        if (statusFilter && c.status !== statusFilter) return false;
-
-        // Campus filter (if campus name resolver/campus_id matches)
-        if (campusFilter && c.students?.campus_id !== Number(campusFilter)) return false;
-
-        // Student filter
         if (selectedStudentFilter && c.students?.cc !== selectedStudentFilter.cc) return false;
-
-        // Date filters
-        if (fromDateFilter && new Date(c.cheque_date) < new Date(fromDateFilter)) return false;
-        if (toDateFilter && new Date(c.cheque_date) > new Date(toDateFilter)) return false;
-
         return true;
     });
+
+    const campusOptions = campuses.map(c => ({ id: c.id, label: c.campus_name }));
+    const statusOptions = [
+        { id: "PENDING", label: "Pending" },
+        { id: "CASHED", label: "Cashed" },
+        { id: "BOUNCED", label: "Bounced" },
+        { id: "RETURNED", label: "Returned" },
+        { id: "CANCELLED", label: "Cancelled" },
+    ];
 
     // Stats calculations from filtered lists
     const todayStr = new Date().toISOString().split("T")[0];
@@ -443,54 +437,52 @@ export default function PostdatedChequesPage() {
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full lg:w-auto">
-                        {/* Status Filter */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full lg:w-auto items-end">
                         {quickFilter !== "due" && (
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="h-10 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none text-zinc-700 dark:text-zinc-300"
-                            >
-                                <option value="">All Statuses</option>
-                                <option value="PENDING">Pending</option>
-                                <option value="CASHED">Cashed</option>
-                                <option value="BOUNCED">Bounced</option>
-                                <option value="RETURNED">Returned</option>
-                                <option value="CANCELLED">Cancelled</option>
-                            </select>
+                            <FilterDropdown
+                                label="Status"
+                                icon={CheckCircle2}
+                                value={statusFilters}
+                                options={statusOptions}
+                                placeholder="All Statuses"
+                                onToggle={(id) => setStatusFilters((prev) => toggleId(prev, id))}
+                                onClear={() => setStatusFilters([])}
+                            />
                         )}
 
-                        {/* Campus Filter */}
-                        <select
-                            value={campusFilter}
-                            onChange={(e) => setCampusFilter(e.target.value)}
-                            className="h-10 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none text-zinc-700 dark:text-zinc-300"
-                        >
-                            <option value="">All Campuses</option>
-                            {campuses.map(c => (
-                                <option key={c.id} value={c.id}>{c.campus_name}</option>
-                            ))}
-                        </select>
+                        <FilterDropdown
+                            label="Campus"
+                            icon={Building2}
+                            value={campusIds}
+                            options={campusOptions}
+                            placeholder="All Campuses"
+                            onToggle={(id) => setCampusIds((prev) => toggleId(prev, id))}
+                            onClear={() => setCampusIds([])}
+                        />
 
                         {/* From Date Filter */}
-                        <div className="relative">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                                <Calendar className="h-3 w-3" /> From
+                            </label>
                             <input
                                 type="date"
                                 value={fromDateFilter}
                                 onChange={(e) => setFromDateFilter(e.target.value)}
-                                className="h-10 w-full px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none text-zinc-700 dark:text-zinc-300"
-                                placeholder="From Date"
+                                className="h-11 w-full px-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none text-zinc-700 dark:text-zinc-300"
                             />
                         </div>
 
                         {/* To Date Filter */}
-                        <div className="relative">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                                <Calendar className="h-3 w-3" /> To
+                            </label>
                             <input
                                 type="date"
                                 value={toDateFilter}
                                 onChange={(e) => setToDateFilter(e.target.value)}
-                                className="h-10 w-full px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none text-zinc-700 dark:text-zinc-300"
-                                placeholder="To Date"
+                                className="h-11 w-full px-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none text-zinc-700 dark:text-zinc-300"
                             />
                         </div>
                     </div>
@@ -559,15 +551,15 @@ export default function PostdatedChequesPage() {
                         )}
                     </div>
 
-                    {(selectedStudentFilter || fromDateFilter || toDateFilter || statusFilter || campusFilter) && (
+                    {(selectedStudentFilter || fromDateFilter || toDateFilter || statusFilters.length > 0 || campusIds.length > 0) && (
                         <button
                             onClick={() => {
                                 setStudentSearchQuery("");
                                 setSelectedStudentFilter(null);
                                 setFromDateFilter("");
                                 setToDateFilter("");
-                                setStatusFilter("");
-                                setCampusFilter("");
+                                setStatusFilters([]);
+                                setCampusIds([]);
                             }}
                             className="px-4 py-2 border border-rose-200 dark:border-rose-900 text-rose-500 hover:bg-rose-500/5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all w-fit"
                         >

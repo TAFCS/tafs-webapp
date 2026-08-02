@@ -19,6 +19,16 @@ import {
   RefreshCw
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId, serializeIds } from "@/components/filters/filter-params";
+
+const ENTITY_TYPE_OPTIONS = [
+  { id: "STUDENT", label: "Student" },
+  { id: "GUARDIAN", label: "Guardian" },
+  { id: "FAMILY", label: "Family" },
+  { id: "VOUCHER", label: "Voucher" },
+  { id: "DEPOSIT", label: "Deposit" },
+] as const;
 
 // Date formatting helper
 function formatDate(value?: string | null) {
@@ -79,7 +89,7 @@ export default function AdminAuditLogsPage() {
   const [loading, setLoading] = useState(true);
 
   // Filter states
-  const [selectedEntity, setSelectedEntity] = useState("");
+  const [entityTypes, setEntityTypes] = useState<string[]>([]);
   const [actorSearch, setActorSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -92,7 +102,7 @@ export default function AdminAuditLogsPage() {
     setLoading(true);
     try {
       const res = await auditLogsService.list({
-        entity_type: selectedEntity || undefined,
+        entity_type: serializeIds(entityTypes),
         changed_by: actorSearch || undefined,
         from: dateFrom || undefined,
         to: dateTo || undefined,
@@ -112,7 +122,7 @@ export default function AdminAuditLogsPage() {
 
   useEffect(() => {
     fetchLogs();
-  }, [offset, selectedEntity, dateFrom, dateTo]);
+  }, [offset, entityTypes, dateFrom, dateTo]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,7 +131,7 @@ export default function AdminAuditLogsPage() {
   };
 
   const resetFilters = () => {
-    setSelectedEntity("");
+    setEntityTypes([]);
     setActorSearch("");
     setDateFrom("");
     setDateTo("");
@@ -186,21 +196,21 @@ export default function AdminAuditLogsPage() {
       {/* Filter and Search Bar */}
       <form onSubmit={handleSearchSubmit} className="bg-white border border-zinc-200 rounded-[2rem] p-6 shadow-sm mb-6 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest pl-1">Entity Type</label>
-            <select
-              value={selectedEntity}
-              onChange={(e) => setSelectedEntity(e.target.value)}
-              className="w-full h-11 bg-zinc-50 border border-zinc-200 rounded-xl px-3 text-xs font-bold focus:border-indigo-500 outline-none transition-all appearance-none"
-            >
-              <option value="">All Entities</option>
-              <option value="STUDENT">Student</option>
-              <option value="GUARDIAN">Guardian</option>
-              <option value="FAMILY">Family</option>
-              <option value="VOUCHER">Voucher</option>
-              <option value="DEPOSIT">Deposit</option>
-            </select>
-          </div>
+          <FilterDropdown
+            label="Entity Type"
+            icon={Filter}
+            value={entityTypes}
+            options={[...ENTITY_TYPE_OPTIONS]}
+            placeholder="All Entities"
+            onToggle={(id) => {
+              setEntityTypes((prev) => toggleId(prev, id));
+              setOffset(0);
+            }}
+            onClear={() => {
+              setEntityTypes([]);
+              setOffset(0);
+            }}
+          />
 
           <div className="space-y-1">
             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest pl-1">Actor (changed_by)</label>

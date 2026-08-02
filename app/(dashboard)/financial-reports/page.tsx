@@ -6,12 +6,14 @@ import {
     Users, Banknote, FileText, TrendingUp, Calendar,
     CreditCard, Clock, Activity, Loader2, Landmark,
     ArrowUpRight, ArrowDownRight, Info, AlertTriangle,
-    Target, BarChart3, PieChart, CheckCircle2, LayoutDashboard
+    Target, BarChart3, PieChart, CheckCircle2, LayoutDashboard, Building2
 } from "lucide-react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { useAuthState } from "@/context/AuthContext";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId, serializeIds } from "@/components/filters/filter-params";
 
 const container = {
     hidden: { opacity: 0 },
@@ -36,14 +38,14 @@ export default function FinancialReportsPage() {
         user?.role === "SUPER_ADMIN" ||
         user?.permissions?.includes("system.analytics.view");
     const campusLocked = user?.campusId != null;
-    const [selectedCampusId, setSelectedCampusId] = useState<string>(
-        campusLocked ? String(user!.campusId) : "",
+    const [campusIds, setCampusIds] = useState<number[]>(
+        campusLocked && user?.campusId != null ? [user.campusId] : [],
     );
     const [feedateFilter, setFeedateFilter] = useState<"all" | "issued">("all");
 
     useEffect(() => {
-        if (campusLocked && user?.campusId) {
-            setSelectedCampusId(String(user.campusId));
+        if (campusLocked && user?.campusId != null) {
+            setCampusIds([user.campusId]);
         }
     }, [campusLocked, user?.campusId]);
 
@@ -52,13 +54,17 @@ export default function FinancialReportsPage() {
             setIsLoading(false);
             return;
         }
-        fetchDashboardData(selectedCampusId);
-    }, [selectedCampusId, canViewAnalytics]);
+        fetchDashboardData(campusIds);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [campusIds, canViewAnalytics]);
 
-    const fetchDashboardData = async (campusId?: string) => {
+    const fetchDashboardData = async (ids: number[]) => {
         setIsLoading(true);
         try {
-            const url = campusId ? `/v1/analytics/dashboard?campusId=${campusId}` : "/v1/analytics/dashboard";
+            const csv = serializeIds(ids);
+            const url = csv
+                ? `/v1/analytics/dashboard?campusId=${csv}`
+                : "/v1/analytics/dashboard";
             const { data } = await api.get(url);
             if (data.status === 200) {
                 setStatsData(data.data);
@@ -167,29 +173,27 @@ export default function FinancialReportsPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative group">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none group-focus-within:text-primary transition-colors">
-                            <Landmark className="h-4 w-4" />
+                    {campusLocked ? (
+                        <div className="flex items-center gap-2 px-4 py-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-sm font-bold text-zinc-600 dark:text-zinc-300 min-w-[220px]">
+                            <Landmark className="h-4 w-4 text-zinc-400" />
+                            {campuses.find((c: any) => c.id === user?.campusId)?.campus_name || "Your Campus"}
                         </div>
-                        <select
-                            value={selectedCampusId}
-                            onChange={(e) => setSelectedCampusId(e.target.value)}
-                            className="pl-12 pr-10 py-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-bold appearance-none min-w-[260px] outline-none transition-all shadow-sm focus:ring-4 focus:ring-primary/10 hover:border-zinc-300 dark:hover:border-zinc-700"
-                        >
-                            {!campusLocked && (
-                                <option value="">Institution-wide Overview</option>
-                            )}
-                            {campuses.map((c: any) => (
-                                <option key={c.id} value={c.id}>{c.campus_name}</option>
-                            ))}
-                        </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
-                             <TrendingUp className="h-4 w-4" />
+                    ) : (
+                        <div className="min-w-[260px]">
+                            <FilterDropdown
+                                label="Campus"
+                                icon={Building2}
+                                value={campusIds}
+                                options={campuses.map((c: any) => ({ id: c.id as number, label: c.campus_name as string }))}
+                                placeholder="Institution-wide Overview"
+                                onToggle={(id) => setCampusIds((prev) => toggleId(prev, id))}
+                                onClear={() => setCampusIds([])}
+                            />
                         </div>
-                    </div>
+                    )}
 
                     <button
-                        onClick={() => fetchDashboardData(selectedCampusId)}
+                        onClick={() => fetchDashboardData(campusIds)}
                         disabled={isLoading}
                         className="h-12 w-12 flex items-center justify-center rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-500 hover:text-primary transition-all shadow-sm active:scale-95 disabled:opacity-50"
                     >
@@ -246,7 +250,7 @@ export default function FinancialReportsPage() {
                 initial="hidden"
                 animate="show"
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6"
-                key={selectedCampusId}
+                key={campusIds.join(",")}
             >
                 {summaryStats.map((stat, idx) => (
                     <motion.div
@@ -578,7 +582,7 @@ export default function FinancialReportsPage() {
                         </div>
                         <div className="space-y-8">
                             {(students.branchwise || []).map((branch: any) => (
-                                <div key={branch.campus_id} className={`space-y-3 group transition-all ${selectedCampusId && parseInt(selectedCampusId) !== branch.campus_id ? 'opacity-30 blur-[0.5px]' : 'opacity-100'}`}>
+                                <div key={branch.campus_id} className={`space-y-3 group transition-all ${campusIds.length > 0 && !campusIds.includes(branch.campus_id) ? 'opacity-30 blur-[0.5px]' : 'opacity-100'}`}>
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-tighter">{branch.campus_name}</span>
                                         <span className="text-base font-black text-zinc-900 dark:text-zinc-50 font-outfit">{branch.count}</span>

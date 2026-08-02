@@ -7,7 +7,9 @@ import {
     AlertTriangle,
     ArrowLeft,
     ArrowRightLeft,
+    Building2,
     CheckCircle,
+    GraduationCap,
     Loader2,
     RefreshCw,
     Save,
@@ -32,11 +34,20 @@ import {
     formatSectionOptionLabel,
     isSectionSelectableForGender,
 } from "@/lib/section-allocation";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId, serializeIds } from "@/components/filters/filter-params";
 
 type DraftRule = {
     student_capacity: string;
     unlimited: boolean;
     gender_mode: SectionGenderMode;
+};
+
+type SectionWithContext = OfferedSection & {
+    campusId: number;
+    classId: number;
+    campusName: string;
+    className: string;
 };
 
 const GENDER_OPTIONS: Array<{ value: SectionGenderMode; label: string }> = [
@@ -113,13 +124,13 @@ export default function SectionAllocationRulesPage() {
         || user?.role === "CAMPUS_ADMIN";
 
     const [campuses, setCampuses] = useState<Campus[]>([]);
-    const [selectedCampusId, setSelectedCampusId] = useState<number | "">("");
-    const [selectedClassId, setSelectedClassId] = useState<number | "">("");
+    const [campusIds, setCampusIds] = useState<number[]>([]);
+    const [classIds, setClassIds] = useState<number[]>([]);
     const [drafts, setDrafts] = useState<Record<number, DraftRule>>({});
     const [savingId, setSavingId] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [managingSectionId, setManagingSectionId] = useState<number | null>(null);
+    const [managingSectionKey, setManagingSectionKey] = useState<string | null>(null);
     const [roster, setRoster] = useState<SectionRosterStudent[]>([]);
     const [isRosterLoading, setIsRosterLoading] = useState(false);
     const [rosterSearch, setRosterSearch] = useState("");
@@ -145,34 +156,75 @@ export default function SectionAllocationRulesPage() {
         else setIsLoading(false);
     }, [canView]);
 
-    const selectedCampus = useMemo(
-        () => campuses.find((c) => c.id === Number(selectedCampusId)),
-        [campuses, selectedCampusId],
+    const campusOptions = useMemo(
+        () => campuses.map((c) => ({ id: c.id, label: c.campus_name })),
+        [campuses],
     );
 
-    const offeredClasses = selectedCampus?.offered_classes ?? [];
+    const classOptions = useMemo(() => {
+        const source = campusIds.length > 0
+            ? campuses.filter((c) => campusIds.includes(c.id))
+            : campuses;
+        const byId = new Map<number, string>();
+        source.forEach((campus) => {
+            (campus.offered_classes ?? []).forEach((cls) => {
+                if (!byId.has(cls.id)) byId.set(cls.id, cls.description);
+            });
+        });
+        return Array.from(byId.entries())
+            .map(([id, label]) => ({ id, label }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [campuses, campusIds]);
 
-    const selectedClass = useMemo(
-        () => offeredClasses.find((c) => c.id === Number(selectedClassId)),
-        [offeredClasses, selectedClassId],
-    );
+    const sectionsWithContext = useMemo((): SectionWithContext[] => {
+        if (campusIds.length === 0 || classIds.length === 0) return [];
+        const rows: SectionWithContext[] = [];
+        campuses
+            .filter((c) => campusIds.includes(c.id))
+            .forEach((campus) => {
+                (campus.offered_classes ?? [])
+                    .filter((cls) => classIds.includes(cls.id))
+                    .forEach((cls) => {
+                        cls.sections.forEach((sec) => {
+                            rows.push({
+                                ...sec,
+                                campusId: campus.id,
+                                classId: cls.id,
+                                campusName: campus.campus_name,
+                                className: cls.description,
+                            });
+                        });
+                    });
+            });
+        return rows;
+    }, [campuses, campusIds, classIds]);
 
-    const sections = selectedClass?.sections ?? [];
+    // Stable key for campus+class+section so multi-campus offerings don't collide
+    const sectionKey = (s: Pick<SectionWithContext, "campusId" | "classId" | "id">) =>
+        `${s.campusId}:${s.classId}:${s.id}`;
+
+    useEffect(() => {
+        const validClassIds = new Set(classOptions.map((o) => o.id));
+        setClassIds((prev) => {
+            const next = prev.filter((id) => validClassIds.has(id));
+            return next.length === prev.length ? prev : next;
+        });
+    }, [classOptions]);
 
     useEffect(() => {
         const next: Record<number, DraftRule> = {};
-        sections.forEach((sec) => {
-            next[sec.id] = toDraft(sec);
+        sectionsWithContext.forEach((sec) => {
+            next[sec.campus_section_id] = toDraft(sec);
         });
         setDrafts(next);
-    }, [selectedCampusId, selectedClassId, campuses]);
+    }, [sectionsWithContext]);
 
     useEffect(() => {
-        setManagingSectionId(null);
+        setManagingSectionKey(null);
         setRoster([]);
         setRosterSearch("");
         setDestinationByStudent({});
-    }, [selectedCampusId, selectedClassId]);
+    }, [campusIds, classIds]);
 
     if (!canView) {
         return (
@@ -184,21 +236,20 @@ export default function SectionAllocationRulesPage() {
         );
     }
 
-    const updateDraft = (sectionId: number, patch: Partial<DraftRule>) => {
+    const updateDraft = (campusSectionId: number, patch: Partial<DraftRule>) => {
         setDrafts((prev) => ({
             ...prev,
-            [sectionId]: { ...prev[sectionId], ...patch },
+            [campusSectionId]: { ...prev[campusSectionId], ...patch },
         }));
     };
 
-    const handleSave = async (section: OfferedSection) => {
-        if (!selectedCampusId || !selectedClassId) return;
+    const handleSave = async (section: SectionWithContext) => {
         if (!canEdit) {
             toast.error("You do not have permission to update allocation rules.");
             return;
         }
 
-        const draft = drafts[section.id];
+        const draft = drafts[section.campus_section_id];
         if (!draft) return;
 
         let capacity: number | null = null;
@@ -211,11 +262,11 @@ export default function SectionAllocationRulesPage() {
             capacity = parsed;
         }
 
-        setSavingId(section.id);
+        setSavingId(section.campus_section_id);
         try {
             const updated = await campusesService.upsertCampusSection(
-                Number(selectedCampusId),
-                Number(selectedClassId),
+                section.campusId,
+                section.classId,
                 section.id,
                 {
                     is_active: true,
@@ -243,41 +294,50 @@ export default function SectionAllocationRulesPage() {
         setCampuses(data);
     };
 
-    const openRosterManager = async (section: OfferedSection) => {
-        if (!selectedCampusId || !selectedClassId || !canViewStudents) return;
-        setManagingSectionId(section.id);
+    const openRosterManager = async (section: SectionWithContext) => {
+        if (campusIds.length === 0 || classIds.length === 0 || !canViewStudents) return;
+        setManagingSectionKey(sectionKey(section));
         setRoster([]);
         setRosterSearch("");
         setDestinationByStudent({});
         setIsRosterLoading(true);
         try {
             const students = await studentsService.listSectionRoster({
-                campus_id: Number(selectedCampusId),
-                class_id: Number(selectedClassId),
+                campus_id: serializeIds(campusIds),
+                class_id: serializeIds(classIds),
                 section_id: section.id,
             });
             setRoster(students);
         } catch (err) {
             toast.error(extractApiErrorMessage(err, "Failed to load the section roster."));
-            setManagingSectionId(null);
+            setManagingSectionKey(null);
         } finally {
             setIsRosterLoading(false);
         }
     };
 
     const moveStudent = async (student: SectionRosterStudent) => {
-        if (!selectedCampusId || !selectedClassId || !managingSectionId) return;
+        const managed = sectionsWithContext.find((s) => sectionKey(s) === managingSectionKey);
+        if (!managed) return;
+
         const destinationSectionId = Number(destinationByStudent[student.cc]);
-        if (!destinationSectionId || destinationSectionId === managingSectionId) {
+        if (!destinationSectionId || destinationSectionId === managed.id) {
             toast.error("Select a different destination section.");
+            return;
+        }
+
+        const studentCampusId = student.campus_id ?? managed.campusId;
+        const studentClassId = student.class_id ?? managed.classId;
+        if (!studentCampusId || !studentClassId) {
+            toast.error("Student campus/class is missing; cannot move.");
             return;
         }
 
         setMovingStudentId(student.cc);
         try {
             await studentsService.moveToSection(student.cc, {
-                campus_id: Number(selectedCampusId),
-                class_id: Number(selectedClassId),
+                campus_id: studentCampusId,
+                class_id: studentClassId,
                 section_id: destinationSectionId,
             });
             setRoster((current) => current.filter((item) => item.cc !== student.cc));
@@ -295,7 +355,7 @@ export default function SectionAllocationRulesPage() {
         }
     };
 
-    const managedSection = sections.find((section) => section.id === managingSectionId);
+    const managedSection = sectionsWithContext.find((s) => sectionKey(s) === managingSectionKey);
     const rosterEnrolledCount = roster.filter(
         (student) => student.enrollment_status === "ENROLLED",
     ).length;
@@ -309,6 +369,33 @@ export default function SectionAllocationRulesPage() {
             || student.enrollment_status?.toLowerCase().includes(query)
         );
     });
+
+    const destinationSectionsFor = (student: SectionRosterStudent) => {
+        const campusId = student.campus_id ?? managedSection?.campusId;
+        const classId = student.class_id ?? managedSection?.classId;
+        return sectionsWithContext.filter(
+            (section) =>
+                section.campusId === campusId
+                && section.classId === classId
+                && section.id !== managedSection?.id,
+        );
+    };
+
+    const filterSummary =
+        campusIds.length === 0 && classIds.length === 0
+            ? null
+            : [
+                campusIds.length === 1
+                    ? campusOptions.find((c) => c.id === campusIds[0])?.label
+                    : campusIds.length > 1
+                        ? `${campusIds.length} campuses`
+                        : null,
+                classIds.length === 1
+                    ? classOptions.find((c) => c.id === classIds[0])?.label
+                    : classIds.length > 1
+                        ? `${classIds.length} classes`
+                        : null,
+            ].filter(Boolean).join(" · ");
 
     return (
         <div className="p-6 md:p-8 space-y-6">
@@ -344,69 +431,53 @@ export default function SectionAllocationRulesPage() {
             )}
 
             <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-1 text-sm">
-                    <span className="font-medium text-slate-700 dark:text-slate-200">Campus</span>
-                    <select
-                        value={selectedCampusId}
-                        onChange={(e) => {
-                            setSelectedCampusId(e.target.value ? Number(e.target.value) : "");
-                            setSelectedClassId("");
-                        }}
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
-                    >
-                        <option value="">Select campus</option>
-                        {campuses.map((c) => (
-                            <option key={c.id} value={c.id}>
-                                {c.campus_name}
-                            </option>
-                        ))}
-                    </select>
-                </label>
+                <FilterDropdown
+                    label="Campus"
+                    icon={Building2}
+                    value={campusIds}
+                    options={campusOptions}
+                    placeholder="All Campuses"
+                    onToggle={(id) => setCampusIds((prev) => toggleId(prev, id))}
+                    onClear={() => setCampusIds([])}
+                />
 
-                <label className="space-y-1 text-sm">
-                    <span className="font-medium text-slate-700 dark:text-slate-200">Class</span>
-                    <select
-                        value={selectedClassId}
-                        onChange={(e) =>
-                            setSelectedClassId(e.target.value ? Number(e.target.value) : "")
-                        }
-                        disabled={!selectedCampusId}
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
-                    >
-                        <option value="">Select class</option>
-                        {offeredClasses.map((c) => (
-                            <option key={c.id} value={c.id}>
-                                {c.description}
-                            </option>
-                        ))}
-                    </select>
-                </label>
+                <FilterDropdown
+                    label="Class"
+                    icon={GraduationCap}
+                    value={classIds}
+                    options={classOptions}
+                    placeholder="All Classes"
+                    onToggle={(id) => setClassIds((prev) => toggleId(prev, id))}
+                    onClear={() => setClassIds([])}
+                />
             </div>
 
             {isLoading ? (
                 <div className="flex items-center gap-2 text-slate-500">
                     <Loader2 className="h-4 w-4 animate-spin" /> Loading offerings…
                 </div>
-            ) : !selectedCampusId || !selectedClassId ? (
+            ) : campusIds.length === 0 || classIds.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500 dark:border-slate-700">
-                    Select a campus and class to configure section rules.
+                    Select at least one campus and class to configure section rules.
                 </div>
-            ) : sections.length === 0 ? (
+            ) : sectionsWithContext.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500 dark:border-slate-700">
-                    No sections are offered for this campus/class. Configure them under Section Setup first.
+                    No sections are offered for the selected campus/class combination(s). Configure them under Section Setup first.
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {sections.map((section) => {
-                        const draft = drafts[section.id] ?? toDraft(section);
+                    {sectionsWithContext.map((section) => {
+                        const draft = drafts[section.campus_section_id] ?? toDraft(section);
                         const occupancy =
                             section.student_capacity == null
                                 ? `${section.enrolled_count ?? 0} enrolled (unlimited)`
                                 : `${section.enrolled_count ?? 0} / ${section.student_capacity}`;
+                        const showCampusClass =
+                            campusIds.length > 1 || classIds.length > 1;
 
                         return (
                             <div
-                                key={section.id}
+                                key={sectionKey(section)}
                                 className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
                             >
                                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -414,6 +485,11 @@ export default function SectionAllocationRulesPage() {
                                         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
                                             Section {section.description}
                                         </h2>
+                                        {showCampusClass && (
+                                            <p className="mt-0.5 text-xs font-medium text-slate-400">
+                                                {section.campusName} · {section.className}
+                                            </p>
+                                        )}
                                         <p className="mt-1 flex items-center gap-2 text-sm text-slate-500">
                                             <Users className="h-4 w-4" />
                                             {occupancy}
@@ -466,7 +542,7 @@ export default function SectionAllocationRulesPage() {
                                                 disabled={draft.unlimited || !canEdit}
                                                 value={draft.unlimited ? "" : draft.student_capacity}
                                                 onChange={(e) =>
-                                                    updateDraft(section.id, {
+                                                    updateDraft(section.campus_section_id, {
                                                         student_capacity: e.target.value,
                                                         unlimited: false,
                                                     })
@@ -481,7 +557,7 @@ export default function SectionAllocationRulesPage() {
                                                 checked={draft.unlimited}
                                                 disabled={!canEdit}
                                                 onChange={(e) =>
-                                                    updateDraft(section.id, {
+                                                    updateDraft(section.campus_section_id, {
                                                         unlimited: e.target.checked,
                                                         student_capacity: e.target.checked
                                                             ? ""
@@ -501,7 +577,7 @@ export default function SectionAllocationRulesPage() {
                                             value={draft.gender_mode}
                                             disabled={!canEdit}
                                             onChange={(e) =>
-                                                updateDraft(section.id, {
+                                                updateDraft(section.campus_section_id, {
                                                     gender_mode: e.target.value as SectionGenderMode,
                                                 })
                                             }
@@ -518,10 +594,10 @@ export default function SectionAllocationRulesPage() {
                                     <div className="flex items-end">
                                         <button
                                             onClick={() => handleSave(section)}
-                                            disabled={!canEdit || savingId === section.id}
+                                            disabled={!canEdit || savingId === section.campus_section_id}
                                             className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
                                         >
-                                            {savingId === section.id ? (
+                                            {savingId === section.campus_section_id ? (
                                                 <Loader2 className="h-4 w-4 animate-spin" />
                                             ) : (
                                                 <Save className="h-4 w-4" />
@@ -548,7 +624,7 @@ export default function SectionAllocationRulesPage() {
                 </div>
             )}
 
-            {managingSectionId && managedSection && (
+            {managingSectionKey && managedSection && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                     <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900">
                         <div className="flex items-start justify-between border-b border-slate-200 p-5 dark:border-slate-800">
@@ -557,7 +633,7 @@ export default function SectionAllocationRulesPage() {
                                     Manage Section {managedSection.description} Students
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-500">
-                                    {selectedCampus?.campus_name} · {selectedClass?.description}
+                                    {filterSummary || `${managedSection.campusName} · ${managedSection.className}`}
                                     {!isRosterLoading && (
                                         <>
                                             {" · "}
@@ -568,11 +644,11 @@ export default function SectionAllocationRulesPage() {
                                     )}
                                 </p>
                                 <p className="mt-1 text-xs text-slate-400">
-                                    Shows all students assigned to this section. Only enrolled students count toward capacity. Move between configured sections; capacity and gender rules are checked by the server.
+                                    Shows students assigned to this section across the selected campus/class filters. Only enrolled students count toward capacity. Move between configured sections; capacity and gender rules are checked by the server.
                                 </p>
                             </div>
                             <button
-                                onClick={() => setManagingSectionId(null)}
+                                onClick={() => setManagingSectionKey(null)}
                                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
                                 aria-label="Close roster manager"
                             >
@@ -620,6 +696,7 @@ export default function SectionAllocationRulesPage() {
                                             const statusInfo = formatEnrollmentStatus(
                                                 student.enrollment_status,
                                             );
+                                            const destSections = destinationSectionsFor(student);
                                             return (
                                             <tr
                                                 key={student.cc}
@@ -632,6 +709,7 @@ export default function SectionAllocationRulesPage() {
                                                     <div className="text-xs text-slate-500">
                                                         CC {student.cc}
                                                         {student.gr_number ? ` · GR ${student.gr_number}` : ""}
+                                                        {student.campus ? ` · ${student.campus}` : ""}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3">
@@ -657,25 +735,23 @@ export default function SectionAllocationRulesPage() {
                                                         className="w-full min-w-52 rounded-lg border border-slate-200 bg-white px-3 py-2 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950"
                                                     >
                                                         <option value="">Select destination</option>
-                                                        {sections
-                                                            .filter((section) => section.id !== managingSectionId)
-                                                            .map((section) => {
-                                                                const selectable = isSectionSelectableForGender(
-                                                                    section,
-                                                                    student.gender,
-                                                                );
-                                                                return (
-                                                                    <option
-                                                                        key={section.id}
-                                                                        value={section.id}
-                                                                        disabled={!selectable}
-                                                                    >
-                                                                        {formatSectionOptionLabel(section, {
-                                                                            studentGender: student.gender,
-                                                                        })}
-                                                                    </option>
-                                                                );
-                                                            })}
+                                                        {destSections.map((section) => {
+                                                            const selectable = isSectionSelectableForGender(
+                                                                section,
+                                                                student.gender,
+                                                            );
+                                                            return (
+                                                                <option
+                                                                    key={sectionKey(section)}
+                                                                    value={section.id}
+                                                                    disabled={!selectable}
+                                                                >
+                                                                    {formatSectionOptionLabel(section, {
+                                                                        studentGender: student.gender,
+                                                                    })}
+                                                                </option>
+                                                            );
+                                                        })}
                                                     </select>
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
