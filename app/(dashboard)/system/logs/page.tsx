@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Fragment } from "react";
 import { auditLogsService, AuditLog } from "@/lib/audit-logs.service";
 import { getSectionColor, SECTION_LABELS, SECTION_COLORS } from "@/lib/log-colors";
-import { ScrollText, Search, Calendar, RefreshCw, ArrowRight } from "lucide-react";
+import { ScrollText, Search, Calendar, RefreshCw, ArrowRight, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuthState } from "@/context/AuthContext";
 
@@ -21,6 +21,10 @@ function formatDate(value?: string | null) {
 function friendlyField(field?: string | null) {
   if (!field) return "";
   return field.replace(/\w+\./g, "").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function getChildCount(log: AuditLog): number {
+  return log.child_count ?? log.children?.length ?? 0;
 }
 
 function ActionBadge({ action }: { action: string }) {
@@ -199,7 +203,17 @@ export default function SystemLogsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [offset, setOffset] = useState(0);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const LIMIT = 50;
+
+  const toggleExpanded = (id: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -214,6 +228,7 @@ export default function SystemLogsPage() {
       });
       setLogs(res.data || []);
       setTotal(res.total || 0);
+      setExpandedIds(new Set());
     } catch {
       toast.error("Failed to load logs");
     } finally {
@@ -226,11 +241,13 @@ export default function SystemLogsPage() {
   const handleSectionChange = (s: string) => {
     setActiveSection(s);
     setOffset(0);
+    setExpandedIds(new Set());
   };
 
   const handleFilterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setOffset(0);
+    setExpandedIds(new Set());
     fetchLogs();
   };
 
@@ -316,7 +333,7 @@ export default function SystemLogsPage() {
         <button type="submit" className="h-9 px-4 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all hover:bg-zinc-700">
           Apply
         </button>
-        <button type="button" onClick={() => { setActorSearch(""); setDateFrom(""); setDateTo(""); setOffset(0); }} className="h-9 px-3 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-500 rounded-lg text-[11px] font-bold transition-all hover:bg-zinc-50">
+        <button type="button" onClick={() => { setActorSearch(""); setDateFrom(""); setDateTo(""); setOffset(0); setExpandedIds(new Set()); }} className="h-9 px-3 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-500 rounded-lg text-[11px] font-bold transition-all hover:bg-zinc-50">
           Clear
         </button>
       </form>
@@ -349,35 +366,107 @@ export default function SystemLogsPage() {
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {logs.map(log => {
                   const sColor = getSectionColor(log.section);
+                  const childCount = getChildCount(log);
+                  const hasChildren = childCount > 0;
+                  const isExpanded = expandedIds.has(log.id);
+                  const children = log.children ?? [];
+
                   return (
-                    <tr key={log.id} className="group hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40 transition-colors">
-                      <td className="pl-1 py-3">
-                        <div className={`w-1 h-6 rounded-full ${sColor.dot}`} />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                        {formatDate(log.changed_at)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-xs font-extrabold text-zinc-800 dark:text-zinc-200">@{log.changed_by}</span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${sColor.bg} ${sColor.text}`}>
-                            {log.entity_type.replace(/_/g, " ")}
-                          </span>
-                          <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">#{log.entity_id}</span>
-                          {log.student_id && (
-                            <span className="text-[10px] font-mono text-blue-500 bg-blue-50 dark:bg-blue-950/30 px-1 rounded">CC {log.student_id}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <ActionBadge action={log.action} />
-                      </td>
-                      <td className="px-4 py-3 min-w-[320px]">
-                        <LogDetails log={log} />
-                      </td>
-                    </tr>
+                    <Fragment key={log.id}>
+                      <tr className="group hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40 transition-colors">
+                        <td className="pl-1 py-3">
+                          <div className="flex items-center gap-1">
+                            {hasChildren ? (
+                              <button
+                                type="button"
+                                onClick={() => toggleExpanded(log.id)}
+                                className="p-0.5 rounded hover:bg-zinc-200/70 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+                                aria-label={isExpanded ? "Collapse details" : "Expand details"}
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-3.5 w-3.5" />
+                                ) : (
+                                  <ChevronRight className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            ) : (
+                              <span className="inline-block w-4" />
+                            )}
+                            <div className={`w-1 h-6 rounded-full ${sColor.dot}`} />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                          <div className="flex items-center gap-2">
+                            {formatDate(log.changed_at)}
+                            {hasChildren && !isExpanded && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 border border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
+                                {childCount} detail{childCount === 1 ? "" : "s"}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-xs font-extrabold text-zinc-800 dark:text-zinc-200">@{log.changed_by}</span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${sColor.bg} ${sColor.text}`}>
+                              {log.entity_type.replace(/_/g, " ")}
+                            </span>
+                            <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">#{log.entity_id}</span>
+                            {log.student_id && (
+                              <span className="text-[10px] font-mono text-blue-500 bg-blue-50 dark:bg-blue-950/30 px-1 rounded">CC {log.student_id}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <ActionBadge action={log.action} />
+                        </td>
+                        <td className="px-4 py-3 min-w-[320px]">
+                          <LogDetails log={log} />
+                        </td>
+                      </tr>
+                      {isExpanded &&
+                        children.map((child) => {
+                          const childColor = getSectionColor(child.section);
+                          return (
+                            <tr
+                              key={child.id}
+                              className="bg-zinc-50/80 dark:bg-zinc-800/30 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/50 transition-colors"
+                            >
+                              <td className="pl-1 py-2.5 border-l-2 border-zinc-300 dark:border-zinc-600">
+                                <div className="flex items-center gap-1 pl-4">
+                                  <span className="inline-block w-4" />
+                                  <div className={`w-1 h-5 rounded-full ${childColor.dot} opacity-60`} />
+                                </div>
+                              </td>
+                              <td className="px-4 py-2.5 whitespace-nowrap text-xs font-semibold text-zinc-400 dark:text-zinc-500">
+                                {formatDate(child.changed_at)}
+                              </td>
+                              <td className="px-4 py-2.5 whitespace-nowrap">
+                                <span className="text-xs font-extrabold text-zinc-600 dark:text-zinc-400">@{child.changed_by}</span>
+                              </td>
+                              <td className="px-4 py-2.5 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded opacity-80 ${childColor.bg} ${childColor.text}`}>
+                                    {child.entity_type.replace(/_/g, " ")}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">#{child.entity_id}</span>
+                                  {child.student_id && (
+                                    <span className="text-[10px] font-mono text-blue-500 bg-blue-50 dark:bg-blue-950/30 px-1 rounded">CC {child.student_id}</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-2.5 whitespace-nowrap">
+                                <ActionBadge action={child.action} />
+                              </td>
+                              <td className="px-4 py-2.5 min-w-[320px]">
+                                <LogDetails log={child} />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -391,7 +480,7 @@ export default function SystemLogsPage() {
         <div className="flex items-center justify-between mt-4 px-1">
           <button
             disabled={offset === 0}
-            onClick={() => setOffset(o => Math.max(0, o - LIMIT))}
+            onClick={() => { setOffset(o => Math.max(0, o - LIMIT)); setExpandedIds(new Set()); }}
             className="h-9 px-4 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-xl font-bold text-xs transition-all disabled:opacity-30 disabled:cursor-not-allowed"
           >
             ← Newer
@@ -401,7 +490,7 @@ export default function SystemLogsPage() {
           </span>
           <button
             disabled={offset + LIMIT >= total}
-            onClick={() => setOffset(o => o + LIMIT)}
+            onClick={() => { setOffset(o => o + LIMIT); setExpandedIds(new Set()); }}
             className="h-9 px-4 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-xl font-bold text-xs transition-all disabled:opacity-30 disabled:cursor-not-allowed"
           >
             Older →

@@ -13,6 +13,9 @@ export interface AuditLog {
   note?: string | null;
   student_id?: number | null;
   section?: string | null;
+  parent_id?: number | null;
+  child_count?: number;
+  children?: AuditLog[];
 }
 
 export interface AuditLogsResponse {

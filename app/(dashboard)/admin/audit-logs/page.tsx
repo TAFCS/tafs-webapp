@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Fragment } from "react";
 import { auditLogsService, AuditLog } from "@/lib/audit-logs.service";
 import {
   History,
@@ -13,10 +13,10 @@ import {
   Coins,
   Clock3,
   Calendar,
-  Activity,
   ArrowRight,
-  TrendingUp,
-  RefreshCw
+  RefreshCw,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
@@ -83,6 +83,41 @@ function friendlyField(field?: string | null) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function getChildCount(log: AuditLog): number {
+  return log.child_count ?? log.children?.length ?? 0;
+}
+
+function LogDetailsCell({ log }: { log: AuditLog }) {
+  if (log.action === "STATUS_CHANGED") {
+    return (
+      <span className="text-xs text-zinc-500">
+        Status changed to <strong className="text-zinc-700">{log.new_value}</strong>
+      </span>
+    );
+  }
+  if (log.field) {
+    return (
+      <div className="text-xs text-zinc-500">
+        <span className="font-extrabold text-zinc-700 block mb-0.5">{friendlyField(log.field)}</span>
+        <div className="flex items-center gap-1">
+          {log.old_value !== null && log.old_value !== "" ? (
+            <span className="line-through text-rose-400 bg-rose-50/50 px-1 rounded">{log.old_value}</span>
+          ) : (
+            <span className="text-zinc-300 italic">None</span>
+          )}
+          <ArrowRight className="h-3 w-3 text-zinc-300" />
+          {log.new_value !== null && log.new_value !== "" ? (
+            <span className="text-emerald-600 bg-emerald-50/50 px-1 rounded font-semibold">{log.new_value}</span>
+          ) : (
+            <span className="text-rose-400 bg-rose-50/50 px-1 rounded font-semibold">Removed</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+  return <span className="text-xs text-zinc-400 italic">No field details</span>;
+}
+
 export default function AdminAuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
@@ -96,7 +131,17 @@ export default function AdminAuditLogsPage() {
   const [studentId, setStudentId] = useState("");
 
   const [offset, setOffset] = useState(0);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const LIMIT = 50;
+
+  const toggleExpanded = (id: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -112,6 +157,7 @@ export default function AdminAuditLogsPage() {
       });
       setLogs(res.data || []);
       setTotal(res.total || 0);
+      setExpandedIds(new Set());
     } catch (error) {
       toast.error("Failed to load audit logs");
       console.error(error);
@@ -127,6 +173,7 @@ export default function AdminAuditLogsPage() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setOffset(0);
+    setExpandedIds(new Set());
     fetchLogs();
   };
 
@@ -137,6 +184,7 @@ export default function AdminAuditLogsPage() {
     setDateTo("");
     setStudentId("");
     setOffset(0);
+    setExpandedIds(new Set());
   };
 
   // Derive metrics summaries
@@ -205,10 +253,12 @@ export default function AdminAuditLogsPage() {
             onToggle={(id) => {
               setEntityTypes((prev) => toggleId(prev, id));
               setOffset(0);
+              setExpandedIds(new Set());
             }}
             onClear={() => {
               setEntityTypes([]);
               setOffset(0);
+              setExpandedIds(new Set());
             }}
           />
 
@@ -312,60 +362,104 @@ export default function AdminAuditLogsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {logs.map((log) => (
-                  <tr key={log.id} className="group hover:bg-zinc-50/50 transition-colors">
-                    <td className="px-8 py-4 whitespace-nowrap text-xs font-semibold text-zinc-500">
-                      {formatDate(log.changed_at)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-xs font-extrabold text-zinc-800">@{log.changed_by}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <EntityIcon type={log.entity_type} />
-                        <span className="text-xs font-bold text-zinc-700">{log.entity_type}</span>
-                        <span className="text-[10px] font-mono text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">ID: {log.entity_id}</span>
-                        {log.student_id && (
-                          <span className="text-[10px] font-mono text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">CC: {log.student_id}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <ActionBadge action={log.action} />
-                    </td>
-                    <td className="px-6 py-4">
-                      {log.action === "STATUS_CHANGED" ? (
-                        <span className="text-xs text-zinc-500">
-                          Status changed to <strong className="text-zinc-700">{log.new_value}</strong>
-                        </span>
-                      ) : log.field ? (
-                        <div className="text-xs text-zinc-500">
-                          <span className="font-extrabold text-zinc-700 block mb-0.5">{friendlyField(log.field)}</span>
-                          <div className="flex items-center gap-1">
-                            {log.old_value !== null && log.old_value !== "" ? (
-                              <span className="line-through text-rose-400 bg-rose-50/50 px-1 rounded">{log.old_value}</span>
+                {logs.map((log) => {
+                  const childCount = getChildCount(log);
+                  const hasChildren = childCount > 0;
+                  const isExpanded = expandedIds.has(log.id);
+                  const children = log.children ?? [];
+
+                  return (
+                    <Fragment key={log.id}>
+                      <tr className="group hover:bg-zinc-50/50 transition-colors">
+                        <td className="px-8 py-4 whitespace-nowrap text-xs font-semibold text-zinc-500">
+                          <div className="flex items-center gap-2">
+                            {hasChildren ? (
+                              <button
+                                type="button"
+                                onClick={() => toggleExpanded(log.id)}
+                                className="p-0.5 rounded hover:bg-zinc-200/70 text-zinc-400 hover:text-zinc-700 transition-colors"
+                                aria-label={isExpanded ? "Collapse details" : "Expand details"}
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-3.5 w-3.5" />
+                                ) : (
+                                  <ChevronRight className="h-3.5 w-3.5" />
+                                )}
+                              </button>
                             ) : (
-                              <span className="text-zinc-300 italic">None</span>
+                              <span className="inline-block w-4" />
                             )}
-                            <ArrowRight className="h-3 w-3 text-zinc-300" />
-                            {log.new_value !== null && log.new_value !== "" ? (
-                              <span className="text-emerald-600 bg-emerald-50/50 px-1 rounded font-semibold">{log.new_value}</span>
-                            ) : (
-                              <span className="text-rose-400 bg-rose-50/50 px-1 rounded font-semibold">Removed</span>
+                            {formatDate(log.changed_at)}
+                            {hasChildren && !isExpanded && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-600 border border-indigo-100">
+                                {childCount} detail{childCount === 1 ? "" : "s"}
+                              </span>
                             )}
                           </div>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-zinc-400 italic">No field details</span>
-                      )}
-                    </td>
-                    <td className="px-8 py-4">
-                      <p className="text-xs text-zinc-600 font-medium max-w-xs truncate" title={log.note || ""}>
-                        {log.note || <span className="text-zinc-300">—</span>}
-                      </p>
-                    </td>
-                  </tr>
-                ))}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-xs font-extrabold text-zinc-800">@{log.changed_by}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <EntityIcon type={log.entity_type} />
+                            <span className="text-xs font-bold text-zinc-700">{log.entity_type}</span>
+                            <span className="text-[10px] font-mono text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">ID: {log.entity_id}</span>
+                            {log.student_id && (
+                              <span className="text-[10px] font-mono text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">CC: {log.student_id}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <ActionBadge action={log.action} />
+                        </td>
+                        <td className="px-6 py-4">
+                          <LogDetailsCell log={log} />
+                        </td>
+                        <td className="px-8 py-4">
+                          <p className="text-xs text-zinc-600 font-medium max-w-xs truncate" title={log.note || ""}>
+                            {log.note || <span className="text-zinc-300">—</span>}
+                          </p>
+                        </td>
+                      </tr>
+                      {isExpanded &&
+                        children.map((child) => (
+                          <tr
+                            key={child.id}
+                            className="bg-zinc-50/80 hover:bg-zinc-100/60 transition-colors"
+                          >
+                            <td className="py-3 whitespace-nowrap text-xs font-semibold text-zinc-400 border-l-2 border-indigo-200 pl-14 pr-8">
+                              {formatDate(child.changed_at)}
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap">
+                              <span className="text-xs font-extrabold text-zinc-600">@{child.changed_by}</span>
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <EntityIcon type={child.entity_type} />
+                                <span className="text-xs font-bold text-zinc-600">{child.entity_type}</span>
+                                <span className="text-[10px] font-mono text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">ID: {child.entity_id}</span>
+                                {child.student_id && (
+                                  <span className="text-[10px] font-mono text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">CC: {child.student_id}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap">
+                              <ActionBadge action={child.action} />
+                            </td>
+                            <td className="px-6 py-3">
+                              <LogDetailsCell log={child} />
+                            </td>
+                            <td className="px-8 py-3">
+                              <p className="text-xs text-zinc-500 font-medium max-w-xs truncate" title={child.note || ""}>
+                                {child.note || <span className="text-zinc-300">—</span>}
+                              </p>
+                            </td>
+                          </tr>
+                        ))}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -377,7 +471,7 @@ export default function AdminAuditLogsPage() {
         <div className="flex items-center justify-between mt-6 px-4">
           <button
             disabled={offset === 0}
-            onClick={() => setOffset((o) => Math.max(0, o - LIMIT))}
+            onClick={() => { setOffset((o) => Math.max(0, o - LIMIT)); setExpandedIds(new Set()); }}
             className="h-10 px-5 border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-600 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             ← Newer Logs
@@ -387,7 +481,7 @@ export default function AdminAuditLogsPage() {
           </span>
           <button
             disabled={offset + LIMIT >= total}
-            onClick={() => setOffset((o) => o + LIMIT)}
+            onClick={() => { setOffset((o) => o + LIMIT); setExpandedIds(new Set()); }}
             className="h-10 px-5 border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-600 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             Older Logs →
