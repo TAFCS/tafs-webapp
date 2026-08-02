@@ -145,6 +145,15 @@ export function groupFees(
         return !!item.is_discount;
     };
 
+    // scholarship_percentage is the single source of truth for "this head has a
+    // scholarship" — see getScholarship() for why the amount gap must never be used.
+    const hasScholarship = (item: any): boolean => {
+        const pct = options.isVoucherHeads
+            ? item.student_fees?.scholarship_percentage
+            : item.scholarship_percentage;
+        return Number(pct ?? 0) > 0;
+    };
+
     const getDiscount = (item: any): number => {
         if (isDiscountRow(item)) {
             const base = options.isVoucherHeads
@@ -156,18 +165,25 @@ export function groupFees(
             return Number(item.discount_amount || 0);
         }
         const adHocDiscount = (appliedDiscounts[item.id] || []).reduce((sum, d) => sum + d.amount, 0);
-        const amountAfterDiscount = Number(item.amount_after_discount ?? item.amount ?? item.amount_before_discount);
+        const amountAfterDiscount = hasScholarship(item)
+            ? Number(item.amount_after_discount ?? item.amount ?? item.amount_before_discount)
+            : Number(item.amount ?? item.amount_before_discount);
         const systemDiscount = Math.max(0, Number(item.amount_before_discount) - amountAfterDiscount);
         return adHocDiscount + systemDiscount;
     };
 
-    // Scholarship is always the gap between amount_after_discount and the final
-    // amount — MTF-only, applied after discount (see fee-utils/student_fees docs).
+    // Scholarship is the gap between amount_after_discount and the final amount —
+    // MTF-only, applied after discount. scholarship_percentage is the ONLY source of
+    // truth for whether a scholarship exists: amount_after_discount is a derived column
+    // that not every path maintains when it edits `amount` (splits, merges, installment
+    // edits), so inferring from the arithmetic gap alone renders a plain discount as a
+    // phantom scholarship. With no scholarship, "after discount" IS the final amount.
     const getScholarship = (item: any): number => {
         if (isDiscountRow(item)) return 0;
         if (options.isVoucherHeads) {
             return Number(item.scholarship_amount || 0);
         }
+        if (!hasScholarship(item)) return 0;
         const amountAfterDiscount = Number(item.amount_after_discount ?? item.amount ?? item.amount_before_discount ?? 0);
         const finalAmount = Number(item.amount ?? item.amount_before_discount ?? 0);
         return Math.max(0, amountAfterDiscount - finalAmount);

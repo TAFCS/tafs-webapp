@@ -2302,9 +2302,14 @@ function StudentwiseFeeEditor() {
                                     const scholarshipPctNum = Number(row.feeId) === 1 ? parseFloat(row.scholarshipPercentage || "0") : 0;
                                     const hasScholarshipPct = scholarshipPctNum > 0 && scholarshipPctNum < 100;
                                     const beforeScholarshipAmount = parseFloat(row.amount || "0");
-                                    const finalAmountNum = hasScholarshipPct
-                                        ? beforeScholarshipAmount * (1 - scholarshipPctNum / 100)
-                                        : beforeScholarshipAmount;
+                                    // `amount` is the final receivable and is always stored as a
+                                    // whole number (enforced by the DB trigger) — round here too so
+                                    // the grid shows exactly what will be charged.
+                                    const finalAmountNum = Math.round(
+                                        hasScholarshipPct
+                                            ? beforeScholarshipAmount * (1 - scholarshipPctNum / 100)
+                                            : beforeScholarshipAmount,
+                                    );
                                     const isCurrentRowActive = activeCell?.row === rIdx;
                                     const groupSeparator = row.isGroupStart && rIdx > 0 ? "border-t-2 border-zinc-100" : "";
                                     const lockedBg = row.status === "PAID" ? "bg-emerald-50/10 dark:bg-emerald-950/20" : "bg-amber-50/20 dark:bg-amber-950/20";
@@ -2508,12 +2513,13 @@ function StudentwiseFeeEditor() {
                                                             <input
                                                                 type="number"
                                                                 disabled={isLocked}
-                                                                value={Number.isFinite(finalAmountNum) ? Number(finalAmountNum.toFixed(2)) : ""}
-                                                                title="Final amount after scholarship — editing this back-computes the amount above"
+                                                                step={1}
+                                                                value={Number.isFinite(finalAmountNum) ? finalAmountNum : ""}
+                                                                title="Final amount after scholarship (always a whole number) — editing this back-computes the amount above"
                                                                 onChange={(e) => {
                                                                     const enteredFinal = parseFloat(e.target.value);
                                                                     if (Number.isNaN(enteredFinal)) return;
-                                                                    const newBeforeScholarship = enteredFinal / (1 - scholarshipPctNum / 100);
+                                                                    const newBeforeScholarship = Math.round(enteredFinal) / (1 - scholarshipPctNum / 100);
                                                                     updateRow(rIdx, "amount", newBeforeScholarship.toFixed(2));
                                                                 }}
                                                                 className={`w-full h-full pl-2 pr-5 text-right font-mono font-black text-[12px] outline-none bg-transparent text-fuchsia-600 dark:text-fuchsia-400 placeholder:text-zinc-200 ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
