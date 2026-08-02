@@ -1,14 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CalendarDays, Info, Loader2, Search, Trash2 } from "lucide-react";
+import { AlertCircle, Building2, CalendarDays, Info, Layers, Loader2, Search, Trash2 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus } from "@/lib/campuses.service";
 import { hrService, EmployeeProfile, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
 import { saturdaySchedulesService, SaturdaySchedule } from "@/lib/leaves.service";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId, serializeIds } from "@/components/filters/filter-params";
 
 const TEACHER_CATEGORIES = TEACHER_CATEGORY_CODES;
-const ALL_CAMPUSES = "ALL";
 
 const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -132,8 +133,8 @@ export default function SaturdaySchedulesPage() {
   const isCampusAdmin = user?.role === "CAMPUS_ADMIN";
 
   const [campuses, setCampuses] = useState<Campus[]>([]);
-  const [campusId, setCampusId] = useState<string>("");
-  const [segmentFilter, setSegmentFilter] = useState<string>("");
+  const [campusIds, setCampusIds] = useState<number[]>([]);
+  const [segmentIds, setSegmentIds] = useState<number[]>([]);
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -156,9 +157,7 @@ export default function SaturdaySchedulesPage() {
     campusesService.list().then((list) => {
       setCampuses(list);
       if (isCampusAdmin && user?.campusId) {
-        setCampusId(String(user.campusId));
-      } else if (list.length > 0) {
-        setCampusId(String(list[0].id));
+        setCampusIds([user.campusId]);
       }
     }).catch(console.error);
   }, [isCampusAdmin, user?.campusId]);
@@ -172,18 +171,22 @@ export default function SaturdaySchedulesPage() {
       .finally(() => setLoadingEmployees(false));
   }, [canManage]);
 
-  // Only teachers on the selected campus (or every campus, when "All
-  // Campuses" is picked) — the segment dropdown is built from this set so it
-  // never offers a segment with nobody in it.
+  const campusOptions = useMemo(
+    () => campuses.map((c) => ({ id: c.id, label: c.campus_name })),
+    [campuses],
+  );
+
+  // Only teachers on the selected campus(es) (empty = all campuses) —
+  // the segment dropdown is built from this set so it never offers a
+  // segment with nobody in it.
   const campusTeachers = useMemo(() => {
-    const cid = campusId === ALL_CAMPUSES ? null : Number(campusId);
     return employees.filter(
       (emp) =>
-        (cid == null || emp.campus_id === cid) &&
+        (campusIds.length === 0 || (emp.campus_id != null && campusIds.includes(emp.campus_id))) &&
         emp.staff_categories?.code &&
         TEACHER_CATEGORIES.has(emp.staff_categories.code),
     );
-  }, [employees, campusId]);
+  }, [employees, campusIds]);
 
   const availableSegments = useMemo(() => {
     const byId = new Map<number, SegmentInfo>();
@@ -193,13 +196,17 @@ export default function SaturdaySchedulesPage() {
     return [...byId.values()].sort((a, b) => a.display_order - b.display_order);
   }, [campusTeachers]);
 
+  const segmentOptions = useMemo(
+    () => availableSegments.map((s) => ({ id: s.id, label: s.name })),
+    [availableSegments],
+  );
+
   const filteredTeachers = useMemo(() => {
-    const segmentId = segmentFilter ? Number(segmentFilter) : null;
     const q = search.trim().toLowerCase();
 
     return campusTeachers.filter((emp) => {
-      if (segmentId != null) {
-        const inSegment = employeeSegments(emp).some((s) => s.id === segmentId);
+      if (segmentIds.length > 0) {
+        const inSegment = employeeSegments(emp).some((s) => segmentIds.includes(s.id));
         if (!inSegment) return false;
       }
       if (q) {
@@ -208,7 +215,7 @@ export default function SaturdaySchedulesPage() {
       }
       return true;
     });
-  }, [campusTeachers, segmentFilter, search]);
+  }, [campusTeachers, segmentIds, search]);
 
   // Group for display: segment header -> teachers, ordered by display_order.
   // A teacher assigned across multiple segments appears under each of them —
@@ -227,8 +234,8 @@ export default function SaturdaySchedulesPage() {
 
   const teachersBySegment = useMemo(() => groupBySegment(filteredTeachers), [filteredTeachers]);
 
-  // Only built/rendered when "All Campuses" is selected — campus header ->
-  // segment header -> teachers.
+  // Multi-campus (or all) view — campus header -> segment header -> teachers.
+  const showCampusGrouping = campusIds.length !== 1;
   const teachersByCampusThenSegment = useMemo(() => {
     const byCampus = new Map<number, { campusName: string; teachers: EmployeeProfile[] }>();
     for (const emp of filteredTeachers) {
@@ -255,19 +262,17 @@ export default function SaturdaySchedulesPage() {
   }, [items]);
 
   const load = useCallback(async () => {
-    if (!campusId) return;
     setLoading(true);
     setError(null);
-    const segmentId = segmentFilter ? Number(segmentFilter) : null;
     try {
       const data = await saturdaySchedulesService.list({
         month,
-        ...(campusId !== ALL_CAMPUSES ? { campusId: Number(campusId) } : {}),
+        campusId: serializeIds(campusIds),
       });
-      const filtered = segmentId != null
+      const filtered = segmentIds.length > 0
         ? data.filter((item) =>
             item.employee_profiles.employee_class_section_assignments?.some(
-              (a) => a.classes?.segment_id === segmentId,
+              (a) => a.classes?.segment_id != null && segmentIds.includes(a.classes.segment_id),
             ),
           )
         : data;
@@ -278,7 +283,7 @@ export default function SaturdaySchedulesPage() {
     } finally {
       setLoading(false);
     }
-  }, [campusId, month, segmentFilter]);
+  }, [campusIds, month, segmentIds]);
 
   useEffect(() => {
     if (canManage) load();
@@ -410,7 +415,7 @@ export default function SaturdaySchedulesPage() {
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-4 space-y-4">
           <h2 className="font-semibold text-sm text-zinc-700 dark:text-zinc-300">Assign Saturdays</h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
             <div>
               <label className="text-xs text-zinc-500 block mb-1">Payroll cycle</label>
               <select
@@ -419,46 +424,57 @@ export default function SaturdaySchedulesPage() {
                   setMonth(e.target.value);
                   setNewDate("");
                 }}
-                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm h-11"
               >
                 {monthOptions.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
             </div>
-            <div>
-              <label className="text-xs text-zinc-500 block mb-1">Campus</label>
-              <select
-                value={campusId}
-                disabled={isCampusAdmin}
-                onChange={(e) => {
-                  setCampusId(e.target.value);
-                  setSegmentFilter("");
+            {isCampusAdmin ? (
+              <div>
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1 mb-1.5">
+                  <Building2 className="h-3 w-3" /> Campus
+                </label>
+                <div className="h-11 flex items-center px-4 rounded-xl text-sm border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 font-semibold">
+                  {campuses.find((c) => c.id === user?.campusId)?.campus_name ?? "Your campus"}
+                </div>
+              </div>
+            ) : (
+              <FilterDropdown
+                label="Campus"
+                icon={Building2}
+                value={campusIds}
+                options={campusOptions}
+                placeholder="All Campuses"
+                onToggle={(id) => {
+                  setCampusIds((prev) => toggleId(prev, id));
+                  setSegmentIds([]);
                   setSelectedIds(new Set());
                 }}
-                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm disabled:opacity-60"
-              >
-                {!isCampusAdmin && <option value={ALL_CAMPUSES}>All Campuses</option>}
-                {campuses.map((c) => (
-                  <option key={c.id} value={c.id}>{c.campus_name}</option>
-                ))}
-              </select>
-            </div>
+                onClear={() => {
+                  setCampusIds([]);
+                  setSegmentIds([]);
+                  setSelectedIds(new Set());
+                }}
+              />
+            )}
             <div className="sm:col-span-2">
-              <label className="text-xs text-zinc-500 block mb-1">Segment</label>
-              <select
-                value={segmentFilter}
-                onChange={(e) => {
-                  setSegmentFilter(e.target.value);
+              <FilterDropdown
+                label="Segment"
+                icon={Layers}
+                value={segmentIds}
+                options={segmentOptions}
+                placeholder="All segments"
+                onToggle={(id) => {
+                  setSegmentIds((prev) => toggleId(prev, id));
                   setSelectedIds(new Set());
                 }}
-                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
-              >
-                <option value="">All segments</option>
-                {availableSegments.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+                onClear={() => {
+                  setSegmentIds([]);
+                  setSelectedIds(new Set());
+                }}
+              />
             </div>
           </div>
 
@@ -480,7 +496,7 @@ export default function SaturdaySchedulesPage() {
               </div>
             ) : filteredTeachers.length === 0 ? (
               <p className="text-sm text-zinc-500 p-4">No teachers match the current filters.</p>
-            ) : campusId === ALL_CAMPUSES ? (
+            ) : showCampusGrouping ? (
               <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {teachersByCampusThenSegment.map(({ campusId: cid, campusName, segments }) => (
                   <div key={cid}>

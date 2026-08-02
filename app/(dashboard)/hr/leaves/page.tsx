@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  CalendarClock, CheckCircle2, ExternalLink, Loader2, X, XCircle,
+  Building2, CalendarClock, CheckCircle2, ExternalLink, Filter, Layers, Loader2, X, XCircle,
 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus } from "@/lib/campuses.service";
@@ -11,12 +11,21 @@ import {
   LeaveRequest,
   LeaveRequestStatus,
 } from "@/lib/leaves.service";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId, serializeIds } from "@/components/filters/filter-params";
 
-const STATUS_OPTIONS: (LeaveRequestStatus | "ALL")[] = [
-  "ALL", "PENDING", "APPROVED", "REJECTED",
+const STATUS_OPTIONS: { id: LeaveRequestStatus; label: string }[] = [
+  { id: "PENDING", label: "Pending" },
+  { id: "APPROVED", label: "Approved" },
+  { id: "REJECTED", label: "Rejected" },
 ];
 
-const TYPE_OPTIONS = ["ALL", "SICK", "CASUAL", "ANNUAL", "UNPAID"];
+const TYPE_OPTIONS: { id: string; label: string }[] = [
+  { id: "SICK", label: "Sick" },
+  { id: "CASUAL", label: "Casual" },
+  { id: "ANNUAL", label: "Annual" },
+  { id: "UNPAID", label: "Unpaid" },
+];
 
 function formatDate(iso: string) {
   return new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-US", {
@@ -51,8 +60,8 @@ function statusPill(status: LeaveRequestStatus) {
 
 export default function LeavesReviewPage() {
   const { user } = useAuthState();
-  const [status, setStatus] = useState<LeaveRequestStatus | "ALL">("PENDING");
-  const [typeCode, setTypeCode] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState<LeaveRequestStatus[]>(["PENDING"]);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [items, setItems] = useState<LeaveRequest[]>([]);
@@ -62,8 +71,8 @@ export default function LeavesReviewPage() {
   const [reviewReason, setReviewReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [campuses, setCampuses] = useState<Campus[]>([]);
-  const [campusFilter, setCampusFilter] = useState<string>(
-    user?.campusId ? String(user.campusId) : "all",
+  const [campusIds, setCampusIds] = useState<number[]>(
+    user?.campusId ? [user.campusId] : [],
   );
 
   const isInstitutionWide = !user?.campusId;
@@ -76,24 +85,23 @@ export default function LeavesReviewPage() {
 
   useEffect(() => {
     if (!isInstitutionWide && user?.campusId) {
-      setCampusFilter(String(user.campusId));
+      setCampusIds([user.campusId]);
     }
   }, [isInstitutionWide, user?.campusId]);
 
-  const campusId = isInstitutionWide
-    ? campusFilter === "all"
-      ? undefined
-      : Number(campusFilter)
-    : user?.campusId ?? undefined;
+  const campusOptions = useMemo(
+    () => campuses.map((c) => ({ id: c.id, label: c.campus_name })),
+    [campuses],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await leavesService.list({
-        campusId,
-        status: status === "ALL" ? undefined : status,
-        leaveTypeCode: typeCode === "ALL" ? undefined : typeCode,
+        campusId: serializeIds(campusIds),
+        status: serializeIds(statusFilter),
+        leaveTypeCode: serializeIds(typeFilter),
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
       });
@@ -104,7 +112,7 @@ export default function LeavesReviewPage() {
     } finally {
       setLoading(false);
     }
-  }, [campusId, status, typeCode, fromDate, toDate]);
+  }, [campusIds, statusFilter, typeFilter, fromDate, toDate]);
 
   useEffect(() => {
     if (canReview) load();
@@ -177,42 +185,47 @@ export default function LeavesReviewPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-end gap-3">
         {isInstitutionWide && (
-          <select
-            value={campusFilter}
-            onChange={(e) => setCampusFilter(e.target.value)}
-            className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-          >
-            <option value="all">All campuses</option>
-            {campuses.map((c) => (
-              <option key={c.id} value={c.id}>{c.campus_name}</option>
-            ))}
-          </select>
+          <div className="w-[200px]">
+            <FilterDropdown
+              label="Campus"
+              icon={Building2}
+              value={campusIds}
+              options={campusOptions}
+              placeholder="All Campuses"
+              onToggle={(id) => setCampusIds((prev) => toggleId(prev, id))}
+              onClear={() => setCampusIds([])}
+            />
+          </div>
         )}
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as LeaveRequestStatus | "ALL")}
-          className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-        >
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>{s === "ALL" ? "All statuses" : s}</option>
-          ))}
-        </select>
-        <select
-          value={typeCode}
-          onChange={(e) => setTypeCode(e.target.value)}
-          className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-        >
-          {TYPE_OPTIONS.map((t) => (
-            <option key={t} value={t}>{t === "ALL" ? "All types" : t}</option>
-          ))}
-        </select>
+        <div className="w-[180px]">
+          <FilterDropdown
+            label="Status"
+            icon={Filter}
+            value={statusFilter}
+            options={STATUS_OPTIONS}
+            placeholder="All Statuses"
+            onToggle={(id) => setStatusFilter((prev) => toggleId(prev, id))}
+            onClear={() => setStatusFilter([])}
+          />
+        </div>
+        <div className="w-[180px]">
+          <FilterDropdown
+            label="Leave Type"
+            icon={Layers}
+            value={typeFilter}
+            options={TYPE_OPTIONS}
+            placeholder="All Types"
+            onToggle={(id) => setTypeFilter((prev) => toggleId(prev, id))}
+            onClear={() => setTypeFilter([])}
+          />
+        </div>
         <input
           type="date"
           value={fromDate}
           onChange={(e) => setFromDate(e.target.value)}
-          className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
+          className="h-11 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm"
           placeholder="From"
           aria-label="From date"
         />
@@ -220,7 +233,7 @@ export default function LeavesReviewPage() {
           type="date"
           value={toDate}
           onChange={(e) => setToDate(e.target.value)}
-          className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
+          className="h-11 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm"
           placeholder="To"
           aria-label="To date"
         />

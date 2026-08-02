@@ -32,23 +32,21 @@ import {
     Check,
     X,
     FileText,
-    Banknote,
-    Clock,
     Download,
     History,
     RefreshCw,
     ExternalLink,
     Search,
     Filter,
-    ArrowUpDown,
-    CheckCircle,
     Archive,
-    ArrowRight,
     Bell,
     BellOff,
+    GraduationCap,
 } from "lucide-react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId, serializeIds } from "@/components/filters/filter-params";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -85,6 +83,7 @@ export default function BulkVoucherPage() {
     const [reportSearch, setReportSearch] = useState("");
     const [reportStatusFilter, setReportStatusFilter] = useState("all");
     const [ccListInput, setCcListInput] = useState("");
+    const [historyCampusIds, setHistoryCampusIds] = useState<number[]>([]);
 
     // ── Student ID Resolution ──────────────────────────────────────────────────
     const [resolvedIds, setResolvedIds] = useState<Map<number, { cc: number; full_name: string; gr_number?: string | null } | "not_found" | "loading">>(new Map());
@@ -166,9 +165,9 @@ export default function BulkVoucherPage() {
 
     useEffect(() => {
         if (isHistoryView) {
-            dispatch(fetchBulkHistory(filters.campusId || undefined));
+            dispatch(fetchBulkHistory(serializeIds(historyCampusIds)));
         }
-    }, [dispatch, isHistoryView, filters.campusId]);
+    }, [dispatch, isHistoryView, historyCampusIds]);
 
     useEffect(() => {
         dispatch(fetchCampuses());
@@ -239,22 +238,35 @@ export default function BulkVoucherPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [jobStatus, jobId]);
 
-    // Derived logic for filtered classes/sections
-    const selectedCampusItem = useMemo(() => 
-        campuses.find(c => c.id === parseInt(filters.campusId)), 
-    [campuses, filters.campusId]);
-
-    const filteredClasses = useMemo(() => 
-        selectedCampusItem?.offered_classes || [], 
-    [selectedCampusItem]);
+    // Derived logic for filtered classes/sections (union across selected campuses)
+    const filteredClasses = useMemo(() => {
+        const selected = campuses.filter(c => filters.campusIds.includes(c.id));
+        const byId = new Map<number, { id: number; description: string; sections?: { id: number; description: string }[] }>();
+        for (const campus of selected) {
+            for (const cls of campus.offered_classes || []) {
+                if (!byId.has(cls.id)) byId.set(cls.id, cls);
+            }
+        }
+        return Array.from(byId.values());
+    }, [campuses, filters.campusIds]);
 
     const filteredSections = useMemo(() => {
-        if (!filters.classId) return [];
-        const cls = filteredClasses.find(c => c.id === parseInt(filters.classId));
-        return cls?.sections || [];
-    }, [filteredClasses, filters.classId]);
+        if (filters.classIds.length === 0) return [];
+        const byId = new Map<number, { id: number; description: string }>();
+        for (const cls of filteredClasses) {
+            if (!filters.classIds.includes(cls.id)) continue;
+            for (const sec of cls.sections || []) {
+                if (!byId.has(sec.id)) byId.set(sec.id, sec);
+            }
+        }
+        return Array.from(byId.values());
+    }, [filteredClasses, filters.classIds]);
 
-    const handleFilterChange = (updates: Partial<any>) => {
+    const campusOptions = campuses.map(c => ({ id: c.id, label: c.campus_name }));
+    const classOptions = filteredClasses.map(c => ({ id: c.id, label: c.description }));
+    const sectionOptions = filteredSections.map(s => ({ id: s.id, label: s.description }));
+
+    const handleFilterChange = (updates: Partial<typeof filters>) => {
         dispatch(updateFilters(updates));
     };
 
@@ -273,7 +285,7 @@ export default function BulkVoucherPage() {
                 await dispatch(validateCCs({ ccs, filters })).unwrap();
                 dispatch(setStep(2));
             } else {
-                if (!filters.campusId) return toast.error("Campus is required");
+                if (!filters.campusIds.length) return toast.error("Campus is required");
                 if (!filters.dateFrom || !filters.dateTo) return toast.error("Date range is required");
                 if (!filters.bankAccountId) return toast.error("Bank is required");
                 if (!filters.validityDate) return toast.error("Validity Date is required");
@@ -482,12 +494,27 @@ export default function BulkVoucherPage() {
                         </div>
                     </div>
                     <button 
-                        onClick={() => dispatch(fetchBulkHistory(filters.campusId || undefined))}
+                        onClick={() => dispatch(fetchBulkHistory(serializeIds(historyCampusIds)))}
                         className="h-10 px-4 bg-zinc-100 dark:bg-zinc-900 rounded-xl flex items-center gap-2 text-[12px] font-black hover:bg-zinc-200 transition-all"
                     >
                         <RefreshCw className={`h-4 w-4 ${isFetchingHistory ? "animate-spin" : ""}`} />
                         REFRESH
                     </button>
+                </div>
+
+                <div className="px-8 pb-6">
+                    <div className="w-full max-w-xs">
+                        <FilterDropdown
+                            label="Campus"
+                            icon={Building2}
+                            value={historyCampusIds}
+                            options={campusOptions}
+                            loading={isCampusesLoading}
+                            placeholder="All Campuses"
+                            onToggle={(id) => setHistoryCampusIds((prev) => toggleId(prev, id))}
+                            onClear={() => setHistoryCampusIds([])}
+                        />
+                    </div>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -693,61 +720,47 @@ export default function BulkVoucherPage() {
 
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 gap-6 animate-in fade-in slide-in-from-top-4">
-                            <div>
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">
-                                    Campus {filters.jobType === 'BULK' ? '(Required)' : '(Optional with CC List)'}
-                                </label>
-                                <div className="relative">
-                                    <select 
-                                        className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none"
-                                        value={filters.campusId}
-                                        onChange={(e) => handleFilterChange({ campusId: e.target.value, classId: '', sectionId: '' })}
-                                        disabled={isCampusesLoading}
-                                    >
-                                        <option value="">Select Campus</option>
-                                        {campuses.map(c => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
-                                    </select>
-                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
-                                        {isCampusesLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <ChevronDown className="h-4 w-4" />}
-                                    </div>
-                                </div>
-                            </div>
+                            <FilterDropdown
+                                label={filters.jobType === 'BULK' ? 'Campus (Required)' : 'Campus (Optional with CC List)'}
+                                icon={Building2}
+                                value={filters.campusIds}
+                                options={campusOptions}
+                                loading={isCampusesLoading}
+                                placeholder="Select Campus"
+                                onToggle={(id) => handleFilterChange({
+                                    campusIds: toggleId(filters.campusIds, id),
+                                    classIds: [],
+                                    sectionIds: [],
+                                })}
+                                onClear={() => handleFilterChange({ campusIds: [], classIds: [], sectionIds: [] })}
+                            />
 
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Class (Optional)</label>
-                                    <div className="relative">
-                                        <select 
-                                            className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none disabled:opacity-50"
-                                            value={filters.classId}
-                                            disabled={!filters.campusId || isCampusesLoading}
-                                            onChange={(e) => handleFilterChange({ classId: e.target.value, sectionId: '' })}
-                                        >
-                                            <option value="">All Classes</option>
-                                            {filteredClasses.map(c => <option key={c.id} value={c.id}>{c.description}</option>)}
-                                        </select>
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
-                                            <ChevronDown className="h-4 w-4" />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1 mb-2 block">Section (Optional)</label>
-                                    <div className="relative">
-                                        <select 
-                                            className="w-full h-12 px-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-bold focus:ring-4 focus:ring-primary/5 transition-all outline-none appearance-none disabled:opacity-50"
-                                            value={filters.sectionId}
-                                            disabled={!filters.classId || isCampusesLoading}
-                                            onChange={(e) => handleFilterChange({ sectionId: e.target.value })}
-                                        >
-                                            <option value="">All Sections</option>
-                                            {filteredSections.map(s => <option key={s.id} value={s.id}>{s.description}</option>)}
-                                        </select>
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
-                                            <ChevronDown className="h-4 w-4" />
-                                        </div>
-                                    </div>
-                                </div>
+                                <FilterDropdown
+                                    label="Class (Optional)"
+                                    icon={GraduationCap}
+                                    value={filters.classIds}
+                                    options={classOptions}
+                                    loading={isCampusesLoading}
+                                    placeholder="All Classes"
+                                    onToggle={(id) => handleFilterChange({
+                                        classIds: toggleId(filters.classIds, id),
+                                        sectionIds: [],
+                                    })}
+                                    onClear={() => handleFilterChange({ classIds: [], sectionIds: [] })}
+                                />
+                                <FilterDropdown
+                                    label="Section (Optional)"
+                                    icon={Users}
+                                    value={filters.sectionIds}
+                                    options={sectionOptions}
+                                    loading={isCampusesLoading}
+                                    placeholder="All Sections"
+                                    onToggle={(id) => handleFilterChange({
+                                        sectionIds: toggleId(filters.sectionIds, id),
+                                    })}
+                                    onClear={() => handleFilterChange({ sectionIds: [] })}
+                                />
                             </div>
                         </div>
 
@@ -786,7 +799,7 @@ export default function BulkVoucherPage() {
                         <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl flex items-start gap-4">
                             <Info className="h-5 w-5 text-primary mt-1" />
                             <p className="text-[12px] font-medium text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                                {filters.jobType === 'BATCH' ? "Enter student CCs separated by commas, spaces or newlines. This mode allows generating vouchers for a specific list of students regardless of their class/campus." : "Filtering by campus is mandatory. You can optionally narrow down to specific classes or sections within the selected campus."}
+                                {filters.jobType === 'BATCH' ? "Enter student CCs separated by commas, spaces or newlines. This mode allows generating vouchers for a specific list of students regardless of their class/campus." : "Select one or more campuses (required). Optionally narrow to specific classes or sections across the selected campuses."}
                             </p>
                         </div>
                     </div>

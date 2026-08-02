@@ -30,6 +30,15 @@ import {
     formatSectionOptionLabel,
     isSectionSelectableForGender,
 } from "@/lib/section-allocation";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId } from "@/components/filters/filter-params";
+
+type PursuitStatus = "active" | "not_pursuing";
+
+const STATUS_OPTIONS: Array<{ id: PursuitStatus; label: string }> = [
+    { id: "active", label: "Pending Admission" },
+    { id: "not_pursuing", label: "Did Not Pursue" },
+];
 
 interface Candidate {
     cc: number;
@@ -87,7 +96,7 @@ export default function EnrollmentsPage() {
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
-    const [filterStatus, setFilterStatus] = useState<"active" | "not_pursuing" | "all">("active");
+    const [statuses, setStatuses] = useState<PursuitStatus[]>(["active"]);
 
     // Modal state
     const [selectedStudent, setSelectedStudent] = useState<Candidate | null>(null);
@@ -220,12 +229,12 @@ export default function EnrollmentsPage() {
         
         if (!matchesSearch) return false;
 
-        if (filterStatus === "active") {
-            return !c.not_pursuing;
-        } else if (filterStatus === "not_pursuing") {
-            return !!c.not_pursuing;
-        }
-        return true;
+        // Empty selection = all candidates
+        if (statuses.length === 0) return true;
+        const isNotPursuing = !!c.not_pursuing;
+        if (statuses.includes("active") && !isNotPursuing) return true;
+        if (statuses.includes("not_pursuing") && isNotPursuing) return true;
+        return false;
     });
 
     return (
@@ -242,21 +251,18 @@ export default function EnrollmentsPage() {
                     </p>
                 </div>
 
-                <div className="relative z-10 flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                <div className="relative z-10 flex flex-col sm:flex-row gap-3 w-full md:w-auto items-stretch sm:items-end">
                     {/* Status Filter */}
-                    <div className="relative">
-                        <select
-                            value={filterStatus}
-                            onChange={(e) => setFilterStatus(e.target.value as any)}
-                            className="w-full sm:w-48 px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-bold text-zinc-700 dark:text-zinc-300 appearance-none cursor-pointer pr-10"
-                        >
-                            <option value="active">Pending Admission</option>
-                            <option value="not_pursuing">Did Not Pursue</option>
-                            <option value="all">All Candidates</option>
-                        </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
-                            <ChevronRight className="h-4 w-4 rotate-90" />
-                        </div>
+                    <div className="w-full sm:w-56">
+                        <FilterDropdown
+                            label="Status"
+                            icon={Layers}
+                            value={statuses}
+                            options={STATUS_OPTIONS}
+                            placeholder="All Candidates"
+                            onToggle={(id) => setStatuses((prev) => toggleId(prev, id))}
+                            onClear={() => setStatuses([])}
+                        />
                     </div>
 
                     {/* Search Input */}
@@ -267,7 +273,7 @@ export default function EnrollmentsPage() {
                             placeholder="Search by name or CC..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                            className="w-full pl-12 pr-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium h-11"
                         />
                     </div>
                 </div>

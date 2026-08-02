@@ -279,8 +279,8 @@ export const attendanceService = {
 
   async getStaffRegister(params: {
     date: string;
-    campus_id?: number;
-    department_id?: number;
+    campus_id?: string | number;
+    department_id?: string | number;
   }): Promise<StaffRegisterRow[]> {
     const { data } = await api.get<ApiEnvelope<StaffRegisterRow[]>>(
       '/v1/attendance/staff',
@@ -305,8 +305,8 @@ export const attendanceService = {
 
   async getStaffSummary(params: {
     date: string;
-    campus_id?: number;
-    department_id?: number;
+    campus_id?: string | number;
+    department_id?: string | number;
   }): Promise<StaffAttendanceSummary> {
     const { data } = await api.get<ApiEnvelope<StaffAttendanceSummary>>(
       '/v1/attendance/staff/summary',
@@ -317,8 +317,8 @@ export const attendanceService = {
 
   async getStaffDashboard(params: {
     date: string;
-    campus_id?: number;
-    department_id?: number;
+    campus_id?: string | number;
+    department_id?: string | number;
   }): Promise<StaffDashboardRow[]> {
     const { data } = await api.get<ApiEnvelope<StaffDashboardRow[]>>(
       '/v1/attendance/staff/dashboard',

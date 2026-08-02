@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, CalendarClock, CalendarOff, CheckCircle2, Loader2, Search, Trash2 } from "lucide-react";
+import { AlertCircle, Building2, CalendarClock, CalendarOff, CheckCircle2, Layers, Loader2, Search, Trash2 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus } from "@/lib/campuses.service";
-import { hrService, EmployeeProfile, CalendarDay, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, CalendarDay } from "@/lib/hr.service";
 import { shiftOverridesService, ShiftOverride } from "@/lib/leaves.service";
 import { MultiSelectMonthCalendar } from "../employees/_components/MultiSelectMonthCalendar";
-
-const ALL_CAMPUSES = "ALL";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId } from "@/components/filters/filter-params";
 
 type OverrideMode = "TIME" | "HOLIDAY";
 
@@ -50,8 +50,8 @@ export default function ShiftOverridesPage() {
   const [mode, setMode] = useState<OverrideMode>("TIME");
 
   const [campuses, setCampuses] = useState<Campus[]>([]);
-  const [campusId, setCampusId] = useState<string>("");
-  const [segmentFilter, setSegmentFilter] = useState<string>("");
+  const [campusIds, setCampusIds] = useState<number[]>([]);
+  const [segmentIds, setSegmentIds] = useState<number[]>([]);
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -78,9 +78,7 @@ export default function ShiftOverridesPage() {
     campusesService.list().then((list) => {
       setCampuses(list);
       if (isCampusAdmin && user?.campusId) {
-        setCampusId(String(user.campusId));
-      } else if (list.length > 0) {
-        setCampusId(String(list[0].id));
+        setCampusIds([user.campusId]);
       }
     }).catch(console.error);
   }, [isCampusAdmin, user?.campusId]);
@@ -162,13 +160,13 @@ export default function ShiftOverridesPage() {
     }
   };
 
-  // Every active employee on the selected campus (or every campus, when "All
-  // Campuses" is picked) — not just teachers, since off-time overrides can
-  // apply to any staff category.
+  // Every active employee on the selected campus(es) (empty = all campuses) —
+  // not just teachers, since off-time overrides can apply to any staff category.
   const campusStaff = useMemo(() => {
-    const cid = campusId === ALL_CAMPUSES ? null : Number(campusId);
-    return employees.filter((emp) => cid == null || emp.campus_id === cid);
-  }, [employees, campusId]);
+    return employees.filter(
+      (emp) => campusIds.length === 0 || (emp.campus_id != null && campusIds.includes(emp.campus_id)),
+    );
+  }, [employees, campusIds]);
 
   const availableSegments = useMemo(() => {
     const byId = new Map<number, SegmentInfo>();
@@ -178,13 +176,22 @@ export default function ShiftOverridesPage() {
     return [...byId.values()].sort((a, b) => a.display_order - b.display_order);
   }, [campusStaff]);
 
+  const campusOptions = useMemo(
+    () => campuses.map((c) => ({ id: c.id, label: c.campus_name })),
+    [campuses],
+  );
+
+  const segmentOptions = useMemo(
+    () => availableSegments.map((s) => ({ id: s.id, label: s.name })),
+    [availableSegments],
+  );
+
   const filteredStaff = useMemo(() => {
-    const segmentId = segmentFilter ? Number(segmentFilter) : null;
     const q = search.trim().toLowerCase();
 
     return campusStaff.filter((emp) => {
-      if (segmentId != null) {
-        const inSegment = employeeSegments(emp).some((s) => s.id === segmentId);
+      if (segmentIds.length > 0) {
+        const inSegment = employeeSegments(emp).some((s) => segmentIds.includes(s.id));
         if (!inSegment) return false;
       }
       if (q) {
@@ -193,7 +200,7 @@ export default function ShiftOverridesPage() {
       }
       return true;
     });
-  }, [campusStaff, segmentFilter, search]);
+  }, [campusStaff, segmentIds, search]);
 
   const groupBySegment = (staff: EmployeeProfile[]) => {
     const groups = new Map<number, { segment: SegmentInfo; staff: EmployeeProfile[] }>();
@@ -209,6 +216,7 @@ export default function ShiftOverridesPage() {
 
   const staffBySegment = useMemo(() => groupBySegment(filteredStaff), [filteredStaff]);
 
+  const showCampusGrouping = campusIds.length !== 1;
   const staffByCampusThenSegment = useMemo(() => {
     const byCampus = new Map<number, { campusName: string; staff: EmployeeProfile[] }>();
     for (const emp of filteredStaff) {
@@ -391,41 +399,50 @@ export default function ShiftOverridesPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-zinc-500 block mb-1">Campus</label>
-              <select
-                value={campusId}
-                disabled={isCampusAdmin}
-                onChange={(e) => {
-                  setCampusId(e.target.value);
-                  setSegmentFilter("");
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+            {isCampusAdmin ? (
+              <div>
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1 mb-1.5">
+                  <Building2 className="h-3 w-3" /> Campus
+                </label>
+                <div className="h-11 flex items-center px-4 rounded-xl text-sm border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 font-semibold">
+                  {campuses.find((c) => c.id === user?.campusId)?.campus_name ?? "Your campus"}
+                </div>
+              </div>
+            ) : (
+              <FilterDropdown
+                label="Campus"
+                icon={Building2}
+                value={campusIds}
+                options={campusOptions}
+                placeholder="All Campuses"
+                onToggle={(id) => {
+                  setCampusIds((prev) => toggleId(prev, id));
+                  setSegmentIds([]);
                   setSelectedIds(new Set());
                 }}
-                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm disabled:opacity-60"
-              >
-                {!isCampusAdmin && <option value={ALL_CAMPUSES}>All Campuses</option>}
-                {campuses.map((c) => (
-                  <option key={c.id} value={c.id}>{c.campus_name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-zinc-500 block mb-1">Segment</label>
-              <select
-                value={segmentFilter}
-                onChange={(e) => {
-                  setSegmentFilter(e.target.value);
+                onClear={() => {
+                  setCampusIds([]);
+                  setSegmentIds([]);
                   setSelectedIds(new Set());
                 }}
-                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
-              >
-                <option value="">All segments</option>
-                {availableSegments.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
+              />
+            )}
+            <FilterDropdown
+              label="Segment"
+              icon={Layers}
+              value={segmentIds}
+              options={segmentOptions}
+              placeholder="All segments"
+              onToggle={(id) => {
+                setSegmentIds((prev) => toggleId(prev, id));
+                setSelectedIds(new Set());
+              }}
+              onClear={() => {
+                setSegmentIds([]);
+                setSelectedIds(new Set());
+              }}
+            />
           </div>
 
           <div className="relative">
@@ -446,7 +463,7 @@ export default function ShiftOverridesPage() {
               </div>
             ) : filteredStaff.length === 0 ? (
               <p className="text-sm text-zinc-500 p-4">No staff match the current filters.</p>
-            ) : campusId === ALL_CAMPUSES ? (
+            ) : showCampusGrouping ? (
               <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {staffByCampusThenSegment.map(({ campusId: cid, campusName, segments }) => (
                   <div key={cid}>

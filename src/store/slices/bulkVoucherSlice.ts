@@ -7,9 +7,9 @@ import { getCurrentAcademicYear } from '../../lib/fee-utils';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface BulkFilters {
-    campusId: string;
-    classId: string;
-    sectionId: string;
+    campusIds: number[];
+    classIds: number[];
+    sectionIds: number[];
     dateFrom: string;
     dateTo: string;
     issueDate: string;
@@ -74,9 +74,9 @@ export const fetchBulkPreview = createAsyncThunk(
             const response = await api.post(
                 '/v1/bulk-voucher-jobs/preview',
                 {
-                    campus_id: filters.campusId ? parseInt(filters.campusId) : undefined,
-                    class_id: filters.classId ? parseInt(filters.classId) : undefined,
-                    section_id: filters.sectionId ? parseInt(filters.sectionId) : undefined,
+                    campus_ids: filters.campusIds.length ? filters.campusIds : undefined,
+                    class_ids: filters.classIds.length ? filters.classIds : undefined,
+                    section_ids: filters.sectionIds.length ? filters.sectionIds : undefined,
                     fee_date_from: filters.dateFrom,
                     fee_date_to: filters.dateTo,
                     skip_already_issued: filters.skipAlreadyIssued,
@@ -107,9 +107,9 @@ export const startBulkJob = createAsyncThunk(
             const response = await api.post(
                 '/v1/bulk-voucher-jobs',
                 {
-                    campus_id: filters.campusId ? parseInt(filters.campusId) : undefined,
-                    class_id: filters.classId ? parseInt(filters.classId) : undefined,
-                    section_id: filters.sectionId ? parseInt(filters.sectionId) : undefined,
+                    campus_ids: filters.campusIds.length ? filters.campusIds : undefined,
+                    class_ids: filters.classIds.length ? filters.classIds : undefined,
+                    section_ids: filters.sectionIds.length ? filters.sectionIds : undefined,
                     fee_date_from: filters.dateFrom,
                     fee_date_to: filters.dateTo,
                     issue_date: filters.issueDate,
@@ -166,10 +166,10 @@ export const pollJobStatus = createAsyncThunk(
  */
 export const fetchBulkHistory = createAsyncThunk(
     'bulkVoucher/fetchHistory',
-    async (campusId: string | undefined, { rejectWithValue }) => {
+    async (campusIdCsv: string | undefined, { rejectWithValue }) => {
         try {
             const response = await api.get('/v1/bulk-voucher-jobs', {
-                params: { campus_id: campusId },
+                params: { campus_id: campusIdCsv },
             });
             return response.data.data;
         } catch (err: any) {
@@ -193,9 +193,9 @@ export const validateCCs = createAsyncThunk(
             const response = await api.post(
                 '/v1/bulk-voucher-jobs/preview',
                 {
-                    campus_id: filters.campusId ? parseInt(filters.campusId) : undefined,
-                    class_id: filters.classId ? parseInt(filters.classId) : undefined,
-                    section_id: filters.sectionId ? parseInt(filters.sectionId) : undefined,
+                    campus_ids: filters.campusIds.length ? filters.campusIds : undefined,
+                    class_ids: filters.classIds.length ? filters.classIds : undefined,
+                    section_ids: filters.sectionIds.length ? filters.sectionIds : undefined,
                     student_ccs: ccs,
                     fee_date_from: filters.dateFrom,
                     fee_date_to: filters.dateTo,
@@ -219,9 +219,9 @@ export const validateCCs = createAsyncThunk(
 const initialState: BulkVoucherState = {
     currentStep: 1,
     filters: {
-        campusId: '',
-        classId: '',
-        sectionId: '',
+        campusIds: [],
+        classIds: [],
+        sectionIds: [],
         dateFrom: new Date().toISOString().split('T')[0],
         dateTo: new Date().toISOString().split('T')[0],
         issueDate: new Date().toISOString().split('T')[0],

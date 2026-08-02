@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle, CheckCircle2, ClipboardList, Loader2, X,
+  AlertCircle, Building2, CheckCircle2, ClipboardList, Filter, Loader2, X,
 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus } from "@/lib/campuses.service";
@@ -11,9 +11,13 @@ import {
   AttendanceObjection,
   AttendanceObjectionStatus,
 } from "@/lib/attendance-objections.service";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId, serializeIds } from "@/components/filters/filter-params";
 
-const STATUS_OPTIONS: (AttendanceObjectionStatus | "ALL")[] = [
-  "ALL", "PENDING", "ACCEPTED", "REJECTED",
+const STATUS_OPTIONS: { id: AttendanceObjectionStatus; label: string }[] = [
+  { id: "PENDING", label: "Pending" },
+  { id: "ACCEPTED", label: "Accepted" },
+  { id: "REJECTED", label: "Rejected" },
 ];
 
 function formatDate(iso: string) {
@@ -30,7 +34,7 @@ function formatTime(iso: string) {
 
 export default function AttendanceObjectionsPage() {
   const { user } = useAuthState();
-  const [status, setStatus] = useState<AttendanceObjectionStatus | "ALL">("PENDING");
+  const [statusFilter, setStatusFilter] = useState<AttendanceObjectionStatus[]>(["PENDING"]);
   const [items, setItems] = useState<AttendanceObjection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,8 +42,8 @@ export default function AttendanceObjectionsPage() {
   const [adminNotes, setAdminNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [campuses, setCampuses] = useState<Campus[]>([]);
-  const [campusFilter, setCampusFilter] = useState<string>(
-    user?.campusId ? String(user.campusId) : "all",
+  const [campusIds, setCampusIds] = useState<number[]>(
+    user?.campusId ? [user.campusId] : [],
   );
 
   const isInstitutionWide = !user?.campusId;
@@ -50,23 +54,22 @@ export default function AttendanceObjectionsPage() {
 
   useEffect(() => {
     if (!isInstitutionWide && user?.campusId) {
-      setCampusFilter(String(user.campusId));
+      setCampusIds([user.campusId]);
     }
   }, [isInstitutionWide, user?.campusId]);
 
-  const campusId = isInstitutionWide
-    ? campusFilter === "all"
-      ? undefined
-      : Number(campusFilter)
-    : user?.campusId ?? undefined;
+  const campusOptions = useMemo(
+    () => campuses.map((c) => ({ id: c.id, label: c.campus_name })),
+    [campuses],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await attendanceObjectionsService.list({
-        campus_id: campusId,
-        status: status === "ALL" ? undefined : status,
+        campus_id: serializeIds(campusIds),
+        status: serializeIds(statusFilter),
       });
       setItems(data);
     } catch (err: unknown) {
@@ -75,7 +78,7 @@ export default function AttendanceObjectionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [campusId, status]);
+  }, [campusIds, statusFilter]);
 
   useEffect(() => {
     load();
@@ -127,34 +130,31 @@ export default function AttendanceObjectionsPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-end gap-3">
         {isInstitutionWide && (
-          <select
-            value={campusFilter}
-            onChange={(e) => setCampusFilter(e.target.value)}
-            className="h-9 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-medium"
-          >
-            <option value="all">All campuses</option>
-            {campuses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.campus_name}
-              </option>
-            ))}
-          </select>
+          <div className="w-[200px]">
+            <FilterDropdown
+              label="Campus"
+              icon={Building2}
+              value={campusIds}
+              options={campusOptions}
+              placeholder="All Campuses"
+              onToggle={(id) => setCampusIds((prev) => toggleId(prev, id))}
+              onClear={() => setCampusIds([])}
+            />
+          </div>
         )}
-        {STATUS_OPTIONS.map((opt) => (
-          <button
-            key={opt}
-            onClick={() => setStatus(opt)}
-            className={`h-9 px-4 rounded-xl text-sm font-semibold transition-all ${
-              status === opt
-                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-            }`}
-          >
-            {opt}
-          </button>
-        ))}
+        <div className="w-[180px]">
+          <FilterDropdown
+            label="Status"
+            icon={Filter}
+            value={statusFilter}
+            options={STATUS_OPTIONS}
+            placeholder="All Statuses"
+            onToggle={(id) => setStatusFilter((prev) => toggleId(prev, id))}
+            onClear={() => setStatusFilter([])}
+          />
+        </div>
       </div>
 
       {error && (

@@ -33,7 +33,7 @@ interface ApiEnvelope<T> {
 }
 
 export const attendanceObjectionsService = {
-  async list(params?: { status?: AttendanceObjectionStatus; campus_id?: number }): Promise<AttendanceObjection[]> {
+  async list(params?: { status?: string; campus_id?: string }): Promise<AttendanceObjection[]> {
     const { data } = await api.get<ApiEnvelope<AttendanceObjection[]>>('/v1/attendance/objections', { params });
     return data.data;
   },
