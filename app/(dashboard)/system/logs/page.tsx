@@ -185,7 +185,7 @@ function LogDetails({ log }: { log: AuditLog }) {
   return <span className="text-xs text-zinc-300 dark:text-zinc-600">—</span>;
 }
 
-const BASE_SECTIONS = ["", "house-balancer", "student", "finance", "communication", "hr", "attendance", "school-setup", "system"] as const;
+const BASE_SECTIONS = ["", "house-balancer", "student", "finance", "communication", "hr", "attendance", "school-setup", "system", "app-config"] as const;
 
 export default function SystemLogsPage() {
   const { user } = useAuthState();
