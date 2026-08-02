@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Loader2, User, Briefcase, Clock, BookOpen, Trash2,
   Phone, Mail, MapPin, CreditCard, Cake, Calendar, Building2,
   AlertTriangle, Users as UsersIcon, Pencil, Save, CheckCircle2,
-  Landmark, PhoneCall, Shield, Fingerprint, CalendarClock,
+  Landmark, PhoneCall, Shield, Fingerprint, CalendarClock, UserMinus,
+  ChevronDown, UserCheck, ShieldCheck, DoorOpen, Ban,
 } from "lucide-react";
 import {
   hrService,
@@ -371,7 +373,11 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const handleDelete = async () => {
     if (!emp) return;
     const name = emp.full_name || emp.users?.full_name || `Profile #${emp.id}`;
-    if (!confirm(`Are you sure you want to delete ${name}'s employee profile? This cannot be undone.`)) return;
+    if (!confirm(
+      `Permanently delete ${name}'s employee profile?\n\n` +
+      `Use this only for mistaken or duplicate profiles. For people who left, use Mark as Left instead — that keeps HR history and disables their portal login.\n\n` +
+      `Delete cannot be undone and will also deactivate any linked portal login.`,
+    )) return;
     setDeleting(true);
     try {
       await hrService.deleteEmployee(emp.id);
@@ -388,7 +394,9 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     if (!emp || next === (emp.employment_status ?? "ACTIVE")) return;
     if (next === "TERMINATED" || next === "LEFT") {
       const ok = confirm(
-        `Set status to ${next}? This will deactivate the employee’s portal login if one is linked.`,
+        next === "LEFT"
+          ? "Mark this employee as LEFT?\n\nTheir record stays in HR history, they will be excluded from payroll, and their portal login will be disabled."
+          : `Set status to ${next}? This will deactivate the employee’s portal login if one is linked.`,
       );
       if (!ok) return;
     }
@@ -404,6 +412,8 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       setSavingStatus(false);
     }
   };
+
+  const handleMarkAsLeft = () => handleStatusChange("LEFT");
 
   if (!employeeId) return null;
 
@@ -479,11 +489,23 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                 Advanced
               </button>
             )}
+            {emp && isSuperAdmin ? (
+              <EmployeeStatusDropdown
+                status={emp.employment_status ?? "ACTIVE"}
+                loading={savingStatus}
+                onAction={(newStatus) => handleStatusChange(newStatus as EmployeeStatus)}
+              />
+            ) : emp ? (
+              <span className={`inline-flex text-xs border rounded-lg px-2.5 py-1.5 font-bold uppercase tracking-tight ${employeeStatusBadgeClass(emp?.employment_status)}`}>
+                {emp.employment_status ?? "ACTIVE"}
+              </span>
+            ) : null}
             <button
               type="button"
               onClick={handleDelete}
               disabled={deleting || !emp}
               className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-rose-50 text-rose-600 text-xs font-bold hover:bg-rose-100 transition-all disabled:opacity-50"
+              title="Permanent delete — prefer Mark as Left for offboarding"
             >
               {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Delete
             </button>
@@ -618,21 +640,16 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Employment Status</p>
                           <p className="text-xs text-zinc-500 mt-0.5">
                             {isSuperAdmin
-                              ? "Only super admins can change status."
+                              ? "Mark as Left keeps the record and disables portal login. Delete is only for mistaken/duplicate profiles."
                               : "Status is read-only for your role."}
                           </p>
                         </div>
                         {isSuperAdmin ? (
-                          <select
-                            className={inputCls + " sm:w-48"}
-                            value={emp.employment_status ?? "ACTIVE"}
-                            disabled={savingStatus}
-                            onChange={(e) => handleStatusChange(e.target.value as EmployeeStatus)}
-                          >
-                            {EMPLOYEE_STATUS_OPTIONS.map((o) => (
-                              <option key={o.value} value={o.value}>{o.label}</option>
-                            ))}
-                          </select>
+                          <EmployeeStatusDropdown
+                            status={emp.employment_status ?? "ACTIVE"}
+                            loading={savingStatus}
+                            onAction={(newStatus) => handleStatusChange(newStatus as EmployeeStatus)}
+                          />
                         ) : (
                           <span className={`inline-flex text-xs border rounded-lg px-2.5 py-1.5 font-bold uppercase tracking-tight ${employeeStatusBadgeClass(emp.employment_status)}`}>
                             {emp.employment_status ?? "ACTIVE"}
@@ -931,6 +948,89 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function EmployeeStatusDropdown({
+  status,
+  onAction,
+  loading,
+}: {
+  status: string;
+  onAction: (targetStatus: string) => void;
+  loading: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const normalizedStatus = (status || "").toUpperCase();
+
+  const statuses = [
+    { id: 'ACTIVE',     label: 'Active',     icon: UserCheck,   color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100', hover: 'hover:bg-emerald-100/50' },
+    { id: 'PERMANENT',  label: 'Permanent',  icon: ShieldCheck, color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-100',    hover: 'hover:bg-blue-100/50' },
+    { id: 'FAMILY',     label: 'Family',     icon: UsersIcon,   color: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-violet-100',  hover: 'hover:bg-violet-100/50' },
+    { id: 'LEFT',       label: 'Mark as Left', icon: DoorOpen,  color: 'text-amber-600',   bg: 'bg-amber-50',   border: 'border-amber-100',   hover: 'hover:bg-amber-100/50' },
+    { id: 'TERMINATED', label: 'Terminated', icon: Ban,        color: 'text-rose-600',    bg: 'bg-rose-50',    border: 'border-rose-100',    hover: 'hover:bg-rose-100/50' },
+  ];
+
+  const current = statuses.find((x) => x.id === normalizedStatus) || statuses[0];
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        disabled={loading}
+        className={`flex items-center gap-2 px-3.5 h-9 rounded-xl border transition-all ${current.bg} ${current.border} ${current.color} hover:shadow-sm active:scale-95 disabled:opacity-50`}
+      >
+        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <current.icon className="h-3.5 w-3.5" />}
+        <span className="text-[11px] font-black uppercase tracking-tight">{current.label}</span>
+        <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: 4, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 4, scale: 0.95 }}
+              className="absolute right-0 mt-2 w-52 bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-100 dark:border-zinc-800 py-1.5 z-20 overflow-hidden"
+            >
+              <div className="px-3 py-1.5 mb-1 border-b border-zinc-50 dark:border-zinc-800">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Change Status</span>
+              </div>
+              {statuses.map((item) => {
+                const isCurrent = item.id === normalizedStatus;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={isCurrent || loading}
+                    onClick={() => {
+                      setIsOpen(false);
+                      if (!isCurrent) onAction(item.id);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                      isCurrent ? "bg-zinc-50 dark:bg-zinc-800/50 opacity-50 cursor-default" : `${item.hover} group`
+                    }`}
+                  >
+                    <div className={`p-1.5 rounded-lg border ${item.bg} ${item.border} ${item.color}`}>
+                      <item.icon className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className={`text-[12px] font-bold ${isCurrent ? "text-zinc-400" : "text-zinc-700 dark:text-zinc-200"}`}>
+                        {item.label}
+                      </span>
+                      {isCurrent && <span className="text-[9px] text-zinc-400 italic font-medium">Current Status</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
