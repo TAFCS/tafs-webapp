@@ -16,7 +16,7 @@ import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchSections } from "@/store/slices/sectionsSlice";
 import { fetchVouchers, VoucherFilters, VoucherItem } from "@/store/slices/vouchersSlice";
 import toast from "react-hot-toast";
-import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { FilterDropdown, FilterDropdownOption } from "@/components/filters/FilterDropdown";
 
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -876,9 +876,9 @@ export default function VouchersPage() {
         expired: pagination.expired || 0,
     };
 
-    const campusOptions: DropdownOption[] = campuses.map(c => ({ id: c.id, label: c.campus_name, sub: c.campus_code }));
-    const classOptions: DropdownOption[] = classes.map(c => ({ id: c.id, label: c.description, sub: c.class_code }));
-    const sectionOptions: DropdownOption[] = sections.map(s => ({ id: s.id, label: s.description }));
+    const campusOptions: FilterDropdownOption[] = campuses.map(c => ({ id: c.id, label: c.campus_name, sub: c.campus_code }));
+    const classOptions: FilterDropdownOption[] = classes.map(c => ({ id: c.id, label: c.description, sub: c.class_code }));
+    const sectionOptions: FilterDropdownOption[] = sections.map(s => ({ id: s.id, label: s.description }));
 
     return (
         <div className="space-y-6 pb-20">
