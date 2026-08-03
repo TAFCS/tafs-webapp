@@ -148,6 +148,7 @@ export default function SaturdaySchedulesPage() {
   const [error, setError] = useState<string | null>(null);
   const [newDate, setNewDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const advisory = useMemo(() => getAdvisoryBanner(), []);
   const monthOptions = useMemo(() => buildMonthOptions(), []);
@@ -336,8 +337,19 @@ export default function SaturdaySchedulesPage() {
     if (!canAssign) return;
     setSubmitting(true);
     setError(null);
+    setWarning(null);
     try {
-      await saturdaySchedulesService.create([...selectedIds], newDate);
+      const result = await saturdaySchedulesService.create([...selectedIds], newDate);
+      const notes: string[] = [];
+      if (result.skipped_cap.length > 0) {
+        const names = result.skipped_cap.map((e) => e.full_name ?? `Employee #${e.employee_id}`).join(", ");
+        notes.push(`Skipped (already at the 2/month cap): ${names}.`);
+      }
+      if (result.holiday_conflicts.length > 0) {
+        const names = result.holiday_conflicts.map((e) => e.full_name ?? `Employee #${e.employee_id}`).join(", ");
+        notes.push(`${names} already had a holiday override for this date — the mandatory Saturday now takes priority, so the holiday will be ignored for them.`);
+      }
+      if (notes.length > 0) setWarning(notes.join(" "));
       setNewDate("");
       setSelectedIds(new Set());
       await load();
@@ -407,6 +419,13 @@ export default function SaturdaySchedulesPage() {
       {error && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
           {error}
+        </div>
+      )}
+
+      {warning && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900/50 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>{warning}</span>
         </div>
       )}
 

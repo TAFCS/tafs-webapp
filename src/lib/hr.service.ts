@@ -252,6 +252,10 @@ export interface CalendarDay {
   departments?: { id: number; name: string } | null;
   staff_categories?: StaffCategory | null;
   employee?: { id: number; full_name: string | null; employee_code: string | null } | null;
+  /** Present on create/update/delete responses only, when the follow-up attendance re-sync failed. */
+  sync_warning?: string | null;
+  /** Present on create/update responses only, when this entry has no effect due to a mandatory Saturday override. */
+  conflict_warning?: string | null;
 }
 
 export interface WorkScheduleDay {
@@ -281,6 +285,7 @@ export interface BulkCalendarCreateResult {
   skipped: number;
   failed: number;
   errors: { campus_id: number; message: string }[];
+  sync_failed: number;
 }
 
 export interface EmployeeCalendarDaysResult {
@@ -290,6 +295,8 @@ export interface EmployeeCalendarDaysResult {
   skipped: number;
   failed: number;
   errors: { employee_id: number; date: string; message: string }[];
+  conflicts: { employee_id: number; date: string; message: string }[];
+  sync_failed: { campus_id: number; date: string }[];
 }
 
 export interface ClassAttendanceMode {
@@ -643,8 +650,9 @@ export const hrService = {
     const { data } = await api.patch<ApiEnvelope<CalendarDay>>(`/v1/hr/calendar/${id}`, payload);
     return data.data;
   },
-  async deleteCalendarDay(id: number): Promise<void> {
-    await api.delete(`/v1/hr/calendar/${id}`);
+  async deleteCalendarDay(id: number): Promise<{ sync_warning?: string | null }> {
+    const { data } = await api.delete<ApiEnvelope<{ sync_warning?: string | null }>>(`/v1/hr/calendar/${id}`);
+    return data.data;
   },
 
   async syncCalendarAttendance(

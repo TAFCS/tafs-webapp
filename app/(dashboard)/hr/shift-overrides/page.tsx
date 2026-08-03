@@ -65,6 +65,7 @@ export default function ShiftOverridesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const [existingCalendarDays, setExistingCalendarDays] = useState<CalendarDay[]>([]);
   const [existingShiftOverrides, setExistingShiftOverrides] = useState<ShiftOverride[]>([]);
@@ -257,6 +258,7 @@ export default function ShiftOverridesPage() {
     setSaving(true);
     setError(null);
     setSuccess(null);
+    setWarning(null);
     try {
       if (mode === "TIME") {
         const rows = await shiftOverridesService.bulkCreate({
@@ -282,6 +284,18 @@ export default function ShiftOverridesPage() {
             (result.failed > 0 ? `, ${result.failed} failed` : "") +
             ".",
         );
+        const warnings: string[] = [];
+        if (result.conflicts.length > 0) {
+          warnings.push(
+            `${result.conflicts.length} of these have no effect because a mandatory Saturday schedule already takes priority for that employee/date.`,
+          );
+        }
+        if (result.sync_failed.length > 0) {
+          warnings.push(
+            `Attendance re-sync failed for ${result.sync_failed.length} date(s) — retry from the Academic Calendar page.`,
+          );
+        }
+        if (warnings.length > 0) setWarning(warnings.join(" "));
       }
       setSelectedDates(new Set());
       setStartTime("");
@@ -381,6 +395,12 @@ export default function ShiftOverridesPage() {
         <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
           <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
           <span>{success}</span>
+        </div>
+      )}
+      {warning && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900/50 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>{warning}</span>
         </div>
       )}
 
