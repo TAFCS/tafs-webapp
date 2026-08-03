@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Building2, CalendarClock, CalendarOff, CheckCircle2, Layers, Loader2, Search, Trash2 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus } from "@/lib/campuses.service";
@@ -63,6 +63,9 @@ export default function ShiftOverridesPage() {
   const [dayType, setDayType] = useState<"HOLIDAY" | "WORKDAY">("HOLIDAY");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  // Ref guard: React state updates are async, so a fast double-click can fire
+  // two Applies before `saving` flips and disables the button.
+  const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -254,7 +257,8 @@ export default function ShiftOverridesPage() {
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -282,7 +286,7 @@ export default function ShiftOverridesPage() {
           `${result.created} override(s) created` +
             (result.skipped > 0 ? `, ${result.skipped} already existed` : "") +
             (result.failed > 0 ? `, ${result.failed} failed` : "") +
-            ".",
+            ". Attendance will update in the background.",
         );
         const warnings: string[] = [];
         if (result.conflicts.length > 0) {
@@ -305,6 +309,7 @@ export default function ShiftOverridesPage() {
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to save overrides.");
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
