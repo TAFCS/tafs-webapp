@@ -402,7 +402,12 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                             </div>
                             <div className="space-y-1">
                                 <h4 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 leading-tight uppercase">{student.full_name}</h4>
-                                <p className="text-[12px] font-mono text-zinc-400">CC {student.cc}</p>
+                                <p className="text-[12px] font-mono text-zinc-400">
+                                    CC {student.cc}
+                                    {student.gr_number ? ` · GR ${student.gr_number}` : ""}
+                                    {student.class_name || student.class_description ? ` · ${student.class_name || student.class_description}` : ""}
+                                    {student.section_name ? ` · Sec ${student.section_name}` : ""}
+                                </p>
                             </div>
 
                             <div className="w-full space-y-3 pt-2">
