@@ -575,25 +575,23 @@ export default function HomePage() {
                 <p className="text-sm text-zinc-400 mt-1">{roleLabel}</p>
             </div>
 
-            {/* Alerts row */}
-            {(isAdminRole || isFinanceRole || canSeeFeeBenefitAlerts) && (
-                <div className="flex flex-col gap-3 mt-6">
-                    {isFinanceRole && <PostdatedChequeAlert />}
-                    {canSeeFeeBenefitAlerts && <FeeBenefitExpiryAlerts />}
-                    {isAdminRole && <StudentFlagAlerts />}
-                </div>
-            )}
-
             {/* Body */}
             {role === "PRINCIPAL" ? (
-                <div className="mt-8 max-w-2xl">
+                <div className="mt-8 flex flex-col gap-6 max-w-2xl">
+                    {(isAdminRole || isFinanceRole || canSeeFeeBenefitAlerts) && (
+                        <div className="flex flex-col gap-3">
+                            {isFinanceRole && <PostdatedChequeAlert />}
+                            {canSeeFeeBenefitAlerts && <FeeBenefitExpiryAlerts />}
+                            {isAdminRole && <StudentFlagAlerts />}
+                        </div>
+                    )}
                     <TicketsSidebar />
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
 
                     {/* Main — 2/3 */}
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-2 flex flex-col gap-6">
                         {role === "SUPER_ADMIN" && (
                             <div className="flex flex-col gap-4">
                                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">Quick Actions</p>
@@ -624,6 +622,15 @@ export default function HomePage() {
                                         <ActionCard key={a.href} label={a.name} href={a.href} icon={a.icon} />
                                     ))}
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Alerts row below Quick Actions */}
+                        {(isAdminRole || isFinanceRole || canSeeFeeBenefitAlerts) && (
+                            <div className="flex flex-col gap-3">
+                                {isFinanceRole && <PostdatedChequeAlert />}
+                                {canSeeFeeBenefitAlerts && <FeeBenefitExpiryAlerts />}
+                                {isAdminRole && <StudentFlagAlerts />}
                             </div>
                         )}
                     </div>
