@@ -132,8 +132,16 @@ const AUDIT_OPTIONS = [
   { value: "missing_doj", label: "Missing Date of Joining" },
   { value: "missing_pay", label: "Missing Monthly Pay" },
   { value: "missing_photo", label: "No Photo" },
+  { value: "no_device_mapping", label: "No Device Mappings" },
   { value: "incomplete", label: "Any Incomplete Field" },
 ];
+
+/** Employees expected to punch in — the only ones a missing device mapping is a defect for. */
+const MAPPING_AUDIT_STATUSES = ["ACTIVE", "PERMANENT"];
+
+function hasActiveDeviceMapping(emp: EmployeeProfile): boolean {
+  return (emp.device_user_mappings || []).some((m) => m.is_active !== false);
+}
 
 function EmployeesContent() {
   const router = useRouter();
@@ -249,6 +257,10 @@ function EmployeesContent() {
         if (auditFilter === "missing_doj" && !missing.includes("Date of Joining")) return false;
         if (auditFilter === "missing_pay" && !missing.includes("Monthly Pay")) return false;
         if (auditFilter === "missing_photo" && !missing.includes("Photo")) return false;
+        if (auditFilter === "no_device_mapping") {
+          if (!MAPPING_AUDIT_STATUSES.includes(emp.employment_status ?? "ACTIVE")) return false;
+          if (hasActiveDeviceMapping(emp)) return false;
+        }
         if (auditFilter === "incomplete" && missing.length === 0) return false;
       }
       return true;

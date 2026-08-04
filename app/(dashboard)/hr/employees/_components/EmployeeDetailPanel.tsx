@@ -892,7 +892,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                 )}
 
                 {tab === "shift_overrides" && (
-                  <EmployeeShiftOverridesTab employeeId={emp.id} employeeName={name} />
+                  <EmployeeShiftOverridesTab employeeId={emp.id} employeeName={name} isSuperAdmin={isSuperAdmin} />
                 )}
 
                 {tab === "classes" && (

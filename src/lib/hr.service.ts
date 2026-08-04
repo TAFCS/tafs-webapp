@@ -154,6 +154,12 @@ export interface EmployeeProfile {
     };
     sections?: { description: string };
   }[];
+  device_user_mappings?: {
+    id: number;
+    device_sn: string;
+    device_pin: string;
+    is_active: boolean;
+  }[];
 }
 
 export interface EmployeeCreatePayload {
