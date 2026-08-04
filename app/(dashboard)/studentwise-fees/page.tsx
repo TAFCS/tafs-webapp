@@ -99,7 +99,7 @@ interface InstallmentPlanData {
 }
 
 const MONTH_ORDER = MONTHS;
-const ACADEMIC_YEARS = getAcademicYears(1, 4);
+const ACADEMIC_YEARS = getAcademicYears(4, 5);
 
 const getPreviousYear = (year: string) => {
     const parts = year.split("-");
