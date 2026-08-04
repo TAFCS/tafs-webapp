@@ -16,6 +16,8 @@ import {
   Home,
   RefreshCw,
   ArrowLeftRight,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 type HouseInfo = {
@@ -48,6 +50,8 @@ function getIcon(log: AuditLog) {
   if (entity === "FAMILY") return Home;
   if (entity === "GUARDIAN") return Users;
 
+  if (action === "READMITTED") return UserCheck;
+
   if (action === "STATUS_CHANGED") {
     const newVal = (log.new_value || "").toUpperCase();
     if (newVal === "ENROLLED" || newVal === "UNDO_LEFT") return UserCheck;
@@ -71,6 +75,10 @@ function colorByType(log: AuditLog) {
   if (entity === "TRANSFER") return "text-teal-700 bg-teal-50 border-teal-200";
   if (entity === "FAMILY") return "text-purple-700 bg-purple-50 border-purple-200";
   if (entity === "GUARDIAN") return "text-amber-700 bg-amber-50 border-amber-200";
+
+  if (action === "READMITTED") {
+    return "text-emerald-700 bg-emerald-50 border-emerald-200";
+  }
 
   if (action === "STATUS_CHANGED") {
     const newVal = (log.new_value || "").toUpperCase();
@@ -108,6 +116,10 @@ function isHouseField(field?: string | null) {
   return field === "student.house_id" || field === "house_id";
 }
 
+function getChildCount(log: AuditLog): number {
+  return log.child_count ?? log.children?.length ?? 0;
+}
+
 function HouseChip({
   house,
   fallbackId,
@@ -140,6 +152,147 @@ function HouseChip({
   );
 }
 
+function LogTitle({ log }: { log: AuditLog }) {
+  if (log.action === "READMITTED") {
+    return <>Readmitted <span className="font-extrabold">Enrolled</span> (from Left)</>;
+  }
+  if (log.action === "STATUS_CHANGED") {
+    return <>Status changed to <span className="font-extrabold">{log.new_value}</span></>;
+  }
+  if (log.field) {
+    return <>Updated <span className="font-extrabold">{friendlyField(log.field)}</span></>;
+  }
+  return <>{log.action.replace(/_/g, " ")} {log.entity_type.replace(/_/g, " ")}</>;
+}
+
+function LogDiff({
+  log,
+  resolveHouse,
+}: {
+  log: AuditLog;
+  resolveHouse: (raw?: string | null) => HouseInfo | null;
+}) {
+  if ((!log.old_value && !log.new_value) || log.action === "STATUS_CHANGED" || log.action === "READMITTED") {
+    return null;
+  }
+  const houseChange = isHouseField(log.field);
+  return (
+    <p className="mt-1.5 text-xs text-zinc-500 font-medium">
+      {houseChange ? (
+        <>
+          <HouseChip
+            house={resolveHouse(log.old_value)}
+            fallbackId={log.old_value}
+            tone={log.old_value ? "old" : "none"}
+          />
+          <span className="mx-1 text-zinc-300">→</span>
+          {log.new_value ? (
+            <HouseChip
+              house={resolveHouse(log.new_value)}
+              fallbackId={log.new_value}
+              tone="new"
+            />
+          ) : (
+            <span className="text-rose-400 bg-rose-50/50 px-1 rounded font-semibold">
+              Removed
+            </span>
+          )}
+        </>
+      ) : (
+        <>
+          {log.old_value !== null && log.old_value !== "" ? (
+            <span className="line-through text-rose-400 bg-rose-50/50 px-1 rounded">
+              {log.old_value}
+            </span>
+          ) : (
+            <span className="text-zinc-400 italic">None</span>
+          )}
+          <span className="mx-1 text-zinc-300">→</span>
+          {log.new_value !== null && log.new_value !== "" ? (
+            <span className="text-emerald-600 bg-emerald-50/50 px-1 rounded font-semibold">
+              {log.new_value}
+            </span>
+          ) : (
+            <span className="text-rose-400 bg-rose-50/50 px-1 rounded font-semibold">
+              Removed
+            </span>
+          )}
+        </>
+      )}
+    </p>
+  );
+}
+
+function LogCard({
+  log,
+  resolveHouse,
+  dense,
+}: {
+  log: AuditLog;
+  resolveHouse: (raw?: string | null) => HouseInfo | null;
+  dense?: boolean;
+}) {
+  const Icon = getIcon(log);
+  const colorClass = colorByType(log);
+  const childCount = getChildCount(log);
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className={`rounded-2xl border border-zinc-200 bg-white shadow-sm ${dense ? "p-3" : "p-4"}`}>
+      <div className="flex items-start gap-3">
+        <div className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${colorClass}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-bold text-zinc-900">
+              <LogTitle log={log} />
+            </h3>
+            <span className="text-[11px] font-medium text-zinc-400 shrink-0">
+              {formatDate(log.changed_at)}
+            </span>
+          </div>
+
+          <LogDiff log={log} resolveHouse={resolveHouse} />
+
+          {log.note ? (
+            <p className="mt-1 text-xs text-zinc-600 italic">“{log.note}”</p>
+          ) : null}
+
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <p className="text-[10px] text-zinc-400">
+              by <span className="font-semibold text-zinc-500">{log.changed_by}</span>
+            </p>
+            {childCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                className="inline-flex items-center gap-0.5 text-[10px] font-bold text-indigo-600 hover:underline"
+              >
+                {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                {childCount} detail{childCount === 1 ? "" : "s"}
+              </button>
+            )}
+          </div>
+
+          {open && log.children && log.children.length > 0 && (
+            <div className="mt-3 space-y-2 border-l-2 border-indigo-100 pl-3">
+              {log.children.map((child) => (
+                <LogCard
+                  key={child.id}
+                  log={child}
+                  resolveHouse={resolveHouse}
+                  dense
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function StudentLogsTab({ studentId }: { studentId: number }) {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [housesById, setHousesById] = useState<Map<number, HouseInfo>>(new Map());
@@ -154,7 +307,6 @@ export function StudentLogsTab({ studentId }: { studentId: number }) {
     Promise.all([
       auditLogsService.list({
         student_id: studentId,
-        entity_type: "STUDENT,GUARDIAN,FAMILY,TRANSFER",
         limit: LIMIT,
         offset,
       }),
@@ -238,102 +390,11 @@ export function StudentLogsTab({ studentId }: { studentId: number }) {
   return (
     <div className="space-y-3">
       <div className="space-y-2">
-        {logs.map((log) => {
-          const Icon = getIcon(log);
-          const colorClass = colorByType(log);
-          const houseChange = isHouseField(log.field);
-
-          return (
-            <div
-              key={log.id}
-              className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
-            >
-              <div className="flex items-start gap-3">
-                <div className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${colorClass}`}>
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-sm font-bold text-zinc-900">
-                      {log.action === "STATUS_CHANGED" ? (
-                        <>Status changed to <span className="font-extrabold">{log.new_value}</span></>
-                      ) : log.field ? (
-                        <>Updated <span className="font-extrabold">{friendlyField(log.field)}</span></>
-                      ) : (
-                        <>{log.action} {log.entity_type}</>
-                      )}
-                    </h3>
-                    <span className="text-[11px] font-medium text-zinc-400 shrink-0">
-                      {formatDate(log.changed_at)}
-                    </span>
-                  </div>
-
-                  {/* Diff rendering */}
-                  {log.old_value || log.new_value ? (
-                    log.action !== "STATUS_CHANGED" && (
-                      <p className="mt-1.5 text-xs text-zinc-500 font-medium">
-                        {houseChange ? (
-                          <>
-                            <HouseChip
-                              house={resolveHouse(log.old_value)}
-                              fallbackId={log.old_value}
-                              tone={log.old_value ? "old" : "none"}
-                            />
-                            <span className="mx-1 text-zinc-300">→</span>
-                            {log.new_value ? (
-                              <HouseChip
-                                house={resolveHouse(log.new_value)}
-                                fallbackId={log.new_value}
-                                tone="new"
-                              />
-                            ) : (
-                              <span className="text-rose-400 bg-rose-50/50 px-1 rounded font-semibold">
-                                Removed
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            {log.old_value !== null && log.old_value !== "" ? (
-                              <span className="line-through text-rose-400 bg-rose-50/50 px-1 rounded">
-                                {log.old_value}
-                              </span>
-                            ) : (
-                              <span className="text-zinc-400 italic">None</span>
-                            )}
-                            <span className="mx-1 text-zinc-300">→</span>
-                            {log.new_value !== null && log.new_value !== "" ? (
-                              <span className="text-emerald-600 bg-emerald-50/50 px-1 rounded font-semibold">
-                                {log.new_value}
-                              </span>
-                            ) : (
-                              <span className="text-rose-400 bg-rose-50/50 px-1 rounded font-semibold">
-                                Removed
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </p>
-                    )
-                  ) : null}
-
-                  {/* Note */}
-                  {log.note ? (
-                    <p className="mt-1 text-xs text-zinc-600 italic">“{log.note}”</p>
-                  ) : null}
-
-                  {/* Actor info */}
-                  <p className="mt-1.5 text-[10px] text-zinc-400">
-                    by <span className="font-semibold text-zinc-500">{log.changed_by}</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {logs.map((log) => (
+          <LogCard key={log.id} log={log} resolveHouse={resolveHouse} />
+        ))}
       </div>
 
-      {/* Pagination Controls */}
       {total > LIMIT && (
         <div className="flex items-center justify-between pt-2 px-1">
           <button

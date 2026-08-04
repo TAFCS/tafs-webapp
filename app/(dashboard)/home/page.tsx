@@ -73,6 +73,9 @@ const ACTION_META: Record<string, { icon: React.ElementType; color: string; bg: 
     UPDATED:        { icon: FilePen,   color: "text-blue-600",    bg: "bg-blue-50 dark:bg-blue-950/40",       label: "updated"       },
     DELETED:        { icon: Trash2,    color: "text-rose-600",    bg: "bg-rose-50 dark:bg-rose-950/40",       label: "deleted"       },
     STATUS_CHANGED: { icon: RefreshCw, color: "text-amber-600",   bg: "bg-amber-50 dark:bg-amber-950/40",     label: "changed status on" },
+    READMITTED:     { icon: RefreshCw, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/40", label: "readmitted"    },
+    PROMOTED:       { icon: RefreshCw, color: "text-indigo-600",  bg: "bg-indigo-50 dark:bg-indigo-950/40",   label: "promoted"      },
+    REASSIGNED:     { icon: RefreshCw, color: "text-blue-600",    bg: "bg-blue-50 dark:bg-blue-950/40",       label: "reassigned"    },
 };
 
 const ENTITY_LABELS: Record<string, { singular: string; plural: string; pill: string }> = {
@@ -364,6 +367,85 @@ function StudentFlagAlerts() {
     );
 }
 
+interface FeeBenefitAlert {
+    student_id: number;
+    student_name: string | null;
+    current_class: string | null;
+    benefit_type: 'COMPLEMENTARY' | 'FEE_ENDOWMENT';
+    until: string;
+    reason: string | null;
+    days_remaining: number;
+}
+
+function FeeBenefitExpiryAlerts() {
+    const [alerts, setAlerts] = useState<FeeBenefitAlert[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        api.get('/v1/students/fee-benefit-expiry-alerts', { params: { within_days: 14 } })
+            .then(res => setAlerts(res.data?.data ?? []))
+            .catch(() => {})
+            .finally(() => setLoading(false));
+    }, []);
+
+    if (loading || alerts.length === 0) return null;
+
+    return (
+        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col gap-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">
+                Fee benefits expiring ({alerts.length})
+            </p>
+            <div className="flex flex-col gap-2">
+                {alerts.slice(0, 6).map((n) => {
+                    const overdue = n.days_remaining < 0;
+                    const today = n.days_remaining === 0;
+                    const when = overdue
+                        ? `${Math.abs(n.days_remaining)}d overdue`
+                        : today
+                          ? 'ends today'
+                          : `${n.days_remaining}d left`;
+                    const badge =
+                        n.benefit_type === 'COMPLEMENTARY'
+                            ? 'COMP'
+                            : 'FE';
+                    return (
+                        <Link
+                            key={`${n.student_id}-${n.benefit_type}-${n.until}`}
+                            href={`/studentwise-fees?cc=${n.student_id}`}
+                            className="flex items-center gap-3 p-3 bg-violet-50/60 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900/30 rounded-xl hover:border-violet-300 transition-colors group"
+                        >
+                            <div className="h-8 w-8 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+                                <CreditCard className="h-4 w-4 text-violet-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[12px] font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                                    {n.student_name || `CC ${n.student_id}`}
+                                </p>
+                                <p className="text-[10px] text-zinc-500 truncate">
+                                    CC #{n.student_id}
+                                    {n.current_class ? ` · ${n.current_class}` : ''}
+                                    {' · '}until {n.until}
+                                </p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                                <span className="text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                                    {badge}
+                                </span>
+                                <span className={`text-[10px] font-bold ${overdue ? 'text-rose-600' : 'text-violet-600'}`}>
+                                    {when}
+                                </span>
+                            </div>
+                        </Link>
+                    );
+                })}
+                {alerts.length > 6 && (
+                    <p className="text-[10px] text-zinc-400 text-center">+{alerts.length - 6} more</p>
+                )}
+            </div>
+        </div>
+    );
+}
+
 function TicketsSidebar() {
     const dispatch = useAppDispatch();
     const tickets = useAppSelector(s => s.supportTickets.queueItems);
@@ -476,6 +558,8 @@ export default function HomePage() {
 
     const isAdminRole = role === "SUPER_ADMIN" || role === "CAMPUS_ADMIN";
     const isFinanceRole = role === "SUPER_ADMIN" || role === "FINANCE_CLERK";
+    const canSeeFeeBenefitAlerts =
+        isAdminRole || isFinanceRole || role === "PRINCIPAL";
 
     return (
         <motion.div
@@ -492,9 +576,10 @@ export default function HomePage() {
             </div>
 
             {/* Alerts row */}
-            {(isAdminRole || isFinanceRole) && (
+            {(isAdminRole || isFinanceRole || canSeeFeeBenefitAlerts) && (
                 <div className="flex flex-col gap-3 mt-6">
                     {isFinanceRole && <PostdatedChequeAlert />}
+                    {canSeeFeeBenefitAlerts && <FeeBenefitExpiryAlerts />}
                     {isAdminRole && <StudentFlagAlerts />}
                 </div>
             )}

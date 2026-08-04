@@ -34,6 +34,9 @@ function ActionBadge({ action }: { action: string }) {
   if (act === "DELETED")       cls = "bg-rose-50 text-rose-700 border-rose-200";
   if (act === "UPDATED")       cls = "bg-amber-50 text-amber-700 border-amber-200";
   if (act === "STATUS_CHANGED") cls = "bg-indigo-50 text-indigo-700 border-indigo-200";
+  if (act === "READMITTED" || act === "PROMOTED" || act === "REASSIGNED" || act === "GRADUATED" || act === "EXPELLED" || act === "LEFT") {
+    cls = "bg-indigo-50 text-indigo-700 border-indigo-200";
+  }
   if (act === "REQUESTED")     cls = "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200";
   if (act === "APPROVED")      cls = "bg-emerald-50 text-emerald-700 border-emerald-200";
   if (act === "REJECTED")      cls = "bg-rose-50 text-rose-700 border-rose-200";

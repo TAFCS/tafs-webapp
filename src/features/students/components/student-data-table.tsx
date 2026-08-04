@@ -670,7 +670,7 @@ export function StudentDataTable() {
                                                                 {student.enrollment_status === "LEFT" && (
                                                                     <ActionItem
                                                                         icon={<RotateCcw />}
-                                                                        label={unexpellingRowKey === rowKey ? "Restoring..." : "Undo Left"}
+                                                                        label={unexpellingRowKey === rowKey ? "Readmitting..." : "Readmit (Undo Left)"}
                                                                         color="text-emerald-700"
                                                                         disabled={unexpellingRowKey === rowKey}
                                                                         onClick={() => {

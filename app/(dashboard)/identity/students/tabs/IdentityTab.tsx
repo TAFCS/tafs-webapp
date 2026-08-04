@@ -229,18 +229,24 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
     const primaryGuardianCnic = primaryGuardian?.cnic || "N/A";
 
     const handleSaveBasic = () => {
-        // We save personal and main contact details together for Basic Info
-        patch({
+        // Only send COMP/FE flags when the user actually toggled them so a normal
+        // identity save does not re-validate / clear fee-benefit until dates.
+        const payload: Record<string, any> = {
             ...personal,
             dob: personal.dob || undefined,
             admission_age_years: personal.admission_age_years ? Number(personal.admission_age_years) : undefined,
             primary_phone: contact.primary_phone,
             whatsapp_number: contact.whatsapp_number,
             email: contact.email,
-            is_complementary: feeConfig.is_complementary,
-            is_fee_endowment: feeConfig.is_fee_endowment,
-            fee_start_term: feeConfig.fee_start_term || undefined
-        }, setSavingPersonal, setSavedPersonal, () => setEditBasic(false));
+            fee_start_term: feeConfig.fee_start_term || undefined,
+        };
+        if (feeConfig.is_complementary !== !!student.is_complementary) {
+            payload.is_complementary = feeConfig.is_complementary;
+        }
+        if (feeConfig.is_fee_endowment !== !!student.is_fee_endowment) {
+            payload.is_fee_endowment = feeConfig.is_fee_endowment;
+        }
+        patch(payload, setSavingPersonal, setSavedPersonal, () => setEditBasic(false));
     };
 
     const handleSaveAddress = () => {

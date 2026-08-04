@@ -205,7 +205,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
             GRADUATED:      'Graduate',
             EXPELLED:       'Expel',
             LEFT:           'Mark as Left',
-            ENROLLED:       'Re-enroll',
+            ENROLLED:       currentStatus === 'LEFT' ? 'Readmit' : 'Re-enroll',
             SOFT_ADMISSION: 'Move to Soft Admission',
         };
         setLifecycleModal({ open: true, targetStatus, label: labelMap[targetStatus] || targetStatus });
