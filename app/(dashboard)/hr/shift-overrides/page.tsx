@@ -201,7 +201,8 @@ export default function ShiftOverridesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Shift Overrides</h1>
           <p className="text-sm text-zinc-500">
-            Override check-in/check-out time, or mark day(s) as a holiday/working-day override, for a group of staff.
+            Override check-in/check-out time on working days, or mark day(s) as a holiday/working-day override,
+            for a group of staff. Time overrides are not allowed on holidays, weekends, or scheduled day-offs.
           </p>
         </div>
       </div>

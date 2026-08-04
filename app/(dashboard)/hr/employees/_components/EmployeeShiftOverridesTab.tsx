@@ -16,8 +16,8 @@ export function EmployeeShiftOverridesTab({ employeeId, employeeName, isSuperAdm
         <CalendarClock className="h-4 w-4" /> Shift &amp; holiday overrides
       </h3>
       <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-        Override {employeeName}'s expected check-in/check-out time, or mark specific day(s) as a holiday or
-        working-day override, for this employee only.
+        Override {employeeName}&apos;s check-in/check-out time on working days, or mark specific day(s) as a
+        holiday or working-day override. Time overrides are not allowed on day-offs.
       </p>
 
       <ShiftHolidayOverridesPanel

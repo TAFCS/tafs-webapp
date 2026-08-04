@@ -228,7 +228,7 @@ export function ShiftHolidayOverridesPanel({ employeeIds, employeeName, isSuperA
 
       <p className="text-sm text-zinc-500">
         {mode === "TIME"
-          ? "Override the expected check-in/check-out time for specific day(s) — leave a side blank to keep it unchanged."
+          ? "Override check-in/check-out on working day(s) only — not allowed on holidays, weekends, or scheduled day-offs. Leave a side blank to keep it unchanged."
           : "Mark specific day(s) as a holiday (or reinstate a working day) for the selected employee(s) only."}
       </p>
 
