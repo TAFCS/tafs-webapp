@@ -42,8 +42,9 @@ const getAcademicYears = () => {
 };
 
 export function AcademicTab({ student, onReload }: { student: any; onReload: () => void }) {
+    const rawDoa = student.doa || student.date_of_admission;
     const [studentYear, setStudentYear] = useState(student.academic_year || "");
-    const [studentDoa, setStudentDoa] = useState(student.date_of_admission ? new Date(student.date_of_admission).toISOString().split("T")[0] : "");
+    const [studentDoa, setStudentDoa] = useState(rawDoa ? new Date(rawDoa).toISOString().split("T")[0] : "");
     const [studentHouseId, setStudentHouseId] = useState<string>(student.house_id != null ? String(student.house_id) : "");
     const [housesList, setHousesList] = useState<Array<{ id: number; house_name: string; house_color: string }>>([]);
     const [savingGeneral, setSavingGeneral] = useState(false);
@@ -55,21 +56,44 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
 
     // Sync state
     useEffect(() => {
+        const d = student.doa || student.date_of_admission;
         setStudentYear(student.academic_year || "");
-        setStudentDoa(student.date_of_admission ? new Date(student.date_of_admission).toISOString().split("T")[0] : "");
+        setStudentDoa(d ? new Date(d).toISOString().split("T")[0] : "");
         setStudentHouseId(student.house_id != null ? String(student.house_id) : "");
     }, [student]);
 
     useEffect(() => {
-        if (editGeneral && student?.cc && housesList.length === 0) {
-            api.get(`/v1/enrollments/${student.cc}/suggestions`)
+        if (housesList.length === 0) {
+            const endpoint = student?.cc ? `/v1/enrollments/${student.cc}/suggestions` : `/v1/enrollments/houses`;
+            api.get(endpoint)
                 .then(res => {
-                    const houses = res?.data?.data?.all_houses || res?.data?.all_houses || [];
-                    setHousesList(houses);
+                    const houses = res?.data?.data?.all_houses || res?.data?.data || res?.data?.all_houses || [];
+                    if (Array.isArray(houses) && houses.length > 0) {
+                        setHousesList(houses);
+                    } else {
+                        return api.get("/v1/enrollments/houses");
+                    }
                 })
-                .catch(() => {});
+                .then(fallbackRes => {
+                    if (fallbackRes) {
+                        const houses = fallbackRes?.data?.data || fallbackRes?.data || [];
+                        if (Array.isArray(houses) && houses.length > 0) {
+                            setHousesList(houses);
+                        }
+                    }
+                })
+                .catch(() => {
+                    api.get("/v1/enrollments/houses")
+                        .then(res => {
+                            const houses = res?.data?.data || res?.data || [];
+                            if (Array.isArray(houses) && houses.length > 0) {
+                                setHousesList(houses);
+                            }
+                        })
+                        .catch(() => {});
+                });
         }
-    }, [editGeneral, student?.cc, housesList.length]);
+    }, [student?.cc, housesList.length]);
 
     const handleSaveGeneral = async () => {
         setSavingGeneral(true);

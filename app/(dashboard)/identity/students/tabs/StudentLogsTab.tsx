@@ -92,6 +92,10 @@ function colorByType(log: AuditLog) {
 function friendlyField(field?: string | null) {
   if (!field) return "";
   if (field === "student.house_id" || field === "house_id") return "House";
+  if (field === "student.doa" || field === "doa") return "Date of Admission";
+  if (field === "student.dob" || field === "dob") return "Date of Birth";
+  if (field === "student.academic_year" || field === "academic_year") return "Academic Year";
+  if (field === "student.gr_number" || field === "gr_number") return "GR Number";
   return field
     .replace("student.", "")
     .replace("guardian.", "")
@@ -156,8 +160,9 @@ export function StudentLogsTab({ studentId }: { studentId: number }) {
       }),
       api.get(`/v1/students/${studentId}/house-history`).catch(() => null),
       api.get(`/v1/enrollments/${studentId}/suggestions`).catch(() => null),
+      api.get(`/v1/enrollments/houses`).catch(() => null),
     ])
-      .then(([res, houseHistoryRes, suggestionsRes]) => {
+      .then(([res, houseHistoryRes, suggestionsRes, allHousesRes]) => {
         if (!active) return;
         setLogs(res.data || []);
         setTotal(res.total || 0);
@@ -167,6 +172,16 @@ export function StudentLogsTab({ studentId }: { studentId: number }) {
         for (const row of historyRows) {
           if (row?.from_house?.id != null) map.set(row.from_house.id, row.from_house);
           if (row?.to_house?.id != null) map.set(row.to_house.id, row.to_house);
+        }
+        const directHouses = allHousesRes?.data?.data ?? [];
+        for (const house of directHouses) {
+          if (house?.id != null) {
+            map.set(house.id, {
+              id: house.id,
+              house_name: house.house_name ?? null,
+              house_color: house.house_color ?? null,
+            });
+          }
         }
         const allHouses = suggestionsRes?.data?.data?.all_houses ?? [];
         for (const house of allHouses) {
