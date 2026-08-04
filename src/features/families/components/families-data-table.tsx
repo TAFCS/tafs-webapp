@@ -103,7 +103,13 @@ export function FamiliesDataTable({
         fetchFamilies(page, debouncedSearch);
     }, [page, debouncedSearch, fetchFamilies, refreshTrigger]);
 
-    // ── Create family state (initializeFromStudent flow) ─────────────────────
+    // ── Create family state ───────────────────────────────────────────────────
+    type CreateFamilyMode = "manual" | "from-student";
+    const [createMode, setCreateMode] = useState<CreateFamilyMode>("manual");
+    const [createHouseholdName, setCreateHouseholdName] = useState("");
+    const [createPrimaryAddress, setCreatePrimaryAddress] = useState("");
+    const [createEmail, setCreateEmail] = useState("");
+    const [createPassword, setCreatePassword] = useState("");
     const [createStudentSearch, setCreateStudentSearch] = useState("");
     const [createStudentResults, setCreateStudentResults] = useState<StudentHit[]>([]);
     const [createSelectedStudent, setCreateSelectedStudent] = useState<StudentHit | null>(null);
@@ -111,25 +117,68 @@ export function FamiliesDataTable({
     const [createError, setCreateError] = useState<string | null>(null);
     const debouncedCreateSearch = useDebounce(createStudentSearch, 350);
 
+    const resetCreateModalState = () => {
+        setCreateMode("manual");
+        setCreateHouseholdName("");
+        setCreatePrimaryAddress("");
+        setCreateEmail("");
+        setCreatePassword("");
+        setCreateStudentSearch("");
+        setCreateStudentResults([]);
+        setCreateSelectedStudent(null);
+        setCreateError(null);
+    };
+
     useEffect(() => {
-        if (!debouncedCreateSearch) { setCreateStudentResults([]); return; }
+        if (createMode !== "from-student" || !debouncedCreateSearch) {
+            setCreateStudentResults([]);
+            return;
+        }
         api.get('/v1/students', { params: { search: debouncedCreateSearch, limit: 8, fields: 'core,family' } })
             .then(r => setCreateStudentResults((r.data as { data: { items: StudentHit[] } }).data?.items ?? []))
             .catch(() => setCreateStudentResults([]));
-    }, [debouncedCreateSearch]);
+    }, [debouncedCreateSearch, createMode]);
 
     const handleCreateFamily = async () => {
-        if (!createSelectedStudent) return;
-        const cc = createSelectedStudent.core?.cc_number ? Number(createSelectedStudent.core.cc_number) : createSelectedStudent.id;
-        if (!cc) { setCreateError("Could not determine student CC number."); return; }
         setIsCreating(true);
         setCreateError(null);
         try {
-            await familiesService.initializeFromStudent(cc);
+            if (createMode === "manual") {
+                const household_name = createHouseholdName.trim();
+                if (!household_name) {
+                    setCreateError("Household name is required.");
+                    setIsCreating(false);
+                    return;
+                }
+                if (createPassword && createPassword.length < 6) {
+                    setCreateError("Password must be at least 6 characters.");
+                    setIsCreating(false);
+                    return;
+                }
+                await familiesService.create({
+                    household_name,
+                    primary_address: createPrimaryAddress.trim() || undefined,
+                    email: createEmail.trim() || undefined,
+                    password: createPassword || undefined,
+                });
+            } else {
+                if (!createSelectedStudent) {
+                    setCreateError("Please select a student.");
+                    setIsCreating(false);
+                    return;
+                }
+                const cc = createSelectedStudent.core?.cc_number
+                    ? Number(createSelectedStudent.core.cc_number)
+                    : createSelectedStudent.id;
+                if (!cc) {
+                    setCreateError("Could not determine student CC number.");
+                    setIsCreating(false);
+                    return;
+                }
+                await familiesService.initializeFromStudent(cc);
+            }
+            resetCreateModalState();
             setIsCreateFamilyModalOpen(false);
-            setCreateStudentSearch("");
-            setCreateStudentResults([]);
-            setCreateSelectedStudent(null);
             fetchFamilies(page, debouncedSearch);
         } catch (err: any) {
             setCreateError(err?.response?.data?.message || "Failed to create family. Please try again.");
@@ -138,14 +187,17 @@ export function FamiliesDataTable({
         }
     };
 
+    const canSubmitCreate =
+        createMode === "manual"
+            ? createHouseholdName.trim().length > 0
+            : !!createSelectedStudent;
+
     // Reset create modal state when opened
     useEffect(() => {
         if (isCreateOpen) {
-            setCreateStudentSearch("");
-            setCreateStudentResults([]);
-            setCreateSelectedStudent(null);
-            setCreateError(null);
+            resetCreateModalState();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isCreateOpen]);
 
     // ── Assign child state ────────────────────────────────────────────────────
@@ -335,35 +387,69 @@ export function FamiliesDataTable({
                 />
             )}
 
-            {/* Create Family Modal — initializeFromStudent flow */}
+            {/* Create Family Modal — manual or from-student */}
             {isCreateFamilyModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 max-h-[90vh]">
                         {/* Header */}
-                        <div className="px-6 py-4 border-b flex justify-between items-center bg-gradient-to-r from-violet-600 to-indigo-600">
+                        <div className="px-6 py-4 border-b flex justify-between items-center bg-gradient-to-r from-violet-600 to-indigo-600 shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="h-8 w-8 rounded-xl bg-white/20 flex items-center justify-center">
                                     <UserPlus className="h-4 w-4 text-white" />
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-white">Create New Family</h3>
-                                    <p className="text-[10px] text-white/70">Build a household from a student&apos;s existing guardian data</p>
+                                    <p className="text-[10px] text-white/70">Create a household, or seed one from a student&apos;s guardians</p>
                                 </div>
                             </div>
                             <button
-                                onClick={() => { setIsCreateFamilyModalOpen(false); }}
+                                onClick={() => { resetCreateModalState(); setIsCreateFamilyModalOpen(false); }}
                                 className="h-7 w-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
                             >
                                 <X className="h-3.5 w-3.5 text-white" />
                             </button>
                         </div>
 
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-4 overflow-y-auto">
+                            {/* Mode toggle */}
+                            <div className="flex p-1 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                                <button
+                                    type="button"
+                                    onClick={() => { setCreateMode("manual"); setCreateError(null); }}
+                                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                                        createMode === "manual"
+                                            ? "bg-white dark:bg-zinc-800 text-violet-700 dark:text-violet-300 shadow-sm"
+                                            : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                                    }`}
+                                >
+                                    Manual household
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setCreateMode("from-student"); setCreateError(null); }}
+                                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                                        createMode === "from-student"
+                                            ? "bg-white dark:bg-zinc-800 text-violet-700 dark:text-violet-300 shadow-sm"
+                                            : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                                    }`}
+                                >
+                                    From student
+                                </button>
+                            </div>
+
                             {/* How it works */}
                             <div className="flex items-start gap-3 p-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900 rounded-xl">
                                 <AlertCircle className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5" />
                                 <p className="text-[11px] text-indigo-700 dark:text-indigo-300 leading-relaxed">
-                                    Search for a student by <strong>name or CC number</strong>. The system will automatically build a family household using their existing guardian records (father, mother, address, home phone).
+                                    {createMode === "manual" ? (
+                                        <>
+                                            Create an empty household with just a name. You can attach students later using <strong>Change Family</strong>. Guardians are linked through students, not set here.
+                                        </>
+                                    ) : (
+                                        <>
+                                            Search for a student by <strong>name or CC number</strong>. The system will automatically build a family household using their existing guardian records (father, mother, address, home phone).
+                                        </>
+                                    )}
                                 </p>
                             </div>
 
@@ -374,85 +460,144 @@ export function FamiliesDataTable({
                                 </div>
                             )}
 
-                            {/* Student search */}
-                            <div>
-                                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2">Select Student <span className="text-red-500">*</span></label>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                                    <input
-                                        type="text"
-                                        className="w-full pl-9 pr-4 py-2.5 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 text-sm bg-white dark:bg-zinc-900 transition-all"
-                                        placeholder="Search by name, CC number or GR..."
-                                        value={createStudentSearch}
-                                        onChange={e => { setCreateStudentSearch(e.target.value); setCreateSelectedStudent(null); }}
-                                    />
+                            {createMode === "manual" ? (
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                            Household name <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2.5 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 text-sm bg-white dark:bg-zinc-900 transition-all"
+                                            placeholder="e.g. Family of Ahmad"
+                                            value={createHouseholdName}
+                                            onChange={e => setCreateHouseholdName(e.target.value)}
+                                            maxLength={100}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                            Primary address
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2.5 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 text-sm bg-white dark:bg-zinc-900 transition-all"
+                                            placeholder="Optional"
+                                            value={createPrimaryAddress}
+                                            onChange={e => setCreatePrimaryAddress(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                            Email <span className="text-zinc-400 font-medium">(parent portal)</span>
+                                        </label>
+                                        <input
+                                            type="email"
+                                            className="w-full px-3 py-2.5 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 text-sm bg-white dark:bg-zinc-900 transition-all"
+                                            placeholder="Optional"
+                                            value={createEmail}
+                                            onChange={e => setCreateEmail(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                            Password <span className="text-zinc-400 font-medium">(min 6 if set)</span>
+                                        </label>
+                                        <input
+                                            type="password"
+                                            className="w-full px-3 py-2.5 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 text-sm bg-white dark:bg-zinc-900 transition-all"
+                                            placeholder="Optional"
+                                            value={createPassword}
+                                            onChange={e => setCreatePassword(e.target.value)}
+                                            autoComplete="new-password"
+                                        />
+                                    </div>
                                 </div>
-
-                                {/* Results dropdown */}
-                                {createStudentResults.length > 0 && !createSelectedStudent && (
-                                    <div className="mt-1 border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 shadow-lg max-h-52 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800">
-                                        {createStudentResults.map(s => {
-                                            const name = s.core?.full_name ?? `${s.core?.first_name ?? ''} ${s.core?.last_name ?? ''}`.trim();
-                                            const cc = s.core?.cc_number;
-                                            const currentFamily = s.family?.household_name;
-                                            return (
-                                                <button
-                                                    key={s.id}
-                                                    className="w-full text-left px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between gap-4"
-                                                    onClick={() => {
-                                                        setCreateSelectedStudent(s);
-                                                        setCreateStudentSearch(name);
-                                                        setCreateStudentResults([]);
-                                                    }}
-                                                >
-                                                    <div>
-                                                        <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase">{name}</p>
-                                                        <p className="text-[10px] text-zinc-400 font-medium mt-0.5">CC: {cc ?? '—'}</p>
-                                                    </div>
-                                                    {currentFamily ? (
-                                                        <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full shrink-0">Has family</span>
-                                                    ) : (
-                                                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full shrink-0">No family</span>
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
+                            ) : (
+                                /* Student search */
+                                <div>
+                                    <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2">Select Student <span className="text-red-500">*</span></label>
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                                        <input
+                                            type="text"
+                                            className="w-full pl-9 pr-4 py-2.5 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 text-sm bg-white dark:bg-zinc-900 transition-all"
+                                            placeholder="Search by name, CC number or GR..."
+                                            value={createStudentSearch}
+                                            onChange={e => { setCreateStudentSearch(e.target.value); setCreateSelectedStudent(null); }}
+                                        />
                                     </div>
-                                )}
 
-                                {/* Selected chip */}
-                                {createSelectedStudent && (
-                                    <div className="mt-2 flex items-center gap-2 px-3 py-2.5 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 rounded-xl">
-                                        <div className="h-6 w-6 rounded-lg bg-violet-500 flex items-center justify-center shrink-0">
-                                            <GraduationCap className="h-3.5 w-3.5 text-white" />
+                                    {/* Results dropdown */}
+                                    {createStudentResults.length > 0 && !createSelectedStudent && (
+                                        <div className="mt-1 border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 shadow-lg max-h-52 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800">
+                                            {createStudentResults.map(s => {
+                                                const name = s.core?.full_name ?? `${s.core?.first_name ?? ''} ${s.core?.last_name ?? ''}`.trim();
+                                                const cc = s.core?.cc_number;
+                                                const currentFamily = s.family?.household_name;
+                                                return (
+                                                    <button
+                                                        key={s.id}
+                                                        type="button"
+                                                        className="w-full text-left px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between gap-4"
+                                                        onClick={() => {
+                                                            setCreateSelectedStudent(s);
+                                                            setCreateStudentSearch(name);
+                                                            setCreateStudentResults([]);
+                                                        }}
+                                                    >
+                                                        <div>
+                                                            <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase">{name}</p>
+                                                            <p className="text-[10px] text-zinc-400 font-medium mt-0.5">CC: {cc ?? '—'}</p>
+                                                        </div>
+                                                        {currentFamily ? (
+                                                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full shrink-0">Has family</span>
+                                                        ) : (
+                                                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full shrink-0">No family</span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
-                                        <div className="flex-1">
-                                            <p className="text-xs font-bold text-violet-800 dark:text-violet-200 uppercase">
-                                                {createSelectedStudent.core?.full_name ?? `${createSelectedStudent.core?.first_name} ${createSelectedStudent.core?.last_name}`}
-                                            </p>
-                                            <p className="text-[10px] text-violet-500 font-medium">CC: {createSelectedStudent.core?.cc_number ?? '—'}</p>
+                                    )}
+
+                                    {/* Selected chip */}
+                                    {createSelectedStudent && (
+                                        <div className="mt-2 flex items-center gap-2 px-3 py-2.5 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 rounded-xl">
+                                            <div className="h-6 w-6 rounded-lg bg-violet-500 flex items-center justify-center shrink-0">
+                                                <GraduationCap className="h-3.5 w-3.5 text-white" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-xs font-bold text-violet-800 dark:text-violet-200 uppercase">
+                                                    {createSelectedStudent.core?.full_name ?? `${createSelectedStudent.core?.first_name} ${createSelectedStudent.core?.last_name}`}
+                                                </p>
+                                                <p className="text-[10px] text-violet-500 font-medium">CC: {createSelectedStudent.core?.cc_number ?? '—'}</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setCreateSelectedStudent(null); setCreateStudentSearch(''); }}
+                                                className="text-violet-400 hover:text-violet-600 transition-colors"
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </button>
                                         </div>
-                                        <button
-                                            onClick={() => { setCreateSelectedStudent(null); setCreateStudentSearch(''); }}
-                                            className="text-violet-400 hover:text-violet-600 transition-colors"
-                                        >
-                                            <X className="h-3.5 w-3.5" />
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
-                        <div className="px-6 py-4 border-t bg-zinc-50 dark:bg-zinc-900 flex justify-end gap-3">
+                        <div className="px-6 py-4 border-t bg-zinc-50 dark:bg-zinc-900 flex justify-end gap-3 shrink-0">
                             <button
-                                onClick={() => { setIsCreateFamilyModalOpen(false); }}
+                                type="button"
+                                onClick={() => { resetCreateModalState(); setIsCreateFamilyModalOpen(false); }}
                                 className="px-4 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                             >
                                 Cancel
                             </button>
                             <button
+                                type="button"
                                 onClick={handleCreateFamily}
-                                disabled={isCreating || !createSelectedStudent}
+                                disabled={isCreating || !canSubmitCreate}
                                 className="px-5 py-2 bg-violet-600 text-white rounded-xl text-sm font-bold hover:bg-violet-700 shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {isCreating ? (
