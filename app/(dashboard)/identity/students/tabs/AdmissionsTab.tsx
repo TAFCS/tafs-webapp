@@ -51,8 +51,37 @@ const DISCIPLINES = [
     { label: "Humanities", value: "Humanities" },
 ];
 
+/** Hide legacy promote-written rows until DB cleanup; keep first / readmit / transfer / manual. */
+function filterApplicationHistory(admissions: any[]): any[] {
+    if (!admissions?.length) return admissions ?? [];
+    const sortedAsc = [...admissions].sort((a, b) => {
+        const at = a?.application_date ? new Date(a.application_date).getTime() : 0;
+        const bt = b?.application_date ? new Date(b.application_date).getTime() : 0;
+        if (at !== bt) return at - bt;
+        return (a?.id ?? 0) - (b?.id ?? 0);
+    });
+    const earliestId = sortedAsc[0]?.id;
+    const earliestYear = String(sortedAsc[0]?.academic_year || "");
+    const fullAy = /^\d{4}-\d{4}$/;
+    const hasTransferEvidence = admissions.some((a) => !!a?.transfer_order_url);
+
+    return admissions.filter((a) => {
+        if (a?.id === earliestId) return true;
+        if (a?.is_readmission) return true;
+        if (a?.transfer_order_url) return true;
+        const grade = (a?.requested_grade ?? "").toString().trim();
+        if (grade && !hasTransferEvidence) return false;
+        const year = a?.academic_year ? String(a.academic_year) : "";
+        // Common legacy pattern: original year "2026", promote wrote "2026-2027".
+        if (year && fullAy.test(year) && earliestYear && !fullAy.test(earliestYear) && !hasTransferEvidence) {
+            return false;
+        }
+        return true;
+    });
+}
+
 export function AdmissionsTab({ student, onReload, classes = [] }: { student: any; onReload: () => void; classes?: any[] }) {
-    const [admissions, setAdmissions] = useState<any[]>(student.admissions || []);
+    const [admissions, setAdmissions] = useState<any[]>(() => filterApplicationHistory(student.admissions || []));
     const [studentYear, setStudentYear] = useState(student.academic_year || "");
     const [studentDoa, setStudentDoa] = useState(student.date_of_admission ? new Date(student.date_of_admission).toISOString().split("T")[0] : "");
     const [savingYear, setSavingYear] = useState(false);
@@ -68,7 +97,7 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
     const [editAdmissionState, setEditAdmissionState] = useState<any>({});
 
     useEffect(() => {
-        setAdmissions(student.admissions || []);
+        setAdmissions(filterApplicationHistory(student.admissions || []));
         setStudentYear(student.academic_year || "");
         setStudentDoa(student.date_of_admission ? new Date(student.date_of_admission).toISOString().split("T")[0] : "");
     }, [student]);
@@ -243,6 +272,11 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
                     {admissions.map(a => (
                         <div key={a.id} className="p-4 bg-zinc-50 dark:bg-zinc-800/25 border border-zinc-100 dark:border-zinc-800 rounded-2xl relative transition-all duration-200">
                             <div className="absolute top-4 right-4 flex items-center gap-2">
+                                {a.is_readmission && editingAdmissionId !== a.id && (
+                                    <span className="px-2 h-6 inline-flex items-center text-[10px] font-black uppercase tracking-wide rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        Readmission
+                                    </span>
+                                )}
                                 {editingAdmissionId === a.id ? (
                                     <div className="flex gap-2">
                                         <button onClick={() => setEditingAdmissionId(null)} className="p-1.5 text-zinc-400"><X className="h-4 w-4" /></button>
@@ -275,7 +309,7 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
                                     <Field label="Application Date"><input type="date" value={editAdmissionState.application_date} onChange={e => setEditAdmissionState((p: any) => ({ ...p, application_date: e.target.value }))} className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none text-[13px]" /></Field>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pr-28">
                                     <div>
                                         <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-tight">Academic System</p>
                                         <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 mt-0.5 uppercase">{a.academic_system || "N/A"}</p>

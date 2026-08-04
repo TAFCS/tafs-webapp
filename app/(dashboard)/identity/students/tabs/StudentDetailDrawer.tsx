@@ -155,7 +155,7 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                                         <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
                                     </>
                                 )}
-                                {(student.has_transfer || (student.admissions && student.admissions.length > 1)) && (
+                                {student.has_transfer && (
                                     <>
                                         <button
                                             onClick={() => setTab("transfer_order" as any)}
