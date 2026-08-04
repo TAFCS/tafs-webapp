@@ -16,7 +16,7 @@ import {
   Pencil,
   RefreshCw,
 } from "lucide-react";
-import { hrService, CalendarDay, Department, formatStaffCategory } from "@/lib/hr.service";
+import { hrService, CalendarDay, Department, EmployeeProfile, formatStaffCategory } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
 import { useAuthState } from "@/context/AuthContext";
 import { useAppSelector } from "@/store/hooks";
@@ -83,12 +83,16 @@ export default function CalendarPage() {
   const allCampuses = useAppSelector((s: any) => s.campuses.items) as Campus[];
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
   const [selectedCampusId, setSelectedCampusId] = useState<number | null>(null);
   const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"STUDENT" | "STAFF">("STUDENT");
   const [viewMonth, setViewMonth] = useState(() => {
     const now = new Date();
@@ -121,6 +125,10 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => {
+    hrService.listEmployees().then(setEmployees).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (selectedCampusId !== null) fetchCalendar(selectedCampusId, activeTab);
   }, [selectedCampusId, activeTab]);
 
@@ -129,6 +137,22 @@ export default function CalendarPage() {
   const selectedClass = offeredClasses.find((c) => String(c.id) === formData.class_id);
   const offeredSections = selectedClass?.sections ?? [];
   const isStudentTab = activeTab === "STUDENT";
+
+  const campusEmployees = employees.filter((e) => selectedCampusId == null || e.campus_id === selectedCampusId);
+  const employeeSearchResults = (() => {
+    const q = employeeSearch.trim().toLowerCase();
+    if (!q) return [];
+    return campusEmployees
+      .filter((e) => {
+        const name = (e.full_name ?? "").toLowerCase();
+        const code = (e.employee_code ?? "").toLowerCase();
+        return name.includes(q) || code.includes(q);
+      })
+      .slice(0, 8);
+  })();
+  const selectedEmployee = formData.employee_id
+    ? employees.find((e) => String(e.id) === formData.employee_id)
+    : null;
 
   const fetchCalendar = async (campusId: number, tab: "STUDENT" | "STAFF") => {
     setLoading(true);
@@ -163,6 +187,8 @@ export default function CalendarPage() {
     setEditingDay(null);
     setModalMode(mode);
     setApplyToAllCampuses(false);
+    setEmployeeSearch("");
+    setShowEmployeeDropdown(false);
     setFormData({
       ...emptyForm(),
       day_type: mode === "weekend-open" ? "WORKDAY" : "HOLIDAY",
@@ -177,6 +203,8 @@ export default function CalendarPage() {
     setEditingDay(day);
     setApplyToAllCampuses(false);
     setModalMode(day.day_type === "WORKDAY" ? "weekend-open" : "holiday");
+    setEmployeeSearch(day.employee?.full_name ?? day.employee?.employee_code ?? "");
+    setShowEmployeeDropdown(false);
     setFormData({
       date: day.date.slice(0, 10),
       day_type: day.day_type === "WORKDAY" ? "WORKDAY" : "HOLIDAY",
@@ -204,6 +232,7 @@ export default function CalendarPage() {
     setSaving(true);
     setError(null);
     setSuccess(null);
+    setWarning(null);
     try {
       if (editingDay) {
         const payload = {
@@ -223,8 +252,9 @@ export default function CalendarPage() {
                 employee_id: formData.employee_id ? parseInt(formData.employee_id, 10) : undefined,
               }),
         };
-        await hrService.updateCalendarDay(editingDay.id, payload);
+        const updated = await hrService.updateCalendarDay(editingDay.id, payload);
         setSuccess("Calendar entry updated. Attendance synced for that date.");
+        setWarning(updated.sync_warning || updated.conflict_warning || null);
       } else if (applyToAllCampuses) {
         const result = await hrService.createBulkCalendarDays({
           date: formData.date,
@@ -238,6 +268,9 @@ export default function CalendarPage() {
             (result.failed > 0 ? `; ${result.failed} failed` : "") +
             ". Attendance synced per campus.",
         );
+        if (result.sync_failed > 0) {
+          setWarning(`Attendance re-sync failed on ${result.sync_failed} campus(es) — use "Apply holiday attendance manually" to retry.`);
+        }
       } else {
         const payload = {
           campus_id: selectedCampusId!,
@@ -256,12 +289,13 @@ export default function CalendarPage() {
                 employee_id: formData.employee_id ? parseInt(formData.employee_id, 10) : undefined,
               }),
         };
-        await hrService.createCalendarDay(payload);
+        const created = await hrService.createCalendarDay(payload);
         setSuccess(
           modalMode === "weekend-open"
             ? "Weekend marked as open. Attendance synced for that date."
             : "Calendar entry added. Attendance synced for that date.",
         );
+        setWarning(created.sync_warning || created.conflict_warning || null);
       }
       setShowModal(false);
       if (selectedCampusId !== null) fetchCalendar(selectedCampusId, activeTab);
@@ -276,9 +310,11 @@ export default function CalendarPage() {
     if (!confirm("Remove this calendar entry?")) return;
     setError(null);
     setSuccess(null);
+    setWarning(null);
     try {
-      await hrService.deleteCalendarDay(id);
+      const result = await hrService.deleteCalendarDay(id);
       setSuccess("Calendar entry deleted. Attendance re-synced for that date.");
+      setWarning(result.sync_warning || null);
       if (selectedCampusId !== null) fetchCalendar(selectedCampusId, activeTab);
     } catch {
       setError("Failed to delete calendar entry.");
@@ -469,6 +505,12 @@ export default function CalendarPage() {
         <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-2xl p-4 text-sm">
           <CheckCircle2 className="h-5 w-5 text-emerald-500" />
           <p>{success}</p>
+        </div>
+      )}
+      {warning && (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 text-amber-800 rounded-2xl p-4 text-sm dark:bg-amber-950/20 dark:border-amber-900/30 dark:text-amber-200">
+          <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+          <p>{warning}</p>
         </div>
       )}
 
@@ -803,15 +845,69 @@ export default function CalendarPage() {
                         </select>
                       </div>
                     </div>
-                    <div>
-                      <label className="text-xs font-bold text-zinc-400 uppercase">Employee ID (optional)</label>
-                      <input
-                        type="number"
-                        placeholder="Individual override — takes priority over department and category"
-                        className="w-full h-10 px-3 mt-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-sm"
-                        value={formData.employee_id}
-                        onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                      />
+                    <div className="relative">
+                      <label className="text-xs font-bold text-zinc-400 uppercase">Employee (optional)</label>
+                      {selectedEmployee ? (
+                        <div className="flex items-center justify-between mt-1 h-10 px-3 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/20 text-sm">
+                          <span className="font-medium text-blue-900 dark:text-blue-200 truncate">
+                            {selectedEmployee.full_name ?? selectedEmployee.employee_code ?? `Employee #${selectedEmployee.id}`}
+                            {selectedEmployee.employee_code ? (
+                              <span className="text-blue-600/70 dark:text-blue-400/70 font-normal"> · {selectedEmployee.employee_code}</span>
+                            ) : null}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, employee_id: "" });
+                              setEmployeeSearch("");
+                            }}
+                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-xs font-semibold ml-2 shrink-0"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          placeholder="Search by name or employee code — individual override, takes priority over department and category"
+                          className="w-full h-10 px-3 mt-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-sm"
+                          value={employeeSearch}
+                          onChange={(e) => {
+                            setEmployeeSearch(e.target.value);
+                            setShowEmployeeDropdown(true);
+                          }}
+                          onFocus={() => setShowEmployeeDropdown(true)}
+                          onBlur={() => setTimeout(() => setShowEmployeeDropdown(false), 150)}
+                        />
+                      )}
+                      {showEmployeeDropdown && !selectedEmployee && employeeSearch.trim() && (
+                        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-lg">
+                          {employeeSearchResults.length === 0 ? (
+                            <p className="px-3 py-2 text-xs text-zinc-500">
+                              No matching employees on this campus.
+                            </p>
+                          ) : (
+                            employeeSearchResults.map((emp) => (
+                              <button
+                                key={emp.id}
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  setFormData({ ...formData, employee_id: String(emp.id) });
+                                  setEmployeeSearch(emp.full_name ?? emp.employee_code ?? "");
+                                  setShowEmployeeDropdown(false);
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 flex flex-col"
+                              >
+                                <span className="font-medium">{emp.full_name ?? `Employee #${emp.id}`}</span>
+                                {emp.employee_code && (
+                                  <span className="text-xs text-zinc-500">{emp.employee_code}</span>
+                                )}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : null}

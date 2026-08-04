@@ -109,6 +109,15 @@ export interface ListSaturdaySchedulesParams {
   employeeId?: number;
 }
 
+export interface CreateSaturdaySchedulesResult {
+  created: SaturdaySchedule[];
+  /** Employees skipped because they're already at the 2-per-month cap. */
+  skipped_cap: { employee_id: number; full_name: string | null }[];
+  /** Employees who already have a HOLIDAY calendar override for this date —
+   *  the mandatory Saturday now takes priority and the holiday will be ignored for them. */
+  holiday_conflicts: { employee_id: number; full_name: string | null }[];
+}
+
 export const saturdaySchedulesService = {
   async list(params: ListSaturdaySchedulesParams): Promise<SaturdaySchedule[]> {
     const { data } = await api.get<ApiEnvelope<SaturdaySchedule[]>>("/v1/hr/saturday-schedules", {
@@ -117,8 +126,8 @@ export const saturdaySchedulesService = {
     return data.data;
   },
 
-  async create(employeeIds: number[], date: string): Promise<SaturdaySchedule[]> {
-    const { data } = await api.post<ApiEnvelope<SaturdaySchedule[]>>("/v1/hr/saturday-schedules", {
+  async create(employeeIds: number[], date: string): Promise<CreateSaturdaySchedulesResult> {
+    const { data } = await api.post<ApiEnvelope<CreateSaturdaySchedulesResult>>("/v1/hr/saturday-schedules", {
       employeeIds,
       date,
     });
