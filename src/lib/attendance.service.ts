@@ -218,6 +218,51 @@ export interface StudentTimeline {
   days: StudentTimelineDay[];
 }
 
+export type ScanDirection = 'IN' | 'OUT';
+
+export interface QuickCheckScan {
+  id: number;
+  scan_time: string;
+  direction: ScanDirection | null;
+  /** Punched from the webapp panel rather than a biometric device. */
+  is_manual: boolean;
+}
+
+export interface QuickCheckState {
+  student: {
+    cc: number;
+    full_name: string;
+    gr_number: string | null;
+    photo_url: string | null;
+    status: string;
+    class: string | null;
+    section: string | null;
+  };
+  date: string;
+  is_working_day: boolean;
+  day_description: string | null;
+  /** What the next punch must be — the other button is disabled. */
+  next_direction: ScanDirection;
+  scan_count: number;
+  status: RollRecordStatus | null;
+  source: 'MANUAL' | 'BIOMETRIC' | 'SYSTEM' | 'LEAVE' | null;
+  check_in_at: string | null;
+  check_out_at: string | null;
+  scans: QuickCheckScan[];
+}
+
+export interface QuickCheckResult {
+  student_cc: number;
+  full_name: string;
+  direction: ScanDirection;
+  scan_time: string;
+  status: RollRecordStatus | null;
+  check_in_at: string | null;
+  check_out_at: string | null;
+  next_direction: ScanDirection;
+  notified: boolean;
+}
+
 export const attendanceService = {
   async listRollSessions(params: {
     date: string;
@@ -373,6 +418,23 @@ export const attendanceService = {
     const { data } = await api.get<ApiEnvelope<StudentTimeline>>(
       `/v1/attendance/students/${studentCc}/timeline`,
       { params },
+    );
+    return data.data;
+  },
+
+  // ── Quick Check-In / Check-Out (gate desk) ───────────────────────────────
+
+  async getQuickCheckState(studentCc: number): Promise<QuickCheckState> {
+    const { data } = await api.get<ApiEnvelope<QuickCheckState>>(
+      `/v1/attendance/students/${studentCc}/quick-check`,
+    );
+    return data.data;
+  },
+
+  async quickCheck(studentCc: number, direction: ScanDirection): Promise<QuickCheckResult> {
+    const { data } = await api.post<ApiEnvelope<QuickCheckResult>>(
+      `/v1/attendance/students/${studentCc}/quick-check`,
+      { direction },
     );
     return data.data;
   },

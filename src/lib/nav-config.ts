@@ -137,6 +137,7 @@ export const NAV_MODULES: NavModule[] = [
             { name: "Academic Calendar", description: "School year and events", href: "/hr/calendar", icon: CalendarDays, permission: "hr.policies.manage" },
             { name: "Attendance Settings", description: "Rules and thresholds", href: "/hr/attendance-settings", icon: Settings, permission: "hr.policies.manage" },
             { name: "Class Modes", description: "Online / offline configuration", href: "/hr/class-modes", icon: Clock, permission: "hr.policies.manage" },
+            { name: "Quick Check-In", description: "Search a student and punch them in or out", href: "/attendance/quick-check-in", icon: Clock, permissions: ["attendance.student.rollcall.mark"] },
             { name: "Student Attendance", description: "Per-class attendance records", href: "/hr/student-attendance-dashboard", icon: UserCheck, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
             { name: "A-Level Roll Call", description: "A-level section marking", href: "/hr/roll-call", icon: ClipboardList, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
             { name: "Timetables", description: "A-Level weekly class schedules", href: "/hr/timetables", icon: CalendarDays, permissions: ["hr.timetable.view", "hr.timetable.manage"] },

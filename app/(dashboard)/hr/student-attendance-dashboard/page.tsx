@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     AlertCircle,
@@ -11,6 +12,7 @@ import {
     CalendarOff,
     ChevronRight,
     CheckCircle2,
+    Clock,
     Fingerprint,
     Loader2,
     Search,
@@ -298,6 +300,13 @@ export default function StudentAttendanceDashboardPage() {
                     <p className="text-sm text-zinc-500 mt-1">Daily student clock-in/out overview from biometric devices.</p>
                 </div>
                 <StudentSearch onSelect={(cc) => router.push(`/hr/student-attendance-dashboard/${cc}`)} />
+                <Link
+                    href="/attendance/quick-check-in"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all active:scale-95 whitespace-nowrap"
+                >
+                    <Clock className="h-4 w-4" />
+                    Quick Check-In
+                </Link>
                 {isSuperAdmin && (
                     <button
                         onClick={() => setSimulateOpen(true)}
