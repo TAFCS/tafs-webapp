@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Fingerprint, Loader2, X } from "lucide-react";
 import { zkPushService, DeviceUserMapping, DevicePersonType } from "@/lib/zk-push.service";
+import { getDeviceName } from "@/lib/zk-devices";
 
 interface SimulateScanModalProps {
     personType?: DevicePersonType;
@@ -39,7 +40,7 @@ export function SimulateScanModal({ personType = "STAFF", onClose, onDone }: Sim
 
     function mappingLabel(m: DeviceUserMapping): string {
         const name = isStaff ? m.employee_profiles?.full_name : m.students?.full_name;
-        return name ?? m.display_name ?? `${m.device_sn} / ${m.device_pin}`;
+        return name ?? m.display_name ?? `${getDeviceName(m.device_sn)} / ${m.device_pin}`;
     }
 
     async function handleSubmit() {

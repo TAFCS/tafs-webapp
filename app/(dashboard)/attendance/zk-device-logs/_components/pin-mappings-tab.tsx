@@ -10,6 +10,7 @@ import {
     PersonSearchResult,
     UnmappedPin,
 } from "@/lib/zk-push.service";
+import { getDeviceName } from "@/lib/zk-devices";
 import { PersonPicker } from "./person-picker";
 
 interface MappingModalProps {
@@ -72,12 +73,12 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
             if (isSamePerson) {
                 setPinHint({
                     type: 'success',
-                    message: `This PIN is already linked to ${matchedName} on device ${match.device_sn} — staying consistent. ✓`,
+                    message: `This PIN is already linked to ${matchedName} on device ${getDeviceName(match.device_sn)} — staying consistent. ✓`,
                 });
             } else {
                 setPinHint({
                     type: 'warning',
-                    message: `PIN ${devicePin.trim()} is already assigned to ${matchedName} on device ${match.device_sn}. Device PINs should ideally be unique across the whole school. Consider choosing a PIN that hasn't been used before.`,
+                    message: `PIN ${devicePin.trim()} is already assigned to ${matchedName} on device ${getDeviceName(match.device_sn)}. Device PINs should ideally be unique across the whole school. Consider choosing a PIN that hasn't been used before.`,
                 });
             }
         }, 250);
@@ -429,7 +430,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                             <thead>
                                 <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
                                     <th className="px-4 py-2.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        Device SN
+                                        Device
                                     </th>
                                     <th className="px-4 py-2.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                         PIN
@@ -452,7 +453,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                                 {mappings.map((m) => (
                                     <tr key={m.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                                        <td className="px-4 py-3 text-sm font-mono text-zinc-700 dark:text-zinc-200">{m.device_sn}</td>
+                                        <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">{getDeviceName(m.device_sn)}</td>
                                         <td className="px-4 py-3 text-sm font-mono text-zinc-700 dark:text-zinc-200">{m.device_pin}</td>
                                         <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">{m.person_type}</td>
                                         <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">{personLabel(m)}</td>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Fingerprint, Loader2, Plus, Power, PowerOff, ExternalLink, X } from "lucide-react";
 import { zkPushService, DeviceUserMapping } from "@/lib/zk-push.service";
+import { getDeviceName } from "@/lib/zk-devices";
 
 interface Props {
   employeeId: number;
@@ -183,7 +184,7 @@ export function EmployeeBiometricTab({ employeeId, employeeName }: Props) {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-100 dark:border-zinc-800 text-[10px] font-bold text-zinc-400 uppercase">
-                <th className="py-2 pr-4">Device S/N</th>
+                <th className="py-2 pr-4">Device</th>
                 <th className="py-2 pr-4">PIN</th>
                 <th className="py-2 pr-4">Display name</th>
                 <th className="py-2 pr-4">Status</th>
@@ -193,7 +194,7 @@ export function EmployeeBiometricTab({ employeeId, employeeName }: Props) {
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {mappings.map((m) => (
                 <tr key={m.id}>
-                  <td className="py-3 pr-4 font-mono text-xs">{m.device_sn}</td>
+                  <td className="py-3 pr-4 text-xs">{getDeviceName(m.device_sn)}</td>
                   <td className="py-3 pr-4 font-mono font-bold">{m.device_pin}</td>
                   <td className="py-3 pr-4">{m.display_name ?? "—"}</td>
                   <td className="py-3 pr-4">

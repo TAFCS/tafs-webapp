@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, Check, Loader2, Sparkles, Tag, UserPlus } from "lucide-react";
 import toast from "react-hot-toast";
 import { zkPushService, UnmappedPin, PersonSearchResult } from "@/lib/zk-push.service";
+import { getDeviceName } from "@/lib/zk-devices";
 import { MappingModal } from "./pin-mappings-tab";
 
 function formatDateTime(iso: string) {
@@ -190,7 +191,7 @@ export function UnmappedPinsTab({ active }: { active: boolean }) {
                             <thead>
                                 <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
                                     <th className="px-4 py-2.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        Device SN
+                                        Device
                                     </th>
                                     <th className="px-4 py-2.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                         PIN
@@ -219,7 +220,7 @@ export function UnmappedPinsTab({ active }: { active: boolean }) {
                                         key={`${p.device_sn}:${p.device_pin}`}
                                         className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
                                     >
-                                        <td className="px-4 py-3 text-sm font-mono text-zinc-700 dark:text-zinc-200">{p.device_sn}</td>
+                                        <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">{getDeviceName(p.device_sn)}</td>
                                         <td className="px-4 py-3 text-sm font-mono text-zinc-700 dark:text-zinc-200">{p.device_pin}</td>
                                         <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">
                                             {p.suggested_name ?? <span className="text-zinc-400 italic">unknown</span>}

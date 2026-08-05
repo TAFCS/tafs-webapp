@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, ChevronDown, ChevronRight, Loader2, RefreshCw, Wifi } from "lucide-react";
 import { zkPushService, ZkPushLog } from "@/lib/zk-push.service";
+import { getDeviceName } from "@/lib/zk-devices";
 
 function formatTime(iso: string) {
     const d = new Date(iso);
@@ -37,9 +38,9 @@ function LogRow({ log }: { log: ZkPushLog }) {
                     {formatTime(log.received_at)}
                 </td>
                 <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1.5 text-sm font-mono font-medium text-zinc-700 dark:text-zinc-200">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-200">
                         <Wifi className="w-3.5 h-3.5 text-green-500" />
-                        {log.sn}
+                        {getDeviceName(log.sn)}
                     </span>
                 </td>
                 <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300 font-mono">
@@ -162,13 +163,13 @@ export function RawLogsTab({ active }: { active: boolean }) {
                                 <button
                                     key={sn}
                                     onClick={() => setFilterSn(sn)}
-                                    className={`px-2.5 py-1 rounded-full text-xs font-mono font-medium transition-colors ${
+                                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
                                         filterSn === sn
                                             ? "bg-green-600 text-white"
                                             : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                                     }`}
                                 >
-                                    {sn}
+                                    {getDeviceName(sn)}
                                 </button>
                             ))}
                         </div>
@@ -233,7 +234,7 @@ export function RawLogsTab({ active }: { active: boolean }) {
                                         Received At
                                     </th>
                                     <th className="px-4 py-2.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                        Device SN
+                                        Device
                                     </th>
                                     <th className="px-4 py-2.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                         Table
