@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Fingerprint, Loader2, X } from "lucide-react";
 import { zkPushService, DeviceUserMapping, DevicePersonType } from "@/lib/zk-push.service";
-import { getDeviceName } from "@/lib/zk-devices";
+import { getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
 
 interface SimulateScanModalProps {
     personType?: DevicePersonType;
@@ -30,7 +30,8 @@ export function SimulateScanModal({ personType = "STAFF", onClose, onDone }: Sim
                         (m) =>
                             m.is_active &&
                             m.person_type === personType &&
-                            (isStaff ? m.employee_profiles : m.students),
+                            (isStaff ? m.employee_profiles : m.students) &&
+                            !isHiddenDevice(m.device_sn),
                     ),
                 ),
             )

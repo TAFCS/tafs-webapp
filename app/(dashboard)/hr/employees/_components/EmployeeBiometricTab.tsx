@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Fingerprint, Loader2, Plus, Power, PowerOff, ExternalLink, X } from "lucide-react";
 import { zkPushService, DeviceUserMapping } from "@/lib/zk-push.service";
-import { getDeviceName } from "@/lib/zk-devices";
+import { getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
 
 interface Props {
   employeeId: number;
@@ -118,7 +118,8 @@ export function EmployeeBiometricTab({ employeeId, employeeName }: Props) {
     setLoading(true);
     setError(null);
     try {
-      setMappings(await zkPushService.getMappings(employeeId));
+      const data = await zkPushService.getMappings(employeeId);
+      setMappings(data.filter((m) => !isHiddenDevice(m.device_sn)));
     } catch (err: any) {
       setMappings([]);
       const status = err?.response?.status;

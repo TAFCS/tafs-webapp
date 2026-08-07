@@ -10,7 +10,7 @@ import {
     PersonSearchResult,
     UnmappedPin,
 } from "@/lib/zk-push.service";
-import { getDeviceName } from "@/lib/zk-devices";
+import { getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
 import { PersonPicker } from "./person-picker";
 
 interface MappingModalProps {
@@ -318,7 +318,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
         setError(null);
         try {
             const data = await zkPushService.getMappings();
-            setMappings(data);
+            setMappings(data.filter((m) => !isHiddenDevice(m.device_sn)));
         } catch {
             setError("Failed to load PIN mappings.");
         } finally {

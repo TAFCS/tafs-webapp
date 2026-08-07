@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, ChevronDown, ChevronRight, Loader2, RefreshCw, Wifi } from "lucide-react";
 import { zkPushService, ZkPushLog } from "@/lib/zk-push.service";
-import { getDeviceName } from "@/lib/zk-devices";
+import { getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
 
 function formatTime(iso: string) {
     const d = new Date(iso);
@@ -109,8 +109,8 @@ export function RawLogsTab({ active }: { active: boolean }) {
         setError(null);
         try {
             const data = await zkPushService.getLogs(filterSn || undefined);
-            setLogs(data.logs);
-            setDevices(data.devices);
+            setLogs(data.logs.filter((log) => !isHiddenDevice(log.sn)));
+            setDevices(data.devices.filter((sn) => !isHiddenDevice(sn)));
             setLastRefresh(new Date());
         } catch {
             setError("Failed to load device logs. Check that you are logged in.");
