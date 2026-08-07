@@ -12,6 +12,7 @@ import api from "@/lib/api";
 import { StudentProfileModal } from "@/src/features/students/components/student-profile-modal";
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
 import { resolveClassIdFromGrade } from "@/lib/fee-utils";
+import { CountryCodeSelect } from "@/components/inputs/CountryCodeSelect";
 
 export function AdmissionForm() {
     const router = useRouter();
@@ -904,14 +905,14 @@ export function AdmissionForm() {
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Home Phone #</label>
                                         <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.fatherPrimaryPhoneCountryCode} onChange={e => setFormData({ ...formData, fatherPrimaryPhoneCountryCode: e.target.value })} />
+                                            <CountryCodeSelect value={formData.fatherPrimaryPhoneCountryCode} onChange={code => setFormData({ ...formData, fatherPrimaryPhoneCountryCode: code })} className="w-16 px-2 py-2 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.fatherHomePhone} onChange={e => setFormData({ ...formData, fatherHomePhone: e.target.value })} />
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Cellular Phone #</label>
                                         <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.fatherWhatsappCountryCode} onChange={e => setFormData({ ...formData, fatherWhatsappCountryCode: e.target.value })} />
+                                            <CountryCodeSelect value={formData.fatherWhatsappCountryCode} onChange={code => setFormData({ ...formData, fatherWhatsappCountryCode: code })} className="w-16 px-2 py-2 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.fatherCellPhone} onChange={e => setFormData({ ...formData, fatherCellPhone: e.target.value })} />
                                         </div>
                                     </div>
@@ -990,7 +991,7 @@ export function AdmissionForm() {
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Work Phone #</label>
                                         <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.fatherWorkPhoneCountryCode} onChange={e => setFormData({ ...formData, fatherWorkPhoneCountryCode: e.target.value })} />
+                                            <CountryCodeSelect value={formData.fatherWorkPhoneCountryCode} onChange={code => setFormData({ ...formData, fatherWorkPhoneCountryCode: code })} className="w-16 px-2 py-2 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.fatherWorkPhone} onChange={e => setFormData({ ...formData, fatherWorkPhone: e.target.value })} />
                                         </div>
                                     </div>
@@ -1047,14 +1048,14 @@ export function AdmissionForm() {
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Home Phone #</label>
                                         <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-secondary/20 focus-within:border-secondary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.motherPrimaryPhoneCountryCode} onChange={e => setFormData({ ...formData, motherPrimaryPhoneCountryCode: e.target.value })} />
+                                            <CountryCodeSelect value={formData.motherPrimaryPhoneCountryCode} onChange={code => setFormData({ ...formData, motherPrimaryPhoneCountryCode: code })} className="w-16 px-2 py-2 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.motherHomePhone} onChange={e => setFormData({ ...formData, motherHomePhone: e.target.value })} />
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Cellular Phone #</label>
                                         <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-secondary/20 focus-within:border-secondary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.motherWhatsappCountryCode} onChange={e => setFormData({ ...formData, motherWhatsappCountryCode: e.target.value })} />
+                                            <CountryCodeSelect value={formData.motherWhatsappCountryCode} onChange={code => setFormData({ ...formData, motherWhatsappCountryCode: code })} className="w-16 px-2 py-2 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.motherCellPhone} onChange={e => setFormData({ ...formData, motherCellPhone: e.target.value })} />
                                         </div>
                                     </div>
@@ -1116,7 +1117,7 @@ export function AdmissionForm() {
                                             onChange={e => setFormData({ ...formData, motherIncome: e.target.value })} /></div>
                                     <div><label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Work Phone #</label>
                                         <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-secondary/20 focus-within:border-secondary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.motherWorkPhoneCountryCode} onChange={e => setFormData({ ...formData, motherWorkPhoneCountryCode: e.target.value })} />
+                                            <CountryCodeSelect value={formData.motherWorkPhoneCountryCode} onChange={code => setFormData({ ...formData, motherWorkPhoneCountryCode: code })} className="w-16 px-2 py-2 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.motherWorkPhone} onChange={e => setFormData({ ...formData, motherWorkPhone: e.target.value })} />
                                         </div></div>
                                     <div>
@@ -1179,7 +1180,7 @@ export function AdmissionForm() {
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Cellular Phone #</label>
                                         <div className="flex border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
-                                            <input type="text" placeholder="+92" className="w-16 px-2 py-2 border-0 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" value={formData.guardianWhatsappCountryCode} onChange={e => setFormData({ ...formData, guardianWhatsappCountryCode: e.target.value })} />
+                                            <CountryCodeSelect value={formData.guardianWhatsappCountryCode} onChange={code => setFormData({ ...formData, guardianWhatsappCountryCode: code })} className="w-16 px-2 py-2 rounded-l-lg bg-zinc-50 dark:bg-zinc-900 outline-none text-sm" />
                                             <input type="text" className="flex-1 min-w-0 px-3 py-2 border-0 rounded-r-lg outline-none" value={formData.guardianCellPhone} onChange={e => setFormData({ ...formData, guardianCellPhone: e.target.value })} />
                                         </div>
                                     </div>

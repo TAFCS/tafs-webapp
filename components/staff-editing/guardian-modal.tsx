@@ -13,6 +13,7 @@ import {
     Trash2
 } from "lucide-react";
 import api from "@/lib/api";
+import { CountryCodeSelect } from "@/components/inputs/CountryCodeSelect";
 
 // Custom debounce function
 function debounce(func: Function, wait: number) {
@@ -438,19 +439,19 @@ export function GuardianModal({ isOpen, onClose, studentId, studentName }: Guard
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
                                                         <div className="flex border border-zinc-200 dark:border-zinc-800 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
-                                                            <input type="text" value={guardian.primary_phone_country_code || ""} onChange={(e) => handleEdit(idx, "primary_phone_country_code", e.target.value)} placeholder="+92" className="w-12 flex-shrink-0 px-1.5 py-2 bg-zinc-50 dark:bg-zinc-900 border-0 text-zinc-600 dark:text-zinc-400 text-xs outline-none truncate" />
+                                                            <CountryCodeSelect value={guardian.primary_phone_country_code || ""} onChange={(code) => handleEdit(idx, "primary_phone_country_code", code)} className="w-12 flex-shrink-0 px-1.5 py-2 bg-zinc-50 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-xs outline-none" />
                                                             <input type="text" value={guardian.primary_phone || ""} onChange={(e) => handleEdit(idx, "primary_phone", e.target.value)} placeholder="Phone" className="flex-1 min-w-0 px-2 py-2 bg-transparent border-0 outline-none focus:bg-white dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 truncate" />
                                                         </div>
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
                                                         <div className="flex border border-zinc-200 dark:border-zinc-800 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
-                                                            <input type="text" value={guardian.whatsapp_country_code || ""} onChange={(e) => handleEdit(idx, "whatsapp_country_code", e.target.value)} placeholder="+92" className="w-12 flex-shrink-0 px-1.5 py-2 bg-zinc-50 dark:bg-zinc-900 border-0 text-zinc-600 dark:text-zinc-400 text-xs outline-none truncate" />
+                                                            <CountryCodeSelect value={guardian.whatsapp_country_code || ""} onChange={(code) => handleEdit(idx, "whatsapp_country_code", code)} className="w-12 flex-shrink-0 px-1.5 py-2 bg-zinc-50 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-xs outline-none" />
                                                             <input type="text" value={guardian.whatsapp_number || ""} onChange={(e) => handleEdit(idx, "whatsapp_number", e.target.value)} placeholder="WhatsApp" className="flex-1 min-w-0 px-2 py-2 bg-transparent border-0 outline-none focus:bg-white dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 truncate" />
                                                         </div>
                                                     </td>
                                                     <td className="p-1 border-r border-zinc-100">
                                                         <div className="flex border border-zinc-200 dark:border-zinc-800 rounded-md focus-within:ring-1 focus-within:ring-zinc-900 overflow-hidden">
-                                                            <input type="text" value={guardian.work_phone_country_code || ""} onChange={(e) => handleEdit(idx, "work_phone_country_code", e.target.value)} placeholder="+92" className="w-12 flex-shrink-0 px-1.5 py-2 bg-zinc-50 dark:bg-zinc-900 border-0 text-zinc-600 dark:text-zinc-400 text-xs outline-none truncate" />
+                                                            <CountryCodeSelect value={guardian.work_phone_country_code || ""} onChange={(code) => handleEdit(idx, "work_phone_country_code", code)} className="w-12 flex-shrink-0 px-1.5 py-2 bg-zinc-50 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-xs outline-none" />
                                                             <input type="text" value={guardian.work_phone || ""} onChange={(e) => handleEdit(idx, "work_phone", e.target.value)} placeholder="Work Phone" className="flex-1 min-w-0 px-2 py-2 bg-transparent border-0 outline-none focus:bg-white dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 truncate" />
                                                         </div>
                                                     </td>

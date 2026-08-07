@@ -14,6 +14,7 @@ import { StudentProfileModal } from "@/src/features/students/components/student-
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
 import { GRADE_NAME_TO_CODE, resolveClassIdFromGrade } from "@/lib/fee-utils";
 import { QuickAdmissionsPopup } from "./quick-admissions-popup";
+import { CountryCodeSelect } from "@/components/inputs/CountryCodeSelect";
 import toast from "react-hot-toast";
 
 const isNA = (v: any) => v === "N/A" || v === "021-N/A";
@@ -2136,7 +2137,11 @@ export function RegistrationForm() {
                                                     <div className="flex flex-col gap-2">
                                                         <div className={`flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary ${formData.isFatherPhoneNA ? 'opacity-50 bg-zinc-50' : ''}`}>
                                                             {formData.isFatherPhoneForeign ? (
-                                                                <input type="text" name="fatherPrimaryPhoneCountryCode" value={formData.fatherPrimaryPhoneCountryCode || ""} onChange={handleInputChange} className="w-12 px-1 text-center bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 outline-none" />
+                                                                <CountryCodeSelect
+                                                                    value={formData.fatherPrimaryPhoneCountryCode || ""}
+                                                                    onChange={(code) => setFormData(prev => ({ ...prev, fatherPrimaryPhoneCountryCode: code }))}
+                                                                    className="w-14 px-1 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 outline-none"
+                                                                />
                                                             ) : (
                                                                 <span className="flex items-center px-2 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 whitespace-nowrap">+92</span>
                                                             )}
@@ -2230,7 +2235,11 @@ export function RegistrationForm() {
                                                     <div className="flex flex-col gap-2">
                                                         <div className={`flex border border-zinc-200 dark:border-zinc-800 rounded focus-within:ring-1 focus-within:ring-primary focus-within:border-primary ${formData.isMotherPhoneNA ? 'opacity-50 bg-zinc-50' : ''}`}>
                                                             {formData.isMotherPhoneForeign ? (
-                                                                <input type="text" name="motherPrimaryPhoneCountryCode" value={formData.motherPrimaryPhoneCountryCode || ""} onChange={handleInputChange} className="w-12 px-1 text-center bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 outline-none" />
+                                                                <CountryCodeSelect
+                                                                    value={formData.motherPrimaryPhoneCountryCode || ""}
+                                                                    onChange={(code) => setFormData(prev => ({ ...prev, motherPrimaryPhoneCountryCode: code }))}
+                                                                    className="w-14 px-1 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 outline-none"
+                                                                />
                                                             ) : (
                                                                 <span className="flex items-center px-2 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-500 whitespace-nowrap">+92</span>
                                                             )}
@@ -2365,7 +2374,11 @@ export function RegistrationForm() {
                                                 <div className="flex-[1.5] w-full">
                                                     <label className="block text-[11px] font-black uppercase tracking-wider text-red-900/40 dark:text-red-400/40 mb-1.5 ml-1">Contact Number (Primary)</label>
                                                     <div className={`flex border border-red-200 dark:border-red-900/20 rounded-xl focus-within:ring-2 focus-within:ring-red-500 bg-white dark:bg-zinc-950 overflow-hidden shadow-sm`}>
-                                                        <input type="text" name="emergencyPrimaryPhoneCountryCode" value={formData.emergencyPrimaryPhoneCountryCode || ""} onChange={handleInputChange} placeholder="+92" className="w-16 px-3 py-3 border-0 bg-red-50/50 dark:bg-zinc-900 outline-none text-xs font-bold border-r border-red-100 dark:border-red-900/20" />
+                                                        <CountryCodeSelect
+                                                            value={formData.emergencyPrimaryPhoneCountryCode || ""}
+                                                            onChange={(code) => setFormData(prev => ({ ...prev, emergencyPrimaryPhoneCountryCode: code }))}
+                                                            className="w-16 px-3 py-3 bg-red-50/50 dark:bg-zinc-900 outline-none text-xs font-bold border-r border-red-100 dark:border-red-900/20"
+                                                        />
                                                         <input type="text" name="emergencyContactPhone" value={formData.emergencyContactPhone || ""} onChange={handleInputChange} placeholder="Phone Number" className="flex-1 min-w-0 px-4 py-3 border-0 outline-none text-sm bg-transparent" />
                                                     </div>
                                                 </div>

@@ -4,6 +4,7 @@ import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2, Search, Li
 import { ChangeFamilyModal } from "@/src/features/students/components/student-profile-modal";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
+import { CountryCodeSelect } from "@/components/inputs/CountryCodeSelect";
 
 const isNA = (v: any) => v === "N/A" || v === "021-N/A";
 
@@ -82,13 +83,11 @@ function PhoneInput({
     return (
         <div className={`relative flex items-center ${className}`}>
             <div className="flex w-full h-9 border border-zinc-200 rounded-xl overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 bg-white">
-                <input
-                    type="text"
+                <CountryCodeSelect
                     value={code}
-                    onChange={e => onCountryCodeChange?.(e.target.value)}
-                    placeholder="+92"
+                    onChange={v => onCountryCodeChange?.(v)}
                     disabled={isNA(value)}
-                    className="w-14 shrink-0 px-1.5 text-[12px] font-semibold text-zinc-500 bg-zinc-50 border-0 border-r border-zinc-200 outline-none text-center disabled:opacity-50"
+                    className="w-14 shrink-0 px-1.5 text-[12px] font-semibold text-zinc-500 bg-zinc-50 border-r border-zinc-200 outline-none disabled:opacity-50"
                 />
                 <input
                     type="text"
