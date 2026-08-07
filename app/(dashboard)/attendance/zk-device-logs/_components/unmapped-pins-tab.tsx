@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, Check, Loader2, Sparkles, Tag, UserPlus } from "lucide-react";
 import toast from "react-hot-toast";
-import { zkPushService, UnmappedPin, PersonSearchResult } from "@/lib/zk-push.service";
+import { zkPushService, UnmappedPin, PersonSearchResult, DevicePersonType } from "@/lib/zk-push.service";
 import { getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
 import { MappingModal } from "./pin-mappings-tab";
 

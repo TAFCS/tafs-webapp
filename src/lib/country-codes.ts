@@ -259,3 +259,41 @@ export const COUNTRY_DIAL_CODES: CountryDialCode[] = [
 export function countryFlagEmoji(iso2: string): string {
   return flagEmoji(iso2);
 }
+
+/** Everyday shorthands people type that don't appear in the official country name. */
+const SEARCH_ALIASES: Record<string, string[]> = {
+  US: ['usa', 'us', 'america', 'united states of america'],
+  GB: ['uk', 'britain', 'great britain', 'england', 'scotland', 'wales', 'northern ireland'],
+  AE: ['uae', 'dubai', 'abu dhabi'],
+  SA: ['ksa', 'saudi'],
+  KR: ['south korea'],
+  KP: ['north korea'],
+  NL: ['holland'],
+  CZ: ['czech republic'],
+  TR: ['turkey'],
+  CD: ['drc', 'congo kinshasa'],
+  CI: ['ivory coast'],
+  MM: ['burma'],
+  CV: ['cape verde'],
+  TL: ['east timor'],
+  SZ: ['swaziland'],
+  MK: ['macedonia'],
+};
+
+/**
+ * Filters countries by name, dial code, ISO-2 code, or a common alias.
+ * Dial codes match with or without the leading "+", so "92" finds Pakistan.
+ */
+export function searchCountries(query: string): CountryDialCode[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return COUNTRY_DIAL_CODES;
+
+  const digits = q.replace(/\D/g, '');
+
+  return COUNTRY_DIAL_CODES.filter((c) => {
+    if (c.name.toLowerCase().includes(q)) return true;
+    if (c.iso2.toLowerCase().startsWith(q)) return true;
+    if (digits && c.dialCode.replace('+', '').startsWith(digits)) return true;
+    return (SEARCH_ALIASES[c.iso2] ?? []).some((alias) => alias.includes(q));
+  });
+}
