@@ -46,6 +46,10 @@ export interface PersonSearchResult {
     full_name: string | null;
     employee_code?: string | null;
     gr_number?: string | null;
+    photograph_url?: string | null;
+    classes?: { description: string | null } | null;
+    sections?: { description: string | null } | null;
+    campuses?: { campus_name: string | null } | null;
 }
 
 export interface CreateDeviceMappingPayload {
