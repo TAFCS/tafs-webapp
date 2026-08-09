@@ -99,6 +99,9 @@ function PeriodRow({ period }: { period: ProgressionPeriod }) {
       <td className="py-2.5 pr-4 text-[13px] text-zinc-700">
         {period.campuses ? period.campuses.campus_name : "—"}
       </td>
+      <td className="py-2.5 pr-4 text-[13px] font-mono text-zinc-700 whitespace-nowrap">
+        {period.gr_number || "—"}
+      </td>
       <td className="py-2.5 text-[12px] text-zinc-400">
         {period.changed_by || "—"}
       </td>
@@ -175,6 +178,9 @@ export function AcademicProgressionTab({ cc }: { cc: number }) {
             </th>
             <th className="py-2 pr-4 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
               Campus
+            </th>
+            <th className="py-2 pr-4 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
+              GR
             </th>
             <th className="py-2 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
               Moved By
