@@ -190,14 +190,14 @@ function PartiallyPaidModal({
                         <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4">
                             <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1">Already Deposited</p>
                             <p className="text-xl font-black text-emerald-700 dark:text-emerald-300 font-mono">
-                                {paidTotal.toLocaleString()}
+                                {Math.round(paidTotal).toLocaleString()}
                             </p>
                             <p className="text-[10px] text-emerald-600/70 mt-1">{paidHeads.length} head{paidHeads.length !== 1 ? "s" : ""}</p>
                         </div>
                         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
                             <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-1">Outstanding Balance</p>
                             <p className="text-xl font-black text-amber-700 dark:text-amber-300 font-mono">
-                                {unpaidTotal.toLocaleString()}
+                                {Math.round(unpaidTotal).toLocaleString()}
                             </p>
                             <p className="text-[10px] text-amber-600/70 mt-1">{unpaidHeads.length} head{unpaidHeads.length !== 1 ? "s" : ""} → new unpaid voucher</p>
                         </div>
@@ -256,9 +256,9 @@ function PartiallyPaidModal({
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-2.5 font-mono text-zinc-600 dark:text-zinc-400">{net.toLocaleString()}</td>
-                                            <td className="px-4 py-2.5 font-mono font-bold text-emerald-600 dark:text-emerald-400">{dep.toLocaleString()}</td>
-                                            <td className="px-4 py-2.5 font-mono font-bold text-amber-600 dark:text-amber-400">{bal.toLocaleString()}</td>
+                                            <td className="px-4 py-2.5 font-mono text-zinc-600 dark:text-zinc-400">{Math.round(net).toLocaleString()}</td>
+                                            <td className="px-4 py-2.5 font-mono font-bold text-emerald-600 dark:text-emerald-400">{Math.round(dep).toLocaleString()}</td>
+                                            <td className="px-4 py-2.5 font-mono font-bold text-amber-600 dark:text-amber-400">{Math.round(bal).toLocaleString()}</td>
                                             <td className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-wider ${goesToColor}`}>{goesTo}</td>
                                         </tr>
                                     );
@@ -523,12 +523,12 @@ function VoucherRow({
             </td>
             <td className="px-5 py-3.5">
                 <span className="text-sm text-zinc-400 dark:text-zinc-600 font-mono line-through decoration-rose-300">
-                    {Number(voucher.sf_gross_total ?? voucher.voucher_heads?.reduce((sum, h) => sum + Number(h.net_amount) + Number(h.discount_amount || 0), 0)).toLocaleString()}
+                    {Math.round(Number(voucher.sf_gross_total ?? voucher.voucher_heads?.reduce((sum, h) => sum + Number(h.net_amount) + Number(h.discount_amount || 0), 0))).toLocaleString()}
                 </span>
             </td>
             <td className="px-5 py-3.5">
                 <span className="text-sm text-emerald-600 dark:text-emerald-400 font-black font-mono">
-                    {Number(voucher.sf_net_total ?? voucher.total_payable_before_due ?? 0).toLocaleString()}
+                    {Math.round(Number(voucher.sf_net_total ?? voucher.total_payable_before_due ?? 0)).toLocaleString()}
                 </span>
             </td>
             <td className="px-5 py-3.5">

@@ -2111,15 +2111,15 @@ function StudentwiseFeeEditor() {
                             <div className="flex-1 flex flex-wrap items-center gap-x-8 gap-y-2 w-full">
                                 <div className="flex items-baseline gap-2">
                                     <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Tuition</span>
-                                    <span className="text-sm font-black text-zinc-700 dark:text-zinc-300">PKR {projections.newTuitionMonthly.toLocaleString()}</span>
+                                    <span className="text-sm font-black text-zinc-700 dark:text-zinc-300">PKR {Math.round(projections.newTuitionMonthly).toLocaleString()}</span>
                                 </div>
                                 <div className="flex items-baseline gap-2">
                                     <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Annual</span>
-                                    <span className="text-sm font-black text-zinc-700 dark:text-zinc-300">PKR {projections.newAnnualMonthly.toLocaleString()}</span>
+                                    <span className="text-sm font-black text-zinc-700 dark:text-zinc-300">PKR {Math.round(projections.newAnnualMonthly).toLocaleString()}</span>
                                 </div>
                                 <div className="flex items-baseline gap-2 border-l border-zinc-200 dark:border-zinc-700 pl-8">
                                     <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Combined</span>
-                                    <span className="text-sm font-black text-primary">PKR {(projections.newTuitionMonthly + projections.newAnnualMonthly).toLocaleString()}</span>
+                                    <span className="text-sm font-black text-primary">PKR {Math.round(projections.newTuitionMonthly + projections.newAnnualMonthly).toLocaleString()}</span>
                                     <span className="text-[10px] text-zinc-400">/mo</span>
                                 </div>
                             </div>
@@ -2577,7 +2577,7 @@ function StudentwiseFeeEditor() {
                                     <div className="w-px h-8 bg-zinc-200 mt-2" />
                                     <div>
                                         <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest mb-1">Discounts</p>
-                                        <p className="text-lg font-bold text-violet-600">- PKR {discountRows.reduce((s, d) => s + parseFloat(d.amount || "0"), 0).toLocaleString()}</p>
+                                        <p className="text-lg font-bold text-violet-600">- PKR {Math.round(discountRows.reduce((s, d) => s + parseFloat(d.amount || "0"), 0)).toLocaleString()}</p>
                                     </div>
                                 </>
                             )}
@@ -2588,7 +2588,7 @@ function StudentwiseFeeEditor() {
                             <div className="flex items-baseline gap-2 justify-end">
                                 <span className="text-zinc-300 font-mono text-sm">PKR</span>
                                 <span className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight tabular-nums">
-                                    {grandTotal.toLocaleString()}
+                                    {Math.round(grandTotal).toLocaleString()}
                                 </span>
                             </div>
                         </div>
@@ -2607,7 +2607,7 @@ function StudentwiseFeeEditor() {
                         </div>
                         <div>
                             <p className="text-sm font-black text-zinc-800 dark:text-zinc-200">
-                                Refundable Caution Fee — PKR {parseFloat(cautionFeeHistory[0].amount_paid || cautionFeeHistory[0].amount || "0").toLocaleString()} paid {cautionFeeHistory[0].fee_date ? new Date(cautionFeeHistory[0].fee_date).toLocaleDateString() : "at admission"} (AY {cautionFeeHistory[0].academic_year})
+                                Refundable Caution Fee — PKR {Math.round(parseFloat(cautionFeeHistory[0].amount_paid || cautionFeeHistory[0].amount || "0")).toLocaleString()} paid {cautionFeeHistory[0].fee_date ? new Date(cautionFeeHistory[0].fee_date).toLocaleDateString() : "at admission"} (AY {cautionFeeHistory[0].academic_year})
                             </p>
                             <p className="text-xs text-zinc-500 mt-1">
                                 Clear every other due except the last month first, then add the caution fee refund against that last month.
@@ -2663,7 +2663,7 @@ function StudentwiseFeeEditor() {
                                         <td className="px-6 py-3 text-sm text-zinc-500 border-b border-violet-100 dark:border-violet-900">{monthName}</td>
                                         <td className="px-6 py-3 text-sm font-mono text-zinc-500 border-b border-violet-100 dark:border-violet-900">{dr.fee_date || "—"}</td>
                                         <td className="px-6 py-3 text-right font-mono font-bold text-violet-700 dark:text-violet-400 border-b border-violet-100 dark:border-violet-900">
-                                            – {parseFloat(dr.amount).toLocaleString()}
+                                            – {Math.round(parseFloat(dr.amount)).toLocaleString()}
                                         </td>
                                         <td className="px-6 py-3 border-b border-violet-100 dark:border-violet-900 text-center">
                                             <button
@@ -2714,7 +2714,7 @@ function StudentwiseFeeEditor() {
                                         <div>
                                             <p className="text-sm font-black text-zinc-800 dark:text-zinc-200">{plan.fee_type_desc}</p>
                                             <p className="text-[10px] font-bold text-zinc-400">
-                                                {standaloneHeads.length} heads · PKR {plan.total_amount.toLocaleString()} total
+                                                {standaloneHeads.length} heads · PKR {Math.round(plan.total_amount).toLocaleString()} total
                                                 {paidCount > 0 && <span className="ml-2 text-emerald-600">{paidCount} paid</span>}
                                                 {issuedCount > 0 && <span className="ml-2 text-amber-600">{issuedCount} issued</span>}
                                                 {pendingCount > 0 && <span className="ml-2 text-zinc-400">{pendingCount} pending</span>}
@@ -2757,7 +2757,7 @@ function StudentwiseFeeEditor() {
                                                     <td className="px-6 py-3 text-[10px] font-mono text-zinc-400 border-b border-indigo-100 dark:border-indigo-900">{idx + 1}</td>
                                                     <td className="px-6 py-3 text-sm text-zinc-600 dark:text-zinc-300 border-b border-indigo-100 dark:border-indigo-900">{monthName}</td>
                                                     <td className="px-6 py-3 text-sm font-mono text-zinc-500 border-b border-indigo-100 dark:border-indigo-900">{head.fee_date || "—"}</td>
-                                                    <td className="px-6 py-3 text-right font-mono font-bold text-indigo-700 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-900">{head.amount.toLocaleString()}</td>
+                                                    <td className="px-6 py-3 text-right font-mono font-bold text-indigo-700 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-900">{Math.round(head.amount).toLocaleString()}</td>
                                                     <td className="px-6 py-3 border-b border-indigo-100 dark:border-indigo-900">
                                                         {isPaid && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-wider rounded">Paid</span>}
                                                         {isIssued && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase tracking-wider rounded">Issued</span>}
@@ -3057,7 +3057,7 @@ function StudentwiseFeeEditor() {
                                 </div>
                                 <div>
                                     <p className="font-black text-zinc-900 dark:text-zinc-100">Edit Installment Plan</p>
-                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{editingPlan.fee_type_desc} · PKR {editingPlan.total_amount.toLocaleString()}</p>
+                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{editingPlan.fee_type_desc} · PKR {Math.round(editingPlan.total_amount).toLocaleString()}</p>
                                 </div>
                             </div>
                             <button onClick={() => setEditingPlan(null)} className="h-8 w-8 rounded-xl flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-all">

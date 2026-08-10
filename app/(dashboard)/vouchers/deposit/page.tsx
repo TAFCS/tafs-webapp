@@ -190,7 +190,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     dueDate.setHours(0, 0, 0, 0);
     const isOverdue = today > dueDate;
     const actualLateFee = isOverdue ? remainingSurcharge : 0;
-    const finalTotal = Number(voucher.total_balance) || (totalBalance + actualLateFee + totalArrearSurchargeBalance);
+    const finalTotal = Math.round(Number(voucher.total_balance) || (totalBalance + actualLateFee + totalArrearSurchargeBalance));
 
     const surchargeDistTotal = Object.values(surchargeDistributions).reduce((s, v) => s + (Number(v) || 0), 0);
     const distributedTotal = fillingMode === "auto"
@@ -411,7 +411,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                     <div className="text-right">
                                         <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Remaining</p>
                                         <p className={`text-sm font-black ${remainingPool === 0 ? "text-emerald-500" : remainingPool < 0 ? "text-rose-500" : "text-primary"}`}>
-                                            Rs. {remainingPool.toLocaleString()}
+                                            Rs. {Math.round(remainingPool).toLocaleString()}
                                         </p>
                                     </div>
                                 </div>
@@ -470,12 +470,12 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                         </div>
                                     </div>
                                     {/* Net Amount from student_fees */}
-                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{hSfNet.toLocaleString()}</span>
+                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{Math.round(hSfNet).toLocaleString()}</span>
                                     {/* Deposited from student_fees.amount_paid */}
-                                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{hSfDep.toLocaleString()}</span>
+                                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(hSfDep).toLocaleString()}</span>
                                     {/* Balance = student_fees.amount - student_fees.amount_paid */}
                                     <span className={`text-[11px] font-black tabular-nums text-right ${hSfBal === 0 ? "text-emerald-600" : "text-zinc-900 dark:text-zinc-100"}`}>
-                                        {hSfBal.toLocaleString()}
+                                        {Math.round(hSfBal).toLocaleString()}
                                     </span>
                                     <div className="flex justify-end">
                                         {fillingMode === "manual" ? (
@@ -486,7 +486,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                                 }}
                                                 className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-primary transition-all font-mono" />
                                         ) : (
-                                            <span className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 tabular-nums">Rs. {Number(manualDistributions[h.id] || 0).toLocaleString()}</span>
+                                            <span className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 tabular-nums">Rs. {Math.round(Number(manualDistributions[h.id] || 0)).toLocaleString()}</span>
                                         )}
                                     </div>
                                 </div>
@@ -510,9 +510,9 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                             Arrear Penalty
                                         </span>
                                     </div>
-                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{sTotal.toLocaleString()}</span>
-                                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{sPaid.toLocaleString()}</span>
-                                    <span className={`text-[11px] font-black tabular-nums text-right ${sBal === 0 ? "text-emerald-600" : "text-rose-600"}`}>{sBal.toLocaleString()}</span>
+                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{Math.round(sTotal).toLocaleString()}</span>
+                                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(sPaid).toLocaleString()}</span>
+                                    <span className={`text-[11px] font-black tabular-nums text-right ${sBal === 0 ? "text-emerald-600" : "text-rose-600"}`}>{Math.round(sBal).toLocaleString()}</span>
                                     <div className="flex justify-end">
                                         {fillingMode === "manual" ? (
                                             sBal > 0 ? (
@@ -530,13 +530,13 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                                         }}
                                                         className="h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-400 dark:bg-zinc-950"
                                                     />
-                                                    <span className="text-[11px] font-black text-rose-600 tabular-nums">Pay full (Rs. {sBal.toLocaleString()})</span>
+                                                    <span className="text-[11px] font-black text-rose-600 tabular-nums">Pay full (Rs. {Math.round(sBal).toLocaleString()})</span>
                                                 </label>
                                             ) : (
                                                 <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Paid</span>
                                             )
                                         ) : (
-                                            <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {sDistVal.toLocaleString()}</span>
+                                            <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {Math.round(sDistVal).toLocaleString()}</span>
                                         )}
                                     </div>
                                 </div>
@@ -583,10 +583,10 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                             )}
                                         </div>
                                     </div>
-                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{hSfNet.toLocaleString()}</span>
-                                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{hSfDep.toLocaleString()}</span>
+                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{Math.round(hSfNet).toLocaleString()}</span>
+                                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(hSfDep).toLocaleString()}</span>
                                     <span className={`text-[11px] font-black tabular-nums text-right ${hSfBal === 0 ? "text-emerald-600" : "text-zinc-900 dark:text-zinc-100"}`}>
-                                        {hSfBal.toLocaleString()}
+                                        {Math.round(hSfBal).toLocaleString()}
                                     </span>
                                     <div className="flex justify-end">
                                         {fillingMode === "manual" ? (
@@ -597,7 +597,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                                 }}
                                                 className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-primary transition-all font-mono" />
                                         ) : (
-                                            <span className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 tabular-nums">Rs. {Number(manualDistributions[h.id] || 0).toLocaleString()}</span>
+                                            <span className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 tabular-nums">Rs. {Math.round(Number(manualDistributions[h.id] || 0)).toLocaleString()}</span>
                                         )}
                                     </div>
                                 </div>
@@ -612,15 +612,15 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                     <span className="inline-flex items-center px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5">System • Priority 0</span>
                                 </div>
                                 <span className="text-[11px] font-bold text-zinc-400 tabular-nums text-right">—</span>
-                                <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Number(voucher.late_fee_deposited ?? 0).toLocaleString()}</span>
-                                <span className="text-[11px] font-black text-rose-600 tabular-nums text-right">{actualLateFee.toLocaleString()}</span>
+                                <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(Number(voucher.late_fee_deposited ?? 0)).toLocaleString()}</span>
+                                <span className="text-[11px] font-black text-rose-600 tabular-nums text-right">{Math.round(actualLateFee).toLocaleString()}</span>
                                 <div className="flex justify-end">
                                     {fillingMode === "manual" ? (
                                         <input type="text" inputMode="numeric" pattern="[0-9]*" value={manualLateFee}
                                             onChange={e => { const v = e.target.value.replace(/[^0-9]/g,''); setManualLateFee(v === "" || Number(v) <= actualLateFee ? v : actualLateFee.toString()); }}
                                             className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-rose-500 transition-all font-mono" />
                                     ) : (
-                                        <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {Number(manualLateFee || 0).toLocaleString()}</span>
+                                        <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {Math.round(Number(manualLateFee || 0)).toLocaleString()}</span>
                                     )}
                                 </div>
                             </div>
@@ -649,7 +649,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                                     Discount
                                                 </span>
                                             </div>
-                                            <span className="text-[11px] font-bold text-violet-600 tabular-nums text-right">- {discountAmt.toLocaleString()}</span>
+                                            <span className="text-[11px] font-bold text-violet-600 tabular-nums text-right">- {Math.round(discountAmt).toLocaleString()}</span>
                                             <span className="text-[11px] font-bold text-zinc-400 tabular-nums text-right">—</span>
                                             <span className="text-[11px] font-black text-emerald-600 tabular-nums text-right">0</span>
                                             <div className="flex justify-end">
@@ -678,7 +678,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                                 Waived{s.waived_by ? ` by ${s.waived_by}` : ""}
                                             </span>
                                         </div>
-                                        <span className="text-[11px] font-bold text-zinc-400 tabular-nums text-right">{Number(s.amount).toLocaleString()}</span>
+                                        <span className="text-[11px] font-bold text-zinc-400 tabular-nums text-right">{Math.round(Number(s.amount)).toLocaleString()}</span>
                                         <span className="text-[11px] font-bold text-zinc-400 tabular-nums text-right">—</span>
                                         <span className="text-[11px] font-black text-emerald-500 tabular-nums text-right">0</span>
                                         <div className="flex justify-end">
@@ -692,9 +692,9 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         {/* Summary totals row */}
                         <div className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
                             <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Total</span>
-                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{(heads.reduce((s,f) => s+sfNetAmt(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount),0)).toLocaleString()}</span>
-                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{(heads.reduce((s,f) => s+sfDeposited(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount_paid??0),0)).toLocaleString()}</span>
-                            <span className="text-[11px] font-black text-emerald-600 tabular-nums text-right">{(totalBalance + totalArrearSurchargeBalance).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{Math.round(heads.reduce((s,f) => s+sfNetAmt(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount),0)).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{Math.round(heads.reduce((s,f) => s+sfDeposited(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount_paid??0),0)).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-emerald-600 tabular-nums text-right">{Math.round(totalBalance + totalArrearSurchargeBalance).toLocaleString()}</span>
                             <span />
                         </div>
 
@@ -706,7 +706,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                 <div className="flex items-center justify-between gap-4 px-4 pt-1">
                                     <div className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center flex-1">
                                         <span className="text-[11px] font-black text-violet-500 uppercase tracking-widest">Total After Discount</span>
-                                        <span className="text-[11px] font-black text-violet-600 tabular-nums text-right col-span-3">{(grossTotal - totalDiscount).toLocaleString()}</span>
+                                        <span className="text-[11px] font-black text-violet-600 tabular-nums text-right col-span-3">{Math.round(grossTotal - totalDiscount).toLocaleString()}</span>
                                         <span />
                                     </div>
                                     <div className="flex flex-col items-end gap-1 shrink-0">
@@ -859,12 +859,12 @@ function PartiallyPaidModal({
                     <div className="grid grid-cols-2 gap-3">
                         <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4">
                             <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1">Already Deposited</p>
-                            <p className="text-xl font-black text-emerald-700 dark:text-emerald-300 font-mono">{paidTotal.toLocaleString()}</p>
+                            <p className="text-xl font-black text-emerald-700 dark:text-emerald-300 font-mono">{Math.round(paidTotal).toLocaleString()}</p>
                             <p className="text-[10px] text-emerald-600/70 mt-1">{paidHeads.length} head{paidHeads.length !== 1 ? "s" : ""}</p>
                         </div>
                         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
                             <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-1">Outstanding Balance</p>
-                            <p className="text-xl font-black text-amber-700 dark:text-amber-300 font-mono">{unpaidTotal.toLocaleString()}</p>
+                            <p className="text-xl font-black text-amber-700 dark:text-amber-300 font-mono">{Math.round(unpaidTotal).toLocaleString()}</p>
                             <p className="text-[10px] text-amber-600/70 mt-1">{unpaidHeads.length} head{unpaidHeads.length !== 1 ? "s" : ""} → new unpaid voucher</p>
                         </div>
                     </div>
@@ -921,9 +921,9 @@ function PartiallyPaidModal({
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-2.5 font-mono text-zinc-600 dark:text-zinc-400">{net.toLocaleString()}</td>
-                                            <td className="px-4 py-2.5 font-mono font-bold text-emerald-600 dark:text-emerald-400">{dep.toLocaleString()}</td>
-                                            <td className="px-4 py-2.5 font-mono font-bold text-amber-600 dark:text-amber-400">{bal.toLocaleString()}</td>
+                                            <td className="px-4 py-2.5 font-mono text-zinc-600 dark:text-zinc-400">{Math.round(net).toLocaleString()}</td>
+                                            <td className="px-4 py-2.5 font-mono font-bold text-emerald-600 dark:text-emerald-400">{Math.round(dep).toLocaleString()}</td>
+                                            <td className="px-4 py-2.5 font-mono font-bold text-amber-600 dark:text-amber-400">{Math.round(bal).toLocaleString()}</td>
                                             <td className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-wider ${goesToColor}`}>{goesTo}</td>
                                         </tr>
                                     );
@@ -1216,16 +1216,16 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                     <span className={`text-[13px] font-black tabular-nums ${
                         isVoid ? "text-zinc-400" : "text-zinc-900 dark:text-zinc-100"
                     }`}>
-                        Rs. {totalBalanceValue.toLocaleString()}
+                        Rs. {Math.round(totalBalanceValue).toLocaleString()}
                     </span>
                     {!isVoid && Number(voucher.total_deposited || sfTotalDeposited) > 0 && (
                         <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-tight leading-none">
-                            Paid: Rs. {Number(voucher.total_deposited || sfTotalDeposited).toLocaleString()}
+                            Paid: Rs. {Math.round(Number(voucher.total_deposited || sfTotalDeposited)).toLocaleString()}
                         </span>
                     )}
                     {!isVoid && sfTotalBalance > 0 && Number(voucher.total_deposited || sfTotalDeposited) > 0 && (
                         <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tight leading-none">
-                            Total: Rs. {(totalBalanceValue + Number(voucher.total_deposited || sfTotalDeposited)).toLocaleString()}
+                            Total: Rs. {Math.round(totalBalanceValue + Number(voucher.total_deposited || sfTotalDeposited)).toLocaleString()}
                         </span>
                     )}
                 </div>
