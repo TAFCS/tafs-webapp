@@ -75,7 +75,8 @@ export interface RollSession {
   id: number;
   campus_id: number;
   class_id: number;
-  section_id: number;
+  section_id: number | null;
+  teaching_group_id?: number | null;
   session_date: string;
   period: number;
   timetable_slot_id?: number | null;
@@ -84,7 +85,13 @@ export interface RollSession {
   created_at: string;
   submitted_at: string | null;
   classes?: { id: number; description: string; class_code: string; academic_system: string };
-  sections?: { id: number; description: string };
+  sections?: { id: number; description: string } | null;
+  teaching_groups?: {
+    id: number;
+    label: string | null;
+    subjects: { id: number; name: string; code: string | null };
+    employee_profiles: { id: number; full_name: string | null };
+  } | null;
   campuses?: { id: number; campus_name: string; campus_code: string };
   records?: RollRecord[];
   roster?: RollSessionRosterEntry[];
@@ -269,6 +276,7 @@ export const attendanceService = {
     campus_id?: number;
     class_id?: number;
     section_id?: number;
+    teaching_group_id?: number;
     period?: number;
     timetable_slot_id?: number;
   }): Promise<RollSession[]> {
@@ -287,7 +295,8 @@ export const attendanceService = {
     session_date: string;
     campus_id: number;
     class_id: number;
-    section_id: number;
+    section_id?: number;
+    teaching_group_id?: number;
     period?: number;
     timetable_slot_id?: number;
   }): Promise<RollSession> {

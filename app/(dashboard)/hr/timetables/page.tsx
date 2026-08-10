@@ -13,7 +13,6 @@ import {
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
-import { isAsA2Class } from "@/lib/alevel-classes";
 import { getAcademicYears, getCurrentAcademicYear } from "@/lib/fee-utils";
 import {
   TimetableBlock,
@@ -21,6 +20,7 @@ import {
   UpsertSlotPayload,
   timetablesService,
 } from "@/lib/timetables.service";
+import { teachingGroupsService, TeachingGroup } from "@/lib/teaching-groups.service";
 import { DAYS, TimetableGrid, blockDisplayLabel } from "./_components/TimetableGrid";
 import { SlotEditorModal, SlotEditorTarget } from "./_components/SlotEditorModal";
 import type { CampusClass } from "@/store/slices/campusesSlice";
@@ -50,7 +50,9 @@ export default function TimetablesPage() {
   const lockedCampusId = gulistanCampus ? String(gulistanCampus.id) : (user?.campusId ? String(user.campusId) : "");
 
   const [classId, setClassId] = useState("");
-  const [sectionId, setSectionId] = useState("");
+  const [teachingGroupId, setTeachingGroupId] = useState("");
+  const [groups, setGroups] = useState<TeachingGroup[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
   const [academicYear, setAcademicYear] = useState(getCurrentAcademicYear());
   const [blocks, setBlocks] = useState<TimetableBlock[]>([]);
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
@@ -63,36 +65,51 @@ export default function TimetablesPage() {
     dispatch(fetchCampuses());
   }, [dispatch]);
 
-  // Derive available classes from the locked campus
+  // Every class can have teaching groups now (O-Level and A-Level), not just AS/A2.
   const selectedCampus = gulistanCampus || campuses.find((c) => String(c.id) === lockedCampusId);
-  const availableClasses: CampusClass[] = (selectedCampus?.offered_classes ?? []).filter(
-    isAsA2Class
-  );
+  const availableClasses: CampusClass[] = selectedCampus?.offered_classes ?? [];
   const selectedClass = availableClasses.find((c) => String(c.id) === classId);
-  const availableSections = selectedClass?.sections ?? [];
+  const selectedGroup = groups.find((g) => String(g.id) === teachingGroupId);
 
-  // Reset section when class changes
+  // Reset teaching group when class changes
   useEffect(() => {
-    setSectionId("");
+    setTeachingGroupId("");
   }, [classId]);
 
-  // Reset class/section when campus changes
+  // Reset class/group when campus changes
   useEffect(() => {
     setClassId("");
-    setSectionId("");
+    setTeachingGroupId("");
   }, [lockedCampusId]);
 
-  const isScopeReady = Boolean(lockedCampusId) && Boolean(classId) && Boolean(sectionId);
+  useEffect(() => {
+    if (!lockedCampusId || !classId) {
+      setGroups([]);
+      return;
+    }
+    let cancelled = false;
+    setGroupsLoading(true);
+    teachingGroupsService
+      .list({ campus_id: Number(lockedCampusId), class_id: Number(classId), academic_year: academicYear })
+      .then((data) => {
+        if (!cancelled) setGroups(data.filter((g) => g.is_active));
+      })
+      .catch(() => !cancelled && setGroups([]))
+      .finally(() => !cancelled && setGroupsLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [lockedCampusId, classId, academicYear]);
+
+  const isScopeReady = Boolean(lockedCampusId) && Boolean(classId) && Boolean(teachingGroupId);
 
   const loadGrid = useCallback(async () => {
     if (!isScopeReady) return;
     setLoading(true);
     setError(null);
     try {
-      const grid = await timetablesService.getGrid({
-        campus_id: Number(lockedCampusId),
-        class_id: Number(classId),
-        section_id: Number(sectionId),
+      const grid = await timetablesService.getGridByGroup({
+        teaching_group_id: Number(teachingGroupId),
         academic_year: academicYear,
       });
       setBlocks(grid.blocks);
@@ -106,7 +123,7 @@ export default function TimetablesPage() {
     } finally {
       setLoading(false);
     }
-  }, [isScopeReady, lockedCampusId, classId, sectionId, academicYear]);
+  }, [isScopeReady, teachingGroupId, academicYear]);
 
   useEffect(() => {
     loadGrid();
@@ -114,10 +131,8 @@ export default function TimetablesPage() {
 
   async function ensureTimetableId(): Promise<number> {
     if (timetableId) return timetableId;
-    const tt = await timetablesService.getOrCreate({
-      campus_id: Number(lockedCampusId),
-      class_id: Number(classId),
-      section_id: Number(sectionId),
+    const tt = await timetablesService.getOrCreateByGroup({
+      teaching_group_id: Number(teachingGroupId),
       academic_year: academicYear,
     });
     setTimetableId(tt.id);
@@ -188,10 +203,10 @@ export default function TimetablesPage() {
             <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-600/20 ring-1 ring-rose-200 dark:ring-rose-500/30">
               <CalendarRange className="w-5 h-5 text-rose-600 dark:text-rose-400" />
             </span>
-            A-Level Timetables
+            Timetables
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1.5 ml-11">
-            Weekly class schedule template (Mon–Sat). Edits apply going forward.
+            Weekly schedule for a teaching group (subject + teacher). Edits apply going forward.
           </p>
         </div>
         <button
@@ -217,7 +232,7 @@ export default function TimetablesPage() {
           <span className="text-zinc-400 dark:text-zinc-600 text-xs">Campus is fixed</span>
         </div>
 
-        {/* Class · Section · Academic Year */}
+        {/* Class · Teaching Group · Academic Year */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Class */}
           <div>
@@ -246,30 +261,37 @@ export default function TimetablesPage() {
             </div>
           </div>
 
-          {/* Section */}
+          {/* Teaching Group */}
           <div>
             <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
-              Section <span className="text-rose-500">*</span>
+              Teaching Group <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
               <select
-                value={sectionId}
+                value={teachingGroupId}
                 onChange={(e) => {
-                  setSectionId(e.target.value);
+                  setTeachingGroupId(e.target.value);
                   setTimetableId(null);
                 }}
-                disabled={!classId}
+                disabled={!classId || groupsLoading}
                 className={selectCls}
               >
-                <option value="" className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">Select section…</option>
-                {availableSections.map((s) => (
-                  <option key={s.id} value={s.id} className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
-                    {s.description}
+                <option value="" className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
+                  {groupsLoading ? "Loading…" : "Select teaching group…"}
+                </option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id} className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
+                    {g.subjects?.name} — {g.employee_profiles?.full_name}
                   </option>
                 ))}
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
             </div>
+            {classId && !groupsLoading && groups.length === 0 && (
+              <p className="text-xs text-zinc-400 mt-1.5">
+                No teaching groups yet — create one under Teaching Groups first.
+              </p>
+            )}
           </div>
 
           {/* Academic Year */}
@@ -318,7 +340,7 @@ export default function TimetablesPage() {
               <CalendarRange className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
             </span>
             <p className="text-sm text-zinc-400 dark:text-zinc-500">
-              Select a class (AS/A2) and section to view the timetable.
+              Select a class and teaching group to view its timetable.
             </p>
           </div>
         </div>
@@ -343,6 +365,16 @@ export default function TimetablesPage() {
         campusId={lockedCampusId ? Number(lockedCampusId) : null}
         dayLabel={editorDayLabel}
         blockLabel={editorBlockLabel}
+        lockedGroup={
+          selectedGroup && selectedGroup.subjects && selectedGroup.employee_profiles
+            ? {
+                subjectId: selectedGroup.subjects.id,
+                subjectName: selectedGroup.subjects.name,
+                employeeId: selectedGroup.employee_profiles.id,
+                employeeName: selectedGroup.employee_profiles.full_name ?? `Employee #${selectedGroup.employee_profiles.id}`,
+              }
+            : undefined
+        }
         onClose={() => setEditor(null)}
         onSave={handleSave}
         onDelete={canEdit ? handleDelete : undefined}

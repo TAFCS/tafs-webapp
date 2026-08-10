@@ -41,13 +41,19 @@ export interface Timetable {
   id: number;
   campus_id: number;
   class_id: number;
-  section_id: number;
+  section_id: number | null;
+  teaching_group_id?: number | null;
   academic_year: string;
   effective_from: string;
   is_active: boolean;
   created_by: string | null;
   classes?: { id: number; description: string; class_code: string; academic_system: string };
-  sections?: { id: number; description: string };
+  sections?: { id: number; description: string } | null;
+  teaching_groups?: {
+    id: number;
+    subjects: { id: number; name: string; code: string | null };
+    employee_profiles: { id: number; full_name: string | null };
+  } | null;
   campuses?: { id: number; campus_name: string; campus_code: string };
   timetable_slots?: TimetableSlot[];
 }
@@ -127,6 +133,35 @@ export const timetablesService = {
     const { data } = await api.get<ApiEnvelope<DaySlotsResponse>>('/v1/timetables/day-slots', {
       params,
     });
+    return data.data;
+  },
+
+  async getDaySlotsByGroup(params: {
+    teaching_group_id: number;
+    date: string;
+  }): Promise<DaySlotsResponse> {
+    const { data } = await api.get<ApiEnvelope<DaySlotsResponse>>(
+      '/v1/timetables/group-day-slots',
+      { params },
+    );
+    return data.data;
+  },
+
+  async getGridByGroup(params: {
+    teaching_group_id: number;
+    academic_year: string;
+  }): Promise<TimetableGrid> {
+    const { data } = await api.get<ApiEnvelope<TimetableGrid>>('/v1/timetables/group-grid', {
+      params,
+    });
+    return data.data;
+  },
+
+  async getOrCreateByGroup(payload: {
+    teaching_group_id: number;
+    academic_year: string;
+  }): Promise<Timetable> {
+    const { data } = await api.post<ApiEnvelope<Timetable>>('/v1/timetables/group', payload);
     return data.data;
   },
 

@@ -29,6 +29,10 @@ interface Props {
   campusId: number | null;
   dayLabel: string;
   blockLabel: string;
+  academicSystem?: string;
+  /** When set, the slot's subject/teacher are fixed to the teaching group
+   * (group-scoped timetable) instead of being picked per-slot. */
+  lockedGroup?: { subjectId: number; subjectName: string; employeeId: number; employeeName: string };
   onClose: () => void;
   onSave: (payload: UpsertSlotPayload) => Promise<void>;
   onDelete?: (slotId: number) => Promise<void>;
@@ -40,6 +44,8 @@ export function SlotEditorModal({
   campusId,
   dayLabel,
   blockLabel,
+  academicSystem = "A-Level",
+  lockedGroup,
   onClose,
   onSave,
   onDelete,
@@ -60,11 +66,19 @@ export function SlotEditorModal({
 
   useEffect(() => {
     if (!open || !target) return;
+    setRoom(target.existing?.room ?? "");
+    setError(null);
+
+    if (lockedGroup) {
+      setSubjectId(String(lockedGroup.subjectId));
+      setEmployeeId(String(lockedGroup.employeeId));
+      setLoadingMeta(false);
+      return;
+    }
+
     setSubjectId(target.existing ? String(target.existing.subject_id) : "");
     setEmployeeId(target.existing ? String(target.existing.employee_id) : "");
-    setRoom(target.existing?.room ?? "");
     setTeacherSearch("");
-    setError(null);
     setShowNewSubject(false);
     setNewSubjectName("");
     setNewSubjectCode("");
@@ -72,7 +86,7 @@ export function SlotEditorModal({
     let cancelled = false;
     setLoadingMeta(true);
     Promise.all([
-      timetablesService.listSubjects({ academic_system: "A-Level", active: true }),
+      timetablesService.listSubjects({ academic_system: academicSystem, active: true }),
       hrService.listEmployees(),
     ])
       .then(([subs, emps]) => {
@@ -90,7 +104,7 @@ export function SlotEditorModal({
     return () => {
       cancelled = true;
     };
-  }, [open, target]);
+  }, [open, target, lockedGroup, academicSystem]);
 
   const teachers = useMemo(() => {
     return employees.filter((emp) => {
@@ -114,7 +128,7 @@ export function SlotEditorModal({
       const created = await timetablesService.createSubject({
         name: newSubjectName.trim(),
         code: newSubjectCode.trim() || undefined,
-        academic_system: "A-Level",
+        academic_system: academicSystem,
       });
       setSubjects((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
       setSubjectId(String(created.id));
@@ -204,6 +218,37 @@ export function SlotEditorModal({
               <Loader2 className="w-5 h-5 animate-spin mr-2" />
               Loading…
             </div>
+          ) : lockedGroup ? (
+            <>
+              {/* Subject + Teacher are fixed by the teaching group */}
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/40 p-3.5 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                  <BookOpen className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                  {lockedGroup.subjectName}
+                </div>
+                <div className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-300">
+                  <User className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                  {lockedGroup.employeeName}
+                </div>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500 pt-1">
+                  Fixed by the teaching group. To teach a different subject/teacher in this block, create a separate teaching group.
+                </p>
+              </div>
+
+              {/* Room */}
+              <div>
+                <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
+                  <DoorOpen className="w-3.5 h-3.5 text-zinc-550 dark:text-zinc-400" />
+                  Room <span className="text-zinc-400 dark:text-zinc-600 normal-case tracking-normal font-normal ml-1">(optional)</span>
+                </label>
+                <input
+                  value={room}
+                  onChange={(e) => setRoom(e.target.value)}
+                  placeholder="e.g. Lab 2"
+                  className={inputCls}
+                />
+              </div>
+            </>
           ) : (
             <>
               {/* Subject */}

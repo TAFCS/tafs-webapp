@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
+  Check,
   CalendarOff,
   CheckCircle2,
   ClipboardList,
@@ -10,11 +11,13 @@ import {
   RefreshCw,
   SkipForward,
   MapPin,
+  ChevronDown,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
+import type { CampusClass } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
-import { ScopeBlock, ScopeValue } from "../../studentwise-fees/components/ScopeBlock";
+import { getAcademicYears, getCurrentAcademicYear } from "@/lib/fee-utils";
 import {
   attendanceService,
   RollRecordStatus,
@@ -22,6 +25,7 @@ import {
   RollSessionRosterEntry,
 } from "@/lib/attendance.service";
 import { DaySlotsResponse, timetablesService } from "@/lib/timetables.service";
+import { teachingGroupsService, TeachingGroup } from "@/lib/teaching-groups.service";
 import { isAsA2Class } from "@/lib/alevel-classes";
 
 const LEGACY_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -63,11 +67,10 @@ export default function RollCallPage() {
   );
   const lockedCampusId = gulistanCampus ? String(gulistanCampus.id) : (user?.campusId ? String(user.campusId) : "");
 
-  const [scope, setScope] = useState<ScopeValue>({
-    campusId: lockedCampusId,
-    classId: "",
-    sectionId: "",
-  });
+  const [classId, setClassId] = useState("");
+  const [teachingGroupId, setTeachingGroupId] = useState("");
+  const [groups, setGroups] = useState<TeachingGroup[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
   const [sessionDate, setSessionDate] = useState(todayIso());
   const [period, setPeriod] = useState(1);
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
@@ -86,31 +89,46 @@ export default function RollCallPage() {
     dispatch(fetchCampuses());
   }, [dispatch]);
 
-  useEffect(() => {
-    if (lockedCampusId && scope.campusId !== lockedCampusId) {
-      setScope((s) => ({ ...s, campusId: lockedCampusId }));
-    }
-  }, [lockedCampusId, scope.campusId]);
+  const selectedCampus = gulistanCampus || campuses.find((c) => String(c.id) === lockedCampusId);
+  const availableClasses: CampusClass[] = (selectedCampus?.offered_classes ?? []).filter(
+    isAsA2Class
+  );
 
-  // Clear class/section if selection is not AS/A2 (e.g. after campus change)
   useEffect(() => {
-    if (!scope.campusId || !scope.classId) return;
-    const campus = campuses.find((c) => String(c.id) === scope.campusId);
-    const cls = campus?.offered_classes?.find((c) => String(c.id) === scope.classId);
-    if (cls && !isAsA2Class(cls)) {
-      setScope((s) => ({ ...s, classId: "", sectionId: "" }));
-    }
-  }, [scope.campusId, scope.classId, campuses]);
+    setTeachingGroupId("");
+  }, [classId]);
 
-  const isScopeReady =
-    !!scope.campusId && !!scope.classId && !!scope.sectionId && !!sessionDate;
+  useEffect(() => {
+    if (!lockedCampusId || !classId) {
+      setGroups([]);
+      return;
+    }
+    let cancelled = false;
+    setGroupsLoading(true);
+    teachingGroupsService
+      .list({
+        campus_id: Number(lockedCampusId),
+        class_id: Number(classId),
+        academic_year: getCurrentAcademicYear(),
+      })
+      .then((data) => {
+        if (!cancelled) setGroups(data.filter((g) => g.is_active));
+      })
+      .catch(() => !cancelled && setGroups([]))
+      .finally(() => !cancelled && setGroupsLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [lockedCampusId, classId]);
+
+  const isScopeReady = Boolean(lockedCampusId) && Boolean(classId) && Boolean(teachingGroupId) && Boolean(sessionDate);
 
   const slotPills =
     daySlots?.blocks.flatMap((block) =>
       block.slots.map((slot) => ({
         slot,
         block,
-        pillLabel: `${blockLabel(block)} — ${slot.subject.name} (${slot.employee.full_name ?? "TBA"})`,
+        pillLabel: `${blockLabel(block)} — ${slot.subject.name}`,
       })),
     ) ?? [];
   const timetableMode = slotPills.length > 0;
@@ -148,15 +166,15 @@ export default function RollCallPage() {
       setError(null);
       setSuccess(null);
       try {
-        const campusId = Number(scope.campusId);
-        const classId = Number(scope.classId);
-        const sectionId = Number(scope.sectionId);
+        const campusId = Number(lockedCampusId);
+        const classIdNum = Number(classId);
+        const groupId = Number(teachingGroupId);
 
         const existing = await attendanceService.listRollSessions({
           date: sessionDate,
           campus_id: campusId,
-          class_id: classId,
-          section_id: sectionId,
+          class_id: classIdNum,
+          teaching_group_id: groupId,
           period: periodNum,
           ...(slotId ? { timetable_slot_id: slotId } : {}),
         });
@@ -172,8 +190,8 @@ export default function RollCallPage() {
           active = await attendanceService.createRollSession({
             session_date: sessionDate,
             campus_id: campusId,
-            class_id: classId,
-            section_id: sectionId,
+            class_id: classIdNum,
+            teaching_group_id: groupId,
             period: periodNum,
             ...(slotId ? { timetable_slot_id: slotId } : {}),
           });
@@ -201,7 +219,9 @@ export default function RollCallPage() {
       isScopeReady,
       canView,
       canMark,
-      scope,
+      lockedCampusId,
+      classId,
+      teachingGroupId,
       sessionDate,
       period,
       selectedSlotId,
@@ -234,10 +254,8 @@ export default function RollCallPage() {
 
     (async () => {
       try {
-        const data = await timetablesService.getDaySlots({
-          campus_id: Number(scope.campusId),
-          class_id: Number(scope.classId),
-          section_id: Number(scope.sectionId),
+        const data = await timetablesService.getDaySlotsByGroup({
+          teaching_group_id: Number(teachingGroupId),
           date: sessionDate,
         });
         if (cancelled) return;
@@ -270,14 +288,7 @@ export default function RollCallPage() {
     return () => {
       cancelled = true;
     };
-  }, [
-    isScopeReady,
-    scope.campusId,
-    scope.classId,
-    scope.sectionId,
-    sessionDate,
-    canView,
-  ]);
+  }, [isScopeReady, teachingGroupId, sessionDate, canView]);
 
   const selectSlot = useCallback(
     (slotId: number, blockNumber: number) => {
@@ -305,9 +316,22 @@ export default function RollCallPage() {
     !!session.skip_reason &&
     session.skip_reason.startsWith("Holiday:");
 
-  const setMark = (cc: number, status: RollRecordStatus) => {
+  const presentCount = useMemo(
+    () => roster.filter((r) => marks[r.student.cc] === "PRESENT").length,
+    [roster, marks],
+  );
+
+  const togglePresent = (cc: number) => {
     if (!canEdit) return;
-    setMarks((prev) => ({ ...prev, [cc]: status }));
+    setMarks((prev) => {
+      const next = { ...prev };
+      if (next[cc] === "PRESENT") {
+        delete next[cc]; // back to default (absent)
+      } else {
+        next[cc] = "PRESENT";
+      }
+      return next;
+    });
   };
 
   const buildRecords = () =>
@@ -337,11 +361,6 @@ export default function RollCallPage() {
 
   const handleSubmit = async () => {
     if (!session || !canEdit) return;
-    const unmarked = roster.filter((r) => !marks[r.student.cc]);
-    if (unmarked.length > 0) {
-      setError(`Mark all students before submit (${unmarked.length} unmarked).`);
-      return;
-    }
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -382,132 +401,134 @@ export default function RollCallPage() {
 
   if (!canView) {
     return (
-      <div className="p-6 max-w-3xl mx-auto">
+      <div className="p-4 max-w-3xl mx-auto">
         <p className="text-slate-600">You do not have permission to view A-Level roll call.</p>
       </div>
     );
   }
 
+  const selectCls =
+    "w-full h-11 px-3 pr-8 appearance-none border rounded-xl text-sm bg-white";
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b pb-5">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-800">
-            <ClipboardList className="h-6 w-6 text-amber-600" />
+    <div className="pb-28 sm:pb-6">
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+            <ClipboardList className="h-5 w-5 text-amber-600 shrink-0" />
             A-Level Roll Call
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Mark present/absent at end of class for AS and A2 sections (roll call mode).
-          </p>
+          <button
+            type="button"
+            onClick={() => void loadSession()}
+            disabled={loading || daySlotsLoading || !isScopeReady}
+            className="flex items-center justify-center h-10 w-10 rounded-full border bg-white active:bg-slate-100 disabled:opacity-40"
+            aria-label="Refresh"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading || daySlotsLoading ? "animate-spin" : ""}`} />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => void loadSession()}
-          disabled={loading || daySlotsLoading || !isScopeReady}
-          className="mt-3 md:mt-0 flex items-center gap-2 px-4 py-2 text-sm border rounded-lg bg-white hover:bg-slate-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading || daySlotsLoading ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
-      </div>
 
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex gap-3">
-          <AlertCircle className="h-5 w-5 shrink-0" />
-          <span className="text-sm">{error}</span>
-        </div>
-      )}
-      {success && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg flex gap-3">
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <span className="text-sm">{success}</span>
-        </div>
-      )}
-
-      {isHolidaySkip && (
-        <div className="p-4 bg-sky-50 border border-sky-200 text-sky-900 rounded-lg flex gap-3 items-start">
-          <CalendarOff className="h-5 w-5 shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-semibold">Roll call skipped — holiday / day off</p>
-            <p className="text-sky-800/80 mt-1">{session?.skip_reason?.replace(/^Holiday:\s*/, "") ?? "This date is not a working day for this class."}</p>
-            <p className="text-sky-700/70 mt-1">Attendance marking is disabled for this session.</p>
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl flex gap-2 text-sm">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            {error}
           </div>
-        </div>
-      )}
+        )}
+        {success && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl flex gap-2 text-sm">
+            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+            {success}
+          </div>
+        )}
 
-      <div className="bg-white border rounded-xl p-5 space-y-4 shadow-sm">
-        {/* Campus – Permanent Badge */}
-        <div className="flex items-center gap-2 mb-1">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
-            <MapPin className="w-3.5 h-3.5" />
-            Gulistan-e-Jauhar Campus
-          </span>
-          <span className="text-zinc-400 text-xs">·</span>
-          <span className="text-zinc-400 text-xs">Campus is fixed</span>
-        </div>
+        {isHolidaySkip && (
+          <div className="p-3 bg-sky-50 border border-sky-200 text-sky-900 rounded-xl flex gap-2 items-start text-sm">
+            <CalendarOff className="h-4 w-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">Roll call skipped — holiday / day off</p>
+              <p className="text-sky-800/80 mt-0.5">{session?.skip_reason?.replace(/^Holiday:\s*/, "") ?? "Not a working day."}</p>
+            </div>
+          </div>
+        )}
 
-        <ScopeBlock
-          value={scope}
-          onChange={(v) => {
-            setScope(v);
-            setSession(null);
-          }}
-          filterClass={isAsA2Class}
-          lockCampusId={Number(lockedCampusId)}
-          allowedClassIds={user?.allowedClassIds?.length ? user.allowedClassIds : undefined}
-          requireClassAndSection
-          hideCampusSelect={true}
-        />
-        <div className="grid grid-cols-1 gap-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Scope card */}
+        <div className="bg-white border rounded-2xl p-4 space-y-3">
+          <div className="flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+            <span className="text-xs font-semibold text-rose-700">Gulistan-e-Jauhar Campus</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Class</label>
+              <div className="relative">
+                <select
+                  value={classId}
+                  onChange={(e) => setClassId(e.target.value)}
+                  className={selectCls}
+                >
+                  <option value="">Select…</option>
+                  {availableClasses.map((c) => (
+                    <option key={c.id} value={c.id}>{c.class_code}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+              </div>
+            </div>
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Date</label>
               <input
                 type="date"
                 value={sessionDate}
                 onChange={(e) => setSessionDate(e.target.value)}
-                className="w-full h-10 px-3 border rounded-xl text-sm"
+                className="w-full h-11 px-3 border rounded-xl text-sm"
               />
             </div>
-            {!timetableMode && (
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Period</label>
-                <select
-                  value={period}
-                  onChange={(e) => selectLegacyPeriod(Number(e.target.value))}
-                  disabled={daySlotsLoading}
-                  className="w-full h-10 px-3 border rounded-xl text-sm"
-                >
-                  {LEGACY_PERIODS.map((p) => (
-                    <option key={p} value={p}>
-                      Period {p}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {session && (
-              <div className={`${timetableMode ? "col-span-2" : "col-span-2"} flex items-end`}>
-                <span
-                  className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold ${
-                    session.status === "SUBMITTED"
-                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                      : session.status === "SKIPPED"
-                        ? "bg-slate-100 text-slate-600 border border-slate-200"
-                        : "bg-amber-50 text-amber-700 border border-amber-200"
-                  }`}
-                >
-                  {session.status}
-                  {session.skip_reason ? ` — ${session.skip_reason}` : ""}
-                </span>
-              </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Teaching Group (subject)</label>
+            <div className="relative">
+              <select
+                value={teachingGroupId}
+                onChange={(e) => setTeachingGroupId(e.target.value)}
+                disabled={!classId || groupsLoading}
+                className={selectCls}
+              >
+                <option value="">{groupsLoading ? "Loading…" : "Select subject group…"}</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.subjects?.name} — {g.employee_profiles?.full_name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+            </div>
+            {classId && !groupsLoading && groups.length === 0 && (
+              <p className="text-xs text-zinc-400 mt-1.5">No teaching groups set up for this class yet.</p>
             )}
           </div>
+
+          {!timetableMode && teachingGroupId && (
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Period</label>
+              <select
+                value={period}
+                onChange={(e) => selectLegacyPeriod(Number(e.target.value))}
+                disabled={daySlotsLoading}
+                className={selectCls}
+              >
+                {LEGACY_PERIODS.map((p) => (
+                  <option key={p} value={p}>Period {p}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {timetableMode && (
             <div>
-              <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">
-                Scheduled lessons
-              </label>
+              <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Scheduled lessons</label>
               <div className="flex flex-wrap gap-2">
                 {slotPills.map(({ slot, block, pillLabel }) => (
                   <button
@@ -515,10 +536,10 @@ export default function RollCallPage() {
                     type="button"
                     onClick={() => selectSlot(slot.id, block.block_number)}
                     disabled={daySlotsLoading || loading}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                    className={`px-3 py-2 rounded-full text-xs font-semibold border transition-colors ${
                       selectedSlotId === slot.id
                         ? "bg-amber-600 text-white border-amber-600"
-                        : "bg-white text-slate-700 border-slate-200 hover:bg-amber-50"
+                        : "bg-white text-slate-700 border-slate-200"
                     }`}
                   >
                     {pillLabel}
@@ -527,140 +548,141 @@ export default function RollCallPage() {
               </div>
             </div>
           )}
+
+          {session && (
+            <span
+              className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold ${
+                session.status === "SUBMITTED"
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : session.status === "SKIPPED"
+                    ? "bg-slate-100 text-slate-600 border border-slate-200"
+                    : "bg-amber-50 text-amber-700 border border-amber-200"
+              }`}
+            >
+              {session.status}
+              {session.skip_reason ? ` — ${session.skip_reason}` : ""}
+            </span>
+          )}
         </div>
+
+        {!isScopeReady ? (
+          <p className="text-sm text-slate-500 text-center py-12">
+            Select class, teaching group, and date to begin roll call.
+          </p>
+        ) : loading || daySlotsLoading ? (
+          <div className="flex flex-col items-center py-16">
+            <Loader2 className="h-8 w-8 text-amber-600 animate-spin" />
+            <p className="text-sm text-slate-500 mt-2">
+              {daySlotsLoading ? "Loading schedule..." : "Loading roster..."}
+            </p>
+          </div>
+        ) : !session ? null : (
+          <>
+            <div className="flex items-center justify-between px-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Tap a student to mark present
+              </p>
+              <p className="text-xs font-semibold text-emerald-700">
+                {presentCount} / {roster.length} present
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {roster.length === 0 ? (
+                <div className="bg-white border rounded-2xl px-4 py-10 text-center text-slate-500 text-sm">
+                  No students enrolled in this teaching group yet.
+                </div>
+              ) : (
+                roster.map((row) => {
+                  const isPresent = marks[row.student.cc] === "PRESENT";
+                  return (
+                    <button
+                      key={row.student.cc}
+                      type="button"
+                      disabled={!canEdit}
+                      onClick={() => togglePresent(row.student.cc)}
+                      className={`w-full flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors active:scale-[0.99] disabled:active:scale-100 ${
+                        isPresent
+                          ? "bg-emerald-50 border-emerald-300"
+                          : "bg-white border-slate-200"
+                      } ${!canEdit ? "opacity-70" : ""}`}
+                    >
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-800 truncate">{row.student.full_name}</p>
+                        <p className="text-xs text-slate-400 font-mono">GR# {row.student.gr_number ?? "—"}</p>
+                      </div>
+                      <span
+                        className={`shrink-0 flex items-center justify-center h-9 w-9 rounded-full border-2 transition-colors ${
+                          isPresent
+                            ? "bg-emerald-600 border-emerald-600 text-white"
+                            : "bg-white border-slate-300 text-transparent"
+                        }`}
+                      >
+                        <Check className="h-5 w-5" />
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {showSkip && canMark && session.status === "DRAFT" && (
+              <div className="bg-slate-50 border rounded-2xl p-4 space-y-3">
+                <label className="block text-sm font-medium text-slate-700">Skip reason</label>
+                <textarea
+                  value={skipReason}
+                  onChange={(e) => setSkipReason(e.target.value)}
+                  rows={2}
+                  className="w-full border rounded-xl px-3 py-2 text-sm"
+                  placeholder="e.g. Teacher absent..."
+                />
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  disabled={saving || !skipReason.trim()}
+                  className="w-full py-2.5 text-sm bg-slate-700 text-white rounded-xl disabled:opacity-50"
+                >
+                  Confirm skip
+                </button>
+              </div>
+            )}
+
+            {isLocked && (
+              <p className="text-xs text-slate-500 text-center pb-2">
+                This session is locked. Contact an administrator with edit_locked permission to change submitted records.
+              </p>
+            )}
+          </>
+        )}
       </div>
 
-      {!isScopeReady ? (
-        <p className="text-sm text-slate-500 text-center py-12">
-          Select campus, class, and section to begin roll call.
-        </p>
-      ) : loading || daySlotsLoading ? (
-        <div className="flex flex-col items-center py-16">
-          <Loader2 className="h-8 w-8 text-amber-600 animate-spin" />
-          <p className="text-sm text-slate-500 mt-2">
-            {daySlotsLoading ? "Loading schedule..." : "Loading roster..."}
-          </p>
+      {/* Sticky mobile action bar */}
+      {canMark && session?.status === "DRAFT" && roster.length > 0 && (
+        <div className="fixed bottom-0 inset-x-0 sm:static bg-white border-t sm:border-t-0 p-3 sm:p-0 sm:mt-4 sm:max-w-3xl sm:mx-auto flex gap-2 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] sm:shadow-none">
+          <button
+            type="button"
+            onClick={() => setShowSkip((v) => !v)}
+            className="px-3 py-3 sm:py-2.5 text-sm border rounded-xl text-slate-600 bg-white flex items-center gap-1.5"
+          >
+            <SkipForward className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveDraft}
+            disabled={saving}
+            className="flex-1 py-3 sm:py-2.5 text-sm border rounded-xl bg-white font-medium"
+          >
+            Save draft
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={saving}
+            className="flex-[2] py-3 sm:py-2.5 text-sm font-semibold rounded-xl bg-amber-600 text-white disabled:opacity-50"
+          >
+            {saving ? "Submitting..." : "Submit roll call"}
+          </button>
         </div>
-      ) : !session ? null : (
-        <>
-          <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase">
-                  <th className="px-6 py-3">GR</th>
-                  <th className="px-6 py-3">Student</th>
-                  <th className="px-6 py-3 text-right">Attendance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {roster.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="px-6 py-10 text-center text-slate-500">
-                      No enrolled students in this section.
-                    </td>
-                  </tr>
-                ) : (
-                  roster.map((row) => {
-                    const status = marks[row.student.cc];
-                    return (
-                      <tr key={row.student.cc} className="hover:bg-slate-50/50">
-                        <td className="px-6 py-3 font-mono text-slate-600">
-                          {row.student.gr_number ?? "—"}
-                        </td>
-                        <td className="px-6 py-3 font-medium">{row.student.full_name}</td>
-                        <td className="px-6 py-3">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              type="button"
-                              disabled={!canEdit}
-                              onClick={() => setMark(row.student.cc, "PRESENT")}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                                status === "PRESENT"
-                                  ? "bg-emerald-600 text-white"
-                                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                              } disabled:opacity-40`}
-                            >
-                              Present
-                            </button>
-                            <button
-                              type="button"
-                              disabled={!canEdit}
-                              onClick={() => setMark(row.student.cc, "ABSENT")}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                                status === "ABSENT"
-                                  ? "bg-rose-600 text-white"
-                                  : "bg-rose-50 text-rose-700 hover:bg-rose-100"
-                              } disabled:opacity-40`}
-                            >
-                              Absent
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {canMark && session.status === "DRAFT" && (
-            <div className="flex flex-wrap gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => setShowSkip((v) => !v)}
-                className="px-4 py-2 text-sm border rounded-lg text-slate-600 hover:bg-slate-50 flex items-center gap-2"
-              >
-                <SkipForward className="h-4 w-4" />
-                Mark as skipped
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveDraft}
-                disabled={saving}
-                className="px-4 py-2 text-sm border rounded-lg bg-white hover:bg-slate-50"
-              >
-                Save draft
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={saving}
-                className="px-5 py-2 text-sm font-semibold rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
-              >
-                {saving ? "Submitting..." : "Submit roll call"}
-              </button>
-            </div>
-          )}
-
-          {showSkip && canMark && session.status === "DRAFT" && (
-            <div className="bg-slate-50 border rounded-xl p-4 space-y-3">
-              <label className="block text-sm font-medium text-slate-700">Skip reason</label>
-              <textarea
-                value={skipReason}
-                onChange={(e) => setSkipReason(e.target.value)}
-                rows={2}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                placeholder="e.g. Public holiday, teacher absent..."
-              />
-              <button
-                type="button"
-                onClick={handleSkip}
-                disabled={saving || !skipReason.trim()}
-                className="px-4 py-2 text-sm bg-slate-700 text-white rounded-lg disabled:opacity-50"
-              >
-                Confirm skip
-              </button>
-            </div>
-          )}
-
-          {isLocked && (
-            <p className="text-xs text-slate-500 text-center">
-              This session is locked. Contact an administrator with edit_locked permission to
-              change submitted records.
-            </p>
-          )}
-        </>
       )}
     </div>
   );
