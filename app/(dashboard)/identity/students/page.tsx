@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Download, Loader2, CheckCircle2, Camera } from "lucide-react";
+import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Download, Loader2, CheckCircle2, Camera, Fingerprint } from "lucide-react";
 import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
@@ -236,6 +236,7 @@ interface StudentCore {
     graduated_from_class_id?: number | null;
     graduated_from_class_description?: string | null;
     graduated_at?: string | null;
+    has_biometric?: boolean;
 }
 
 interface Student {
@@ -338,6 +339,15 @@ function StudentCard({ student, onClick }: { student: Student; onClick: () => vo
                         {c.academic_system === 'A-Level' && (
                             <span className="flex items-center gap-1 text-[10px] bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
                                 <BookOpen className="h-2.5 w-2.5 text-indigo-400" />A-LEVEL
+                            </span>
+                        )}
+                        {c.has_biometric ? (
+                            <span className="flex items-center gap-1 text-[10px] bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                                <Fingerprint className="h-2.5 w-2.5 text-emerald-500" />BIOMETRIC
+                            </span>
+                        ) : (
+                            <span className="flex items-center gap-1 text-[10px] bg-rose-50 border border-rose-100 text-rose-600 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                                <Fingerprint className="h-2.5 w-2.5 text-rose-400" />NO BIOMETRIC
                             </span>
                         )}
                     </div>
@@ -503,6 +513,8 @@ function DirectoryContent() {
     const auditOptions = [
         { value: "missing_guardian", label: "Missing Guardians" },
         { value: "no_family", label: "Missing Families" },
+        { value: "no_biometric", label: "No Biometric" },
+        { value: "has_biometric", label: "Biometric Enrolled" },
         { value: "abnormal", label: "Abnormal (All)" },
     ];
     const photoOptions = [
