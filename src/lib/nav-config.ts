@@ -141,6 +141,7 @@ export const NAV_MODULES: NavModule[] = [
             { name: "Student Attendance", description: "Per-class attendance records", href: "/hr/student-attendance-dashboard", icon: UserCheck, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
             { name: "A-Level Roll Call", description: "A-level section marking", href: "/hr/roll-call", icon: ClipboardList, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
             { name: "Timetables", description: "A-Level weekly class schedules", href: "/hr/timetables", icon: CalendarDays, permissions: ["hr.timetable.view", "hr.timetable.manage"] },
+            { name: "Teaching Groups", description: "Subject classes and student subject enrollment", href: "/hr/teaching-groups", icon: BookOpen, permissions: ["hr.timetable.view", "hr.timetable.manage"] },
             { name: "ZK Device Logs", description: "Biometric device data", href: "/attendance/zk-device-logs", icon: Fingerprint, permission: "system.permissions.manage" },
         ],
     },
