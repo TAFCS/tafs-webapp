@@ -401,28 +401,40 @@ export default function RollCallPage() {
 
   if (!canView) {
     return (
-      <div className="p-4 max-w-3xl mx-auto">
-        <p className="text-slate-600">You do not have permission to view A-Level roll call.</p>
+      <div className="max-w-3xl mx-auto">
+        <div className="rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          You do not have permission to view A-Level roll call.
+        </div>
       </div>
     );
   }
 
   const selectCls =
-    "w-full h-11 px-3 pr-8 appearance-none border rounded-xl text-sm bg-white";
+    "w-full h-11 px-3 pr-8 appearance-none bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-100 focus:outline-none focus:border-primary transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
+  const labelCls = "block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2";
 
   return (
     <div className="pb-28 sm:pb-6">
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4">
+      <div className="max-w-3xl mx-auto space-y-4">
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-            <ClipboardList className="h-5 w-5 text-amber-600 shrink-0" />
-            A-Level Roll Call
-          </h1>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2.5">
+              <span className="p-2 bg-primary/10 rounded-xl">
+                <ClipboardList className="h-5 w-5 text-primary" />
+              </span>
+              A-Level Roll Call
+            </h1>
+            <p className="text-zinc-500 dark:text-zinc-400 mt-1 text-sm ml-[46px]">
+              Everyone defaults to absent — tap a student to mark them present.
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => void loadSession()}
             disabled={loading || daySlotsLoading || !isScopeReady}
-            className="flex items-center justify-center h-10 w-10 rounded-full border bg-white active:bg-slate-100 disabled:opacity-40"
+            className="flex items-center justify-center h-10 w-10 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:border-zinc-300 active:bg-zinc-50 dark:active:bg-zinc-800 disabled:opacity-40 transition-all"
             aria-label="Refresh"
           >
             <RefreshCw className={`h-4 w-4 ${loading || daySlotsLoading ? "animate-spin" : ""}`} />
@@ -430,38 +442,38 @@ export default function RollCallPage() {
         </div>
 
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl flex gap-2 text-sm">
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-300 rounded-xl flex gap-2 text-sm">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
             {error}
           </div>
         )}
         {success && (
-          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl flex gap-2 text-sm">
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300 rounded-xl flex gap-2 text-sm">
             <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
             {success}
           </div>
         )}
 
         {isHolidaySkip && (
-          <div className="p-3 bg-sky-50 border border-sky-200 text-sky-900 rounded-xl flex gap-2 items-start text-sm">
+          <div className="p-3 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/50 text-sky-900 dark:text-sky-200 rounded-xl flex gap-2 items-start text-sm">
             <CalendarOff className="h-4 w-4 shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold">Roll call skipped — holiday / day off</p>
-              <p className="text-sky-800/80 mt-0.5">{session?.skip_reason?.replace(/^Holiday:\s*/, "") ?? "Not a working day."}</p>
+              <p className="text-sky-800/80 dark:text-sky-300/80 mt-0.5">{session?.skip_reason?.replace(/^Holiday:\s*/, "") ?? "Not a working day."}</p>
             </div>
           </div>
         )}
 
         {/* Scope card */}
-        <div className="bg-white border rounded-2xl p-4 space-y-3">
-          <div className="flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-            <span className="text-xs font-semibold text-rose-700">Gulistan-e-Jauhar Campus</span>
-          </div>
+        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4 shadow-sm">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-semibold">
+            <MapPin className="w-3.5 h-3.5" />
+            Gulistan-e-Jauhar Campus
+          </span>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Class</label>
+              <label className={labelCls}>Class</label>
               <div className="relative">
                 <select
                   value={classId}
@@ -477,18 +489,18 @@ export default function RollCallPage() {
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Date</label>
+              <label className={labelCls}>Date</label>
               <input
                 type="date"
                 value={sessionDate}
                 onChange={(e) => setSessionDate(e.target.value)}
-                className="w-full h-11 px-3 border rounded-xl text-sm"
+                className={selectCls}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Teaching Group (subject)</label>
+            <label className={labelCls}>Teaching Group (subject)</label>
             <div className="relative">
               <select
                 value={teachingGroupId}
@@ -512,7 +524,7 @@ export default function RollCallPage() {
 
           {!timetableMode && teachingGroupId && (
             <div>
-              <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Period</label>
+              <label className={labelCls}>Period</label>
               <select
                 value={period}
                 onChange={(e) => selectLegacyPeriod(Number(e.target.value))}
@@ -528,7 +540,7 @@ export default function RollCallPage() {
 
           {timetableMode && (
             <div>
-              <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">Scheduled lessons</label>
+              <label className={labelCls}>Scheduled lessons</label>
               <div className="flex flex-wrap gap-2">
                 {slotPills.map(({ slot, block, pillLabel }) => (
                   <button
@@ -538,8 +550,8 @@ export default function RollCallPage() {
                     disabled={daySlotsLoading || loading}
                     className={`px-3 py-2 rounded-full text-xs font-semibold border transition-colors ${
                       selectedSlotId === slot.id
-                        ? "bg-amber-600 text-white border-amber-600"
-                        : "bg-white text-slate-700 border-slate-200"
+                        ? "bg-primary text-white border-primary"
+                        : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300"
                     }`}
                   >
                     {pillLabel}
@@ -551,12 +563,12 @@ export default function RollCallPage() {
 
           {session && (
             <span
-              className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold ${
+              className={`inline-flex px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
                 session.status === "SUBMITTED"
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50"
                   : session.status === "SKIPPED"
-                    ? "bg-slate-100 text-slate-600 border border-slate-200"
-                    : "bg-amber-50 text-amber-700 border border-amber-200"
+                    ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700"
+                    : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50"
               }`}
             >
               {session.status}
@@ -566,30 +578,32 @@ export default function RollCallPage() {
         </div>
 
         {!isScopeReady ? (
-          <p className="text-sm text-slate-500 text-center py-12">
-            Select class, teaching group, and date to begin roll call.
-          </p>
+          <div className="rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 px-6 py-16 text-center">
+            <p className="text-sm text-zinc-400 dark:text-zinc-500">
+              Select class, teaching group, and date to begin roll call.
+            </p>
+          </div>
         ) : loading || daySlotsLoading ? (
           <div className="flex flex-col items-center py-16">
-            <Loader2 className="h-8 w-8 text-amber-600 animate-spin" />
-            <p className="text-sm text-slate-500 mt-2">
+            <Loader2 className="h-8 w-8 text-primary animate-spin" />
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
               {daySlotsLoading ? "Loading schedule..." : "Loading roster..."}
             </p>
           </div>
         ) : !session ? null : (
           <>
             <div className="flex items-center justify-between px-1">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
                 Tap a student to mark present
               </p>
-              <p className="text-xs font-semibold text-emerald-700">
+              <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
                 {presentCount} / {roster.length} present
               </p>
             </div>
 
             <div className="space-y-2">
               {roster.length === 0 ? (
-                <div className="bg-white border rounded-2xl px-4 py-10 text-center text-slate-500 text-sm">
+                <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-4 py-10 text-center text-zinc-500 dark:text-zinc-400 text-sm">
                   No students enrolled in this teaching group yet.
                 </div>
               ) : (
@@ -603,19 +617,19 @@ export default function RollCallPage() {
                       onClick={() => togglePresent(row.student.cc)}
                       className={`w-full flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors active:scale-[0.99] disabled:active:scale-100 ${
                         isPresent
-                          ? "bg-emerald-50 border-emerald-300"
-                          : "bg-white border-slate-200"
+                          ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800"
+                          : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
                       } ${!canEdit ? "opacity-70" : ""}`}
                     >
                       <div className="min-w-0">
-                        <p className="font-semibold text-slate-800 truncate">{row.student.full_name}</p>
-                        <p className="text-xs text-slate-400 font-mono">GR# {row.student.gr_number ?? "—"}</p>
+                        <p className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">{row.student.full_name}</p>
+                        <p className="text-xs text-zinc-400 font-mono">GR# {row.student.gr_number ?? "—"}</p>
                       </div>
                       <span
                         className={`shrink-0 flex items-center justify-center h-9 w-9 rounded-full border-2 transition-colors ${
                           isPresent
                             ? "bg-emerald-600 border-emerald-600 text-white"
-                            : "bg-white border-slate-300 text-transparent"
+                            : "bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-transparent"
                         }`}
                       >
                         <Check className="h-5 w-5" />
@@ -627,20 +641,20 @@ export default function RollCallPage() {
             </div>
 
             {showSkip && canMark && session.status === "DRAFT" && (
-              <div className="bg-slate-50 border rounded-2xl p-4 space-y-3">
-                <label className="block text-sm font-medium text-slate-700">Skip reason</label>
+              <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Skip reason</label>
                 <textarea
                   value={skipReason}
                   onChange={(e) => setSkipReason(e.target.value)}
                   rows={2}
-                  className="w-full border rounded-xl px-3 py-2 text-sm"
+                  className="w-full border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 rounded-xl px-3 py-2 text-sm text-zinc-800 dark:text-zinc-100"
                   placeholder="e.g. Teacher absent..."
                 />
                 <button
                   type="button"
                   onClick={handleSkip}
                   disabled={saving || !skipReason.trim()}
-                  className="w-full py-2.5 text-sm bg-slate-700 text-white rounded-xl disabled:opacity-50"
+                  className="w-full py-2.5 text-sm font-semibold bg-zinc-800 dark:bg-zinc-700 text-white rounded-xl disabled:opacity-50"
                 >
                   Confirm skip
                 </button>
@@ -648,7 +662,7 @@ export default function RollCallPage() {
             )}
 
             {isLocked && (
-              <p className="text-xs text-slate-500 text-center pb-2">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 text-center pb-2">
                 This session is locked. Contact an administrator with edit_locked permission to change submitted records.
               </p>
             )}
@@ -658,11 +672,11 @@ export default function RollCallPage() {
 
       {/* Sticky mobile action bar */}
       {canMark && session?.status === "DRAFT" && roster.length > 0 && (
-        <div className="fixed bottom-0 inset-x-0 sm:static bg-white border-t sm:border-t-0 p-3 sm:p-0 sm:mt-4 sm:max-w-3xl sm:mx-auto flex gap-2 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] sm:shadow-none">
+        <div className="fixed bottom-0 inset-x-0 sm:static bg-white dark:bg-zinc-950 border-t sm:border-t-0 border-zinc-200 dark:border-zinc-800 p-3 sm:p-0 sm:mt-4 sm:max-w-3xl sm:mx-auto flex gap-2 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] sm:shadow-none">
           <button
             type="button"
             onClick={() => setShowSkip((v) => !v)}
-            className="px-3 py-3 sm:py-2.5 text-sm border rounded-xl text-slate-600 bg-white flex items-center gap-1.5"
+            className="px-3 py-3 sm:py-2.5 text-sm border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:border-zinc-300 flex items-center gap-1.5 transition-colors"
           >
             <SkipForward className="h-4 w-4" />
           </button>
@@ -670,7 +684,7 @@ export default function RollCallPage() {
             type="button"
             onClick={handleSaveDraft}
             disabled={saving}
-            className="flex-1 py-3 sm:py-2.5 text-sm border rounded-xl bg-white font-medium"
+            className="flex-1 py-3 sm:py-2.5 text-sm border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-semibold hover:border-zinc-300 disabled:opacity-50 transition-colors"
           >
             Save draft
           </button>
@@ -678,7 +692,7 @@ export default function RollCallPage() {
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="flex-[2] py-3 sm:py-2.5 text-sm font-semibold rounded-xl bg-amber-600 text-white disabled:opacity-50"
+            className="flex-[2] py-3 sm:py-2.5 text-sm font-semibold rounded-xl bg-primary hover:opacity-90 text-white disabled:opacity-50 transition-opacity"
           >
             {saving ? "Submitting..." : "Submit roll call"}
           </button>
