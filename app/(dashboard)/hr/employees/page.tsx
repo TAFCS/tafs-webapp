@@ -25,6 +25,7 @@ function missingFields(emp: EmployeeProfile): string[] {
   if (!emp.join_date) missing.push("Date of Joining");
   if (emp.monthly_pay == null) missing.push("Monthly Pay");
   if (!emp.photo_url) missing.push("Photo");
+  if (!emp.employee_code) missing.push("Employee Code");
   return missing;
 }
 
@@ -130,8 +131,9 @@ function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClic
 const AUDIT_OPTIONS = [
   { value: "missing_cnic", label: "Missing CNIC" },
   { value: "missing_doj", label: "Missing Date of Joining" },
-  { value: "missing_pay", label: "Missing Monthly Pay" },
+  { value: "missing_pay", label: "No Salary" },
   { value: "missing_photo", label: "No Photo" },
+  { value: "missing_code", label: "No Employee Code" },
   { value: "no_device_mapping", label: "No Device Mappings" },
   { value: "incomplete", label: "Any Incomplete Field" },
 ];
@@ -257,6 +259,7 @@ function EmployeesContent() {
         if (auditFilter === "missing_doj" && !missing.includes("Date of Joining")) return false;
         if (auditFilter === "missing_pay" && !missing.includes("Monthly Pay")) return false;
         if (auditFilter === "missing_photo" && !missing.includes("Photo")) return false;
+        if (auditFilter === "missing_code" && !missing.includes("Employee Code")) return false;
         if (auditFilter === "no_device_mapping") {
           if (!MAPPING_AUDIT_STATUSES.includes(emp.employment_status ?? "ACTIVE")) return false;
           if (hasActiveDeviceMapping(emp)) return false;
