@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import { campusesService, type Campus } from "@/lib/campuses.service";
+import { isClassOffered } from "@/lib/fee-utils";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -159,15 +160,12 @@ export default function QuickRegistrationPage() {
     const age = calcAge(dob);
     const selectedCampus = campuses.find((c) => c.id === selectedCampusId);
 
-    const offeredClassNames = selectedCampus
-        ? (selectedCampus.offered_classes || []).map((c) => c.description.trim().toUpperCase())
-        : [];
     const cambridgeClasses = ["Pre-Nursery", "Nursery", "K.G.", "JR-I", "JR-II", "JR-III", "JR-IV", "JR-V", "SR-I", "SR-II", "SR-III", "O-I", "O-II", "O-III"]
-        .filter((cls) => !selectedCampusId || offeredClassNames.includes(cls.trim().toUpperCase()));
+        .filter((cls) => !selectedCampusId || isClassOffered(cls, selectedCampus?.offered_classes));
     const secondaryClasses = ["VI", "VII", "VIII", "IX", "X"]
-        .filter((cls) => !selectedCampusId || offeredClassNames.includes(cls.trim().toUpperCase()));
+        .filter((cls) => !selectedCampusId || isClassOffered(cls, selectedCampus?.offered_classes));
     const aLevelClasses = ["AS Level", "A2 Level"]
-        .filter((cls) => !selectedCampusId || offeredClassNames.includes(cls.trim().toUpperCase()));
+        .filter((cls) => !selectedCampusId || isClassOffered(cls, selectedCampus?.offered_classes));
     const hasCambridge = cambridgeClasses.length > 0;
     const hasSecondary = secondaryClasses.length > 0;
     const hasALevel = aLevelClasses.length > 0;

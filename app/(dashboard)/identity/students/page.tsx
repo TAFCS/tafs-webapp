@@ -514,8 +514,8 @@ function DirectoryContent() {
         { value: "missing_guardian", label: "Missing Guardians" },
         { value: "no_family", label: "Missing Families" },
         { value: "no_house", label: "Missing House" },
-        { value: "no_biometric", label: "No Biometric" },
-        { value: "has_biometric", label: "Biometric Enrolled" },
+        { value: "no_biometric", label: "No Device Mapping / Scans" },
+        { value: "has_biometric", label: "Has Device Mapping / Scans" },
         { value: "abnormal", label: "Abnormal (All)" },
     ];
     const photoOptions = [

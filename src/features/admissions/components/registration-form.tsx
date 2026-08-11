@@ -12,7 +12,7 @@ import Image from "next/image";
 import LogoImage from "@/public/logo.png";
 import { StudentProfileModal } from "@/src/features/students/components/student-profile-modal";
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
-import { GRADE_NAME_TO_CODE, resolveClassIdFromGrade } from "@/lib/fee-utils";
+import { GRADE_NAME_TO_CODE, isClassOffered, resolveClassIdFromGrade } from "@/lib/fee-utils";
 import { QuickAdmissionsPopup } from "./quick-admissions-popup";
 import { CountryCodeSelect } from "@/components/inputs/CountryCodeSelect";
 import toast from "react-hot-toast";
@@ -235,18 +235,15 @@ export function RegistrationForm() {
     const [cnicTouched, setCnicTouched] = useState(false);
 
     const selectedCampus = campuses.find(c => String(c.id) === String(formData.campusId));
-    const offeredClassNames = selectedCampus 
-        ? (selectedCampus.offered_classes || []).map(cc => cc.description.trim().toUpperCase())
-        : [];
 
     const cambridgeClasses = ['Pre-Nursery', 'Nursery', 'K.G.', 'JR-I', 'JR-II', 'JR-III', 'JR-IV', 'JR-V', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III']
-        .filter(cls => !formData.campusId || offeredClassNames.includes(cls.trim().toUpperCase()));
+        .filter(cls => !formData.campusId || isClassOffered(cls, selectedCampus?.offered_classes));
 
     const secondaryClasses = ['VI', 'VII', 'VIII', 'IX', 'X']
-        .filter(cls => !formData.campusId || offeredClassNames.includes(cls.trim().toUpperCase()));
+        .filter(cls => !formData.campusId || isClassOffered(cls, selectedCampus?.offered_classes));
 
     const aLevelClasses = ['AS Level', 'A2 Level']
-        .filter(cls => !formData.campusId || offeredClassNames.includes(cls.trim().toUpperCase()));
+        .filter(cls => !formData.campusId || isClassOffered(cls, selectedCampus?.offered_classes));
 
     const hasCambridge = cambridgeClasses.length > 0;
     const hasSecondary = secondaryClasses.length > 0;
@@ -454,13 +451,10 @@ export function RegistrationForm() {
         if (name === "campusId") {
             const nextCampusId = value;
             const nextCampus = campuses.find(c => String(c.id) === String(nextCampusId));
-            const nextOfferedClassNames = nextCampus 
-                ? (nextCampus.offered_classes || []).map(cc => cc.description.trim().toUpperCase())
-                : [];
             
             setFormData(prev => {
                 const updates: any = { campusId: nextCampusId };
-                if (prev.admissionLevel && !nextOfferedClassNames.includes(prev.admissionLevel.trim().toUpperCase())) {
+                if (prev.admissionLevel && !isClassOffered(prev.admissionLevel, nextCampus?.offered_classes)) {
                     updates.admissionLevel = "";
                     const stillHasSystem = nextCampus?.offered_classes?.some(cc => {
                         const sys = cc.academic_system.toLowerCase().replace(/[^a-z]/g, '');

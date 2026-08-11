@@ -586,6 +586,23 @@ export function resolveClassIdFromGrade(classes: any[], gradeOrCode: string | nu
     return matched ? matched.id : "";
 }
 
+export function isClassOffered(gradeOrCode: string, offeredClasses?: any[]): boolean {
+    if (!offeredClasses || offeredClasses.length === 0) return true;
+    const targetName = gradeOrCode.trim().toUpperCase();
+    const mappedCode = (GRADE_NAME_TO_CODE[gradeOrCode] || "").trim().toUpperCase();
+    return offeredClasses.some(cc => {
+        const desc = (cc.description || "").trim().toUpperCase();
+        const code = (cc.class_code || "").trim().toUpperCase();
+        return (
+            desc === targetName ||
+            code === targetName ||
+            (mappedCode !== "" && (desc === mappedCode || code === mappedCode)) ||
+            (targetName === 'AS LEVEL' && (desc === 'AS' || code === 'AS')) ||
+            (targetName === 'A2 LEVEL' && (desc === 'A2' || code === 'A2'))
+        );
+    });
+}
+
 export function calculateFeeSuggestions(prevFees: any[]) {
     if (!prevFees || prevFees.length === 0) {
         return {
