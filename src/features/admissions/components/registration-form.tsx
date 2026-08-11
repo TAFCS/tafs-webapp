@@ -113,7 +113,11 @@ const INITIAL_FORM_DATA = {
     preferredALevelSubjectsGroupA: [] as string[],
     preferredALevelSubjectsGroupB: [] as string[],
     oLevelResultCounts: { astar: "", a: "", b: "", c: "", d: "", e: "" },
-    oLevelSubjectsDetails: [{ id: Date.now(), subject: "", subjectCode: "", mockGrade: "", caieGrade: "" }],
+    oLevelSubjectsDetails: [{ id: 1, subject: "", subjectCode: "", mockGrade: "", caieGrade: "" }],
+    mockResultCounts: { astar: "", a: "", b: "", c: "", d: "", e: "" },
+    mockSubjectsDetails: [{ id: 101, subject: "", subjectCode: "", mockGrade: "" }],
+    o2ResultCounts: { astar: "", a: "", b: "", c: "", d: "", e: "" },
+    o2SubjectsDetails: [{ id: 201, subject: "", subjectCode: "", mockGrade: "" }],
 };
 
 import { memo } from "react";
@@ -678,6 +682,72 @@ export function RegistrationForm() {
         }));
     };
 
+    const handleMockResultChange = (grade: string, value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            mockResultCounts: {
+                ...prev.mockResultCounts,
+                [grade]: value.replace(/\D/g, "")
+            }
+        }));
+    };
+
+    const handleMockSubjectChange = (id: number, field: string, value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            mockSubjectsDetails: prev.mockSubjectsDetails.map(s =>
+                s.id === id ? { ...s, [field]: value.toUpperCase() } : s
+            )
+        }));
+    };
+
+    const addMockSubject = () => {
+        setFormData(prev => ({
+            ...prev,
+            mockSubjectsDetails: [...prev.mockSubjectsDetails, { id: Date.now(), subject: "", subjectCode: "", mockGrade: "" }]
+        }));
+    };
+
+    const removeMockSubject = (id: number) => {
+        setFormData(prev => ({
+            ...prev,
+            mockSubjectsDetails: prev.mockSubjectsDetails.filter(s => s.id !== id)
+        }));
+    };
+
+    const handleO2ResultChange = (grade: string, value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            o2ResultCounts: {
+                ...prev.o2ResultCounts,
+                [grade]: value.replace(/\D/g, "")
+            }
+        }));
+    };
+
+    const handleO2SubjectChange = (id: number, field: string, value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            o2SubjectsDetails: prev.o2SubjectsDetails.map(s =>
+                s.id === id ? { ...s, [field]: value.toUpperCase() } : s
+            )
+        }));
+    };
+
+    const addO2Subject = () => {
+        setFormData(prev => ({
+            ...prev,
+            o2SubjectsDetails: [...prev.o2SubjectsDetails, { id: Date.now(), subject: "", subjectCode: "", mockGrade: "" }]
+        }));
+    };
+
+    const removeO2Subject = (id: number) => {
+        setFormData(prev => ({
+            ...prev,
+            o2SubjectsDetails: prev.o2SubjectsDetails.filter(s => s.id !== id)
+        }));
+    };
+
     const removePreviousSchool = (id: number) => {
         if (formData.previousSchools.length > 1) {
             setFormData(prev => ({
@@ -1112,7 +1182,11 @@ export function RegistrationForm() {
                 preferred_subjects_group_a: formData.preferredALevelSubjectsGroupA,
                 preferred_subjects_group_b: formData.preferredALevelSubjectsGroupB,
                 olevel_result_counts: formData.oLevelResultCounts,
-                olevel_subjects_details: formData.oLevelSubjectsDetails.map(({ id, ...rest }) => rest)
+                olevel_subjects_details: formData.oLevelSubjectsDetails.map(({ id, ...rest }) => rest),
+                mock_result_counts: formData.admissionLevel === 'AS Level' ? formData.mockResultCounts : formData.oLevelResultCounts,
+                mock_subjects_details: formData.admissionLevel === 'AS Level' ? formData.mockSubjectsDetails.map(({ id, ...rest }) => rest) : undefined,
+                o2_result_counts: formData.admissionLevel === 'AS Level' ? formData.o2ResultCounts : undefined,
+                o2_subjects_details: formData.admissionLevel === 'AS Level' ? formData.o2SubjectsDetails.map(({ id, ...rest }) => rest) : undefined,
             } : undefined,
             flags: formData.flags
                 .filter(f => f.description.trim())
@@ -1823,129 +1897,346 @@ export function RegistrationForm() {
                                                         <h4 className="text-lg font-black uppercase tracking-tight text-zinc-800 dark:text-zinc-100">Academic Background</h4>
                                                     </div>
 
-                                                    <div className="mb-12">
-                                                        <div className="flex items-center gap-2 mb-6 px-1">
-                                                            <BookText className="h-4 w-4 text-zinc-400" />
-                                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                                                                {formData.admissionLevel === 'AS Level' ? 'MOCK EXAMINATIONS RESULT' : 'GCE O LEVEL RESULT SUMMARY'}
-                                                            </p>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
-                                                            {[
-                                                                { id: 'astar', label: 'A*s', color: 'from-amber-400 to-orange-500' },
-                                                                { id: 'a', label: 'As', color: 'from-emerald-400 to-teal-600' },
-                                                                { id: 'b', label: 'Bs', color: 'from-blue-400 to-indigo-600' },
-                                                                { id: 'c', label: 'Cs', color: 'from-zinc-400 to-zinc-600' },
-                                                                { id: 'd', label: 'Ds', color: 'from-zinc-300 to-zinc-500' },
-                                                                { id: 'e', label: 'Es', color: 'from-zinc-200 to-zinc-400' },
-                                                            ].map(item => {
-                                                                const val = (formData.oLevelResultCounts as any)[item.id];
-                                                                const hasValue = val && val !== "0" && val !== "";
-                                                                return (
-                                                                    <div key={item.id} className="relative group/grade">
-                                                                        {hasValue && <div className={`absolute -inset-0.5 bg-gradient-to-br ${item.color} rounded-2xl blur opacity-20 group-hover/grade:opacity-40 transition-opacity`} />}
-                                                                        <div className={`relative bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-2xl border-2 transition-all duration-300 ${hasValue ? 'border-zinc-200 dark:border-zinc-800' : 'border-transparent'}`}>
-                                                                            <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 text-center">{item.label}</label>
-                                                                            <input 
-                                                                                type="text" 
-                                                                                value={val || ""}
-                                                                                onChange={(e) => handleOLevelResultChange(item.id, e.target.value)}
-                                                                                placeholder="0"
-                                                                                className={`w-full px-1 py-1 bg-white dark:bg-zinc-950 border-2 rounded-xl text-base font-black text-center outline-none transition-all ${hasValue ? 'border-primary/20 text-primary' : 'border-zinc-100 dark:border-zinc-800 text-zinc-400'}`} 
-                                                                            />
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="space-y-6">
-                                                        <div className="flex items-center justify-between px-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <Star className="h-4 w-4 text-zinc-400" />
-                                                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                                                                    {formData.admissionLevel === 'AS Level' ? 'GRADES IN MOCK EXAMINATIONS FOR SUBJECTS OF CHOICE AT O LEVEL' : 'SUBJECTS STUDIED AT O LEVEL'}
-                                                                </p>
-                                                            </div>
-                                                            <button 
-                                                                type="button" 
-                                                                onClick={addOLevelSubject}
-                                                                className="group flex items-center gap-2 px-5 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-zinc-200 dark:shadow-none"
-                                                            >
-                                                                <Plus className="h-3.5 w-3.5 group-hover:rotate-90 transition-transform duration-300" />
-                                                                Add Subject
-                                                            </button>
-                                                        </div>
-                                                        <div className="overflow-hidden border border-zinc-100 dark:border-zinc-900 rounded-3xl bg-zinc-50/50 dark:bg-zinc-900/30">
-                                                            <table className="w-full text-left border-collapse">
-                                                                <thead>
-                                                                    <tr className="bg-zinc-100/50 dark:bg-zinc-900/50 border-b border-zinc-200/50 dark:border-zinc-800/50">
-                                                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                                                                            {formData.admissionLevel === 'AS Level' ? 'SUBJECTS' : 'Subject Name'}
-                                                                        </th>
-                                                                        {formData.admissionLevel === 'AS Level' ? (
-                                                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center border-l border-zinc-200/50 dark:border-zinc-800/50">Subject Codes</th>
-                                                                        ) : (
-                                                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center border-l border-zinc-200/50 dark:border-zinc-800/50">Mock Grade</th>
-                                                                        )}
-                                                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center border-l border-zinc-200/50 dark:border-zinc-800/50">
-                                                                            {formData.admissionLevel === 'AS Level' ? 'GRADES' : 'CAIE Result'}
-                                                                        </th>
-                                                                        <th className="w-14"></th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody className="divide-y divide-zinc-200/30 dark:divide-zinc-800/30">
-                                                                    {formData.oLevelSubjectsDetails.map((row) => {
-                                                                        // Check if this is an AS Level view to change labels/structure
-                                                                        const isASLevel = formData.admissionLevel === 'AS Level';
-                                                                        
+                                                    {formData.admissionLevel === 'AS Level' ? (
+                                                        <div className="space-y-12">
+                                                            {/* 1. MOCK EXAMINATIONS RESULT */}
+                                                            <div>
+                                                                <div className="flex items-center gap-2 mb-6 px-1">
+                                                                    <BookText className="h-4 w-4 text-zinc-400" />
+                                                                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                                        MOCK EXAMINATIONS RESULT
+                                                                    </p>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 md:grid-cols-6 gap-6 mb-8">
+                                                                    {[
+                                                                        { id: 'astar', label: 'A*s', color: 'from-amber-400 to-orange-500' },
+                                                                        { id: 'a', label: 'As', color: 'from-emerald-400 to-teal-600' },
+                                                                        { id: 'b', label: 'Bs', color: 'from-blue-400 to-indigo-600' },
+                                                                        { id: 'c', label: 'Cs', color: 'from-zinc-400 to-zinc-600' },
+                                                                        { id: 'd', label: 'Ds', color: 'from-zinc-300 to-zinc-500' },
+                                                                        { id: 'e', label: 'Es', color: 'from-zinc-200 to-zinc-400' },
+                                                                    ].map(item => {
+                                                                        const val = (formData.mockResultCounts as any)[item.id];
+                                                                        const hasValue = val && val !== "0" && val !== "";
                                                                         return (
-                                                                            <tr key={row.id} className="group/row transition-colors hover:bg-white dark:hover:bg-zinc-900/50">
-                                                                                <td className="px-3 py-2">
+                                                                            <div key={`mock-${item.id}`} className="relative group/grade">
+                                                                                {hasValue && <div className={`absolute -inset-0.5 bg-gradient-to-br ${item.color} rounded-2xl blur opacity-20 group-hover/grade:opacity-40 transition-opacity`} />}
+                                                                                <div className={`relative bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-2xl border-2 transition-all duration-300 ${hasValue ? 'border-zinc-200 dark:border-zinc-800' : 'border-transparent'}`}>
+                                                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 text-center">{item.label}</label>
                                                                                     <input 
                                                                                         type="text" 
-                                                                                        value={row.subject} 
-                                                                                        onChange={(e) => handleOLevelSubjectChange(row.id, 'subject', e.target.value)}
-                                                                                        placeholder={isASLevel ? "SUBJECT NAME" : "E.G. PHYSICS"}
-                                                                                        className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                                                                        value={val || ""}
+                                                                                        onChange={(e) => handleMockResultChange(item.id, e.target.value)}
+                                                                                        placeholder="0"
+                                                                                        className={`w-full px-1 py-1 bg-white dark:bg-zinc-950 border-2 rounded-xl text-base font-black text-center outline-none transition-all ${hasValue ? 'border-primary/20 text-primary' : 'border-zinc-100 dark:border-zinc-800 text-zinc-400'}`} 
                                                                                     />
-                                                                                </td>
-                                                                                <td className="px-3 py-2 border-l border-zinc-200/30 dark:border-zinc-800/30">
-                                                                                    <input 
-                                                                                        type="text" 
-                                                                                        value={isASLevel ? (row.subjectCode || "") : row.mockGrade} 
-                                                                                        onChange={(e) => handleOLevelSubjectChange(row.id, isASLevel ? 'subjectCode' : 'mockGrade', e.target.value)}
-                                                                                        placeholder={isASLevel ? "CODE" : "A"}
-                                                                                        className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent text-center outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
-                                                                                    />
-                                                                                </td>
-                                                                                <td className="px-3 py-2 border-l border-zinc-200/30 dark:border-zinc-800/30">
-                                                                                    <input 
-                                                                                        type="text" 
-                                                                                        value={isASLevel ? row.mockGrade : row.caieGrade} 
-                                                                                        onChange={(e) => handleOLevelSubjectChange(row.id, isASLevel ? 'mockGrade' : 'caieGrade', e.target.value)}
-                                                                                        placeholder={isASLevel ? "GRADE" : "A*"}
-                                                                                        className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent text-center outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
-                                                                                    />
-                                                                                </td>
-                                                                                <td className="px-3 py-2 text-center">
-                                                                                    <button 
-                                                                                        type="button" 
-                                                                                        onClick={() => removeOLevelSubject(row.id)}
-                                                                                        disabled={formData.oLevelSubjectsDetails.length === 1}
-                                                                                        className="p-2.5 text-zinc-300 hover:text-red-500 disabled:opacity-0 transition-all hover:scale-110 active:scale-95"
-                                                                                    >
-                                                                                        <X className="h-5 w-5" />
-                                                                                    </button>
-                                                                                </td>
-                                                                            </tr>
+                                                                                </div>
+                                                                            </div>
                                                                         );
                                                                     })}
-                                                                </tbody>
-                                                            </table>
+                                                                </div>
+
+                                                                <div className="space-y-4">
+                                                                    <div className="flex items-center justify-between px-1">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Star className="h-4 w-4 text-zinc-400" />
+                                                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                                                GRADES IN MOCK EXAMINATIONS FOR SUBJECTS OF CHOICE AT O LEVEL
+                                                                            </p>
+                                                                        </div>
+                                                                        <button 
+                                                                            type="button" 
+                                                                            onClick={addMockSubject}
+                                                                            className="group flex items-center gap-2 px-5 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-zinc-200 dark:shadow-none"
+                                                                        >
+                                                                            <Plus className="h-3.5 w-3.5 group-hover:rotate-90 transition-transform duration-300" />
+                                                                            Add Subject
+                                                                        </button>
+                                                                    </div>
+                                                                    <div className="overflow-hidden border border-zinc-100 dark:border-zinc-900 rounded-3xl bg-zinc-50/50 dark:bg-zinc-900/30">
+                                                                        <table className="w-full text-left border-collapse">
+                                                                            <thead>
+                                                                                <tr className="bg-zinc-100/50 dark:bg-zinc-900/50 border-b border-zinc-200/50 dark:border-zinc-800/50">
+                                                                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">SUBJECTS</th>
+                                                                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center border-l border-zinc-200/50 dark:border-zinc-800/50">SUBJECT CODES</th>
+                                                                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center border-l border-zinc-200/50 dark:border-zinc-800/50">GRADES</th>
+                                                                                    <th className="w-14"></th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody className="divide-y divide-zinc-200/30 dark:divide-zinc-800/30">
+                                                                                {formData.mockSubjectsDetails.map((row) => (
+                                                                                    <tr key={row.id} className="group/row transition-colors hover:bg-white dark:hover:bg-zinc-900/50">
+                                                                                        <td className="px-3 py-2">
+                                                                                            <input 
+                                                                                                type="text" 
+                                                                                                value={row.subject} 
+                                                                                                onChange={(e) => handleMockSubjectChange(row.id, 'subject', e.target.value)}
+                                                                                                placeholder="SUBJECT NAME"
+                                                                                                className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                                                                            />
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 border-l border-zinc-200/30 dark:border-zinc-800/30">
+                                                                                            <input 
+                                                                                                type="text" 
+                                                                                                value={row.subjectCode || ""} 
+                                                                                                onChange={(e) => handleMockSubjectChange(row.id, 'subjectCode', e.target.value)}
+                                                                                                placeholder="CODE"
+                                                                                                className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent text-center outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                                                                            />
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 border-l border-zinc-200/30 dark:border-zinc-800/30">
+                                                                                            <input 
+                                                                                                type="text" 
+                                                                                                value={row.mockGrade} 
+                                                                                                onChange={(e) => handleMockSubjectChange(row.id, 'mockGrade', e.target.value)}
+                                                                                                placeholder="GRADE"
+                                                                                                className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent text-center outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                                                                            />
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 text-center">
+                                                                                            <button 
+                                                                                                type="button" 
+                                                                                                onClick={() => removeMockSubject(row.id)}
+                                                                                                disabled={formData.mockSubjectsDetails.length === 1}
+                                                                                                className="p-2.5 text-zinc-300 hover:text-red-500 disabled:opacity-0 transition-all hover:scale-110 active:scale-95"
+                                                                                            >
+                                                                                                <X className="h-5 w-5" />
+                                                                                            </button>
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                ))}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* 2. O2 EXAMINATIONS RESULT */}
+                                                            <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800">
+                                                                <div className="flex items-center gap-2 mb-6 px-1">
+                                                                    <BookText className="h-4 w-4 text-zinc-400" />
+                                                                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                                        O2 EXAMINATIONS RESULT
+                                                                    </p>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 md:grid-cols-6 gap-6 mb-8">
+                                                                    {[
+                                                                        { id: 'astar', label: 'A*s', color: 'from-amber-400 to-orange-500' },
+                                                                        { id: 'a', label: 'As', color: 'from-emerald-400 to-teal-600' },
+                                                                        { id: 'b', label: 'Bs', color: 'from-blue-400 to-indigo-600' },
+                                                                        { id: 'c', label: 'Cs', color: 'from-zinc-400 to-zinc-600' },
+                                                                        { id: 'd', label: 'Ds', color: 'from-zinc-300 to-zinc-500' },
+                                                                        { id: 'e', label: 'Es', color: 'from-zinc-200 to-zinc-400' },
+                                                                    ].map(item => {
+                                                                        const val = (formData.o2ResultCounts as any)[item.id];
+                                                                        const hasValue = val && val !== "0" && val !== "";
+                                                                        return (
+                                                                            <div key={`o2-${item.id}`} className="relative group/grade">
+                                                                                {hasValue && <div className={`absolute -inset-0.5 bg-gradient-to-br ${item.color} rounded-2xl blur opacity-20 group-hover/grade:opacity-40 transition-opacity`} />}
+                                                                                <div className={`relative bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-2xl border-2 transition-all duration-300 ${hasValue ? 'border-zinc-200 dark:border-zinc-800' : 'border-transparent'}`}>
+                                                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 text-center">{item.label}</label>
+                                                                                    <input 
+                                                                                        type="text" 
+                                                                                        value={val || ""}
+                                                                                        onChange={(e) => handleO2ResultChange(item.id, e.target.value)}
+                                                                                        placeholder="0"
+                                                                                        className={`w-full px-1 py-1 bg-white dark:bg-zinc-950 border-2 rounded-xl text-base font-black text-center outline-none transition-all ${hasValue ? 'border-primary/20 text-primary' : 'border-zinc-100 dark:border-zinc-800 text-zinc-400'}`} 
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+
+                                                                <div className="space-y-4">
+                                                                    <div className="flex items-center justify-between px-1">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Star className="h-4 w-4 text-zinc-400" />
+                                                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                                                GRADES IN O2 EXAMINATIONS FOR SUBJECTS OF CHOICE AT O LEVEL
+                                                                            </p>
+                                                                        </div>
+                                                                        <button 
+                                                                            type="button" 
+                                                                            onClick={addO2Subject}
+                                                                            className="group flex items-center gap-2 px-5 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-zinc-200 dark:shadow-none"
+                                                                        >
+                                                                            <Plus className="h-3.5 w-3.5 group-hover:rotate-90 transition-transform duration-300" />
+                                                                            Add Subject
+                                                                        </button>
+                                                                    </div>
+                                                                    <div className="overflow-hidden border border-zinc-100 dark:border-zinc-900 rounded-3xl bg-zinc-50/50 dark:bg-zinc-900/30">
+                                                                        <table className="w-full text-left border-collapse">
+                                                                            <thead>
+                                                                                <tr className="bg-zinc-100/50 dark:bg-zinc-900/50 border-b border-zinc-200/50 dark:border-zinc-800/50">
+                                                                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">SUBJECTS</th>
+                                                                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center border-l border-zinc-200/50 dark:border-zinc-800/50">SUBJECT CODES</th>
+                                                                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center border-l border-zinc-200/50 dark:border-zinc-800/50">GRADES</th>
+                                                                                    <th className="w-14"></th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody className="divide-y divide-zinc-200/30 dark:divide-zinc-800/30">
+                                                                                {formData.o2SubjectsDetails.map((row) => (
+                                                                                    <tr key={row.id} className="group/row transition-colors hover:bg-white dark:hover:bg-zinc-900/50">
+                                                                                        <td className="px-3 py-2">
+                                                                                            <input 
+                                                                                                type="text" 
+                                                                                                value={row.subject} 
+                                                                                                onChange={(e) => handleO2SubjectChange(row.id, 'subject', e.target.value)}
+                                                                                                placeholder="SUBJECT NAME"
+                                                                                                className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                                                                            />
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 border-l border-zinc-200/30 dark:border-zinc-800/30">
+                                                                                            <input 
+                                                                                                type="text" 
+                                                                                                value={row.subjectCode || ""} 
+                                                                                                onChange={(e) => handleO2SubjectChange(row.id, 'subjectCode', e.target.value)}
+                                                                                                placeholder="CODE"
+                                                                                                className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent text-center outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                                                                            />
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 border-l border-zinc-200/30 dark:border-zinc-800/30">
+                                                                                            <input 
+                                                                                                type="text" 
+                                                                                                value={row.mockGrade} 
+                                                                                                onChange={(e) => handleO2SubjectChange(row.id, 'mockGrade', e.target.value)}
+                                                                                                placeholder="GRADE"
+                                                                                                className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent text-center outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                                                                            />
+                                                                                        </td>
+                                                                                        <td className="px-3 py-2 text-center">
+                                                                                            <button 
+                                                                                                type="button" 
+                                                                                                onClick={() => removeO2Subject(row.id)}
+                                                                                                disabled={formData.o2SubjectsDetails.length === 1}
+                                                                                                className="p-2.5 text-zinc-300 hover:text-red-500 disabled:opacity-0 transition-all hover:scale-110 active:scale-95"
+                                                                                            >
+                                                                                                <X className="h-5 w-5" />
+                                                                                            </button>
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                ))}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    ) : (
+                                                        <>
+                                                            <div className="mb-12">
+                                                                <div className="flex items-center gap-2 mb-6 px-1">
+                                                                    <BookText className="h-4 w-4 text-zinc-400" />
+                                                                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                                        GCE O LEVEL RESULT SUMMARY
+                                                                    </p>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
+                                                                    {[
+                                                                        { id: 'astar', label: 'A*s', color: 'from-amber-400 to-orange-500' },
+                                                                        { id: 'a', label: 'As', color: 'from-emerald-400 to-teal-600' },
+                                                                        { id: 'b', label: 'Bs', color: 'from-blue-400 to-indigo-600' },
+                                                                        { id: 'c', label: 'Cs', color: 'from-zinc-400 to-zinc-600' },
+                                                                        { id: 'd', label: 'Ds', color: 'from-zinc-300 to-zinc-500' },
+                                                                        { id: 'e', label: 'Es', color: 'from-zinc-200 to-zinc-400' },
+                                                                    ].map(item => {
+                                                                        const val = (formData.oLevelResultCounts as any)[item.id];
+                                                                        const hasValue = val && val !== "0" && val !== "";
+                                                                        return (
+                                                                            <div key={item.id} className="relative group/grade">
+                                                                                {hasValue && <div className={`absolute -inset-0.5 bg-gradient-to-br ${item.color} rounded-2xl blur opacity-20 group-hover/grade:opacity-40 transition-opacity`} />}
+                                                                                <div className={`relative bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-2xl border-2 transition-all duration-300 ${hasValue ? 'border-zinc-200 dark:border-zinc-800' : 'border-transparent'}`}>
+                                                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 text-center">{item.label}</label>
+                                                                                    <input 
+                                                                                        type="text" 
+                                                                                        value={val || ""}
+                                                                                        onChange={(e) => handleOLevelResultChange(item.id, e.target.value)}
+                                                                                        placeholder="0"
+                                                                                        className={`w-full px-1 py-1 bg-white dark:bg-zinc-950 border-2 rounded-xl text-base font-black text-center outline-none transition-all ${hasValue ? 'border-primary/20 text-primary' : 'border-zinc-100 dark:border-zinc-800 text-zinc-400'}`} 
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="space-y-6">
+                                                                <div className="flex items-center justify-between px-1">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Star className="h-4 w-4 text-zinc-400" />
+                                                                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                                                            SUBJECTS STUDIED AT O LEVEL
+                                                                        </p>
+                                                                    </div>
+                                                                    <button 
+                                                                        type="button" 
+                                                                        onClick={addOLevelSubject}
+                                                                        className="group flex items-center gap-2 px-5 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-zinc-200 dark:shadow-none"
+                                                                    >
+                                                                        <Plus className="h-3.5 w-3.5 group-hover:rotate-90 transition-transform duration-300" />
+                                                                        Add Subject
+                                                                    </button>
+                                                                </div>
+                                                                <div className="overflow-hidden border border-zinc-100 dark:border-zinc-900 rounded-3xl bg-zinc-50/50 dark:bg-zinc-900/30">
+                                                                    <table className="w-full text-left border-collapse">
+                                                                        <thead>
+                                                                            <tr className="bg-zinc-100/50 dark:bg-zinc-900/50 border-b border-zinc-200/50 dark:border-zinc-800/50">
+                                                                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">Subject Name</th>
+                                                                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center border-l border-zinc-200/50 dark:border-zinc-800/50">Mock Grade</th>
+                                                                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center border-l border-zinc-200/50 dark:border-zinc-800/50">CAIE Result</th>
+                                                                                <th className="w-14"></th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className="divide-y divide-zinc-200/30 dark:divide-zinc-800/30">
+                                                                            {formData.oLevelSubjectsDetails.map((row) => (
+                                                                                <tr key={row.id} className="group/row transition-colors hover:bg-white dark:hover:bg-zinc-900/50">
+                                                                                    <td className="px-3 py-2">
+                                                                                        <input 
+                                                                                            type="text" 
+                                                                                            value={row.subject} 
+                                                                                            onChange={(e) => handleOLevelSubjectChange(row.id, 'subject', e.target.value)}
+                                                                                            placeholder="E.G. PHYSICS"
+                                                                                            className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                                                                        />
+                                                                                    </td>
+                                                                                    <td className="px-3 py-2 border-l border-zinc-200/30 dark:border-zinc-800/30">
+                                                                                        <input 
+                                                                                            type="text" 
+                                                                                            value={row.mockGrade} 
+                                                                                            onChange={(e) => handleOLevelSubjectChange(row.id, 'mockGrade', e.target.value)}
+                                                                                            placeholder="A"
+                                                                                            className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent text-center outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                                                                        />
+                                                                                    </td>
+                                                                                    <td className="px-3 py-2 border-l border-zinc-200/30 dark:border-zinc-800/30">
+                                                                                        <input 
+                                                                                            type="text" 
+                                                                                            value={row.caieGrade} 
+                                                                                            onChange={(e) => handleOLevelSubjectChange(row.id, 'caieGrade', e.target.value)}
+                                                                                            placeholder="A*"
+                                                                                            className="w-full px-4 py-2.5 text-xs font-black uppercase bg-transparent text-center outline-none focus:bg-primary/5 rounded-xl transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" 
+                                                                                        />
+                                                                                    </td>
+                                                                                    <td className="px-3 py-2 text-center">
+                                                                                        <button 
+                                                                                            type="button" 
+                                                                                            onClick={() => removeOLevelSubject(row.id)}
+                                                                                            disabled={formData.oLevelSubjectsDetails.length === 1}
+                                                                                            className="p-2.5 text-zinc-300 hover:text-red-500 disabled:opacity-0 transition-all hover:scale-110 active:scale-95"
+                                                                                        >
+                                                                                            <X className="h-5 w-5" />
+                                                                                        </button>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
