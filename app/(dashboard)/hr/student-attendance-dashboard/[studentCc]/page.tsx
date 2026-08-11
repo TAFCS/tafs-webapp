@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
     AlertCircle, AlertTriangle, ArrowLeft, CalendarCheck,
     CheckCircle2, Clock, Loader2, X,
@@ -65,13 +65,24 @@ interface Tooltip { lines: string[]; x: number; y: number }
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function StudentAttendanceTimelinePage() {
+    return (
+        <Suspense fallback={null}>
+            <StudentAttendanceTimelineInner />
+        </Suspense>
+    );
+}
+
+function StudentAttendanceTimelineInner() {
     const params = useParams<{ studentCc: string }>();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const studentCc = Number(params.studentCc);
     const today = todayIso();
 
-    const [dateFrom, setDateFrom] = useState(isoDaysAgo(6));
-    const [dateTo, setDateTo]     = useState(today);
+    // Deep-linked from the attendance-by-cycle matrix, which passes the
+    // exact period it was showing so the timeline opens on the same range.
+    const [dateFrom, setDateFrom] = useState(searchParams.get("date_from") ?? isoDaysAgo(6));
+    const [dateTo, setDateTo]     = useState(searchParams.get("date_to") ?? today);
     const [timeline, setTimeline] = useState<StudentTimeline | null>(null);
     const [loading, setLoading]   = useState(false);
     const [error, setError]       = useState<string | null>(null);

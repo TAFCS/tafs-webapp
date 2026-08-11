@@ -1,5 +1,16 @@
 import api from './api';
 
+function downloadBlob(data: BlobPart, filename: string): void {
+  const url = window.URL.createObjectURL(new Blob([data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 export type RollSessionStatus = 'DRAFT' | 'SUBMITTED' | 'SKIPPED';
 export type RollRecordStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED' | 'LATE';
 export type StaffAttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'EXCUSED' | 'UNPAID_LEAVE' | 'SICK_LEAVE' | 'CASUAL_LEAVE' | 'ANNUAL_LEAVE';
@@ -225,6 +236,57 @@ export interface StudentTimeline {
   days: StudentTimelineDay[];
 }
 
+// ── Student Attendance Matrix (payroll-cycle-independent lines + punch matrix) ──
+
+export type StudentDayClassification = 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED' | 'UNRESOLVED' | 'DAY_OFF';
+
+export interface StudentDayBreakdownEntry {
+  date: string;
+  is_working_day: boolean;
+  day_type: string | null;
+  day_description: string | null;
+  classification: StudentDayClassification;
+  check_in_at: string | null;
+  check_out_at: string | null;
+  break_minutes: number;
+  late_minutes: number;
+  source: 'MANUAL' | 'BIOMETRIC' | 'SYSTEM' | 'LEAVE' | null;
+  segments?: { type: string; start: string; end: string; isMissingOut?: boolean }[];
+}
+
+export interface StudentAttendanceLine {
+  student_cc: number;
+  campus_id?: number;
+  campus_name?: string;
+  /** No active device_user_mappings row — can never record biometric attendance. */
+  is_mapped: boolean;
+  /** Mapped to a device, but zero scans in the period. */
+  has_punches: boolean;
+  present_days: number;
+  late_days: number;
+  absent_days: number;
+  excused_days: number;
+  unresolved_days: number;
+  total_break_minutes: number;
+  daily_breakdown: StudentDayBreakdownEntry[];
+  student: {
+    cc: number;
+    full_name: string;
+    gr_number: string | null;
+    photo_url: string | null;
+    class: string | null;
+    section: string | null;
+  };
+}
+
+export interface StudentAttendanceMatrix {
+  /** null when spanning every campus the caller can see (no campus_id filter applied). */
+  campus_id: number | null;
+  period_start: string;
+  period_end: string;
+  lines: StudentAttendanceLine[];
+}
+
 export type ScanDirection = 'IN' | 'OUT';
 
 export interface QuickCheckScan {
@@ -429,6 +491,33 @@ export const attendanceService = {
       { params },
     );
     return data.data;
+  },
+
+  // ── Student Attendance Matrix (lines + punch matrix) ─────────────────────
+
+  async getStudentAttendanceMatrix(params: {
+    campus_id?: number;
+    class_id?: number;
+    section_id?: number;
+    period_start: string;
+    period_end: string;
+  }): Promise<StudentAttendanceMatrix> {
+    const { data } = await api.get<ApiEnvelope<StudentAttendanceMatrix>>(
+      '/v1/attendance/students/matrix',
+      { params },
+    );
+    return data.data;
+  },
+
+  async exportStudentAttendanceMatrix(params: {
+    campus_id?: number;
+    class_id?: number;
+    section_id?: number;
+    period_start: string;
+    period_end: string;
+  }): Promise<void> {
+    const { data } = await api.get('/v1/attendance/students/matrix/export', { params, responseType: 'blob' });
+    downloadBlob(data, `student-attendance-${params.period_start}-to-${params.period_end}.xlsx`);
   },
 
   // ── Quick Check-In / Check-Out (gate desk) ───────────────────────────────
