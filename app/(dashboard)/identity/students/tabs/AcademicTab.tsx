@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Loader2, CheckCircle2, GraduationCap, Pencil, BookOpen, Heart, Activity, Languages, Milestone, X } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, CheckCircle2, GraduationCap, Pencil, BookOpen, Heart, Activity, Languages, Milestone, X, Sparkles } from "lucide-react";
 import api from "@/lib/api";
+import toast from "react-hot-toast";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
@@ -54,6 +55,10 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
     const houseName = student.house_name || student.houses?.house_name || null;
     const houseColor = student.house_color || student.houses?.house_color || null;
 
+    const [suggestedHouseId, setSuggestedHouseId] = useState<number | null>(null);
+    const [houseCounts, setHouseCounts] = useState<Record<number, number>>({});
+    const [isAutoAwarding, setIsAutoAwarding] = useState(false);
+
     // Sync state
     useEffect(() => {
         const d = student.doa || student.date_of_admission;
@@ -63,23 +68,19 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
     }, [student]);
 
     useEffect(() => {
-        if (housesList.length === 0) {
-            const endpoint = student?.cc ? `/v1/enrollments/${student.cc}/suggestions` : `/v1/enrollments/houses`;
-            api.get(endpoint)
+        if (student?.cc) {
+            api.get(`/v1/enrollments/${student.cc}/suggestions`)
                 .then(res => {
-                    const houses = res?.data?.data?.all_houses || res?.data?.data || res?.data?.all_houses || [];
+                    const data = res?.data?.data || res?.data || {};
+                    const houses = data.all_houses || [];
                     if (Array.isArray(houses) && houses.length > 0) {
                         setHousesList(houses);
-                    } else {
-                        return api.get("/v1/enrollments/houses");
                     }
-                })
-                .then(fallbackRes => {
-                    if (fallbackRes) {
-                        const houses = fallbackRes?.data?.data || fallbackRes?.data || [];
-                        if (Array.isArray(houses) && houses.length > 0) {
-                            setHousesList(houses);
-                        }
+                    if (data.suggested_house) {
+                        setSuggestedHouseId(data.suggested_house);
+                    }
+                    if (data.house_counts) {
+                        setHouseCounts(data.house_counts);
                     }
                 })
                 .catch(() => {
@@ -93,7 +94,67 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
                         .catch(() => {});
                 });
         }
-    }, [student?.cc, housesList.length]);
+    }, [student?.cc]);
+
+    const handleStartEdit = () => {
+        setEditGeneral(true);
+        if (student.house_id == null && suggestedHouseId && !studentHouseId) {
+            setStudentHouseId(String(suggestedHouseId));
+        }
+    };
+
+    const handleAutoPick = () => {
+        if (suggestedHouseId) {
+            setStudentHouseId(String(suggestedHouseId));
+            const suggestedObj = housesList.find(h => h.id === suggestedHouseId);
+            if (suggestedObj) {
+                toast.success(`Auto-picked ${suggestedObj.house_name} based on house rebalancer logic!`);
+            }
+        } else {
+            toast.error("No house suggestion available");
+        }
+    };
+
+    const handleAutoAwardNow = async () => {
+        if (!student?.cc) return;
+        setIsAutoAwarding(true);
+        try {
+            let targetHouseId = suggestedHouseId;
+            let houseNamePicked = "";
+
+            if (!targetHouseId) {
+                const res = await api.get(`/v1/enrollments/${student.cc}/suggestions`);
+                const data = res?.data?.data || res?.data || {};
+                targetHouseId = data.suggested_house || null;
+                if (data.house_counts) setHouseCounts(data.house_counts);
+            }
+
+            if (!targetHouseId && housesList.length > 0) {
+                targetHouseId = housesList[0].id;
+            }
+
+            if (!targetHouseId) {
+                toast.error("No houses available to award");
+                return;
+            }
+
+            const houseObj = housesList.find(h => h.id === targetHouseId);
+            houseNamePicked = houseObj?.house_name || `House #${targetHouseId}`;
+
+            await api.patch(`/v1/staff-editing/students/${student.cc}`, {
+                academic_year: studentYear || student.academic_year,
+                doa: studentDoa || (rawDoa ? new Date(rawDoa).toISOString().split("T")[0] : undefined),
+                house_id: targetHouseId,
+            });
+
+            toast.success(`Awarded ${houseNamePicked} (auto-picked using rebalancer logic)!`);
+            onReload();
+        } catch {
+            toast.error("Failed to auto-award house");
+        } finally {
+            setIsAutoAwarding(false);
+        }
+    };
 
     const handleSaveGeneral = async () => {
         setSavingGeneral(true);
@@ -220,7 +281,7 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
                             </button>
                         </div>
                     ) : (
-                        <button onClick={() => setEditGeneral(true)} className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"><Pencil className="h-4 w-4" /></button>
+                        <button onClick={handleStartEdit} className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"><Pencil className="h-4 w-4" /></button>
                     )}
                 </div>
 
@@ -243,20 +304,42 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
                                 ))}
                             </select>
                         </Field>
-                        <Field label="House">
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider">House</label>
+                                {suggestedHouseId && (
+                                    <button
+                                        type="button"
+                                        onClick={handleAutoPick}
+                                        className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
+                                    >
+                                        <Sparkles className="h-3 w-3 text-amber-500" /> Auto-pick (Rebalance)
+                                    </button>
+                                )}
+                            </div>
                             <select
                                 value={studentHouseId}
                                 onChange={e => setStudentHouseId(e.target.value)}
                                 className="w-full h-10 px-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all cursor-pointer"
                             >
                                 <option value="">Select House</option>
-                                {housesList.map(h => (
-                                    <option key={h.id} value={String(h.id)}>
-                                        {h.house_name}
-                                    </option>
-                                ))}
+                                {housesList.map(h => {
+                                    const count = houseCounts[h.id] ?? 0;
+                                    const isRec = suggestedHouseId === h.id;
+                                    return (
+                                        <option key={h.id} value={String(h.id)}>
+                                            {h.house_name} ({count} student{count === 1 ? "" : "s"}){isRec ? " — Recommended" : ""}
+                                        </option>
+                                    );
+                                })}
                             </select>
-                        </Field>
+                            {suggestedHouseId && (
+                                <p className="mt-1 text-[10px] text-zinc-400 font-medium flex items-center gap-1">
+                                    <Sparkles className="h-2.5 w-2.5 text-amber-500" />
+                                    Rebalancer Pick: <span className="font-bold text-indigo-600 dark:text-indigo-400">{housesList.find(h => h.id === suggestedHouseId)?.house_name || `House #${suggestedHouseId}`}</span> ({houseCounts[suggestedHouseId] ?? 0} enrolled)
+                                </p>
+                            )}
+                        </div>
                         <Field label="Date of Admission">
                             <input
                                 type="date"
@@ -274,7 +357,7 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
                         </div>
                         <div>
                             <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">House</p>
-                            <div className="mt-1 flex items-center gap-2">
+                            <div className="mt-1 flex items-center gap-2 flex-wrap">
                                 {houseName ? (
                                     <span className="inline-flex items-center gap-2 text-[14px] font-semibold text-zinc-800 dark:text-zinc-200">
                                         <span
@@ -284,7 +367,22 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
                                         <span>{houseName}</span>
                                     </span>
                                 ) : (
-                                    <span className="text-[14px] font-semibold text-zinc-400">N/A</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[14px] font-semibold text-zinc-400">N/A</span>
+                                        <button
+                                            onClick={handleAutoAwardNow}
+                                            disabled={isAutoAwarding}
+                                            className="px-2.5 py-1 text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-lg flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50"
+                                            title="Auto-pick and award house using section house rebalancer logic"
+                                        >
+                                            {isAutoAwarding ? (
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                            ) : (
+                                                <Sparkles className="h-3 w-3 text-amber-300" />
+                                            )}
+                                            Auto-Award House
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>

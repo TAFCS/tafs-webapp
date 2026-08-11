@@ -513,6 +513,7 @@ function DirectoryContent() {
     const auditOptions = [
         { value: "missing_guardian", label: "Missing Guardians" },
         { value: "no_family", label: "Missing Families" },
+        { value: "no_house", label: "Missing House" },
         { value: "no_biometric", label: "No Biometric" },
         { value: "has_biometric", label: "Biometric Enrolled" },
         { value: "abnormal", label: "Abnormal (All)" },
