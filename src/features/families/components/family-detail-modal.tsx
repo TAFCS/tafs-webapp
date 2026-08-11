@@ -62,6 +62,31 @@ const formatCNIC = (v: string) => {
   return out;
 };
 
+/** Keep pure digits as guardian ID until 13 digits (then treat as CNIC). */
+const formatGuardianSearch = (v: string) => {
+  const trimmed = v.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  if (/^\d*$/.test(trimmed) && digits.length < 13) return digits;
+  return formatCNIC(trimmed);
+};
+
+type GuardianSearchQuery =
+  | { type: "id"; id: number }
+  | { type: "cnic"; cnic: string };
+
+const parseGuardianSearch = (q: string): GuardianSearchQuery | null => {
+  const trimmed = q.trim();
+  if (!trimmed) return null;
+  if (/^\d+$/.test(trimmed)) {
+    if (trimmed.length === 13) return { type: "cnic", cnic: formatCNIC(trimmed) };
+    if (trimmed.length > 0 && trimmed.length < 13) return { type: "id", id: parseInt(trimmed, 10) };
+    return null;
+  }
+  const cnic = formatCNIC(trimmed);
+  if (cnic.length >= 15) return { type: "cnic", cnic };
+  return null;
+};
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -395,23 +420,36 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
   };
 
   const handleSearchCnic = async () => {
-    if (!searchCnic || searchCnic.length < 15) return;
+    const query = parseGuardianSearch(searchCnic);
+    if (!query) return;
     setSearchingCnic(true);
     setFoundGuardian(null);
     try {
-      const { data } = await api.get(`/v1/staff-editing/guardians/by-nic/${searchCnic}`);
-      if (data?.data) {
-        const isLinked = family?.guardians?.some(g => g.id === data.data.id);
+      let guardian: any = null;
+      if (query.type === "id") {
+        const { data } = await api.get(`/v1/staff-editing/guardians/${query.id}`);
+        guardian = data?.data ?? null;
+      } else {
+        const { data } = await api.get(`/v1/staff-editing/guardians/by-nic/${query.cnic}`);
+        guardian = data?.data ?? null;
+      }
+
+      if (guardian) {
+        const isLinked = family?.guardians?.some(g => g.id === guardian.id);
         if (isLinked) {
           alert("This guardian is already linked to this household.");
         } else {
-          setFoundGuardian(data.data);
+          setFoundGuardian(guardian);
         }
       } else {
-        alert("No guardian found with this CNIC.");
+        alert(query.type === "id"
+          ? `No guardian found with ID #${query.id}.`
+          : "No guardian found with this CNIC.");
       }
     } catch {
-      alert("Error searching for guardian.");
+      alert(query.type === "id"
+        ? `No guardian found with ID #${query.id}.`
+        : "Error searching for guardian.");
     } finally { setSearchingCnic(false); }
   };
 
@@ -936,15 +974,15 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
                       <div className="flex-1 relative">
                         <Input
                           value={searchCnic}
-                          onChange={v => setSearchCnic(formatCNIC(v))}
-                          placeholder="SEARCH BY CNIC (xxxxx-xxxxxxx-x)"
+                          onChange={v => setSearchCnic(formatGuardianSearch(v))}
+                          placeholder="SEARCH BY CNIC OR GUARDIAN ID"
                           className="pl-9"
                         />
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
                       </div>
                       <button
                         onClick={handleSearchCnic}
-                        disabled={searchingCnic || searchCnic.length < 15}
+                        disabled={searchingCnic || !parseGuardianSearch(searchCnic)}
                         className="px-4 h-9 bg-zinc-900 dark:bg-zinc-800 text-white text-[11px] font-bold rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-700 disabled:opacity-50 transition-colors"
                       >
                         {searchingCnic ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "SEARCH"}
@@ -954,7 +992,10 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
                     {foundGuardian && (
                       <div className="mt-4 bg-white dark:bg-zinc-950 border border-indigo-100 dark:border-indigo-900/30 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-300">
                         <h4 className="font-bold text-zinc-900 dark:text-zinc-100 uppercase">{foundGuardian.full_name}</h4>
-                        <p className="text-[10px] font-bold text-zinc-400 mt-0.5">{foundGuardian.cnic}</p>
+                        <p className="text-[10px] font-bold text-zinc-400 mt-0.5">
+                          #{foundGuardian.id}
+                          {foundGuardian.cnic ? ` · ${foundGuardian.cnic}` : ""}
+                        </p>
 
                         <div className="mt-3 grid grid-cols-2 gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                           <Field label="Relationship">
@@ -1298,6 +1339,11 @@ function GuardianCard({
             <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-550 uppercase">{local.relationship ?? "Guardian"}</span>
             {isPrimary && <span className="text-[9px] font-black px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-800 rounded-md uppercase">Primary</span>}
             {isEmergency && <span className="text-[9px] font-black px-1.5 py-0.5 bg-rose-650 dark:bg-rose-955 text-white rounded-md uppercase">Emergency Contact</span>}
+            {(local.id ?? local.guardian_id) != null && (
+              <span className="flex items-center gap-1 text-[10px] text-zinc-500 font-medium bg-zinc-100 dark:bg-zinc-800/80 px-1.5 py-0.5 rounded-md">
+                #{local.id ?? local.guardian_id}
+              </span>
+            )}
             {local.cnic && <span className="flex items-center gap-1 text-[10px] text-zinc-500 font-medium bg-zinc-100 dark:bg-zinc-800/80 px-1.5 py-0.5 rounded-md"><User className="h-2.5 w-2.5" />{local.cnic}</span>}
             {local.primary_phone && (
               <a
