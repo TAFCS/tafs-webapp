@@ -660,10 +660,13 @@ export function RegistrationForm() {
     };
 
     const handleOLevelSubjectChange = (id: number, field: string, value: string) => {
+        const sanitized = (field === 'mockGrade' || field === 'caieGrade')
+            ? value.replace(/[0-9]/g, "").toUpperCase()
+            : value.toUpperCase();
         setFormData(prev => ({
             ...prev,
             oLevelSubjectsDetails: prev.oLevelSubjectsDetails.map(s =>
-                s.id === id ? { ...s, [field]: value.toUpperCase() } : s
+                s.id === id ? { ...s, [field]: sanitized } : s
             )
         }));
     };
@@ -693,10 +696,13 @@ export function RegistrationForm() {
     };
 
     const handleMockSubjectChange = (id: number, field: string, value: string) => {
+        const sanitized = (field === 'mockGrade' || field === 'caieGrade')
+            ? value.replace(/[0-9]/g, "").toUpperCase()
+            : value.toUpperCase();
         setFormData(prev => ({
             ...prev,
             mockSubjectsDetails: prev.mockSubjectsDetails.map(s =>
-                s.id === id ? { ...s, [field]: value.toUpperCase() } : s
+                s.id === id ? { ...s, [field]: sanitized } : s
             )
         }));
     };
@@ -726,10 +732,13 @@ export function RegistrationForm() {
     };
 
     const handleO2SubjectChange = (id: number, field: string, value: string) => {
+        const sanitized = (field === 'mockGrade' || field === 'caieGrade')
+            ? value.replace(/[0-9]/g, "").toUpperCase()
+            : value.toUpperCase();
         setFormData(prev => ({
             ...prev,
             o2SubjectsDetails: prev.o2SubjectsDetails.map(s =>
-                s.id === id ? { ...s, [field]: value.toUpperCase() } : s
+                s.id === id ? { ...s, [field]: sanitized } : s
             )
         }));
     };
