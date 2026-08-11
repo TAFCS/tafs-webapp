@@ -13,8 +13,6 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
 import { AttendanceBoard } from "../hr/attendance-dashboard/_components/AttendanceBoard";
 import { AttendanceCycleWidget } from "./_components/AttendanceCycleWidget";
-import { StudentAttendanceBoard } from "../hr/student-attendance-dashboard/_components/StudentAttendanceBoard";
-import { StudentAttendanceCycleWidget } from "./_components/StudentAttendanceCycleWidget";
 
 // Stat cards per module — wire to APIs as they become available
 const MODULE_STATS: Record<string, { label: string; value: string; sub?: string; subColor?: string }[]> = {
@@ -234,7 +232,9 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* Live attendance widgets — always visible here, no payroll run required */}
+                    {/* Live staff attendance widgets — always visible here, no payroll run required.
+                        Student attendance has its own dedicated pages (see "Student Attendance" and
+                        "Student Attendance by Cycle" above) so this overview stays fast to load. */}
                     {activeModule.id === "attendance" && (
                         <div className="space-y-8">
                             <div>
@@ -248,18 +248,6 @@ export default function DashboardPage() {
                                     Attendance by Pay Cycle
                                 </p>
                                 <AttendanceCycleWidget />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.25em] mb-4">
-                                    Today&apos;s Student Register
-                                </p>
-                                <StudentAttendanceBoard showHeader={false} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.25em] mb-4">
-                                    Student Attendance by Cycle
-                                </p>
-                                <StudentAttendanceCycleWidget />
                             </div>
                         </div>
                     )}

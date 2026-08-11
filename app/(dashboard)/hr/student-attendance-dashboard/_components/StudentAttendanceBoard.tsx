@@ -307,6 +307,13 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                     </div>
                     <StudentSearch onSelect={(cc) => router.push(`/hr/student-attendance-dashboard/${cc}`)} />
                     <Link
+                        href="/hr/student-attendance-dashboard/cycle"
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all active:scale-95 whitespace-nowrap"
+                    >
+                        <CalendarCheck className="h-4 w-4" />
+                        By Cycle
+                    </Link>
+                    <Link
                         href="/attendance/quick-check-in"
                         className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all active:scale-95 whitespace-nowrap"
                     >
