@@ -8,7 +8,7 @@ import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
 import { attendanceService, StudentAttendanceLine } from "@/lib/attendance.service";
 import { StudentPunchMatrixView } from "./StudentPunchMatrixView";
-import { ScopeBlock, ScopeValue } from "../../studentwise-fees/components/ScopeBlock";
+import { ScopeBlock, ScopeValue } from "../../../studentwise-fees/components/ScopeBlock";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
