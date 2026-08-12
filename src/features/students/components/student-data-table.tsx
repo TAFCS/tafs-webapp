@@ -244,7 +244,9 @@ export function StudentDataTable() {
         }
 
         const studentName = student.student_full_name || `Student #${studentId}`;
-        const confirmed = window.confirm(`Unexpel ${studentName}?`);
+        const confirmed = window.confirm(
+            `Reinstate ${studentName}? They resume their existing class, section, house and GR.\n\nTo readmit them into a new placement instead, open their profile and change the status there.`,
+        );
         if (!confirmed) return;
 
         try {
@@ -268,7 +270,9 @@ export function StudentDataTable() {
         }
 
         const studentName = student.student_full_name || `Student #${studentId}`;
-        const confirmed = window.confirm(`Restore ${studentName} from left status?`);
+        const confirmed = window.confirm(
+            `Reinstate ${studentName}? They resume their existing class, section, house and GR.\n\nTo readmit them into a new placement instead, open their profile and change the status there.`,
+        );
         if (!confirmed) return;
 
         try {
@@ -659,7 +663,7 @@ export function StudentDataTable() {
                                                                 {student.enrollment_status === "EXPELLED" && (
                                                                     <ActionItem
                                                                         icon={<RotateCcw />}
-                                                                        label={unexpellingRowKey === rowKey ? "Unexpelling..." : "Unexpel Student"}
+                                                                        label={unexpellingRowKey === rowKey ? "Reinstating..." : "Reinstate Student"}
                                                                         color="text-emerald-700"
                                                                         disabled={unexpellingRowKey === rowKey}
                                                                         onClick={() => {
@@ -670,7 +674,7 @@ export function StudentDataTable() {
                                                                 {student.enrollment_status === "LEFT" && (
                                                                     <ActionItem
                                                                         icon={<RotateCcw />}
-                                                                        label={unexpellingRowKey === rowKey ? "Readmitting..." : "Readmit (Undo Left)"}
+                                                                        label={unexpellingRowKey === rowKey ? "Reinstating..." : "Reinstate Student"}
                                                                         color="text-emerald-700"
                                                                         disabled={unexpellingRowKey === rowKey}
                                                                         onClick={() => {

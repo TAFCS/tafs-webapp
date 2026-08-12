@@ -37,7 +37,84 @@ const CHANGE_TYPE_STYLES: Record<string, { bg: string; text: string }> = {
   GRADUATED: { bg: "bg-purple-50 border-purple-200", text: "text-purple-700" },
   EXPELLED: { bg: "bg-rose-50 border-rose-200", text: "text-rose-700" },
   LEFT: { bg: "bg-orange-50 border-orange-200", text: "text-orange-700" },
+  REINSTATED: { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700" },
+  READMITTED: { bg: "bg-indigo-50 border-indigo-200", text: "text-indigo-700" },
 };
+
+/** A period of one of these types is the student being away from school. */
+const DEPARTURE_TYPES = ["LEFT", "EXPELLED", "GRADUATED"];
+
+const DEPARTURE_VERB: Record<string, string> = {
+  LEFT: "Away from school",
+  EXPELLED: "Expelled from school",
+  GRADUATED: "Graduated — not enrolled",
+};
+
+/** "1 year 2 months", "18 days", "less than a day". */
+function formatDuration(from: string, to: string): string {
+  const ms = new Date(to).getTime() - new Date(from).getTime();
+  if (ms < 86_400_000) return "less than a day";
+  const days = Math.floor(ms / 86_400_000);
+  const years = Math.floor(days / 365);
+  const months = Math.floor((days % 365) / 30);
+  const parts: string[] = [];
+  if (years) parts.push(`${years} year${years === 1 ? "" : "s"}`);
+  if (months) parts.push(`${months} month${months === 1 ? "" : "s"}`);
+  if (!years && !months) parts.push(`${days} day${days === 1 ? "" : "s"}`);
+  return parts.join(" ");
+}
+
+/** A synthetic row marking the window between a departure and the return. */
+interface GapMarker {
+  kind: "gap";
+  key: string;
+  departureType: string;
+  from: string;
+  /** null while the student is still away. */
+  to: string | null;
+  reason: string | null;
+  /** REINSTATED | READMITTED, or null if they have not come back. */
+  outcome: string | null;
+}
+
+type Row = ({ kind: "period" } & ProgressionPeriod) | GapMarker;
+
+function GapRow({ gap }: { gap: GapMarker }) {
+  const label = DEPARTURE_VERB[gap.departureType] ?? "Away from school";
+  const window = gap.to
+    ? `${formatDate(gap.from)} → ${formatDate(gap.to)} · ${formatDuration(gap.from, gap.to)}`
+    : `Away since ${formatDate(gap.from)} · ${formatDuration(gap.from, new Date().toISOString())} and counting`;
+
+  return (
+    <tr>
+      <td colSpan={8} className="py-2">
+        <div className="rounded-lg border border-dashed border-orange-300 bg-orange-50/70 px-3 py-2.5">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-orange-700">
+              {label}
+            </span>
+            <span className="text-orange-300">·</span>
+            <span className="text-[13px] font-semibold text-orange-800 tabular-nums">
+              {window}
+            </span>
+            {gap.outcome && (
+              <span
+                className={`ml-auto inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-bold uppercase tracking-wide ${
+                  (CHANGE_TYPE_STYLES[gap.outcome] ?? CHANGE_TYPE_STYLES.REASSIGNED).bg
+                } ${(CHANGE_TYPE_STYLES[gap.outcome] ?? CHANGE_TYPE_STYLES.REASSIGNED).text}`}
+              >
+                {gap.outcome}
+              </span>
+            )}
+          </div>
+          {gap.reason && (
+            <p className="mt-1 text-[12px] text-orange-700/80">{gap.reason}</p>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 function HouseDot({ house }: { house: HouseRef | null }) {
   if (!house) return null;
@@ -107,6 +184,46 @@ function PeriodRow({ period }: { period: ProgressionPeriod }) {
       </td>
     </tr>
   );
+}
+
+/**
+ * Splice a synthetic "away" band above each departure period.
+ *
+ * A departure opens a progression period that stays open until the student
+ * returns, so the departure period's own [valid_from, valid_to] *is* the leaving
+ * window — and the chronologically next period says how they came back.
+ */
+function withGapMarkers(newestFirst: ProgressionPeriod[]): Row[] {
+  const chronological = [...newestFirst].sort(
+    (a, b) => new Date(a.valid_from).getTime() - new Date(b.valid_from).getTime(),
+  );
+  const outcomeByDepartureId = new Map<number, string | null>();
+  chronological.forEach((period, index) => {
+    if (!DEPARTURE_TYPES.includes(period.change_type)) return;
+    const next = chronological[index + 1];
+    const outcome =
+      next && ["REINSTATED", "READMITTED", "ENROLLED"].includes(next.change_type)
+        ? next.change_type
+        : null;
+    outcomeByDepartureId.set(period.id, outcome);
+  });
+
+  const rows: Row[] = [];
+  for (const period of newestFirst) {
+    if (DEPARTURE_TYPES.includes(period.change_type)) {
+      rows.push({
+        kind: "gap",
+        key: `gap-${period.id}`,
+        departureType: period.change_type,
+        from: period.valid_from,
+        to: period.valid_to,
+        reason: period.notes,
+        outcome: outcomeByDepartureId.get(period.id) ?? null,
+      });
+    }
+    rows.push({ kind: "period", ...period });
+  }
+  return rows;
 }
 
 export function AcademicProgressionTab({ cc }: { cc: number }) {
@@ -188,9 +305,13 @@ export function AcademicProgressionTab({ cc }: { cc: number }) {
           </tr>
         </thead>
         <tbody>
-          {periods.map((period) => (
-            <PeriodRow key={period.id} period={period} />
-          ))}
+          {withGapMarkers(periods).map((row) =>
+            row.kind === "gap" ? (
+              <GapRow key={row.key} gap={row} />
+            ) : (
+              <PeriodRow key={row.id} period={row} />
+            ),
+          )}
         </tbody>
       </table>
     </div>

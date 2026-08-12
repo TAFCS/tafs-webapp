@@ -11,6 +11,7 @@ import type { CampusItem } from "@/src/store/slices/campusesSlice";
 import { AcademicTab } from "./AcademicTab";
 import { GuardiansTab } from "./GuardiansTab";
 import { LifecycleActionModal } from "./LifecycleActionModal";
+import { ReturnStudentModal } from "./ReturnStudentModal";
 import { AdmissionOrderTab } from "./AdmissionOrderTab";
 import { TransferOrderTab } from "./TransferOrderTab";
 import { LeavingCertificateTab } from "./LeavingCertificateTab";
@@ -56,6 +57,9 @@ const getGRPrefix = (campusName: string | undefined, academicSystem?: string) =>
     return "";
 };
 
+/** Statuses a student returns *from* — these prompt reinstate-vs-readmit. */
+const DEPARTURE_STATUSES = ["LEFT", "EXPELLED", "GRADUATED"];
+
 const TABS = [
     { id: "identity",   label: "Identity",   icon: User },
     { id: "class_grade", label: "Class Grade", icon: Layers },
@@ -89,6 +93,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
         label: '',
     });
     const [tab, setTab] = useState<TabId>("identity");
+    const [returnModal, setReturnModal] = useState(false);
 
     // Enrollment modal state (shown when changing status to ENROLLED)
     const [enrollModal, setEnrollModal] = useState(false);
@@ -202,12 +207,19 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
             return;
         }
 
+        // Returning from a departure: the operator must declare whether this is a
+        // reinstatement or a readmission before anything is written.
+        if (targetStatus === 'ENROLLED' && DEPARTURE_STATUSES.includes(currentStatus)) {
+            setReturnModal(true);
+            return;
+        }
+
         // Every other transition: open reason modal
         const labelMap: Record<string, string> = {
             GRADUATED:      'Graduate',
             EXPELLED:       'Expel',
             LEFT:           'Mark as Left',
-            ENROLLED:       currentStatus === 'LEFT' ? 'Readmit' : 'Re-enroll',
+            ENROLLED:       'Re-enroll',
             SOFT_ADMISSION: 'Move to Soft Admission',
         };
         setLifecycleModal({ open: true, targetStatus, label: labelMap[targetStatus] || targetStatus });
@@ -656,6 +668,18 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                 }
                 studentName={student?.full_name || ""}
             />
+
+            {student && returnModal && (
+                <ReturnStudentModal
+                    isOpen={returnModal}
+                    onClose={() => setReturnModal(false)}
+                    onDone={async () => { await reload(); onUpdated?.(); }}
+                    cc={student.cc}
+                    student={student}
+                    classes={classes}
+                    getGRPrefix={getGRPrefix}
+                />
+            )}
         </div>
     );
 }
