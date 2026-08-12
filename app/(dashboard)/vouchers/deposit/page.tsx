@@ -178,7 +178,14 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     arrearSurcharges.forEach(s => groupFor(dateKey(s.arrear_fee_date)).surcharges.push(s));
 
     const sfNetAmt = (h: typeof heads[0]) => Number(h.student_fees?.amount ?? h.net_amount ?? 0);
-    const sfBalance = (h: typeof heads[0]) => Number(h.balance ?? 0);
+    // Balance must be derived from student_fees.amount - amount_paid, not the
+    // cached voucher_heads.balance column — the backend validates distributions
+    // against student_fees fresh in the transaction, and the two can drift
+    // (e.g. after a manual fee correction), rejecting a "Pay Full" submission
+    // that was computed from the stale cached balance.
+    const sfBalance = (h: typeof heads[0]) => h.student_fees
+        ? Math.max(sfNetAmt(h) - Number(h.student_fees.amount_paid ?? 0), 0)
+        : Number(h.balance ?? 0);
     const sfDeposited = (h: typeof heads[0]) => Math.max(sfNetAmt(h) - sfBalance(h), 0);
 
     const totalBalance = heads.reduce((sum, h) => sum + sfBalance(h), 0);
@@ -692,9 +699,9 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         {/* Summary totals row */}
                         <div className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
                             <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Total</span>
-                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{Math.round(heads.reduce((s,f) => s+sfNetAmt(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount),0)).toLocaleString()}</span>
-                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{Math.round(heads.reduce((s,f) => s+sfDeposited(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount_paid??0),0)).toLocaleString()}</span>
-                            <span className="text-[11px] font-black text-emerald-600 tabular-nums text-right">{Math.round(totalBalance + totalArrearSurchargeBalance).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{Math.round(heads.reduce((s,f) => s+sfNetAmt(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount),0) + (actualLateFee > 0 ? actualLateFee + Number(voucher.late_fee_deposited ?? 0) : 0)).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{Math.round(heads.reduce((s,f) => s+sfDeposited(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount_paid??0),0) + (actualLateFee > 0 ? Number(voucher.late_fee_deposited ?? 0) : 0)).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-emerald-600 tabular-nums text-right">{Math.round(totalBalance + totalArrearSurchargeBalance + actualLateFee).toLocaleString()}</span>
                             <span />
                         </div>
 
