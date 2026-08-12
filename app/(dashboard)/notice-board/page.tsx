@@ -4,6 +4,18 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/lib/api";
 import { Pin, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { getAcademicYears } from "@/lib/fee-utils";
+
+const STATUS_OPTIONS: { id: string; label: string }[] = [
+    { id: "QUICK_ADMISSION", label: "Quick Admission" },
+    { id: "ENROLLED", label: "Enrolled" },
+    { id: "SOFT_ADMISSION", label: "Soft Admission" },
+    { id: "EXPELLED", label: "Expelled" },
+    { id: "GRADUATED", label: "Graduated" },
+    { id: "LEFT", label: "Left" },
+];
+
+const ACADEMIC_YEAR_OPTIONS = getAcademicYears(1, 2);
 
 interface Post {
     id: number;
@@ -13,6 +25,8 @@ interface Post {
     class_ids: number[];
     section_ids: number[];
     student_ccs: number[];
+    student_statuses: string[];
+    academic_years: string[];
     targeted_students?: { cc: number; full_name: string; gr_number: string; household_name?: string }[];
     media_urls: string[];
     media_types: string[];
@@ -54,6 +68,8 @@ export default function NoticeBoardPage() {
     const [selectedCampusIds, setSelectedCampusIds] = useState<number[]>([]);
     const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]);
     const [selectedSectionIds, setSelectedSectionIds] = useState<number[]>([]);
+    const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+    const [selectedAcademicYears, setSelectedAcademicYears] = useState<string[]>([]);
     const [isPinned, setIsPinned] = useState(false);
     const [expiresAt, setExpiresAt] = useState("");
     const [uploadedMedia, setUploadedMedia] = useState<{ url: string; type: string; name: string }[]>([]);
@@ -132,6 +148,8 @@ export default function NoticeBoardPage() {
                 campus_ids: selectedCampusIds,
                 class_ids: selectedClassIds,
                 section_ids: selectedSectionIds,
+                student_statuses: selectedStatuses,
+                academic_years: selectedAcademicYears,
                 student_ccs: selectedStudents.map(s => s.cc),
                 media_urls: uploadedMedia.map(m => m.url),
                 media_types: uploadedMedia.map(m => m.type),
@@ -163,7 +181,8 @@ export default function NoticeBoardPage() {
 
     function resetCompose() {
         setTitle(""); setBody(""); setSelectedCampusIds([]); setSelectedClassIds([]);
-        setSelectedSectionIds([]); setIsPinned(false); setNotificationOnly(false);
+        setSelectedSectionIds([]); setSelectedStatuses([]); setSelectedAcademicYears([]);
+        setIsPinned(false); setNotificationOnly(false);
         setExpiresAt(""); setUploadedMedia([]);
         setSelectedStudents([]); setStudentSearchQuery(""); setStudentSearchResults([]);
         setCcPasteText(""); setStudentTargetOpen(false);
@@ -185,10 +204,12 @@ export default function NoticeBoardPage() {
     function addStudent(s: { cc: number; full_name: string; gr_number: string }) {
         if (selectedStudents.some(x => x.cc === s.cc)) return;
         setSelectedStudents(prev => [...prev, s]);
-        // Student targeting is exclusive — clear campus/class/section.
+        // Student targeting is exclusive — clear campus/class/section/status/academic year.
         setSelectedCampusIds([]);
         setSelectedClassIds([]);
         setSelectedSectionIds([]);
+        setSelectedStatuses([]);
+        setSelectedAcademicYears([]);
         setStudentSearchQuery("");
         setStudentSearchResults([]);
     }
@@ -218,6 +239,8 @@ export default function NoticeBoardPage() {
         setSelectedCampusIds([]);
         setSelectedClassIds([]);
         setSelectedSectionIds([]);
+        setSelectedStatuses([]);
+        setSelectedAcademicYears([]);
         setCcPasteText("");
     }
 
@@ -237,7 +260,7 @@ export default function NoticeBoardPage() {
         if (post.student_ccs?.length) {
             return `${post.student_ccs.length} Student${post.student_ccs.length > 1 ? "s" : ""} Targeted`;
         }
-        if (!post.campus_ids.length && !post.class_ids.length && !post.section_ids.length) return "School-wide";
+        if (!post.campus_ids.length && !post.class_ids.length && !post.section_ids.length && !post.student_statuses?.length && !post.academic_years?.length) return "School-wide";
         const parts: string[] = [];
         if (post.campus_ids.length) {
             const names = campuses.filter(c => post.campus_ids.includes(c.id)).map((c: any) => c.campus_name);
@@ -251,6 +274,13 @@ export default function NoticeBoardPage() {
             const names = post.section_ids.map(id => sectionNameMap.get(id)).filter(Boolean);
             if (names.length) parts.push(names.join(", "));
         }
+        if (post.student_statuses?.length) {
+            const names = post.student_statuses.map(s => STATUS_OPTIONS.find(o => o.id === s)?.label).filter(Boolean);
+            if (names.length) parts.push(names.join(", "));
+        }
+        if (post.academic_years?.length) {
+            parts.push(post.academic_years.join(", "));
+        }
         return parts.join(" · ") || "Targeted";
     }
 
@@ -259,7 +289,7 @@ export default function NoticeBoardPage() {
         if (post.student_ccs?.length) {
             badges.push({ label: `Targeted: ${post.student_ccs.length} student${post.student_ccs.length > 1 ? "s" : ""}`, color: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300" });
         }
-        if (!post.campus_ids.length && !post.class_ids.length && !post.section_ids.length) {
+        if (!post.campus_ids.length && !post.class_ids.length && !post.section_ids.length && !post.student_statuses?.length && !post.academic_years?.length) {
             if (!post.student_ccs?.length) {
                 badges.push({ label: "School-wide", color: "bg-zinc-200 dark:bg-zinc-700 text-zinc-500" });
             }
@@ -283,6 +313,17 @@ export default function NoticeBoardPage() {
                 if (name) badges.push({ label: name, color: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300" });
             }
         }
+        if (post.student_statuses?.length) {
+            for (const s of post.student_statuses) {
+                const name = STATUS_OPTIONS.find(o => o.id === s)?.label;
+                if (name) badges.push({ label: name, color: "bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300" });
+            }
+        }
+        if (post.academic_years?.length) {
+            for (const y of post.academic_years) {
+                badges.push({ label: y, color: "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300" });
+            }
+        }
         return badges;
     }
 
@@ -295,12 +336,19 @@ export default function NoticeBoardPage() {
         if (selectedStudents.length > 1) {
             return `Only ${selectedStudents.length} selected students — not school-wide`;
         }
-        if (!selectedCampusIds.length && !selectedClassIds.length && !selectedSectionIds.length)
+        if (!selectedCampusIds.length && !selectedClassIds.length && !selectedSectionIds.length && !selectedStatuses.length && !selectedAcademicYears.length)
             return "All families (school-wide)";
         const parts: string[] = [];
         if (selectedCampusIds.length) {
             const names = campuses.filter(c => selectedCampusIds.includes(c.id)).map((c: any) => c.campus_name);
             parts.push(names.join(", "));
+        }
+        if (selectedStatuses.length) {
+            const names = selectedStatuses.map(s => STATUS_OPTIONS.find(o => o.id === s)?.label).filter(Boolean);
+            parts.push(names.join(", "));
+        }
+        if (selectedAcademicYears.length) {
+            parts.push(selectedAcademicYears.join(", "));
         }
         return `Families in: ${parts.join(" · ") || "selected scope"}`;
     }
@@ -495,6 +543,34 @@ export default function NoticeBoardPage() {
                                             </div>
                                         </div>
                                     )}
+                                    <div>
+                                        <p className="text-xs text-zinc-500 mb-1">Student Status</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {STATUS_OPTIONS.map(s => (
+                                                <button
+                                                    key={s.id}
+                                                    onClick={() => setSelectedStatuses(prev => prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id])}
+                                                    className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${selectedStatuses.includes(s.id) ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-primary/50"}`}
+                                                >
+                                                    {s.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-zinc-500 mb-1">Academic Year</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {ACADEMIC_YEAR_OPTIONS.map(y => (
+                                                <button
+                                                    key={y}
+                                                    onClick={() => setSelectedAcademicYears(prev => prev.includes(y) ? prev.filter(x => x !== y) : [...prev, y])}
+                                                    className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${selectedAcademicYears.includes(y) ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-primary/50"}`}
+                                                >
+                                                    {y}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                     <p className="text-xs text-primary font-medium">
                                         Will be visible to: {composeScopeLabel()}
                                     </p>
