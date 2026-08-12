@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     X, Loader2, RotateCcw, UserPlus, Hash, Sparkles, ChevronRight,
@@ -69,6 +69,12 @@ const MODE_COPY: Record<ReturnMode, {
     },
 };
 
+/** Same window used by the bulk-promotion academic year picker: 2 years back, 3 ahead. */
+function generateAcademicYears(): string[] {
+    const y = new Date().getFullYear();
+    return Array.from({ length: 6 }, (_, i) => `${y - 2 + i}-${y - 1 + i}`);
+}
+
 /** "1 year 2 months", "18 days", "less than a day" — mirrors the backend note. */
 function formatAway(fromIso: string | null | undefined): string | null {
     if (!fromIso) return null;
@@ -100,6 +106,17 @@ export function ReturnStudentModal({
     const [sectionId, setSectionId] = useState<number | "">("");
     const [houseId, setHouseId] = useState<number | "">("");
     const [academicYear, setAcademicYear] = useState("");
+
+    // Include the student's prior year even if it falls outside the generated
+    // 2-back/3-ahead window, so an old value never disappears from the list.
+    const academicYearOptions = useMemo(() => {
+        const generated = generateAcademicYears();
+        const priorYear = student?.academic_year;
+        if (priorYear && !generated.includes(priorYear)) {
+            return [priorYear, ...generated].sort();
+        }
+        return generated;
+    }, [student?.academic_year]);
 
     const [awayFrom, setAwayFrom] = useState<string | null>(null);
 
@@ -514,13 +531,21 @@ export function ReturnStudentModal({
                                             <label className="text-xs font-black uppercase tracking-wider text-zinc-500 ml-1">
                                                 Academic Year
                                             </label>
-                                            <input
-                                                type="text"
-                                                value={academicYear}
-                                                onChange={(e) => setAcademicYear(e.target.value)}
-                                                placeholder="e.g. 2026-2027"
-                                                className="w-full px-4 py-3.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-zinc-200 transition-all font-bold text-zinc-700 dark:text-zinc-300"
-                                            />
+                                            <div className="relative">
+                                                <select
+                                                    value={academicYear}
+                                                    onChange={(e) => setAcademicYear(e.target.value)}
+                                                    className="w-full px-4 py-3.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-zinc-200 transition-all font-bold text-zinc-700 dark:text-zinc-300 appearance-none cursor-pointer"
+                                                >
+                                                    <option value="">Unassigned</option>
+                                                    {academicYearOptions.map((yr) => (
+                                                        <option key={yr} value={yr}>{yr}</option>
+                                                    ))}
+                                                </select>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                                                    <ChevronRight className="h-5 w-5 rotate-90" />
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <div className="flex gap-3 pt-2">

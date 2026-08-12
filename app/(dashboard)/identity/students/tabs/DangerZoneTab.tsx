@@ -6,19 +6,28 @@ import api from "@/lib/api";
 export function DangerZoneTab({ student }: { student: any }) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [dfText, setDfText] = useState("");
+    const [reason, setReason] = useState("");
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+
+    const canDelete = dfText === String(student.cc) && reason.trim().length >= 3;
 
     const handleHardDelete = async () => {
         if (dfText !== String(student.cc)) {
             alert("Incorrect CC number. Please type the student's CC exactly as shown.");
             return;
         }
+        if (reason.trim().length < 3) {
+            alert("Please record a reason for this deletion — it is saved to the audit log.");
+            return;
+        }
 
         setIsDeleting(true);
         try {
-            await api.delete(`/v1/staff-editing/students/${student.cc}/hard-delete`);
+            await api.delete(`/v1/staff-editing/students/${student.cc}/hard-delete`, {
+                data: { reason: reason.trim() },
+            });
             alert("Student profile permanently deleted.");
-            window.location.reload(); 
+            window.location.reload();
         } catch (e) {
             console.error(e);
             alert("Failed to delete student: " + ((e as any)?.response?.data?.message || "Unknown error"));
@@ -88,31 +97,45 @@ export function DangerZoneTab({ student }: { student: any }) {
                             <label className="block text-[10px] font-black text-rose-600 uppercase tracking-wider">
                                 Type Student CC: <span className="bg-rose-100 px-2 py-0.5 rounded ml-1 font-mono">#{student.cc}</span>
                             </label>
-                            <div className="flex gap-3">
-                                <input 
-                                    type="text"
-                                    value={dfText}
-                                    onChange={e => setDfText(e.target.value)}
-                                    placeholder={`ENTER ${student.cc} TO CONFIRM`}
-                                    className="flex-1 h-11 px-4 text-[14px] font-mono font-black text-rose-600 bg-rose-50 border-2 border-rose-100 rounded-xl outline-none focus:border-rose-500 transition-all text-center uppercase"
-                                />
-                                <button 
-                                    onClick={handleHardDelete}
-                                    disabled={isDeleting || dfText !== String(student.cc)}
-                                    className="px-8 h-11 text-[11px] font-black uppercase tracking-wider bg-rose-600 text-white rounded-xl hover:bg-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-200"
-                                >
-                                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm & Wipe"}
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        setIsDeleteConfirmOpen(false);
-                                        setDfText("");
-                                    }}
-                                    className="px-5 h-11 text-[11px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-500 rounded-xl hover:bg-zinc-200 transition-all"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
+                            <input
+                                type="text"
+                                value={dfText}
+                                onChange={e => setDfText(e.target.value)}
+                                placeholder={`ENTER ${student.cc} TO CONFIRM`}
+                                className="w-full h-11 px-4 text-[14px] font-mono font-black text-rose-600 bg-rose-50 border-2 border-rose-100 rounded-xl outline-none focus:border-rose-500 transition-all text-center uppercase"
+                            />
+                        </div>
+
+                        <div className="space-y-3">
+                            <label className="block text-[10px] font-black text-rose-600 uppercase tracking-wider">
+                                Reason for Deletion
+                            </label>
+                            <textarea
+                                value={reason}
+                                onChange={e => setReason(e.target.value)}
+                                placeholder="Why is this student being permanently deleted? Saved to the audit log."
+                                className="w-full h-20 px-4 py-3 text-[13px] font-semibold text-zinc-700 bg-rose-50 border-2 border-rose-100 rounded-xl outline-none focus:border-rose-500 transition-all resize-none"
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleHardDelete}
+                                disabled={isDeleting || !canDelete}
+                                className="flex-[2] h-11 text-[11px] font-black uppercase tracking-wider bg-rose-600 text-white rounded-xl hover:bg-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-200"
+                            >
+                                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Confirm & Wipe"}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setIsDeleteConfirmOpen(false);
+                                    setDfText("");
+                                    setReason("");
+                                }}
+                                className="flex-1 h-11 text-[11px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-500 rounded-xl hover:bg-zinc-200 transition-all"
+                            >
+                                Cancel
+                            </button>
                         </div>
                     </div>
                 )}
