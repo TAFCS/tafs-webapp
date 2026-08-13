@@ -309,12 +309,17 @@ export default function RollCallPage() {
   );
 
   const roster: RollSessionRosterEntry[] = session?.roster ?? [];
-  const isLocked = session?.status === "SUBMITTED" || session?.status === "SKIPPED";
-  const canEdit = canMark && session?.status === "DRAFT";
   const isHolidaySkip =
     session?.status === "SKIPPED" &&
     !!session.skip_reason &&
     session.skip_reason.startsWith("Holiday:");
+  // A non-holiday SKIPPED session (almost always auto-skipped because
+  // nobody submitted it by the cutoff time) can still be marked — that's
+  // routine correction of a missed roll call, not a locked final state.
+  // A holiday skip stays locked since the backend rejects marking on it.
+  const isReopenableSkip = session?.status === "SKIPPED" && !isHolidaySkip;
+  const isLocked = session?.status === "SUBMITTED" || isHolidaySkip;
+  const canEdit = canMark && (session?.status === "DRAFT" || isReopenableSkip);
 
   const presentCount = useMemo(
     () => roster.filter((r) => marks[r.student.cc] === "PRESENT").length,
@@ -663,7 +668,9 @@ export default function RollCallPage() {
 
             {isLocked && (
               <p className="text-xs text-zinc-500 dark:text-zinc-400 text-center pb-2">
-                This session is locked. Contact an administrator with edit_locked permission to change submitted records.
+                {isHolidaySkip
+                  ? "This day is marked as a holiday / day off, so attendance can't be recorded for it."
+                  : "This session is locked. Contact an administrator with edit_locked permission to change submitted records."}
               </p>
             )}
           </>
@@ -671,7 +678,7 @@ export default function RollCallPage() {
       </div>
 
       {/* Sticky mobile action bar */}
-      {canMark && session?.status === "DRAFT" && roster.length > 0 && (
+      {canMark && (session?.status === "DRAFT" || isReopenableSkip) && roster.length > 0 && (
         <div className="fixed bottom-0 inset-x-0 sm:static bg-white dark:bg-zinc-950 border-t sm:border-t-0 border-zinc-200 dark:border-zinc-800 p-3 sm:p-0 sm:mt-4 sm:max-w-3xl sm:mx-auto flex gap-2 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] sm:shadow-none">
           <button
             type="button"
