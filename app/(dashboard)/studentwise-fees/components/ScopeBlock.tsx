@@ -21,6 +21,8 @@ interface Props {
     lockCampusId?: number;
     /** Require class + section selection (no "All" options) */
     requireClassAndSection?: boolean;
+    /** Require class only, leaving section optional (implied by requireClassAndSection) */
+    requireClass?: boolean;
     /** Hide campus select dropdown */
     hideCampusSelect?: boolean;
 }
@@ -32,8 +34,10 @@ export function ScopeBlock({
     allowedClassIds,
     lockCampusId,
     requireClassAndSection = false,
+    requireClass = false,
     hideCampusSelect = false,
 }: Props) {
+    const classRequired = requireClassAndSection || requireClass;
     const allCampuses = useAppSelector((s: any) => s.campuses.items);
     const campuses = useMemo(() => {
         if (lockCampusId != null) {
@@ -87,7 +91,7 @@ export function ScopeBlock({
                 <div className="relative">
                     <label className="block text-[10px] font-bold text-zinc-500 mb-1.5">
                         Class{" "}
-                        {requireClassAndSection ? (
+                        {classRequired ? (
                             <span className="text-rose-500">*</span>
                         ) : (
                             <span className="text-zinc-300">(optional)</span>
@@ -101,7 +105,7 @@ export function ScopeBlock({
                             className={`${sel} disabled:opacity-40 disabled:cursor-not-allowed`}
                         >
                             <option value="">
-                                {requireClassAndSection ? "Select class..." : "All classes"}
+                                {classRequired ? "Select class..." : "All classes"}
                             </option>
                             {availableClasses.map((c) => (
                                 <option key={c.id} value={c.id}>

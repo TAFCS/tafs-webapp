@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, Download, LayoutGrid, List, Loader2, Search, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, Briefcase, ChevronLeft, ChevronRight, Download, LayoutGrid, List, Loader2, Search, X } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
-import { hrService, AttendanceLineBase } from "@/lib/hr.service";
-import { PayrollMatrixView } from "../../hr/payroll/_components/PayrollMatrixView";
-import { PayrollLineDetailModal } from "../../hr/payroll/_components/PayrollLineDetailModal";
-import { AttendanceTagBadges } from "../../hr/payroll/_components/AttendanceTagBadges";
+import { hrService, AttendanceLineBase, Department } from "@/lib/hr.service";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId, serializeIds } from "@/components/filters/filter-params";
+import { PayrollMatrixView } from "../../payroll/_components/PayrollMatrixView";
+import { PayrollLineDetailModal } from "../../payroll/_components/PayrollLineDetailModal";
+import { AttendanceTagBadges } from "../../payroll/_components/AttendanceTagBadges";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -149,6 +151,8 @@ export function AttendanceCycleWidget() {
     const { user } = useAuthState();
 
     const [campusId, setCampusId] = useState(user?.campusId ? String(user.campusId) : "");
+    const [departmentIds, setDepartmentIds] = useState<number[]>([]);
+    const [departments, setDepartments] = useState<Department[]>([]);
     const [cycle, setCycle] = useState<CycleKey>(currentCycleKey());
     const [tab, setTab] = useState<"lines" | "matrix">("lines");
     const [lines, setLines] = useState<AttendanceLineBase[]>([]);
@@ -187,39 +191,52 @@ export function AttendanceCycleWidget() {
         });
     }, [lines, search]);
 
-    useEffect(() => { dispatch(fetchCampuses()); }, [dispatch]);
+    useEffect(() => {
+        dispatch(fetchCampuses());
+        hrService.listDepartments().then(setDepartments).catch(console.error);
+    }, [dispatch]);
     useEffect(() => {
         if (!campusId && user?.campusId) setCampusId(String(user.campusId));
     }, [user?.campusId, campusId]);
 
+    const departmentOptions = useMemo(
+        () => departments.map((d) => ({ id: d.id, label: d.name })),
+        [departments],
+    );
+
+    // A campus is required: without one this fetches (and renders) every
+    // employee at every campus for the whole cycle, which is what made the
+    // punch matrix unusable.
+    const matrixParams = useMemo(
+        () => ({
+            campus_id: Number(campusId),
+            ...(departmentIds.length ? { department_id: serializeIds(departmentIds) } : {}),
+            period_start: periodStart,
+            period_end: periodEnd,
+        }),
+        [campusId, departmentIds, periodStart, periodEnd],
+    );
+
     const load = useCallback(async () => {
+        if (!campusId) return;
         setLoading(true);
         setError(null);
         try {
-            const matrix = await hrService.getAttendanceMatrix({
-                campus_id: campusId ? Number(campusId) : undefined,
-                period_start: periodStart,
-                period_end: periodEnd,
-            });
+            const matrix = await hrService.getAttendanceMatrix(matrixParams);
             setLines(matrix.lines);
         } catch {
             setError("Failed to load attendance data.");
         } finally {
             setLoading(false);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [campusId, periodStart, periodEnd]);
+    }, [campusId, matrixParams]);
 
     useEffect(() => { load(); }, [load]);
 
     const handleExport = async () => {
         setExporting(true);
         try {
-            await hrService.exportAttendanceMatrix({
-                campus_id: campusId ? Number(campusId) : undefined,
-                period_start: periodStart,
-                period_end: periodEnd,
-            });
+            await hrService.exportAttendanceMatrix(matrixParams);
         } catch {
             setError("Failed to export attendance data.");
         } finally {
@@ -291,16 +308,25 @@ export function AttendanceCycleWidget() {
                     </div>
                     <select
                         value={campusId}
-                        onChange={(e) => setCampusId(e.target.value)}
+                        onChange={(e) => { setCampusId(e.target.value); setDepartmentIds([]); setLines([]); }}
                         disabled={!!user?.campusId}
                         className="h-9 px-3 border rounded-xl text-sm bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
                     >
-                        <option value="">All Campuses</option>
+                        <option value="">Select campus...</option>
                         {campuses.map((c) => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
                     </select>
+                    <FilterDropdown
+                        label="Department"
+                        icon={Briefcase}
+                        value={departmentIds}
+                        options={departmentOptions}
+                        placeholder="All departments"
+                        onToggle={(id) => setDepartmentIds((prev) => toggleId(prev, id))}
+                        onClear={() => setDepartmentIds([])}
+                    />
                     <button
                         onClick={handleExport}
-                        disabled={exporting || lines.length === 0}
+                        disabled={exporting || !campusId || lines.length === 0}
                         className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
                     >
                         {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
@@ -338,7 +364,9 @@ export function AttendanceCycleWidget() {
                 </div>
             )}
 
-            {loading && lines.length === 0 ? (
+            {!campusId ? (
+                <p className="text-sm text-zinc-500 text-center py-14">Select a campus to load employee attendance.</p>
+            ) : loading && lines.length === 0 ? (
                 <div className="flex items-center justify-center py-16">
                     <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
                 </div>

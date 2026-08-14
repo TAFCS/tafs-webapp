@@ -201,8 +201,10 @@ export function StudentAttendanceCycleWidget() {
         if (!scope.campusId && user?.campusId) setScope((s) => ({ ...s, campusId: String(user.campusId) }));
     }, [user?.campusId, scope.campusId]);
 
+    // Campus + class are both required: a whole campus is 1000+ students, and
+    // the punch matrix renders a cell per student per day.
     const load = useCallback(async () => {
-        if (!scope.campusId) return;
+        if (!scope.campusId || !scope.classId) return;
         setLoading(true);
         setError(null);
         try {
@@ -308,7 +310,7 @@ export function StudentAttendanceCycleWidget() {
                     </div>
                     <button
                         onClick={handleExport}
-                        disabled={exporting || lines.length === 0}
+                        disabled={exporting || !scope.classId || lines.length === 0}
                         className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
                     >
                         {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
@@ -319,10 +321,10 @@ export function StudentAttendanceCycleWidget() {
 
             <ScopeBlock
                 value={scope}
-                onChange={setScope}
+                onChange={(next) => { setScope(next); setLines([]); }}
                 lockCampusId={user?.campusId ?? undefined}
                 allowedClassIds={user?.allowedClassIds}
-                requireClassAndSection={false}
+                requireClass
             />
 
             <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl w-fit">
@@ -354,8 +356,8 @@ export function StudentAttendanceCycleWidget() {
                 </div>
             )}
 
-            {!scope.campusId ? (
-                <p className="text-sm text-zinc-500 text-center py-14">Select a campus to load student attendance.</p>
+            {!scope.campusId || !scope.classId ? (
+                <p className="text-sm text-zinc-500 text-center py-14">Select a campus and class to load student attendance.</p>
             ) : loading && lines.length === 0 ? (
                 <div className="flex items-center justify-center py-16">
                     <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />

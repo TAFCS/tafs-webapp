@@ -127,9 +127,12 @@ export const NAV_MODULES: NavModule[] = [
             "attendance.staff.mark", "hr.policies.manage", "hr.objections.review", "hr.leave.approve",
             "attendance.student.rollcall.mark", "attendance.student.rollcall.view",
             "hr.timetable.view", "hr.timetable.manage", "system.permissions.manage",
+            "hr.payroll.view",
         ],
         items: [
             { name: "Staff Register", description: "Daily staff punch-in", href: "/hr/staff-register", icon: ClipboardCheck, permission: "attendance.staff.mark" },
+            { name: "Employee Attendance", description: "Daily staff clock-in/out from biometric devices", href: "/hr/attendance-dashboard", icon: UserCheck, permissions: ["attendance.staff.mark", "hr.objections.review"] },
+            { name: "Employee Attendance by Cycle", description: "Employee lines and punch matrix over a date range", href: "/hr/attendance-dashboard/cycle", icon: LayoutGrid, permission: "hr.payroll.view" },
             { name: "Attendance Objections", description: "Review employee attendance disputes", href: "/hr/objections", icon: ClipboardList, permission: "hr.objections.review" },
             { name: "Leave Requests", description: "Review employee leave applications", href: "/hr/leaves", icon: CalendarClock, permission: "hr.leave.approve" },
             { name: "Saturday Schedules", description: "Mandatory teacher Saturdays", href: "/hr/saturday-schedules", icon: CalendarDays },

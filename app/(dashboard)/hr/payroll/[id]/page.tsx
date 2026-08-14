@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Wallet, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Lock,
@@ -93,8 +93,14 @@ export default function PayrollRunDetailPage() {
     return () => clearTimeout(t);
   }, [success]);
 
-  const lines = [...(run?.payroll_run_lines ?? [])].sort((a, b) =>
-    (a.employee_profiles?.full_name ?? "").localeCompare(b.employee_profiles?.full_name ?? ""),
+  // Memoized so the punch matrix (which pages and memoizes rows off this
+  // array) isn't handed a fresh identity on every render of this page.
+  const lines = useMemo(
+    () =>
+      [...(run?.payroll_run_lines ?? [])].sort((a, b) =>
+        (a.employee_profiles?.full_name ?? "").localeCompare(b.employee_profiles?.full_name ?? ""),
+      ),
+    [run?.payroll_run_lines],
   );
   const totalUnresolved = lines.reduce((sum, l) => sum + l.unresolved_days, 0);
   const totalGross = lines.reduce((sum, l) => sum + Number(l.monthly_pay), 0);

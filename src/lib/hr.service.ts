@@ -712,11 +712,11 @@ export const hrService = {
     const { data } = await api.get<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}`);
     return data.data;
   },
-  async getAttendanceMatrix(params: { campus_id?: number; period_start: string; period_end: string }): Promise<AttendanceMatrix> {
+  async getAttendanceMatrix(params: { campus_id?: number; department_id?: string; period_start: string; period_end: string }): Promise<AttendanceMatrix> {
     const { data } = await api.get<ApiEnvelope<AttendanceMatrix>>('/v1/hr/payroll/attendance-matrix', { params });
     return data.data;
   },
-  async exportAttendanceMatrix(params: { campus_id?: number; period_start: string; period_end: string }): Promise<void> {
+  async exportAttendanceMatrix(params: { campus_id?: number; department_id?: string; period_start: string; period_end: string }): Promise<void> {
     const { data } = await api.get('/v1/hr/payroll/attendance-matrix/export', { params, responseType: 'blob' });
     downloadBlob(data, `attendance-${params.period_start}-to-${params.period_end}.xlsx`);
   },

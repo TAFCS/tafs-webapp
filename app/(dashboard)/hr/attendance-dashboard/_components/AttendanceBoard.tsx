@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
     AlertCircle,
@@ -301,6 +302,13 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
                         </h1>
                         <p className="text-sm text-zinc-500 mt-1">Daily staff clock-in/out overview from biometric devices.</p>
                     </div>
+                    <Link
+                        href="/hr/attendance-dashboard/cycle"
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all active:scale-95 whitespace-nowrap"
+                    >
+                        <CalendarCheck className="h-4 w-4" />
+                        By Cycle
+                    </Link>
                     {isSuperAdmin && (
                         <button
                             onClick={() => setSimulateOpen(true)}
