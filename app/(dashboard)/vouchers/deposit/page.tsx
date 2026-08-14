@@ -811,8 +811,12 @@ function PartiallyPaidModal({
                 }
             };
 
+            // Prefer the server's filenames: each child voucher is keyed off its
+            // OWN fee_date, which for the balance child is frequently not this
+            // voucher's, so rebuilding from `voucher.fee_date` below produces a
+            // name that disagrees with the stored object.
             if (splitRes.data?.paid_pdf_url) {
-                await downloadPdf(splitRes.data.paid_pdf_url, buildVoucherFilename({
+                await downloadPdf(splitRes.data.paid_pdf_url, splitRes.data?.paid_pdf_filename ?? buildVoucherFilename({
                     grNumber: voucher.students?.gr_number,
                     cc: voucher.students?.cc,
                     feeDate: voucher.fee_date,
@@ -822,7 +826,7 @@ function PartiallyPaidModal({
             }
 
             if (splitRes.data?.unpaid_pdf_url) {
-                await downloadPdf(splitRes.data.unpaid_pdf_url, buildVoucherFilename({
+                await downloadPdf(splitRes.data.unpaid_pdf_url, splitRes.data?.unpaid_pdf_filename ?? buildVoucherFilename({
                     grNumber: voucher.students?.gr_number,
                     cc: voucher.students?.cc,
                     feeDate: voucher.fee_date,
@@ -1047,13 +1051,17 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
 
     const handlePaidDownload = async () => {
         setIsDownloading(true);
-        const loadingToast = toast.loading("Generating PAID PDF…");
+        const isFrozen = Boolean((voucher as any).paid_pdf_url);
+        const loadingToast = toast.loading(isFrozen ? "Fetching saved receipt…" : "Generating PAID PDF…");
         try {
             const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, { paid_stamp: true });
             const pdfUrl = pdfRes.data?.pdf_url;
             if (!pdfUrl) throw new Error("No PDF URL returned from server.");
 
-            const filename = buildVoucherFilename({
+            // The server freezes the paid receipt's filename at first generation.
+            // Prefer it — rebuilding locally would use the student's CURRENT
+            // gr_number, which drifts if the GR is corrected after issuance.
+            const filename = pdfRes.data?.filename ?? buildVoucherFilename({
                 grNumber: voucher.students?.gr_number,
                 cc: voucher.students?.cc,
                 feeDate: voucher.fee_date,

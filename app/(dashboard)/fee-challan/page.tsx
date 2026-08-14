@@ -657,7 +657,9 @@ export default function FeeChallanGenerator() {
       setSavedVoucherId(voucherId);
       if (pdfUrl) {
         setPreviewPdfUrl(pdfUrl);
-        setPreviewFilename(buildVoucherFilename({
+        // The server returns the exact name it stored the object under; prefer it
+        // over rebuilding from the student's current gr_number.
+        setPreviewFilename(genRes.data?.data?.filename ?? buildVoucherFilename({
           grNumber: student?.gr_number,
           cc: student?.cc,
           feeDate: voucherFeeDate,
@@ -777,7 +779,8 @@ export default function FeeChallanGenerator() {
         setSavedGroupVoucherPdfUrls((prev) => ({ ...prev, [group.fee_date]: groupPdfUrl }));
         setSavedGroupVoucherIds((prev) => ({ ...prev, [group.fee_date]: voucherId }));
         setPreviewPdfUrl(groupPdfUrl);
-        setPreviewFilename(buildVoucherFilename({
+        // Prefer the server's stored name (see the single-voucher flow above).
+        setPreviewFilename(genRes.data?.data?.filename ?? buildVoucherFilename({
           grNumber: student?.gr_number,
           cc: student?.cc,
           feeDate: group.fee_date,

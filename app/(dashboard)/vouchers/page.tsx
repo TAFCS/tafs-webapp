@@ -388,13 +388,17 @@ function VoucherRow({
 
     const handlePaidDownload = async () => {
         setIsDownloading(true);
-        const loadingToast = toast.loading("Generating PAID PDF…");
+        const isFrozen = Boolean((voucher as any).paid_pdf_url);
+        const loadingToast = toast.loading(isFrozen ? "Fetching saved receipt…" : "Generating PAID PDF…");
         try {
             const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, { paid_stamp: true });
             const pdfUrl = pdfRes.data?.pdf_url;
             if (!pdfUrl) throw new Error("No PDF URL returned from server.");
 
-            await downloadPdfBlob(pdfUrl, buildFilename("paid"));
+            // The server freezes the paid receipt's filename at first generation.
+            // Prefer it — rebuilding locally would use the student's CURRENT
+            // gr_number, which drifts if the GR is corrected after issuance.
+            await downloadPdfBlob(pdfUrl, pdfRes.data?.filename ?? buildFilename("paid"));
 
             toast.dismiss(loadingToast);
             toast.success("PAID voucher downloaded.");
@@ -549,7 +553,9 @@ function VoucherRow({
                         <button
                             onClick={handlePaidDownload}
                             disabled={isDownloading}
-                            title="Download PAID-stamped PDF"
+                            title={(voucher as any).paid_pdf_url
+                                ? "Download the saved PAID receipt (generated once, never re-rendered)"
+                                : "Generate and download the PAID-stamped PDF"}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
                         >
                             {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Stamp className="h-3.5 w-3.5" />}
