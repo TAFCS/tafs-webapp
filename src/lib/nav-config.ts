@@ -18,6 +18,12 @@ export interface NavItem {
     icon: LucideIcon;
     permission?: string;
     permissions?: string[];
+    /**
+     * Optional section heading on the module page. Items are grouped in the
+     * order their group first appears in `items`, so keep same-group entries
+     * contiguous. Modules that set no groups render as one flat "Pages" grid.
+     */
+    group?: string;
 }
 
 export interface NavModule {
@@ -130,23 +136,30 @@ export const NAV_MODULES: NavModule[] = [
             "hr.payroll.view",
         ],
         items: [
-            { name: "Staff Register", description: "Daily staff punch-in", href: "/hr/staff-register", icon: ClipboardCheck, permission: "attendance.staff.mark" },
-            { name: "Employee Attendance", description: "Daily staff clock-in/out from biometric devices", href: "/hr/attendance-dashboard", icon: UserCheck, permissions: ["attendance.staff.mark", "hr.objections.review"] },
-            { name: "Employee Attendance by Cycle", description: "Employee lines and punch matrix over a date range", href: "/hr/attendance-dashboard/cycle", icon: LayoutGrid, permission: "hr.payroll.view" },
-            { name: "Attendance Objections", description: "Review employee attendance disputes", href: "/hr/objections", icon: ClipboardList, permission: "hr.objections.review" },
-            { name: "Leave Requests", description: "Review employee leave applications", href: "/hr/leaves", icon: CalendarClock, permission: "hr.leave.approve" },
-            { name: "Saturday Schedules", description: "Mandatory teacher Saturdays", href: "/hr/saturday-schedules", icon: CalendarDays },
-            { name: "Shift Overrides", description: "Override check-in/out time for a campus or segment on specific days", href: "/hr/shift-overrides", icon: CalendarClock },
-            { name: "Academic Calendar", description: "School year and events", href: "/hr/calendar", icon: CalendarDays, permission: "hr.policies.manage" },
-            { name: "Attendance Settings", description: "Rules and thresholds", href: "/hr/attendance-settings", icon: Settings, permission: "hr.policies.manage" },
-            { name: "Class Modes", description: "Online / offline configuration", href: "/hr/class-modes", icon: Clock, permission: "hr.policies.manage" },
-            { name: "Quick Check-In", description: "Search a student and punch them in or out", href: "/attendance/quick-check-in", icon: Clock, permissions: ["attendance.student.rollcall.mark"] },
-            { name: "Student Attendance", description: "Per-class attendance records", href: "/hr/student-attendance-dashboard", icon: UserCheck, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
-            { name: "Student Attendance by Cycle", description: "Student lines and punch matrix over a date range", href: "/hr/student-attendance-dashboard/cycle", icon: LayoutGrid, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
-            { name: "A-Level Roll Call", description: "A-level section marking", href: "/hr/roll-call", icon: ClipboardList, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
-            { name: "Timetables", description: "A-Level weekly class schedules", href: "/hr/timetables", icon: CalendarDays, permissions: ["hr.timetable.view", "hr.timetable.manage"] },
-            { name: "Teaching Groups", description: "Subject classes and student subject enrollment", href: "/hr/teaching-groups", icon: BookOpen, permissions: ["hr.timetable.view", "hr.timetable.manage"] },
-            { name: "ZK Device Logs", description: "Biometric device data", href: "/attendance/zk-device-logs", icon: Fingerprint, permission: "system.permissions.manage" },
+            // ── Employees ──
+            { group: "Employees", name: "Staff Register", description: "Daily staff punch-in", href: "/hr/staff-register", icon: ClipboardCheck, permission: "attendance.staff.mark" },
+            { group: "Employees", name: "Employee Attendance", description: "Daily staff clock-in/out from biometric devices", href: "/hr/attendance-dashboard", icon: UserCheck, permissions: ["attendance.staff.mark", "hr.objections.review"] },
+            { group: "Employees", name: "Employee Attendance by Cycle", description: "Employee lines and punch matrix over a date range", href: "/hr/attendance-dashboard/cycle", icon: LayoutGrid, permission: "hr.payroll.view" },
+            { group: "Employees", name: "Attendance Objections", description: "Review employee attendance disputes", href: "/hr/objections", icon: ClipboardList, permission: "hr.objections.review" },
+            { group: "Employees", name: "Leave Requests", description: "Review employee leave applications", href: "/hr/leaves", icon: CalendarClock, permission: "hr.leave.approve" },
+
+            // ── Students ──
+            { group: "Students", name: "Student Attendance", description: "Per-class attendance records", href: "/hr/student-attendance-dashboard", icon: UserCheck, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
+            { group: "Students", name: "Student Attendance by Cycle", description: "Student lines and punch matrix over a date range", href: "/hr/student-attendance-dashboard/cycle", icon: LayoutGrid, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
+            { group: "Students", name: "Quick Check-In", description: "Search a student and punch them in or out", href: "/attendance/quick-check-in", icon: Clock, permissions: ["attendance.student.rollcall.mark"] },
+            { group: "Students", name: "A-Level Roll Call", description: "A-level section marking", href: "/hr/roll-call", icon: ClipboardList, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
+
+            // ── Scheduling ──
+            { group: "Scheduling", name: "Timetables", description: "A-Level weekly class schedules", href: "/hr/timetables", icon: CalendarDays, permissions: ["hr.timetable.view", "hr.timetable.manage"] },
+            { group: "Scheduling", name: "Teaching Groups", description: "Subject classes and student subject enrollment", href: "/hr/teaching-groups", icon: BookOpen, permissions: ["hr.timetable.view", "hr.timetable.manage"] },
+            { group: "Scheduling", name: "Saturday Schedules", description: "Mandatory teacher Saturdays", href: "/hr/saturday-schedules", icon: CalendarDays },
+            { group: "Scheduling", name: "Shift Overrides", description: "Override check-in/out time for a campus or segment on specific days", href: "/hr/shift-overrides", icon: CalendarClock },
+            { group: "Scheduling", name: "Academic Calendar", description: "School year and events", href: "/hr/calendar", icon: CalendarDays, permission: "hr.policies.manage" },
+
+            // ── Configuration ──
+            { group: "Configuration", name: "Attendance Settings", description: "Rules and thresholds", href: "/hr/attendance-settings", icon: Settings, permission: "hr.policies.manage" },
+            { group: "Configuration", name: "Class Modes", description: "Online / offline configuration", href: "/hr/class-modes", icon: Clock, permission: "hr.policies.manage" },
+            { group: "Configuration", name: "ZK Device Logs", description: "Biometric device data", href: "/attendance/zk-device-logs", icon: Fingerprint, permission: "system.permissions.manage" },
         ],
     },
     {

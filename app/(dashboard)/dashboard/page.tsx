@@ -116,7 +116,20 @@ export default function DashboardPage() {
     const visibleModules = NAV_MODULES.filter(m => m.permissions.some(hasPermission));
     const activeModule = visibleModules.find(m => m.id === activeModuleId) ?? visibleModules[0];
     const visibleItems = activeModule?.items.filter(isItemVisible) ?? [];
-    
+
+    // Sections in the order their group first appears. A module that sets no
+    // groups collapses to a single "Pages" section — i.e. the flat grid.
+    // Built from the already permission-filtered list, so a section whose every
+    // item is hidden never renders a lonely heading.
+    const itemSections = visibleItems.reduce<{ label: string; items: NavItem[] }[]>((acc, item) => {
+        const label = item.group ?? "Pages";
+        const section = acc.find(s => s.label === label);
+        if (section) section.items.push(item);
+        else acc.push({ label, items: [item] });
+        return acc;
+    }, []);
+
+
     const stats = (MODULE_STATS[activeModule?.id ?? ""] ?? []).map(stat => {
         if (!statsData || !statsData[activeModule?.id]) return stat;
         const apiValue = statsData[activeModule.id][stat.label];
@@ -197,37 +210,41 @@ export default function DashboardPage() {
                         </div>
                     )}
 
-                    {/* Page Grid */}
-                    <div>
-                        <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.25em] mb-4">
-                            Pages
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {visibleItems.map(item => (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    className="group bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800/80 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-2xl p-5 flex flex-col gap-3 transition-all duration-150 hover:shadow-md relative"
-                                >
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${activeModule.bg} ${activeModule.color} transition-transform duration-150 group-hover:scale-110`}>
-                                        <item.icon className="h-5 w-5" />
-                                    </div>
-                                    {item.href === "/support-tickets" && user?.role === "SUPER_ADMIN" && pendingApprovals.length > 0 && (
-                                        <span className="absolute top-5 right-5 inline-flex items-center justify-center px-2 py-1 text-[10px] font-black leading-none text-white bg-rose-600 rounded-full animate-pulse">
-                                            {pendingApprovals.length}
-                                        </span>
-                                    )}
-                                    <div className="flex-1">
-                                        <p className="font-black text-zinc-900 dark:text-zinc-50 text-sm tracking-tight">
-                                            {item.name}
-                                        </p>
-                                        <p className="text-[12px] text-zinc-400 font-medium mt-0.5 leading-snug">
-                                            {item.description}
-                                        </p>
-                                    </div>
-                                </Link>
-                            ))}
-                        </div>
+                    {/* Page Grid, one block per section */}
+                    <div className="space-y-7">
+                        {itemSections.map(section => (
+                            <div key={section.label}>
+                                <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.25em] mb-4">
+                                    {section.label}
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {section.items.map(item => (
+                                        <Link
+                                            key={item.href}
+                                            href={item.href}
+                                            className="group bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800/80 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-2xl p-5 flex flex-col gap-3 transition-all duration-150 hover:shadow-md relative"
+                                        >
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${activeModule.bg} ${activeModule.color} transition-transform duration-150 group-hover:scale-110`}>
+                                                <item.icon className="h-5 w-5" />
+                                            </div>
+                                            {item.href === "/support-tickets" && user?.role === "SUPER_ADMIN" && pendingApprovals.length > 0 && (
+                                                <span className="absolute top-5 right-5 inline-flex items-center justify-center px-2 py-1 text-[10px] font-black leading-none text-white bg-rose-600 rounded-full animate-pulse">
+                                                    {pendingApprovals.length}
+                                                </span>
+                                            )}
+                                            <div className="flex-1">
+                                                <p className="font-black text-zinc-900 dark:text-zinc-50 text-sm tracking-tight">
+                                                    {item.name}
+                                                </p>
+                                                <p className="text-[12px] text-zinc-400 font-medium mt-0.5 leading-snug">
+                                                    {item.description}
+                                                </p>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
                     </div>
 
                 </motion.div>
