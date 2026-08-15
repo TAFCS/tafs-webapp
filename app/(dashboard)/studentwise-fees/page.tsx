@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo, Suspense } from "react";
-import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Minus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info, CreditCard, ArrowRight, Layers, Pencil, ClipboardList } from "lucide-react";
+import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Minus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info, CreditCard, ArrowRight, Layers, Pencil, ClipboardList, Repeat } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
@@ -16,6 +16,7 @@ import InstallmentModal from "@/components/modals/InstallmentModal";
 import { getCurrentAcademicYear, getAcademicYears, MONTHS, MONTH_TO_NUM, resolveClassIdFromGrade, calculateFeeSuggestions } from "@/lib/fee-utils";
 import { BulkOperationsDrawer } from "./components/BulkOperationsDrawer";
 import { FinanceAuditDrawer } from "./components/FinanceAuditDrawer";
+import { TransferHeadsModal } from "./components/TransferHeadsModal";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -367,6 +368,8 @@ function StudentwiseFeeEditor() {
 
     const [showResetModal, setShowResetModal] = useState(false);
     const [isResetting, setIsResetting] = useState(false);
+
+    const [showTransferModal, setShowTransferModal] = useState(false);
 
     const [showTuitionModal, setShowTuitionModal] = useState(false);
     const [tuitionAmount, setTuitionAmount] = useState("");
@@ -3137,7 +3140,15 @@ function StudentwiseFeeEditor() {
             )}
             {/* Bottom Admin Actions */}
             {studentId && canResetAllHeads && (
-                <div className="flex justify-end mt-8 mb-4">
+                <div className="flex justify-end items-center gap-1 mt-8 mb-4">
+                    <button
+                        onClick={() => setShowTransferModal(true)}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-amber-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded-lg transition-all"
+                        title="Danger Zone: move fee heads into a different academic year (for students who changed term systems)"
+                    >
+                        <Repeat className="h-3 w-3" />
+                        Transfer Heads
+                    </button>
                     <button
                         onClick={() => setShowResetModal(true)}
                         className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-rose-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all"
@@ -3148,6 +3159,30 @@ function StudentwiseFeeEditor() {
                     </button>
                 </div>
             )}
+
+            {/* Transfer Fee Heads to Another Year */}
+            <TransferHeadsModal
+                open={showTransferModal}
+                onClose={() => setShowTransferModal(false)}
+                onTransferred={() => {
+                    if (selectedClassId !== "") {
+                        fetchFeeSchedule(Number(selectedClassId), selectedCampusId, studentId, selectedYear);
+                    }
+                }}
+                candidates={rows
+                    .filter(r => r.dbId != null)
+                    .map(r => ({
+                        dbId: r.dbId as number,
+                        feeDescription: r.feeDescription,
+                        target_month: r.target_month,
+                        amount: r.amount,
+                        status: r.status,
+                    }))}
+                studentName={searchQuery.split(/\s\(/)[0] || "Student"}
+                grNumber={null}
+                currentAcademicYear={selectedYear}
+                currentClassTermStartMonth={selectedClass?.term_start_month ?? 8}
+            />
 
             {/* Bulk Update Tuition Modal */}
             {showTuitionModal && (
