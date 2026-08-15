@@ -18,7 +18,7 @@ import {
   markTicketRead,
   markOwnTicketMessagesRead,
   removeOpenQueueTicket,
-  removeTicketMessage,
+  markTicketMessageDeleted,
   sendTicketMessage,
   setQueueTab,
   setSelectedTicketId,
@@ -248,13 +248,15 @@ export default function SupportTicketsPage() {
       ticketId?: string;
       messageId?: string;
       ticket?: SupportTicket;
+      message?: TicketMessage;
     }) => {
       if (!payload.messageId || !payload.ticketId) return;
       dispatch(
-        removeTicketMessage({
+        markTicketMessageDeleted({
           ticketId: payload.ticketId,
           messageId: payload.messageId,
           ticket: payload.ticket,
+          message: payload.message,
         }),
       );
     };

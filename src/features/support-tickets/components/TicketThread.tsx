@@ -9,7 +9,14 @@ import api from "@/lib/api";
 import { useSocket } from "@/context/SocketContext";
 import type { AppDispatch } from "@/store/store";
 import type { SupportTicket, TicketEvent, TicketMessage } from "@/store/slices/supportTicketsSlice";
-import { claimTicket, closeTicket, deleteTicketMessage, reviewTicketMessage } from "@/store/slices/supportTicketsSlice";
+import {
+  claimTicket,
+  closeTicket,
+  deleteTicketMessage,
+  reviewTicketMessage,
+  DELETED_TICKET_MESSAGE_LABEL,
+  isTicketMessageDeleted,
+} from "@/store/slices/supportTicketsSlice";
 import { categoryLabel, statusLabel, ticketRequesterLabel } from "@/features/support-tickets/supportTicketLabels";
 import { ClaimTransferModal } from "./ClaimTransferModal";
 import { ForwardTicketModal } from "./ForwardTicketModal";
@@ -42,6 +49,7 @@ function getImageDimensions(file: File): Promise<{ width?: number; height?: numb
 }
 
 function copyableTicketText(msg: TicketMessage): string | null {
+  if (isTicketMessageDeleted(msg)) return null;
   const type = (msg.message_type ?? "").toString().toUpperCase();
   if (type === "TEXT") {
     const text = (msg.content ?? "").toString();
@@ -198,11 +206,24 @@ function buildReplyTo(msg: TicketMessage, viewerUserId?: string): Record<string,
 }
 
 function replyPreviewLabel(replyTo: Record<string, unknown> | null | undefined): string {
+  if (replyTo?.deleted === true) return DELETED_TICKET_MESSAGE_LABEL;
   const type = String(replyTo?.type ?? "").toUpperCase();
   if (type === "IMAGE") return "Photo";
   if (type === "VOICE") return "Voice note";
   if (type === "DOCUMENT") return "Document";
   return String(replyTo?.content ?? "");
+}
+
+function isQuotedMessageDeleted(
+  replyTo: Record<string, unknown> | null | undefined,
+  messages: TicketMessage[] | undefined,
+): boolean {
+  if (!replyTo) return false;
+  if (replyTo.deleted === true) return true;
+  const id = String(replyTo.id ?? "");
+  if (!id || !messages) return false;
+  const target = messages.find((m) => m.id === id);
+  return target ? isTicketMessageDeleted(target) : false;
 }
 
 const isNewDay = (currentMsg: TicketMessage, prevMsg?: TicketMessage) => {
@@ -359,6 +380,14 @@ export function TicketThread({
   useEffect(() => {
     setHeaderDetailsOpen(false);
   }, [ticket.id]);
+
+  useEffect(() => {
+    if (!replyingTo) return;
+    const current = ticket.messages?.find((m) => m.id === replyingTo.id);
+    if (current && isTicketMessageDeleted(current)) {
+      setReplyingTo(null);
+    }
+  }, [ticket.messages, replyingTo]);
 
   const isClosed = ticket.status === "CLOSED";
   const isFinance = ticket.category === "FINANCIAL";
@@ -905,6 +934,9 @@ export function TicketThread({
             msg.sender_type === "STAFF" && !ownMessage;
           const prevMsg = index > 0 ? messages[index - 1] : undefined;
           const showDateHeader = isNewDay(msg, prevMsg);
+          const deleted = isTicketMessageDeleted(msg);
+          const canDelete =
+            isSuperAdmin && ownMessage && !deleted && !isClosed;
 
           return (
             <div
@@ -922,7 +954,7 @@ export function TicketThread({
                 </div>
               )}
               <div className={`flex items-center gap-1.5 group/msg ${onRight ? "justify-end" : "justify-start"}`}>
-                {!onRight && canCompose && (
+                {!onRight && canCompose && !deleted && (
                   <button
                     type="button"
                     onClick={() => setReplyingTo(msg)}
@@ -933,10 +965,9 @@ export function TicketThread({
                   </button>
                 )}
               <div
-                onDoubleClick={() => canCompose && setReplyingTo(msg)}
+                onDoubleClick={() => canCompose && !deleted && setReplyingTo(msg)}
                 onContextMenu={(e) => {
                   const text = copyableTicketText(msg);
-                  const canDelete = isOwnStaffMessage(msg, userId);
                   if (!text && !canDelete) return;
                   e.preventDefault();
                   setContextMenu({
@@ -950,7 +981,6 @@ export function TicketThread({
                 onTouchStart={(e) => {
                   const touch = e.touches[0];
                   const text = copyableTicketText(msg);
-                  const canDelete = isOwnStaffMessage(msg, userId);
                   if (!touch || (!text && !canDelete)) return;
                   if (longPressTimer.current) clearTimeout(longPressTimer.current);
                   longPressTimer.current = setTimeout(() => {
@@ -982,7 +1012,11 @@ export function TicketThread({
                   }
                 }}
                 className={`max-w-[80%] p-3 rounded-2xl text-sm ${
-                  onRight
+                  deleted
+                    ? onRight
+                      ? "ml-auto bg-primary/70 text-white"
+                      : "bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700"
+                    : onRight
                     ? "ml-auto bg-primary text-white"
                     : "bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700"
                 }`}
@@ -1024,6 +1058,7 @@ export function TicketThread({
                 </p>
                 {!!msg.media_metadata?.replyTo && (() => {
                   const replyTo = msg.media_metadata.replyTo as Record<string, unknown>;
+                  const quoteDeleted = isQuotedMessageDeleted(replyTo, ticket.messages);
                   return (
                     <button
                       type="button"
@@ -1041,8 +1076,11 @@ export function TicketThread({
                         {String(replyTo.senderName ?? "Message")}
                       </p>
                       <div className="flex items-center gap-2 min-w-0">
-                        <p className="truncate flex-1">{replyPreviewLabel(replyTo)}</p>
-                        {String(replyTo.type ?? "").toUpperCase() === "IMAGE" &&
+                        <p className={`truncate flex-1 ${quoteDeleted ? "italic" : ""}`}>
+                          {quoteDeleted ? DELETED_TICKET_MESSAGE_LABEL : replyPreviewLabel(replyTo)}
+                        </p>
+                        {!quoteDeleted &&
+                          String(replyTo.type ?? "").toUpperCase() === "IMAGE" &&
                           Boolean(replyTo.url || replyTo.content) && (
                           <img
                             src={String(replyTo.url || replyTo.content)}
@@ -1054,22 +1092,30 @@ export function TicketThread({
                     </button>
                   );
                 })()}
-                {msg.message_type === "TEXT" && (
-                  <p className="whitespace-pre-wrap break-words">
-                    {renderLinkedText(msg.content, onRight)}
+                {deleted ? (
+                  <p className={`italic ${onRight ? "text-white/80" : "text-zinc-500 dark:text-zinc-400"}`}>
+                    {DELETED_TICKET_MESSAGE_LABEL}
                   </p>
+                ) : (
+                  <>
+                    {msg.message_type === "TEXT" && (
+                      <p className="whitespace-pre-wrap break-words">
+                        {renderLinkedText(msg.content, onRight)}
+                      </p>
+                    )}
+                    {renderMedia(msg)}
+                  </>
                 )}
-                {renderMedia(msg)}
                 <div className={`flex gap-2 mt-1 text-[10px] opacity-70 flex-wrap items-center ${onRight ? "justify-end" : ""}`}>
                   <span>{format(new Date(msg.created_at), "h:mm a")}</span>
-                  {ownMessage && msg.status === "APPROVED" && (
+                  {!deleted && ownMessage && msg.status === "APPROVED" && (
                     msg.is_read ? (
                       <CheckCheck className="h-3 w-3 text-blue-300" />
                     ) : (
                       <Check className={`h-3 w-3 ${onRight ? "text-white/50" : "text-zinc-400"}`} />
                     )
                   )}
-                  {ownMessage && msg.status === "PENDING" && (
+                  {!deleted && ownMessage && msg.status === "PENDING" && (
                     <Check className={`h-3 w-3 ${onRight ? "text-white/50" : "text-zinc-400"}`} />
                   )}
                   {msg.sender_type === "STAFF" &&
@@ -1083,7 +1129,7 @@ export function TicketThread({
                     </span>
                   )}
                 </div>
-                {isSuperAdmin && incomingStaff && msg.status === "PENDING" && (
+                {isSuperAdmin && incomingStaff && msg.status === "PENDING" && !deleted && (
                   <div className={`mt-2 pt-2 border-t flex flex-wrap gap-2 ${
                     onRight ? "border-white/20" : "border-zinc-200 dark:border-zinc-700"
                   }`}>
@@ -1122,7 +1168,7 @@ export function TicketThread({
                   </div>
                 )}
               </div>
-                {onRight && canCompose && (
+                {onRight && canCompose && !deleted && (
                   <button
                     type="button"
                     onClick={() => setReplyingTo(msg)}

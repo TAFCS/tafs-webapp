@@ -65,8 +65,43 @@ export interface TicketMessage {
   media_metadata?: Record<string, unknown> | null;
   created_at: string;
   is_read?: boolean;
+  deleted_at?: string | null;
+  is_deleted?: boolean;
   sender_user?: { id: string; full_name: string; role: string };
   sender_guardian?: { full_name: string };
+}
+
+export const DELETED_TICKET_MESSAGE_LABEL = 'This message was deleted';
+
+export function isTicketMessageDeleted(msg: Pick<TicketMessage, 'is_deleted' | 'deleted_at'>): boolean {
+  return Boolean(msg.is_deleted || msg.deleted_at);
+}
+
+function tombstoneTicketMessage(msg: TicketMessage, deletedAt?: string | null): TicketMessage {
+  return {
+    ...msg,
+    content: '',
+    media_metadata: null,
+    is_deleted: true,
+    deleted_at: deletedAt ?? msg.deleted_at ?? new Date().toISOString(),
+  };
+}
+
+function redactQuotesOfDeleted(
+  messages: TicketMessage[],
+  deletedId: string,
+): TicketMessage[] {
+  return messages.map((m) => {
+    const replyTo = m.media_metadata?.replyTo as Record<string, unknown> | undefined;
+    if (!replyTo || String(replyTo.id ?? '') !== deletedId) return m;
+    return {
+      ...m,
+      media_metadata: {
+        ...m.media_metadata,
+        replyTo: { ...replyTo, deleted: true, content: '', url: undefined },
+      },
+    };
+  });
 }
 
 export interface PendingApproval {
@@ -374,14 +409,25 @@ const supportTicketsSlice = createSlice({
         last_message_snippet: snippet,
       } as SupportTicket);
     },
-    removeTicketMessage(
+    markTicketMessageDeleted(
       state,
-      action: PayloadAction<{ ticketId: string; messageId: string; ticket?: SupportTicket }>,
+      action: PayloadAction<{
+        ticketId: string;
+        messageId: string;
+        ticket?: SupportTicket;
+        message?: Partial<TicketMessage> | null;
+      }>,
     ) {
-      const { ticketId, messageId, ticket } = action.payload;
+      const { ticketId, messageId, ticket, message } = action.payload;
       if (state.selectedTicket?.id === ticketId && state.selectedTicket.messages) {
-        state.selectedTicket.messages = state.selectedTicket.messages.filter(
-          (m) => m.id !== messageId,
+        const deletedAt =
+          message?.deleted_at ??
+          (typeof message?.is_deleted === 'boolean' ? new Date().toISOString() : undefined);
+        state.selectedTicket.messages = redactQuotesOfDeleted(
+          state.selectedTicket.messages.map((m) =>
+            m.id === messageId ? tombstoneTicketMessage(m, deletedAt) : m,
+          ),
+          messageId,
         );
       }
       state.pendingApprovals = state.pendingApprovals.filter((p) => p.id !== messageId);
@@ -587,6 +633,7 @@ const supportTicketsSlice = createSlice({
         const payload = action.payload as {
           messageId?: string;
           ticket?: SupportTicket;
+          message?: Partial<TicketMessage>;
         };
         const messageId = payload.messageId ?? (action.meta.arg as string);
         const ticketId =
@@ -594,11 +641,12 @@ const supportTicketsSlice = createSlice({
           state.selectedTicket?.id ??
           '';
         if (!messageId || !ticketId) return;
-        supportTicketsSlice.caseReducers.removeTicketMessage(state, {
+        supportTicketsSlice.caseReducers.markTicketMessageDeleted(state, {
           payload: {
             ticketId,
             messageId,
             ticket: payload.ticket,
+            message: payload.message,
           },
           type: '',
         });
@@ -615,7 +663,7 @@ export const {
   upsertQueueTicket,
   removeOpenQueueTicket,
   appendTicketMessage,
-  removeTicketMessage,
+  markTicketMessageDeleted,
   updateMessageReviewStatus,
   addPendingApproval,
   markTicketUnreadZero,
