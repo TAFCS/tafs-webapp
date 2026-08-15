@@ -189,6 +189,16 @@ function LogDetails({ log }: { log: AuditLog }) {
     return <p className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{log.note}</p>;
   }
 
+  if (log.new_value || log.old_value) {
+    return (
+      <div className="flex items-center gap-1 text-xs whitespace-nowrap">
+        {log.old_value && <span className="line-through text-rose-400">{log.old_value}</span>}
+        {log.old_value && log.new_value && <ArrowRight className="h-3 w-3 text-zinc-300 shrink-0" />}
+        {log.new_value && <span className="text-emerald-600 dark:text-emerald-400">{log.new_value}</span>}
+      </div>
+    );
+  }
+
   return <span className="text-xs text-zinc-300 dark:text-zinc-600">—</span>;
 }
 

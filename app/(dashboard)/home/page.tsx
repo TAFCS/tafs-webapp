@@ -84,6 +84,9 @@ const ENTITY_LABELS: Record<string, { singular: string; plural: string; pill: st
     STUDENT:  { singular: "student",  plural: "students",  pill: "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" },
     GUARDIAN: { singular: "guardian", plural: "guardians", pill: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" },
     FAMILY:   { singular: "family",   plural: "families",  pill: "bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300" },
+    NOTICE:   { singular: "notice",   plural: "notices",   pill: "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" },
+    EMPLOYEE_NOTICE: { singular: "staff notice", plural: "staff notices", pill: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" },
+    CHAT_MESSAGE: { singular: "announcement", plural: "announcements", pill: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300" },
 };
 
 interface GroupedLog {

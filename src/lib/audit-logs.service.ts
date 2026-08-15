@@ -26,6 +26,7 @@ export interface AuditLogsResponse {
 export interface AuditLogsQuery {
   student_id?: number;
   entity_type?: string;
+  entity_id?: string;
   changed_by?: string;
   from?: string;
   to?: string;

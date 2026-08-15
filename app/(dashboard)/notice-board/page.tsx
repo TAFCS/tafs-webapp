@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/lib/api";
-import { Pin, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus } from "lucide-react";
+import { Pin, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus, ScrollText } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { getAcademicYears } from "@/lib/fee-utils";
+import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
 
 const STATUS_OPTIONS: { id: string; label: string }[] = [
     { id: "QUICK_ADMISSION", label: "Quick Admission" },
@@ -37,6 +38,7 @@ interface Post {
     deleted_at: string | null;
     users: { full_name: string };
     _count: { post_reads: number };
+    total_reached?: number;
 }
 
 interface ReadStats {
@@ -60,6 +62,7 @@ export default function NoticeBoardPage() {
     const [panelMode, setPanelMode] = useState<PanelMode>("list");
     const [selectedPost, setSelectedPost] = useState<Post | null>(null);
     const [readStats, setReadStats] = useState<ReadStats | null>(null);
+    const [activityLogs, setActivityLogs] = useState<AuditLog[]>([]);
     const [campuses, setCampuses] = useState<any[]>([]);
 
     // Compose state
@@ -112,11 +115,22 @@ export default function NoticeBoardPage() {
     async function loadStats(post: Post) {
         setSelectedPost(post);
         setReadStats(null);
+        setActivityLogs([]);
         setPanelMode("stats");
         try {
             const res = await api.get(`v1/admin/notice-board/${post.id}/reads`);
             setReadStats(res.data);
         } catch {}
+        try {
+            const logs = await auditLogsService.list({
+                entity_type: "NOTICE",
+                entity_id: String(post.id),
+                limit: 20,
+            });
+            setActivityLogs(logs.data ?? []);
+        } catch {
+            setActivityLogs([]);
+        }
     }
 
     async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -410,9 +424,13 @@ export default function NoticeBoardPage() {
                                 </div>
                                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
                                     <span className="text-xs text-zinc-400">{formatDistanceToNow(new Date(post.posted_at), { addSuffix: true })}</span>
-                                    {post.student_ccs && post.student_ccs.length > 0 ? (
+                                    {typeof post.total_reached === "number" ? (
+                                        <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400">
+                                            {post._count?.post_reads ?? 0}/{post.total_reached} read
+                                        </span>
+                                    ) : post.student_ccs && post.student_ccs.length > 0 ? (
                                         (post._count?.post_reads ?? 0) > 0 ? (
-                                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded">READ</span>
+                                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded">READ</span>
                                         ) : (
                                             <span className="text-[10px] font-bold text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">UNREAD</span>
                                         )
@@ -775,11 +793,35 @@ export default function NoticeBoardPage() {
                                 </div>
                             )}
 
-                            {/* Read stats */}
+                            {/* Read stats — always show reached/read aggregates */}
                             {readStats ? (
                                 <div>
-                                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Read Analytics</p>
-                                    {readStats.targeted_reads && readStats.targeted_reads.length > 0 ? (
+                                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Delivery Analytics</p>
+                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                        <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 text-center">
+                                            <p className="text-2xl font-black text-zinc-800 dark:text-zinc-100">{readStats.total_reached}</p>
+                                            <p className="text-xs text-zinc-400 mt-1">Families Reached</p>
+                                        </div>
+                                        <div className="bg-primary/5 rounded-xl p-4 text-center">
+                                            <p className="text-2xl font-black text-primary">{readStats.total_read}</p>
+                                            <p className="text-xs text-zinc-400 mt-1">Families Read</p>
+                                        </div>
+                                    </div>
+                                    {readStats.total_reached > 0 && (
+                                        <div className="mb-4">
+                                            <div className="flex justify-between text-xs text-zinc-500 mb-1">
+                                                <span>Read rate</span>
+                                                <span>{Math.round((readStats.total_read / readStats.total_reached) * 100)}%</span>
+                                            </div>
+                                            <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-primary rounded-full transition-all duration-500"
+                                                    style={{ width: `${Math.round((readStats.total_read / readStats.total_reached) * 100)}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    {readStats.targeted_reads && readStats.targeted_reads.length > 0 && (
                                         <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
                                             {readStats.targeted_reads.map((s) => (
                                                 <div key={s.cc} className="p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-150 dark:border-zinc-800 flex items-center justify-between text-xs">
@@ -793,7 +835,7 @@ export default function NoticeBoardPage() {
                                                             {s.read_at ? (
                                                                 <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 rounded font-black text-[9px] uppercase tracking-wider">READ</span>
                                                             ) : (
-                                                                <span className="px-2 py-0.5 bg-zinc-200 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-400 rounded font-black text-[9px] uppercase tracking-wider">UNREAD</span>
+                                                                <span className="px-2 py-0.5 bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 rounded font-black text-[9px] uppercase tracking-wider">UNREAD</span>
                                                             )}
                                                         </div>
                                                         {s.read_at ? (
@@ -805,39 +847,42 @@ export default function NoticeBoardPage() {
                                                 </div>
                                             ))}
                                         </div>
-                                    ) : (
-                                        <>
-                                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                                <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 text-center">
-                                                    <p className="text-2xl font-black text-zinc-800 dark:text-zinc-100">{readStats.total_reached}</p>
-                                                    <p className="text-xs text-zinc-400 mt-1">Families Reached</p>
-                                                </div>
-                                                <div className="bg-primary/5 rounded-xl p-4 text-center">
-                                                    <p className="text-2xl font-black text-primary">{readStats.total_read}</p>
-                                                    <p className="text-xs text-zinc-400 mt-1">Families Read</p>
-                                                </div>
-                                            </div>
-                                            {readStats.total_reached > 0 && (
-                                                <div>
-                                                    <div className="flex justify-between text-xs text-zinc-500 mb-1">
-                                                        <span>Read rate</span>
-                                                        <span>{Math.round((readStats.total_read / readStats.total_reached) * 100)}%</span>
-                                                    </div>
-                                                    <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-primary rounded-full transition-all duration-500"
-                                                            style={{ width: `${Math.round((readStats.total_read / readStats.total_reached) * 100)}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </>
                                     )}
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-2 text-zinc-400 text-sm">
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                     Loading analytics…
+                                </div>
+                            )}
+
+                            {activityLogs.length > 0 && (
+                                <div>
+                                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                        <ScrollText className="h-3.5 w-3.5" /> Activity
+                                    </p>
+                                    <div className="flex flex-col gap-2">
+                                        {activityLogs.map((log) => (
+                                            <div key={log.id} className="flex items-start justify-between gap-3 rounded-xl border border-zinc-100 dark:border-zinc-800 px-3 py-2.5">
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-[9px] font-black uppercase tracking-wider rounded px-1.5 py-0.5 ${
+                                                            log.action === "CREATED" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                                            : log.action === "DELETED" ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+                                                            : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                                                        }`}>{log.action}</span>
+                                                        <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{log.changed_by}</span>
+                                                    </div>
+                                                    {log.note && (
+                                                        <p className="text-[11px] text-zinc-500 mt-1 line-clamp-2">{log.note}</p>
+                                                    )}
+                                                </div>
+                                                <span className="text-[10px] text-zinc-400 whitespace-nowrap">
+                                                    {formatDistanceToNow(new Date(log.changed_at), { addSuffix: true })}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
