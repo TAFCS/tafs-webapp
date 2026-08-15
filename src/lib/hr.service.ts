@@ -58,6 +58,13 @@ export interface StaffCategory {
   _count?: { employee_profiles: number };
 }
 
+export interface Segment {
+  id: number;
+  code: string;
+  name: string;
+  display_order: number;
+}
+
 /** Trim text; return null when empty so PATCH payloads can clear optional fields. */
 export function optionalText(value: string): string | null {
   const trimmed = value.trim();
@@ -100,6 +107,7 @@ export interface EmployeeProfile {
   personal_email: string | null;
   job_title: string | null;
   staff_category_id: number | null;
+  segment_id: number | null;
   job_description: string | null;
   notes: string | null;
   reporting_time: string | null;
@@ -135,6 +143,7 @@ export interface EmployeeProfile {
   } | null;
   departments?: Department | null;
   staff_categories?: StaffCategory | null;
+  segments?: Segment | null;
   campuses?: { id: number; campus_name: string } | null;
   reporting_manager?: {
     id: number;
@@ -182,6 +191,7 @@ export interface EmployeeCreatePayload {
   personal_email?: string | null;
   job_title?: string | null;
   staff_category_id?: number | null;
+  segment_id?: number | null;
   job_description?: string | null;
   notes?: string | null;
   reporting_time?: string | null;
@@ -540,6 +550,12 @@ export const hrService = {
   // ── Departments API ────────────────────────────────────────────────────────
   async listDepartments(): Promise<Department[]> {
     const { data } = await api.get<ApiEnvelope<Department[]>>('/v1/hr/departments');
+    return data.data;
+  },
+
+  // ── Segments API ───────────────────────────────────────────────────────────
+  async listSegments(): Promise<Segment[]> {
+    const { data } = await api.get<ApiEnvelope<Segment[]>>('/v1/hr/segments');
     return data.data;
   },
   async createDepartment(payload: { name: string; description?: string }): Promise<Department> {

@@ -7,7 +7,7 @@ import {
   X, Camera, ChevronDown, PhoneCall, Heart, Key, Search
 } from "lucide-react";
 import {
-  hrService, EmployeeCreatePayload, Department, StaffCategory,
+  hrService, EmployeeCreatePayload, Department, StaffCategory, Segment,
   WorkScheduleDay, CHECK_IN_SOURCE_OPTIONS, CheckInSource, optionalText, optionalId,
   EMPLOYEE_STATUS_OPTIONS, EmployeeStatus,
 } from "@/lib/hr.service";
@@ -68,6 +68,7 @@ const CATEGORY_CODE_DEP_MAP: Record<string, string> = {
   CREATIVE_STAFF: "03",
   SUPPORT_STAFF: "04",
   SPORTS_COACH: "05",
+  VISITING_FACULTY: "05",
 };
 
 function resolveDepForCategory(category?: StaffCategory | null): string {
@@ -120,6 +121,7 @@ interface FormData {
   employee_code_number: string;
   department_id: string;
   staff_category_id: string;
+  segment_id: string;
   job_title: string;
   job_description: string;
   join_date: string;
@@ -148,6 +150,7 @@ const EMPTY_FORM: FormData = {
   photo_url: "", father_photo_url: "", mother_photo_url: "",
   spouse_name: "", spouse_cnic: "", spouse_photo_url: "",
   employee_code: "", employee_code_dep: "", employee_code_number: "", department_id: "", staff_category_id: "",
+  segment_id: "",
   job_title: "", job_description: "", join_date: "", employment_type: "Full-time",
   employment_status: "ACTIVE",
   reporting_manager_id: "", campus_id: "", notes: "",
@@ -432,6 +435,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
 
   // Lookups
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [segments, setSegments] = useState<Segment[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [allClasses, setAllClasses] = useState<OfferedClass[]>([]);
   const [allSections, setAllSections] = useState<SectionInfo[]>([]);
@@ -496,14 +500,16 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
 
   // ── Load reference data ───────────────────────────────────────────────────
   const loadLookups = useCallback(async () => {
-    const [deptData, campusData, classData, sectionData, usersRes] = await Promise.all([
+    const [deptData, segmentData, campusData, classData, sectionData, usersRes] = await Promise.all([
       hrService.listDepartments(),
+      hrService.listSegments(),
       campusesService.list(),
       campusesService.listAllClasses(),
       campusesService.listAllSections(),
       api.get<{ data: { username: string }[] }>('/v1/users').catch(() => ({ data: { data: [] } })),
     ]);
     setDepartments(deptData);
+    setSegments(segmentData);
     setCampuses(campusData);
     setAllClasses(classData as unknown as OfferedClass[]);
     setAllSections(sectionData);
@@ -558,6 +564,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       employee_code_number: codeParts?.number ?? "",
       department_id: emp.department_id ? String(emp.department_id) : "",
       staff_category_id: emp.staff_category_id ? String(emp.staff_category_id) : "",
+      segment_id: emp.segment_id ? String(emp.segment_id) : "",
       job_title: emp.job_title ?? "",
       job_description: emp.job_description ?? "",
       join_date: emp.join_date ? new Date(emp.join_date).toISOString().split("T")[0] : "",
@@ -728,6 +735,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       employee_code_number: optionalText(formData.employee_code_number),
       department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
       staff_category_id: optionalId(formData.staff_category_id),
+      segment_id: optionalId(formData.segment_id),
       job_title: optionalText(formData.job_title),
       job_description: optionalText(formData.job_description),
       join_date: optionalText(formData.join_date),
@@ -996,6 +1004,24 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                   value={formData.job_description}
                   onChange={e => setFormData(p => ({ ...p, job_description: e.target.value.toUpperCase() }))}
                 />
+              </div>
+            )}
+
+            {/* Segment (optional) */}
+            {isUnlocked && (
+              <div className="space-y-1.5">
+                <FieldLabel>Segment</FieldLabel>
+                <div className="relative">
+                  <select
+                    className={selectCls}
+                    value={formData.segment_id}
+                    onChange={e => setFormData(p => ({ ...p, segment_id: e.target.value }))}
+                  >
+                    <option value="">-- No Segment --</option>
+                    {segments.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                </div>
               </div>
             )}
 

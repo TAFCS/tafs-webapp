@@ -135,6 +135,7 @@ const AUDIT_OPTIONS = [
   { value: "missing_photo", label: "No Photo" },
   { value: "missing_code", label: "No Employee Code" },
   { value: "no_device_mapping", label: "No Device Mappings" },
+  { value: "no_segment", label: "No Segment (Academics)" },
   { value: "incomplete", label: "Any Incomplete Field" },
 ];
 
@@ -143,6 +144,11 @@ const MAPPING_AUDIT_STATUSES = ["ACTIVE", "PERMANENT"];
 
 function hasActiveDeviceMapping(emp: EmployeeProfile): boolean {
   return (emp.device_user_mappings || []).some((m) => m.is_active !== false);
+}
+
+/** Teaching-related staff, i.e. the whole ACADEMICS department — the only ones a missing segment is a defect for. */
+function isAcademicsDeptEmployee(emp: EmployeeProfile): boolean {
+  return (emp.departments?.name || "").trim().toUpperCase() === "ACADEMICS";
 }
 
 function EmployeesContent() {
@@ -263,6 +269,10 @@ function EmployeesContent() {
         if (auditFilter === "no_device_mapping") {
           if (!MAPPING_AUDIT_STATUSES.includes(emp.employment_status ?? "ACTIVE")) return false;
           if (hasActiveDeviceMapping(emp)) return false;
+        }
+        if (auditFilter === "no_segment") {
+          if (!isAcademicsDeptEmployee(emp)) return false;
+          if (emp.segment_id) return false;
         }
         if (auditFilter === "incomplete" && missing.length === 0) return false;
       }
