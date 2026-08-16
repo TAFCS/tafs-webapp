@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Fingerprint, Loader2, Plus, Power, PowerOff, ExternalLink, X } from "lucide-react";
 import { zkPushService, DeviceUserMapping } from "@/lib/zk-push.service";
-import { getDeviceName } from "@/lib/zk-devices";
+import { getDeviceName, ZK_DEVICE_NAMES } from "@/lib/zk-devices";
 
 interface Props {
   studentCc: number;
@@ -79,9 +79,17 @@ function MappingFormModal({
           <div className="p-4 space-y-3">
             {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
             <div>
-              <label className="text-[11px] font-bold text-zinc-400 uppercase">Device S/N</label>
-              <input className={inputCls} value={deviceSn} disabled={isEdit}
-                onChange={(e) => setDeviceSn(e.target.value)} required />
+              <label className="text-[11px] font-bold text-zinc-400 uppercase">Device</label>
+              <select className={inputCls} value={deviceSn} disabled={isEdit}
+                onChange={(e) => setDeviceSn(e.target.value)} required>
+                <option value="" disabled>Select device...</option>
+                {Object.entries(ZK_DEVICE_NAMES).map(([sn, name]) => (
+                  <option key={sn} value={sn}>{name}</option>
+                ))}
+                {isEdit && deviceSn && !ZK_DEVICE_NAMES[deviceSn] && (
+                  <option value={deviceSn}>{deviceSn}</option>
+                )}
+              </select>
             </div>
             <div>
               <label className="text-[11px] font-bold text-zinc-400 uppercase">PIN</label>
