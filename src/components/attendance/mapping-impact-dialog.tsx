@@ -294,9 +294,9 @@ export function MappingImpactDialog({ intent, onCancel, onConfirm, extraNotes = 
                                 <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-400 text-sm">
                                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                                     <span>
-                                        This also changes attendance for{" "}
-                                        {n(impact!.affects_other_people.length, "other person", "other people")} who
-                                        currently own these scans. Check that is what you intend.
+                                        These scans currently belong to{" "}
+                                        <strong>{impact!.affects_other_people.join(", ")}</strong>. Their attendance
+                                        will change too — check that is what you intend.
                                     </span>
                                 </div>
                             )}
