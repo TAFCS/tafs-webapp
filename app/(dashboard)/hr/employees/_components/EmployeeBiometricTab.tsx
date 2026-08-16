@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Fingerprint, Loader2, Plus, Power, PowerOff, ExternalLink, X } from "lucide-react";
+import toast from "react-hot-toast";
+import { Fingerprint, Loader2, Plus, Power, PowerOff, ExternalLink, Trash2, X } from "lucide-react";
 import { zkPushService, DeviceUserMapping } from "@/lib/zk-push.service";
 import { getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
+import { MappingImpactDialog, MappingIntent, reportRebuildIfNeeded } from "@/components/attendance/mapping-impact-dialog";
 
 interface Props {
   employeeId: number;
@@ -33,6 +35,7 @@ function MappingFormModal({
   const [displayName, setDisplayName] = useState(mapping?.display_name ?? employeeName);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<MappingIntent | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,29 +43,59 @@ function MappingFormModal({
       setError("Device S/N and PIN are required.");
       return;
     }
-    setSaving(true);
-    setError(null);
-    try {
-      if (isEdit && mapping) {
-        await zkPushService.updateMapping(mapping.id, {
-          display_name: displayName.trim() || undefined,
-        });
-      } else {
-        await zkPushService.createMapping({
-          device_sn: deviceSn.trim(),
-          device_pin: devicePin.trim(),
-          person_type: "STAFF",
-          employee_id: employeeId,
-          display_name: displayName.trim() || employeeName,
-        });
+
+    // Renaming a mapping can't move attendance, so it saves straight through.
+    // Creating one replays the PIN's whole history — that gets a confirm step.
+    if (isEdit && mapping) {
+      setSaving(true);
+      setError(null);
+      try {
+        await zkPushService.updateMapping(mapping.id, { display_name: displayName.trim() || undefined });
+        onSaved();
+      } catch (err: any) {
+        setError(err?.response?.data?.message || "Failed to save mapping.");
+      } finally {
+        setSaving(false);
       }
-      onSaved();
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to save mapping.");
-    } finally {
-      setSaving(false);
+      return;
     }
+
+    setError(null);
+    setConfirming({
+      kind: "link",
+      deviceSn: deviceSn.trim(),
+      devicePin: devicePin.trim(),
+      personType: "STAFF",
+      employeeId,
+      personName: employeeName,
+    });
   };
+
+  const applyCreate = async (acknowledgeCollisions: boolean) => {
+    const result = await zkPushService.createMapping({
+      device_sn: deviceSn.trim(),
+      device_pin: devicePin.trim(),
+      person_type: "STAFF",
+      employee_id: employeeId,
+      display_name: displayName.trim() || employeeName,
+      acknowledge_collisions: acknowledgeCollisions || undefined,
+    });
+    setConfirming(null);
+    if (!reportRebuildIfNeeded(result, onSaved)) {
+      toast.success(`PIN ${result.device_pin} linked to ${employeeName}.`);
+    }
+    onSaved();
+  };
+
+  if (confirming) {
+    return (
+      <MappingImpactDialog
+        intent={confirming}
+        onCancel={() => setConfirming(null)}
+        onConfirm={({ acknowledgeCollisions }) => applyCreate(acknowledgeCollisions)}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -113,6 +146,7 @@ export function EmployeeBiometricTab({ employeeId, employeeName }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<DeviceUserMapping | null>(null);
+  const [confirming, setConfirming] = useState<{ intent: MappingIntent; mapping: DeviceUserMapping } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,13 +171,69 @@ export function EmployeeBiometricTab({ employeeId, employeeName }: Props) {
     load();
   }, [load]);
 
-  const toggleActive = async (mapping: DeviceUserMapping) => {
-    try {
-      await zkPushService.updateMapping(mapping.id, { is_active: !mapping.is_active });
-      load();
-    } catch (err: any) {
-      alert(err?.response?.data?.message || "Failed to update mapping.");
+  /**
+   * Both directions move stored attendance — deactivating releases this PIN's
+   * scans, reactivating claims them back — so both go through the confirm step.
+   */
+  const requestToggle = (mapping: DeviceUserMapping) => {
+    setConfirming({
+      mapping,
+      intent: mapping.is_active
+        ? {
+            kind: "unlink",
+            deviceSn: mapping.device_sn,
+            devicePin: mapping.device_pin,
+            personName: employeeName,
+            mode: "deactivate",
+          }
+        : {
+            kind: "link",
+            deviceSn: mapping.device_sn,
+            devicePin: mapping.device_pin,
+            personType: "STAFF",
+            employeeId,
+            personName: employeeName,
+            reactivating: true,
+          },
+    });
+  };
+
+  const requestDelete = (mapping: DeviceUserMapping) => {
+    setConfirming({
+      mapping,
+      intent: {
+        kind: "unlink",
+        deviceSn: mapping.device_sn,
+        devicePin: mapping.device_pin,
+        personName: employeeName,
+        mode: "delete",
+      },
+    });
+  };
+
+  const applyConfirmed = async (acknowledgeCollisions: boolean) => {
+    if (!confirming) return;
+    const { intent, mapping } = confirming;
+
+    const result =
+      intent.kind === "unlink" && intent.mode === "delete"
+        ? await zkPushService.deleteMapping(mapping.id)
+        : await zkPushService.updateMapping(mapping.id, {
+            is_active: intent.kind === "link",
+            acknowledge_collisions: acknowledgeCollisions || undefined,
+          });
+
+    setConfirming(null);
+    if (!reportRebuildIfNeeded(result, load)) {
+      toast.success(
+        intent.kind === "link"
+          ? `PIN ${mapping.device_pin} re-linked.`
+          : intent.mode === "delete"
+            ? `Mapping for PIN ${mapping.device_pin} deleted.`
+            : `PIN ${mapping.device_pin} unlinked.`,
+      );
     }
+    load();
   };
 
   if (loading) {
@@ -206,10 +296,15 @@ export function EmployeeBiometricTab({ employeeId, employeeName }: Props) {
                   <td className="py-3 text-right space-x-1">
                     <button type="button" onClick={() => { setEditing(m); setShowModal(true); }}
                       className="text-xs font-semibold text-primary hover:underline">Edit</button>
-                    <button type="button" onClick={() => toggleActive(m)}
+                    <button type="button" onClick={() => requestToggle(m)}
                       className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 inline-flex align-middle"
-                      title={m.is_active ? "Deactivate" : "Activate"}>
+                      title={m.is_active ? "Unlink this PIN" : "Re-link this PIN"}>
                       {m.is_active ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                    </button>
+                    <button type="button" onClick={() => requestDelete(m)}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 inline-flex align-middle"
+                      title="Delete this mapping">
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </td>
                 </tr>
@@ -226,6 +321,14 @@ export function EmployeeBiometricTab({ employeeId, employeeName }: Props) {
           mapping={editing}
           onClose={() => { setShowModal(false); setEditing(null); }}
           onSaved={() => { setShowModal(false); setEditing(null); load(); }}
+        />
+      )}
+
+      {confirming && (
+        <MappingImpactDialog
+          intent={confirming.intent}
+          onCancel={() => setConfirming(null)}
+          onConfirm={({ acknowledgeCollisions }) => applyConfirmed(acknowledgeCollisions)}
         />
       )}
     </div>

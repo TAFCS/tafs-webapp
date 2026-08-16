@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { zkPushService, UnmappedPin, PersonSearchResult, DevicePersonType } from "@/lib/zk-push.service";
 import { getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
 import { MappingModal } from "./pin-mappings-tab";
+import { MappingImpactDialog, MappingIntent, reportRebuildIfNeeded } from "@/components/attendance/mapping-impact-dialog";
 
 function formatDateTime(iso: string) {
     return new Date(iso).toLocaleString("en-PK", {
@@ -104,11 +105,11 @@ function SuggestedEmployeeCell({
             <button
                 type="button"
                 onClick={() => onLink(match)}
-                title={`Quick link ${pin} to ${match.full_name}`}
+                title={`Review linking ${pin} to ${match.full_name}`}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium transition-colors"
             >
                 <Check className="w-3 h-3" />
-                Link
+                Review
             </button>
         </div>
     );
@@ -202,11 +203,11 @@ function SuggestedStudentCell({
             <button
                 type="button"
                 onClick={() => onLink(match)}
-                title={`Quick link ${pin} to ${match.full_name}`}
+                title={`Review linking ${pin} to ${match.full_name}`}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium transition-colors"
             >
                 <Check className="w-3 h-3" />
-                Link
+                Review
             </button>
         </div>
     );
@@ -217,9 +218,12 @@ export function UnmappedPinsTab({ active }: { active: boolean }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [mappingTarget, setMappingTarget] = useState<UnmappedPin | null>(null);
-    const [quickLinkPrefill, setQuickLinkPrefill] = useState<{
+    const [confirming, setConfirming] = useState<{
+        intent: MappingIntent;
+        person: PersonSearchResult;
+        personType: DevicePersonType;
         pin: UnmappedPin;
-        employee: PersonSearchResult;
+        notes: string[];
     } | null>(null);
 
     const fetchPins = useCallback(async () => {
@@ -239,36 +243,61 @@ export function UnmappedPinsTab({ active }: { active: boolean }) {
         if (active) fetchPins();
     }, [active, fetchPins]);
 
+    /**
+     * Opens the confirm step rather than mapping outright. Linking now replays
+     * the PIN's whole scan history onto the person, so a mis-click rewrites real
+     * attendance — the operator sees exactly what moves before it happens.
+     */
     async function handleQuickLink(pin: UnmappedPin, person: PersonSearchResult, personType: DevicePersonType) {
+        const notes: string[] = [];
         if (personType === "STUDENT" && person.cc !== undefined) {
             const existing = await zkPushService.getMappings(undefined, person.cc).catch(() => []);
             if (existing.length > 0) {
                 const list = existing
                     .map((m) => `${getDeviceName(m.device_sn)} (PIN ${m.device_pin})${m.is_active ? "" : " — inactive"}`)
                     .join(", ");
-                const confirmed = window.confirm(
-                    `${person.full_name} is already mapped to: ${list}.\n\nMap this PIN too?`
+                notes.push(
+                    `${person.full_name} is already mapped to: ${list}. Check this isn't a duplicate before adding another PIN.`,
                 );
-                if (!confirmed) return;
             }
         }
-        try {
-            await zkPushService.createMapping({
-                device_sn: pin.device_sn,
-                device_pin: pin.device_pin,
-                person_type: personType,
-                employee_id: personType === "STAFF" ? person.id : undefined,
-                student_cc: personType === "STUDENT" ? person.cc : undefined,
-                display_name: pin.suggested_name || person.full_name || undefined,
-            });
+
+        setConfirming({
+            person,
+            personType,
+            pin,
+            notes,
+            intent: {
+                kind: "link",
+                deviceSn: pin.device_sn,
+                devicePin: pin.device_pin,
+                personType,
+                employeeId: personType === "STAFF" ? person.id : undefined,
+                studentCc: personType === "STUDENT" ? person.cc : undefined,
+                personName: person.full_name ?? "this person",
+            },
+        });
+    }
+
+    async function applyQuickLink(acknowledgeCollisions: boolean) {
+        if (!confirming) return;
+        const { pin, person, personType } = confirming;
+
+        const result = await zkPushService.createMapping({
+            device_sn: pin.device_sn,
+            device_pin: pin.device_pin,
+            person_type: personType,
+            employee_id: personType === "STAFF" ? person.id : undefined,
+            student_cc: personType === "STUDENT" ? person.cc : undefined,
+            display_name: pin.suggested_name || person.full_name || undefined,
+            acknowledge_collisions: acknowledgeCollisions || undefined,
+        });
+
+        setConfirming(null);
+        if (!reportRebuildIfNeeded(result, fetchPins)) {
             toast.success(`Mapped PIN ${pin.device_pin} to ${person.full_name}`);
-            fetchPins();
-        } catch (err: unknown) {
-            const message =
-                (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-                "Failed to map PIN";
-            toast.error(message);
         }
+        fetchPins();
     }
 
     return (
@@ -378,6 +407,15 @@ export function UnmappedPinsTab({ active }: { active: boolean }) {
                     prefill={mappingTarget}
                     onClose={() => setMappingTarget(null)}
                     onSaved={fetchPins}
+                />
+            )}
+
+            {confirming && (
+                <MappingImpactDialog
+                    intent={confirming.intent}
+                    extraNotes={confirming.notes}
+                    onCancel={() => setConfirming(null)}
+                    onConfirm={({ acknowledgeCollisions }) => applyQuickLink(acknowledgeCollisions)}
                 />
             )}
         </div>

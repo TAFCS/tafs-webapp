@@ -60,6 +60,10 @@ export interface CreateDeviceMappingPayload {
     student_cc?: number;
     display_name?: string;
     notes?: string;
+    /** Required to revive a deliberately deactivated mapping — the endpoint upserts. */
+    is_active?: boolean;
+    /** Deliberately override a BLOCK-level PIN collision. */
+    acknowledge_collisions?: boolean;
 }
 
 export interface UpdateDeviceMappingPayload {
@@ -69,6 +73,61 @@ export interface UpdateDeviceMappingPayload {
     display_name?: string;
     notes?: string;
     is_active?: boolean;
+    acknowledge_collisions?: boolean;
+}
+
+export type CollisionSeverity = 'BLOCK' | 'WARN';
+
+export interface PinCollision {
+    code: 'PIN_IS_OTHER_STUDENT_GR' | 'PIN_IS_OTHER_STUDENT_CC' | 'PIN_NOT_EQUAL_TO_CC' | 'PIN_USED_ON_OTHER_DEVICE';
+    severity: CollisionSeverity;
+    message: string;
+    conflicting_student_cc?: number;
+    conflicting_student_name?: string;
+    conflicting_mapping_id?: number;
+}
+
+/**
+ * What a link/unlink would actually do to stored attendance. Mapping changes now
+ * replay the PIN's whole history, so this is the difference between a one-click
+ * edit and a silent rewrite of somebody's record.
+ */
+export interface MappingImpact {
+    scans_examined: number;
+    scans_linked: number;
+    scans_moved: number;
+    scans_unlinked: number;
+    days_appearing: number;
+    days_recalculated: number;
+    days_removed: number;
+    days_protected: number;
+    /** "STUDENT:44" style refs for people who would LOSE these scans. */
+    affects_other_people: string[];
+    reversible: boolean;
+    summary: string;
+    warnings: string[];
+}
+
+/** Returned in place of a resolution report when a PIN is too large to rebuild inline. */
+export interface SkippedResolution {
+    skipped: true;
+    needs_rebuild: true;
+    scan_count: number;
+    warning: string;
+    resolve_request: { kind: 'device_pin'; device_sn: string; device_pin: string; dry_run: false };
+}
+
+export type MappingMutationResult = DeviceUserMapping & {
+    resolution?: { needs_rebuild?: boolean } & Partial<SkippedResolution>;
+    collisions?: PinCollision[];
+};
+
+export interface PreviewLinkPayload {
+    device_sn: string;
+    device_pin: string;
+    person_type: DevicePersonType;
+    employee_id?: number;
+    student_cc?: number;
 }
 
 export interface SimulateScanPayload {
@@ -111,14 +170,57 @@ export const zkPushService = {
         return res.data;
     },
 
-    createMapping: async (payload: CreateDeviceMappingPayload): Promise<DeviceUserMapping> => {
+    createMapping: async (payload: CreateDeviceMappingPayload): Promise<MappingMutationResult> => {
         const res = await api.post('/v1/attendance/zk-device-mappings', payload);
         return res.data;
     },
 
-    updateMapping: async (id: number, payload: UpdateDeviceMappingPayload): Promise<DeviceUserMapping> => {
+    updateMapping: async (id: number, payload: UpdateDeviceMappingPayload): Promise<MappingMutationResult> => {
         const res = await api.patch(`/v1/attendance/zk-device-mappings/${id}`, payload);
         return res.data;
+    },
+
+    deleteMapping: async (id: number): Promise<MappingMutationResult> => {
+        const res = await api.delete(`/v1/attendance/zk-device-mappings/${id}`);
+        return res.data;
+    },
+
+    /** "If I linked this PIN to this person, what would happen?" — powers the confirm step. */
+    previewLink: async (payload: PreviewLinkPayload): Promise<MappingImpact> => {
+        const res = await api.post('/v1/attendance/zk-scan-resolution/preview-link', payload);
+        return res.data.data;
+    },
+
+    /** "If I unlinked or deleted this PIN's mapping, what would happen?" */
+    previewUnlink: async (deviceSn: string, devicePin: string): Promise<MappingImpact> => {
+        const res = await api.post('/v1/attendance/zk-scan-resolution/preview-unlink', {
+            device_sn: deviceSn,
+            device_pin: devicePin,
+        });
+        return res.data.data;
+    },
+
+    checkCollisions: async (payload: PreviewLinkPayload): Promise<PinCollision[]> => {
+        const res = await api.get('/v1/attendance/zk-device-mappings/collision-check', {
+            params: {
+                device_sn: payload.device_sn,
+                device_pin: payload.device_pin,
+                person_type: payload.person_type,
+                employee_id: payload.employee_id,
+                student_cc: payload.student_cc,
+            },
+        });
+        return res.data;
+    },
+
+    /** Finish a rebuild the mapping mutation was too large to do inline. */
+    rebuildPin: async (deviceSn: string, devicePin: string): Promise<void> => {
+        await api.post('/v1/attendance/zk-scan-resolution/resolve', {
+            kind: 'device_pin',
+            device_sn: deviceSn,
+            device_pin: devicePin,
+            dry_run: false,
+        });
     },
 
     getUnmappedPins: async (): Promise<UnmappedPin[]> => {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { AlertCircle, AlertTriangle, CheckCircle2, Fingerprint, Info, Loader2, Pencil, Plus, Power, PowerOff, Tag, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Fingerprint, Info, Loader2, Pencil, Plus, Power, PowerOff, Tag, Trash2, X } from "lucide-react";
 import {
     zkPushService,
     DeviceUserMapping,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/zk-push.service";
 import { getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
 import { PersonPicker } from "./person-picker";
+import { MappingImpactDialog, MappingIntent, reportRebuildIfNeeded } from "@/components/attendance/mapping-impact-dialog";
 
 interface MappingModalProps {
     mapping: DeviceUserMapping | null;
@@ -47,6 +48,7 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
     const [error, setError] = useState<string | null>(null);
     const [pinHint, setPinHint] = useState<{ type: 'info' | 'success' | 'warning'; message: string } | null>(null);
     const [existingStudentMapping, setExistingStudentMapping] = useState<string | null>(null);
+    const [confirming, setConfirming] = useState<MappingIntent | null>(null);
 
     // PIN duplication hint — only for new mappings (deviceFieldsLocked === false)
     useEffect(() => {
@@ -122,6 +124,50 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
         }
     }
 
+    /**
+     * True when saving would move stored attendance: a new mapping claims the
+     * PIN's whole history, a repoint hands it to someone else, and a deactivate
+     * releases it. Renaming or re-noting a mapping does none of those.
+     */
+    function movesAttendance(): boolean {
+        if (!isEdit || !mapping) return true;
+        return (
+            mapping.person_type !== personType ||
+            (mapping.employee_id ?? null) !== (personType === "STAFF" ? (selectedPerson?.id ?? null) : null) ||
+            (mapping.student_cc ?? null) !== (personType === "STUDENT" ? (selectedPerson?.cc ?? null) : null) ||
+            mapping.is_active !== isActive
+        );
+    }
+
+    async function save(acknowledgeCollisions: boolean) {
+        const result =
+            isEdit && mapping
+                ? await zkPushService.updateMapping(mapping.id, {
+                      person_type: personType,
+                      employee_id: personType === "STAFF" ? selectedPerson!.id : undefined,
+                      student_cc: personType === "STUDENT" ? selectedPerson!.cc : undefined,
+                      display_name: displayName || undefined,
+                      notes: notes || undefined,
+                      is_active: isActive,
+                      acknowledge_collisions: acknowledgeCollisions || undefined,
+                  })
+                : await zkPushService.createMapping({
+                      device_sn: deviceSn.trim(),
+                      device_pin: devicePin.trim(),
+                      person_type: personType,
+                      employee_id: personType === "STAFF" ? selectedPerson!.id : undefined,
+                      student_cc: personType === "STUDENT" ? selectedPerson!.cc : undefined,
+                      display_name: displayName || undefined,
+                      notes: notes || undefined,
+                      acknowledge_collisions: acknowledgeCollisions || undefined,
+                  });
+
+        reportRebuildIfNeeded(result, onSaved);
+        setConfirming(null);
+        onSaved();
+        onClose();
+    }
+
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         if (!deviceSn.trim() || !devicePin.trim()) {
@@ -133,31 +179,35 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
             return;
         }
 
+        if (movesAttendance()) {
+            setError(null);
+            setConfirming(
+                isEdit && mapping && !isActive
+                    ? {
+                          kind: "unlink",
+                          deviceSn: deviceSn.trim(),
+                          devicePin: devicePin.trim(),
+                          personName: selectedPerson.full_name ?? "this person",
+                          mode: "deactivate",
+                      }
+                    : {
+                          kind: "link",
+                          deviceSn: deviceSn.trim(),
+                          devicePin: devicePin.trim(),
+                          personType,
+                          employeeId: personType === "STAFF" ? selectedPerson.id : undefined,
+                          studentCc: personType === "STUDENT" ? selectedPerson.cc : undefined,
+                          personName: selectedPerson.full_name ?? "this person",
+                          reactivating: isEdit && !!mapping && !mapping.is_active,
+                      },
+            );
+            return;
+        }
+
         setSaving(true);
         setError(null);
         try {
-            if (isEdit && mapping) {
-                await zkPushService.updateMapping(mapping.id, {
-                    person_type: personType,
-                    employee_id: personType === "STAFF" ? selectedPerson.id : undefined,
-                    student_cc: personType === "STUDENT" ? selectedPerson.cc : undefined,
-                    display_name: displayName || undefined,
-                    notes: notes || undefined,
-                    is_active: isActive,
-                });
-            } else {
-                await zkPushService.createMapping({
-                    device_sn: deviceSn.trim(),
-                    device_pin: devicePin.trim(),
-                    person_type: personType,
-                    employee_id: personType === "STAFF" ? selectedPerson.id : undefined,
-                    student_cc: personType === "STUDENT" ? selectedPerson.cc : undefined,
-                    display_name: displayName || undefined,
-                    notes: notes || undefined,
-                });
-            }
-            onSaved();
-            onClose();
+            await save(false);
         } catch (err: unknown) {
             const message =
                 (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
@@ -166,6 +216,17 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
         } finally {
             setSaving(false);
         }
+    }
+
+    if (confirming) {
+        return (
+            <MappingImpactDialog
+                intent={confirming}
+                extraNotes={existingStudentMapping ? [`${existingStudentMapping} Check this isn't a duplicate.`] : []}
+                onCancel={() => setConfirming(null)}
+                onConfirm={({ acknowledgeCollisions }) => save(acknowledgeCollisions)}
+            />
+        );
     }
 
     return (
@@ -348,6 +409,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
     const [error, setError] = useState<string | null>(null);
     const [modalState, setModalState] = useState<{ mapping: DeviceUserMapping | null } | null>(null);
     const [simulatingId, setSimulatingId] = useState<number | null>(null);
+    const [confirming, setConfirming] = useState<{ intent: MappingIntent; mapping: DeviceUserMapping } | null>(null);
 
     const fetchMappings = useCallback(async () => {
         setLoading(true);
@@ -378,13 +440,61 @@ export function PinMappingsTab({ active }: { active: boolean }) {
         return "—";
     }
 
-    async function toggleActive(m: DeviceUserMapping) {
-        try {
-            await zkPushService.updateMapping(m.id, { is_active: !m.is_active });
-            fetchMappings();
-        } catch {
-            setError("Failed to update mapping.");
+    function requestToggle(m: DeviceUserMapping) {
+        const personName = personLabel(m);
+        setConfirming({
+            mapping: m,
+            intent: m.is_active
+                ? { kind: "unlink", deviceSn: m.device_sn, devicePin: m.device_pin, personName, mode: "deactivate" }
+                : {
+                      kind: "link",
+                      deviceSn: m.device_sn,
+                      devicePin: m.device_pin,
+                      personType: m.person_type,
+                      employeeId: m.employee_id ?? undefined,
+                      studentCc: m.student_cc ?? undefined,
+                      personName,
+                      reactivating: true,
+                  },
+        });
+    }
+
+    function requestDelete(m: DeviceUserMapping) {
+        setConfirming({
+            mapping: m,
+            intent: {
+                kind: "unlink",
+                deviceSn: m.device_sn,
+                devicePin: m.device_pin,
+                personName: personLabel(m),
+                mode: "delete",
+            },
+        });
+    }
+
+    async function applyConfirmed(acknowledgeCollisions: boolean) {
+        if (!confirming) return;
+        const { intent, mapping } = confirming;
+
+        const result =
+            intent.kind === "unlink" && intent.mode === "delete"
+                ? await zkPushService.deleteMapping(mapping.id)
+                : await zkPushService.updateMapping(mapping.id, {
+                      is_active: intent.kind === "link",
+                      acknowledge_collisions: acknowledgeCollisions || undefined,
+                  });
+
+        setConfirming(null);
+        if (!reportRebuildIfNeeded(result, fetchMappings)) {
+            toast.success(
+                intent.kind === "link"
+                    ? `PIN ${mapping.device_pin} re-linked.`
+                    : intent.mode === "delete"
+                      ? `Mapping for PIN ${mapping.device_pin} deleted.`
+                      : `PIN ${mapping.device_pin} unlinked.`,
+            );
         }
+        fetchMappings();
     }
 
     async function runSimulateScan(m: DeviceUserMapping) {
@@ -515,11 +625,18 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                                                     <Pencil className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => toggleActive(m)}
+                                                    onClick={() => requestToggle(m)}
                                                     className="text-zinc-400 hover:text-zinc-600"
-                                                    title={m.is_active ? "Deactivate" : "Activate"}
+                                                    title={m.is_active ? "Unlink this PIN" : "Re-link this PIN"}
                                                 >
                                                     {m.is_active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+                                                </button>
+                                                <button
+                                                    onClick={() => requestDelete(m)}
+                                                    className="text-zinc-400 hover:text-rose-600"
+                                                    title="Delete this mapping"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
                                                 </button>
                                                 {m.is_active && (
                                                     <button
@@ -551,6 +668,14 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                     mappings={mappings}
                     onClose={() => setModalState(null)}
                     onSaved={fetchMappings}
+                />
+            )}
+
+            {confirming && (
+                <MappingImpactDialog
+                    intent={confirming.intent}
+                    onCancel={() => setConfirming(null)}
+                    onConfirm={({ acknowledgeCollisions }) => applyConfirmed(acknowledgeCollisions)}
                 />
             )}
         </div>
