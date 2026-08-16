@@ -104,6 +104,7 @@ export interface EmployeeProfile {
   date_of_birth: string | null;
   address: string | null;
   personal_phone: string | null;
+  secondary_phone: string | null;
   personal_email: string | null;
   job_title: string | null;
   staff_category_id: number | null;
@@ -188,6 +189,7 @@ export interface EmployeeCreatePayload {
   date_of_birth?: string | null;
   address?: string | null;
   personal_phone?: string | null;
+  secondary_phone?: string | null;
   personal_email?: string | null;
   job_title?: string | null;
   staff_category_id?: number | null;

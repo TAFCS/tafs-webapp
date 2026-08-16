@@ -67,7 +67,7 @@ const CATEGORY_CODE_DEP_MAP: Record<string, string> = {
   IT_STAFF: "03",
   CREATIVE_STAFF: "03",
   SUPPORT_STAFF: "04",
-  SPORTS_COACH: "05",
+  SPORTS_COACH: "02",
   VISITING_FACULTY: "05",
 };
 
@@ -104,6 +104,7 @@ interface FormData {
   date_of_birth: string;
   address: string;
   personal_phone: string;
+  secondary_phone: string;
   personal_email: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
@@ -145,7 +146,7 @@ interface FormData {
 
 const EMPTY_FORM: FormData = {
   full_name: "", father_name: "", father_cnic: "", mother_name: "", mother_cnic: "", cnic: "",
-  date_of_birth: "", address: "", personal_phone: "", personal_email: "",
+  date_of_birth: "", address: "", personal_phone: "", secondary_phone: "", personal_email: "",
   emergency_contact_name: "", emergency_contact_phone: "", emergency_contact_relationship: "",
   photo_url: "", father_photo_url: "", mother_photo_url: "",
   spouse_name: "", spouse_cnic: "", spouse_photo_url: "",
@@ -549,6 +550,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       date_of_birth: emp.date_of_birth ? new Date(emp.date_of_birth).toISOString().split("T")[0] : "",
       address: emp.address ?? "",
       personal_phone: emp.personal_phone ?? "",
+      secondary_phone: emp.secondary_phone ?? "",
       personal_email: emp.personal_email ?? "",
       emergency_contact_name: emp.emergency_contact_name ?? "",
       emergency_contact_phone: emp.emergency_contact_phone ?? "",
@@ -690,6 +692,9 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     if (formData.personal_phone.trim() && formData.personal_phone.replace(/\D/g, "").length > 13) {
       return "Personal phone number cannot exceed 13 digits.";
     }
+    if (formData.secondary_phone.trim() && formData.secondary_phone.replace(/\D/g, "").length > 13) {
+      return "Secondary phone number cannot exceed 13 digits.";
+    }
     if (formData.emergency_contact_phone.trim() && formData.emergency_contact_phone.replace(/\D/g, "").length > 13) {
       return "Emergency contact phone number cannot exceed 13 digits.";
     }
@@ -720,6 +725,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       date_of_birth: optionalText(formData.date_of_birth),
       address: optionalText(formData.address),
       personal_phone: optionalText(formData.personal_phone),
+      secondary_phone: optionalText(formData.secondary_phone),
       personal_email: optionalText(formData.personal_email),
       emergency_contact_name: optionalText(formData.emergency_contact_name),
       emergency_contact_phone: optionalText(formData.emergency_contact_phone),
@@ -1214,6 +1220,18 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     onChange={e => setFormData(p => ({ ...p, personal_phone: e.target.value.replace(/[^\d+]/g, "").slice(0, 13) }))}
                   />
                 </div>
+                {/* Secondary Phone */}
+                <div className="space-y-1.5">
+                  <FieldLabel>Secondary Phone</FieldLabel>
+                  <input
+                    type="text"
+                    placeholder="03XX-XXXXXXX"
+                    maxLength={13}
+                    className={inputCls}
+                    value={formData.secondary_phone}
+                    onChange={e => setFormData(p => ({ ...p, secondary_phone: e.target.value.replace(/[^\d+]/g, "").slice(0, 13) }))}
+                  />
+                </div>
                 {/* Personal Email */}
                 <div className="space-y-1.5">
                   <FieldLabel>Personal Email</FieldLabel>
@@ -1341,14 +1359,12 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                   file={photoFiles.mother}
                   onChange={(file) => setPhotoFiles(p => ({ ...p, mother: file }))}
                 />
-                {hasSpouse && (
-                  <ImagePicker
-                    label="Spouse's Photo"
-                    value={formData.spouse_photo_url || null}
-                    file={photoFiles.spouse}
-                    onChange={(file) => setPhotoFiles(p => ({ ...p, spouse: file }))}
-                  />
-                )}
+                <ImagePicker
+                  label="Spouse's Photo"
+                  value={formData.spouse_photo_url || null}
+                  file={photoFiles.spouse}
+                  onChange={(file) => setPhotoFiles(p => ({ ...p, spouse: file }))}
+                />
               </div>
             </div>
 
