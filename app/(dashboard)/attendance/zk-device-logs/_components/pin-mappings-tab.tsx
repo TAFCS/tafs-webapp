@@ -46,6 +46,7 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [pinHint, setPinHint] = useState<{ type: 'info' | 'success' | 'warning'; message: string } | null>(null);
+    const [existingStudentMapping, setExistingStudentMapping] = useState<string | null>(null);
 
     // PIN duplication hint — only for new mappings (deviceFieldsLocked === false)
     useEffect(() => {
@@ -85,6 +86,34 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
         return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [devicePin, deviceSn, deviceFieldsLocked, selectedPerson, personType]);
+
+    // Warn the admin if the selected student already has device mapping(s) — new mappings only
+    useEffect(() => {
+        if (isEdit || personType !== 'STUDENT' || selectedPerson?.cc === undefined) {
+            setExistingStudentMapping(null);
+            return;
+        }
+        let active = true;
+        zkPushService
+            .getMappings(undefined, selectedPerson.cc)
+            .then((existing) => {
+                if (!active) return;
+                if (existing.length === 0) {
+                    setExistingStudentMapping(null);
+                    return;
+                }
+                const list = existing
+                    .map((m) => `${getDeviceName(m.device_sn)} (PIN ${m.device_pin})${m.is_active ? '' : ' — inactive'}`)
+                    .join(', ');
+                setExistingStudentMapping(`${selectedPerson.full_name} is already mapped to: ${list}.`);
+            })
+            .catch(() => {
+                if (active) setExistingStudentMapping(null);
+            });
+        return () => {
+            active = false;
+        };
+    }, [isEdit, personType, selectedPerson]);
 
     function handlePersonTypeChange(next: DevicePersonType) {
         if (next !== personType) {
@@ -222,6 +251,13 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
                             </label>
                             <PersonPicker personType={personType} selected={selectedPerson} onSelect={setSelectedPerson} />
                         </div>
+
+                        {!isEdit && existingStudentMapping && (
+                            <div className="flex items-start gap-2 p-3 rounded-lg text-sm bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400">
+                                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                                <span>{existingStudentMapping} Double-check this isn&rsquo;t a duplicate before mapping another PIN.</span>
+                            </div>
+                        )}
 
                         <div>
                             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">

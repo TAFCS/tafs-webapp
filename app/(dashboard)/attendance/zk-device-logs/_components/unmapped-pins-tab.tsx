@@ -132,10 +132,12 @@ function SuggestedStudentCell({
 
         async function findMatch() {
             try {
-                // 1. Search using raw PIN (matches exact CC, or GR#/name containing it)
+                // 1. Search using raw PIN — students are only ever linked via PIN == CC,
+                // so only accept an exact CC match here. Never suggest a GR# match for a PIN.
                 const codeResults = await zkPushService.searchStudents(pin);
-                if (active && codeResults && codeResults.length > 0) {
-                    setMatch(codeResults[0]);
+                const exactCcMatch = codeResults?.find((r) => String(r.cc) === pin);
+                if (active && exactCcMatch) {
+                    setMatch(exactCcMatch);
                     return;
                 }
 
@@ -238,6 +240,18 @@ export function UnmappedPinsTab({ active }: { active: boolean }) {
     }, [active, fetchPins]);
 
     async function handleQuickLink(pin: UnmappedPin, person: PersonSearchResult, personType: DevicePersonType) {
+        if (personType === "STUDENT" && person.cc !== undefined) {
+            const existing = await zkPushService.getMappings(undefined, person.cc).catch(() => []);
+            if (existing.length > 0) {
+                const list = existing
+                    .map((m) => `${getDeviceName(m.device_sn)} (PIN ${m.device_pin})${m.is_active ? "" : " — inactive"}`)
+                    .join(", ");
+                const confirmed = window.confirm(
+                    `${person.full_name} is already mapped to: ${list}.\n\nMap this PIN too?`
+                );
+                if (!confirmed) return;
+            }
+        }
         try {
             await zkPushService.createMapping({
                 device_sn: pin.device_sn,
