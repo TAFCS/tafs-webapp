@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X, Plus, GraduationCap, BookOpen, ShieldCheck, Star, Award, BookText, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X, Plus, GraduationCap, BookOpen, ShieldCheck, Star, Award, BookText, Trash2, History } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/src/store/store";
@@ -868,6 +868,11 @@ export function RegistrationForm() {
     const [prefillCc, setPrefillCc] = useState<number | null>(null);
     const [isPrefilling, setIsPrefilling] = useState(false);
 
+    // Legacy student: staff enter the original CC + GR from paper records.
+    const [isLegacyMode, setIsLegacyMode] = useState(false);
+    const [legacyCc, setLegacyCc] = useState("");
+    const [legacyGr, setLegacyGr] = useState("");
+
     // Delete-in-place option for a pending Quick Admission record being completed here.
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -898,6 +903,9 @@ export function RegistrationForm() {
         setSubmitError(null);
         setIsProfileModalOpen(false);
         setPrefillCc(null);
+        setIsLegacyMode(false);
+        setLegacyCc("");
+        setLegacyGr("");
     };
 
     // Map academic_system labels ("Cambridge", "A-Level", "Secondary", etc.) to the
@@ -910,8 +918,30 @@ export function RegistrationForm() {
         return "";
     };
 
+    const parseLegacyCc = () => {
+        const trimmed = legacyCc.trim();
+        if (!/^\d+$/.test(trimmed)) return null;
+        const n = Number(trimmed);
+        return Number.isInteger(n) && n >= 1 ? n : null;
+    };
+
+    const isLegacyCcGrValid = () => parseLegacyCc() != null && !!legacyGr.trim();
+
+    const enterLegacyMode = () => {
+        if (prefillCc) {
+            setPrefillCc(null);
+            toast("Quick Admission prefill cleared — legacy students use a paper-record CC.");
+        }
+        setIsLegacyMode(true);
+    };
+
+    const enterNewAdmissionMode = () => {
+        setIsLegacyMode(false);
+    };
+
     // Fetch a pending Quick Admission by CC and prefill the form with it.
     const prefillFromQuickAdmission = useCallback(async (cc: number) => {
+        setIsLegacyMode(false);
         setIsPrefilling(true);
         try {
             const { data } = await api.get<{ data: any }>(`/v1/admissions/by-cc/${cc}`);
@@ -1017,7 +1047,8 @@ export function RegistrationForm() {
             isMotherCnicValid &&
             formData.dobDay && formData.dobMonth && formData.dobYear &&
             formData.admissionSystem &&
-            formData.admissionLevel
+            formData.admissionLevel &&
+            (!isLegacyMode || isLegacyCcGrValid())
         );
     };
 
@@ -1025,6 +1056,11 @@ export function RegistrationForm() {
         if (currentStep === 1) {
             if (!formData.campusId) {
                 setSubmitError("Please select a Campus from the sidebar before proceeding.");
+                return;
+            }
+
+            if (isLegacyMode && !isLegacyCcGrValid()) {
+                setSubmitError("Enter the student's original Computer Code and G.R. Number in Office Records.");
                 return;
             }
 
@@ -1049,6 +1085,17 @@ export function RegistrationForm() {
         if (!formData.campusId) {
             setSubmitError("Please select a Campus before submitting.");
             return;
+        }
+
+        if (isLegacyMode) {
+            if (parseLegacyCc() == null) {
+                setSubmitError("Legacy student Computer Code must be a positive whole number.");
+                return;
+            }
+            if (!legacyGr.trim()) {
+                setSubmitError("Legacy student G.R. Number is required.");
+                return;
+            }
         }
 
 
@@ -1106,7 +1153,8 @@ export function RegistrationForm() {
                               formData.admissionSystem === 'alevel' ? 'A-Level' : 'Secondary';
 
         const payload = {
-            ...(prefillCc ? { existing_cc: prefillCc } : {}),
+            ...(prefillCc && !isLegacyMode ? { existing_cc: prefillCc } : {}),
+            ...(isLegacyMode ? { legacy_cc: parseLegacyCc(), gr_number: legacyGr.trim() } : {}),
             full_name: fullName,
             cnic: sanitizeValue(formData.candidateCnic),
             dob,
@@ -1345,8 +1393,31 @@ export function RegistrationForm() {
                             ))}
                         </select>
                     </div>
-
-
+                    {isLegacyMode && (
+                        <>
+                            <div>
+                                <label className="block text-[10px] font-black text-zinc-700 dark:text-zinc-300 mb-1 uppercase tracking-widest">Computer Code</label>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={legacyCc}
+                                    onChange={(e) => setLegacyCc(e.target.value.replace(/[^\d]/g, ""))}
+                                    placeholder="e.g. 4821"
+                                    className="w-full px-2 py-1.5 text-sm font-mono border border-amber-300 dark:border-amber-800 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none bg-white dark:bg-zinc-950"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-zinc-700 dark:text-zinc-300 mb-1 uppercase tracking-widest">G.R. Number</label>
+                                <input
+                                    type="text"
+                                    value={legacyGr}
+                                    onChange={(e) => setLegacyGr(e.target.value)}
+                                    placeholder="e.g. A-5832"
+                                    className="w-full px-2 py-1.5 text-sm font-mono border border-amber-300 dark:border-amber-800 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none bg-white dark:bg-zinc-950"
+                                />
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 <div className="mt-8 space-y-4">
@@ -1388,7 +1459,12 @@ export function RegistrationForm() {
                         <p className="text-sm text-zinc-500 dark:text-zinc-400">
                             Page {currentStep} of 3 — {currentStep === 1 ? 'Personal Data & Academic Target' : currentStep === 2 ? 'Contacts & Signatures' : 'Office Use Only'}
                         </p>
-                        {prefillCc && (
+                        {isLegacyMode && (
+                            <p className="text-[11px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest mt-1">
+                                Legacy student — enter original CC and G.R. They will be enrolled immediately.
+                            </p>
+                        )}
+                        {prefillCc && !isLegacyMode && (
                             <div className="flex items-center gap-3 mt-1">
                                 <p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">
                                     Completing Quick Admission CC #{prefillCc}
@@ -1404,12 +1480,36 @@ export function RegistrationForm() {
                             </div>
                         )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden text-[11px] font-black uppercase tracking-widest">
+                            <button
+                                type="button"
+                                onClick={enterNewAdmissionMode}
+                                className={`px-3 py-2 transition-colors ${!isLegacyMode ? "bg-primary text-white" : "bg-white dark:bg-zinc-950 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}
+                            >
+                                New admission
+                            </button>
+                            <button
+                                type="button"
+                                onClick={enterLegacyMode}
+                                className={`inline-flex items-center gap-1.5 px-3 py-2 transition-colors ${isLegacyMode ? "bg-amber-600 text-white" : "bg-white dark:bg-zinc-950 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}
+                            >
+                                <History className="h-3 w-3" />
+                                Legacy student
+                            </button>
+                        </div>
                         {isPrefilling ? (
                             <div className="flex items-center gap-2 px-3 py-2 text-xs font-black text-zinc-400 uppercase tracking-wider">
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                 Loading record…
                             </div>
+                        ) : isLegacyMode ? (
+                            <span
+                                className="flex items-center gap-2 px-3 py-2 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-400 text-xs font-black uppercase tracking-wider cursor-not-allowed"
+                                title="Quick Admissions cannot be mixed with a legacy CC"
+                            >
+                                Pending Quick Admissions
+                            </span>
                         ) : (
                             <QuickAdmissionsPopup onSelect={prefillFromQuickAdmission} />
                         )}
@@ -2925,14 +3025,20 @@ export function RegistrationForm() {
                         <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
                             <div className="flex items-center gap-2">
-                                <p className="font-semibold">Registration submitted successfully!</p>
+                                <p className="font-semibold">{isLegacyMode ? "Legacy student enrolled successfully!" : "Registration submitted successfully!"}</p>
                                 {formData.flags.length > 0 && (
                                     <span className="flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-[10px] font-black uppercase tracking-widest rounded-md border border-zinc-200">
                                         Flagged ({formData.flags.length})
                                     </span>
                                 )}
                             </div>
-                            <p className="text-emerald-700 mt-0.5">CC assigned: <span className="font-mono font-bold text-base">{submitSuccess.gr_number || submitSuccess.cc_number}</span>. The student record is now <span className="font-medium">PENDING</span> review.</p>
+                            <p className="text-emerald-700 mt-0.5">
+                                {isLegacyMode ? (
+                                    <>Enrolled with CC <span className="font-mono font-bold text-base">{submitSuccess.cc_number || submitSuccess.cc}</span> and GR <span className="font-mono font-bold text-base">{submitSuccess.gr_number || "—"}</span>.</>
+                                ) : (
+                                    <>CC assigned: <span className="font-mono font-bold text-base">{submitSuccess.gr_number || submitSuccess.cc_number}</span>. The student record is now <span className="font-medium">PENDING</span> review.</>
+                                )}
+                            </p>
                         </div>
                          <div className="flex items-center gap-2">
                             <button
