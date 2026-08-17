@@ -18,6 +18,8 @@ export function FilterDropdown<T extends string | number = number>({
   placeholder,
   onToggle,
   onClear,
+  onSetValue,
+  hint,
 }: {
   label: string;
   icon: React.ElementType;
@@ -27,6 +29,8 @@ export function FilterDropdown<T extends string | number = number>({
   placeholder: string;
   onToggle: (id: T) => void;
   onClear: () => void;
+  onSetValue?: (ids: T[]) => void;
+  hint?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -57,6 +61,9 @@ export function FilterDropdown<T extends string | number = number>({
     <div className="flex flex-col gap-1.5" ref={ref}>
       <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
         <Icon className="h-3 w-3" /> {label}
+        {hint && (
+          <span className="normal-case font-semibold tracking-normal text-zinc-300">{hint}</span>
+        )}
       </label>
       <div className="relative">
         <button
@@ -105,6 +112,26 @@ export function FilterDropdown<T extends string | number = number>({
                 />
               </div>
             </div>
+            {onSetValue && filtered.length > 0 && (
+              <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => onSetValue(Array.from(new Set([...value, ...filtered.map((o) => o.id)])))}
+                  className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
+                >
+                  Select {search ? "shown" : "all"}
+                </button>
+                {value.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={onClear}
+                    className="text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-700"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
             <div className="max-h-56 overflow-y-auto p-1">
               {loading ? (
                 <div className="flex items-center justify-center gap-2 py-6 text-zinc-400 text-xs">

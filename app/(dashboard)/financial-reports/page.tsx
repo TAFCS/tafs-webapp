@@ -186,7 +186,9 @@ export default function FinancialReportsPage() {
                                 value={campusIds}
                                 options={campuses.map((c: any) => ({ id: c.id as number, label: c.campus_name as string }))}
                                 placeholder="Institution-wide Overview"
+                                hint="multi"
                                 onToggle={(id) => setCampusIds((prev) => toggleId(prev, id))}
+                                onSetValue={setCampusIds}
                                 onClear={() => setCampusIds([])}
                             />
                         </div>
