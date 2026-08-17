@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertCircle, Check, Loader2, Sparkles, Tag, UserPlus } from "lucide-react";
 import toast from "react-hot-toast";
 import { zkPushService, UnmappedPin, PersonSearchResult, DevicePersonType } from "@/lib/zk-push.service";
@@ -214,6 +215,7 @@ function SuggestedStudentCell({
 }
 
 export function UnmappedPinsTab({ active }: { active: boolean }) {
+    const router = useRouter();
     const [pins, setPins] = useState<UnmappedPin[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -242,6 +244,18 @@ export function UnmappedPinsTab({ active }: { active: boolean }) {
     useEffect(() => {
         if (active) fetchPins();
     }, [active, fetchPins]);
+
+    /**
+     * Soft-refreshes the route (re-fetches server data without a full page
+     * reload) on top of the local refetch. Mapping a pin resolves its scans on
+     * the backend before responding, but this tab's local `pins` state can lag
+     * behind other server-rendered data on the route — a soft refresh clears
+     * that without losing client state, so the tab we're on stays selected.
+     */
+    function refreshAfterMapping() {
+        fetchPins();
+        router.refresh();
+    }
 
     /**
      * Opens the confirm step rather than mapping outright. Linking now replays
@@ -294,10 +308,10 @@ export function UnmappedPinsTab({ active }: { active: boolean }) {
         });
 
         setConfirming(null);
-        if (!reportRebuildIfNeeded(result, fetchPins)) {
+        if (!reportRebuildIfNeeded(result, refreshAfterMapping)) {
             toast.success(`Mapped PIN ${pin.device_pin} to ${person.full_name}`);
         }
-        fetchPins();
+        refreshAfterMapping();
     }
 
     return (
@@ -406,7 +420,7 @@ export function UnmappedPinsTab({ active }: { active: boolean }) {
                     mappings={[]}
                     prefill={mappingTarget}
                     onClose={() => setMappingTarget(null)}
-                    onSaved={fetchPins}
+                    onSaved={refreshAfterMapping}
                 />
             )}
 
