@@ -79,8 +79,8 @@ export const NAV_MODULES: NavModule[] = [
         ],
         items: [
             { name: "Financial Reports", description: "Analytics and collection overview", href: "/financial-reports", icon: BarChart3, permission: "system.analytics.view" },
-            { name: "Fee Heads Report", description: "Accrual billed fee heads by date", href: "/financial-reports/fee-heads", icon: FileText, permission: "system.analytics.view" },
-            { name: "Deposits Report", description: "Cash banked, including late fees", href: "/financial-reports/deposits", icon: Landmark, permission: "system.analytics.view" },
+            { name: "Fee Heads Report", description: "Accrual view — billed fee heads by date", href: "/financial-reports/fee-heads", icon: FileText, permission: "system.analytics.view" },
+            { name: "Deposits Report", description: "Cash view — banked deposits with LPS breakdown", href: "/financial-reports/deposits", icon: Landmark, permission: "system.analytics.view" },
             { name: "Class Fee Schedule", description: "Per-class fee configuration", href: "/classwise-fees-schedule", icon: CalendarDays, permission: "fee_admin.classwise_schedule.view" },
             { name: "Student Overrides", description: "Individual fee adjustments", href: "/studentwise-fees", icon: UserCog, permission: "fee_admin.studentwise_schedule.view" },
             { name: "Single Voucher Issuance", description: "Print individual fee slips", href: "/fee-challan", icon: Printer, permission: "finance.vouchers.view" },
