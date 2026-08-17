@@ -27,6 +27,16 @@ const formatDate = (dateStr: string) => {
     }
 };
 
+const getGRPrefix = (campusName?: string, academicSystem?: string) => {
+    const isALevel = academicSystem?.toLowerCase().replace(/[^a-z]/g, "") === "alevel";
+    if (isALevel) return "A-";
+    if (!campusName) return "";
+    const name = campusName.toUpperCase();
+    if (name.includes("KANEEZ FATIMA")) return "KF-A";
+    if (name.includes("NORTH NAZIMABAD")) return "A-N";
+    return "";
+};
+
 // ── Primitives ──────────────────────────────────────────────────────────────
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
@@ -150,6 +160,7 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
     // Section: Personal (Basic Info)
     const [personal, setPersonal] = useState({
         full_name: student.full_name || "",
+        gr_number: student.gr_number || getGRPrefix(student.campus_name, student.academic_system) || "",
         cnic: student.cnic || "",
         dob: student.dob ? new Date(student.dob).toISOString().split("T")[0] : "",
         gender: student.gender || "",
@@ -194,6 +205,7 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
     useEffect(() => {
         setPersonal({
             full_name: student.full_name || "",
+            gr_number: student.gr_number || getGRPrefix(student.campus_name, student.academic_system) || "",
             cnic: student.cnic || "",
             dob: student.dob ? new Date(student.dob).toISOString().split("T")[0] : "",
             gender: student.gender || "",
@@ -235,6 +247,11 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
             ...personal,
             dob: personal.dob || undefined,
             admission_age_years: personal.admission_age_years ? Number(personal.admission_age_years) : undefined,
+            gr_number: (() => {
+                const trimmed = personal.gr_number.trim();
+                const prefix = getGRPrefix(student.campus_name, student.academic_system);
+                return !trimmed || trimmed === prefix ? null : trimmed;
+            })(),
             primary_phone: contact.primary_phone,
             whatsapp_number: contact.whatsapp_number,
             email: contact.email,
@@ -331,6 +348,20 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <Field label="Full Name"><Input value={personal.full_name} onChange={p("full_name")} /></Field>
+                            <Field label="GR Number">
+                                <Input
+                                    value={personal.gr_number}
+                                    placeholder={getGRPrefix(student.campus_name, student.academic_system) || "e.g. 6564"}
+                                    onChange={(v) => {
+                                        const val = v.toUpperCase();
+                                        const prefix = getGRPrefix(student.campus_name, student.academic_system);
+                                        const current = String(student.gr_number || "").toUpperCase();
+                                        const enforcePrefix = !!prefix && (!current || current.startsWith(prefix));
+                                        if (enforcePrefix && val !== "" && !val.startsWith(prefix)) return;
+                                        p("gr_number")(val);
+                                    }}
+                                />
+                            </Field>
                             <Field label="Student CNIC"><Input value={personal.cnic} onChange={v => p("cnic")(formatCNIC(v))} placeholder="xxxxx-xxxxxxx-x" /></Field>
                             <Field label="Primary Guardian CNIC">
                                 <div className="w-full h-10 px-3 flex items-center text-[13px] font-medium text-zinc-400 bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 rounded-xl font-mono">
@@ -435,6 +466,10 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
 
                         {/* Right column details */}
                         <div className="flex-1 grid grid-cols-2 gap-y-5 gap-x-4 w-full">
+                            <div>
+                                <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">GR Number</p>
+                                <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 font-mono mt-0.5">{student.gr_number || "N/A"}</p>
+                            </div>
                             <div>
                                 <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Place of birth</p>
                                 <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 uppercase mt-0.5">{student.city || student.nationality || "N/A"}</p>
