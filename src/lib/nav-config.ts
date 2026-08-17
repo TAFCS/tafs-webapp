@@ -5,7 +5,7 @@ import {
     FilePlus2, HandCoins, Printer, FileText, History, Layers,
     MessageSquare, Database, Briefcase, Clock, CalendarCheck,
     CalendarClock, ClipboardList, ClipboardCheck, Bell,
-    Fingerprint, BarChart3, CreditCard, Wallet, Building2, Megaphone, ScrollText, ClipboardPlus,
+    Fingerprint, CreditCard, Wallet, Building2, Megaphone, ScrollText, ClipboardPlus,
     Shuffle, SlidersHorizontal,
 } from "lucide-react";
 import { SUPPORT_TICKETS_VIEW_PERMISSION } from "@/features/support-tickets/supportTicketAccess";
@@ -78,7 +78,6 @@ export const NAV_MODULES: NavModule[] = [
             "finance.vouchers.view", "finance.deposits.view", "system.analytics.view",
         ],
         items: [
-            { name: "Financial Reports", description: "Analytics and collection overview", href: "/financial-reports", icon: BarChart3, permission: "system.analytics.view" },
             { name: "Fee Heads Report", description: "Accrual view — billed fee heads by date", href: "/financial-reports/fee-heads", icon: FileText, permission: "system.analytics.view" },
             { name: "Deposits Report", description: "Cash view — banked deposits with LPS breakdown", href: "/financial-reports/deposits", icon: Landmark, permission: "system.analytics.view" },
             { name: "Class Fee Schedule", description: "Per-class fee configuration", href: "/classwise-fees-schedule", icon: CalendarDays, permission: "fee_admin.classwise_schedule.view" },

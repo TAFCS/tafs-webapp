@@ -517,7 +517,7 @@ const SUPER_ADMIN_ACTIONS = [
     { label: "Register New Student", href: "/identity/register", icon: UserPlus },
     { label: "Issue Voucher", href: "/fee-challan", icon: Printer },
     { label: "Add Employee", href: "/hr/employees", icon: Users },
-    { label: "Financial Reports", href: "/financial-reports", icon: BarChart3 },
+    { label: "Financial Reports", href: "/financial-reports/fee-heads", icon: BarChart3 },
     { label: "Support Tickets", href: "/support-tickets", icon: MessageSquare },
     { label: "Manage Users", href: "/system/users", icon: UserCog },
 ];

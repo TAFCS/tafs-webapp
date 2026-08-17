@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, FileText, Landmark } from "lucide-react";
+import { FileText, Landmark } from "lucide-react";
 
 const TABS = [
-  { href: "/financial-reports", label: "Overview", icon: BarChart3, exact: true },
-  { href: "/financial-reports/fee-heads", label: "Fee Heads", icon: FileText, exact: false },
-  { href: "/financial-reports/deposits", label: "Deposits", icon: Landmark, exact: false },
+  { href: "/financial-reports/fee-heads", label: "Fee Heads", icon: FileText },
+  { href: "/financial-reports/deposits", label: "Deposits", icon: Landmark },
 ];
 
 export function ReportTabs() {
@@ -16,9 +15,7 @@ export function ReportTabs() {
   return (
     <nav className="flex flex-wrap gap-1 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-900 w-fit">
       {TABS.map((tab) => {
-        const active = tab.exact
-          ? pathname === tab.href
-          : pathname.startsWith(tab.href);
+        const active = pathname.startsWith(tab.href);
         const Icon = tab.icon;
         return (
           <Link

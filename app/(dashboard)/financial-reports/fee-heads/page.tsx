@@ -47,6 +47,10 @@ type FeeHeadRow = {
 type FeeHeadTotals = {
   count: number;
   student_count: number;
+  billed_count: number;
+  to_be_billed_count: number;
+  billed: number;
+  to_be_billed: number;
   amount: number;
   amount_paid: number;
   outstanding: number;
@@ -188,7 +192,7 @@ export default function FeeHeadsReportPage() {
             Fee Heads Report
           </h1>
           <p className="text-sm font-medium text-zinc-400 mt-1">
-            Accrual — what was billed. Late payment surcharges are excluded.
+            Accrual — issued on a voucher vs scheduled but not yet billed. Late payment surcharges are excluded.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -283,10 +287,20 @@ export default function FeeHeadsReportPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         <TotalTile label="Heads" value={(totals?.count ?? 0).toLocaleString()} />
         <TotalTile label="Students" value={(totals?.student_count ?? 0).toLocaleString()} />
-        <TotalTile label="Billed" value={formatRs(totals?.amount)} />
+        <TotalTile
+          label="To be billed"
+          value={formatRs(totals?.to_be_billed)}
+          sub={`${(totals?.to_be_billed_count ?? 0).toLocaleString()} not issued`}
+        />
+        <TotalTile
+          label="Billed"
+          value={formatRs(totals?.billed)}
+          sub={`${(totals?.billed_count ?? 0).toLocaleString()} on a voucher`}
+        />
+        <TotalTile label="Total" value={formatRs(totals?.amount)} />
         <TotalTile label="Paid" value={formatRs(totals?.amount_paid)} />
         <TotalTile label="Outstanding" value={formatRs(totals?.outstanding)} />
       </div>
@@ -396,11 +410,20 @@ export default function FeeHeadsReportPage() {
   );
 }
 
-function TotalTile({ label, value }: { label: string; value: string }) {
+function TotalTile({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+}) {
   return (
     <div className="rounded-[20px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4">
       <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{label}</p>
       <p className="mt-1 text-xl font-black text-zinc-900 dark:text-zinc-50 font-outfit tabular-nums">{value}</p>
+      {sub && <p className="text-[11px] font-medium text-zinc-400 mt-0.5">{sub}</p>}
     </div>
   );
 }

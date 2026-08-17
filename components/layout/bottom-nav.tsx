@@ -14,7 +14,7 @@ export function BottomNav() {
         { name: "Identity", href: "/identity", icon: Users },
         { name: "Campuses", href: "/campuses", icon: Building2 },
         { name: "Families", href: "/families", icon: Home },
-        { name: "Reports", href: "/financial-reports", icon: BarChart3 },
+        { name: "Reports", href: "/financial-reports/fee-heads", icon: BarChart3 },
     ];
 
     if (user?.role === "STAFF_EDITOR") {
@@ -24,7 +24,9 @@ export function BottomNav() {
     return (
         <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-zinc-950  border-t border-zinc-200 dark:border-zinc-800  flex justify-around items-center px-2 z-20 pb-safe">
             {navItems.map((item) => {
-                const isActive = pathname.startsWith(item.href);
+                const isActive = item.name === "Reports"
+                    ? pathname.startsWith("/financial-reports")
+                    : pathname.startsWith(item.href);
 
                 return (
                     <Link
