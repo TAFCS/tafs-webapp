@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Download, Loader2, CheckCircle2, Camera, Fingerprint } from "lucide-react";
+import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Download, Loader2, CheckCircle2, Camera, Fingerprint, Receipt } from "lucide-react";
 import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
@@ -398,6 +398,7 @@ function DirectoryContent() {
     const [statuses, setStatuses]     = useState<string[]>([]);
     const [auditType, setAuditType]   = useState("");
     const [photoFilter, setPhotoFilter] = useState("");
+    const [hadQuickAdmission, setHadQuickAdmission] = useState(false);
     const [page, setPage]             = useState(1);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
@@ -439,8 +440,9 @@ function DirectoryContent() {
         if (statuses.length > 0) params.status = statuses.join(",");
         if (auditType) params.audit_type = auditType;
         if (photoFilter) params.has_photo = photoFilter;
+        if (hadQuickAdmission) params.had_quick_admission = "true";
         return params;
-    }, [page, search, campusIds, classIds, sectionIds, houseIds, statuses, auditType, photoFilter]);
+    }, [page, search, campusIds, classIds, sectionIds, houseIds, statuses, auditType, photoFilter, hadQuickAdmission]);
 
     const triggerFetch = useCallback(() => {
         fetchStudents(buildFilterParams());
@@ -455,9 +457,9 @@ function DirectoryContent() {
     }, [search]);
 
     // Instant on filter/page change
-    useEffect(() => { triggerFetch(); }, [page, campusIds, classIds, sectionIds, houseIds, statuses, auditType, photoFilter, triggerFetch]);
+    useEffect(() => { triggerFetch(); }, [page, campusIds, classIds, sectionIds, houseIds, statuses, auditType, photoFilter, hadQuickAdmission, triggerFetch]);
 
-    const hasFilters = campusIds.length > 0 || classIds.length > 0 || sectionIds.length > 0 || houseIds.length > 0 || statuses.length > 0 || auditType || photoFilter;
+    const hasFilters = campusIds.length > 0 || classIds.length > 0 || sectionIds.length > 0 || houseIds.length > 0 || statuses.length > 0 || auditType || photoFilter || hadQuickAdmission;
     const clearFilters = () => {
         setCampusIds([]);
         setClassIds([]);
@@ -466,6 +468,7 @@ function DirectoryContent() {
         setStatuses([]);
         setAuditType("");
         setPhotoFilter("");
+        setHadQuickAdmission(false);
         setPage(1);
     };
 
@@ -621,6 +624,18 @@ function DirectoryContent() {
                             options={photoOptions}
                             icon={<Camera className="h-3.5 w-3.5" />}
                         />
+                        <button
+                            type="button"
+                            onClick={() => { setHadQuickAdmission((on) => !on); setPage(1); }}
+                            className={`flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold rounded-xl transition-colors ${
+                                hadQuickAdmission
+                                    ? "text-amber-800 bg-amber-100 hover:bg-amber-200"
+                                    : "text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50"
+                            }`}
+                        >
+                            <Receipt className="h-3.5 w-3.5" />
+                            Quick admission
+                        </button>
 
                         <button
                             onClick={() => setIsExportModalOpen(true)}

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, ChevronDown, Layers, Hash, Sparkles, UserCheck, CheckCircle, Printer, ChevronRight, TrendingUp, Fingerprint } from "lucide-react";
+import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, ChevronDown, Layers, Hash, Sparkles, UserCheck, CheckCircle, Printer, ChevronRight, TrendingUp, Fingerprint, Receipt } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -278,6 +278,20 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                     <div className="flex items-center gap-2">
                         {student && (
                             <div className="flex items-center bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 rounded-xl p-0.5 mr-2">
+                                {student.has_quick_admission_slip && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => window.open(`/api/v1/unconfirmed-admissions/${student.cc}/deposit-slip`, "_blank")}
+                                            className="flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all text-amber-700 bg-amber-50 hover:bg-amber-100 hover:text-amber-800 border border-amber-100/50"
+                                            title="Quick Admission deposit slip"
+                                        >
+                                            <Receipt className="h-3.5 w-3.5" />
+                                            <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Deposit Slip</span>
+                                        </button>
+                                        <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
+                                    </>
+                                )}
                                 {!isSoft && (
                                     <>
                                         <button
