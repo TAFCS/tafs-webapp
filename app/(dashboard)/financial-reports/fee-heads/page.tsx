@@ -10,7 +10,7 @@ import api from "@/lib/api";
 import { useAuthState } from "@/context/AuthContext";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { serializeIds, toggleId } from "@/components/filters/filter-params";
-import { ReportFilters } from "../_components/report-filters";
+import { ReportFilters, type YesNoFilter } from "../_components/report-filters";
 import { ReportPager } from "../_components/report-pager";
 import { downloadReportFile } from "../_components/download-report";
 import {
@@ -100,6 +100,9 @@ export default function FeeHeadsReportPage() {
   const [classIds, setClassIds] = useState<number[]>([]);
   const [sectionIds, setSectionIds] = useState<number[]>([]);
   const [segmentIds, setSegmentIds] = useState<number[]>([]);
+  const [studentStatuses, setStudentStatuses] = useState<string[]>([]);
+  const [feeEndowment, setFeeEndowment] = useState<YesNoFilter>("");
+  const [isComplementary, setIsComplementary] = useState<YesNoFilter>("");
   const [statuses, setStatuses] = useState<string[]>([]);
   const [view, setView] = useState<"heads" | "student">("heads");
   const [page, setPage] = useState(1);
@@ -118,13 +121,16 @@ export default function FeeHeadsReportPage() {
     class_id: serializeIds(classIds),
     section_id: serializeIds(sectionIds),
     segment_id: serializeIds(segmentIds),
+    student_status: serializeIds(studentStatuses),
+    is_fee_endowment: feeEndowment || undefined,
+    is_complementary: isComplementary || undefined,
     status: serializeIds(statuses),
     view,
-  }), [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, statuses, view]);
+  }), [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, statuses, view]);
 
   useEffect(() => {
     setPage(1);
-  }, [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, statuses, pageSize, view]);
+  }, [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, statuses, pageSize, view]);
 
   useEffect(() => {
     if (!canViewAnalytics) {
@@ -266,6 +272,12 @@ export default function FeeHeadsReportPage() {
           setFromDate={setFromDate}
           toDate={toDate}
           setToDate={setToDate}
+          studentStatuses={studentStatuses}
+          setStudentStatuses={setStudentStatuses}
+          feeEndowment={feeEndowment}
+          setFeeEndowment={setFeeEndowment}
+          isComplementary={isComplementary}
+          setIsComplementary={setIsComplementary}
           extra={
             <div className="min-w-[200px]">
               <FilterDropdown

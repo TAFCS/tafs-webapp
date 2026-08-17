@@ -12,7 +12,7 @@ import { serializeIds, toggleId } from "@/components/filters/filter-params";
 import { PAYMENT_METHODS, formatPaymentMethod } from "@/lib/payment-methods";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchBanks } from "@/store/slices/banksSlice";
-import { ReportFilters } from "../_components/report-filters";
+import { ReportFilters, type YesNoFilter } from "../_components/report-filters";
 import { ReportPager } from "../_components/report-pager";
 import { downloadReportFile } from "../_components/download-report";
 import {
@@ -67,6 +67,9 @@ export default function DepositsReportPage() {
   const [classIds, setClassIds] = useState<number[]>([]);
   const [sectionIds, setSectionIds] = useState<number[]>([]);
   const [segmentIds, setSegmentIds] = useState<number[]>([]);
+  const [studentStatuses, setStudentStatuses] = useState<string[]>([]);
+  const [feeEndowment, setFeeEndowment] = useState<YesNoFilter>("");
+  const [isComplementary, setIsComplementary] = useState<YesNoFilter>("");
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [bankNames, setBankNames] = useState<string[]>([]);
   const [page, setPage] = useState(1);
@@ -88,13 +91,16 @@ export default function DepositsReportPage() {
     class_id: serializeIds(classIds),
     section_id: serializeIds(sectionIds),
     segment_id: serializeIds(segmentIds),
+    student_status: serializeIds(studentStatuses),
+    is_fee_endowment: feeEndowment || undefined,
+    is_complementary: isComplementary || undefined,
     payment_method: serializeIds(paymentMethods),
     bank_name: serializeIds(bankNames),
-  }), [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, paymentMethods, bankNames]);
+  }), [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, paymentMethods, bankNames]);
 
   useEffect(() => {
     setPage(1);
-  }, [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, paymentMethods, bankNames, pageSize]);
+  }, [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, paymentMethods, bankNames, pageSize]);
 
   useEffect(() => {
     if (!canViewAnalytics) {
@@ -204,6 +210,12 @@ export default function DepositsReportPage() {
           setFromDate={setFromDate}
           toDate={toDate}
           setToDate={setToDate}
+          studentStatuses={studentStatuses}
+          setStudentStatuses={setStudentStatuses}
+          feeEndowment={feeEndowment}
+          setFeeEndowment={setFeeEndowment}
+          isComplementary={isComplementary}
+          setIsComplementary={setIsComplementary}
           extra={
             <>
               <div className="min-w-[200px]">

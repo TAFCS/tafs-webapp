@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Building2, Calendar, GraduationCap, Layers, LayoutGrid } from "lucide-react";
+import { Building2, Calendar, CheckCircle2, Gift, GraduationCap, HeartHandshake, Layers, LayoutGrid } from "lucide-react";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -16,6 +16,27 @@ type SegmentOption = {
   display_order: number;
 };
 
+export const STUDENT_STATUS_OPTIONS = [
+  { id: "QUICK_ADMISSION", label: "Quick Admission" },
+  { id: "ENROLLED", label: "Enrolled" },
+  { id: "SOFT_ADMISSION", label: "Soft Admission" },
+  { id: "EXPELLED", label: "Expelled" },
+  { id: "GRADUATED", label: "Graduated" },
+  { id: "LEFT", label: "Left" },
+] as const;
+
+export type YesNoFilter = "" | "true" | "false";
+
+const YES_NO_OPTIONS: { id: "true" | "false"; label: string }[] = [
+  { id: "true", label: "Yes" },
+  { id: "false", label: "No" },
+];
+
+function toggleYesNo(current: YesNoFilter, id: string): YesNoFilter {
+  const next: YesNoFilter = id === "true" || id === "false" ? id : "";
+  return current === next ? "" : next;
+}
+
 type Props = {
   campusIds: number[];
   setCampusIds: (ids: number[]) => void;
@@ -29,6 +50,12 @@ type Props = {
   setFromDate: (value: string) => void;
   toDate: string;
   setToDate: (value: string) => void;
+  studentStatuses: string[];
+  setStudentStatuses: (ids: string[]) => void;
+  feeEndowment: YesNoFilter;
+  setFeeEndowment: (value: YesNoFilter) => void;
+  isComplementary: YesNoFilter;
+  setIsComplementary: (value: YesNoFilter) => void;
   extra?: ReactNode;
 };
 
@@ -45,6 +72,12 @@ export function ReportFilters({
   setFromDate,
   toDate,
   setToDate,
+  studentStatuses,
+  setStudentStatuses,
+  feeEndowment,
+  setFeeEndowment,
+  isComplementary,
+  setIsComplementary,
   extra,
 }: Props) {
   const { user } = useAuthState();
@@ -206,6 +239,44 @@ export function ReportFilters({
           onToggle={(id) => setSegmentIds(toggleId(segmentIds, id))}
           onSetValue={setSegmentIds}
           onClear={() => setSegmentIds([])}
+        />
+      </div>
+
+      <div className="min-w-[200px]">
+        <FilterDropdown
+          label="Student status"
+          icon={CheckCircle2}
+          value={studentStatuses}
+          options={[...STUDENT_STATUS_OPTIONS]}
+          placeholder="All statuses"
+          hint="multi"
+          onToggle={(id) => setStudentStatuses(toggleId(studentStatuses, id))}
+          onSetValue={setStudentStatuses}
+          onClear={() => setStudentStatuses([])}
+        />
+      </div>
+
+      <div className="min-w-[180px]">
+        <FilterDropdown
+          label="Fee Endowment"
+          icon={Gift}
+          value={feeEndowment ? [feeEndowment] : []}
+          options={YES_NO_OPTIONS}
+          placeholder="All"
+          onToggle={(id) => setFeeEndowment(toggleYesNo(feeEndowment, id))}
+          onClear={() => setFeeEndowment("")}
+        />
+      </div>
+
+      <div className="min-w-[180px]">
+        <FilterDropdown
+          label="Complementary"
+          icon={HeartHandshake}
+          value={isComplementary ? [isComplementary] : []}
+          options={YES_NO_OPTIONS}
+          placeholder="All"
+          onToggle={(id) => setIsComplementary(toggleYesNo(isComplementary, id))}
+          onClear={() => setIsComplementary("")}
         />
       </div>
 
