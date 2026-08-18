@@ -1250,6 +1250,11 @@ function StudentwiseFeeEditor() {
                 // computes the final (post-scholarship) amount server-side from this value
                 // and scholarship_percentage.
                 return {
+                    // The row's identity. Without it the API can only match on
+                    // (fee_type_id, target_month, academic_year, fee_date), which
+                    // makes a fee-date edit look like a delete-and-add and can
+                    // leave the original row behind as a duplicate.
+                    ...(row.dbId ? { id: row.dbId } : {}),
                     fee_type_id: row.feeId,
                     month: monthNum,
                     target_month: row.target_month,
