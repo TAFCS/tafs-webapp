@@ -183,6 +183,8 @@ export interface VoucherFilters {
      * matches the campus/class/section frozen on the voucher at generation.
      */
     class_scope?: 'current' | 'as_issued';
+    /** Comma-separated student_status values, e.g. "ENROLLED,LEFT". */
+    student_status?: string;
 }
 
 // ─── Async Thunk ─────────────────────────────────────────────────────────────
@@ -206,6 +208,7 @@ export const fetchVouchers = createAsyncThunk(
             if (filters.single_fee_date) params.single_fee_date = 'true';
             if (filters.multiple_fee_heads) params.multiple_fee_heads = 'true';
             if (filters.class_scope) params.class_scope = filters.class_scope;
+            if (filters.student_status) params.student_status = filters.student_status;
 
             const response = await api.get('/v1/vouchers', { params });
             const data = response.data?.data;

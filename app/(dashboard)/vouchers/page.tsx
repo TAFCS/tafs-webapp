@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import {
     Search, Loader2, AlertCircle, FileText, ChevronDown, X,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
-    Building2, GraduationCap, Users, Hash, CreditCard, SlidersHorizontal,
+    Building2, GraduationCap, Users, UserCheck, Hash, CreditCard, SlidersHorizontal,
     ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2, AlertTriangle, Hourglass
 } from "lucide-react";
 import api from "@/lib/api";
@@ -29,6 +29,18 @@ const STATUS_OPTIONS = [
     { value: "OVERDUE", label: "Overdue", icon: XCircle, color: "text-rose-500" },
     { value: "VOID", label: "Void", icon: XCircle, color: "text-zinc-500" },
     { value: "EXPIRED", label: "Expired", icon: Hourglass, color: "text-orange-500" },
+];
+
+// The student's own status, not the voucher's. A LEFT or EXPELLED student keeps
+// the class_id they held on the way out, so a class filter alone still returns
+// them — this is what separates them from the students actually sitting there.
+const STUDENT_STATUS_OPTIONS: FilterDropdownOption<string>[] = [
+    { id: "ENROLLED", label: "Enrolled" },
+    { id: "SOFT_ADMISSION", label: "Soft Admission" },
+    { id: "QUICK_ADMISSION", label: "Quick Admission" },
+    { id: "LEFT", label: "Left" },
+    { id: "EXPELLED", label: "Expelled" },
+    { id: "GRADUATED", label: "Graduated" },
 ];
 
 // Sentinel "fetch all" limit — larger than any realistic voucher count, so the
@@ -695,6 +707,7 @@ export default function VouchersPage() {
     // vouchers" (and matches how bulk generation picks students); "as_issued"
     // answers "who was billed under SR3 at the time".
     const [classScope, setClassScope] = useState<"current" | "as_issued">("current");
+    const [studentStatuses, setStudentStatuses] = useState<string[]>([]);
     const [activeFiltersApplied, setActiveFiltersApplied] = useState<VoucherFilters>({});
 
     // Table state
@@ -774,6 +787,7 @@ export default function VouchersPage() {
         if (classScope === "as_issued" && (campusIds.length || classIds.length || sectionIds.length)) {
             f.class_scope = "as_issued";
         }
+        if (studentStatuses.length > 0) f.student_status = studentStatuses.join(",");
         if (statusFilter.length > 0) f.status = statusFilter.join(",");
         if (dateFrom) f.date_from = dateFrom;
         if (dateTo) f.date_to = dateTo;
@@ -782,7 +796,7 @@ export default function VouchersPage() {
         if (!isNaN(ccNum) && ccNum > 0) f.cc = ccNum;
 
         return f;
-    }, [campusIds, classIds, sectionIds, classScope, statusFilter, selectedCc, dateFrom, dateTo]);
+    }, [campusIds, classIds, sectionIds, classScope, studentStatuses, statusFilter, selectedCc, dateFrom, dateTo]);
 
     const handleApplyFilters = useCallback(() => {
         const filters = buildFilters();
@@ -804,6 +818,7 @@ export default function VouchersPage() {
         setSingleFeeDate(false);
         setMultipleFeeHeads(false);
         setClassScope("current");
+        setStudentStatuses([]);
         setActiveFiltersApplied({});
         setPage(1);
         dispatch(fetchVouchers({}));
@@ -1199,6 +1214,18 @@ export default function VouchersPage() {
                                     placeholder="All Sections"
                                     onToggle={v => setSectionIds(prev => prev.includes(v) ? prev.filter(id => id !== v) : [...prev, v])}
                                     onClear={() => setSectionIds([])}
+                                />
+
+                                {/* Student Status */}
+                                <FilterDropdown
+                                    label="Student Status"
+                                    icon={UserCheck}
+                                    value={studentStatuses}
+                                    options={STUDENT_STATUS_OPTIONS}
+                                    placeholder="All Student Statuses"
+                                    hint="The student's status today — separate from the voucher status above."
+                                    onToggle={v => setStudentStatuses(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])}
+                                    onClear={() => setStudentStatuses([])}
                                 />
 
                                 {/* Date From */}
