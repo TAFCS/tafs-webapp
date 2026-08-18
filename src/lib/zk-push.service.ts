@@ -157,6 +157,67 @@ export interface SimulateScanResult {
     skip_reason?: 'unmapped_pin' | 'duplicate_scan' | 'not_live' | 'no_direction' | 'no_family_id' | null;
 }
 
+export type PinIdentityReason = 'PIN_EQUALS_CC' | 'PIN_EQUALS_GR' | 'PIN_EQUALS_EMPLOYEE_CODE';
+
+export type PinLookupWarningCode =
+    | 'NO_MAPPING'
+    | 'MAPPING_INACTIVE'
+    | 'PIN_MAPPED_TO_MULTIPLE_PEOPLE'
+    | 'SCANS_CREDITED_TO_DIFFERENT_PERSON'
+    | 'PIN_MATCHES_ANOTHER_PERSONS_IDENTITY'
+    | 'DEVICE_NAME_HINT_DIFFERS';
+
+export interface PinLookupWarning {
+    code: PinLookupWarningCode;
+    severity: 'HIGH' | 'MEDIUM' | 'LOW';
+    message: string;
+    device_sn?: string;
+}
+
+/** One person, however the lookup reached them — mapping, scan, or identity clash. */
+export interface PinLookupPerson {
+    kind: DevicePersonType;
+    employee_id?: number;
+    student_cc?: number;
+    name: string;
+    /** employee_code for staff, gr_number for students. */
+    identifier: string | null;
+    /** job title for staff, "Class — Section" for students. */
+    detail: string | null;
+    campus: string | null;
+    status: string | null;
+}
+
+export type PinLookupMapping = DeviceUserMapping & {
+    person: PinLookupPerson | null;
+    scan_count: number;
+    last_scan_at: string | null;
+};
+
+/** Who the PIN's stored scans are actually credited to — not always the mapping. */
+export interface PinScanAttribution {
+    device_sn: string;
+    scan_count: number;
+    first_seen: string | null;
+    last_seen: string | null;
+    attributed_to: PinLookupPerson | null;
+    matches_current_mapping: boolean;
+}
+
+export interface PinLookupResult {
+    pin: string;
+    /** Every stored spelling searched, e.g. "0123" also matches "123". */
+    matched_pins: string[];
+    device_sn: string | null;
+    total_scans: number;
+    mappings: PinLookupMapping[];
+    scan_attributions: PinScanAttribution[];
+    name_hints: { device_sn: string; device_pin: string; suggested_name: string | null; updated_at: string }[];
+    identity_matches: (PinLookupPerson & { reason: PinIdentityReason })[];
+    history: { id: number; action: string; changed_by: string; changed_at: string; note: string | null; entity_id: string }[];
+    warnings: PinLookupWarning[];
+}
+
 export const zkPushService = {
     getLogs: async (sn?: string): Promise<ZkPushLogsResponse> => {
         const params = sn ? { sn } : {};
@@ -221,6 +282,14 @@ export const zkPushService = {
             device_pin: devicePin,
             dry_run: false,
         });
+    },
+
+    /** Reverse lookup: given a device PIN, who is it linked to (and who are its scans credited to)? */
+    lookupPin: async (pin: string, deviceSn?: string): Promise<PinLookupResult> => {
+        const res = await api.get('/v1/attendance/zk-device-mappings/pin-lookup', {
+            params: { pin, ...(deviceSn ? { device_sn: deviceSn } : {}) },
+        });
+        return res.data;
     },
 
     getUnmappedPins: async (): Promise<UnmappedPin[]> => {
