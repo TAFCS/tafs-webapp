@@ -13,6 +13,7 @@ import { useAuthState } from "@/context/AuthContext";
 import { NAV_MODULES } from "@/lib/nav-config";
 import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
 import { formatAuditActor } from "@/lib/audit-actor";
+import { AuditLogSubjectBadges, AuditLogSubjectLine, employeeSubjectFromLog } from "@/components/audit/AuditLogSubjectBadges";
 import { getSectionColor } from "@/lib/log-colors";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchMyQueue, type SupportTicket } from "@/store/slices/supportTicketsSlice";
@@ -88,6 +89,8 @@ const ENTITY_LABELS: Record<string, { singular: string; plural: string; pill: st
     NOTICE:   { singular: "notice",   plural: "notices",   pill: "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" },
     EMPLOYEE_NOTICE: { singular: "staff notice", plural: "staff notices", pill: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" },
     CHAT_MESSAGE: { singular: "announcement", plural: "announcements", pill: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300" },
+    STAFF_ATTENDANCE: { singular: "staff attendance", plural: "staff attendance records", pill: "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300" },
+    STUDENT_ATTENDANCE: { singular: "student attendance", plural: "student attendance records", pill: "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300" },
 };
 
 interface GroupedLog {
@@ -100,6 +103,7 @@ interface GroupedLog {
     count: number;
     entityIds: string[];
     studentIds: number[];
+    employeeSubjects: Array<{ id: string; name?: string | null; code?: string | null }>;
     field?: string | null;
     old_value?: string | null;
     new_value?: string | null;
@@ -121,6 +125,10 @@ function groupLogs(logs: AuditLog[]): GroupedLog[] {
             last.count++;
             if (!last.entityIds.includes(log.entity_id)) last.entityIds.push(log.entity_id);
             if (log.student_id && !last.studentIds.includes(log.student_id)) last.studentIds.push(log.student_id);
+            const emp = employeeSubjectFromLog(log);
+            if (emp && !last.employeeSubjects.some((e) => e.id === emp.id)) {
+                last.employeeSubjects.push(emp);
+            }
         } else {
             groups.push({
                 key: String(log.id),
@@ -132,6 +140,10 @@ function groupLogs(logs: AuditLog[]): GroupedLog[] {
                 count: 1,
                 entityIds: [log.entity_id],
                 studentIds: log.student_id ? [log.student_id] : [],
+                employeeSubjects: (() => {
+                    const emp = employeeSubjectFromLog(log);
+                    return emp ? [emp] : [];
+                })(),
                 field: log.field,
                 old_value: log.old_value,
                 new_value: log.new_value,
@@ -195,23 +207,11 @@ function AuditLogSidebar({ currentUsername, currentFullName }: { currentUsername
                                             {entityLabel}
                                         </span>
                                     </p>
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                        {log.entityIds.slice(0, 5).map(id => (
-                                            <span key={id} className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
-                                                #{id}
-                                            </span>
-                                        ))}
-                                        {log.entityIds.length > 5 && (
-                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-400">
-                                                +{log.entityIds.length - 5} more
-                                            </span>
-                                        )}
-                                        {log.studentIds.slice(0, 3).map(cc => (
-                                            <span key={cc} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                                                CC {cc}
-                                            </span>
-                                        ))}
-                                    </div>
+                                    <AuditLogSubjectBadges
+                                        employees={log.employeeSubjects}
+                                        entityIds={log.employeeSubjects.length > 0 ? [] : log.entityIds}
+                                        studentIds={log.employeeSubjects.length > 0 ? [] : log.studentIds}
+                                    />
                                     {log.field && log.old_value != null && log.new_value != null && (
                                         <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
                                             {log.field}: <span className="line-through opacity-60">{log.old_value}</span>
@@ -258,10 +258,13 @@ function AttendanceLogPanel() {
                         <div key={log.id} className="flex items-start gap-2.5 px-2 py-2 rounded-xl hover:bg-rose-50/50 dark:hover:bg-rose-950/20 transition-colors">
                             <div className="mt-0.5 h-2 w-2 rounded-full bg-rose-500 shrink-0 mt-2" />
                             <div className="flex-1 min-w-0">
-                                <p className="text-[12px] text-zinc-700 dark:text-zinc-300 truncate">
+                                <p className="text-[12px] text-zinc-700 dark:text-zinc-300">
                                     <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formatAuditActor(log)}</span>
                                     {" — "}{log.note ?? `${log.entity_type.toLowerCase().replace(/_/g, ' ')} marked`}
                                 </p>
+                                <div className="mt-0.5">
+                                    <AuditLogSubjectLine log={log} />
+                                </div>
                                 <p className="text-[10px] text-rose-500 mt-0.5">{relativeTime(log.changed_at)}</p>
                             </div>
                         </div>

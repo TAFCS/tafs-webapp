@@ -7,6 +7,7 @@ import { ScrollText, Search, Calendar, RefreshCw, ArrowRight, ChevronDown, Chevr
 import { toast } from "react-hot-toast";
 import { useAuthState } from "@/context/AuthContext";
 import { formatAuditActor } from "@/lib/audit-actor";
+import { AuditLogEntityCell } from "@/components/audit/AuditLogEntityCell";
 
 function formatDate(value?: string | null) {
   if (!value) return "N/A";
@@ -423,15 +424,7 @@ export default function SystemLogsPage() {
                           <span className="text-xs font-extrabold text-zinc-800 dark:text-zinc-200">{formatAuditActor(log)}</span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${sColor.bg} ${sColor.text}`}>
-                              {log.entity_type.replace(/_/g, " ")}
-                            </span>
-                            <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">#{log.entity_id}</span>
-                            {log.student_id && (
-                              <span className="text-[10px] font-mono text-blue-500 bg-blue-50 dark:bg-blue-950/30 px-1 rounded">CC {log.student_id}</span>
-                            )}
-                          </div>
+                          <AuditLogEntityCell log={log} />
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <ActionBadge action={log.action} />
@@ -461,15 +454,7 @@ export default function SystemLogsPage() {
                                 <span className="text-xs font-extrabold text-zinc-600 dark:text-zinc-400">{formatAuditActor(child)}</span>
                               </td>
                               <td className="px-4 py-2.5 whitespace-nowrap">
-                                <div className="flex items-center gap-2">
-                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded opacity-80 ${childColor.bg} ${childColor.text}`}>
-                                    {child.entity_type.replace(/_/g, " ")}
-                                  </span>
-                                  <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">#{child.entity_id}</span>
-                                  {child.student_id && (
-                                    <span className="text-[10px] font-mono text-blue-500 bg-blue-50 dark:bg-blue-950/30 px-1 rounded">CC {child.student_id}</span>
-                                  )}
-                                </div>
+                                <AuditLogEntityCell log={child} muted />
                               </td>
                               <td className="px-4 py-2.5 whitespace-nowrap">
                                 <ActionBadge action={child.action} />

@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, Fragment } from "react";
 import { auditLogsService, AuditLog } from "@/lib/audit-logs.service";
 import { formatAuditActor } from "@/lib/audit-actor";
+import { AuditLogEntityCell } from "@/components/audit/AuditLogEntityCell";
 import {
   History,
   Search,
@@ -12,7 +13,6 @@ import {
   Home,
   FileText,
   Coins,
-  Clock3,
   Calendar,
   ArrowRight,
   RefreshCw,
@@ -31,7 +31,6 @@ const ENTITY_TYPE_OPTIONS = [
   { id: "DEPOSIT", label: "Deposit" },
 ] as const;
 
-// Date formatting helper
 function formatDate(value?: string | null) {
   if (!value) return "N/A";
   const date = new Date(value);
@@ -45,17 +44,6 @@ function formatDate(value?: string | null) {
     minute: "2-digit",
     hour12: true,
   }).format(date);
-}
-
-// Icons based on entity type
-function EntityIcon({ type }: { type: string }) {
-  const t = type.toUpperCase();
-  if (t === "STUDENT") return <User className="h-4 w-4 text-indigo-500" />;
-  if (t === "GUARDIAN") return <Users className="h-4 w-4 text-amber-500" />;
-  if (t === "FAMILY") return <Home className="h-4 w-4 text-purple-500" />;
-  if (t === "VOUCHER") return <FileText className="h-4 w-4 text-blue-500" />;
-  if (t === "DEPOSIT") return <Coins className="h-4 w-4 text-emerald-500" />;
-  return <Clock3 className="h-4 w-4 text-zinc-400" />;
 }
 
 // Action badge renderer
@@ -402,14 +390,7 @@ export default function AdminAuditLogsPage() {
                           <span className="text-xs font-extrabold text-zinc-800">{formatAuditActor(log)}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <EntityIcon type={log.entity_type} />
-                            <span className="text-xs font-bold text-zinc-700">{log.entity_type}</span>
-                            <span className="text-[10px] font-mono text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">ID: {log.entity_id}</span>
-                            {log.student_id && (
-                              <span className="text-[10px] font-mono text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">CC: {log.student_id}</span>
-                            )}
-                          </div>
+                          <AuditLogEntityCell log={log} />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <ActionBadge action={log.action} />
@@ -436,14 +417,7 @@ export default function AdminAuditLogsPage() {
                               <span className="text-xs font-extrabold text-zinc-600">{formatAuditActor(child)}</span>
                             </td>
                             <td className="px-6 py-3 whitespace-nowrap">
-                              <div className="flex items-center gap-2">
-                                <EntityIcon type={child.entity_type} />
-                                <span className="text-xs font-bold text-zinc-600">{child.entity_type}</span>
-                                <span className="text-[10px] font-mono text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">ID: {child.entity_id}</span>
-                                {child.student_id && (
-                                  <span className="text-[10px] font-mono text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">CC: {child.student_id}</span>
-                                )}
-                              </div>
+                              <AuditLogEntityCell log={child} muted />
                             </td>
                             <td className="px-6 py-3 whitespace-nowrap">
                               <ActionBadge action={child.action} />
