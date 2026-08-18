@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, Fragment } from "react";
 import { auditLogsService, AuditLog } from "@/lib/audit-logs.service";
+import { formatAuditActor } from "@/lib/audit-actor";
 import {
   History,
   Search,
@@ -398,7 +399,7 @@ export default function AdminAuditLogsPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-xs font-extrabold text-zinc-800">@{log.changed_by}</span>
+                          <span className="text-xs font-extrabold text-zinc-800">{formatAuditActor(log)}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
@@ -432,7 +433,7 @@ export default function AdminAuditLogsPage() {
                               {formatDate(child.changed_at)}
                             </td>
                             <td className="px-6 py-3 whitespace-nowrap">
-                              <span className="text-xs font-extrabold text-zinc-600">@{child.changed_by}</span>
+                              <span className="text-xs font-extrabold text-zinc-600">{formatAuditActor(child)}</span>
                             </td>
                             <td className="px-6 py-3 whitespace-nowrap">
                               <div className="flex items-center gap-2">

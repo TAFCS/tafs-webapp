@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { auditLogsService, AuditLog } from "@/lib/audit-logs.service";
+import { formatAuditActor } from "@/lib/audit-actor";
 import api from "@/lib/api";
 import {
   Ban,
@@ -261,7 +262,7 @@ function LogCard({
 
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <p className="text-[10px] text-zinc-400">
-              by <span className="font-semibold text-zinc-500">{log.changed_by}</span>
+              by <span className="font-semibold text-zinc-500">{formatAuditActor(log)}</span>
             </p>
             {childCount > 0 && (
               <button

@@ -6,6 +6,7 @@ import { getSectionColor, SECTION_LABELS, SECTION_COLORS } from "@/lib/log-color
 import { ScrollText, Search, Calendar, RefreshCw, ArrowRight, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuthState } from "@/context/AuthContext";
+import { formatAuditActor } from "@/lib/audit-actor";
 
 function formatDate(value?: string | null) {
   if (!value) return "N/A";
@@ -419,7 +420,7 @@ export default function SystemLogsPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-xs font-extrabold text-zinc-800 dark:text-zinc-200">@{log.changed_by}</span>
+                          <span className="text-xs font-extrabold text-zinc-800 dark:text-zinc-200">{formatAuditActor(log)}</span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-2">
@@ -457,7 +458,7 @@ export default function SystemLogsPage() {
                                 {formatDate(child.changed_at)}
                               </td>
                               <td className="px-4 py-2.5 whitespace-nowrap">
-                                <span className="text-xs font-extrabold text-zinc-600 dark:text-zinc-400">@{child.changed_by}</span>
+                                <span className="text-xs font-extrabold text-zinc-600 dark:text-zinc-400">{formatAuditActor(child)}</span>
                               </td>
                               <td className="px-4 py-2.5 whitespace-nowrap">
                                 <div className="flex items-center gap-2">

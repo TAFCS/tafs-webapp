@@ -12,6 +12,7 @@ import {
 import { useAuthState } from "@/context/AuthContext";
 import { NAV_MODULES } from "@/lib/nav-config";
 import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
+import { formatAuditActor } from "@/lib/audit-actor";
 import { getSectionColor } from "@/lib/log-colors";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchMyQueue, type SupportTicket } from "@/store/slices/supportTicketsSlice";
@@ -94,6 +95,7 @@ interface GroupedLog {
     action: string;
     entity_type: string;
     changed_by: string;
+    changed_by_display?: string | null;
     changed_at: string;
     count: number;
     entityIds: string[];
@@ -125,6 +127,7 @@ function groupLogs(logs: AuditLog[]): GroupedLog[] {
                 action: log.action,
                 entity_type: log.entity_type,
                 changed_by: log.changed_by,
+                changed_by_display: log.changed_by_display,
                 changed_at: log.changed_at,
                 count: 1,
                 entityIds: [log.entity_id],
@@ -151,9 +154,10 @@ function AuditLogSidebar({ currentUsername, currentFullName }: { currentUsername
             .finally(() => setLoading(false));
     }, []);
 
-    function displayName(changedBy: string) {
-        if (currentUsername && changedBy === currentUsername) return currentFullName ?? "You";
-        return changedBy;
+    function displayName(log: { changed_by: string; changed_by_display?: string | null }) {
+        if (log.changed_by_display) return log.changed_by_display;
+        if (currentUsername && log.changed_by === currentUsername) return currentFullName ?? "You";
+        return log.changed_by;
     }
 
     const groups = groupLogs(logs);
@@ -177,7 +181,7 @@ function AuditLogSidebar({ currentUsername, currentFullName }: { currentUsername
                         const entityLabel = log.count > 1
                             ? `${log.count} ${entity?.plural ?? log.entity_type.toLowerCase().replace(/_/g, ' ')}`
                             : entity?.singular ?? log.entity_type.toLowerCase().replace(/_/g, ' ');
-                        const name = displayName(log.changed_by);
+                        const name = displayName(log);
                         return (
                             <div key={log.key} className="flex items-start gap-2.5 px-2 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition-colors group">
                                 <div className={`mt-0.5 h-6 w-6 rounded-md flex items-center justify-center shrink-0 ${sectionColor.bg}`}>
@@ -255,7 +259,7 @@ function AttendanceLogPanel() {
                             <div className="mt-0.5 h-2 w-2 rounded-full bg-rose-500 shrink-0 mt-2" />
                             <div className="flex-1 min-w-0">
                                 <p className="text-[12px] text-zinc-700 dark:text-zinc-300 truncate">
-                                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">{log.changed_by}</span>
+                                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formatAuditActor(log)}</span>
                                     {" — "}{log.note ?? `${log.entity_type.toLowerCase().replace(/_/g, ' ')} marked`}
                                 </p>
                                 <p className="text-[10px] text-rose-500 mt-0.5">{relativeTime(log.changed_at)}</p>

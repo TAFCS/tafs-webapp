@@ -6,6 +6,7 @@ import { Pin, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search
 import { formatDistanceToNow } from "date-fns";
 import { getAcademicYears } from "@/lib/fee-utils";
 import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
+import { formatAuditActor } from "@/lib/audit-actor";
 
 const STATUS_OPTIONS: { id: string; label: string }[] = [
     { id: "QUICK_ADMISSION", label: "Quick Admission" },
@@ -871,7 +872,7 @@ export default function NoticeBoardPage() {
                                                             : log.action === "DELETED" ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
                                                             : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
                                                         }`}>{log.action}</span>
-                                                        <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{log.changed_by}</span>
+                                                        <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{formatAuditActor(log)}</span>
                                                     </div>
                                                     {log.note && (
                                                         <p className="text-[11px] text-zinc-500 mt-1 line-clamp-2">{log.note}</p>

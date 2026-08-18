@@ -9,6 +9,7 @@ export interface AuditLog {
   old_value?: string | null;
   new_value?: string | null;
   changed_by: string;
+  changed_by_display?: string | null;
   changed_at: string;
   note?: string | null;
   student_id?: number | null;
