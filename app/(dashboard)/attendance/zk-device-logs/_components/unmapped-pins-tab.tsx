@@ -9,6 +9,7 @@ import { getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
 import { formatDeviceTime } from "@/lib/zk-time";
 import { MappingModal } from "./pin-mappings-tab";
 import { MappingImpactDialog, MappingIntent, reportRebuildIfNeeded } from "@/components/attendance/mapping-impact-dialog";
+import { personMetaLine } from "@/lib/person-meta";
 
 function SuggestedEmployeeCell({
     pin,
@@ -187,9 +188,10 @@ function SuggestedStudentCell({
                     <Sparkles className="w-3 h-3 shrink-0" />
                     {match.full_name}
                 </span>
-                <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500">
-                    CC {match.cc}
-                    {match.gr_number ? ` · GR ${match.gr_number}` : ""}
+                <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                    <span className="font-mono">CC {match.cc}</span>
+                    {match.classes?.description ? ` · Class ${match.classes.description}` : ""}
+                    {match.sections?.description ? ` · Sec ${match.sections.description}` : ""}
                 </span>
             </div>
             <button
@@ -280,6 +282,7 @@ export function UnmappedPinsTab({ active }: { active: boolean }) {
                 employeeId: personType === "STAFF" ? person.id : undefined,
                 studentCc: personType === "STUDENT" ? person.cc : undefined,
                 personName: person.full_name ?? "this person",
+                personDetail: personMetaLine(person),
             },
         });
     }
@@ -365,7 +368,7 @@ export function UnmappedPinsTab({ active }: { active: boolean }) {
                                         key={`${p.device_sn}:${p.device_pin}`}
                                         className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
                                     >
-                                        <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">{getDeviceName(p.device_sn)}</td>
+                                        <td className="px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-200">{getDeviceName(p.device_sn)}</td>
                                         <td className="px-4 py-3 text-sm font-mono text-zinc-700 dark:text-zinc-200">{p.device_pin}</td>
                                         <td className="px-4 py-3 text-sm">
                                             <SuggestedEmployeeCell

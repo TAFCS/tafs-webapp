@@ -13,6 +13,7 @@ import {
 import { getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
 import { PersonPicker } from "./person-picker";
 import { MappingImpactDialog, MappingIntent, reportRebuildIfNeeded } from "@/components/attendance/mapping-impact-dialog";
+import { personMetaLine } from "@/lib/person-meta";
 
 interface MappingModalProps {
     mapping: DeviceUserMapping | null;
@@ -198,6 +199,7 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
                           deviceSn: deviceSn.trim(),
                           devicePin: devicePin.trim(),
                           personName: selectedPerson.full_name ?? "this person",
+                          personDetail: personMetaLine(selectedPerson),
                           mode: "deactivate",
                       }
                     : {
@@ -208,6 +210,7 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
                           employeeId: personType === "STAFF" ? selectedPerson.id : undefined,
                           studentCc: personType === "STUDENT" ? selectedPerson.cc : undefined,
                           personName: selectedPerson.full_name ?? "this person",
+                          personDetail: personMetaLine(selectedPerson),
                           reactivating: isEdit && !!mapping && !mapping.is_active,
                       },
             );
@@ -472,10 +475,18 @@ export function PinMappingsTab({ active }: { active: boolean }) {
 
     function requestToggle(m: DeviceUserMapping) {
         const personName = personLabel(m);
+        const personDetail = personMetaLine(m.students ?? m.employee_profiles);
         setConfirming({
             mapping: m,
             intent: m.is_active
-                ? { kind: "unlink", deviceSn: m.device_sn, devicePin: m.device_pin, personName, mode: "deactivate" }
+                ? {
+                      kind: "unlink",
+                      deviceSn: m.device_sn,
+                      devicePin: m.device_pin,
+                      personName,
+                      personDetail,
+                      mode: "deactivate",
+                  }
                 : {
                       kind: "link",
                       deviceSn: m.device_sn,
@@ -484,6 +495,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                       employeeId: m.employee_id ?? undefined,
                       studentCc: m.student_cc ?? undefined,
                       personName,
+                      personDetail,
                       reactivating: true,
                   },
         });
@@ -497,6 +509,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                 deviceSn: m.device_sn,
                 devicePin: m.device_pin,
                 personName: personLabel(m),
+                personDetail: personMetaLine(m.students ?? m.employee_profiles),
                 mode: "delete",
             },
         });
@@ -642,7 +655,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                                 {filtered.map((m) => (
                                     <tr key={m.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                                        <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">{getDeviceName(m.device_sn)}</td>
+                                        <td className="px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-200">{getDeviceName(m.device_sn)}</td>
                                         <td className="px-4 py-3 text-sm font-mono text-zinc-700 dark:text-zinc-200">{m.device_pin}</td>
                                         <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">{m.person_type}</td>
                                         <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">{personLabel(m)}</td>

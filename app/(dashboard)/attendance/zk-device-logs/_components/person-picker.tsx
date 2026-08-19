@@ -3,26 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Search, User, X } from "lucide-react";
 import { zkPushService, PersonSearchResult, DevicePersonType } from "@/lib/zk-push.service";
+import { personMetaLine } from "@/lib/person-meta";
 
 interface PersonPickerProps {
     personType: DevicePersonType;
     selected: PersonSearchResult | null;
     onSelect: (person: PersonSearchResult | null) => void;
-}
-
-function personMeta(p: PersonSearchResult): string {
-    if (p.id !== undefined) {
-        return p.employee_code ? `Code ${p.employee_code}` : "";
-    }
-    const parts = [
-        p.gr_number ? `GR ${p.gr_number}` : `CC #${p.cc}`,
-        // Labelled, because a bare "B" next to a class code reads as noise — and
-        // class/section is what tells two same-named students apart.
-        p.classes?.description ? `Class ${p.classes.description}` : null,
-        p.sections?.description ? `Sec ${p.sections.description}` : null,
-        p.campuses?.campus_name,
-    ].filter(Boolean);
-    return parts.join(" · ");
 }
 
 function PersonAvatar({ url, name }: { url?: string | null; name: string | null }) {
@@ -95,8 +81,8 @@ export function PersonPicker({ personType, selected, onSelect }: PersonPickerPro
                     {personType === "STUDENT" && <PersonAvatar url={selected.photograph_url} name={selected.full_name} />}
                     <div className="min-w-0">
                         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200 truncate">{selected.full_name ?? "Unnamed"}</p>
-                        {personMeta(selected) && (
-                            <p className="text-[11px] text-zinc-400 font-medium">{personMeta(selected)}</p>
+                        {personMetaLine(selected) && (
+                            <p className="text-[11px] text-zinc-400 font-medium">{personMetaLine(selected)}</p>
                         )}
                     </div>
                 </div>
@@ -145,8 +131,8 @@ export function PersonPicker({ personType, selected, onSelect }: PersonPickerPro
                                 {personType === "STUDENT" && <PersonAvatar url={p.photograph_url} name={p.full_name} />}
                                 <div className="min-w-0">
                                     <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">{p.full_name ?? "Unnamed"}</p>
-                                    {personMeta(p) && (
-                                        <p className="text-[11px] text-zinc-400 font-medium truncate">{personMeta(p)}</p>
+                                    {personMetaLine(p) && (
+                                        <p className="text-[11px] text-zinc-400 font-medium truncate">{personMetaLine(p)}</p>
                                     )}
                                 </div>
                             </button>

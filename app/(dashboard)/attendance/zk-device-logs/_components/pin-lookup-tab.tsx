@@ -305,7 +305,7 @@ export function PinLookupTab({ active }: { active: boolean }) {
                                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                                         {result.mappings.map((m) => (
                                             <tr key={m.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                                                <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200 whitespace-nowrap">
+                                                <td className="px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-200 whitespace-nowrap">
                                                     {getDeviceName(m.device_sn)}
                                                 </td>
                                                 <td className="px-4 py-3">
@@ -389,7 +389,7 @@ export function PinLookupTab({ active }: { active: boolean }) {
                                                 key={`${a.device_sn}-${i}`}
                                                 className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                                             >
-                                                <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200 whitespace-nowrap">
+                                                <td className="px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-200 whitespace-nowrap">
                                                     {getDeviceName(a.device_sn)}
                                                 </td>
                                                 <td className="px-4 py-3">
@@ -435,8 +435,10 @@ export function PinLookupTab({ active }: { active: boolean }) {
                                             {h.suggested_name?.trim() || "(no name on device)"}
                                         </span>
                                         <span className="text-xs text-zinc-500 dark:text-zinc-400 ml-2">
-                                            {getDeviceName(h.device_sn)} · PIN {h.device_pin} · updated{" "}
-                                            {formatServerTime(h.updated_at, true)}
+                                            <span className="font-semibold text-zinc-600 dark:text-zinc-300">
+                                                {getDeviceName(h.device_sn)}
+                                            </span>{" "}
+                                            · PIN {h.device_pin} · updated {formatServerTime(h.updated_at, true)}
                                         </span>
                                     </li>
                                 ))}
