@@ -91,6 +91,10 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
     // Transfer history logs state
     const [transferHistory, setTransferHistory] = useState<any[]>([]);
 
+    // GR preview state for cross-campus transfers
+    const [grPreview, setGrPreview] = useState<{ new_gr: string; old_gr: string | null } | null>(null);
+    const [loadingGrPreview, setLoadingGrPreview] = useState(false);
+
     useEffect(() => {
         if (student.cc) {
             api.get('/v1/audit-logs', { params: { student_id: student.cc, entity_type: 'TRANSFER' } })
@@ -147,6 +151,24 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
             .finally(() => setLoadingCampuses(false));
     }, [student.campus_id, student.campus_name]);
 
+    // Fetch GR preview when campus or class changes
+    useEffect(() => {
+        if (!toCampusId || toCampusId === student.campus_id) {
+            setGrPreview(null);
+            return;
+        }
+        setLoadingGrPreview(true);
+        const params: any = { to_campus_id: toCampusId };
+        if (toClassId) params.to_class_id = toClassId;
+        api.get(`/v1/transfers/${student.cc}/preview-gr`, { params })
+            .then(({ data: res }) => {
+                const preview = res.data || res;
+                setGrPreview(preview || null);
+            })
+            .catch(() => setGrPreview(null))
+            .finally(() => setLoadingGrPreview(false));
+    }, [student.cc, student.campus_id, toCampusId, toClassId]);
+
     // Compute offered classes dynamically based on selected campus
     const allClasses = useMemo<ClassOption[]>(() => {
         if (!toCampusId) return [];
@@ -191,6 +213,9 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
         acc[cls.academic_system].push(cls);
         return acc;
     }, {});
+
+    // GR will change when the preview endpoint returned a result
+    const willChangeGr = grPreview != null;
 
     // Execute the actual transfer
     const handleExecuteTransfer = async () => {
@@ -448,6 +473,9 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                                 { label: 'To Campus', value: updatedData?.campus_name || campuses.find(c => c.id === toCampusId)?.campus_name || '—' },
                                 { label: 'From Class', value: `${fromSystem} — ${student.class_name || '—'}` },
                                 { label: 'To Class', value: `${toSystem} — ${selectedClass?.description || '—'}` },
+                                ...(updatedData?.gr_number && updatedData.gr_number !== student.gr_number ? [
+                                    { label: 'GR Changed', value: `${student.gr_number ?? '—'} → ${updatedData.gr_number}` },
+                                ] : []),
                             ]),
                             { label: 'Discipline', value: discipline || '—' },
                         ].map(({ label, value }) => (
@@ -603,6 +631,24 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                         </select>
                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                     </div>
+                    {loadingGrPreview && (
+                        <div className="flex items-center gap-2 mt-2 px-3 py-2 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-500 text-xs font-medium">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Checking GR assignment...
+                        </div>
+                    )}
+                    {willChangeGr && !loadingGrPreview && (
+                        <div className="flex items-start gap-2.5 mt-2 px-3 py-2.5 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30 rounded-lg text-blue-700 dark:text-blue-400 text-xs font-medium">
+                            <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-bold text-[13px]">GR number will change</p>
+                                <p className="mt-0.5 text-blue-600/80 dark:text-blue-400/80">
+                                    Moving to {campuses.find((c: any) => c.id === toCampusId)?.campus_name || 'destination campus'} —
+                                    GR will be reassigned from <span className="font-bold">{grPreview?.old_gr || '—'}</span> to <span className="font-bold">{grPreview?.new_gr}</span>
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Target class picker */}
