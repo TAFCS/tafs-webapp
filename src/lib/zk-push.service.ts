@@ -28,7 +28,16 @@ export interface DeviceUserMapping {
     created_at: string;
     updated_at: string;
     employee_profiles: { id: number; full_name: string | null; employee_code: string | null } | null;
-    students: { cc: number; full_name: string; gr_number: string | null } | null;
+    /** Class, section and campus ride along so the edit modal can show WHICH student this is. */
+    students: {
+        cc: number;
+        full_name: string;
+        gr_number: string | null;
+        photograph_url?: string | null;
+        classes?: { description: string | null } | null;
+        sections?: { description: string | null } | null;
+        campuses?: { campus_name: string | null } | null;
+    } | null;
 }
 
 export interface UnmappedPin {

@@ -24,19 +24,8 @@ import {
     PinLookupWarning,
 } from "@/lib/zk-push.service";
 import { ZK_DEVICE_NAMES, getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
+import { formatDeviceTime, formatServerTime } from "@/lib/zk-time";
 import { MappingModal } from "./pin-mappings-tab";
-
-function formatDateTime(iso: string | null) {
-    if (!iso) return "—";
-    return new Date(iso).toLocaleString("en-PK", {
-        month: "short",
-        day: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-    });
-}
 
 const SEVERITY_STYLES: Record<PinLookupWarning["severity"], string> = {
     HIGH: "bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900",
@@ -335,7 +324,7 @@ export function PinLookupTab({ active }: { active: boolean }) {
                                                 <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
                                                     {m.scan_count}
                                                     <span className="block text-xs text-zinc-400">
-                                                        last {formatDateTime(m.last_scan_at)}
+                                                        last {formatDeviceTime(m.last_scan_at, true)}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3">
@@ -410,8 +399,8 @@ export function PinLookupTab({ active }: { active: boolean }) {
                                                     {a.scan_count}
                                                 </td>
                                                 <td className="px-4 py-3 text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
-                                                    {formatDateTime(a.first_seen)}
-                                                    <span className="block">{formatDateTime(a.last_seen)}</span>
+                                                    {formatDeviceTime(a.first_seen, true)}
+                                                    <span className="block">{formatDeviceTime(a.last_seen, true)}</span>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <span
@@ -447,7 +436,7 @@ export function PinLookupTab({ active }: { active: boolean }) {
                                         </span>
                                         <span className="text-xs text-zinc-500 dark:text-zinc-400 ml-2">
                                             {getDeviceName(h.device_sn)} · PIN {h.device_pin} · updated{" "}
-                                            {formatDateTime(h.updated_at)}
+                                            {formatServerTime(h.updated_at, true)}
                                         </span>
                                     </li>
                                 ))}
@@ -489,7 +478,7 @@ export function PinLookupTab({ active }: { active: boolean }) {
                                             <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-medium">
                                                 {h.action}
                                             </span>
-                                            <span>{formatDateTime(h.changed_at)}</span>
+                                            <span>{formatServerTime(h.changed_at, true)}</span>
                                             <span>· {h.changed_by}</span>
                                         </div>
                                         {h.note && <p className="text-zinc-600 dark:text-zinc-300 mt-1">{h.note}</p>}

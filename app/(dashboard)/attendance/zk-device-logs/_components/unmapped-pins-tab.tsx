@@ -6,18 +6,9 @@ import { AlertCircle, Check, Loader2, Sparkles, Tag, UserPlus } from "lucide-rea
 import toast from "react-hot-toast";
 import { zkPushService, UnmappedPin, PersonSearchResult, DevicePersonType } from "@/lib/zk-push.service";
 import { getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
+import { formatDeviceTime } from "@/lib/zk-time";
 import { MappingModal } from "./pin-mappings-tab";
 import { MappingImpactDialog, MappingIntent, reportRebuildIfNeeded } from "@/components/attendance/mapping-impact-dialog";
-
-function formatDateTime(iso: string) {
-    return new Date(iso).toLocaleString("en-PK", {
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-    });
-}
 
 function SuggestedEmployeeCell({
     pin,
@@ -392,10 +383,10 @@ export function UnmappedPinsTab({ active }: { active: boolean }) {
                                         </td>
                                         <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">{p.scan_count}</td>
                                         <td className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
-                                            {formatDateTime(p.first_seen)}
+                                            {formatDeviceTime(p.first_seen)}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
-                                            {formatDateTime(p.last_seen)}
+                                            {formatDeviceTime(p.last_seen)}
                                         </td>
                                         <td className="px-4 py-3">
                                             <button

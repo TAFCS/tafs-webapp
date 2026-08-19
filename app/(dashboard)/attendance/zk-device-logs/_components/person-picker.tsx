@@ -16,8 +16,10 @@ function personMeta(p: PersonSearchResult): string {
     }
     const parts = [
         p.gr_number ? `GR ${p.gr_number}` : `CC #${p.cc}`,
-        p.classes?.description,
-        p.sections?.description,
+        // Labelled, because a bare "B" next to a class code reads as noise — and
+        // class/section is what tells two same-named students apart.
+        p.classes?.description ? `Class ${p.classes.description}` : null,
+        p.sections?.description ? `Sec ${p.sections.description}` : null,
         p.campuses?.campus_name,
     ].filter(Boolean);
     return parts.join(" · ");
@@ -94,7 +96,7 @@ export function PersonPicker({ personType, selected, onSelect }: PersonPickerPro
                     <div className="min-w-0">
                         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200 truncate">{selected.full_name ?? "Unnamed"}</p>
                         {personMeta(selected) && (
-                            <p className="text-[11px] text-zinc-400 font-medium truncate">{personMeta(selected)}</p>
+                            <p className="text-[11px] text-zinc-400 font-medium">{personMeta(selected)}</p>
                         )}
                     </div>
                 </div>

@@ -37,7 +37,17 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
             };
         }
         if (mapping?.students) {
-            return { cc: mapping.students.cc, full_name: mapping.students.full_name, gr_number: mapping.students.gr_number };
+            // Carry class/section/campus through, so editing an existing mapping
+            // identifies the student as fully as picking a new one does.
+            return {
+                cc: mapping.students.cc,
+                full_name: mapping.students.full_name,
+                gr_number: mapping.students.gr_number,
+                photograph_url: mapping.students.photograph_url ?? null,
+                classes: mapping.students.classes ?? null,
+                sections: mapping.students.sections ?? null,
+                campuses: mapping.students.campuses ?? null,
+            };
         }
         return null;
     });
