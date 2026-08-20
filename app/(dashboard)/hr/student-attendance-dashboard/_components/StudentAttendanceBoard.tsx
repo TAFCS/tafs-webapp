@@ -334,20 +334,27 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
         });
     };
 
+    // Only students whose draft status differs from the loaded row (or was newly set).
+    // Save must work after marking a few students — not only when the whole roster is filled.
+    const dirtyRecords = rows.filter((r) => {
+        const draft = draftMarks[r.student.cc];
+        if (draft == null) return false;
+        return draft !== (r.status ?? null);
+    });
+
     const canSaveDraft =
         isMarkMode &&
         isToday &&
-        rows.length > 0 &&
-        rows.every((r) => draftMarks[r.student.cc] != null) &&
+        dirtyRecords.length > 0 &&
         !markSaving;
 
     const handleSaveMarks = async () => {
-        if (!scope.campusId) return;
+        if (!scope.campusId || dirtyRecords.length === 0) return;
         setMarkSaving(true);
         setMarkError(null);
         setMarkSuccess(null);
         try {
-            const records = rows.map((r) => ({
+            const records = dirtyRecords.map((r) => ({
                 student_cc: r.student.cc,
                 status: draftMarks[r.student.cc] as RollRecordStatus,
             }));
@@ -726,10 +733,19 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                                             type="button"
                                             disabled={!canSaveDraft}
                                             onClick={handleSaveMarks}
+                                            title={
+                                                canSaveDraft
+                                                    ? `Save ${dirtyRecords.length} change${dirtyRecords.length === 1 ? "" : "s"}`
+                                                    : "Mark at least one student (P / L / A / E) to enable Save"
+                                            }
                                             className="px-5 py-2 rounded-xl bg-primary text-white text-xs font-bold shadow-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 active:scale-95"
                                         >
                                             {markSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                                            {markSaving ? "Saving..." : "Save Attendance"}
+                                            {markSaving
+                                                ? "Saving..."
+                                                : dirtyRecords.length > 0
+                                                    ? `Save Attendance (${dirtyRecords.length})`
+                                                    : "Save Attendance"}
                                         </button>
                                     </div>
                                 </div>
@@ -916,10 +932,19 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                             type="button"
                             disabled={!canSaveDraft}
                             onClick={handleSaveMarks}
+                            title={
+                                canSaveDraft
+                                    ? `Save ${dirtyRecords.length} change${dirtyRecords.length === 1 ? "" : "s"}`
+                                    : "Mark at least one student (P / L / A / E) to enable Save"
+                            }
                             className="px-4 py-1.5 rounded-xl bg-primary text-white text-xs font-bold shadow-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 active:scale-95"
                         >
                             {markSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                            {markSaving ? "Saving..." : "Save Attendance"}
+                            {markSaving
+                                ? "Saving..."
+                                : dirtyRecords.length > 0
+                                    ? `Save (${dirtyRecords.length})`
+                                    : "Save Attendance"}
                         </button>
                     </div>
                 </div>
