@@ -179,10 +179,13 @@ export default function SaturdaySchedulesPage() {
 
   // Only teachers on the selected campus(es) (empty = all campuses) —
   // the segment dropdown is built from this set so it never offers a
-  // segment with nobody in it.
+  // segment with nobody in it. Employees who have left or been terminated
+  // aren't eligible for mandatory Saturdays, so they're excluded here too.
   const campusTeachers = useMemo(() => {
     return employees.filter(
       (emp) =>
+        emp.employment_status !== "LEFT" &&
+        emp.employment_status !== "TERMINATED" &&
         (campusIds.length === 0 || (emp.campus_id != null && campusIds.includes(emp.campus_id))) &&
         emp.staff_categories?.code &&
         TEACHER_CATEGORIES.has(emp.staff_categories.code),
