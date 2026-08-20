@@ -41,15 +41,7 @@ export default function TimetablesPage() {
     user?.permissions?.includes("hr.timetable.view") ||
     user?.role === "SUPER_ADMIN";
 
-  // Find Gulistan-e-Jauhar dynamically from loaded campuses, fallback to user campusId
-  const gulistanCampus = campuses.find(
-    (c) =>
-      c.campus_name.toLowerCase().includes("gulistan") ||
-      c.campus_name.toLowerCase().includes("johar") ||
-      c.campus_name.toLowerCase().includes("jauhar")
-  );
-  const lockedCampusId = gulistanCampus ? String(gulistanCampus.id) : (user?.campusId ? String(user.campusId) : "");
-
+  const [campusId, setCampusId] = useState(user?.campusId ? String(user.campusId) : "");
   const [classId, setClassId] = useState("");
   const [teachingGroupId, setTeachingGroupId] = useState("");
   const [sectionId, setSectionId] = useState("");
@@ -67,11 +59,17 @@ export default function TimetablesPage() {
     dispatch(fetchCampuses());
   }, [dispatch]);
 
+  useEffect(() => {
+    if (!campusId && campuses.length > 0) {
+      setCampusId(String(user?.campusId ?? campuses[0].id));
+    }
+  }, [campuses, campusId, user?.campusId]);
+
   // Only AS/A2 (A-Level) classes use the cross-section Teaching Group model.
   // Every other class/segment (O-Level, other classes, sports staff, etc.)
   // schedules directly against its own campus+class+section timetable —
   // no Teaching Group container required.
-  const selectedCampus = gulistanCampus || campuses.find((c) => String(c.id) === lockedCampusId);
+  const selectedCampus = campuses.find((c) => String(c.id) === campusId);
   const availableClasses: CampusClass[] = selectedCampus?.offered_classes ?? [];
   const selectedClass = availableClasses.find((c) => String(c.id) === classId);
   const isALevel = selectedClass ? isAsA2Class(selectedClass) : false;
@@ -89,17 +87,17 @@ export default function TimetablesPage() {
     setClassId("");
     setTeachingGroupId("");
     setSectionId("");
-  }, [lockedCampusId]);
+  }, [campusId]);
 
   useEffect(() => {
-    if (!isALevel || !lockedCampusId || !classId) {
+    if (!isALevel || !campusId || !classId) {
       setGroups([]);
       return;
     }
     let cancelled = false;
     setGroupsLoading(true);
     teachingGroupsService
-      .list({ campus_id: Number(lockedCampusId), class_id: Number(classId), academic_year: academicYear })
+      .list({ campus_id: Number(campusId), class_id: Number(classId), academic_year: academicYear })
       .then((data) => {
         if (!cancelled) setGroups(data.filter((g) => g.is_active));
       })
@@ -108,10 +106,10 @@ export default function TimetablesPage() {
     return () => {
       cancelled = true;
     };
-  }, [isALevel, lockedCampusId, classId, academicYear]);
+  }, [isALevel, campusId, classId, academicYear]);
 
   const isScopeReady =
-    Boolean(lockedCampusId) &&
+    Boolean(campusId) &&
     Boolean(classId) &&
     (isALevel ? Boolean(teachingGroupId) : Boolean(sectionId));
 
@@ -126,7 +124,7 @@ export default function TimetablesPage() {
             academic_year: academicYear,
           })
         : await timetablesService.getGrid({
-            campus_id: Number(lockedCampusId),
+            campus_id: Number(campusId),
             class_id: Number(classId),
             section_id: Number(sectionId),
             academic_year: academicYear,
@@ -142,7 +140,7 @@ export default function TimetablesPage() {
     } finally {
       setLoading(false);
     }
-  }, [isScopeReady, isALevel, lockedCampusId, classId, teachingGroupId, sectionId, academicYear]);
+  }, [isScopeReady, isALevel, campusId, classId, teachingGroupId, sectionId, academicYear]);
 
   useEffect(() => {
     loadGrid();
@@ -156,7 +154,7 @@ export default function TimetablesPage() {
           academic_year: academicYear,
         })
       : await timetablesService.getOrCreate({
-          campus_id: Number(lockedCampusId),
+          campus_id: Number(campusId),
           class_id: Number(classId),
           section_id: Number(sectionId),
           academic_year: academicYear,
@@ -250,18 +248,34 @@ export default function TimetablesPage() {
 
       {/* Scope Card */}
       <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 backdrop-blur-sm p-5 space-y-4 shadow-sm dark:shadow-none">
-        {/* Campus – Permanent Badge */}
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-300 text-xs font-semibold">
-            <MapPin className="w-3.5 h-3.5" />
-            Gulistan-e-Jauhar Campus
-          </span>
-          <span className="text-zinc-400 dark:text-zinc-600 text-xs">·</span>
-          <span className="text-zinc-400 dark:text-zinc-600 text-xs">Campus is fixed</span>
-        </div>
+        {/* Campus · Class · Teaching Group/Section · Academic Year */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Campus */}
+          <div>
+            <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
+              <MapPin className="w-3 h-3" />
+              Campus <span className="text-rose-500">*</span>
+            </label>
+            <div className="relative">
+              <select
+                value={campusId}
+                onChange={(e) => {
+                  setCampusId(e.target.value);
+                  setTimetableId(null);
+                }}
+                className={selectCls}
+              >
+                <option value="" className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">Select campus…</option>
+                {campuses.map((c) => (
+                  <option key={c.id} value={c.id} className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
+                    {c.campus_name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
+            </div>
+          </div>
 
-        {/* Class · Teaching Group · Academic Year */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Class */}
           <div>
             <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
@@ -275,7 +289,7 @@ export default function TimetablesPage() {
                   setClassId(e.target.value);
                   setTimetableId(null);
                 }}
-                disabled={!lockedCampusId || availableClasses.length === 0}
+                disabled={!campusId || availableClasses.length === 0}
                 className={selectCls}
               >
                 <option value="" className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">Select class…</option>
@@ -424,7 +438,7 @@ export default function TimetablesPage() {
       <SlotEditorModal
         open={!!editor}
         target={editor}
-        campusId={lockedCampusId ? Number(lockedCampusId) : null}
+        campusId={campusId ? Number(campusId) : null}
         dayLabel={editorDayLabel}
         blockLabel={editorBlockLabel}
         academicSystem={selectedClass?.academic_system}
