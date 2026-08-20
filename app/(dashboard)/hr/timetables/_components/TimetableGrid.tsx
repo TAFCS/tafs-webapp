@@ -60,7 +60,17 @@ export function TimetableGrid({ blocks, slots, canEdit, onAdd, onEdit }: Props) 
           </tr>
         </thead>
         <tbody>
-          {blocks.map((block, idx) => (
+          {blocks.map((block, idx) =>
+            block.is_break ? (
+              <tr key={block.block_number} className="bg-zinc-100/80 dark:bg-zinc-800/60">
+                <td
+                  colSpan={DAYS.length + 1}
+                  className="px-4 py-1.5 text-center text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800"
+                >
+                  {block.label || "Break"} · {blockDisplayLabel(block)}
+                </td>
+              </tr>
+            ) : (
             <tr
               key={block.block_number}
               className={`align-top ${idx % 2 === 1 ? "bg-zinc-50/50 dark:bg-zinc-800/20" : ""}`}

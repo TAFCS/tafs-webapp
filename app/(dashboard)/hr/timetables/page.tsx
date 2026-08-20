@@ -23,6 +23,7 @@ import {
 import { teachingGroupsService, TeachingGroup } from "@/lib/teaching-groups.service";
 import { DAYS, TimetableGrid, blockDisplayLabel } from "./_components/TimetableGrid";
 import { SlotEditorModal, SlotEditorTarget } from "./_components/SlotEditorModal";
+import { PeriodEditor } from "./_components/PeriodEditor";
 import { isAsA2Class } from "@/lib/alevel-classes";
 import type { CampusClass } from "@/store/slices/campusesSlice";
 
@@ -393,6 +394,10 @@ export default function TimetablesPage() {
           </div>
         </div>
       </div>
+
+      {campusId && classId && (
+        <PeriodEditor campusId={Number(campusId)} classId={Number(classId)} canEdit={!!canEdit} />
+      )}
 
       {!canEdit && (
         <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-xl px-4 py-2.5">

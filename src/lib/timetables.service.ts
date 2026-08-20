@@ -13,6 +13,28 @@ export interface TimetableBlock {
   start_time: string;
   end_time: string;
   label: string | null;
+  is_break?: boolean;
+}
+
+export interface ClassPeriod {
+  id: number;
+  campus_id: number;
+  class_id: number;
+  block_number: number;
+  start_time: string;
+  end_time: string;
+  is_break: boolean;
+  label: string | null;
+}
+
+export interface UpsertClassPeriodPayload {
+  campus_id: number;
+  class_id: number;
+  block_number: number;
+  start_time: string; // "HH:MM"
+  end_time: string; // "HH:MM"
+  is_break?: boolean;
+  label?: string;
 }
 
 export interface TimetableSlot {
@@ -111,6 +133,21 @@ interface ApiEnvelope<T> {
 export const timetablesService = {
   async listBlocks(): Promise<TimetableBlock[]> {
     const { data } = await api.get<ApiEnvelope<TimetableBlock[]>>('/v1/timetables/blocks');
+    return data.data;
+  },
+
+  async listPeriods(params: { campus_id: number; class_id: number }): Promise<ClassPeriod[]> {
+    const { data } = await api.get<ApiEnvelope<ClassPeriod[]>>('/v1/timetables/periods', { params });
+    return data.data;
+  },
+
+  async upsertPeriod(payload: UpsertClassPeriodPayload): Promise<ClassPeriod> {
+    const { data } = await api.put<ApiEnvelope<ClassPeriod>>('/v1/timetables/periods', payload);
+    return data.data;
+  },
+
+  async deletePeriod(id: number): Promise<{ deleted: boolean }> {
+    const { data } = await api.delete<ApiEnvelope<{ deleted: boolean }>>(`/v1/timetables/periods/${id}`);
     return data.data;
   },
 
