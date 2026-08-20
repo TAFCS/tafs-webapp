@@ -126,10 +126,10 @@ export const saturdaySchedulesService = {
     return data.data;
   },
 
-  async create(employeeIds: number[], date: string): Promise<CreateSaturdaySchedulesResult> {
+  async create(employeeIds: number[], dates: string[]): Promise<CreateSaturdaySchedulesResult> {
     const { data } = await api.post<ApiEnvelope<CreateSaturdaySchedulesResult>>("/v1/hr/saturday-schedules", {
       employeeIds,
-      date,
+      dates,
     });
     return data.data;
   },
