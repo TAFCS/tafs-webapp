@@ -392,7 +392,12 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
               const isResolving = resolvingDate === day.date;
               const wasOverridden = day.source === "MANUAL";
               const segs = (day.segments ?? []) as Seg[];
-              const canAct = !isFinal && day.is_working_day && isPast;
+              // A holiday/off day can still have real punches on it (source
+              // BIOMETRIC) — surface those and let HR override the day even
+              // though the calendar says it's not a working day.
+              const hasPunches = segs.some(s => s.type === "WORK") || !!day.check_in_at;
+              const cameOnOff = !day.is_working_day && hasPunches;
+              const canAct = !isFinal && (day.is_working_day || hasPunches) && isPast;
               const needsClock = isUnresolved && canAct;
 
               return (
@@ -416,7 +421,7 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                         {wasOverridden && <CheckCircle2 className="h-2.5 w-2.5" />}
                         {pill.label}
                       </span>
-                      {effClass !== "DAY_OFF" &&
+                      {(effClass !== "DAY_OFF" || cameOnOff) &&
                         effClass !== "UNRESOLVED" &&
                         effClass !== "ABSENT" &&
                         effClass !== "EXCUSED" && (
@@ -437,9 +442,15 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                       {day.day_description && (
                         <span className="text-[11px] text-zinc-400 italic truncate">{day.day_description}</span>
                       )}
+                      {cameOnOff && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                          <AlertTriangle className="h-2.5 w-2.5" />
+                          Punched on day off
+                        </span>
+                      )}
                     </div>
 
-                    {/* Override button — non-UNRESOLVED working days */}
+                    {/* Override button — non-UNRESOLVED working days, or a day off with punches on it */}
                     {canAct && !isUnresolved && (
                       isResolving ? (
                         <button
@@ -464,7 +475,7 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                     {segs.length === 0 ? (
                       <div className="absolute inset-0 flex items-center justify-center">
                         <span className="text-[11px] text-zinc-400">
-                          {day.is_working_day && day.check_in_at
+                          {day.check_in_at
                             ? "No timeline for this status"
                             : day.is_working_day
                             ? "No scans recorded"
