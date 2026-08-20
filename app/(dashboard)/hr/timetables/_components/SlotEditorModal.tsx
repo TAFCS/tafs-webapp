@@ -9,7 +9,10 @@ import {
   timetablesService,
 } from "@/lib/timetables.service";
 
-const TEACHER_CATEGORIES = TEACHER_CATEGORY_CODES;
+// Broader than TEACHER_CATEGORY_CODES: this picker also schedules non-A-Level
+// staff whose payroll/check-in is timetable-derived but who aren't a
+// classroom "teacher" per se (e.g. sports coaches).
+const TEACHER_CATEGORIES = new Set([...TEACHER_CATEGORY_CODES, 'SPORTS_COACH']);
 
 export interface SlotEditorTarget {
   day_of_week: number;
