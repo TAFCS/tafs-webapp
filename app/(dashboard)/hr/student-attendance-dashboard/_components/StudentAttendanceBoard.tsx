@@ -254,6 +254,7 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
     const [markError, setMarkError] = useState<string | null>(null);
     const [markSuccess, setMarkSuccess] = useState<string | null>(null);
     const isToday = date === todayIso();
+    const loadSeqRef = useRef(0);
 
     const seedDraftMarks = useCallback((dashboardData: StudentDashboardRow[]) => {
         const next: Partial<Record<number, RollRecordStatus>> = {};
@@ -275,8 +276,13 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
 
     const load = useCallback(async () => {
         if (!scope.campusId || !date) return;
+        const seq = ++loadSeqRef.current;
         setLoading(true);
         setError(null);
+        // Drop previous scope's numbers immediately so filters don't look "stuck"
+        // while a slower campus-wide request is still in flight.
+        setSummary(null);
+        setRows([]);
         try {
             const params = {
                 date,
@@ -288,13 +294,15 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                 attendanceService.getStudentSummary(params),
                 attendanceService.getStudentDashboard(params),
             ]);
+            if (seq !== loadSeqRef.current) return;
             setSummary(summaryData);
             setRows(dashboardData);
             setDraftMarks(seedDraftMarks(dashboardData));
         } catch {
+            if (seq !== loadSeqRef.current) return;
             setError("Failed to load attendance dashboard.");
         } finally {
-            setLoading(false);
+            if (seq === loadSeqRef.current) setLoading(false);
         }
     }, [scope.campusId, scope.classId, scope.sectionId, date, seedDraftMarks]);
 
@@ -470,9 +478,13 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
 
             {!scope.campusId ? (
                 <p className="text-sm text-zinc-500 text-center py-14">Select a campus to load the attendance dashboard.</p>
-            ) : loading && !summary ? (
-                <div className="flex items-center justify-center py-16">
+            ) : loading ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-16 text-zinc-400">
                     <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+                    <p className="text-sm">
+                        Loading
+                        {scope.classId ? " filtered" : " campus"} attendance…
+                    </p>
                 </div>
             ) : (
                 <>

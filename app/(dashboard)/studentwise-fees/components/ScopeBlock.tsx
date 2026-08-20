@@ -79,7 +79,7 @@ export function ScopeBlock({
                             >
                                 <option value="">Select campus...</option>
                                 {campuses.map((c: { id: number; campus_name: string }) => (
-                                    <option key={c.id} value={c.id}>{c.campus_name}</option>
+                                    <option key={c.id} value={String(c.id)}>{c.campus_name}</option>
                                 ))}
                             </select>
                             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
@@ -107,11 +107,19 @@ export function ScopeBlock({
                             <option value="">
                                 {classRequired ? "Select class..." : "All classes"}
                             </option>
-                            {availableClasses.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                    {c.class_code ? `${c.class_code} — ${c.description}` : c.description}
-                                </option>
-                            ))}
+                            {availableClasses.map((c) => {
+                                const code = c.class_code?.trim();
+                                const desc = c.description?.trim() || code || `Class ${c.id}`;
+                                const label =
+                                    code && desc.toLowerCase() !== code.toLowerCase() && !desc.includes(code)
+                                        ? `${desc} (${code})`
+                                        : desc;
+                                return (
+                                    <option key={c.id} value={String(c.id)}>
+                                        {label}
+                                    </option>
+                                );
+                            })}
                         </select>
                         <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
                     </div>
@@ -138,7 +146,7 @@ export function ScopeBlock({
                                 {requireClassAndSection ? "Select section..." : "All sections"}
                             </option>
                             {availableSections.map((s) => (
-                                <option key={s.id} value={s.id}>{s.description}</option>
+                                <option key={s.id} value={String(s.id)}>{s.description}</option>
                             ))}
                         </select>
                         <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
