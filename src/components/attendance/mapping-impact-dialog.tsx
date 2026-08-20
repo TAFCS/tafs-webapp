@@ -106,6 +106,9 @@ export function MappingImpactDialog({ intent, onCancel, onConfirm, extraNotes = 
     const [error, setError] = useState<string | null>(null);
 
     const isLink = intent.kind === "link";
+    // HARD_BLOCK is never overridable — basic data-integrity rules, not a judgment
+    // call. BLOCK can be overridden with the acknowledge checkbox below.
+    const hardBlocking = collisions.filter((c) => c.severity === "HARD_BLOCK");
     const blocking = collisions.filter((c) => c.severity === "BLOCK");
     const warnings = collisions.filter((c) => c.severity === "WARN");
 
@@ -175,7 +178,8 @@ export function MappingImpactDialog({ intent, onCancel, onConfirm, extraNotes = 
         impact.days_recalculated === 0 &&
         impact.days_removed === 0;
 
-    const confirmDisabled = applying || loading || (blocking.length > 0 && !acknowledged);
+    const confirmDisabled =
+        applying || loading || hardBlocking.length > 0 || (blocking.length > 0 && !acknowledged);
 
     const title = isLink
         ? `${intent.reactivating ? "Re-link" : "Link"} PIN ${intent.devicePin} to ${intent.personName}?`
@@ -314,6 +318,16 @@ export function MappingImpactDialog({ intent, onCancel, onConfirm, extraNotes = 
                                     </span>
                                 </div>
                             )}
+
+                            {hardBlocking.map((c, i) => (
+                                <div
+                                    key={`hardblock-${i}`}
+                                    className="flex items-start gap-2 p-3 rounded-xl bg-rose-100 dark:bg-rose-900/30 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-sm"
+                                >
+                                    <Lock className="w-4 h-4 shrink-0 mt-0.5" />
+                                    <span>{c.message} This mapping isn&rsquo;t allowed — it can&rsquo;t be overridden.</span>
+                                </div>
+                            ))}
 
                             {blocking.map((c, i) => (
                                 <div

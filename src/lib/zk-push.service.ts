@@ -85,10 +85,15 @@ export interface UpdateDeviceMappingPayload {
     acknowledge_collisions?: boolean;
 }
 
-export type CollisionSeverity = 'BLOCK' | 'WARN';
+export type CollisionSeverity = 'HARD_BLOCK' | 'BLOCK' | 'WARN';
 
 export interface PinCollision {
-    code: 'PIN_IS_OTHER_STUDENT_GR' | 'PIN_IS_OTHER_STUDENT_CC' | 'PIN_NOT_EQUAL_TO_CC' | 'PIN_USED_ON_OTHER_DEVICE';
+    code:
+        | 'PIN_IS_OTHER_STUDENT_GR'
+        | 'PIN_IS_OTHER_STUDENT_CC'
+        | 'PIN_NOT_EQUAL_TO_CC'
+        | 'PIN_USED_ON_OTHER_DEVICE'
+        | 'DEVICE_SEGMENT_MISMATCH';
     severity: CollisionSeverity;
     message: string;
     conflicting_student_cc?: number;
