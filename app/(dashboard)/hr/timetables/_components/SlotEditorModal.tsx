@@ -65,6 +65,7 @@ export function SlotEditorModal({
   const [showNewSubject, setShowNewSubject] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newSubjectCode, setNewSubjectCode] = useState("");
+  const [newSubjectUniversal, setNewSubjectUniversal] = useState(false);
   const [creatingSubject, setCreatingSubject] = useState(false);
 
   useEffect(() => {
@@ -85,6 +86,7 @@ export function SlotEditorModal({
     setShowNewSubject(false);
     setNewSubjectName("");
     setNewSubjectCode("");
+    setNewSubjectUniversal(false);
 
     let cancelled = false;
     setLoadingMeta(true);
@@ -131,13 +133,14 @@ export function SlotEditorModal({
       const created = await timetablesService.createSubject({
         name: newSubjectName.trim(),
         code: newSubjectCode.trim() || undefined,
-        academic_system: academicSystem,
+        academic_system: newSubjectUniversal ? undefined : academicSystem,
       });
       setSubjects((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
       setSubjectId(String(created.id));
       setShowNewSubject(false);
       setNewSubjectName("");
       setNewSubjectCode("");
+      setNewSubjectUniversal(false);
     } catch (e: any) {
       setError(e?.response?.data?.message || e.message || "Failed to create subject");
     } finally {
@@ -285,6 +288,20 @@ export function SlotEditorModal({
                       placeholder="Code (optional)"
                       className={inputCls}
                     />
+                    <label className="flex items-start gap-2 text-xs text-zinc-600 dark:text-zinc-400 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newSubjectUniversal}
+                        onChange={(e) => setNewSubjectUniversal(e.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        Available for all classes/segments
+                        <span className="block text-zinc-400 dark:text-zinc-600">
+                          For non-academic periods like Sports or Taekwondo, not tied to one segment&apos;s subject list.
+                        </span>
+                      </span>
+                    </label>
                     <button
                       type="button"
                       onClick={handleCreateSubject}
