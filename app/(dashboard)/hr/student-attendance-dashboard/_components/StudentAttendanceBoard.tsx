@@ -44,6 +44,16 @@ function todayIso() {
     return new Date().toISOString().slice(0, 10);
 }
 
+function formatMarkDateLabel(iso: string): string {
+    if (iso === todayIso()) return "Today";
+    const d = new Date(`${iso}T12:00:00`);
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+}
+
+function isPastOrToday(iso: string): boolean {
+    return iso <= todayIso();
+}
+
 const container = {
     hidden: { opacity: 0 },
     show: { opacity: 1, transition: { staggerChildren: 0.1 } },
@@ -260,7 +270,8 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
     const [markSaving, setMarkSaving] = useState(false);
     const [markError, setMarkError] = useState<string | null>(null);
     const [markSuccess, setMarkSuccess] = useState<string | null>(null);
-    const isToday = date === todayIso();
+    const canMarkDate = isPastOrToday(date);
+    const markDateLabel = formatMarkDateLabel(date);
     const loadSeqRef = useRef(0);
 
     const seedDraftMarks = useCallback((dashboardData: StudentDashboardRow[]) => {
@@ -318,10 +329,10 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
     }, [load]);
 
     useEffect(() => {
-        if (!isToday) setIsMarkMode(false);
+        if (!canMarkDate) setIsMarkMode(false);
         setMarkError(null);
         setMarkSuccess(null);
-    }, [isToday, scope.campusId, scope.classId, scope.sectionId]);
+    }, [canMarkDate, scope.campusId, scope.classId, scope.sectionId, date]);
 
     const applyStatusToAll = (status: RollRecordStatus) => {
         setDraftMarks(() => {
@@ -344,7 +355,7 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
 
     const canSaveDraft =
         isMarkMode &&
-        isToday &&
+        canMarkDate &&
         dirtyRecords.length > 0 &&
         !markSaving;
 
@@ -394,7 +405,7 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                                 <CalendarCheck className="h-8 w-8 text-primary" />
                                 Student Attendance Dashboard
                             </h1>
-                            {canMark && isToday && (
+                            {canMark && canMarkDate && (
                                 isMarkMode ? (
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-violet-100 text-violet-700 dark:bg-violet-950/80 dark:text-violet-300 border border-violet-300 dark:border-violet-800 animate-pulse">
                                         <Edit3 className="w-3.5 h-3.5" />
@@ -416,7 +427,7 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                     <div className="flex flex-wrap items-center gap-3">
                         <StudentSearch onSelect={(cc) => router.push(`/hr/student-attendance-dashboard/${cc}`)} />
 
-                        {canMark && isToday && (
+                        {canMark && canMarkDate && (
                             <button
                                 type="button"
                                 onClick={() => {
@@ -487,10 +498,16 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                 <div className="flex items-center justify-between gap-3 pt-1 border-t border-zinc-100 dark:border-zinc-900">
                     <div className="flex items-center gap-3">
                         <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Date</label>
-                        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={sel} />
+                        <input
+                            type="date"
+                            value={date}
+                            max={todayIso()}
+                            onChange={(e) => setDate(e.target.value)}
+                            className={sel}
+                        />
                     </div>
 
-                    {!showHeader && canMark && isToday && (
+                    {!showHeader && canMark && canMarkDate && (
                         <button
                             type="button"
                             onClick={() => {
@@ -600,7 +617,7 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                     )}
 
                     {/* Prominent Attendance Marking Banner / Toolbar */}
-                    {canMark && isToday && (
+                    {canMark && canMarkDate && (
                         !isMarkMode ? (
                             <div className="bg-gradient-to-r from-indigo-500/10 via-violet-500/5 to-transparent border border-indigo-200 dark:border-indigo-900/60 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
                                 <div className="flex items-start gap-3.5">
@@ -611,11 +628,11 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                                         <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                                             Manual Attendance Marking
                                             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                                                Today
+                                                {markDateLabel}
                                             </span>
                                         </h3>
                                         <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 mt-0.5">
-                                            Want to record or edit attendance records manually? Press <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">Start Marking Attendance</strong> to enable quick status buttons.
+                                            Record or edit attendance for <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">{markDateLabel}</strong>. Press <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">Start Marking Attendance</strong> to enable quick status buttons.
                                         </p>
                                     </div>
                                 </div>
@@ -909,7 +926,7 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
             )}
 
             {/* Sticky Floating Save Bar when scrolling in Mark Mode */}
-            {canMark && isToday && isMarkMode && rows.length > 0 && (
+            {canMark && canMarkDate && isMarkMode && rows.length > 0 && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-zinc-900/95 text-white dark:bg-zinc-100 dark:text-zinc-900 px-5 py-3 rounded-2xl shadow-2xl backdrop-blur-md border border-zinc-800 dark:border-zinc-200 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-200">
                     <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
