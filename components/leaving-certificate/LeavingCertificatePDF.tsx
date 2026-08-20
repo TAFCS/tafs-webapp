@@ -1,5 +1,19 @@
 import React from 'react';
-import { Page, Text, View, Document, StyleSheet, Image, Svg, Path } from '@react-pdf/renderer';
+import { Page, Text, View, Document, StyleSheet, Image, Svg, Path, Font } from '@react-pdf/renderer';
+
+Font.register({
+    family: 'Stardos Stencil',
+    fonts: [
+        {
+            src: 'https://fonts.gstatic.com/s/stardosstencil/v15/X7n94bcuGPC8hrvEOHXOgaKCc2TR7w.ttf',
+            fontWeight: 'normal',
+        },
+        {
+            src: 'https://fonts.gstatic.com/s/stardosstencil/v15/X7n44bcuGPC8hrvEOHXOgaKCc2TpU3tTvg.ttf',
+            fontWeight: 'bold',
+        },
+    ],
+});
 
 export interface LeavingCertificateData {
     header_title?: string;
@@ -185,7 +199,8 @@ const styles = StyleSheet.create({
     },
     sidebarValueText: {
         fontSize: 10,
-        fontFamily: 'Times-Bold',
+        fontFamily: 'Stardos Stencil',
+        fontWeight: 'bold',
         textAlign: 'center',
     },
     photoBox: {
@@ -244,7 +259,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 6,
         paddingBottom: 1,
         fontSize: 8.5,
-        fontFamily: 'Times-Bold',
+        fontFamily: 'Stardos Stencil',
+        fontWeight: 'bold',
         textAlign: 'center',
     },
     subLabel: {
@@ -284,7 +300,8 @@ const styles = StyleSheet.create({
         paddingBottom: 1,
         paddingLeft: 4,
         fontSize: 8.5,
-        fontFamily: 'Times-Bold',
+        fontFamily: 'Stardos Stencil',
+        fontWeight: 'bold',
     },
     squareBox: {
         borderWidth: 1,
@@ -292,7 +309,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
         paddingVertical: 1.5,
         fontSize: 8,
-        fontFamily: 'Times-Bold',
+        fontFamily: 'Stardos Stencil',
+        fontWeight: 'bold',
         minWidth: 26,
         textAlign: 'center',
     },
@@ -321,7 +339,8 @@ const styles = StyleSheet.create({
         width: 100,
         textAlign: 'center',
         fontSize: 8,
-        fontFamily: 'Times-Bold',
+        fontFamily: 'Stardos Stencil',
+        fontWeight: 'bold',
         paddingBottom: 1,
     },
     disclaimerText: {
