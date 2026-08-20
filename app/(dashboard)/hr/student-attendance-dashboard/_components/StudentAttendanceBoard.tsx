@@ -234,6 +234,8 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
     const router = useRouter();
     const { user } = useAuthState();
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
+    const canMark =
+        isSuperAdmin || !!user?.permissions?.includes("attendance.student.rollcall.mark");
 
     const [scope, setScope] = useState<ScopeValue>({
         campusId: user?.campusId ? String(user.campusId) : "",
@@ -246,6 +248,20 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [simulateOpen, setSimulateOpen] = useState(false);
+    const [isMarkMode, setIsMarkMode] = useState(false);
+    const [draftMarks, setDraftMarks] = useState<Partial<Record<number, RollRecordStatus>>>({});
+    const [markSaving, setMarkSaving] = useState(false);
+    const [markError, setMarkError] = useState<string | null>(null);
+    const [markSuccess, setMarkSuccess] = useState<string | null>(null);
+    const isToday = date === todayIso();
+
+    const seedDraftMarks = useCallback((dashboardData: StudentDashboardRow[]) => {
+        const next: Partial<Record<number, RollRecordStatus>> = {};
+        for (const r of dashboardData) {
+            if (r.status) next[r.student.cc] = r.status;
+        }
+        return next;
+    }, []);
 
     useEffect(() => {
         dispatch(fetchCampuses());
@@ -274,16 +290,68 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
             ]);
             setSummary(summaryData);
             setRows(dashboardData);
+            setDraftMarks(seedDraftMarks(dashboardData));
         } catch {
             setError("Failed to load attendance dashboard.");
         } finally {
             setLoading(false);
         }
-    }, [scope.campusId, scope.classId, scope.sectionId, date]);
+    }, [scope.campusId, scope.classId, scope.sectionId, date, seedDraftMarks]);
 
     useEffect(() => {
         load();
     }, [load]);
+
+    useEffect(() => {
+        if (!isToday) setIsMarkMode(false);
+        setMarkError(null);
+        setMarkSuccess(null);
+    }, [isToday, scope.campusId, scope.classId, scope.sectionId]);
+
+    const applyStatusToAll = (status: RollRecordStatus) => {
+        setDraftMarks(() => {
+            const next: Partial<Record<number, RollRecordStatus>> = {};
+            for (const r of rows) {
+                const rowOffDay = r.is_working_day === false;
+                next[r.student.cc] = rowOffDay && status !== "EXCUSED" ? "EXCUSED" : status;
+            }
+            return next;
+        });
+    };
+
+    const canSaveDraft =
+        isMarkMode &&
+        isToday &&
+        rows.length > 0 &&
+        rows.every((r) => draftMarks[r.student.cc] != null) &&
+        !markSaving;
+
+    const handleSaveMarks = async () => {
+        if (!scope.campusId) return;
+        setMarkSaving(true);
+        setMarkError(null);
+        setMarkSuccess(null);
+        try {
+            const records = rows.map((r) => ({
+                student_cc: r.student.cc,
+                status: draftMarks[r.student.cc] as RollRecordStatus,
+            }));
+            const result = await attendanceService.bulkMarkStudentsDaily({
+                date,
+                campus_id: Number(scope.campusId),
+                records,
+            });
+            setIsMarkMode(false);
+            setMarkSuccess(`Attendance saved for ${result.saved_count} students.`);
+            await load();
+        } catch (err: unknown) {
+            const msg =
+                (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            setMarkError(msg || "Failed to save attendance.");
+        } finally {
+            setMarkSaving(false);
+        }
+    };
 
     const sel =
         "h-10 px-3 border rounded-xl text-sm bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30";
@@ -306,6 +374,20 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                         <p className="text-sm text-zinc-500 mt-1">Daily student clock-in/out overview from biometric devices.</p>
                     </div>
                     <StudentSearch onSelect={(cc) => router.push(`/hr/student-attendance-dashboard/${cc}`)} />
+                    {canMark && isToday && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsMarkMode(true);
+                                setMarkError(null);
+                                setMarkSuccess(null);
+                                setDraftMarks(seedDraftMarks(rows));
+                            }}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 transition-all active:scale-95 whitespace-nowrap"
+                        >
+                            Mark Attendance
+                        </button>
+                    )}
                     <Link
                         href="/hr/student-attendance-dashboard/cycle"
                         className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all active:scale-95 whitespace-nowrap"
@@ -343,6 +425,20 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                 <div className="flex items-center gap-3">
                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Date</label>
                     <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={sel} />
+                    {!showHeader && canMark && isToday && !isMarkMode && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsMarkMode(true);
+                                setMarkError(null);
+                                setMarkSuccess(null);
+                                setDraftMarks(seedDraftMarks(rows));
+                            }}
+                            className="ml-auto flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 transition-all active:scale-95 whitespace-nowrap"
+                        >
+                            Mark Attendance
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -350,6 +446,13 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 text-sm">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     {error}
+                </div>
+            )}
+
+            {markSuccess && !isMarkMode && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 text-sm">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    {markSuccess}
                 </div>
             )}
 
@@ -412,6 +515,102 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                         </motion.div>
                     )}
 
+                    {canMark && isMarkMode && (
+                        <div className="bg-white dark:bg-zinc-950 border border-violet-200 dark:border-violet-800 rounded-[1.5rem] p-4 space-y-3">
+                            <div className="flex items-center justify-between gap-4">
+                                <div>
+                                    <p className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
+                                        Marking mode
+                                    </p>
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                                        Choose a status and apply it to all students, then press Save. You can also override per row.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsMarkMode(false);
+                                        setMarkError(null);
+                                        setMarkSuccess(null);
+                                        setDraftMarks(seedDraftMarks(rows));
+                                    }}
+                                    className="px-3 py-2 rounded-xl text-sm font-semibold border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+                                >
+                                    Exit
+                                </button>
+                            </div>
+
+                            {markError && (
+                                <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-sm">
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    {markError}
+                                </div>
+                            )}
+                            {markSuccess && (
+                                <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 text-sm">
+                                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                                    {markSuccess}
+                                </div>
+                            )}
+
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    Apply to all
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => applyStatusToAll("PRESENT")}
+                                    className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                                >
+                                    Present
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => applyStatusToAll("LATE")}
+                                    className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                                >
+                                    Late
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => applyStatusToAll("ABSENT")}
+                                    className="px-3 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition-colors"
+                                >
+                                    Absent
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => applyStatusToAll("EXCUSED")}
+                                    className="px-3 py-2 rounded-xl text-xs font-bold bg-sky-600 text-white hover:bg-sky-700 transition-colors"
+                                >
+                                    Excused
+                                </button>
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setDraftMarks(seedDraftMarks(rows));
+                                        setMarkError(null);
+                                        setMarkSuccess(null);
+                                    }}
+                                    className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+                                >
+                                    Reset draft
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={!canSaveDraft}
+                                    onClick={handleSaveMarks}
+                                    className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:opacity-95 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                                >
+                                    {markSaving ? "Saving..." : "Save"}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="rounded-[1.5rem] border border-zinc-200 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-950 shadow-sm">
                         {rows.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-3 py-16 text-zinc-400">
@@ -445,12 +644,18 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                                     </thead>
                                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                                         {rows.map((row) => {
-                                            const isOffDay = row.is_working_day === false || row.status === "EXCUSED";
+                                            const isOffDay = row.is_working_day === false;
+                                            const draftStatus = draftMarks[row.student.cc] ?? row.status;
+                                            const draftAllowed = (s: RollRecordStatus) =>
+                                                !isOffDay || s === "EXCUSED";
                                             return (
                                             <tr
                                                 key={row.student.cc}
-                                                onClick={() => router.push(`/hr/student-attendance-dashboard/${row.student.cc}`)}
-                                                className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer ${isOffDay ? "bg-sky-50/50 dark:bg-sky-900/10" : ""}`}
+                                                onClick={() => {
+                                                    if (isMarkMode) return;
+                                                    router.push(`/hr/student-attendance-dashboard/${row.student.cc}`);
+                                                }}
+                                                className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${isMarkMode ? "" : "cursor-pointer"} ${isOffDay ? "bg-sky-50/50 dark:bg-sky-900/10" : ""}`}
                                             >
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-3">
@@ -479,15 +684,46 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                                                 <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">{formatTime(row.check_in_at)}</td>
                                                 <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">{formatTime(row.check_out_at)}</td>
                                                 <td className="px-4 py-3">
-                                                    {row.status ? (
-                                                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[row.status]}`}>
-                                                            {row.status}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                                                            —
-                                                        </span>
-                                                    )}
+                                                    <div className="flex items-center gap-2">
+                                                        {draftStatus ? (
+                                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[draftStatus]}`}>
+                                                                {draftStatus}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                                                                —
+                                                            </span>
+                                                        )}
+
+                                                        {canMark && isMarkMode && (
+                                                            <div className="flex items-center gap-1">
+                                                                {(["PRESENT", "LATE", "ABSENT", "EXCUSED"] as RollRecordStatus[]).map((s) => (
+                                                                    <button
+                                                                        key={s}
+                                                                        type="button"
+                                                                        disabled={!draftAllowed(s)}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            if (!draftAllowed(s)) return;
+                                                                            setDraftMarks((prev) => ({
+                                                                                ...prev,
+                                                                                [row.student.cc]: s,
+                                                                            }));
+                                                                        }}
+                                                                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors border ${
+                                                                            !draftAllowed(s)
+                                                                                ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-zinc-700 cursor-not-allowed"
+                                                                                : draftStatus === s
+                                                                                    ? "bg-white dark:bg-zinc-900 border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 shadow-sm"
+                                                                                    : "bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                                                        }`}
+                                                                    >
+                                                                        {s === "PRESENT" ? "P" : s === "LATE" ? "L" : s === "ABSENT" ? "A" : "E"}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                             );

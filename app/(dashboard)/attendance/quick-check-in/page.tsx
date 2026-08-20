@@ -496,9 +496,10 @@ export default function QuickCheckInPage() {
                     Quick Check-In / Check-Out
                 </h1>
                 <p className="text-sm text-zinc-500 mt-1">
-                    Search a student and punch them in or out at the current time. No biometric
-                    enrolment required — the punch lands on the same daily attendance record as a
-                    device scan, and the family is notified.
+                    Filter by campus, segment, class, or section, then search and punch a student in
+                    or out at the current time. No biometric enrolment required — late arrivals marked
+                    absent can be checked in as present. The punch lands on the same daily attendance
+                    record as a device scan, and the family is notified.
                 </p>
             </div>
 

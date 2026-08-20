@@ -548,6 +548,18 @@ export const attendanceService = {
     return data.data;
   },
 
+  async bulkMarkStudentsDaily(payload: {
+    date: string;
+    campus_id: number;
+    records: { student_cc: number; status: RollRecordStatus }[];
+  }): Promise<{ saved_count: number }> {
+    const { data } = await api.put<ApiEnvelope<{ saved_count: number }>>(
+      '/v1/attendance/students/bulk-manual',
+      payload,
+    );
+    return data.data;
+  },
+
   // ── Class Check-In Schedules (CRUD) ────────────────────────────────────────
 
   async getClassCheckInSchedules(campusId: number): Promise<ClassCheckInSchedule[]> {

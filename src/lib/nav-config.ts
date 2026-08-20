@@ -147,7 +147,7 @@ export const NAV_MODULES: NavModule[] = [
             // ── Students ──
             { group: "Students", name: "Student Attendance", description: "Per-class attendance records", href: "/hr/student-attendance-dashboard", icon: UserCheck, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
             { group: "Students", name: "Student Attendance by Cycle", description: "Student lines and punch matrix over a date range", href: "/hr/student-attendance-dashboard/cycle", icon: LayoutGrid, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
-            { group: "Students", name: "Quick Check-In", description: "Search a student and punch them in or out", href: "/attendance/quick-check-in", icon: Clock, permissions: ["attendance.student.rollcall.mark"] },
+            { group: "Students", name: "Quick Check-In", description: "Filter, search, and punch students in or out — including default absents", href: "/attendance/quick-check-in", icon: Clock, permissions: ["attendance.student.rollcall.mark"] },
             { group: "Students", name: "A-Level Roll Call", description: "A-level section marking", href: "/hr/roll-call", icon: ClipboardList, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
 
             // ── Scheduling ──
