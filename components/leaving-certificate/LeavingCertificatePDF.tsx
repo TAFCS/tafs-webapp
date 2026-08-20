@@ -87,15 +87,15 @@ export interface LeavingCertificateData {
 /** Shared layout constants — keeps label columns and name fields aligned across rows */
 const LAYOUT = {
     contentWidth: 535,
-    labelWidth: 122,
-    nameColWidth: 84,
+    labelWidth: 126,
+    nameColWidth: 82,
     dobMonthWidth: 70,
     dobDayWidth: 34,
     dobYearWidth: 42,
     pobCountryWidth: 70,
     pobProvinceWidth: 62,
     pobCityWidth: 62,
-    fieldGap: 5,
+    fieldGap: 8,
     sidebarWidth: 125,
 };
 
@@ -157,16 +157,11 @@ const styles = StyleSheet.create({
         borderRightWidth: 1,
         borderRightColor: '#000000',
         paddingHorizontal: 8,
-        paddingVertical: 10,
+        paddingTop: 12,
+        paddingBottom: 12,
         flexDirection: 'column',
         alignItems: 'center',
-    },
-    sidebarFieldsArea: {
-        flex: 1,
-        width: '100%',
-        justifyContent: 'space-evenly',
-        alignItems: 'center',
-        paddingVertical: 6,
+        justifyContent: 'space-between',
     },
     sidebarBoxGroup: {
         width: '100%',
@@ -190,7 +185,7 @@ const styles = StyleSheet.create({
     },
     sidebarValueText: {
         fontSize: 10,
-        fontFamily: 'Helvetica-Bold',
+        fontFamily: 'Times-Bold',
         textAlign: 'center',
     },
     photoBox: {
@@ -202,7 +197,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         padding: 2,
         backgroundColor: '#fafafa',
-        marginTop: 8,
+        marginTop: 4,
     },
     photoImage: {
         width: '100%',
@@ -249,7 +244,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 6,
         paddingBottom: 1,
         fontSize: 8.5,
-        fontFamily: 'Helvetica-Bold',
+        fontFamily: 'Times-Bold',
         textAlign: 'center',
     },
     subLabel: {
@@ -289,7 +284,7 @@ const styles = StyleSheet.create({
         paddingBottom: 1,
         paddingLeft: 4,
         fontSize: 8.5,
-        fontFamily: 'Helvetica-Bold',
+        fontFamily: 'Times-Bold',
     },
     squareBox: {
         borderWidth: 1,
@@ -297,7 +292,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
         paddingVertical: 1.5,
         fontSize: 8,
-        fontFamily: 'Helvetica-Bold',
+        fontFamily: 'Times-Bold',
         minWidth: 26,
         textAlign: 'center',
     },
@@ -326,7 +321,7 @@ const styles = StyleSheet.create({
         width: 100,
         textAlign: 'center',
         fontSize: 8,
-        fontFamily: 'Helvetica-Bold',
+        fontFamily: 'Times-Bold',
         paddingBottom: 1,
     },
     disclaimerText: {
@@ -428,9 +423,9 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                             <Image
                                 src={data.logo_url || defaultLeftLogo}
                                 style={
-                                    isTafsal
+                                    isTafsal || isTafss || isTafsol
                                         ? { width: 195, height: 68, objectFit: 'contain' }
-                                        : { width: 200, height: 64, objectFit: 'contain' }
+                                        : { width: 72, height: 68, objectFit: 'contain' }
                                 }
                             />
                         </View>
@@ -451,28 +446,26 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                     <View style={styles.mainGrid}>
                         {/* Left Sidebar */}
                         <View style={styles.leftSidebar}>
-                            <View style={styles.sidebarFieldsArea}>
-                                <View style={styles.sidebarBoxGroup}>
-                                    <Text style={styles.sidebarLabel}>S. L. C. #</Text>
-                                    <View style={styles.sidebarValueBox}>
-                                        <Text style={styles.sidebarValueText}>{data.slc_number || '—'}</Text>
-                                    </View>
+                            <View style={styles.sidebarBoxGroup}>
+                                <Text style={styles.sidebarLabel}>S. L. C. #</Text>
+                                <View style={styles.sidebarValueBox}>
+                                    <Text style={styles.sidebarValueText}>{data.slc_number || '—'}</Text>
                                 </View>
+                            </View>
 
-                                <View style={styles.sidebarBoxGroup}>
-                                    <Text style={styles.sidebarLabel}>G. R. #</Text>
-                                    <View style={styles.sidebarValueBox}>
-                                        <Text style={styles.sidebarValueText}>{data.gr_number || '—'}</Text>
-                                    </View>
+                            <View style={styles.sidebarBoxGroup}>
+                                <Text style={styles.sidebarLabel}>G. R. #</Text>
+                                <View style={styles.sidebarValueBox}>
+                                    <Text style={styles.sidebarValueText}>{data.gr_number || '—'}</Text>
                                 </View>
+                            </View>
 
-                                <View style={styles.sidebarBoxGroup}>
-                                    <Text style={styles.sidebarLabel}>Computer Code #</Text>
-                                    <View style={styles.sidebarValueBox}>
-                                        <Text style={styles.sidebarValueText}>
-                                            {`${data.header_prefix || 'TAF'}/SLC  ${data.cc || '—'}`}
-                                        </Text>
-                                    </View>
+                            <View style={styles.sidebarBoxGroup}>
+                                <Text style={styles.sidebarLabel}>Computer Code #</Text>
+                                <View style={styles.sidebarValueBox}>
+                                    <Text style={styles.sidebarValueText}>
+                                        {`${data.header_prefix || 'TAF'}/SLC  ${data.cc || '—'}`}
+                                    </Text>
                                 </View>
                             </View>
 
