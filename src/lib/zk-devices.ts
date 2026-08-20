@@ -1,9 +1,9 @@
 export const ZK_DEVICE_NAMES: Record<string, string> = {
-    NYU7261205221: 'Campus 2 Device 1',
-    NYU7261205141: 'Campus 2 Device 2',
+    NYU7261205221: 'Campus 2 Device 1 Secondary',
+    NYU7261205141: 'Campus 2 Device 2 Senior Cambridge',
     NYU7261205172: 'TAFSAL',
-    NYU7261205142: 'Campus 3 Device 1',
-    NYU7261205128: 'Campus 3 Device 2',
+    NYU7261205142: 'Campus 3 Device 1 Junior Cambridge',
+    NYU7261205128: 'Campus 3 Device 2 Pre-Primary',
     NYU7251000240: 'Johar Faculty',
     NYU7261000023: 'NNN Faculty',
     NYU7261205040: 'GKF Faculty',
