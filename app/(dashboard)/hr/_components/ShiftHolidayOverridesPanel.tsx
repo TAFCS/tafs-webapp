@@ -45,6 +45,8 @@ export function ShiftHolidayOverridesPanel({ employeeIds, employeeName, isSuperA
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [holidayReport, setHolidayReport] = useState<null | Awaited<ReturnType<typeof hrService.createEmployeeCalendarDays>>>(null);
+  const [shiftReport, setShiftReport] = useState<ShiftOverride[] | null>(null);
 
   const [existingCalendarDays, setExistingCalendarDays] = useState<CalendarDay[]>([]);
   const [existingShiftOverrides, setExistingShiftOverrides] = useState<ShiftOverride[]>([]);
@@ -149,6 +151,8 @@ export function ShiftHolidayOverridesPanel({ employeeIds, employeeName, isSuperA
     setError(null);
     setSuccess(null);
     setWarning(null);
+    setHolidayReport(null);
+    setShiftReport(null);
     try {
       if (mode === "TIME") {
         const rows = await shiftOverridesService.bulkCreate({
@@ -158,6 +162,7 @@ export function ShiftHolidayOverridesPanel({ employeeIds, employeeName, isSuperA
           override_end_time: endTime.trim() || undefined,
           reason: reason.trim() || undefined,
         });
+        setShiftReport(rows);
         setSuccess(
           `Applied to ${employeeIds.length} employee(s) across ${selectedDates.size} day(s) — ${rows.length} override(s) saved.`,
         );
@@ -168,6 +173,7 @@ export function ShiftHolidayOverridesPanel({ employeeIds, employeeName, isSuperA
           day_type: dayType,
           description: reason.trim() || undefined,
         });
+        setHolidayReport(result);
         setSuccess(
           `${result.created} override(s) created` +
             (result.skipped > 0 ? `, ${result.skipped} already existed` : "") +
@@ -199,6 +205,105 @@ export function ShiftHolidayOverridesPanel({ employeeIds, employeeName, isSuperA
       savingRef.current = false;
       setSaving(false);
     }
+  };
+
+  const downloadHolidayReportCsv = () => {
+    if (!holidayReport) return;
+
+    const header = [
+      "status",
+      "employee_id",
+      "employee_name",
+      "date",
+      "day_type",
+      "description",
+      "reason",
+      "existing_day_type",
+      "existing_description",
+    ];
+
+    const appliedRows =
+      holidayReport.applied?.map((r) => [
+        "APPLIED",
+        r.employee_id,
+        r.employee_name ?? "",
+        r.date,
+        r.day_type,
+        r.description ?? "",
+        "",
+        "",
+        "",
+      ]) ?? [];
+
+    const skippedRows =
+      holidayReport.skipped_details?.map((r) => [
+        "SKIPPED",
+        r.employee_id,
+        r.employee_name ?? "",
+        r.date,
+        "",
+        "",
+        r.reason,
+        r.existing_day_type ?? "",
+        r.existing_description ?? "",
+      ]) ?? [];
+
+    const csvEscape = (v: any) => {
+      const s = String(v ?? "");
+      if (s.includes('"') || s.includes(",") || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+
+    const lines = [
+      header.join(","),
+      ...[...appliedRows, ...skippedRows].map((row) => row.map(csvEscape).join(",")),
+    ];
+
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `holiday-override-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadShiftReportCsv = () => {
+    if (!shiftReport) return;
+
+    const header = ["status", "employee_id", "employee_name", "date", "override_start_time", "override_end_time", "reason"];
+    const csvEscape = (v: any) => {
+      const s = String(v ?? "");
+      if (s.includes('"') || s.includes(",") || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+
+    const lines = [
+      header.join(","),
+      ...shiftReport.map((r) =>
+        [
+          "APPLIED",
+          r.employee_profiles?.id ?? "",
+          r.employee_profiles?.full_name ?? "",
+          r.date?.slice(0, 10) ?? r.date,
+          r.override_start_time ?? "",
+          r.override_end_time ?? "",
+          r.reason ?? "",
+        ].map(csvEscape).join(","),
+      ),
+    ];
+
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `shift-override-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -384,6 +489,153 @@ export function ShiftHolidayOverridesPanel({ employeeIds, employeeName, isSuperA
           </button>
         </form>
       </div>
+
+      {mode === "HOLIDAY" && holidayReport && (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Holiday Override Report</p>
+            <button
+              type="button"
+              onClick={downloadHolidayReportCsv}
+              className="text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-lg px-3 py-2 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+            >
+              Download CSV
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-3 text-center">
+              <p className="text-lg font-black text-zinc-800 dark:text-zinc-100">{holidayReport.applied?.length ?? 0}</p>
+              <p className="text-xs text-zinc-400 mt-1">Applied</p>
+            </div>
+            <div className="bg-primary/5 rounded-lg p-3 text-center">
+              <p className="text-lg font-black text-primary">{holidayReport.skipped_details?.length ?? 0}</p>
+              <p className="text-xs text-zinc-400 mt-1">Skipped</p>
+            </div>
+            <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-3 text-center">
+              <p className="text-lg font-black text-zinc-800 dark:text-zinc-100">{holidayReport.conflicts?.length ?? 0}</p>
+              <p className="text-xs text-zinc-400 mt-1">Conflicts (Saturday)</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Applied</p>
+              <div className="max-h-64 overflow-y-auto space-y-2">
+                {(holidayReport.applied ?? []).map((r, idx) => (
+                  <div key={`${r.employee_id}:${r.date}:${idx}`} className="text-xs rounded-lg border border-zinc-150 dark:border-zinc-800 p-2 bg-white dark:bg-zinc-950">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-bold text-zinc-800 dark:text-zinc-100 truncate">
+                          {r.employee_name ?? `Employee #${r.employee_id}`}
+                        </p>
+                        <p className="text-zinc-500">{r.date}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-emerald-700 dark:text-emerald-300">{r.day_type}</p>
+                        {r.description ? <p className="text-zinc-400 truncate max-w-[160px]">{r.description}</p> : null}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {(holidayReport.applied ?? []).length === 0 && <p className="text-xs text-zinc-400">No applied rows.</p>}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Skipped</p>
+              <div className="max-h-64 overflow-y-auto space-y-2">
+                {(holidayReport.skipped_details ?? []).map((r, idx) => (
+                  <div key={`${r.employee_id}:${r.date}:${idx}`} className="text-xs rounded-lg border border-zinc-150 dark:border-zinc-800 p-2 bg-white dark:bg-zinc-950">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-bold text-zinc-800 dark:text-zinc-100 truncate">
+                          {r.employee_name ?? `Employee #${r.employee_id}`}
+                        </p>
+                        <p className="text-zinc-500">{r.date}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-rose-700 dark:text-rose-300">SKIPPED</p>
+                      </div>
+                    </div>
+                    <p className="text-zinc-400 mt-1 line-clamp-2">{r.reason}</p>
+                    {r.existing_day_type ? (
+                      <p className="text-[11px] text-zinc-500 mt-1">
+                        Existing: {r.existing_day_type}
+                        {r.existing_description ? ` · ${r.existing_description}` : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+                {(holidayReport.skipped_details ?? []).length === 0 && <p className="text-xs text-zinc-400">No skipped rows.</p>}
+              </div>
+            </div>
+          </div>
+
+          {holidayReport.conflicts?.length ? (
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Conflicts</p>
+              <div className="max-h-40 overflow-y-auto space-y-2">
+                {holidayReport.conflicts.map((c, idx) => (
+                  <div key={`${c.employee_id}:${c.date}:${idx}`} className="text-xs rounded-lg border border-zinc-150 dark:border-zinc-800 p-2 bg-zinc-50 dark:bg-zinc-950">
+                    <p className="font-bold text-zinc-800 dark:text-zinc-100">{c.employee_id} · {c.date}</p>
+                    <p className="text-zinc-500 mt-1">{c.message}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {mode === "TIME" && shiftReport && (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Shift Override Report</p>
+            <button
+              type="button"
+              onClick={downloadShiftReportCsv}
+              className="text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-lg px-3 py-2 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+            >
+              Download CSV
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-3 text-center">
+              <p className="text-lg font-black text-zinc-800 dark:text-zinc-100">{shiftReport.length}</p>
+              <p className="text-xs text-zinc-400 mt-1">Overrides saved</p>
+            </div>
+            <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-3 text-center">
+              <p className="text-lg font-black text-zinc-800 dark:text-zinc-100">
+                {new Set(shiftReport.map((r) => r.employee_profiles?.id)).size}
+              </p>
+              <p className="text-xs text-zinc-400 mt-1">Employees</p>
+            </div>
+          </div>
+
+          <div className="max-h-64 overflow-y-auto space-y-2">
+            {shiftReport.map((r, idx) => (
+              <div key={`${r.employee_profiles?.id ?? idx}:${r.date}:${idx}`} className="text-xs rounded-lg border border-zinc-150 dark:border-zinc-800 p-2 bg-white dark:bg-zinc-950">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-bold text-zinc-800 dark:text-zinc-100 truncate">
+                      {r.employee_profiles?.full_name ?? `Employee #${r.employee_profiles?.id ?? ""}`}
+                    </p>
+                    <p className="text-zinc-500">{r.date?.slice(0, 10) ?? r.date}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-black text-zinc-800 dark:text-zinc-100">
+                      {r.override_start_time ?? "—"} – {r.override_end_time ?? "—"}
+                    </p>
+                    {r.reason ? <p className="text-zinc-400 mt-1 line-clamp-1">{r.reason}</p> : null}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

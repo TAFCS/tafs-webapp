@@ -39,6 +39,8 @@ export type MappingIntent =
           employeeId?: number;
           studentCc?: number;
           personName: string;
+          /** "GR 5140 · Class JR-IV · Sec B" — who exactly, not just a name. */
+          personDetail?: string;
           /** Reviving a deactivated mapping rather than creating a new one. */
           reactivating?: boolean;
       }
@@ -47,6 +49,8 @@ export type MappingIntent =
           deviceSn: string;
           devicePin: string;
           personName: string;
+          /** "GR 5140 · Class JR-IV · Sec B" — who exactly, not just a name. */
+          personDetail?: string;
           /** delete removes the mapping row; deactivate keeps it, disabled. */
           mode: "deactivate" | "delete";
       };
@@ -198,9 +202,19 @@ export function MappingImpactDialog({ intent, onCancel, onConfirm, extraNotes = 
                                 {title}
                             </h2>
                             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                                {getDeviceName(intent.deviceSn)} · PIN{" "}
-                                <span className="font-mono">{intent.devicePin}</span>
+                                <span className="font-semibold text-zinc-600 dark:text-zinc-300">
+                                    {getDeviceName(intent.deviceSn)}
+                                </span>{" "}
+                                · PIN <span className="font-mono">{intent.devicePin}</span>
                             </p>
+                            {intent.personDetail && (
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                                    {/* The delete title is the only one that doesn't name the person. */}
+                                    {intent.kind === "unlink" && intent.mode === "delete"
+                                        ? `${intent.personName} — ${intent.personDetail}`
+                                        : intent.personDetail}
+                                </p>
+                            )}
                         </div>
                     </div>
                     <button

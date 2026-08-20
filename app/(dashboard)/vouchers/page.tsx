@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import {
     Search, Loader2, AlertCircle, FileText, ChevronDown, X,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
-    Building2, GraduationCap, Users, Hash, CreditCard, SlidersHorizontal,
+    Building2, GraduationCap, Users, UserCheck, Hash, CreditCard, SlidersHorizontal,
     ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2, AlertTriangle, Hourglass
 } from "lucide-react";
 import api from "@/lib/api";
@@ -29,6 +29,18 @@ const STATUS_OPTIONS = [
     { value: "OVERDUE", label: "Overdue", icon: XCircle, color: "text-rose-500" },
     { value: "VOID", label: "Void", icon: XCircle, color: "text-zinc-500" },
     { value: "EXPIRED", label: "Expired", icon: Hourglass, color: "text-orange-500" },
+];
+
+// The student's own status, not the voucher's. A LEFT or EXPELLED student keeps
+// the class_id they held on the way out, so a class filter alone still returns
+// them — this is what separates them from the students actually sitting there.
+const STUDENT_STATUS_OPTIONS: FilterDropdownOption<string>[] = [
+    { id: "ENROLLED", label: "Enrolled" },
+    { id: "SOFT_ADMISSION", label: "Soft Admission" },
+    { id: "QUICK_ADMISSION", label: "Quick Admission" },
+    { id: "LEFT", label: "Left" },
+    { id: "EXPELLED", label: "Expelled" },
+    { id: "GRADUATED", label: "Graduated" },
 ];
 
 // Sentinel "fetch all" limit — larger than any realistic voucher count, so the
@@ -459,6 +471,11 @@ function VoucherRow({
     const isPaid = voucher.status === "PAID";
     const isPartiallyPaid = voucher.status === "PARTIALLY_PAID";
 
+    // Where the student sits today, as opposed to voucher.classes / voucher.sections,
+    // which are the placement frozen onto the voucher when it was generated.
+    const currentClass = voucher.students?.classes?.description ?? null;
+    const currentSection = voucher.students?.sections?.description ?? null;
+
     return (
         <>
         <tr className={`group border-b border-zinc-100 dark:border-zinc-800/60 transition-colors ${isSelected ? "bg-primary/[0.03] dark:bg-primary/10" : "hover:bg-zinc-50 dark:hover:bg-zinc-900/50"}`}>
@@ -496,14 +513,31 @@ function VoucherRow({
                 </span>
             </td>
             <td className="px-5 py-3.5">
-                <span className="text-sm text-zinc-700 dark:text-zinc-300 font-medium">
-                    {voucher.classes?.description || "—"}
-                </span>
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300 font-medium">
+                        {voucher.classes?.description || "—"}
+                    </span>
+                    {/* The voucher's class is frozen at generation; if the student
+                        has since been promoted, name where they sit today so the
+                        row can't be misread as a current-class statement. */}
+                    {currentClass && currentClass !== voucher.classes?.description && (
+                        <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400" title="Student's current class">
+                            now {currentClass}
+                        </span>
+                    )}
+                </div>
             </td>
             <td className="px-5 py-3.5">
-                <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {voucher.sections?.description || <span className="text-zinc-300">—</span>}
-                </span>
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                        {voucher.sections?.description || <span className="text-zinc-300">—</span>}
+                    </span>
+                    {currentSection && currentSection !== voucher.sections?.description && (
+                        <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400" title="Student's current section">
+                            now {currentSection}
+                        </span>
+                    )}
+                </div>
             </td>
             <td className="px-5 py-3.5">
                 <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
@@ -668,6 +702,12 @@ export default function VouchersPage() {
     const [dateTo, setDateTo] = useState("");
     const [singleFeeDate, setSingleFeeDate] = useState(false);
     const [multipleFeeHeads, setMultipleFeeHeads] = useState(false);
+    // Campus/class/section exist twice: frozen on the voucher at generation time,
+    // and live on the student. "current" answers "show me this year's SR3
+    // vouchers" (and matches how bulk generation picks students); "as_issued"
+    // answers "who was billed under SR3 at the time".
+    const [classScope, setClassScope] = useState<"current" | "as_issued">("current");
+    const [studentStatuses, setStudentStatuses] = useState<string[]>([]);
     const [activeFiltersApplied, setActiveFiltersApplied] = useState<VoucherFilters>({});
 
     // Table state
@@ -744,6 +784,10 @@ export default function VouchersPage() {
         if (campusIds.length > 0) f.campus_id = campusIds.join(",");
         if (classIds.length > 0) f.class_id = classIds.join(",");
         if (sectionIds.length > 0) f.section_id = sectionIds.join(",");
+        if (classScope === "as_issued" && (campusIds.length || classIds.length || sectionIds.length)) {
+            f.class_scope = "as_issued";
+        }
+        if (studentStatuses.length > 0) f.student_status = studentStatuses.join(",");
         if (statusFilter.length > 0) f.status = statusFilter.join(",");
         if (dateFrom) f.date_from = dateFrom;
         if (dateTo) f.date_to = dateTo;
@@ -752,7 +796,7 @@ export default function VouchersPage() {
         if (!isNaN(ccNum) && ccNum > 0) f.cc = ccNum;
 
         return f;
-    }, [campusIds, classIds, sectionIds, statusFilter, selectedCc, dateFrom, dateTo]);
+    }, [campusIds, classIds, sectionIds, classScope, studentStatuses, statusFilter, selectedCc, dateFrom, dateTo]);
 
     const handleApplyFilters = useCallback(() => {
         const filters = buildFilters();
@@ -773,6 +817,8 @@ export default function VouchersPage() {
         setDateTo("");
         setSingleFeeDate(false);
         setMultipleFeeHeads(false);
+        setClassScope("current");
+        setStudentStatuses([]);
         setActiveFiltersApplied({});
         setPage(1);
         dispatch(fetchVouchers({}));
@@ -870,7 +916,11 @@ export default function VouchersPage() {
     const paginatedVouchers = vouchers;
     const displayedVouchers = paginatedVouchers;
 
-    const activeFilterCount = Object.keys(activeFiltersApplied).length + (singleFeeDate ? 1 : 0);
+    // class_scope only changes how campus/class/section are matched, so it must
+    // not inflate the "N active" badge the way a real filter would.
+    const activeFilterCount =
+        Object.keys(activeFiltersApplied).filter(k => k !== "class_scope").length +
+        (singleFeeDate ? 1 : 0);
 
     // Stat cards
     const stats = {
@@ -1093,6 +1143,42 @@ export default function VouchersPage() {
 
                     {showExtendedFilters && (
                         <div className="mt-5 pt-5 border-t border-zinc-100 dark:border-zinc-800 animate-in slide-in-from-top-4 fade-in duration-200">
+                            {/* Placement scope — governs Campus, Class and Section below.
+                                A voucher freezes the student's campus/class/section at
+                                generation time and never rewrites them, so after a
+                                promotion the two readings genuinely differ. */}
+                            <div className="mb-5 flex flex-col sm:flex-row sm:items-center gap-3">
+                                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                                    <GraduationCap className="h-3 w-3" /> Match Campus / Class / Section By
+                                </span>
+                                <div className="inline-flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl">
+                                    {([
+                                        { value: "current", label: "Current placement", title: "Match the student's campus, class and section as they are today." },
+                                        { value: "as_issued", label: "As issued", title: "Match the campus, class and section frozen on the voucher when it was generated." },
+                                    ] as const).map(opt => (
+                                        <button
+                                            key={opt.value}
+                                            id={`class-scope-${opt.value}`}
+                                            type="button"
+                                            title={opt.title}
+                                            onClick={() => setClassScope(opt.value)}
+                                            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all
+                                                ${classScope === opt.value
+                                                    ? "bg-white dark:bg-zinc-800 text-primary shadow-sm"
+                                                    : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                                                }`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[11px] text-zinc-400">
+                                    {classScope === "current"
+                                        ? "Students in the selected class today — including their older vouchers."
+                                        : "Vouchers billed under the selected class at the time they were generated."}
+                                </p>
+                            </div>
+
                             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                                 {/* Campus */}
                                 <FilterDropdown
@@ -1128,6 +1214,18 @@ export default function VouchersPage() {
                                     placeholder="All Sections"
                                     onToggle={v => setSectionIds(prev => prev.includes(v) ? prev.filter(id => id !== v) : [...prev, v])}
                                     onClear={() => setSectionIds([])}
+                                />
+
+                                {/* Student Status */}
+                                <FilterDropdown
+                                    label="Student Status"
+                                    icon={UserCheck}
+                                    value={studentStatuses}
+                                    options={STUDENT_STATUS_OPTIONS}
+                                    placeholder="All Student Statuses"
+                                    hint="The student's status today — separate from the voucher status above."
+                                    onToggle={v => setStudentStatuses(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])}
+                                    onClear={() => setStudentStatuses([])}
                                 />
 
                                 {/* Date From */}
@@ -1314,7 +1412,7 @@ export default function VouchersPage() {
                                             className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
                                         />
                                     </th>
-                                    {["ID", "Student", "Campus", "Class", "Section", "For the Month(s) Of", "Issue Date", "Due Date", "Validity", "Original", "Net", "Status", "Bank", "Actions"].map(h => (
+                                    {["ID", "Student", "Campus", "Class (At Issue)", "Section (At Issue)", "For the Month(s) Of", "Issue Date", "Due Date", "Validity", "Original", "Net", "Status", "Bank", "Actions"].map(h => (
                                         <th key={h} className="px-5 py-3.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">
                                             {h}
                                         </th>

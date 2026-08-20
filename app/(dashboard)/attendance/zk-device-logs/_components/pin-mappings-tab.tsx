@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { AlertCircle, AlertTriangle, CheckCircle2, Fingerprint, Info, Loader2, Pencil, Plus, Power, PowerOff, Tag, Trash2, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Fingerprint, Info, Loader2, Pencil, Plus, Power, PowerOff, Search, Tag, Trash2, X } from "lucide-react";
 import {
     zkPushService,
     DeviceUserMapping,
@@ -13,6 +13,7 @@ import {
 import { getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
 import { PersonPicker } from "./person-picker";
 import { MappingImpactDialog, MappingIntent, reportRebuildIfNeeded } from "@/components/attendance/mapping-impact-dialog";
+import { personMetaLine } from "@/lib/person-meta";
 
 interface MappingModalProps {
     mapping: DeviceUserMapping | null;
@@ -37,7 +38,17 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
             };
         }
         if (mapping?.students) {
-            return { cc: mapping.students.cc, full_name: mapping.students.full_name, gr_number: mapping.students.gr_number };
+            // Carry class/section/campus through, so editing an existing mapping
+            // identifies the student as fully as picking a new one does.
+            return {
+                cc: mapping.students.cc,
+                full_name: mapping.students.full_name,
+                gr_number: mapping.students.gr_number,
+                photograph_url: mapping.students.photograph_url ?? null,
+                classes: mapping.students.classes ?? null,
+                sections: mapping.students.sections ?? null,
+                campuses: mapping.students.campuses ?? null,
+            };
         }
         return null;
     });
@@ -188,6 +199,7 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
                           deviceSn: deviceSn.trim(),
                           devicePin: devicePin.trim(),
                           personName: selectedPerson.full_name ?? "this person",
+                          personDetail: personMetaLine(selectedPerson),
                           mode: "deactivate",
                       }
                     : {
@@ -198,6 +210,7 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
                           employeeId: personType === "STAFF" ? selectedPerson.id : undefined,
                           studentCc: personType === "STUDENT" ? selectedPerson.cc : undefined,
                           personName: selectedPerson.full_name ?? "this person",
+                          personDetail: personMetaLine(selectedPerson),
                           reactivating: isEdit && !!mapping && !mapping.is_active,
                       },
             );
@@ -410,6 +423,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
     const [modalState, setModalState] = useState<{ mapping: DeviceUserMapping | null } | null>(null);
     const [simulatingId, setSimulatingId] = useState<number | null>(null);
     const [confirming, setConfirming] = useState<{ intent: MappingIntent; mapping: DeviceUserMapping } | null>(null);
+    const [query, setQuery] = useState("");
 
     const fetchMappings = useCallback(async () => {
         setLoading(true);
@@ -428,6 +442,25 @@ export function PinMappingsTab({ active }: { active: boolean }) {
         if (active) fetchMappings();
     }, [active, fetchMappings]);
 
+    /** PIN, person name, GR/employee code and device all match — whichever the operator has to hand. */
+    const filtered = mappings.filter((m) => {
+        const q = query.trim().toLowerCase();
+        if (!q) return true;
+        return [
+            m.device_pin,
+            m.display_name,
+            m.device_sn,
+            getDeviceName(m.device_sn),
+            m.employee_profiles?.full_name,
+            m.employee_profiles?.employee_code,
+            m.students?.full_name,
+            m.students?.gr_number,
+            m.students?.cc != null ? String(m.students.cc) : null,
+        ]
+            .filter(Boolean)
+            .some((field) => String(field).toLowerCase().includes(q));
+    });
+
     function personLabel(m: DeviceUserMapping) {
         if (m.person_type === "STAFF" && m.employee_profiles) {
             return `${m.employee_profiles.full_name ?? "Unnamed"}${
@@ -442,10 +475,18 @@ export function PinMappingsTab({ active }: { active: boolean }) {
 
     function requestToggle(m: DeviceUserMapping) {
         const personName = personLabel(m);
+        const personDetail = personMetaLine(m.students ?? m.employee_profiles);
         setConfirming({
             mapping: m,
             intent: m.is_active
-                ? { kind: "unlink", deviceSn: m.device_sn, devicePin: m.device_pin, personName, mode: "deactivate" }
+                ? {
+                      kind: "unlink",
+                      deviceSn: m.device_sn,
+                      devicePin: m.device_pin,
+                      personName,
+                      personDetail,
+                      mode: "deactivate",
+                  }
                 : {
                       kind: "link",
                       deviceSn: m.device_sn,
@@ -454,6 +495,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                       employeeId: m.employee_id ?? undefined,
                       studentCc: m.student_cc ?? undefined,
                       personName,
+                      personDetail,
                       reactivating: true,
                   },
         });
@@ -467,6 +509,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                 deviceSn: m.device_sn,
                 devicePin: m.device_pin,
                 personName: personLabel(m),
+                personDetail: personMetaLine(m.students ?? m.employee_profiles),
                 mode: "delete",
             },
         });
@@ -536,8 +579,20 @@ export function PinMappingsTab({ active }: { active: boolean }) {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-                    <span className="font-medium text-zinc-700 dark:text-zinc-200">{mappings.length}</span> mappings
+                <div className="flex items-center gap-3 flex-wrap">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                        <input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search PIN, name, GR, code or device…"
+                            className="w-72 pl-9 pr-3 py-1.5 text-sm border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 text-zinc-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                        />
+                    </div>
+                    <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                        <span className="font-medium text-zinc-700 dark:text-zinc-200">{filtered.length}</span>
+                        {query.trim() ? ` of ${mappings.length}` : ""} mappings
+                    </div>
                 </div>
                 <button
                     onClick={() => setModalState({ mapping: null })}
@@ -561,13 +616,14 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                         <Loader2 className="w-5 h-5 animate-spin" />
                         <span className="text-sm">Loading mappings…</span>
                     </div>
-                ) : mappings.length === 0 ? (
+                ) : filtered.length === 0 ? (
                     <div className="flex flex-col items-center justify-center gap-3 py-16 text-zinc-400">
                         <Tag className="w-8 h-8 opacity-30" />
-                        <p className="text-sm">No PIN mappings yet.</p>
+                        <p className="text-sm">{query.trim() ? `No mapping matches “${query.trim()}”.` : "No PIN mappings yet."}</p>
                         <p className="text-xs text-zinc-400 max-w-sm text-center">
-                            Map device PINs to staff or students from the &ldquo;Unmapped PINs&rdquo; tab once scans
-                            start arriving.
+                            {query.trim()
+                                ? "Try the PIN Lookup tab — it also searches scan history, device name hints and people whose CC or GR number equals the PIN."
+                                : "Map device PINs to staff or students from the “Unmapped PINs” tab once scans start arriving."}
                         </p>
                     </div>
                 ) : (
@@ -597,9 +653,9 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                                {mappings.map((m) => (
+                                {filtered.map((m) => (
                                     <tr key={m.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                                        <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">{getDeviceName(m.device_sn)}</td>
+                                        <td className="px-4 py-3 text-sm font-semibold text-zinc-700 dark:text-zinc-200">{getDeviceName(m.device_sn)}</td>
                                         <td className="px-4 py-3 text-sm font-mono text-zinc-700 dark:text-zinc-200">{m.device_pin}</td>
                                         <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">{m.person_type}</td>
                                         <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">{personLabel(m)}</td>

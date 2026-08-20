@@ -7,6 +7,16 @@ export interface VoucherStudent {
     cc: number;
     full_name: string;
     gr_number: string | null;
+    /**
+     * The student's CURRENT placement, distinct from the voucher-level
+     * `classes` / `sections` / `campuses`, which are frozen at generation time
+     * and never rewritten on promotion or transfer.
+     */
+    class_id?: number | null;
+    section_id?: number | null;
+    campus_id?: number | null;
+    classes?: { id: number; description: string } | null;
+    sections?: { id: number; description: string } | null;
 }
 
 export interface VoucherCampus {
@@ -167,6 +177,14 @@ export interface VoucherFilters {
     limit?: number;
     single_fee_date?: boolean;
     multiple_fee_heads?: boolean;
+    /**
+     * How campus/class/section are matched. 'current' (the default the API
+     * applies when omitted) matches the student's placement today; 'as_issued'
+     * matches the campus/class/section frozen on the voucher at generation.
+     */
+    class_scope?: 'current' | 'as_issued';
+    /** Comma-separated student_status values, e.g. "ENROLLED,LEFT". */
+    student_status?: string;
 }
 
 // ─── Async Thunk ─────────────────────────────────────────────────────────────
@@ -189,6 +207,8 @@ export const fetchVouchers = createAsyncThunk(
             if (filters.limit) params.limit = filters.limit;
             if (filters.single_fee_date) params.single_fee_date = 'true';
             if (filters.multiple_fee_heads) params.multiple_fee_heads = 'true';
+            if (filters.class_scope) params.class_scope = filters.class_scope;
+            if (filters.student_status) params.student_status = filters.student_status;
 
             const response = await api.get('/v1/vouchers', { params });
             const data = response.data?.data;

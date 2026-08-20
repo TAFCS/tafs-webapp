@@ -312,6 +312,21 @@ export interface EmployeeCalendarDaysResult {
   created: number;
   skipped: number;
   failed: number;
+  applied: Array<{
+    employee_id: number;
+    employee_name?: string | null;
+    date: string;
+    day_type: "HOLIDAY" | "WORKDAY";
+    description?: string | null;
+  }>;
+  skipped_details: Array<{
+    employee_id: number;
+    employee_name?: string | null;
+    date: string;
+    reason: string;
+    existing_day_type?: string | null;
+    existing_description?: string | null;
+  }>;
   errors: { employee_id: number; date: string; message: string }[];
   conflicts: { employee_id: number; date: string; message: string }[];
   sync_failed: { campus_id: number; date: string }[];

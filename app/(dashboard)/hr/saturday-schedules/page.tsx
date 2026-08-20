@@ -146,7 +146,7 @@ export default function SaturdaySchedulesPage() {
   const [loading, setLoading] = useState(false);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [newDate, setNewDate] = useState("");
+  const [newDates, setNewDates] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
 
@@ -299,6 +299,24 @@ export default function SaturdaySchedulesPage() {
     });
   };
 
+  const selectAllVisible = () => {
+    setSelectedIds(new Set(filteredTeachers.map((e) => e.id)));
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const toggleDate = (date: string) => {
+    setNewDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  };
+
+  const selectAllDates = () => setNewDates(new Set(monthSaturdays));
+  const clearDates = () => setNewDates(new Set());
+
   const renderSegmentGroups = (groups: { segment: SegmentInfo; teachers: EmployeeProfile[] }[]) =>
     groups.map(({ segment, teachers }) => (
       <div key={segment.id}>
@@ -331,7 +349,7 @@ export default function SaturdaySchedulesPage() {
       </div>
     ));
 
-  const canAssign = selectedIds.size > 0 && newDate !== "" && !submitting;
+  const canAssign = selectedIds.size > 0 && newDates.size > 0 && !submitting;
 
   const handleAssign = async () => {
     if (!canAssign) return;
@@ -339,7 +357,7 @@ export default function SaturdaySchedulesPage() {
     setError(null);
     setWarning(null);
     try {
-      const result = await saturdaySchedulesService.create([...selectedIds], newDate);
+      const result = await saturdaySchedulesService.create([...selectedIds], [...newDates]);
       const notes: string[] = [];
       if (result.skipped_cap.length > 0) {
         const names = result.skipped_cap.map((e) => e.full_name ?? `Employee #${e.employee_id}`).join(", ");
@@ -347,10 +365,10 @@ export default function SaturdaySchedulesPage() {
       }
       if (result.holiday_conflicts.length > 0) {
         const names = result.holiday_conflicts.map((e) => e.full_name ?? `Employee #${e.employee_id}`).join(", ");
-        notes.push(`${names} already had a holiday override for this date — the mandatory Saturday now takes priority, so the holiday will be ignored for them.`);
+        notes.push(`${names} already had a holiday override for one of these dates — the mandatory Saturday now takes priority, so the holiday will be ignored for them.`);
       }
       if (notes.length > 0) setWarning(notes.join(" "));
-      setNewDate("");
+      setNewDates(new Set());
       setSelectedIds(new Set());
       await load();
     } catch (err: unknown) {
@@ -441,7 +459,7 @@ export default function SaturdaySchedulesPage() {
                 value={month}
                 onChange={(e) => {
                   setMonth(e.target.value);
-                  setNewDate("");
+                  setNewDates(new Set());
                 }}
                 className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm h-11"
               >
@@ -508,6 +526,20 @@ export default function SaturdaySchedulesPage() {
             />
           </div>
 
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-zinc-500">
+              {selectedIds.size > 0 ? `${selectedIds.size} employee(s) selected` : "Select employees"}
+            </span>
+            <div className="flex gap-2">
+              <button type="button" onClick={selectAllVisible} className="text-xs font-semibold text-primary hover:underline">
+                Select all employees
+              </button>
+              <button type="button" onClick={clearSelection} className="text-xs font-semibold text-zinc-400 hover:text-zinc-600">
+                Clear
+              </button>
+            </div>
+          </div>
+
           <div className="border border-zinc-100 dark:border-zinc-800 rounded-lg max-h-64 overflow-y-auto">
             {loadingEmployees ? (
               <div className="flex justify-center py-8">
@@ -534,18 +566,39 @@ export default function SaturdaySchedulesPage() {
           </div>
 
           <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
-            <div>
-              <label className="text-xs text-zinc-500 block mb-1">Saturday date</label>
-              <select
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
-              >
-                <option value="">-- Select a Saturday --</option>
-                {monthSaturdays.map((d) => (
-                  <option key={d} value={d}>{formatSaturdayOption(d)}</option>
-                ))}
-              </select>
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-zinc-500 block">Saturday date(s)</label>
+              <div className="flex gap-2">
+                <button type="button" onClick={selectAllDates} className="text-xs font-semibold text-primary hover:underline">
+                  Select all
+                </button>
+                <button type="button" onClick={clearDates} className="text-xs font-semibold text-zinc-400 hover:text-zinc-600">
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {monthSaturdays.map((d) => {
+                const checked = newDates.has(d);
+                return (
+                  <label
+                    key={d}
+                    className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs cursor-pointer select-none ${
+                      checked
+                        ? "border-primary bg-primary/10 text-primary font-medium"
+                        : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleDate(d)}
+                      className="rounded border-zinc-300"
+                    />
+                    {formatSaturdayOption(d)}
+                  </label>
+                );
+              })}
             </div>
             <button
               type="button"
@@ -553,7 +606,9 @@ export default function SaturdaySchedulesPage() {
               onClick={handleAssign}
               className="w-full rounded-lg bg-primary text-white px-4 py-2 text-sm font-medium disabled:opacity-50"
             >
-              {submitting ? "Assigning…" : `Assign to Selected (${selectedIds.size})`}
+              {submitting
+                ? "Assigning…"
+                : `Assign ${newDates.size || ""} Saturday${newDates.size === 1 ? "" : "s"} to Selected (${selectedIds.size})`}
             </button>
           </div>
         </div>

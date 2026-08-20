@@ -6,11 +6,13 @@ import { useAuthState } from "@/context/AuthContext";
 import { RawLogsTab } from "./_components/raw-logs-tab";
 import { PinMappingsTab } from "./_components/pin-mappings-tab";
 import { UnmappedPinsTab } from "./_components/unmapped-pins-tab";
+import { PinLookupTab } from "./_components/pin-lookup-tab";
 
-type TabKey = "raw" | "mappings" | "unmapped";
+type TabKey = "raw" | "lookup" | "mappings" | "unmapped";
 
 const TABS: { key: TabKey; label: string }[] = [
     { key: "raw", label: "Raw Logs" },
+    { key: "lookup", label: "PIN Lookup" },
     { key: "mappings", label: "PIN Mappings" },
     { key: "unmapped", label: "Unmapped PINs" },
 ];
@@ -43,7 +45,7 @@ export default function ZkDeviceLogsPage() {
                 <div>
                     <h1 className="text-xl font-semibold text-zinc-900 dark:text-white">ZK Device Attendance</h1>
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                        Raw payloads, PIN-to-person mappings, and unmapped device PINs
+                        Raw payloads, PIN lookup, PIN-to-person mappings, and unmapped device PINs
                     </p>
                 </div>
             </div>
@@ -68,6 +70,9 @@ export default function ZkDeviceLogsPage() {
             {/* Tab content — all stay mounted so polling/state isn't lost on switch */}
             <div className={activeTab === "raw" ? "" : "hidden"}>
                 <RawLogsTab active={activeTab === "raw"} />
+            </div>
+            <div className={activeTab === "lookup" ? "" : "hidden"}>
+                <PinLookupTab active={activeTab === "lookup"} />
             </div>
             <div className={activeTab === "mappings" ? "" : "hidden"}>
                 <PinMappingsTab active={activeTab === "mappings"} />
