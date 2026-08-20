@@ -1,14 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     AlertCircle,
+    Building2,
     CalendarOff,
     CheckCircle2,
+    ChevronDown,
     ChevronRight,
     Clock,
     Fingerprint,
+    GraduationCap,
+    Layers,
+    LayoutGrid,
     Loader2,
     LogIn,
     LogOut,
@@ -17,6 +22,10 @@ import {
     X,
 } from "lucide-react";
 import api from "@/lib/api";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchCampuses } from "@/store/slices/campusesSlice";
+import type { CampusClass } from "@/store/slices/campusesSlice";
+import { useAuthState } from "@/context/AuthContext";
 import {
     attendanceService,
     QuickCheckResult,
@@ -29,6 +38,23 @@ interface StudentSearchResult {
     cc: number;
     full_name: string;
     gr_number: string | null;
+    classes?: { description: string } | null;
+    sections?: { description: string } | null;
+    campuses?: { campus_name: string } | null;
+}
+
+type SegmentOption = {
+    id: number;
+    code: string;
+    name: string;
+    display_order: number;
+};
+
+export interface QuickCheckFilters {
+    campusId: string;
+    classId: string;
+    sectionId: string;
+    segmentId: string;
 }
 
 const STATUS_BADGE: Record<RollRecordStatus, string> = {
@@ -59,12 +85,201 @@ function apiError(err: unknown, fallback: string): string {
     );
 }
 
+function isPunchBlocked(state: QuickCheckState | null): boolean {
+    if (!state?.source || state.source === "BIOMETRIC") return false;
+    if (state.source === "LEAVE") return true;
+    if (state.source === "MANUAL" || state.source === "SYSTEM") {
+        return state.status !== "ABSENT";
+    }
+    return false;
+}
+
+// ── Filters ─────────────────────────────────────────────────────────────────
+
+function QuickCheckFilterBar({
+    value,
+    onChange,
+}: {
+    value: QuickCheckFilters;
+    onChange: (v: QuickCheckFilters) => void;
+}) {
+    const dispatch = useAppDispatch();
+    const { user } = useAuthState();
+    const campuses = useAppSelector((s) => s.campuses.items);
+    const [segments, setSegments] = useState<SegmentOption[]>([]);
+
+    const campusLocked = user?.campusId != null;
+
+    useEffect(() => {
+        dispatch(fetchCampuses());
+    }, [dispatch]);
+
+    useEffect(() => {
+        api.get("/v1/financial-reports/filter-options")
+            .then(({ data }) => {
+                const list = (data?.data?.segments ?? []) as SegmentOption[];
+                setSegments([...list].sort((a, b) => a.display_order - b.display_order));
+            })
+            .catch(() => setSegments([]));
+    }, []);
+
+    useEffect(() => {
+        if (campusLocked && user?.campusId != null && !value.campusId) {
+            onChange({ ...value, campusId: String(user.campusId) });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- seed locked campus once
+    }, [campusLocked, user?.campusId]);
+
+    const scopedCampuses = useMemo(() => {
+        if (campusLocked && user?.campusId != null) {
+            return campuses.filter((c) => c.id === user.campusId);
+        }
+        return campuses;
+    }, [campuses, campusLocked, user?.campusId]);
+
+    const availableClasses: CampusClass[] = useMemo(() => {
+        const campus = scopedCampuses.find((c) => String(c.id) === value.campusId);
+        let list = campus?.offered_classes ?? [];
+        if (value.segmentId) {
+            const segId = Number(value.segmentId);
+            list = list.filter((cls) => cls.segment_id === segId);
+        }
+        return list;
+    }, [scopedCampuses, value.campusId, value.segmentId]);
+
+    const selectedClass = availableClasses.find((c) => String(c.id) === value.classId);
+    const availableSections = selectedClass?.sections ?? [];
+
+    const sel =
+        "w-full h-10 px-3 appearance-none bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-100 focus:outline-none focus:border-primary transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
+
+    const lockedCampusName =
+        scopedCampuses.find((c) => c.id === user?.campusId)?.campus_name ?? "Your campus";
+
+    return (
+        <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Filters</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="relative">
+                    <label className="flex items-center gap-1 text-[10px] font-bold text-zinc-500 mb-1.5">
+                        <Building2 className="h-3 w-3" /> Campus
+                    </label>
+                    {campusLocked ? (
+                        <div className="h-10 flex items-center px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+                            {lockedCampusName}
+                        </div>
+                    ) : (
+                        <div className="relative">
+                            <select
+                                value={value.campusId}
+                                onChange={(e) =>
+                                    onChange({
+                                        campusId: e.target.value,
+                                        classId: "",
+                                        sectionId: "",
+                                        segmentId: value.segmentId,
+                                    })
+                                }
+                                className={sel}
+                            >
+                                <option value="">All campuses</option>
+                                {scopedCampuses.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                        {c.campus_name}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-2.5 top-[calc(50%+0.5rem)] -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+                        </div>
+                    )}
+                </div>
+
+                <div className="relative">
+                    <label className="flex items-center gap-1 text-[10px] font-bold text-zinc-500 mb-1.5">
+                        <Layers className="h-3 w-3" /> Segment
+                    </label>
+                    <div className="relative">
+                        <select
+                            value={value.segmentId}
+                            onChange={(e) =>
+                                onChange({
+                                    ...value,
+                                    segmentId: e.target.value,
+                                    classId: "",
+                                    sectionId: "",
+                                })
+                            }
+                            className={sel}
+                        >
+                            <option value="">All segments</option>
+                            {segments.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                    {s.name}
+                                </option>
+                            ))}
+                        </select>
+                        <ChevronDown className="absolute right-2.5 top-[calc(50%+0.5rem)] -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+                    </div>
+                </div>
+
+                <div className="relative">
+                    <label className="flex items-center gap-1 text-[10px] font-bold text-zinc-500 mb-1.5">
+                        <GraduationCap className="h-3 w-3" /> Class
+                    </label>
+                    <div className="relative">
+                        <select
+                            value={value.classId}
+                            onChange={(e) =>
+                                onChange({ ...value, classId: e.target.value, sectionId: "" })
+                            }
+                            disabled={!value.campusId}
+                            className={sel}
+                        >
+                            <option value="">All classes</option>
+                            {availableClasses.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                    {c.class_code ? `${c.class_code} — ${c.description}` : c.description}
+                                </option>
+                            ))}
+                        </select>
+                        <ChevronDown className="absolute right-2.5 top-[calc(50%+0.5rem)] -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+                    </div>
+                </div>
+
+                <div className="relative">
+                    <label className="flex items-center gap-1 text-[10px] font-bold text-zinc-500 mb-1.5">
+                        <LayoutGrid className="h-3 w-3" /> Section
+                    </label>
+                    <div className="relative">
+                        <select
+                            value={value.sectionId}
+                            onChange={(e) => onChange({ ...value, sectionId: e.target.value })}
+                            disabled={!value.classId}
+                            className={sel}
+                        >
+                            <option value="">All sections</option>
+                            {availableSections.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                    {s.description}
+                                </option>
+                            ))}
+                        </select>
+                        <ChevronDown className="absolute right-2.5 top-[calc(50%+0.5rem)] -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Search box ──────────────────────────────────────────────────────────────
 
 function StudentSearch({
+    filters,
     onSelect,
     autoFocusKey,
 }: {
+    filters: QuickCheckFilters;
     onSelect: (student: StudentSearchResult) => void;
     autoFocusKey: number;
 }) {
@@ -75,7 +290,6 @@ function StudentSearch({
     const boxRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Refocus after each punch so the desk operator can keep typing the next name.
     useEffect(() => {
         inputRef.current?.focus();
     }, [autoFocusKey]);
@@ -98,7 +312,12 @@ function StudentSearch({
             setLoading(true);
             setOpen(true);
             try {
-                const { data } = await api.get("/v1/students/search-simple", { params: { q: query } });
+                const params: Record<string, string | number> = { q: query };
+                if (filters.campusId) params.campus_id = Number(filters.campusId);
+                if (filters.classId) params.class_id = Number(filters.classId);
+                if (filters.sectionId) params.section_id = Number(filters.sectionId);
+                if (filters.segmentId) params.segment_id = Number(filters.segmentId);
+                const { data } = await api.get("/v1/students/search-simple", { params });
                 setResults(data?.data ?? []);
             } catch {
                 setResults([]);
@@ -107,7 +326,7 @@ function StudentSearch({
             }
         }, 350);
         return () => clearTimeout(timer);
-    }, [query]);
+    }, [query, filters.campusId, filters.classId, filters.sectionId, filters.segmentId]);
 
     function pick(student: StudentSearchResult) {
         onSelect(student);
@@ -180,8 +399,11 @@ function StudentSearch({
                                             <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 truncate">
                                                 {s.full_name}
                                             </p>
-                                            <p className="text-xs text-zinc-400">
+                                            <p className="text-xs text-zinc-400 truncate">
                                                 CC: {s.cc} · GR: {s.gr_number ?? "—"}
+                                                {s.classes?.description ? ` · ${s.classes.description}` : ""}
+                                                {s.sections?.description ? ` (${s.sections.description})` : ""}
+                                                {s.campuses?.campus_name ? ` · ${s.campuses.campus_name}` : ""}
                                             </p>
                                         </div>
                                         <ChevronRight className="h-4 w-4 text-zinc-300" />
@@ -199,6 +421,13 @@ function StudentSearch({
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function QuickCheckInPage() {
+    const { user } = useAuthState();
+    const [filters, setFilters] = useState<QuickCheckFilters>({
+        campusId: user?.campusId ? String(user.campusId) : "",
+        classId: "",
+        sectionId: "",
+        segmentId: "",
+    });
     const [selected, setSelected] = useState<StudentSearchResult | null>(null);
     const [state, setState] = useState<QuickCheckState | null>(null);
     const [loadingState, setLoadingState] = useState(false);
@@ -235,7 +464,6 @@ export default function QuickCheckInPage() {
             setFocusKey((k) => k + 1);
         } catch (err) {
             setError(apiError(err, "Failed to record the punch."));
-            // The rejection usually means our view of the day is stale.
             await loadState(selected.cc);
         } finally {
             setPunching(null);
@@ -249,9 +477,16 @@ export default function QuickCheckInPage() {
         setFocusKey((k) => k + 1);
     }
 
-    const canCheckIn = state?.next_direction === "IN" && state.is_working_day;
-    const canCheckOut = state?.next_direction === "OUT" && state.is_working_day;
+    const punchBlocked = isPunchBlocked(state);
+    const canCheckIn = state?.next_direction === "IN" && state.is_working_day && !punchBlocked;
+    const canCheckOut = state?.next_direction === "OUT" && state.is_working_day && !punchBlocked;
     const busy = punching !== null || loadingState;
+    const defaultAbsentCanCheckIn =
+        state?.next_direction === "IN" &&
+        state.is_working_day &&
+        !punchBlocked &&
+        state.scan_count === 0 &&
+        (!state.status || state.status === "ABSENT");
 
     return (
         <div className="space-y-6 pb-10 max-w-3xl mx-auto">
@@ -267,7 +502,9 @@ export default function QuickCheckInPage() {
                 </p>
             </div>
 
-            <StudentSearch onSelect={setSelected} autoFocusKey={focusKey} />
+            <QuickCheckFilterBar value={filters} onChange={setFilters} />
+
+            <StudentSearch filters={filters} onSelect={setSelected} autoFocusKey={focusKey} />
 
             {lastResult && !selected && (
                 <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300">
@@ -358,12 +595,23 @@ export default function QuickCheckInPage() {
                                 </div>
                             )}
 
-                            {state?.source === "MANUAL" && (
+                            {punchBlocked && (
                                 <div className="flex items-start gap-3 m-6 mb-0 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-300 text-sm">
                                     <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                                     <p>
                                         Today&apos;s record was already set by hand from the attendance
-                                        dashboard. Edit it there instead of punching here.
+                                        dashboard ({state?.status}). Edit it there instead of punching here.
+                                    </p>
+                                </div>
+                            )}
+
+                            {defaultAbsentCanCheckIn && (
+                                <div className="flex items-start gap-3 m-6 mb-0 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-300 text-sm">
+                                    <LogIn className="w-5 h-5 shrink-0 mt-0.5" />
+                                    <p>
+                                        {state?.status === "ABSENT"
+                                            ? "Marked absent — checking in now will record their arrival and mark them present."
+                                            : "No check-in yet — punching in will mark this student present and notify the family."}
                                     </p>
                                 </div>
                             )}

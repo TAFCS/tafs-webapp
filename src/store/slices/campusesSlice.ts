@@ -25,6 +25,7 @@ export interface CampusClass {
     description: string;
     class_code: string;
     academic_system: string;
+    segment_id: number | null;
     campus_class_id: number;
     is_active: boolean;
     sections: CampusSection[];
