@@ -115,12 +115,12 @@ const LAYOUT = {
 
 const styles = StyleSheet.create({
     page: {
-        paddingTop: 18,
-        paddingBottom: 18,
-        paddingHorizontal: 30,
+        paddingTop: 10,
+        paddingBottom: 10,
+        paddingHorizontal: 26,
         backgroundColor: '#ffffff',
         fontFamily: 'Helvetica',
-        fontSize: 8.5,
+        fontSize: 8,
         color: '#000000',
         alignItems: 'center',
     },
@@ -133,25 +133,25 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 6,
+        marginBottom: 4,
     },
     leftLogoWrap: {
-        height: 72,
+        height: 54,
         justifyContent: 'center',
         alignItems: 'flex-start',
     },
     rightLogoWrap: {
-        height: 72,
+        height: 54,
         justifyContent: 'center',
         alignItems: 'flex-end',
     },
     docTitleContainer: {
         width: '100%',
         alignItems: 'center',
-        marginVertical: 4,
+        marginVertical: 2,
     },
     docTitle: {
-        fontSize: 14,
+        fontSize: 13,
         fontFamily: 'Helvetica-Bold',
         textDecoration: 'underline',
         letterSpacing: 0.5,
@@ -163,16 +163,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         borderWidth: 1,
         borderColor: '#000000',
-        minHeight: 620,
         alignItems: 'stretch',
     },
     leftSidebar: {
         width: LAYOUT.sidebarWidth,
         borderRightWidth: 1,
         borderRightColor: '#000000',
-        paddingHorizontal: 8,
-        paddingTop: 12,
-        paddingBottom: 12,
+        paddingHorizontal: 6,
+        paddingTop: 8,
+        paddingBottom: 8,
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -182,37 +181,37 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     sidebarLabel: {
-        fontSize: 8,
+        fontSize: 7.5,
         fontFamily: 'Helvetica-Bold',
-        marginBottom: 3,
+        marginBottom: 2,
         textAlign: 'center',
     },
     sidebarValueBox: {
         borderWidth: 1,
         borderColor: '#000000',
         width: '100%',
-        paddingVertical: 5,
+        paddingVertical: 3.5,
         paddingHorizontal: 4,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: '#ffffff',
     },
     sidebarValueText: {
-        fontSize: 10,
+        fontSize: 9.5,
         fontFamily: 'Stardos Stencil',
         fontWeight: 'bold',
         textAlign: 'center',
     },
     photoBox: {
-        width: 105,
-        height: 140,
+        width: 95,
+        height: 120,
         borderWidth: 1,
         borderColor: '#000000',
         alignItems: 'center',
         justifyContent: 'center',
         padding: 2,
         backgroundColor: '#fafafa',
-        marginTop: 4,
+        marginTop: 2,
     },
     photoImage: {
         width: '100%',
@@ -220,24 +219,24 @@ const styles = StyleSheet.create({
         objectFit: 'cover',
     },
     photoPlaceholderText: {
-        fontSize: 7.5,
+        fontSize: 7,
         textAlign: 'center',
         color: '#444444',
-        paddingHorizontal: 8,
-        lineHeight: 1.3,
+        paddingHorizontal: 6,
+        lineHeight: 1.2,
     },
     rightContent: {
         flex: 1,
-        paddingHorizontal: 10,
-        paddingVertical: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 5,
     },
     fieldRow: {
         flexDirection: 'row',
         alignItems: 'flex-end',
-        marginVertical: 5,
+        marginVertical: 3,
     },
     fieldLabel: {
-        fontSize: 8.5,
+        fontSize: 8,
         fontFamily: 'Helvetica',
         width: LAYOUT.labelWidth,
         paddingRight: 4,
@@ -256,17 +255,17 @@ const styles = StyleSheet.create({
     underlinedValue: {
         borderBottomWidth: 1,
         borderBottomColor: '#000000',
-        paddingHorizontal: 6,
-        paddingBottom: 1,
-        fontSize: 8.5,
+        paddingHorizontal: 4,
+        paddingBottom: 0.5,
+        fontSize: 8,
         fontFamily: 'Stardos Stencil',
         fontWeight: 'bold',
         textAlign: 'center',
     },
     subLabel: {
-        fontSize: 6.5,
+        fontSize: 6,
         color: '#333333',
-        marginTop: 1.5,
+        marginTop: 1,
         textAlign: 'center',
     },
     checkboxRow: {
@@ -276,8 +275,8 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-start',
     },
     checkbox: {
-        width: 9,
-        height: 9,
+        width: 8.5,
+        height: 8.5,
         borderWidth: 1,
         borderColor: '#000000',
         alignItems: 'center',
@@ -285,80 +284,99 @@ const styles = StyleSheet.create({
         marginRight: 3,
     },
     checkboxTick: {
-        fontSize: 7,
+        fontSize: 6.5,
         fontFamily: 'Helvetica-Bold',
         marginTop: -1,
     },
     checkboxLabel: {
-        fontSize: 8.5,
-        marginRight: 12,
+        fontSize: 8,
+        marginRight: 10,
     },
     lineFill: {
         borderBottomWidth: 1,
         borderBottomColor: '#000000',
         flex: 1,
-        paddingBottom: 1,
+        paddingBottom: 0.5,
         paddingLeft: 4,
-        fontSize: 8.5,
+        fontSize: 8,
         fontFamily: 'Stardos Stencil',
         fontWeight: 'bold',
     },
     squareBox: {
         borderWidth: 1,
         borderColor: '#000000',
-        paddingHorizontal: 4,
-        paddingVertical: 1.5,
-        fontSize: 8,
+        paddingHorizontal: 3,
+        paddingVertical: 1,
+        fontSize: 7.5,
         fontFamily: 'Stardos Stencil',
         fontWeight: 'bold',
-        minWidth: 26,
+        minWidth: 24,
         textAlign: 'center',
     },
     signaturesSection: {
-        marginTop: 18,
-        paddingTop: 4,
+        marginTop: 8,
+        paddingTop: 2,
     },
     sigRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-end',
-        marginVertical: 4,
+        marginVertical: 2.5,
     },
     sigField: {
         flexDirection: 'row',
         alignItems: 'flex-end',
     },
     sigLabel: {
-        fontSize: 8.5,
+        fontSize: 8,
         fontFamily: 'Helvetica',
         marginRight: 4,
     },
     sigLine: {
         borderBottomWidth: 1,
         borderBottomColor: '#000000',
-        width: 100,
+        width: 95,
         textAlign: 'center',
-        fontSize: 8,
+        fontSize: 7.5,
         fontFamily: 'Stardos Stencil',
         fontWeight: 'bold',
-        paddingBottom: 1,
+        paddingBottom: 0.5,
     },
     disclaimerText: {
-        fontSize: 8,
+        fontSize: 7.5,
         fontFamily: 'Helvetica-Oblique',
         textAlign: 'center',
-        marginTop: 12,
+        marginTop: 5,
     },
     footer: {
-        marginTop: 10,
+        marginTop: 5,
         width: '100%',
         alignItems: 'center',
     },
-    footerText: {
+    campusBlock: {
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    campusTitle: {
         fontSize: 7.5,
+        fontFamily: 'Helvetica-Bold',
+        textAlign: 'center',
+        color: '#000000',
+        marginBottom: 1,
+        textTransform: 'uppercase',
+    },
+    addressText: {
+        fontSize: 6.5,
+        fontFamily: 'Helvetica',
         textAlign: 'center',
         color: '#111111',
-        lineHeight: 1.3,
+        lineHeight: 1.15,
+    },
+    linkText: {
+        fontSize: 6.5,
+        fontFamily: 'Helvetica',
+        color: '#0055cc',
+        textDecoration: 'underline',
     },
 });
 
@@ -750,14 +768,61 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                     </View>
                 </View>
 
-                    {/* Footer Address & Phone Numbers */}
+                    {/* Footer 3-Campus Addresses */}
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>
-                            {data.campus_address || 'C-61 - 65, Block # 13, Gulistan-e-Jauhar, Karachi, Pakistan.'}
-                        </Text>
-                        <Text style={styles.footerText}>
-                            Hello # : 3463-5481, 3463-5482, 3463-5483, Fax # : (92-21) 3463-5484 E-mail : american@cyber.net.pk
-                        </Text>
+                        {/* GULISTAN-E-JAUHAR */}
+                        <View style={styles.campusBlock}>
+                            <Text style={styles.campusTitle}>GULISTAN-E-JAUHAR</Text>
+                            <Text style={styles.addressText}>
+                                C - 61, 62, 63, 64 & 65, BLOCK # 13, GULISTAN-E-JAUHAR, KARACHI.
+                            </Text>
+                            <Text style={styles.addressText}>
+                                HELLO # (92-21) 3476-5111, 3476-5112, 3476-5113 FAX # : (92-21) 3476-5114, HELP LINE # : 0300-8258061.
+                            </Text>
+                            <Text style={styles.addressText}>
+                                Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>infi@tafs.edu.pk</Text>
+                            </Text>
+                            <Text style={styles.addressText}>
+                                Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
+                            </Text>
+                        </View>
+
+                        {/* GULSHAN-E-KANEEZ FATIMA */}
+                        <View style={styles.campusBlock}>
+                            <Text style={styles.campusTitle}>GULSHAN-E-KANEEZ FATIMA</Text>
+                            <Text style={styles.addressText}>
+                                B-2, BLOCK # 2, GULSHAN-E-KANEEZ FATIMA SOCIETY,
+                            </Text>
+                            <Text style={styles.addressText}>
+                                GULZAR-E-HIJRI, K.D.A. SCHEME # 33, KARACHI.
+                            </Text>
+                            <Text style={styles.addressText}>
+                                HELLO # : (92-21) 3469-0972, 3469-0973, 3469-0975 FAX # : (92-21) 3469-0978, HELP LINE # : 0300-8258061.
+                            </Text>
+                            <Text style={styles.addressText}>
+                                Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>infi@tafs.edu.pk</Text>
+                            </Text>
+                            <Text style={styles.addressText}>
+                                Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
+                            </Text>
+                        </View>
+
+                        {/* NORTH NAZIMABAD */}
+                        <View style={[styles.campusBlock, { marginBottom: 0 }]}>
+                            <Text style={styles.campusTitle}>NORTH NAZIMABAD</Text>
+                            <Text style={styles.addressText}>
+                                C – 22, BLOCK – I NORTH NAZIMABAD KARACHI.
+                            </Text>
+                            <Text style={styles.addressText}>
+                                HELLO # : (92-21) 3663-1051, 3663-1052, HELP LINE # : 0300-8258061.
+                            </Text>
+                            <Text style={styles.addressText}>
+                                Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>infi@tafs.edu.pk</Text>
+                            </Text>
+                            <Text style={styles.addressText}>
+                                Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
+                            </Text>
+                        </View>
                     </View>
                 </View>
             </Page>
