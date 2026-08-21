@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Download, Loader2, Image as ImageIcon, CheckCircle2, Building2, Layout, Sparkles } from 'lucide-react';
+import { Download, Loader2, Image as ImageIcon, CheckCircle2, Building2, Layout, Sparkles, Maximize2, X } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { LeavingCertificatePDF, LeavingCertificateData } from './LeavingCertificatePDF';
 
@@ -19,7 +19,6 @@ interface LogoOption {
 const LEFT_LOGOS: LogoOption[] = [
     { id: 'DEFAULT', name: 'TAFS Crest', subtitle: 'Official Shield Crest', url: '/logo.png' },
     { id: 'TAFCS', name: 'The American Foundation School', subtitle: 'TAFCS Red Banner Logo', url: '/logo-tafcs.png' },
-    { id: 'CAMB', name: 'Cambridge Assessment', subtitle: 'Cambridge International', url: '/logo-camb.png' },
     { id: 'TAFSAL', name: 'TAFSAL A-Level', subtitle: 'A-Level Segment Logo', url: '/logo-tafsal.png' },
     { id: 'TAFSS', name: 'TAFSS Secondary', subtitle: 'Secondary Segment Logo', url: '/logo-tafss.png' },
     { id: 'TAFSOL', name: 'TAFSOL O-Level', subtitle: 'O-Level Segment Logo', url: '/logo-tafsol.png' },
@@ -27,9 +26,7 @@ const LEFT_LOGOS: LogoOption[] = [
 
 const RIGHT_LOGOS: LogoOption[] = [
     { id: 'FLAG', name: 'Each One Teach One', subtitle: 'US Flag & Motto Header', url: '/logo-each-one-teach-one.png' },
-    { id: 'TAFCS', name: 'The American Foundation School', subtitle: 'TAFCS School Banner', url: '/logo-tafcs.png' },
     { id: 'CAMB', name: 'Cambridge Assessment', subtitle: 'Cambridge International', url: '/logo-camb.png' },
-    { id: 'CREST', name: 'TAFS Standard Crest', subtitle: 'Official Shield Crest', url: '/logo.png' },
 ];
 
 export default function LeavingCertificateForm({ data: initialData }: LeavingCertificateFormProps) {
@@ -44,6 +41,9 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
     // Campus selection key
     const [campusSelection, setCampusSelection] = useState<'AUTO' | 'ALL' | 'JAUHAR' | 'KANEEZ' | 'NAZIMABAD'>('AUTO');
     
+    // Full screen modal state
+    const [isHeaderModalOpen, setIsHeaderModalOpen] = useState(false);
+
     const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {

@@ -814,7 +814,7 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                     HELLO # (92-21) 3476-5111, 3476-5112, 3476-5113 FAX # : (92-21) 3476-5114, HELP LINE # : 0300-8258061.
                                 </Text>
                                 <Text style={styles.addressText}>
-                                    Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>infi@tafs.edu.pk</Text>
+                                    Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>info@tafs.edu.pk</Text>
                                 </Text>
                                 <Text style={styles.addressText}>
                                     Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
@@ -836,7 +836,7 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                     HELLO # : (92-21) 3469-0972, 3469-0973, 3469-0975 FAX # : (92-21) 3469-0978, HELP LINE # : 0300-8258061.
                                 </Text>
                                 <Text style={styles.addressText}>
-                                    Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>infi@tafs.edu.pk</Text>
+                                    Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>info@tafs.edu.pk</Text>
                                 </Text>
                                 <Text style={styles.addressText}>
                                     Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
@@ -855,7 +855,7 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                     HELLO # : (92-21) 3663-1051, 3663-1052, HELP LINE # : 0300-8258061.
                                 </Text>
                                 <Text style={styles.addressText}>
-                                    Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>infi@tafs.edu.pk</Text>
+                                    Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>info@tafs.edu.pk</Text>
                                 </Text>
                                 <Text style={styles.addressText}>
                                     Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
