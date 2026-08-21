@@ -117,8 +117,8 @@ const LAYOUT = {
 
 const styles = StyleSheet.create({
     page: {
-        paddingTop: 10,
-        paddingBottom: 10,
+        paddingTop: 14,
+        paddingBottom: 14,
         paddingHorizontal: 26,
         backgroundColor: '#ffffff',
         fontFamily: 'Helvetica',
@@ -129,6 +129,8 @@ const styles = StyleSheet.create({
     contentWrap: {
         width: LAYOUT.contentWidth,
         alignItems: 'center',
+        flex: 1,
+        justifyContent: 'space-between',
     },
     header: {
         width: '100%',
@@ -151,6 +153,7 @@ const styles = StyleSheet.create({
         width: '100%',
         alignItems: 'center',
         marginVertical: 2,
+        marginBottom: 6,
     },
     docTitle: {
         fontSize: 13,
@@ -162,18 +165,20 @@ const styles = StyleSheet.create({
     },
     mainGrid: {
         width: '100%',
+        flex: 1,
         flexDirection: 'row',
         borderWidth: 1,
         borderColor: '#000000',
         alignItems: 'stretch',
+        marginBottom: 6,
     },
     leftSidebar: {
         width: LAYOUT.sidebarWidth,
         borderRightWidth: 1,
         borderRightColor: '#000000',
         paddingHorizontal: 6,
-        paddingTop: 8,
-        paddingBottom: 8,
+        paddingTop: 10,
+        paddingBottom: 10,
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -205,15 +210,14 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     photoBox: {
-        width: 95,
-        height: 120,
+        width: 100,
+        height: 125,
         borderWidth: 1,
         borderColor: '#000000',
         alignItems: 'center',
         justifyContent: 'center',
         padding: 2,
         backgroundColor: '#fafafa',
-        marginTop: 2,
     },
     photoImage: {
         width: '100%',
@@ -230,7 +234,8 @@ const styles = StyleSheet.create({
     rightContent: {
         flex: 1,
         paddingHorizontal: 8,
-        paddingVertical: 5,
+        paddingVertical: 6,
+        justifyContent: 'space-between',
     },
     fieldRow: {
         flexDirection: 'row',
