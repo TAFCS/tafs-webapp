@@ -16,6 +16,13 @@ interface LogoOption {
     url: string;
 }
 
+const LOGO_SIZES: { id: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE'; label: string; scaleText: string }[] = [
+    { id: 'SMALL', label: 'Small', scaleText: '80%' },
+    { id: 'MEDIUM', label: 'Medium', scaleText: '100%' },
+    { id: 'LARGE', label: 'Large', scaleText: '120%' },
+    { id: 'XLARGE', label: 'X-Large', scaleText: '140%' },
+];
+
 const LEFT_LOGOS: LogoOption[] = [
     { id: 'DEFAULT', name: 'TAFS Crest', subtitle: 'Official Shield Crest', url: '/logo.png' },
     { id: 'TAFCS', name: 'The American Foundation School', subtitle: 'TAFCS Red Banner Logo', url: '/logo-tafcs.png' },
@@ -38,6 +45,10 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
     const [leftLogoId, setLeftLogoId] = useState<string>('DEFAULT');
     const [rightLogoId, setRightLogoId] = useState<string>('FLAG');
 
+    // Logo size keys
+    const [leftLogoSize, setLeftLogoSize] = useState<'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE'>('MEDIUM');
+    const [rightLogoSize, setRightLogoSize] = useState<'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE'>('MEDIUM');
+
     // Campus selection key
     const [campusSelection, setCampusSelection] = useState<'AUTO' | 'ALL' | 'JAUHAR' | 'KANEEZ' | 'NAZIMABAD'>('AUTO');
     
@@ -50,6 +61,12 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
         setFormData(initialData);
         if (initialData.selected_campus) {
             setCampusSelection(initialData.selected_campus);
+        }
+        if (initialData.left_logo_size) {
+            setLeftLogoSize(initialData.left_logo_size);
+        }
+        if (initialData.right_logo_size) {
+            setRightLogoSize(initialData.right_logo_size);
         }
     }, [initialData]);
 
@@ -107,6 +124,8 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                 photograph_url: photoBase64 || formData.photograph_url || null,
                 logo_url: leftBase64,
                 right_logo_url: rightBase64,
+                left_logo_size: leftLogoSize,
+                right_logo_size: rightLogoSize,
                 selected_campus: campusSelection,
             };
 
@@ -297,6 +316,35 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                     );
                                 })}
                             </div>
+
+                            {/* Left Logo Size Control */}
+                            <div className="pt-2">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[10px] font-extrabold uppercase text-zinc-500">Left Logo Size</span>
+                                    <span className="text-[10px] font-bold text-red-600">
+                                        {LOGO_SIZES.find(s => s.id === leftLogoSize)?.label} ({LOGO_SIZES.find(s => s.id === leftLogoSize)?.scaleText})
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-4 gap-1">
+                                    {LOGO_SIZES.map(sizeOpt => {
+                                        const isSelected = leftLogoSize === sizeOpt.id;
+                                        return (
+                                            <button
+                                                key={sizeOpt.id}
+                                                type="button"
+                                                onClick={() => setLeftLogoSize(sizeOpt.id)}
+                                                className={`py-1 text-[10px] font-bold rounded-lg transition-all border ${
+                                                    isSelected
+                                                        ? 'bg-red-600 text-white border-red-600 shadow-sm'
+                                                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300'
+                                                }`}
+                                            >
+                                                {sizeOpt.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
 
                         {/* TOP RIGHT LOGO VISUAL SELECTOR */}
@@ -348,6 +396,35 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                         </button>
                                     );
                                 })}
+                            </div>
+
+                            {/* Right Logo Size Control */}
+                            <div className="pt-2">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[10px] font-extrabold uppercase text-zinc-500">Right Logo Size</span>
+                                    <span className="text-[10px] font-bold text-red-600">
+                                        {LOGO_SIZES.find(s => s.id === rightLogoSize)?.label} ({LOGO_SIZES.find(s => s.id === rightLogoSize)?.scaleText})
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-4 gap-1">
+                                    {LOGO_SIZES.map(sizeOpt => {
+                                        const isSelected = rightLogoSize === sizeOpt.id;
+                                        return (
+                                            <button
+                                                key={sizeOpt.id}
+                                                type="button"
+                                                onClick={() => setRightLogoSize(sizeOpt.id)}
+                                                className={`py-1 text-[10px] font-bold rounded-lg transition-all border ${
+                                                    isSelected
+                                                        ? 'bg-red-600 text-white border-red-600 shadow-sm'
+                                                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300'
+                                                }`}
+                                            >
+                                                {sizeOpt.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -95,6 +95,8 @@ export interface LeavingCertificateData {
     photograph_url?: string | null;
     logo_url?: string | null;
     right_logo_url?: string | null;
+    left_logo_size?: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE';
+    right_logo_size?: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE';
     campus_name?: string;
     campus_address?: string;
     selected_campus?: 'AUTO' | 'ALL' | 'JAUHAR' | 'KANEEZ' | 'NAZIMABAD';
@@ -488,26 +490,56 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
         ? '/logo-tafsol.png'
         : '/logo.png';
 
+    const getLeftDims = () => {
+        const size = data.left_logo_size || 'MEDIUM';
+        const isWide = isTafsal || isTafss || isTafsol || (data.logo_url && data.logo_url.includes('taf'));
+        switch (size) {
+            case 'SMALL':
+                return isWide ? { width: 145, height: 40 } : { width: 52, height: 40 };
+            case 'LARGE':
+                return isWide ? { width: 220, height: 64 } : { width: 78, height: 64 };
+            case 'XLARGE':
+                return isWide ? { width: 250, height: 76 } : { width: 92, height: 76 };
+            case 'MEDIUM':
+            default:
+                return isWide ? { width: 185, height: 52 } : { width: 66, height: 52 };
+        }
+    };
+
+    const getRightDims = () => {
+        const size = data.right_logo_size || 'MEDIUM';
+        switch (size) {
+            case 'SMALL':
+                return { width: 145, height: 40 };
+            case 'LARGE':
+                return { width: 220, height: 64 };
+            case 'XLARGE':
+                return { width: 250, height: 76 };
+            case 'MEDIUM':
+            default:
+                return { width: 185, height: 52 };
+        }
+    };
+
+    const leftDims = getLeftDims();
+    const rightDims = getRightDims();
+
     return (
         <Document title={`TAFS_Leaving_Certificate_${data.cc || ''}`}>
             <Page size="A4" style={styles.page}>
                 <View style={styles.contentWrap}>
                     {/* Header Logos — left logo flush with main grid border */}
-                    <View style={styles.header}>
-                        <View style={styles.leftLogoWrap}>
+                    <View style={[styles.header, { minHeight: Math.max(leftDims.height, rightDims.height) + 4 }]}>
+                        <View style={[styles.leftLogoWrap, { height: leftDims.height }]}>
                             <Image
                                 src={data.logo_url || defaultLeftLogo}
-                                style={
-                                    isTafsal || isTafss || isTafsol
-                                        ? { width: 195, height: 68, objectFit: 'contain' }
-                                        : { width: 72, height: 68, objectFit: 'contain' }
-                                }
+                                style={{ width: leftDims.width, height: leftDims.height, objectFit: 'contain' }}
                             />
                         </View>
-                        <View style={styles.rightLogoWrap}>
+                        <View style={[styles.rightLogoWrap, { height: rightDims.height }]}>
                             <Image
                                 src={data.right_logo_url || '/logo-each-one-teach-one.png'}
-                                style={{ width: 200, height: 58, objectFit: 'contain' }}
+                                style={{ width: rightDims.width, height: rightDims.height, objectFit: 'contain' }}
                             />
                         </View>
                     </View>
