@@ -806,7 +806,6 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                         {/* GULISTAN-E-JAUHAR */}
                         {showJauhar && (
                             <View style={[styles.campusBlock, !showKaneez && !showNazimabad ? { marginBottom: 0 } : {}]}>
-                                <Text style={styles.campusTitle}>GULISTAN-E-JAUHAR</Text>
                                 <Text style={styles.addressText}>
                                     C - 61, 62, 63, 64 & 65, BLOCK # 13, GULISTAN-E-JAUHAR, KARACHI.
                                 </Text>
@@ -825,7 +824,6 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                         {/* GULSHAN-E-KANEEZ FATIMA */}
                         {showKaneez && (
                             <View style={[styles.campusBlock, !showNazimabad ? { marginBottom: 0 } : {}]}>
-                                <Text style={styles.campusTitle}>GULSHAN-E-KANEEZ FATIMA</Text>
                                 <Text style={styles.addressText}>
                                     B-2, BLOCK # 2, GULSHAN-E-KANEEZ FATIMA SOCIETY,
                                 </Text>
@@ -847,7 +845,6 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                         {/* NORTH NAZIMABAD */}
                         {showNazimabad && (
                             <View style={[styles.campusBlock, { marginBottom: 0 }]}>
-                                <Text style={styles.campusTitle}>NORTH NAZIMABAD</Text>
                                 <Text style={styles.addressText}>
                                     C – 22, BLOCK – I NORTH NAZIMABAD KARACHI.
                                 </Text>
