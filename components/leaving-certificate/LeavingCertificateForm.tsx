@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Loader2, Image as ImageIcon, CheckCircle2, Building2, Layout, Sparkles } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { LeavingCertificatePDF, LeavingCertificateData } from './LeavingCertificatePDF';
 
@@ -9,129 +9,105 @@ interface LeavingCertificateFormProps {
     data: LeavingCertificateData;
 }
 
+interface LogoOption {
+    id: string;
+    name: string;
+    subtitle: string;
+    url: string;
+}
+
+const LEFT_LOGOS: LogoOption[] = [
+    { id: 'DEFAULT', name: 'TAFS Crest', subtitle: 'Official Shield Crest', url: '/logo.png' },
+    { id: 'TAFCS', name: 'The American Foundation School', subtitle: 'TAFCS Red Banner Logo', url: '/logo-tafcs.png' },
+    { id: 'CAMB', name: 'Cambridge Assessment', subtitle: 'Cambridge International', url: '/logo-camb.png' },
+    { id: 'TAFSAL', name: 'TAFSAL A-Level', subtitle: 'A-Level Segment Logo', url: '/logo-tafsal.png' },
+    { id: 'TAFSS', name: 'TAFSS Secondary', subtitle: 'Secondary Segment Logo', url: '/logo-tafss.png' },
+    { id: 'TAFSOL', name: 'TAFSOL O-Level', subtitle: 'O-Level Segment Logo', url: '/logo-tafsol.png' },
+];
+
+const RIGHT_LOGOS: LogoOption[] = [
+    { id: 'FLAG', name: 'Each One Teach One', subtitle: 'US Flag & Motto Header', url: '/logo-each-one-teach-one.png' },
+    { id: 'TAFCS', name: 'The American Foundation School', subtitle: 'TAFCS School Banner', url: '/logo-tafcs.png' },
+    { id: 'CAMB', name: 'Cambridge Assessment', subtitle: 'Cambridge International', url: '/logo-camb.png' },
+    { id: 'CREST', name: 'TAFS Standard Crest', subtitle: 'Official Shield Crest', url: '/logo.png' },
+];
+
 export default function LeavingCertificateForm({ data: initialData }: LeavingCertificateFormProps) {
     const [formData, setFormData] = useState<LeavingCertificateData>(initialData);
     const [photoBase64, setPhotoBase64] = useState<string | null>(null);
-    const [logoBase64, setLogoBase64] = useState<string | null>(null);
-    const [tafsalLogoBase64, setTafsalLogoBase64] = useState<string | null>(null);
-    const [tafssLogoBase64, setTafssLogoBase64] = useState<string | null>(null);
-    const [tafsolLogoBase64, setTafsolLogoBase64] = useState<string | null>(null);
-    const [rightLogoBase64, setRightLogoBase64] = useState<string | null>(null);
+    const [logoBase64Map, setLogoBase64Map] = useState<Record<string, string>>({});
+    
+    // Logo selector keys
+    const [leftLogoId, setLeftLogoId] = useState<string>('DEFAULT');
+    const [rightLogoId, setRightLogoId] = useState<string>('FLAG');
+
+    // Campus selection key
+    const [campusSelection, setCampusSelection] = useState<'AUTO' | 'ALL' | 'JAUHAR' | 'KANEEZ' | 'NAZIMABAD'>('AUTO');
+    
     const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
         setFormData(initialData);
+        if (initialData.selected_campus) {
+            setCampusSelection(initialData.selected_campus);
+        }
     }, [initialData]);
 
+    // Preload all logo image base64s for reliable PDF embedding
     useEffect(() => {
         let isMounted = true;
-        fetch('/logo.png')
-            .then(res => res.blob())
-            .then(blob => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    if (isMounted && typeof reader.result === 'string') {
-                        setLogoBase64(reader.result);
-                    }
-                };
-                reader.readAsDataURL(blob);
-            })
-            .catch(() => {});
-
-        fetch('/logo-tafsal.png')
-            .then(res => res.blob())
-            .then(blob => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    if (isMounted && typeof reader.result === 'string') {
-                        setTafsalLogoBase64(reader.result);
-                    }
-                };
-                reader.readAsDataURL(blob);
-            })
-            .catch(() => {});
-
-        fetch('/logo-tafss.png')
-            .then(res => res.blob())
-            .then(blob => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    if (isMounted && typeof reader.result === 'string') {
-                        setTafssLogoBase64(reader.result);
-                    }
-                };
-                reader.readAsDataURL(blob);
-            })
-            .catch(() => {});
-
-        fetch('/logo-tafsol.png')
-            .then(res => res.blob())
-            .then(blob => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    if (isMounted && typeof reader.result === 'string') {
-                        setTafsolLogoBase64(reader.result);
-                    }
-                };
-                reader.readAsDataURL(blob);
-            })
-            .catch(() => {});
-
-        fetch('/logo-each-one-teach-one.png')
-            .then(res => res.blob())
-            .then(blob => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    if (isMounted && typeof reader.result === 'string') {
-                        setRightLogoBase64(reader.result);
-                    }
-                };
-                reader.readAsDataURL(blob);
-            })
-            .catch(() => {});
-
-        if (initialData?.photograph_url) {
-            const url = initialData.photograph_url;
+        const allUrls = Array.from(new Set([...LEFT_LOGOS.map(l => l.url), ...RIGHT_LOGOS.map(r => r.url)]));
+        
+        allUrls.forEach(url => {
             fetch(url)
                 .then(res => res.blob())
                 .then(blob => {
                     const reader = new FileReader();
                     reader.onloadend = () => {
                         if (isMounted && typeof reader.result === 'string') {
-                            setPhotoBase64(reader.result);
+                            setLogoBase64Map(prev => ({ ...prev, [url]: reader.result as string }));
+                        }
+                    };
+                    reader.readAsDataURL(blob);
+                })
+                .catch(() => {});
+        });
+
+        if (initialData?.photograph_url) {
+            fetch(initialData.photograph_url)
+                .then(res => res.blob())
+                .then(blob => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        if (isMounted && typeof reader.result === 'string') {
+                            setPhotoBase64(reader.result as string);
                         }
                     };
                     reader.readAsDataURL(blob);
                 })
                 .catch(() => {});
         }
+
         return () => {
             isMounted = false;
         };
     }, [initialData?.photograph_url]);
 
+    const activeLeftUrl = LEFT_LOGOS.find(l => l.id === leftLogoId)?.url || '/logo.png';
+    const activeRightUrl = RIGHT_LOGOS.find(r => r.id === rightLogoId)?.url || '/logo-each-one-teach-one.png';
+
     const handleDownloadPDF = useCallback(async () => {
         setIsGenerating(true);
         try {
-            const prefix = (formData.header_prefix || '').trim().toUpperCase();
-            const title = (formData.header_title || '').toUpperCase();
-            const isTafsal = prefix === 'TAFSAL' || title.includes('TAFSAL');
-            const isTafss = prefix === 'TAFSS' || title.includes('TAFSS');
-            const isTafsol = prefix === 'TAFSOL' || title.includes('TAFSOL');
-
-            const leftLogo = isTafsal
-                ? (tafsalLogoBase64 || '/logo-tafsal.png')
-                : isTafss
-                ? (tafssLogoBase64 || '/logo-tafss.png')
-                : isTafsol
-                ? (tafsolLogoBase64 || '/logo-tafsol.png')
-                : (logoBase64 || '/logo.png');
+            const leftBase64 = logoBase64Map[activeLeftUrl] || activeLeftUrl;
+            const rightBase64 = logoBase64Map[activeRightUrl] || activeRightUrl;
 
             const pdfData: LeavingCertificateData = {
                 ...formData,
                 photograph_url: photoBase64 || formData.photograph_url || null,
-                logo_url: leftLogo,
-                right_logo_url: rightLogoBase64 || formData.right_logo_url || '/logo-each-one-teach-one.png',
+                logo_url: leftBase64,
+                right_logo_url: rightBase64,
+                selected_campus: campusSelection,
             };
 
             const doc = <LeavingCertificatePDF data={pdfData} />;
@@ -150,7 +126,10 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
         } finally {
             setIsGenerating(false);
         }
-    }, [formData, photoBase64, logoBase64, tafsalLogoBase64, tafssLogoBase64, tafsolLogoBase64, rightLogoBase64]);
+    }, [formData, photoBase64, activeLeftUrl, activeRightUrl, logoBase64Map, campusSelection]);
+
+    // Format display for enrolled campus info
+    const studentCampusName = formData.campus_name || 'Enrolled Campus';
 
     return (
         <div className="max-w-4xl mx-auto bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
@@ -195,12 +174,12 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                     <span className="text-[13px] font-bold text-zinc-800 dark:text-zinc-100">{formData.slc_number || '—'}</span>
                 </div>
                 <div>
-                    <span className="block text-[10px] font-black text-zinc-400 uppercase">Present Level</span>
-                    <span className="text-[13px] font-bold text-zinc-800 dark:text-zinc-100">{formData.present_level || '—'} (Sec {formData.section || '—'})</span>
+                    <span className="block text-[10px] font-black text-zinc-400 uppercase">Enrolled Campus</span>
+                    <span className="text-[13px] font-bold text-red-600 dark:text-red-400">{studentCampusName}</span>
                 </div>
                 <div>
-                    <span className="block text-[10px] font-black text-zinc-400 uppercase">Reason for Leaving</span>
-                    <span className="text-[13px] font-bold text-zinc-800 dark:text-zinc-100">{formData.reason_for_leaving || '—'}</span>
+                    <span className="block text-[10px] font-black text-zinc-400 uppercase">Present Level</span>
+                    <span className="text-[13px] font-bold text-zinc-800 dark:text-zinc-100">{formData.present_level || '—'} (Sec {formData.section || '—'})</span>
                 </div>
                 <div>
                     <span className="block text-[10px] font-black text-zinc-400 uppercase">Leaving Date</span>
@@ -211,10 +190,10 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
             </div>
 
             {/* Editable Certificate Form Controls */}
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-8">
                 <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
                     <h3 className="text-sm font-extrabold text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
-                        Leaving Certificate Fields & Details
+                        Leaving Certificate Customization & Details
                     </h3>
                     <button
                         onClick={handleDownloadPDF}
@@ -224,6 +203,144 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                         {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                         {isGenerating ? 'Generating PDF...' : 'Download Official SLC PDF'}
                     </button>
+                </div>
+
+                {/* VISUAL LOGO SELECTOR SECTION */}
+                <div className="bg-zinc-50 dark:bg-zinc-850/60 rounded-2xl p-5 border border-zinc-200/80 dark:border-zinc-800 space-y-5">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                            <Sparkles className="h-4 w-4" />
+                            <h4 className="text-xs font-extrabold uppercase tracking-wider">Header Logos Customization (Visual Selector)</h4>
+                        </div>
+                        <span className="text-[10px] font-semibold text-zinc-400">Click any card to select logo</span>
+                    </div>
+
+                    {/* Visual Live Header Preview Banner */}
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
+                        <span className="block text-[10px] font-bold text-zinc-400 uppercase mb-2">Live Certificate Header Preview</span>
+                        <div className="flex items-center justify-between h-14 px-4 bg-zinc-50 dark:bg-zinc-950 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800">
+                            {/* Left Logo Preview */}
+                            <div className="h-10 w-28 flex items-center justify-start">
+                                <img src={activeLeftUrl} alt="Top Left Logo" className="max-h-full max-w-full object-contain" />
+                            </div>
+                            {/* Document Title Preview */}
+                            <div className="text-center">
+                                <span className="text-xs font-black uppercase text-zinc-800 dark:text-zinc-100 underline decoration-zinc-400">
+                                    {formData.header_title || 'TAFS LEAVING CERTIFICATE'}
+                                </span>
+                            </div>
+                            {/* Right Logo Preview */}
+                            <div className="h-10 w-32 flex items-center justify-end">
+                                <img src={activeRightUrl} alt="Top Right Logo" className="max-h-full max-w-full object-contain" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* TOP LEFT LOGO VISUAL SELECTOR */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <label className="block text-[11px] font-bold text-zinc-700 dark:text-zinc-300 uppercase">
+                                    Top Left Header Logo
+                                </label>
+                                <select
+                                    value={leftLogoId}
+                                    onChange={e => setLeftLogoId(e.target.value)}
+                                    className="text-[11px] font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 outline-none cursor-pointer"
+                                >
+                                    {LEFT_LOGOS.map(logo => (
+                                        <option key={logo.id} value={logo.id}>{logo.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Visual Cards Grid */}
+                            <div className="grid grid-cols-2 gap-2">
+                                {LEFT_LOGOS.map(logo => {
+                                    const isSelected = leftLogoId === logo.id;
+                                    return (
+                                        <button
+                                            key={logo.id}
+                                            type="button"
+                                            onClick={() => setLeftLogoId(logo.id)}
+                                            className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all relative ${
+                                                isSelected
+                                                    ? 'border-red-600 bg-red-50/60 dark:bg-red-950/20 ring-2 ring-red-500/30'
+                                                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300'
+                                            }`}
+                                        >
+                                            {isSelected && (
+                                                <CheckCircle2 className="h-4 w-4 text-red-600 absolute top-2 right-2" />
+                                            )}
+                                            <div className="h-10 w-full flex items-center justify-center mb-2 bg-zinc-50 dark:bg-zinc-950 rounded-lg p-1">
+                                                <img src={logo.url} alt={logo.name} className="max-h-full max-w-full object-contain" />
+                                            </div>
+                                            <div>
+                                                <span className="block text-[11px] font-extrabold text-zinc-800 dark:text-zinc-200 leading-tight">
+                                                    {logo.name}
+                                                </span>
+                                                <span className="block text-[9px] text-zinc-400 leading-tight mt-0.5 truncate">
+                                                    {logo.subtitle}
+                                                </span>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* TOP RIGHT LOGO VISUAL SELECTOR */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <label className="block text-[11px] font-bold text-zinc-700 dark:text-zinc-300 uppercase">
+                                    Top Right Header Logo
+                                </label>
+                                <select
+                                    value={rightLogoId}
+                                    onChange={e => setRightLogoId(e.target.value)}
+                                    className="text-[11px] font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 outline-none cursor-pointer"
+                                >
+                                    {RIGHT_LOGOS.map(logo => (
+                                        <option key={logo.id} value={logo.id}>{logo.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Visual Cards Grid */}
+                            <div className="grid grid-cols-2 gap-2">
+                                {RIGHT_LOGOS.map(logo => {
+                                    const isSelected = rightLogoId === logo.id;
+                                    return (
+                                        <button
+                                            key={logo.id}
+                                            type="button"
+                                            onClick={() => setRightLogoId(logo.id)}
+                                            className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all relative ${
+                                                isSelected
+                                                    ? 'border-red-600 bg-red-50/60 dark:bg-red-950/20 ring-2 ring-red-500/30'
+                                                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300'
+                                            }`}
+                                        >
+                                            {isSelected && (
+                                                <CheckCircle2 className="h-4 w-4 text-red-600 absolute top-2 right-2" />
+                                            )}
+                                            <div className="h-10 w-full flex items-center justify-center mb-2 bg-zinc-50 dark:bg-zinc-950 rounded-lg p-1">
+                                                <img src={logo.url} alt={logo.name} className="max-h-full max-w-full object-contain" />
+                                            </div>
+                                            <div>
+                                                <span className="block text-[11px] font-extrabold text-zinc-800 dark:text-zinc-200 leading-tight">
+                                                    {logo.name}
+                                                </span>
+                                                <span className="block text-[9px] text-zinc-400 leading-tight mt-0.5 truncate">
+                                                    {logo.subtitle}
+                                                </span>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Section 1: Certificate Numbers & Candidate Name */}
@@ -386,7 +503,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                     </div>
                 </div>
 
-                {/* Section 3: Academic History & Result */}
+                {/* Section 3: Academic History & Campus Location */}
                 <div className="space-y-4">
                     <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">3. Academic Record & Campus Location</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -408,14 +525,24 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
+
+                        {/* CAMPUS ADDRESS SELECTOR */}
                         <div className="col-span-1 md:col-span-2">
-                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Footer Campus Location / Address</label>
-                            <input
-                                type="text"
-                                value={formData.campus_address || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, campus_address: e.target.value }))}
-                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none"
-                            />
+                            <label className="block text-[11px] font-bold text-zinc-700 dark:text-zinc-300 uppercase mb-1 flex items-center justify-between">
+                                <span>Footer Campus Address Display</span>
+                                <span className="text-[10px] text-red-600 font-semibold uppercase">Enrolled: {studentCampusName}</span>
+                            </label>
+                            <select
+                                value={campusSelection}
+                                onChange={e => setCampusSelection(e.target.value as any)}
+                                className="w-full h-10 px-3 text-xs font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-red-500 cursor-pointer"
+                            >
+                                <option value="AUTO">Auto (Show Enrolled Student's Campus: {studentCampusName})</option>
+                                <option value="JAUHAR">Gulistan-e-Jauhar Campus Only</option>
+                                <option value="KANEEZ">Gulshan-e-Kaneez Fatima Campus Only</option>
+                                <option value="NAZIMABAD">North Nazimabad Campus Only</option>
+                                <option value="ALL">All 3 Campuses (Full Institutional Footer)</option>
+                            </select>
                         </div>
                     </div>
                 </div>

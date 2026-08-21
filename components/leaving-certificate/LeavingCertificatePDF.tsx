@@ -95,7 +95,9 @@ export interface LeavingCertificateData {
     photograph_url?: string | null;
     logo_url?: string | null;
     right_logo_url?: string | null;
+    campus_name?: string;
     campus_address?: string;
+    selected_campus?: 'AUTO' | 'ALL' | 'JAUHAR' | 'KANEEZ' | 'NAZIMABAD';
 }
 
 /** Shared layout constants — keeps label columns and name fields aligned across rows */
@@ -437,6 +439,37 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
     const isChristian = religionStr === 'CHRISTIAN' || religionStr === 'CHRISTIANITY';
     const isOtherReligion = Boolean(religionStr) && !isMuslim && !isChristian;
 
+    const campusChoice = data.selected_campus || 'AUTO';
+
+    let showJauhar = false;
+    let showKaneez = false;
+    let showNazimabad = false;
+
+    if (campusChoice === 'JAUHAR') {
+        showJauhar = true;
+    } else if (campusChoice === 'KANEEZ') {
+        showKaneez = true;
+    } else if (campusChoice === 'NAZIMABAD') {
+        showNazimabad = true;
+    } else if (campusChoice === 'ALL') {
+        showJauhar = true;
+        showKaneez = true;
+        showNazimabad = true;
+    } else {
+        const cn = ((data.campus_name || '') + ' ' + (data.campus_address || '')).toUpperCase();
+        if (cn.includes('KANEEZ') || cn.includes('HIJRI') || cn.includes('FATIMA')) {
+            showKaneez = true;
+        } else if (cn.includes('NAZIMABAD') || cn.includes('NORTH')) {
+            showNazimabad = true;
+        } else if (cn.includes('JAUHAR') || cn.includes('GULISTAN')) {
+            showJauhar = true;
+        } else {
+            showJauhar = true;
+            showKaneez = true;
+            showNazimabad = true;
+        }
+    }
+
     const prefix = (data.header_prefix || '').trim().toUpperCase();
     const title = (data.header_title || '').toUpperCase();
     const isTafsal = prefix === 'TAFSAL' || title.includes('TAFSAL');
@@ -771,58 +804,64 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                     {/* Footer 3-Campus Addresses */}
                     <View style={styles.footer}>
                         {/* GULISTAN-E-JAUHAR */}
-                        <View style={styles.campusBlock}>
-                            <Text style={styles.campusTitle}>GULISTAN-E-JAUHAR</Text>
-                            <Text style={styles.addressText}>
-                                C - 61, 62, 63, 64 & 65, BLOCK # 13, GULISTAN-E-JAUHAR, KARACHI.
-                            </Text>
-                            <Text style={styles.addressText}>
-                                HELLO # (92-21) 3476-5111, 3476-5112, 3476-5113 FAX # : (92-21) 3476-5114, HELP LINE # : 0300-8258061.
-                            </Text>
-                            <Text style={styles.addressText}>
-                                Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>infi@tafs.edu.pk</Text>
-                            </Text>
-                            <Text style={styles.addressText}>
-                                Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
-                            </Text>
-                        </View>
+                        {showJauhar && (
+                            <View style={[styles.campusBlock, !showKaneez && !showNazimabad ? { marginBottom: 0 } : {}]}>
+                                <Text style={styles.campusTitle}>GULISTAN-E-JAUHAR</Text>
+                                <Text style={styles.addressText}>
+                                    C - 61, 62, 63, 64 & 65, BLOCK # 13, GULISTAN-E-JAUHAR, KARACHI.
+                                </Text>
+                                <Text style={styles.addressText}>
+                                    HELLO # (92-21) 3476-5111, 3476-5112, 3476-5113 FAX # : (92-21) 3476-5114, HELP LINE # : 0300-8258061.
+                                </Text>
+                                <Text style={styles.addressText}>
+                                    Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>infi@tafs.edu.pk</Text>
+                                </Text>
+                                <Text style={styles.addressText}>
+                                    Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
+                                </Text>
+                            </View>
+                        )}
 
                         {/* GULSHAN-E-KANEEZ FATIMA */}
-                        <View style={styles.campusBlock}>
-                            <Text style={styles.campusTitle}>GULSHAN-E-KANEEZ FATIMA</Text>
-                            <Text style={styles.addressText}>
-                                B-2, BLOCK # 2, GULSHAN-E-KANEEZ FATIMA SOCIETY,
-                            </Text>
-                            <Text style={styles.addressText}>
-                                GULZAR-E-HIJRI, K.D.A. SCHEME # 33, KARACHI.
-                            </Text>
-                            <Text style={styles.addressText}>
-                                HELLO # : (92-21) 3469-0972, 3469-0973, 3469-0975 FAX # : (92-21) 3469-0978, HELP LINE # : 0300-8258061.
-                            </Text>
-                            <Text style={styles.addressText}>
-                                Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>infi@tafs.edu.pk</Text>
-                            </Text>
-                            <Text style={styles.addressText}>
-                                Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
-                            </Text>
-                        </View>
+                        {showKaneez && (
+                            <View style={[styles.campusBlock, !showNazimabad ? { marginBottom: 0 } : {}]}>
+                                <Text style={styles.campusTitle}>GULSHAN-E-KANEEZ FATIMA</Text>
+                                <Text style={styles.addressText}>
+                                    B-2, BLOCK # 2, GULSHAN-E-KANEEZ FATIMA SOCIETY,
+                                </Text>
+                                <Text style={styles.addressText}>
+                                    GULZAR-E-HIJRI, K.D.A. SCHEME # 33, KARACHI.
+                                </Text>
+                                <Text style={styles.addressText}>
+                                    HELLO # : (92-21) 3469-0972, 3469-0973, 3469-0975 FAX # : (92-21) 3469-0978, HELP LINE # : 0300-8258061.
+                                </Text>
+                                <Text style={styles.addressText}>
+                                    Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>infi@tafs.edu.pk</Text>
+                                </Text>
+                                <Text style={styles.addressText}>
+                                    Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
+                                </Text>
+                            </View>
+                        )}
 
                         {/* NORTH NAZIMABAD */}
-                        <View style={[styles.campusBlock, { marginBottom: 0 }]}>
-                            <Text style={styles.campusTitle}>NORTH NAZIMABAD</Text>
-                            <Text style={styles.addressText}>
-                                C – 22, BLOCK – I NORTH NAZIMABAD KARACHI.
-                            </Text>
-                            <Text style={styles.addressText}>
-                                HELLO # : (92-21) 3663-1051, 3663-1052, HELP LINE # : 0300-8258061.
-                            </Text>
-                            <Text style={styles.addressText}>
-                                Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>infi@tafs.edu.pk</Text>
-                            </Text>
-                            <Text style={styles.addressText}>
-                                Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
-                            </Text>
-                        </View>
+                        {showNazimabad && (
+                            <View style={[styles.campusBlock, { marginBottom: 0 }]}>
+                                <Text style={styles.campusTitle}>NORTH NAZIMABAD</Text>
+                                <Text style={styles.addressText}>
+                                    C – 22, BLOCK – I NORTH NAZIMABAD KARACHI.
+                                </Text>
+                                <Text style={styles.addressText}>
+                                    HELLO # : (92-21) 3663-1051, 3663-1052, HELP LINE # : 0300-8258061.
+                                </Text>
+                                <Text style={styles.addressText}>
+                                    Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>infi@tafs.edu.pk</Text>
+                                </Text>
+                                <Text style={styles.addressText}>
+                                    Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 </View>
             </Page>
