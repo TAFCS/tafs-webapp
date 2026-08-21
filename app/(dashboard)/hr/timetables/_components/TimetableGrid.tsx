@@ -88,8 +88,8 @@ export function TimetableGrid({ blocks, slots, canEdit, onAdd, onEdit }: Props) 
               {/* Day cells */}
               {DAYS.map((d) => {
                 const cellSlots = slotsFor(d.dow, block.block_number);
-                const hasPrimary = cellSlots.some((s) => s.slot_order === 1);
-                const hasSplit = cellSlots.some((s) => s.slot_order === 2);
+                const maxSlotOrder = cellSlots.reduce((max, s) => Math.max(max, s.slot_order), 0);
+                const nextSlotOrder = maxSlotOrder + 1;
 
                 return (
                   <td
@@ -134,10 +134,10 @@ export function TimetableGrid({ blocks, slots, canEdit, onAdd, onEdit }: Props) 
                         </button>
                       )}
 
-                      {canEdit && hasPrimary && !hasSplit && (
+                      {canEdit && maxSlotOrder >= 1 && maxSlotOrder < 3 && (
                         <button
                           type="button"
-                          onClick={() => onAdd(d.dow, block.block_number, 2)}
+                          onClick={() => onAdd(d.dow, block.block_number, nextSlotOrder)}
                           className="flex items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-600 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-400 dark:hover:border-rose-700/50 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-[10px] py-1 transition-all"
                         >
                           <Plus className="w-3 h-3" />

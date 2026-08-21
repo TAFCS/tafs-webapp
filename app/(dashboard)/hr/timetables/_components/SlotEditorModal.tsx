@@ -201,11 +201,11 @@ export function SlotEditorModal({
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/80">
           <div>
             <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
-              {target.existing ? "Edit Slot" : target.slot_order === 2 ? "Add Split" : "Add Slot"}
+              {target.existing ? "Edit Slot" : target.slot_order > 1 ? "Add Split" : "Add Slot"}
             </h2>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
               {dayLabel} · {blockLabel}
-              {target.slot_order === 2 ? " · concurrent split" : ""}
+              {target.slot_order > 1 ? " · concurrent split" : ""}
             </p>
           </div>
           <button
