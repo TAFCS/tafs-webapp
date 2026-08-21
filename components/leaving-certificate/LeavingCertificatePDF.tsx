@@ -95,6 +95,8 @@ export interface LeavingCertificateData {
     photograph_url?: string | null;
     logo_url?: string | null;
     right_logo_url?: string | null;
+    left_logo_id?: string;
+    right_logo_id?: string;
     left_logo_size?: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE';
     right_logo_size?: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE';
     campus_name?: string;
@@ -490,34 +492,56 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
         ? '/logo-tafsol.png'
         : '/logo.png';
 
+    // Determine if left logo is wide banner or square shield crest
+    const leftId = data.left_logo_id || (isTafsal ? 'TAFSAL' : isTafss ? 'TAFSS' : isTafsol ? 'TAFSOL' : 'DEFAULT');
+    const isLeftCrest = leftId === 'DEFAULT';
+
     const getLeftDims = () => {
         const size = data.left_logo_size || 'MEDIUM';
-        const isWide = isTafsal || isTafss || isTafsol || (data.logo_url && data.logo_url.includes('taf'));
-        switch (size) {
-            case 'SMALL':
-                return isWide ? { width: 145, height: 40 } : { width: 52, height: 40 };
-            case 'LARGE':
-                return isWide ? { width: 220, height: 64 } : { width: 78, height: 64 };
-            case 'XLARGE':
-                return isWide ? { width: 250, height: 76 } : { width: 92, height: 76 };
-            case 'MEDIUM':
-            default:
-                return isWide ? { width: 185, height: 52 } : { width: 66, height: 52 };
+        if (isLeftCrest) {
+            // Shield Crest 1:1 square aspect ratio — flush with left border line
+            switch (size) {
+                case 'SMALL':
+                    return { width: 44, height: 44 };
+                case 'LARGE':
+                    return { width: 72, height: 72 };
+                case 'XLARGE':
+                    return { width: 88, height: 88 };
+                case 'MEDIUM':
+                default:
+                    return { width: 58, height: 58 };
+            }
+        } else {
+            // Wide school banner / segment logos (~3.2:1 aspect ratio)
+            switch (size) {
+                case 'SMALL':
+                    return { width: 135, height: 40 };
+                case 'LARGE':
+                    return { width: 220, height: 64 };
+                case 'XLARGE':
+                    return { width: 260, height: 76 };
+                case 'MEDIUM':
+                default:
+                    return { width: 180, height: 52 };
+            }
         }
     };
 
     const getRightDims = () => {
         const size = data.right_logo_size || 'MEDIUM';
+        const rightId = data.right_logo_id || 'FLAG';
+        const isCamb = rightId === 'CAMB';
+
         switch (size) {
             case 'SMALL':
-                return { width: 145, height: 40 };
+                return isCamb ? { width: 120, height: 38 } : { width: 140, height: 40 };
             case 'LARGE':
-                return { width: 220, height: 64 };
+                return isCamb ? { width: 190, height: 60 } : { width: 220, height: 64 };
             case 'XLARGE':
-                return { width: 250, height: 76 };
+                return isCamb ? { width: 230, height: 72 } : { width: 260, height: 76 };
             case 'MEDIUM':
             default:
-                return { width: 185, height: 52 };
+                return isCamb ? { width: 155, height: 48 } : { width: 180, height: 52 };
         }
     };
 

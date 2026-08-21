@@ -124,6 +124,8 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                 photograph_url: photoBase64 || formData.photograph_url || null,
                 logo_url: leftBase64,
                 right_logo_url: rightBase64,
+                left_logo_id: leftLogoId,
+                right_logo_id: rightLogoId,
                 left_logo_size: leftLogoSize,
                 right_logo_size: rightLogoSize,
                 selected_campus: campusSelection,
@@ -145,7 +147,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
         } finally {
             setIsGenerating(false);
         }
-    }, [formData, photoBase64, activeLeftUrl, activeRightUrl, logoBase64Map, campusSelection]);
+    }, [formData, photoBase64, activeLeftUrl, activeRightUrl, logoBase64Map, campusSelection, leftLogoId, rightLogoId, leftLogoSize, rightLogoSize]);
 
     // Format display for enrolled campus info
     const studentCampusName = formData.campus_name || 'Enrolled Campus';
@@ -247,20 +249,32 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                 View Full Screen
                             </button>
                         </div>
-                        <div className="flex items-center justify-between h-14 px-4 bg-zinc-50 dark:bg-zinc-950 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800">
+                        <div className="flex items-center justify-between min-h-16 px-4 py-2 bg-zinc-50 dark:bg-zinc-950 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800">
                             {/* Left Logo Preview */}
-                            <div className="h-10 w-28 flex items-center justify-start">
-                                <img src={activeLeftUrl} alt="Top Left Logo" className="max-h-full max-w-full object-contain" />
+                            <div className="flex items-center justify-start transition-all">
+                                <img
+                                    src={activeLeftUrl}
+                                    alt="Top Left Logo"
+                                    className={`object-contain transition-all ${
+                                        leftLogoSize === 'SMALL' ? 'h-7' : leftLogoSize === 'LARGE' ? 'h-12' : leftLogoSize === 'XLARGE' ? 'h-15' : 'h-9'
+                                    }`}
+                                />
                             </div>
                             {/* Document Title Preview */}
-                            <div className="text-center">
+                            <div className="text-center px-2">
                                 <span className="text-xs font-black uppercase text-zinc-800 dark:text-zinc-100 underline decoration-zinc-400">
                                     {formData.header_title || 'TAFS LEAVING CERTIFICATE'}
                                 </span>
                             </div>
                             {/* Right Logo Preview */}
-                            <div className="h-10 w-32 flex items-center justify-end">
-                                <img src={activeRightUrl} alt="Top Right Logo" className="max-h-full max-w-full object-contain" />
+                            <div className="flex items-center justify-end transition-all">
+                                <img
+                                    src={activeRightUrl}
+                                    alt="Top Right Logo"
+                                    className={`object-contain transition-all ${
+                                        rightLogoSize === 'SMALL' ? 'h-7' : rightLogoSize === 'LARGE' ? 'h-12' : rightLogoSize === 'XLARGE' ? 'h-15' : 'h-9'
+                                    }`}
+                                />
                             </div>
                         </div>
                     </div>
