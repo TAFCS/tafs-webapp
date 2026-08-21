@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Save, CheckCircle2, KeyRound } from "lucide-react";
+import { Loader2, Save, CheckCircle2, KeyRound, Eye, EyeOff, Copy, UserCog } from "lucide-react";
 import { hrService, EmployeeProfile } from "@/lib/hr.service";
 import { Campus, campusesService } from "@/lib/campuses.service";
 import { CLASS_BANDS } from "@/lib/class-bands";
@@ -26,6 +26,37 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">{children}</label>;
 }
 
+const PASSWORD_CHAR_SETS = {
+  lower: "abcdefghjkmnpqrstuvwxyz",
+  upper: "ABCDEFGHJKMNPQRSTUVWXYZ",
+  digits: "23456789",
+  symbols: "!@#$%&*",
+};
+
+function generateSecurePassword(length = 10): string {
+  const randomIndex = (max: number) => {
+    const arr = new Uint32Array(1);
+    window.crypto.getRandomValues(arr);
+    return arr[0] % max;
+  };
+  const pick = (set: string) => set[randomIndex(set.length)];
+  const all = PASSWORD_CHAR_SETS.lower + PASSWORD_CHAR_SETS.upper + PASSWORD_CHAR_SETS.digits + PASSWORD_CHAR_SETS.symbols;
+
+  const required = [
+    pick(PASSWORD_CHAR_SETS.lower),
+    pick(PASSWORD_CHAR_SETS.upper),
+    pick(PASSWORD_CHAR_SETS.digits),
+    pick(PASSWORD_CHAR_SETS.symbols),
+  ];
+  const rest = Array.from({ length: Math.max(length - required.length, 0) }, () => pick(all));
+  const chars = [...required, ...rest];
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomIndex(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}
+
 interface Props {
   employee: EmployeeProfile;
   onUpdated: () => void;
@@ -41,6 +72,13 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [usernameEditing, setUsernameEditing] = useState(false);
+  const [usernameDraft, setUsernameDraft] = useState("");
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
+  const [revealing, setRevealing] = useState(false);
+  const [revealError, setRevealError] = useState<string | null>(null);
+  const [revealCopied, setRevealCopied] = useState(false);
   const [form, setForm] = useState({
     email: "",
     role: "EMPLOYEE",
@@ -72,6 +110,10 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
       allowed_class_ids: ids,
     });
     setSelectedBand(band?.label ?? "");
+    setUsernameDraft(user.username ?? "");
+    setUsernameEditing(false);
+    setRevealedPassword(null);
+    setRevealError(null);
   }, [user]);
 
   if (!user) {
@@ -112,6 +154,59 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
       setError(err?.response?.data?.message || "Failed to update account.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveUsername = async () => {
+    const next = usernameDraft.trim();
+    if (!next) {
+      setError("Username cannot be empty.");
+      return;
+    }
+    if (/@tafs\.com$/i.test(next)) {
+      setError('Username may not use the "@tafs.com" format — use a "name1.name2.name3" style username.');
+      return;
+    }
+    if (next === user?.username) {
+      setUsernameEditing(false);
+      return;
+    }
+    setUsernameSaving(true);
+    setError(null);
+    try {
+      await hrService.changeEmployeeUsername(employee.id, next);
+      setUsernameEditing(false);
+      setSaved(true);
+      onUpdated();
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to change username.");
+    } finally {
+      setUsernameSaving(false);
+    }
+  };
+
+  const handleRevealPassword = async () => {
+    setRevealing(true);
+    setRevealError(null);
+    try {
+      const { password: revealed } = await hrService.revealEmployeePassword(employee.id);
+      setRevealedPassword(revealed);
+    } catch (err: any) {
+      setRevealError(err?.response?.data?.message || "Failed to reveal password.");
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  const copyRevealedPassword = async () => {
+    if (!revealedPassword) return;
+    try {
+      await navigator.clipboard.writeText(revealedPassword);
+      setRevealCopied(true);
+      setTimeout(() => setRevealCopied(false), 2000);
+    } catch {
+      // Clipboard API unavailable — admin can still select the visible text manually.
     }
   };
 
@@ -159,7 +254,34 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <FieldLabel>Username</FieldLabel>
-            <input className={`${inputCls} bg-zinc-50 dark:bg-zinc-950`} value={user.username ?? "—"} readOnly />
+            {usernameEditing ? (
+              <div className="flex items-center gap-2">
+                <input
+                  className={inputCls}
+                  value={usernameDraft}
+                  onChange={(e) => setUsernameDraft(e.target.value)}
+                  autoComplete="off"
+                  placeholder="name1.name2.name3"
+                />
+                <button type="button" onClick={handleSaveUsername} disabled={usernameSaving}
+                  className="h-10 px-3 shrink-0 rounded-xl bg-primary text-white text-xs font-bold disabled:opacity-50">
+                  {usernameSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                </button>
+                <button type="button" onClick={() => { setUsernameEditing(false); setUsernameDraft(user.username ?? ""); }}
+                  className="h-10 px-3 shrink-0 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-600 dark:text-zinc-300">
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input className={`${inputCls} bg-zinc-50 dark:bg-zinc-950`} value={user.username ?? "—"} readOnly />
+                <button type="button" onClick={() => setUsernameEditing(true)}
+                  title="Change username"
+                  className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                  <UserCog className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
           <div>
             <FieldLabel>Email</FieldLabel>
@@ -228,6 +350,41 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
 
       <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
         <h3 className="text-[15px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center gap-2">
+          <Eye className="h-4 w-4" /> Reveal password
+        </h3>
+        {revealError && (
+          <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900 px-4 py-3 text-sm font-medium text-rose-700 dark:text-rose-300">
+            {revealError}
+          </div>
+        )}
+        {revealedPassword ? (
+          <div className="max-w-lg space-y-2">
+            <FieldLabel>Current password</FieldLabel>
+            <div className="flex items-center gap-2">
+              <input readOnly className={`${inputCls} font-mono bg-zinc-50 dark:bg-zinc-950`} value={revealedPassword} />
+              <button type="button" onClick={copyRevealedPassword}
+                className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                <Copy className="h-4 w-4" />
+              </button>
+              <button type="button" onClick={() => setRevealedPassword(null)}
+                title="Hide"
+                className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                <EyeOff className="h-4 w-4" />
+              </button>
+            </div>
+            {revealCopied && <p className="text-[11px] text-emerald-600 font-semibold">Copied to clipboard.</p>}
+          </div>
+        ) : (
+          <button type="button" onClick={handleRevealPassword} disabled={revealing}
+            className="inline-flex items-center gap-2 h-9 px-4 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl disabled:opacity-50">
+            {revealing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+            Reveal current password
+          </button>
+        )}
+      </div>
+
+      <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
+        <h3 className="text-[15px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center gap-2">
           <KeyRound className="h-4 w-4" /> Reset password
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
@@ -242,11 +399,24 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
               onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
           </div>
         </div>
-        <button type="button" onClick={handleResetPassword} disabled={resetting}
-          className="mt-4 inline-flex items-center gap-2 h-9 px-4 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl disabled:opacity-50">
-          {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-          Reset password
-        </button>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button type="button" onClick={handleResetPassword} disabled={resetting}
+            className="inline-flex items-center gap-2 h-9 px-4 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl disabled:opacity-50">
+            {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+            Reset password
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const generated = generateSecurePassword();
+              setPassword(generated);
+              setConfirmPassword(generated);
+            }}
+            className="text-xs font-semibold text-primary hover:underline"
+          >
+            Generate a secure password
+          </button>
+        </div>
       </div>
     </div>
   );

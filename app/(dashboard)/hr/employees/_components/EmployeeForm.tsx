@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Loader2, AlertCircle, CheckCircle2, User, Briefcase, Clock, BookOpen, Lock,
-  X, Camera, ChevronDown, PhoneCall, Heart, Key, Search
+  X, Camera, ChevronDown, PhoneCall, Heart, Key, Search, Copy, Eye, EyeOff, RefreshCw,
 } from "lucide-react";
 import {
   hrService, EmployeeCreatePayload, Department, StaffCategory, Segment,
@@ -25,26 +25,59 @@ import { employeeCodePartsFromProfile, isLegacyEmployeeCode } from "@/lib/employ
 
 const PORTAL_PASSWORD_MIN = 6;
 
+/** Builds a "name1.name2.name3" username from a full name — never the legacy "name@tafs.com" form. */
 function generateUniqueUsername(fullName: string, existingUsernames: Set<string>): string {
-  const firstName = fullName
+  const parts = fullName
     .trim()
-    .split(/\s+/)[0]
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+    .split(/\s+/)
+    .map((p) => p.toLowerCase().replace(/[^a-z0-9]/g, ""))
+    .filter(Boolean);
 
-  const base = firstName || "user";
-  const domain = "@tafs.com";
-  let candidate = `${base}${domain}`;
+  const base = parts.length > 0 ? parts.join(".") : "user";
 
-  if (!existingUsernames.has(candidate.toLowerCase())) {
-    return candidate;
+  if (!existingUsernames.has(base.toLowerCase())) {
+    return base;
   }
 
-  let counter = 1;
-  while (existingUsernames.has(`${base}${counter}${domain}`.toLowerCase())) {
+  let counter = 2;
+  let candidate = `${base}${counter}`;
+  while (existingUsernames.has(candidate.toLowerCase())) {
     counter++;
+    candidate = `${base}${counter}`;
   }
-  return `${base}${counter}${domain}`;
+  return candidate;
+}
+
+const PASSWORD_CHAR_SETS = {
+  lower: "abcdefghjkmnpqrstuvwxyz",
+  upper: "ABCDEFGHJKMNPQRSTUVWXYZ",
+  digits: "23456789",
+  symbols: "!@#$%&*",
+};
+
+/** Cryptographically random password (browser Web Crypto), one of each character class guaranteed. */
+function generateSecurePassword(length = 10): string {
+  const randomIndex = (max: number) => {
+    const arr = new Uint32Array(1);
+    window.crypto.getRandomValues(arr);
+    return arr[0] % max;
+  };
+  const pick = (set: string) => set[randomIndex(set.length)];
+  const all = PASSWORD_CHAR_SETS.lower + PASSWORD_CHAR_SETS.upper + PASSWORD_CHAR_SETS.digits + PASSWORD_CHAR_SETS.symbols;
+
+  const required = [
+    pick(PASSWORD_CHAR_SETS.lower),
+    pick(PASSWORD_CHAR_SETS.upper),
+    pick(PASSWORD_CHAR_SETS.digits),
+    pick(PASSWORD_CHAR_SETS.symbols),
+  ];
+  const rest = Array.from({ length: Math.max(length - required.length, 0) }, () => pick(all));
+  const chars = [...required, ...rest];
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomIndex(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
 }
 
 type ManagerOption = { id: number; full_name: string | null; employee_code: string | null };
@@ -452,9 +485,14 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   // Portal account (create + link on registration / when not yet linked)
   const [portalUsername, setPortalUsername] = useState("");
   const [portalPassword, setPortalPassword] = useState("");
-  const [portalPasswordConfirm, setPortalPasswordConfirm] = useState("");
   const [usernameTouched, setUsernameTouched] = useState(false);
+  const [showPortalPassword, setShowPortalPassword] = useState(false);
+  const [passwordCopied, setPasswordCopied] = useState(false);
   const [managerLabel, setManagerLabel] = useState("");
+  // Shown after a successful create — admin must confirm they copied the password before leaving the page.
+  const [createdAccount, setCreatedAccount] = useState<{ username: string; password: string } | null>(null);
+  const [createdAccountAck, setCreatedAccountAck] = useState(false);
+  const [createdAccountCopied, setCreatedAccountCopied] = useState(false);
 
   const needsPortalAccount = !formData.user_id;
 
@@ -646,7 +684,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     init();
   }, [isEdit, employeeId, loadLookups, loadEmployee]);
 
-  // Suggest portal username from first name + @tafs.com until the user manually edits it
+  // Suggest a "name1.name2.name3" portal username from the full name until the admin manually edits it
   useEffect(() => {
     if (!needsPortalAccount || usernameTouched) return;
     if (!formData.full_name.trim()) {
@@ -656,6 +694,27 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     const suggested = generateUniqueUsername(formData.full_name, existingUsernames);
     setPortalUsername(suggested);
   }, [formData.full_name, needsPortalAccount, usernameTouched, existingUsernames]);
+
+  // Auto-generate the portal password once, as soon as the account section becomes relevant
+  useEffect(() => {
+    if (!needsPortalAccount || portalPassword) return;
+    setPortalPassword(generateSecurePassword());
+  }, [needsPortalAccount, portalPassword]);
+
+  const regeneratePortalPassword = () => {
+    setPortalPassword(generateSecurePassword());
+    setPasswordCopied(false);
+  };
+
+  const copyPortalPassword = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setPasswordCopied(true);
+      setTimeout(() => setPasswordCopied(false), 2000);
+    } catch {
+      // Clipboard API unavailable — admin can still select the visible text manually.
+    }
+  };
 
   const handleDepartmentSelect = async (deptId: string) => {
     setFormData(prev => ({
@@ -704,10 +763,12 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     if (!formData.monthly_pay) return "Monthly pay is required.";
     if (needsPortalAccount) {
       if (!portalUsername.trim()) return "Portal username is required.";
+      if (/@tafs\.com$/i.test(portalUsername.trim())) {
+        return 'Portal username may not use the "@tafs.com" format — use a "name1.name2.name3" style username.';
+      }
       if (portalPassword.length < PORTAL_PASSWORD_MIN) {
         return `Portal password must be at least ${PORTAL_PASSWORD_MIN} characters.`;
       }
-      if (portalPassword !== portalPasswordConfirm) return "Portal passwords do not match.";
     }
     return null;
   };
@@ -834,8 +895,10 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
         if (createdUsername) {
           setFormData((p) => ({ ...p, user_id: payload.user_id ?? p.user_id }));
           setPortalPassword("");
-          setPortalPasswordConfirm("");
         }
+      } else if (createdUsername) {
+        // Force the admin to copy the password before leaving — it can't be shown in plaintext again.
+        setCreatedAccount({ username: createdUsername, password: portalPassword });
       } else {
         router.push(`/hr/employees?created=1`);
       }
@@ -1546,7 +1609,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                       type="text"
                       required
                       autoComplete="off"
-                      placeholder="e.g. muhammad@tafs.com"
+                      placeholder="e.g. muhammad.ali.khan"
                       className={inputCls}
                       value={portalUsername}
                       onChange={(e) => {
@@ -1554,30 +1617,49 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                         setPortalUsername(e.target.value);
                       }}
                     />
+                    <p className="text-[11px] text-zinc-400">
+                      Auto-generated as name1.name2.name3 from the full name above — edit only if it collides with an existing account.
+                    </p>
                   </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel required>Password</FieldLabel>
-                    <input
-                      type="password"
-                      required
-                      autoComplete="new-password"
-                      placeholder={`At least ${PORTAL_PASSWORD_MIN} characters`}
-                      className={inputCls}
-                      value={portalPassword}
-                      onChange={(e) => setPortalPassword(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel required>Confirm Password</FieldLabel>
-                    <input
-                      type="password"
-                      required
-                      autoComplete="new-password"
-                      placeholder="Re-enter password"
-                      className={inputCls}
-                      value={portalPasswordConfirm}
-                      onChange={(e) => setPortalPasswordConfirm(e.target.value)}
-                    />
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <FieldLabel required>Auto-generated password</FieldLabel>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type={showPortalPassword ? "text" : "password"}
+                        required
+                        readOnly
+                        autoComplete="new-password"
+                        className={`${inputCls} font-mono tracking-wide bg-zinc-50 dark:bg-zinc-950`}
+                        value={portalPassword}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPortalPassword((v) => !v)}
+                        className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        title={showPortalPassword ? "Hide password" : "Reveal password"}
+                      >
+                        {showPortalPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copyPortalPassword(portalPassword)}
+                        className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        title="Copy password"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={regeneratePortalPassword}
+                        className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        title="Generate a new password"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <p className={`text-[11px] ${passwordCopied ? "text-emerald-600 font-semibold" : "text-zinc-400"}`}>
+                      {passwordCopied ? "Copied to clipboard." : "You'll be prompted to copy this once more after registration completes."}
+                    </p>
                   </div>
                   <div className="space-y-1.5">
                     <FieldLabel>Role</FieldLabel>
@@ -1656,6 +1738,72 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
           </>
         )}
       </form>
+
+      {createdAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-primary/10 rounded-xl">
+                <Key className="h-5 w-5 text-primary" />
+              </div>
+              <h3 className="text-[15px] font-extrabold text-zinc-900 dark:text-zinc-100">Copy the portal password now</h3>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
+              This is the only time the password is shown in full. Copy it now and hand it to the employee securely — it can still be revealed later from the employee's Portal Account tab.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <FieldLabel>Username</FieldLabel>
+                <div className="flex items-center gap-2">
+                  <input readOnly className={`${inputCls} font-mono bg-zinc-50 dark:bg-zinc-950`} value={createdAccount.username} />
+                  <button type="button" onClick={() => copyPortalPassword(createdAccount.username)}
+                    className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <FieldLabel>Password</FieldLabel>
+                <div className="flex items-center gap-2">
+                  <input readOnly className={`${inputCls} font-mono bg-zinc-50 dark:bg-zinc-950`} value={createdAccount.password} />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      copyPortalPassword(createdAccount.password);
+                      setCreatedAccountCopied(true);
+                    }}
+                    className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+                {createdAccountCopied && (
+                  <p className="text-[11px] text-emerald-600 font-semibold mt-1">Copied to clipboard.</p>
+                )}
+              </div>
+            </div>
+            <label className="flex items-start gap-2 mt-4 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={createdAccountAck}
+                onChange={(e) => setCreatedAccountAck(e.target.checked)}
+                className="mt-0.5 rounded border-zinc-300 text-primary focus:ring-primary/30"
+              />
+              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                I've copied this password and will hand it to the employee securely.
+              </span>
+            </label>
+            <button
+              type="button"
+              disabled={!createdAccountAck}
+              onClick={() => router.push(`/hr/employees?created=1`)}
+              className="mt-5 w-full h-11 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Done — continue to Employee Directory
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

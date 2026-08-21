@@ -542,6 +542,14 @@ export const hrService = {
   async resetEmployeePassword(id: number, password: string): Promise<void> {
     await api.post(`/v1/hr/employees/${id}/account/reset-password`, { password });
   },
+  async revealEmployeePassword(id: number): Promise<{ username: string; password: string }> {
+    const { data } = await api.get<ApiEnvelope<{ username: string; password: string }>>(`/v1/hr/employees/${id}/account/reveal-password`);
+    return data.data;
+  },
+  async changeEmployeeUsername(id: number, username: string): Promise<{ id: string; username: string }> {
+    const { data } = await api.patch<ApiEnvelope<{ id: string; username: string }>>(`/v1/hr/employees/${id}/account/username`, { username });
+    return data.data;
+  },
   async deleteEmployee(id: number): Promise<void> {
     await api.delete(`/v1/hr/employees/${id}`);
   },
