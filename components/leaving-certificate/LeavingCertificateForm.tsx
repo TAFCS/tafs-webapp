@@ -217,7 +217,17 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
 
                     {/* Visual Live Header Preview Banner */}
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
-                        <span className="block text-[10px] font-bold text-zinc-400 uppercase mb-2">Live Certificate Header Preview</span>
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="block text-[10px] font-bold text-zinc-400 uppercase">Live Certificate Header Preview</span>
+                            <button
+                                type="button"
+                                onClick={() => setIsHeaderModalOpen(true)}
+                                className="px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-lg text-[10px] font-extrabold flex items-center gap-1.5 transition-all shadow-sm"
+                            >
+                                <Maximize2 className="h-3 w-3 text-red-600" />
+                                View Full Screen
+                            </button>
+                        </div>
                         <div className="flex items-center justify-between h-14 px-4 bg-zinc-50 dark:bg-zinc-950 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800">
                             {/* Left Logo Preview */}
                             <div className="h-10 w-28 flex items-center justify-start">
@@ -559,6 +569,81 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                     </button>
                 </div>
             </div>
+
+            {/* FULL SCREEN HEADER PREVIEW MODAL */}
+            {isHeaderModalOpen && (
+                <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-zinc-900 rounded-3xl max-w-4xl w-full p-6 md:p-8 shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-6 relative">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2 bg-red-50 dark:bg-red-950/40 text-red-600 rounded-xl">
+                                    <Maximize2 className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
+                                        Full Screen Certificate Header Preview
+                                    </h3>
+                                    <p className="text-xs text-zinc-400 font-medium">Real-time proportions as printed on official A4 SLC PDF</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsHeaderModalOpen(false)}
+                                className="h-9 w-9 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 flex items-center justify-center text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-all"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        {/* High-Res Full Header Canvas */}
+                        <div className="bg-white p-8 md:p-10 rounded-2xl border border-zinc-200 shadow-inner space-y-4">
+                            <div className="flex items-center justify-between h-28 border-b border-zinc-200 pb-4">
+                                {/* Left Logo */}
+                                <div className="h-24 w-52 flex items-center justify-start">
+                                    <img src={activeLeftUrl} alt="Top Left Logo" className="max-h-full max-w-full object-contain" />
+                                </div>
+                                {/* Header Title */}
+                                <div className="text-center px-4">
+                                    <h2 className="text-xl md:text-2xl font-black uppercase text-black underline tracking-wide">
+                                        {formData.header_title || 'TAFS LEAVING CERTIFICATE'}
+                                    </h2>
+                                </div>
+                                {/* Right Logo */}
+                                <div className="h-24 w-56 flex items-center justify-end">
+                                    <img src={activeRightUrl} alt="Top Right Logo" className="max-h-full max-w-full object-contain" />
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between text-[11px] text-zinc-400 font-semibold pt-2">
+                                <span>Left Logo: {LEFT_LOGOS.find(l => l.id === leftLogoId)?.name}</span>
+                                <span className="italic">Exact A4 Header Proportion Mockup</span>
+                                <span>Right Logo: {RIGHT_LOGOS.find(r => r.id === rightLogoId)?.name}</span>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer Actions */}
+                        <div className="flex items-center justify-between pt-2">
+                            <button
+                                onClick={() => setIsHeaderModalOpen(false)}
+                                className="px-5 h-11 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-extrabold rounded-xl transition-all"
+                            >
+                                Close Preview
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setIsHeaderModalOpen(false);
+                                    handleDownloadPDF();
+                                }}
+                                disabled={isGenerating}
+                                className="px-6 h-11 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all shadow-lg shadow-red-200 dark:shadow-none"
+                            >
+                                {isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
+                                {isGenerating ? 'Generating PDF...' : 'Download Official SLC PDF'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
