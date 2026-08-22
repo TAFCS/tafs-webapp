@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, Download, LayoutGrid, List, Loader2, Search, WifiOff, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, Download, LayoutGrid, List, Loader2, Search, X } from "lucide-react";
 import { useAppDispatch } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
 import { attendanceService, StudentAttendanceLine } from "@/lib/attendance.service";
 import { StudentPunchMatrixView } from "./StudentPunchMatrixView";
+import { StudentLineDetailModal } from "./StudentLineDetailModal";
+import { StudentLineTags } from "./StudentLineTags";
 import { ScopeBlock, ScopeValue } from "../../../studentwise-fees/components/ScopeBlock";
 
 const MONTHS = [
@@ -48,24 +49,6 @@ function cycleWindow({ year, month }: CycleKey): { periodStart: string; periodEn
 function initials(name: string | null): string {
     if (!name) return "?";
     return name.split(" ").filter(Boolean).slice(0, 2).map((n) => n[0]).join("").toUpperCase();
-}
-
-function StudentLineTags({ line }: { line: Pick<StudentAttendanceLine, "is_mapped" | "has_punches"> }) {
-    if (!line.is_mapped) {
-        return (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide whitespace-nowrap bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 mt-1">
-                <WifiOff className="h-2.5 w-2.5 shrink-0" /> Not Mapped
-            </span>
-        );
-    }
-    if (!line.has_punches) {
-        return (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide whitespace-nowrap bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 mt-1">
-                <AlertTriangle className="h-2.5 w-2.5 shrink-0" /> No Punches
-            </span>
-        );
-    }
-    return null;
 }
 
 function StudentLinesTable({ lines, onOpenLine }: { lines: StudentAttendanceLine[]; onOpenLine: (line: StudentAttendanceLine) => void }) {
@@ -119,7 +102,7 @@ function StudentLinesTable({ lines, onOpenLine }: { lines: StudentAttendanceLine
                                                     )}
                                                     {line.campus_name && <span className="ml-1.5 text-zinc-300 dark:text-zinc-600">· {line.campus_name}</span>}
                                                 </p>
-                                                <StudentLineTags line={line} />
+                                                <StudentLineTags line={line} className="mt-1" />
                                             </div>
                                         </div>
                                     </td>
@@ -158,7 +141,6 @@ function StudentLinesTable({ lines, onOpenLine }: { lines: StudentAttendanceLine
 }
 
 export function StudentAttendanceCycleWidget() {
-    const router = useRouter();
     const dispatch = useAppDispatch();
     const { user } = useAuthState();
 
@@ -174,6 +156,8 @@ export function StudentAttendanceCycleWidget() {
     const [exporting, setExporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState("");
+    const [selectedLine, setSelectedLine] = useState<StudentAttendanceLine | null>(null);
+    const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
 
     const cycleDefault = cycleWindow(cycle);
     const [customStart, setCustomStart] = useState<string | null>(null);
@@ -216,6 +200,9 @@ export function StudentAttendanceCycleWidget() {
                 period_end: periodEnd,
             });
             setLines(matrix.lines);
+            // Re-point an open modal at the refetched line so its summary
+            // counts and day list reflect the save that triggered this reload.
+            setSelectedLine((cur) => (cur ? matrix.lines.find((l) => l.student_cc === cur.student_cc) ?? cur : cur));
         } catch {
             setError("Failed to load student attendance data.");
         } finally {
@@ -242,8 +229,9 @@ export function StudentAttendanceCycleWidget() {
         }
     };
 
-    const openStudent = (studentCc: number) => {
-        router.push(`/hr/student-attendance-dashboard/${studentCc}?date_from=${periodStart}&date_to=${periodEnd}`);
+    const openLine = (line: StudentAttendanceLine, date?: string) => {
+        setSelectedLine(line);
+        setSelectedDate(date);
     };
 
     return (
@@ -365,14 +353,24 @@ export function StudentAttendanceCycleWidget() {
             ) : tab === "lines" ? (
                 <StudentLinesTable
                     lines={filteredLines}
-                    onOpenLine={(line) => openStudent(line.student_cc)}
+                    onOpenLine={(line) => openLine(line)}
                 />
             ) : (
                 <StudentPunchMatrixView
                     periodStart={periodStart}
                     periodEnd={periodEnd}
                     lines={filteredLines}
-                    onOpenLine={(line) => openStudent(line.student_cc)}
+                    onOpenLine={(line, date) => openLine(line, date)}
+                />
+            )}
+
+            {selectedLine && (
+                <StudentLineDetailModal
+                    campusId={selectedLine.campus_id ?? Number(scope.campusId)}
+                    line={selectedLine}
+                    initialDate={selectedDate}
+                    onClose={() => { setSelectedLine(null); setSelectedDate(undefined); }}
+                    onResolved={load}
                 />
             )}
         </div>

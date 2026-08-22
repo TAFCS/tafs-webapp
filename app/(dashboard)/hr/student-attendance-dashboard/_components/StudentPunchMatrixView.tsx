@@ -95,7 +95,30 @@ const MatrixRow = memo(function MatrixRow({ line, dates, onOpenLine }: RowProps)
 
         const cls = day.classification;
         const isOff = cls === "DAY_OFF" || !day.is_working_day;
-        const punches = isOff ? [] : extractPunches(day);
+        const punches = extractPunches(day);
+        // A holiday/weekend the student still scanned on — surface it instead
+        // of hiding it, so the day can be opened and overridden.
+        const cameOnOff = isOff && punches.length > 0;
+
+        const punchList = punches.length > 0 && (
+          <div className="flex flex-col items-center gap-px w-full px-1">
+            {punches.map((p, i) => (
+              <div
+                key={i}
+                className={`flex items-center gap-0.5 text-[10px] font-mono leading-none ${
+                  p.missing
+                    ? "text-amber-600 dark:text-amber-400 font-bold"
+                    : i % 2 === 0
+                    ? "text-emerald-700 dark:text-emerald-400"
+                    : "text-zinc-500 dark:text-zinc-400"
+                }`}
+              >
+                <span className="text-[8px] opacity-60">{i % 2 === 0 ? "▲" : "▼"}</span>
+                {p.time}
+              </div>
+            ))}
+          </div>
+        );
 
         return (
           <td
@@ -103,11 +126,25 @@ const MatrixRow = memo(function MatrixRow({ line, dates, onOpenLine }: RowProps)
             className="border-r border-zinc-100 dark:border-zinc-800/50 p-0.5 cursor-pointer"
             onClick={() => onOpenLine(line, d)}
           >
-            <div className={`rounded min-h-12 flex flex-col items-center justify-center gap-0.5 py-1 px-1 ${CELL_BG[cls]}`}>
+            <div
+              className={`rounded min-h-12 flex flex-col items-center justify-center gap-0.5 py-1 px-1 ${
+                cameOnOff
+                  ? "bg-amber-50 dark:bg-amber-950/20 ring-1 ring-inset ring-amber-300 dark:ring-amber-700"
+                  : CELL_BG[cls]
+              }`}
+            >
               {/* Status dot */}
-              <div className={`w-1.5 h-1.5 rounded-full mb-0.5 ${CELL_DOT[cls]}`} />
+              <div className={`w-1.5 h-1.5 rounded-full mb-0.5 ${cameOnOff ? "bg-amber-500 animate-pulse" : CELL_DOT[cls]}`} />
 
-              {isOff ? (
+              {cameOnOff ? (
+                <>
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400 flex items-center gap-0.5">
+                    <AlertTriangle className="h-2 w-2" />
+                    {day.day_description ?? "Off"}
+                  </span>
+                  {punchList}
+                </>
+              ) : isOff ? (
                 <span className={`text-[9px] font-medium uppercase tracking-wide ${CELL_TEXT[cls]}`}>
                   {day.day_description ?? "Off"}
                 </span>
@@ -120,23 +157,7 @@ const MatrixRow = memo(function MatrixRow({ line, dates, onOpenLine }: RowProps)
               ) : punches.length === 0 ? (
                 <span className="text-[9px] text-zinc-300 dark:text-zinc-700">No data</span>
               ) : (
-                <div className="flex flex-col items-center gap-px w-full px-1">
-                  {punches.map((p, i) => (
-                    <div
-                      key={i}
-                      className={`flex items-center gap-0.5 text-[10px] font-mono leading-none ${
-                        p.missing
-                          ? "text-amber-600 dark:text-amber-400 font-bold"
-                          : i % 2 === 0
-                          ? "text-emerald-700 dark:text-emerald-400"
-                          : "text-zinc-500 dark:text-zinc-400"
-                      }`}
-                    >
-                      <span className="text-[8px] opacity-60">{i % 2 === 0 ? "▲" : "▼"}</span>
-                      {p.time}
-                    </div>
-                  ))}
-                </div>
+                punchList
               )}
             </div>
           </td>

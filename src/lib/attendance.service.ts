@@ -551,7 +551,8 @@ export const attendanceService = {
   async bulkMarkStudentsDaily(payload: {
     date: string;
     campus_id: number;
-    records: { student_cc: number; status: RollRecordStatus }[];
+    /** `check_in_time`/`check_out_time` are "HH:MM" and only apply to PRESENT/LATE — ABSENT/EXCUSED always clear the day's punches. */
+    records: { student_cc: number; status: RollRecordStatus; check_in_time?: string; check_out_time?: string }[];
   }): Promise<{ saved_count: number }> {
     const { data } = await api.put<ApiEnvelope<{ saved_count: number }>>(
       '/v1/attendance/students/bulk-manual',
