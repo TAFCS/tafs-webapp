@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, Download, LayoutGrid, List, Loader2, Search, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, LayoutGrid, List, Loader2, Search, X } from "lucide-react";
 import { useAppDispatch } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
@@ -51,7 +51,105 @@ function initials(name: string | null): string {
     return name.split(" ").filter(Boolean).slice(0, 2).map((n) => n[0]).join("").toUpperCase();
 }
 
-function StudentLinesTable({ lines, onOpenLine }: { lines: StudentAttendanceLine[]; onOpenLine: (line: StudentAttendanceLine) => void }) {
+// ── Sorting ───────────────────────────────────────────────────────────────────
+
+type SortKey = "class" | "gr" | "name" | "present" | "absent" | "excused" | "late" | "unresolved";
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+    { value: "class",      label: "Class & Section" },
+    { value: "gr",         label: "GR Number" },
+    { value: "name",       label: "Name" },
+    { value: "present",    label: "Present Days" },
+    { value: "absent",     label: "Absent Days" },
+    { value: "excused",    label: "Excused Days" },
+    { value: "late",       label: "Late Days" },
+    { value: "unresolved", label: "Unresolved Days" },
+];
+
+/** Identity sorts read best A→Z; day-count sorts are wanted highest-first. */
+const TEXT_KEYS = new Set<SortKey>(["class", "gr", "name"]);
+const DESC_BY_DEFAULT = new Set<SortKey>(["present", "absent", "excused", "late", "unresolved"]);
+
+// GR numbers are mostly numeric strings ("3066") with a few alphanumeric ones
+// ("TEST-001") mixed in, so a numeric-aware collator is what keeps 2 before 10
+// instead of the lexicographic "10" < "2".
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+/**
+ * Students with nothing in the sorted-on field (no GR yet, no section) sink to
+ * the bottom in both directions — flipping the sort shouldn't dredge up a block
+ * of blanks above the real data.
+ */
+function blankRank(a: string | null, b: string | null): number | null {
+    const av = a?.trim() ?? "";
+    const bv = b?.trim() ?? "";
+    if (av && bv) return null;
+    if (!av && !bv) return 0;
+    return av ? -1 : 1;
+}
+
+function textValue(line: StudentAttendanceLine, key: SortKey): string | null {
+    const stu = line.student;
+    if (key === "gr") return stu.gr_number;
+    if (key === "name") return stu.full_name;
+    return [stu.class, stu.section].filter(Boolean).join(" ") || null;
+}
+
+function countValue(line: StudentAttendanceLine, key: SortKey): number {
+    switch (key) {
+        case "present":    return line.present_days;
+        case "absent":     return line.absent_days;
+        case "excused":    return line.excused_days;
+        case "late":       return line.late_days;
+        case "unresolved": return line.unresolved_days;
+        default:           return 0;
+    }
+}
+
+function sortLines(lines: StudentAttendanceLine[], key: SortKey, asc: boolean): StudentAttendanceLine[] {
+    const dir = asc ? 1 : -1;
+    return [...lines].sort((a, b) => {
+        let cmp = 0;
+        if (TEXT_KEYS.has(key)) {
+            const av = textValue(a, key);
+            const bv = textValue(b, key);
+            const blank = blankRank(av, bv);
+            // Applied before the direction flip, so blanks stay at the bottom.
+            if (blank !== null) { if (blank !== 0) return blank; }
+            else cmp = dir * collator.compare(av as string, bv as string);
+        } else {
+            cmp = dir * (countValue(a, key) - countValue(b, key));
+        }
+        // Equal keys still group by name, so the order never looks arbitrary.
+        return cmp || collator.compare(a.student.full_name ?? "", b.student.full_name ?? "");
+    });
+}
+
+interface SortControl {
+    sortKey: SortKey;
+    sortAsc: boolean;
+    onSort: (key: SortKey) => void;
+}
+
+function SortTh({ k, label, className = "", sortKey, sortAsc, onSort }: { k: SortKey; label: string; className?: string } & SortControl) {
+    return (
+        <th
+            onClick={() => onSort(k)}
+            className={`py-3 text-xs font-bold uppercase tracking-widest cursor-pointer select-none transition-colors ${
+                sortKey === k ? "text-zinc-700 dark:text-zinc-200" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+            } ${className}`}
+        >
+            <span className="inline-flex items-center gap-1">
+                {label}
+                {sortKey === k
+                    ? (sortAsc ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)
+                    : <ChevronDown className="h-3 w-3 opacity-25" />}
+            </span>
+        </th>
+    );
+}
+
+function StudentLinesTable({ lines, onOpenLine, ...sort }: { lines: StudentAttendanceLine[]; onOpenLine: (line: StudentAttendanceLine) => void } & SortControl) {
     if (lines.length === 0) {
         return <p className="text-sm text-zinc-500 text-center py-14">No students found.</p>;
     }
@@ -62,11 +160,11 @@ function StudentLinesTable({ lines, onOpenLine }: { lines: StudentAttendanceLine
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
-                            <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Student</th>
-                            <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Present</th>
-                            <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Absent</th>
-                            <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Excused</th>
-                            <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Unresolved</th>
+                            <SortTh k="name"       label="Student"    className="px-5 text-left"   {...sort} />
+                            <SortTh k="present"    label="Present"    className="px-4 text-center" {...sort} />
+                            <SortTh k="absent"     label="Absent"     className="px-4 text-center" {...sort} />
+                            <SortTh k="excused"    label="Excused"    className="px-4 text-center" {...sort} />
+                            <SortTh k="unresolved" label="Unresolved" className="px-5 text-center" {...sort} />
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -158,6 +256,9 @@ export function StudentAttendanceCycleWidget() {
     const [search, setSearch] = useState("");
     const [selectedLine, setSelectedLine] = useState<StudentAttendanceLine | null>(null);
     const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
+    // Matches the order the backend already returns rows in, so the default view is unchanged.
+    const [sortKey, setSortKey] = useState<SortKey>("class");
+    const [sortAsc, setSortAsc] = useState(true);
 
     const cycleDefault = cycleWindow(cycle);
     const [customStart, setCustomStart] = useState<string | null>(null);
@@ -179,6 +280,18 @@ export function StudentAttendanceCycleWidget() {
             return haystack.includes(q);
         });
     }, [lines, search]);
+
+    // One order for both tabs — switching between lines and matrix keeps the
+    // same students in the same places.
+    const visibleLines = useMemo(() => sortLines(filteredLines, sortKey, sortAsc), [filteredLines, sortKey, sortAsc]);
+
+    // Picking a new key starts in the direction that key reads best; picking
+    // the one already active (or clicking its column header) flips it.
+    const changeSort = useCallback((key: SortKey) => {
+        if (key === sortKey) { setSortAsc((v) => !v); return; }
+        setSortKey(key);
+        setSortAsc(!DESC_BY_DEFAULT.has(key));
+    }, [sortKey]);
 
     useEffect(() => { dispatch(fetchCampuses()); }, [dispatch]);
     useEffect(() => {
@@ -315,27 +428,52 @@ export function StudentAttendanceCycleWidget() {
                 requireClass
             />
 
-            <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl w-fit">
-                <button
-                    onClick={() => setTab("lines")}
-                    className={`flex items-center gap-1.5 h-8 px-4 rounded-xl text-sm font-semibold transition-all ${
-                        tab === "lines"
-                            ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 shadow-sm"
-                            : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700"
-                    }`}
-                >
-                    <List className="h-3.5 w-3.5" /> Student Lines
-                </button>
-                <button
-                    onClick={() => setTab("matrix")}
-                    className={`flex items-center gap-1.5 h-8 px-4 rounded-xl text-sm font-semibold transition-all ${
-                        tab === "matrix"
-                            ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 shadow-sm"
-                            : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700"
-                    }`}
-                >
-                    <LayoutGrid className="h-3.5 w-3.5" /> Punch Card Matrix
-                </button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl w-fit">
+                    <button
+                        onClick={() => setTab("lines")}
+                        className={`flex items-center gap-1.5 h-8 px-4 rounded-xl text-sm font-semibold transition-all ${
+                            tab === "lines"
+                                ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 shadow-sm"
+                                : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700"
+                        }`}
+                    >
+                        <List className="h-3.5 w-3.5" /> Student Lines
+                    </button>
+                    <button
+                        onClick={() => setTab("matrix")}
+                        className={`flex items-center gap-1.5 h-8 px-4 rounded-xl text-sm font-semibold transition-all ${
+                            tab === "matrix"
+                                ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 shadow-sm"
+                                : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700"
+                        }`}
+                    >
+                        <LayoutGrid className="h-3.5 w-3.5" /> Punch Card Matrix
+                    </button>
+                </div>
+
+                {/* Applies to both tabs */}
+                <div className="flex items-center gap-1.5">
+                    <label htmlFor="student-attendance-sort" className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide">
+                        Sort by
+                    </label>
+                    <select
+                        id="student-attendance-sort"
+                        value={sortKey}
+                        onChange={(e) => changeSort(e.target.value as SortKey)}
+                        className="h-9 px-2.5 border rounded-xl text-sm bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    >
+                        {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                    <button
+                        onClick={() => setSortAsc((v) => !v)}
+                        className="h-9 w-9 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+                        aria-label={sortAsc ? "Sorted ascending — switch to descending" : "Sorted descending — switch to ascending"}
+                        title={sortAsc ? "Ascending" : "Descending"}
+                    >
+                        {sortAsc ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+                    </button>
+                </div>
             </div>
 
             {error && (
@@ -352,14 +490,17 @@ export function StudentAttendanceCycleWidget() {
                 </div>
             ) : tab === "lines" ? (
                 <StudentLinesTable
-                    lines={filteredLines}
+                    lines={visibleLines}
                     onOpenLine={(line) => openLine(line)}
+                    sortKey={sortKey}
+                    sortAsc={sortAsc}
+                    onSort={changeSort}
                 />
             ) : (
                 <StudentPunchMatrixView
                     periodStart={periodStart}
                     periodEnd={periodEnd}
-                    lines={filteredLines}
+                    lines={visibleLines}
                     onOpenLine={(line, date) => openLine(line, date)}
                 />
             )}
