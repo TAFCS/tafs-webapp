@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     description: "Privacy Policy for TAFSync — The American Foundation School's digital platform.",
 };
 
-const LAST_UPDATED = "July 10, 2026";
+const LAST_UPDATED = "August 22, 2026";
 
 function Section({
     id,
@@ -74,7 +74,9 @@ export default function PrivacyPolicyPage() {
                             <span className="font-medium text-zinc-800 dark:text-zinc-200">
                                 tafs.edu.pk
                             </span>
-                            ) and the TAFSync mobile application (together, the &quot;Platform&quot;).
+                            ), the TAFSync mobile application for students and parents, and the
+                            TAFSync Staff mobile application for employees (together, the
+                            &quot;Platform&quot;).
                         </p>
                         <p>
                             The Platform is used by TAFS students, parents/guardians, teachers,
@@ -119,7 +121,9 @@ export default function PrivacyPolicyPage() {
                                 <p>
                                     Class/section enrollment, academic progression, grades,
                                     attendance records, rollcall/check-in data, and
-                                    disciplinary or notice-board communications.
+                                    disciplinary or notice-board communications. For
+                                    employees, this also includes staff attendance records
+                                    and leave requests/approvals.
                                 </p>
                             </div>
                             <div>
@@ -129,7 +133,10 @@ export default function PrivacyPolicyPage() {
                                 <p>
                                     Fee vouchers, payment history, discounts, bank and
                                     postdated cheque details, and other billing records
-                                    necessary to manage tuition and fee accounts. We do not
+                                    necessary to manage tuition and fee accounts. For
+                                    employees, this also includes salary and payroll
+                                    details, bank account information for salary
+                                    disbursement, and payroll settlement records. We do not
                                     store full payment card numbers; payments are processed
                                     through the relevant bank or payment channel.
                                 </p>
@@ -176,7 +183,7 @@ export default function PrivacyPolicyPage() {
                     <Section id="how-we-use" title="4. How We Use Your Information">
                         <p>We use the information we collect to:</p>
                         <ul className="list-disc pl-5 space-y-1.5">
-                            <li>Provide, operate, and maintain the Platform&apos;s features (attendance, fees, enrollment, timetables, HR, reporting, etc.);</li>
+                            <li>Provide, operate, and maintain the Platform&apos;s features (attendance, fees, enrollment, timetables, HR, payroll, leave management, reporting, etc.);</li>
                             <li>Verify identity and secure accounts, including through login sessions and OTP verification;</li>
                             <li>Facilitate communication between school, staff, students, and parents, including notices, alerts, and support tickets;</li>
                             <li>Process and record fee payments, generate vouchers, and maintain financial records;</li>
@@ -251,7 +258,7 @@ export default function PrivacyPolicyPage() {
                             part of their enrolment at the school. Student accounts and data
                             are created and managed by the school in cooperation with the
                             student&apos;s parent or guardian. Parents/guardians may contact us
-                            at any time (see Section 12) to review, correct, or request
+                            at any time (see Section 13) to review, correct, or request
                             deletion of their child&apos;s information, subject to the school&apos;s
                             record-keeping obligations.
                         </p>
@@ -266,9 +273,44 @@ export default function PrivacyPolicyPage() {
                             <li>Withdraw consent for optional features such as push notifications or biometric login at any time through your device settings; and</li>
                             <li>Object to certain uses of your information by contacting us.</li>
                         </ul>
-                        <p>
-                            To exercise any of these rights, please contact us using the
-                            details in Section 12.
+
+                        <div id="data-deletion" className="scroll-mt-24 mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-900/50">
+                            <p className="font-medium text-zinc-800 dark:text-zinc-200 mb-2">
+                                How to request deletion of your data (TAFSync app &amp; TAFSync Staff app)
+                            </p>
+                            <p className="mb-2">
+                                To request deletion of your personal data from either the
+                                TAFSync mobile app (students/parents) or the TAFSync Staff
+                                mobile app (employees), email{" "}
+                                <a href="mailto:info@tafs.edu.pk" className="text-primary hover:underline">
+                                    info@tafs.edu.pk
+                                </a>{" "}
+                                from your registered email address, or contact the school
+                                office directly, and state:
+                            </p>
+                            <ul className="list-disc pl-5 space-y-1.5 mb-2">
+                                <li>Your full name and the app you use (TAFSync or TAFSync Staff);</li>
+                                <li>Your username, student GR number, or employee code; and</li>
+                                <li>That you are requesting deletion of your account and personal data.</li>
+                            </ul>
+                            <p className="mb-2">
+                                We will verify your identity and act on your request. Login
+                                credentials, device push-notification tokens, and personal
+                                profile details (contact info, photos, chat messages) are
+                                deleted from our active systems once the request is
+                                processed. Academic records, attendance, fee/financial
+                                records, and payroll/employment records are retained beyond
+                                that point, and are only removed once no longer required to
+                                satisfy academic, financial, tax, or legal record-keeping
+                                obligations under applicable law and school policy — there
+                                is no fixed additional retention period beyond what the law
+                                requires.
+                            </p>
+                        </div>
+
+                        <p className="mt-4">
+                            To exercise any other rights listed above, please contact us
+                            using the details in Section 13.
                         </p>
                     </Section>
 
