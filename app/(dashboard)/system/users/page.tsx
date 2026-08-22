@@ -18,7 +18,9 @@ import {
   UserCheck,
   UserMinus,
   Key,
-  Info
+  Info,
+  Eye,
+  Copy,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
@@ -101,6 +103,13 @@ export default function UserManagementPage() {
   // Permissions State
   const [permissions, setPermissions] = useState<PermissionState[]>([]);
   const [loadingPerms, setLoadingPerms] = useState(false);
+
+  // Reveal Password State
+  const [revealUser, setRevealUser] = useState<StaffUser | null>(null);
+  const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
+  const [revealing, setRevealing] = useState(false);
+  const [revealError, setRevealError] = useState<string | null>(null);
+  const [revealCopied, setRevealCopied] = useState(false);
 
   // Fetch Data
   const fetchUsers = useCallback(async () => {
@@ -250,6 +259,33 @@ export default function UserManagementPage() {
     }
   };
 
+  const openRevealPassword = async (user: StaffUser) => {
+    setRevealUser(user);
+    setRevealedPassword(null);
+    setRevealError(null);
+    setRevealCopied(false);
+    setRevealing(true);
+    try {
+      const { data } = await api.get(`/v1/users/${user.id}/reveal-password`);
+      setRevealedPassword(data.data.password);
+    } catch (error: any) {
+      setRevealError(error.response?.data?.message || "Failed to reveal password.");
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  const copyRevealedPassword = async () => {
+    if (!revealedPassword) return;
+    try {
+      await navigator.clipboard.writeText(revealedPassword);
+      setRevealCopied(true);
+      setTimeout(() => setRevealCopied(false), 2000);
+    } catch {
+      // Clipboard API unavailable — admin can still select the visible text manually.
+    }
+  };
+
   // Permission Grouping
   const groupedPermissions = useMemo(() => {
     const groups: Record<string, PermissionState[]> = {};
@@ -389,14 +425,21 @@ export default function UserManagementPage() {
                     </td>
                     <td className="px-8 py-5 text-right">
                       <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
+                        <button
+                          onClick={() => openRevealPassword(user)}
+                          title="Reveal Password"
+                          className="h-10 w-10 flex items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-50 text-zinc-500 hover:text-amber-600 transition-all active:scale-90"
+                        >
+                          <Eye size={18} />
+                        </button>
+                        <button
                           onClick={() => openPermDrawer(user)}
                           title="Permissions"
                           className="h-10 w-10 flex items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-primary/10 text-zinc-500 hover:text-primary transition-all active:scale-90"
                         >
                           <ShieldCheck size={18} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => openUserDrawer(user)}
                           title="Edit User"
                           className="h-10 w-10 flex items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-blue-50 text-zinc-500 hover:text-blue-600 transition-all active:scale-90"
@@ -692,6 +735,72 @@ export default function UserManagementPage() {
                   Permissions are resolved in priority: <strong className="text-zinc-700">Override</strong> &gt; <strong className="text-zinc-700">Role Default</strong>. 
                   Overrides are logged and timestamped for audit trails.
                 </p>
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {/* Reveal Password Modal */}
+        {revealUser && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setRevealUser(null)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[120]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+              className="fixed inset-0 z-[130] flex items-center justify-center p-4"
+            >
+              <div className="w-full max-w-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[2rem] p-8 shadow-2xl">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-amber-100 dark:bg-amber-950 rounded-2xl text-amber-600">
+                      <Eye className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-50">Reveal Password</h3>
+                      <p className="text-[12px] text-zinc-500 font-medium">@{revealUser.username}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setRevealUser(null)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-xl text-zinc-400 hover:text-zinc-900 transition-colors">
+                    <X />
+                  </button>
+                </div>
+
+                <div className="mt-5">
+                  {revealing ? (
+                    <div className="py-8 flex flex-col items-center justify-center gap-3">
+                      <div className="h-8 w-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                      <p className="text-zinc-500 text-sm font-bold">Decrypting password...</p>
+                    </div>
+                  ) : revealError ? (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900 px-4 py-3 text-sm font-medium text-rose-700 dark:text-rose-300">
+                      {revealError}
+                    </div>
+                  ) : revealedPassword ? (
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black text-zinc-400 uppercase tracking-widest pl-1">Current Password</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          readOnly
+                          className="w-full h-12 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 text-[15px] font-mono font-bold tracking-wide"
+                          value={revealedPassword}
+                        />
+                        <button
+                          type="button"
+                          onClick={copyRevealedPassword}
+                          title="Copy password"
+                          className="h-12 w-12 shrink-0 flex items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-primary/10 text-zinc-500 hover:text-primary transition-all active:scale-90"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </button>
+                      </div>
+                      {revealCopied && <p className="text-[11px] text-emerald-600 font-bold">Copied to clipboard.</p>}
+                      <p className="text-[11px] text-zinc-400 font-medium pt-1">This reveal has been recorded in the audit log.</p>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </motion.div>
           </>
