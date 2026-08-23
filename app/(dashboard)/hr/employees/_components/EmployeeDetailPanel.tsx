@@ -611,21 +611,21 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     }
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div><FieldLabel>Full Name</FieldLabel><input className={inputCls} value={profileForm.full_name} onChange={e => setProfileForm(p => ({ ...p, full_name: e.target.value }))} /></div>
+                      <div><FieldLabel>Full Name</FieldLabel><input className={inputCls} value={profileForm.full_name} onChange={e => setProfileForm(p => ({ ...p, full_name: e.target.value.toUpperCase() }))} /></div>
                       <div><FieldLabel>CNIC</FieldLabel><input className={`${inputCls} font-mono`} value={profileForm.cnic} onChange={e => setProfileForm(p => ({ ...p, cnic: formatCnic(e.target.value) }))} /></div>
-                      <div><FieldLabel>Father's Name</FieldLabel><input className={inputCls} value={profileForm.father_name} onChange={e => setProfileForm(p => ({ ...p, father_name: e.target.value }))} /></div>
-                      <div><FieldLabel>Mother's Name</FieldLabel><input className={inputCls} value={profileForm.mother_name} onChange={e => setProfileForm(p => ({ ...p, mother_name: e.target.value }))} /></div>
+                      <div><FieldLabel>Father's Name</FieldLabel><input className={inputCls} value={profileForm.father_name} onChange={e => setProfileForm(p => ({ ...p, father_name: e.target.value.toUpperCase() }))} /></div>
+                      <div><FieldLabel>Mother's Name</FieldLabel><input className={inputCls} value={profileForm.mother_name} onChange={e => setProfileForm(p => ({ ...p, mother_name: e.target.value.toUpperCase() }))} /></div>
                       <div><FieldLabel>Date of Birth</FieldLabel><input type="date" className={inputCls} value={profileForm.date_of_birth} onChange={e => setProfileForm(p => ({ ...p, date_of_birth: e.target.value }))} /></div>
                       <div><FieldLabel>Personal Phone</FieldLabel><input className={inputCls} value={profileForm.personal_phone} onChange={e => setProfileForm(p => ({ ...p, personal_phone: e.target.value }))} /></div>
                       <div className="sm:col-span-2"><FieldLabel>Personal Email</FieldLabel><input type="email" className={inputCls} value={profileForm.personal_email} onChange={e => setProfileForm(p => ({ ...p, personal_email: e.target.value }))} /></div>
-                      <div className="sm:col-span-2"><FieldLabel>Address</FieldLabel><textarea rows={2} className={textareaCls} value={profileForm.address} onChange={e => setProfileForm(p => ({ ...p, address: e.target.value }))} /></div>
-                      <div className="sm:col-span-2"><FieldLabel>Internal Notes</FieldLabel><textarea rows={2} className={textareaCls} value={profileForm.notes} onChange={e => setProfileForm(p => ({ ...p, notes: e.target.value }))} /></div>
+                      <div className="sm:col-span-2"><FieldLabel>Address</FieldLabel><textarea rows={2} className={textareaCls} value={profileForm.address} onChange={e => setProfileForm(p => ({ ...p, address: e.target.value.toUpperCase() }))} /></div>
+                      <div className="sm:col-span-2"><FieldLabel>Internal Notes</FieldLabel><textarea rows={2} className={textareaCls} value={profileForm.notes} onChange={e => setProfileForm(p => ({ ...p, notes: e.target.value.toUpperCase() }))} /></div>
                       <div className="sm:col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                         <p className="text-[11px] font-bold text-zinc-400 uppercase mb-3">Emergency contact</p>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          <div><FieldLabel>Name</FieldLabel><input className={inputCls} value={profileForm.emergency_contact_name} onChange={e => setProfileForm(p => ({ ...p, emergency_contact_name: e.target.value }))} /></div>
+                          <div><FieldLabel>Name</FieldLabel><input className={inputCls} value={profileForm.emergency_contact_name} onChange={e => setProfileForm(p => ({ ...p, emergency_contact_name: e.target.value.toUpperCase() }))} /></div>
                           <div><FieldLabel>Phone</FieldLabel><input className={inputCls} value={profileForm.emergency_contact_phone} onChange={e => setProfileForm(p => ({ ...p, emergency_contact_phone: e.target.value }))} /></div>
-                          <div><FieldLabel>Relationship</FieldLabel><input className={inputCls} value={profileForm.emergency_contact_relationship} onChange={e => setProfileForm(p => ({ ...p, emergency_contact_relationship: e.target.value }))} /></div>
+                          <div><FieldLabel>Relationship</FieldLabel><input className={inputCls} value={profileForm.emergency_contact_relationship} onChange={e => setProfileForm(p => ({ ...p, emergency_contact_relationship: e.target.value.toUpperCase() }))} /></div>
                         </div>
                       </div>
                     </div>
@@ -843,8 +843,8 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       <div className="sm:col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                         <p className="text-[11px] font-bold text-zinc-400 uppercase mb-3">Financial</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div><FieldLabel>Account Number</FieldLabel><input className={inputCls} value={scheduleForm.account_number} onChange={e => setScheduleForm(p => ({ ...p, account_number: e.target.value }))} /></div>
-                          <div><FieldLabel>Bank Name</FieldLabel><input className={inputCls} value={scheduleForm.bank_name} onChange={e => setScheduleForm(p => ({ ...p, bank_name: e.target.value }))} /></div>
+                          <div><FieldLabel>Account Number</FieldLabel><input className={inputCls} value={scheduleForm.account_number} onChange={e => setScheduleForm(p => ({ ...p, account_number: e.target.value.toUpperCase() }))} /></div>
+                          <div><FieldLabel>Bank Name</FieldLabel><input className={inputCls} value={scheduleForm.bank_name} onChange={e => setScheduleForm(p => ({ ...p, bank_name: e.target.value.toUpperCase() }))} /></div>
                         </div>
                       </div>
                       <div className="sm:col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-3">

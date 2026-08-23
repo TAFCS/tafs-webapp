@@ -134,7 +134,7 @@ export default function FeeHeadsReportPage() {
     user?.permissions?.includes("system.analytics.view");
   const canFinalizeAnalytics =
     user?.role === "SUPER_ADMIN" ||
-    user?.permissions?.includes("system.analytics.finalize");
+    (user?.permissions?.includes("system.analytics.finalize") ?? false);
   const month = currentMonthRange();
   const campusLocked = user?.campusId != null;
 

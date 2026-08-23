@@ -25,27 +25,20 @@ import { employeeCodePartsFromProfile, isLegacyEmployeeCode } from "@/lib/employ
 
 const PORTAL_PASSWORD_MIN = 6;
 
-/** Builds a "name1.name2.name3" username from a full name — never the legacy "name@tafs.com" form. */
-function generateUniqueUsername(fullName: string, existingUsernames: Set<string>): string {
-  const parts = fullName
+/** name1.name2.name3 token parts from a full name — never the legacy "name@tafs.com" form. */
+function usernamePartsFromFullName(fullName: string): string[] {
+  return fullName
     .trim()
     .split(/\s+/)
     .map((p) => p.toLowerCase().replace(/[^a-z0-9]/g, ""))
     .filter(Boolean);
+}
 
-  const base = parts.length > 0 ? parts.join(".") : "user";
-
-  if (!existingUsernames.has(base.toLowerCase())) {
-    return base;
-  }
-
-  let counter = 2;
-  let candidate = `${base}${counter}`;
-  while (existingUsernames.has(candidate.toLowerCase())) {
-    counter++;
-    candidate = `${base}${counter}`;
-  }
-  return candidate;
+async function checkUsernameAvailable(username: string): Promise<boolean> {
+  const { data } = await api.get<{ data: { available: boolean } }>("/v1/users/check-username", {
+    params: { username },
+  });
+  return data.data.available;
 }
 
 const PASSWORD_CHAR_SETS = {
@@ -473,7 +466,6 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [allClasses, setAllClasses] = useState<OfferedClass[]>([]);
   const [allSections, setAllSections] = useState<SectionInfo[]>([]);
-  const [existingUsernames, setExistingUsernames] = useState<Set<string>>(new Set());
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -486,6 +478,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const [portalUsername, setPortalUsername] = useState("");
   const [portalPassword, setPortalPassword] = useState("");
   const [usernameTouched, setUsernameTouched] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const usernameCheckSeq = useRef(0);
   const [showPortalPassword, setShowPortalPassword] = useState(false);
   const [passwordCopied, setPasswordCopied] = useState(false);
   const [managerLabel, setManagerLabel] = useState("");
@@ -539,27 +533,18 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
 
   // ── Load reference data ───────────────────────────────────────────────────
   const loadLookups = useCallback(async () => {
-    const [deptData, segmentData, campusData, classData, sectionData, usersRes] = await Promise.all([
+    const [deptData, segmentData, campusData, classData, sectionData] = await Promise.all([
       hrService.listDepartments(),
       hrService.listSegments(),
       campusesService.list(),
       campusesService.listAllClasses(),
       campusesService.listAllSections(),
-      api.get<{ data: { username: string }[] }>('/v1/users').catch(() => ({ data: { data: [] } })),
     ]);
     setDepartments(deptData);
     setSegments(segmentData);
     setCampuses(campusData);
     setAllClasses(classData as unknown as OfferedClass[]);
     setAllSections(sectionData);
-
-    const usernameSet = new Set<string>();
-    if (usersRes.data?.data) {
-      usersRes.data.data.forEach((u) => {
-        if (u.username) usernameSet.add(u.username.toLowerCase());
-      });
-    }
-    setExistingUsernames(usernameSet);
   }, []);
 
   // ── Load employee for edit mode ───────────────────────────────────────────
@@ -684,16 +669,82 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     init();
   }, [isEdit, employeeId, loadLookups, loadEmployee]);
 
-  // Suggest a "name1.name2.name3" portal username from the full name until the admin manually edits it
+  // Suggest a "name1.name2.name3" portal username from the full name until the admin manually edits it.
+  // Checked live against the backend: base name -> base with father's name inserted as a
+  // disambiguating middle token -> base with a trailing number (firstname.lastname2, ...3, ...).
   useEffect(() => {
     if (!needsPortalAccount || usernameTouched) return;
     if (!formData.full_name.trim()) {
       setPortalUsername("");
+      setUsernameStatus("idle");
       return;
     }
-    const suggested = generateUniqueUsername(formData.full_name, existingUsernames);
-    setPortalUsername(suggested);
-  }, [formData.full_name, needsPortalAccount, usernameTouched, existingUsernames]);
+
+    const seq = ++usernameCheckSeq.current;
+    setUsernameStatus("checking");
+
+    const timer = setTimeout(async () => {
+      const nameParts = usernamePartsFromFullName(formData.full_name);
+      const base = nameParts.length > 0 ? nameParts.join(".") : "user";
+
+      const candidates: string[] = [base];
+      if (nameParts.length === 2) {
+        const fatherToken = usernamePartsFromFullName(formData.father_name)[0];
+        if (fatherToken && fatherToken !== nameParts[0] && fatherToken !== nameParts[1]) {
+          candidates.push(`${nameParts[0]}.${fatherToken}.${nameParts[1]}`);
+        }
+      }
+
+      let resolved: string | null = null;
+      try {
+        for (const candidate of candidates) {
+          if (seq !== usernameCheckSeq.current) return;
+          if (await checkUsernameAvailable(candidate)) { resolved = candidate; break; }
+        }
+        if (!resolved) {
+          for (let n = 2; n <= 50; n++) {
+            if (seq !== usernameCheckSeq.current) return;
+            const candidate = `${base}${n}`;
+            if (await checkUsernameAvailable(candidate)) { resolved = candidate; break; }
+          }
+        }
+      } catch {
+        // Network hiccup — fall back to the plain base guess rather than blocking registration.
+      }
+
+      if (seq !== usernameCheckSeq.current) return;
+      setPortalUsername(resolved ?? base);
+      setUsernameStatus(resolved ? "available" : "idle");
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [formData.full_name, formData.father_name, needsPortalAccount, usernameTouched]);
+
+  // Live-check availability while the admin manually edits the username
+  useEffect(() => {
+    if (!needsPortalAccount || !usernameTouched) return;
+    const trimmed = portalUsername.trim();
+    if (!trimmed) {
+      setUsernameStatus("idle");
+      return;
+    }
+
+    const seq = ++usernameCheckSeq.current;
+    setUsernameStatus("checking");
+
+    const timer = setTimeout(async () => {
+      try {
+        const available = await checkUsernameAvailable(trimmed);
+        if (seq !== usernameCheckSeq.current) return;
+        setUsernameStatus(available ? "available" : "taken");
+      } catch {
+        if (seq !== usernameCheckSeq.current) return;
+        setUsernameStatus("idle");
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [portalUsername, usernameTouched, needsPortalAccount]);
 
   // Auto-generate the portal password once, as soon as the account section becomes relevant
   useEffect(() => {
@@ -766,6 +817,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       if (/@tafs\.com$/i.test(portalUsername.trim())) {
         return 'Portal username may not use the "@tafs.com" format — use a "name1.name2.name3" style username.';
       }
+      if (usernameStatus === "checking") return "Still checking username availability — please wait a moment.";
+      if (usernameStatus === "taken") return "That username is already taken — choose a different one.";
       if (portalPassword.length < PORTAL_PASSWORD_MIN) {
         return `Portal password must be at least ${PORTAL_PASSWORD_MIN} characters.`;
       }
@@ -834,26 +887,43 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     setError(null);
     setSuccess(null);
     let createdUsername: string | null = null;
+    // Set only when the login was created by its own request and could be left
+    // orphaned if the employee write then fails — never for the transactional create.
+    let strandedUsername: string | null = null;
     try {
       const payload = buildPayload();
       let activeEmpId: number;
 
       if (needsPortalAccount) {
-        try {
-          const { data } = await api.post<{ data: { id: string } }>("/v1/users", {
+        if (isEdit) {
+          // The profile already exists, so the login has to be created separately.
+          try {
+            const { data } = await api.post<{ data: { id: string } }>("/v1/users", {
+              username: portalUsername.trim(),
+              full_name: formData.full_name.trim(),
+              password: portalPassword,
+              role: "EMPLOYEE",
+              campus_id: formData.campus_id || undefined,
+            });
+            payload.user_id = data.data.id;
+            createdUsername = portalUsername.trim();
+            strandedUsername = createdUsername;
+          } catch (userErr: any) {
+            const msg = userErr.response?.data?.message || "Failed to create portal account.";
+            setError(Array.isArray(msg) ? msg.join(", ") : msg);
+            setSaving(false);
+            return;
+          }
+        } else {
+          // Registration creates profile + login in one transaction, so a rejected
+          // profile (duplicate CNIC, bad code) rolls the username back for the retry.
+          payload.portal_account = {
             username: portalUsername.trim(),
-            full_name: formData.full_name.trim(),
             password: portalPassword,
             role: "EMPLOYEE",
-            campus_id: formData.campus_id || undefined,
-          });
-          payload.user_id = data.data.id;
+            campus_id: formData.campus_id ? parseInt(formData.campus_id, 10) : undefined,
+          };
           createdUsername = portalUsername.trim();
-        } catch (userErr: any) {
-          const msg = userErr.response?.data?.message || "Failed to create portal account.";
-          setError(Array.isArray(msg) ? msg.join(", ") : msg);
-          setSaving(false);
-          return;
         }
       }
 
@@ -907,8 +977,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       const base = err.response?.data?.message || "Failed to save employee profile.";
       const msg = Array.isArray(base) ? base.join(", ") : base;
       setError(
-        createdUsername
-          ? `${msg} Portal username "${createdUsername}" was already created — link or remove it in System → Users.`
+        strandedUsername
+          ? `${msg} Portal username "${strandedUsername}" was already created — link or remove it in System → Users.`
           : msg,
       );
     } finally {
@@ -1194,7 +1264,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     placeholder="e.g. Muhammad Ahmed Khan"
                     className={inputCls}
                     value={formData.full_name}
-                    onChange={e => setFormData(p => ({ ...p, full_name: e.target.value }))}
+                    onChange={e => setFormData(p => ({ ...p, full_name: e.target.value.toUpperCase() }))}
                   />
                 </div>
                 {/* Father Name */}
@@ -1205,7 +1275,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     placeholder="Father's full name"
                     className={inputCls}
                     value={formData.father_name}
-                    onChange={e => setFormData(p => ({ ...p, father_name: e.target.value }))}
+                    onChange={e => setFormData(p => ({ ...p, father_name: e.target.value.toUpperCase() }))}
                   />
                 </div>
                 {/* Father CNIC */}
@@ -1230,7 +1300,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     placeholder="Mother's full name"
                     className={inputCls}
                     value={formData.mother_name}
-                    onChange={e => setFormData(p => ({ ...p, mother_name: e.target.value }))}
+                    onChange={e => setFormData(p => ({ ...p, mother_name: e.target.value.toUpperCase() }))}
                   />
                 </div>
                 {/* Mother CNIC */}
@@ -1314,7 +1384,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     placeholder="Full residential address"
                     className={textareaCls}
                     value={formData.address}
-                    onChange={e => setFormData(p => ({ ...p, address: e.target.value }))}
+                    onChange={e => setFormData(p => ({ ...p, address: e.target.value.toUpperCase() }))}
                   />
                 </div>
 
@@ -1347,7 +1417,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                           placeholder="Spouse's full name"
                           className={inputCls}
                           value={formData.spouse_name}
-                          onChange={e => setFormData(p => ({ ...p, spouse_name: e.target.value }))}
+                          onChange={e => setFormData(p => ({ ...p, spouse_name: e.target.value.toUpperCase() }))}
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -1375,7 +1445,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     <div className="space-y-1.5">
                       <FieldLabel>Contact Name</FieldLabel>
                       <input type="text" className={inputCls} value={formData.emergency_contact_name}
-                        onChange={e => setFormData(p => ({ ...p, emergency_contact_name: e.target.value }))} />
+                        onChange={e => setFormData(p => ({ ...p, emergency_contact_name: e.target.value.toUpperCase() }))} />
                     </div>
                     <div className="space-y-1.5">
                       <FieldLabel>Contact Phone</FieldLabel>
@@ -1391,7 +1461,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     <div className="space-y-1.5">
                       <FieldLabel>Relationship</FieldLabel>
                       <input type="text" placeholder="e.g. Spouse, Parent" className={inputCls} value={formData.emergency_contact_relationship}
-                        onChange={e => setFormData(p => ({ ...p, emergency_contact_relationship: e.target.value }))} />
+                        onChange={e => setFormData(p => ({ ...p, emergency_contact_relationship: e.target.value.toUpperCase() }))} />
                     </div>
                   </div>
                 </div>
@@ -1532,7 +1602,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     placeholder="PKXX..."
                     className={inputCls}
                     value={formData.account_number}
-                    onChange={e => setFormData(p => ({ ...p, account_number: e.target.value }))}
+                    onChange={e => setFormData(p => ({ ...p, account_number: e.target.value.toUpperCase() }))}
                   />
                 </div>
                 {/* Bank Name */}
@@ -1543,7 +1613,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     placeholder="e.g. Meezan Bank, HBL"
                     className={inputCls}
                     value={formData.bank_name}
-                    onChange={e => setFormData(p => ({ ...p, bank_name: e.target.value }))}
+                    onChange={e => setFormData(p => ({ ...p, bank_name: e.target.value.toUpperCase() }))}
                   />
                 </div>
               </div>
@@ -1605,20 +1675,34 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5 sm:col-span-2">
                     <FieldLabel required>Username</FieldLabel>
-                    <input
-                      type="text"
-                      required
-                      autoComplete="off"
-                      placeholder="e.g. muhammad.ali.khan"
-                      className={inputCls}
-                      value={portalUsername}
-                      onChange={(e) => {
-                        setUsernameTouched(true);
-                        setPortalUsername(e.target.value);
-                      }}
-                    />
-                    <p className="text-[11px] text-zinc-400">
-                      Auto-generated as name1.name2.name3 from the full name above — edit only if it collides with an existing account.
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        autoComplete="off"
+                        placeholder="e.g. muhammad.ali.khan"
+                        className={`${inputCls} pr-9`}
+                        value={portalUsername}
+                        onChange={(e) => {
+                          setUsernameTouched(true);
+                          setPortalUsername(e.target.value.toLowerCase());
+                        }}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {usernameStatus === "checking" && <Loader2 className="h-4 w-4 text-zinc-400 animate-spin" />}
+                        {usernameStatus === "available" && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                        {usernameStatus === "taken" && <AlertCircle className="h-4 w-4 text-rose-500" />}
+                      </span>
+                    </div>
+                    <p className={`text-[11px] ${
+                      usernameStatus === "taken" ? "text-rose-500 font-semibold"
+                      : usernameStatus === "available" ? "text-emerald-600"
+                      : "text-zinc-400"
+                    }`}>
+                      {usernameStatus === "checking" && "Checking availability…"}
+                      {usernameStatus === "taken" && "Already taken — try a different username."}
+                      {usernameStatus === "available" && "Available."}
+                      {usernameStatus === "idle" && "Auto-generated as name1.name2.name3 from the full name above — edit only if it collides with an existing account."}
                     </p>
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">

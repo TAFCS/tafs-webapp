@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2, Save, CheckCircle2, KeyRound, Eye, EyeOff, Copy, UserCog } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Loader2, Save, CheckCircle2, KeyRound, Eye, EyeOff, Copy, UserCog, AlertCircle } from "lucide-react";
 import { hrService, EmployeeProfile } from "@/lib/hr.service";
 import { Campus, campusesService } from "@/lib/campuses.service";
 import { CLASS_BANDS } from "@/lib/class-bands";
 import { useAuthState } from "@/context/AuthContext";
+import api from "@/lib/api";
 
 const ALL_STAFF_ROLES = [
   "SUPER_ADMIN",
@@ -57,6 +58,13 @@ function generateSecurePassword(length = 10): string {
   return chars.join("");
 }
 
+async function checkUsernameAvailable(username: string): Promise<boolean> {
+  const { data } = await api.get<{ data: { available: boolean } }>("/v1/users/check-username", {
+    params: { username },
+  });
+  return data.data.available;
+}
+
 interface Props {
   employee: EmployeeProfile;
   onUpdated: () => void;
@@ -75,6 +83,8 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
   const [usernameEditing, setUsernameEditing] = useState(false);
   const [usernameDraft, setUsernameDraft] = useState("");
   const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const usernameCheckSeq = useRef(0);
   const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
   const [revealError, setRevealError] = useState<string | null>(null);
@@ -112,9 +122,36 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
     setSelectedBand(band?.label ?? "");
     setUsernameDraft(user.username ?? "");
     setUsernameEditing(false);
+    setUsernameStatus("idle");
     setRevealedPassword(null);
     setRevealError(null);
   }, [user]);
+
+  // Live-check availability while editing the username (skip if unchanged from the current one)
+  useEffect(() => {
+    if (!usernameEditing) return;
+    const trimmed = usernameDraft.trim();
+    if (!trimmed || trimmed === user?.username) {
+      setUsernameStatus("idle");
+      return;
+    }
+
+    const seq = ++usernameCheckSeq.current;
+    setUsernameStatus("checking");
+
+    const timer = setTimeout(async () => {
+      try {
+        const available = await checkUsernameAvailable(trimmed);
+        if (seq !== usernameCheckSeq.current) return;
+        setUsernameStatus(available ? "available" : "taken");
+      } catch {
+        if (seq !== usernameCheckSeq.current) return;
+        setUsernameStatus("idle");
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [usernameDraft, usernameEditing, user?.username]);
 
   if (!user) {
     return (
@@ -169,6 +206,14 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
     }
     if (next === user?.username) {
       setUsernameEditing(false);
+      return;
+    }
+    if (usernameStatus === "checking") {
+      setError("Still checking username availability — please wait a moment.");
+      return;
+    }
+    if (usernameStatus === "taken") {
+      setError("That username is already taken — choose a different one.");
       return;
     }
     setUsernameSaving(true);
@@ -255,22 +300,34 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
           <div>
             <FieldLabel>Username</FieldLabel>
             {usernameEditing ? (
-              <div className="flex items-center gap-2">
-                <input
-                  className={inputCls}
-                  value={usernameDraft}
-                  onChange={(e) => setUsernameDraft(e.target.value)}
-                  autoComplete="off"
-                  placeholder="name1.name2.name3"
-                />
-                <button type="button" onClick={handleSaveUsername} disabled={usernameSaving}
-                  className="h-10 px-3 shrink-0 rounded-xl bg-primary text-white text-xs font-bold disabled:opacity-50">
-                  {usernameSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                </button>
-                <button type="button" onClick={() => { setUsernameEditing(false); setUsernameDraft(user.username ?? ""); }}
-                  className="h-10 px-3 shrink-0 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-600 dark:text-zinc-300">
-                  Cancel
-                </button>
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      className={`${inputCls} pr-9`}
+                      value={usernameDraft}
+                      onChange={(e) => setUsernameDraft(e.target.value.toLowerCase())}
+                      autoComplete="off"
+                      placeholder="name1.name2.name3"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                      {usernameStatus === "checking" && <Loader2 className="h-4 w-4 text-zinc-400 animate-spin" />}
+                      {usernameStatus === "available" && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                      {usernameStatus === "taken" && <AlertCircle className="h-4 w-4 text-rose-500" />}
+                    </span>
+                  </div>
+                  <button type="button" onClick={handleSaveUsername} disabled={usernameSaving || usernameStatus === "checking" || usernameStatus === "taken"}
+                    className="h-10 px-3 shrink-0 rounded-xl bg-primary text-white text-xs font-bold disabled:opacity-50">
+                    {usernameSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                  </button>
+                  <button type="button" onClick={() => { setUsernameEditing(false); setUsernameDraft(user.username ?? ""); }}
+                    className="h-10 px-3 shrink-0 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-600 dark:text-zinc-300">
+                    Cancel
+                  </button>
+                </div>
+                {usernameStatus === "taken" && (
+                  <p className="text-[11px] text-rose-500 font-semibold mt-1">Already taken — try a different username.</p>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2">

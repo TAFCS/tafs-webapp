@@ -217,6 +217,16 @@ export interface EmployeeCreatePayload {
   emergency_contact_phone?: string | null;
   emergency_contact_relationship?: string | null;
   class_section_assignments?: { class_id: number; section_id: number }[];
+  /**
+   * Create the portal login together with the profile. The backend does both in one
+   * transaction, so a rejected profile no longer leaves the username burned behind it.
+   */
+  portal_account?: {
+    username: string;
+    password: string;
+    role?: string;
+    campus_id?: number;
+  };
 }
 
 export interface EmployeeAccountUpdatePayload {
