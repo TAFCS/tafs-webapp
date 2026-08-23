@@ -4,9 +4,9 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
-  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers,
+  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers, BadgeCheck,
 } from "lucide-react";
-import { hrService, EmployeeProfile, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, employeeStatusBadgeClass } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, EmployeeStatus, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, employeeStatusBadgeClass } from "@/lib/hr.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
 
@@ -128,6 +128,8 @@ function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClic
   );
 }
 
+const STATUS_OPTIONS: { id: EmployeeStatus; label: string }[] = EMPLOYEE_STATUS_OPTIONS.map((o) => ({ id: o.value, label: o.label }));
+
 const AUDIT_OPTIONS = [
   { value: "missing_cnic", label: "Missing CNIC" },
   { value: "missing_doj", label: "Missing Date of Joining" },
@@ -176,7 +178,7 @@ function EmployeesContent() {
   const [campusIds, setCampusIds] = useState<number[]>([]);
   const [departmentIds, setDepartmentIds] = useState<number[]>([]);
   const [categoryIds, setCategoryIds] = useState<number[]>([]);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statuses, setStatuses] = useState<EmployeeStatus[]>([]);
   const [auditFilter, setAuditFilter] = useState("");
 
   const handleExportExcel = async () => {
@@ -249,7 +251,7 @@ function EmployeesContent() {
       if (campusIds.length > 0 && (empCampusId == null || !campusIds.includes(empCampusId))) return false;
       if (departmentIds.length > 0 && (empDeptId == null || !departmentIds.includes(empDeptId))) return false;
       if (categoryIds.length > 0 && (empCatId == null || !categoryIds.includes(empCatId))) return false;
-      if (statusFilter && (emp.employment_status ?? "ACTIVE") !== statusFilter) return false;
+      if (statuses.length > 0 && !statuses.includes(emp.employment_status ?? "ACTIVE")) return false;
 
       if (q) {
         const name = (emp.full_name || emp.users?.full_name || "").toLowerCase();
@@ -278,7 +280,7 @@ function EmployeesContent() {
       }
       return true;
     });
-  }, [employees, search, campusIds, departmentIds, categoryIds, statusFilter, auditFilter]);
+  }, [employees, search, campusIds, departmentIds, categoryIds, statuses, auditFilter]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -378,17 +380,23 @@ function EmployeesContent() {
             onClear={() => setCategoryIds([])}
           />
         </div>
-        <FilterSelect
-          label="ALL STATUSES"
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={EMPLOYEE_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-        />
+        <div className="w-[180px]">
+          <FilterDropdown
+            label="Status"
+            icon={BadgeCheck}
+            value={statuses}
+            options={STATUS_OPTIONS}
+            placeholder="All Statuses"
+            onToggle={(id) => setStatuses((prev) => toggleId(prev, id))}
+            onClear={() => setStatuses([])}
+            onSetValue={(ids) => setStatuses(ids)}
+          />
+        </div>
         <FilterSelect label="Data Audit" value={auditFilter} onChange={setAuditFilter} options={AUDIT_OPTIONS} icon={<SlidersHorizontal className="h-3.5 w-3.5" />} />
 
-        {(search || campusIds.length > 0 || departmentIds.length > 0 || categoryIds.length > 0 || statusFilter || auditFilter) && (
+        {(search || campusIds.length > 0 || departmentIds.length > 0 || categoryIds.length > 0 || statuses.length > 0 || auditFilter) && (
           <button
-            onClick={() => { setSearch(""); setCampusIds([]); setDepartmentIds([]); setCategoryIds([]); setStatusFilter(""); setAuditFilter(""); }}
+            onClick={() => { setSearch(""); setCampusIds([]); setDepartmentIds([]); setCategoryIds([]); setStatuses([]); setAuditFilter(""); }}
             className="h-9 px-3 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
           >
             Clear Filters
