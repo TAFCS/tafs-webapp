@@ -130,11 +130,9 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const [paymentMethod, setPaymentMethod] = useState<string>("cash");
     const [referenceNumber, setReferenceNumber] = useState<string>("");
 
-    const allHeads = [...(voucher.voucher_heads || [])].sort((a, b) => {
-        const dateA = new Date(a.student_fees?.fee_date || 0).getTime();
-        const dateB = new Date(b.student_fees?.fee_date || 0).getTime();
-        return dateA - dateB;
-    });
+    // Order comes from the backend: group by fee type, groups by priority,
+    // heads within a group by target month (see normalizeVoucher / voucher-head-order.util.ts).
+    const allHeads = voucher.voucher_heads || [];
 
     // Discount heads have is_discount=true and net_amount<0 — separate them so they
     // are displayed as deductions and never included in deposit distribution.
