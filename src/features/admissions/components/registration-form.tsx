@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X, Plus, GraduationCap, BookOpen, ShieldCheck, Star, Award, BookText, Trash2, History } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, CheckCircle, AlertCircle, Loader2, CreditCard, Calendar, Eye, Camera, X, Plus, GraduationCap, BookOpen, ShieldCheck, Star, Award, BookText, Trash2, History, Play } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/src/store/store";
@@ -16,6 +16,13 @@ import { GRADE_NAME_TO_CODE, isClassOffered, resolveClassIdFromGrade } from "@/l
 import { QuickAdmissionsPopup } from "./quick-admissions-popup";
 import { CountryCodeSelect } from "@/components/inputs/CountryCodeSelect";
 import toast from "react-hot-toast";
+import { VideoDemoModal } from "@/components/VideoDemoModal";
+
+const DEFAULT_REGISTRATION_DEMO_VIDEO_URL =
+    "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/registration-form/registration-form-demo.mp4";
+
+const registrationDemoVideoUrl =
+    process.env.NEXT_PUBLIC_REGISTRATION_FORM_DEMO_VIDEO_URL?.trim() || DEFAULT_REGISTRATION_DEMO_VIDEO_URL;
 
 const isNA = (v: any) => v === "N/A" || v === "021-N/A";
 
@@ -875,6 +882,7 @@ export function RegistrationForm() {
 
     // Delete-in-place option for a pending Quick Admission record being completed here.
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isDemoOpen, setIsDemoOpen] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState("");
     const [isDeletingRecord, setIsDeletingRecord] = useState(false);
 
@@ -1373,6 +1381,17 @@ export function RegistrationForm() {
     }
 
     return (
+        <>
+        <div className="flex items-start justify-end gap-4 flex-wrap max-w-5xl mx-auto mb-4">
+            <button
+                type="button"
+                onClick={() => setIsDemoOpen(true)}
+                className="flex items-center gap-1.5 px-4 h-9 text-[11px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors shrink-0 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            >
+                <Play className="h-3.5 w-3.5" />
+                DEMO
+            </button>
+        </div>
         <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row max-w-5xl mx-auto">
 
             {/* Left Sidebar - Administrative Data */}
@@ -3173,6 +3192,14 @@ export function RegistrationForm() {
                     </div>
                 </div>
             )}
-        </div >
+
+            <VideoDemoModal
+                isOpen={isDemoOpen}
+                onClose={() => setIsDemoOpen(false)}
+                videoUrl={registrationDemoVideoUrl}
+                title="Registration Form Demo"
+            />
+        </div>
+        </>
     );
 }
