@@ -42,3 +42,6 @@ next-env.d.ts
 
 # cursor plans
 .cursor/plans
+
+# local demo video artifacts (hosted on DO Spaces CDN)
+/public/demos/

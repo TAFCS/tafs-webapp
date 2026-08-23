@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Download, Loader2, CheckCircle2, Camera, Fingerprint, Receipt } from "lucide-react";
+import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Download, Loader2, CheckCircle2, Camera, Fingerprint, Receipt, Play } from "lucide-react";
 import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
@@ -12,6 +12,9 @@ import Image from "next/image";
 import { StudentDetailPanel } from "./tabs/StudentDetailPanel";
 import toast from "react-hot-toast";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { VideoDemoModal } from "@/components/VideoDemoModal";
+
+const demoVideoUrl = process.env.NEXT_PUBLIC_STUDENT_DIRECTORY_DEMO_VIDEO_URL?.trim() || "";
 
 // ── Column Configuration for Excel Export ──────────────────────────────────
 interface ColumnOption {
@@ -401,6 +404,7 @@ function DirectoryContent() {
     const [hadQuickAdmission, setHadQuickAdmission] = useState(false);
     const [page, setPage]             = useState(1);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [isDemoOpen, setIsDemoOpen] = useState(false);
 
     useEffect(() => {
         const cc = searchParams.get("cc");
@@ -539,6 +543,16 @@ function DirectoryContent() {
                         {meta ? <span><strong className="text-zinc-700">{meta.total.toLocaleString()}</strong> students found</span> : "Search and manage all students"}
                     </p>
                 </div>
+                {demoVideoUrl && (
+                    <button
+                        type="button"
+                        onClick={() => setIsDemoOpen(true)}
+                        className="flex items-center gap-1.5 px-4 h-9 text-[11px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors shrink-0"
+                    >
+                        <Play className="h-3.5 w-3.5" />
+                        DEMO
+                    </button>
+                )}
             </div>
 
             {/* Search + Filters */}
@@ -764,6 +778,15 @@ function DirectoryContent() {
                 onExport={handleExportExcel}
                 isExporting={isExporting}
             />
+
+            {demoVideoUrl && (
+                <VideoDemoModal
+                    isOpen={isDemoOpen}
+                    onClose={() => setIsDemoOpen(false)}
+                    videoUrl={demoVideoUrl}
+                    title="Student Directory Demo"
+                />
+            )}
         </div>
     );
 }
