@@ -14,7 +14,7 @@ export function BottomNav() {
         { name: "Identity", href: "/identity", icon: Users },
         { name: "Campuses", href: "/campuses", icon: Building2 },
         { name: "Families", href: "/families", icon: Home },
-        { name: "Reports", href: "/financial-reports/fee-heads", icon: BarChart3 },
+        { name: "Reports", href: "/financial-reports", icon: BarChart3 },
     ];
 
     if (user?.role === "STAFF_EDITOR") {
