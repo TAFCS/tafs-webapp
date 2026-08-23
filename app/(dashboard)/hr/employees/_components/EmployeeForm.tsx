@@ -887,26 +887,43 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     setError(null);
     setSuccess(null);
     let createdUsername: string | null = null;
+    // Set only when the login was created by its own request and could be left
+    // orphaned if the employee write then fails — never for the transactional create.
+    let strandedUsername: string | null = null;
     try {
       const payload = buildPayload();
       let activeEmpId: number;
 
       if (needsPortalAccount) {
-        try {
-          const { data } = await api.post<{ data: { id: string } }>("/v1/users", {
+        if (isEdit) {
+          // The profile already exists, so the login has to be created separately.
+          try {
+            const { data } = await api.post<{ data: { id: string } }>("/v1/users", {
+              username: portalUsername.trim(),
+              full_name: formData.full_name.trim(),
+              password: portalPassword,
+              role: "EMPLOYEE",
+              campus_id: formData.campus_id || undefined,
+            });
+            payload.user_id = data.data.id;
+            createdUsername = portalUsername.trim();
+            strandedUsername = createdUsername;
+          } catch (userErr: any) {
+            const msg = userErr.response?.data?.message || "Failed to create portal account.";
+            setError(Array.isArray(msg) ? msg.join(", ") : msg);
+            setSaving(false);
+            return;
+          }
+        } else {
+          // Registration creates profile + login in one transaction, so a rejected
+          // profile (duplicate CNIC, bad code) rolls the username back for the retry.
+          payload.portal_account = {
             username: portalUsername.trim(),
-            full_name: formData.full_name.trim(),
             password: portalPassword,
             role: "EMPLOYEE",
-            campus_id: formData.campus_id || undefined,
-          });
-          payload.user_id = data.data.id;
+            campus_id: formData.campus_id ? parseInt(formData.campus_id, 10) : undefined,
+          };
           createdUsername = portalUsername.trim();
-        } catch (userErr: any) {
-          const msg = userErr.response?.data?.message || "Failed to create portal account.";
-          setError(Array.isArray(msg) ? msg.join(", ") : msg);
-          setSaving(false);
-          return;
         }
       }
 
@@ -960,8 +977,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       const base = err.response?.data?.message || "Failed to save employee profile.";
       const msg = Array.isArray(base) ? base.join(", ") : base;
       setError(
-        createdUsername
-          ? `${msg} Portal username "${createdUsername}" was already created — link or remove it in System → Users.`
+        strandedUsername
+          ? `${msg} Portal username "${strandedUsername}" was already created — link or remove it in System → Users.`
           : msg,
       );
     } finally {
