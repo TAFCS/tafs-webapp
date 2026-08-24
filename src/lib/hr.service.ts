@@ -457,6 +457,12 @@ export interface PayrollRunLine extends AttendanceLineBase {
   break_deduction: number;
   sandwich_deduction: number;
   consecutive_late_deduction: number;
+  eobi_deduction?: number;
+  income_tax_deduction?: number;
+  /** Employer-side cost, internal bookkeeping only — never shown to the employee. */
+  eobi_employer_cost?: number;
+  /** Employer-side cost, internal bookkeeping only — never shown to the employee. */
+  sessi_employer_cost?: number;
   total_deductions: number;
   net_pay: number;
   disbursed_at?: string | null;
