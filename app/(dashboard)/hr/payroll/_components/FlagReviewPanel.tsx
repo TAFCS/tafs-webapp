@@ -36,9 +36,12 @@ export function FlagReviewPanel({ run, lines, onDecided }: Props) {
   const [decidingKey, setDecidingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const rows = lines.flatMap((line) =>
-    (line.payroll_flags ?? []).map((flag) => ({ line, flag })),
-  );
+  // Once an employee's line is finalized, their flag decisions are locked in
+  // too — the backend now rejects decidePayrollFlag for a finalized line, so
+  // don't even offer the buttons here.
+  const rows = lines
+    .filter((line) => line.line_status === "PENDING")
+    .flatMap((line) => (line.payroll_flags ?? []).map((flag) => ({ line, flag })));
   if (rows.length === 0) return null;
 
   const pendingCount = rows.filter((r) => r.flag.status === "PENDING").length;

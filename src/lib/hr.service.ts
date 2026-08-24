@@ -462,9 +462,15 @@ export interface PayrollRunLine extends AttendanceLineBase {
   disbursed_at?: string | null;
   disbursed_by?: string | null;
   disbursement_notes?: string | null;
+  finalized_at?: string | null;
+  finalized_by?: string | null;
+  /** Derived server-side: PENDING (open to regenerate) -> FINALIZED (locked) -> SETTLED (paid). */
+  line_status: PayrollLineStatus;
   payroll_settlements?: PayrollSettlement | null;
   payroll_flags?: PayrollFlag[];
 }
+
+export type PayrollLineStatus = 'PENDING' | 'FINALIZED' | 'SETTLED';
 
 export interface AttendanceMatrix {
   /** null when spanning every campus the caller can see (no campus_id filter applied). */
@@ -509,6 +515,8 @@ export interface PayrollRun {
   payroll_run_lines?: PayrollRunLine[];
   _count?: { payroll_run_lines: number };
   totals?: { net_pay: number | null; total_deductions: number | null; unresolved_days: number | null };
+  /** Only present on the response from finalizePayrollRun ("Finalize All"). */
+  finalize_summary?: { finalized: number; skipped: { employee_id: number; reason: string }[] };
 }
 
 export interface GeneratePayrollRunPayload {
@@ -833,6 +841,18 @@ export const hrService = {
   },
   async deletePayrollRun(id: number): Promise<void> {
     await api.delete(`/v1/hr/payroll/runs/${id}`);
+  },
+  async regeneratePayrollLine(runId: number, employeeId: number): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/regenerate`,
+    );
+    return data.data;
+  },
+  async finalizePayrollLine(runId: number, employeeId: number): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/finalize`,
+    );
+    return data.data;
   },
   async disbursePayrollLine(
     runId: number,

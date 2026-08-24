@@ -144,7 +144,7 @@ interface Props {
   onResolved?: () => void;
   /** Only present when this line belongs to a persisted payroll run — offers the "regenerate" banner. */
   regenerate?: {
-    periodEnd: string;
+    runId: number;
     onRegenerated: (run: PayrollRun) => void;
   };
 }
@@ -244,12 +244,7 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
     setRegenerating(true);
     setError(null);
     try {
-      const end = new Date(regenerate.periodEnd);
-      const updated = await hrService.generatePayrollRun({
-        campus_id: campusId,
-        year: end.getUTCFullYear(),
-        month: end.getUTCMonth() + 1,
-      });
+      const updated = await hrService.regeneratePayrollLine(regenerate.runId, line.employee_id);
       regenerate.onRegenerated(updated);
       const refreshedLine = updated.payroll_run_lines?.find(l => l.employee_id === line.employee_id);
       if (refreshedLine) {
