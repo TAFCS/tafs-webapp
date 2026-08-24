@@ -474,6 +474,26 @@ export interface AttendanceMatrix {
   lines: AttendanceLineBase[];
 }
 
+export type PayrollStatutoryRuleType = 'EOBI' | 'SESSI' | 'INCOME_TAX';
+
+export interface IncomeTaxSlab {
+  min: number;
+  max: number | null;
+  fixed_amount: number;
+  rate_percent: number;
+}
+
+export interface PayrollStatutoryRule {
+  id: number;
+  rule_type: PayrollStatutoryRuleType;
+  effective_from: string;
+  value_json: any;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PayrollRun {
   id: number;
   campus_id: number;
@@ -657,6 +677,38 @@ export const hrService = {
   },
   async deletePolicyRule(setId: number, id: number): Promise<void> {
     await api.delete(`/v1/hr/policies/${setId}/rules/${id}`);
+  },
+
+  // ── Payroll Statutory Rules API (EOBI / SESSI / Income Tax) ────────────────
+  async listPayrollStatutoryRules(ruleType?: PayrollStatutoryRuleType): Promise<PayrollStatutoryRule[]> {
+    const params = ruleType ? `?ruleType=${ruleType}` : '';
+    const { data } = await api.get<ApiEnvelope<PayrollStatutoryRule[]>>(`/v1/hr/payroll/statutory-rules${params}`);
+    return data.data;
+  },
+  async createPayrollStatutoryRule(payload: {
+    rule_type: PayrollStatutoryRuleType;
+    effective_from: string;
+    value_json: any;
+    description?: string;
+    is_active?: boolean;
+  }): Promise<PayrollStatutoryRule> {
+    const { data } = await api.post<ApiEnvelope<PayrollStatutoryRule>>('/v1/hr/payroll/statutory-rules', payload);
+    return data.data;
+  },
+  async updatePayrollStatutoryRule(
+    id: number,
+    payload: Partial<{
+      effective_from: string;
+      value_json: any;
+      description: string;
+      is_active: boolean;
+    }>,
+  ): Promise<PayrollStatutoryRule> {
+    const { data } = await api.patch<ApiEnvelope<PayrollStatutoryRule>>(`/v1/hr/payroll/statutory-rules/${id}`, payload);
+    return data.data;
+  },
+  async deletePayrollStatutoryRule(id: number): Promise<void> {
+    await api.delete(`/v1/hr/payroll/statutory-rules/${id}`);
   },
 
   async listCalendarDays(campusId?: number, appliesTo?: string, employeeId?: number): Promise<CalendarDay[]> {
