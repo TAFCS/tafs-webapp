@@ -89,6 +89,11 @@ export function FlagReviewPanel({ run, lines, onDecided }: Props) {
           const key = `${line.employee_id}-${flag.id}`;
           const deciding = decidingKey === key;
           const name = line.employee_profiles?.full_name ?? `Employee #${line.employee_id}`;
+          // Single toggle button: shows the action that would happen next,
+          // not the current state — Applied -> button reads "Exempt",
+          // Exempted/Pending -> button reads "Apply".
+          const toggleTarget = flag.status === "APPLIED" ? "EXEMPTED" : "APPLIED";
+          const isApplyAction = toggleTarget === "APPLIED";
 
           return (
             <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-3.5">
@@ -121,26 +126,22 @@ export function FlagReviewPanel({ run, lines, onDecided }: Props) {
 
               <div className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={() => decide(line.employee_id, flag.id, "APPLIED")}
+                  onClick={() => decide(line.employee_id, flag.id, toggleTarget)}
                   disabled={deciding}
                   className={`inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 ${
-                    flag.status === "APPLIED"
-                      ? "bg-rose-600 text-white"
-                      : "border border-rose-200 dark:border-rose-900/40 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                  }`}
-                >
-                  {deciding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Apply
-                </button>
-                <button
-                  onClick={() => decide(line.employee_id, flag.id, "EXEMPTED")}
-                  disabled={deciding}
-                  className={`inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 ${
-                    flag.status === "EXEMPTED"
-                      ? "bg-zinc-700 text-white dark:bg-zinc-200 dark:text-zinc-900"
+                    isApplyAction
+                      ? "border border-rose-200 dark:border-rose-900/40 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
                       : "border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900"
                   }`}
                 >
-                  {deciding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Exempt
+                  {deciding ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : isApplyAction ? (
+                    <Check className="h-3.5 w-3.5" />
+                  ) : (
+                    <X className="h-3.5 w-3.5" />
+                  )}
+                  {isApplyAction ? "Apply" : "Exempt"}
                 </button>
               </div>
             </div>
