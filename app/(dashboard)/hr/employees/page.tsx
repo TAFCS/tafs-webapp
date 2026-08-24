@@ -138,6 +138,7 @@ const AUDIT_OPTIONS = [
   { value: "missing_code", label: "No Employee Code" },
   { value: "no_device_mapping", label: "No Device Mappings" },
   { value: "no_segment", label: "No Segment (Academics)" },
+  { value: "no_fixed_times", label: "No Fixed Times (Payroll)" },
   { value: "incomplete", label: "Any Incomplete Field" },
 ];
 
@@ -151,6 +152,13 @@ function hasActiveDeviceMapping(emp: EmployeeProfile): boolean {
 /** Teaching-related staff, i.e. the whole ACADEMICS department — the only ones a missing segment is a defect for. */
 function isAcademicsDeptEmployee(emp: EmployeeProfile): boolean {
   return (emp.departments?.name || "").trim().toUpperCase() === "ACADEMICS";
+}
+
+/** Payroll only reads reporting_time/leaving_time when check_in_source is FIXED (the default);
+ *  TIMETABLE-sourced employees derive their window from teaching blocks instead. Missing either
+ *  one on a FIXED profile silently zeroes the scheduled minutes payroll divides by. */
+function hasFixedTimingGap(emp: EmployeeProfile): boolean {
+  return emp.check_in_source === "FIXED" && (!emp.reporting_time || !emp.leaving_time);
 }
 
 function EmployeesContent() {
@@ -276,6 +284,7 @@ function EmployeesContent() {
           if (!isAcademicsDeptEmployee(emp)) return false;
           if (emp.segment_id) return false;
         }
+        if (auditFilter === "no_fixed_times" && !hasFixedTimingGap(emp)) return false;
         if (auditFilter === "incomplete" && missing.length === 0) return false;
       }
       return true;

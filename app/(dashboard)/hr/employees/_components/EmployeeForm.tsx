@@ -812,6 +812,10 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     const hasLegacyCode = Boolean(formData.employee_code.trim()) && isLegacyEmployeeCode(formData.employee_code);
     if (!hasSplitCode && !hasLegacyCode) return "Employee code is required (dept + number).";
     if (!formData.monthly_pay) return "Monthly pay is required.";
+    if (formData.check_in_source === "FIXED") {
+      if (!formData.reporting_time.trim()) return "Expected check-in time is required when payroll uses fixed times.";
+      if (!formData.leaving_time.trim()) return "Expected check-out time is required when payroll uses fixed times.";
+    }
     if (needsPortalAccount) {
       if (!portalUsername.trim()) return "Portal username is required.";
       if (/@tafs\.com$/i.test(portalUsername.trim())) {
@@ -1531,9 +1535,10 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
 
                 {/* Reporting Time */}
                 <div className="space-y-1.5">
-                  <FieldLabel>Expected Check-in Time</FieldLabel>
+                  <FieldLabel required={formData.check_in_source === "FIXED"}>Expected Check-in Time</FieldLabel>
                   <input
                     type="time"
+                    required={formData.check_in_source === "FIXED"}
                     className={inputCls}
                     value={formData.reporting_time}
                     onChange={e => setFormData(p => ({ ...p, reporting_time: e.target.value }))}
@@ -1541,9 +1546,10 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                 </div>
                 {/* Leaving Time */}
                 <div className="space-y-1.5">
-                  <FieldLabel>Expected Check-out Time</FieldLabel>
+                  <FieldLabel required={formData.check_in_source === "FIXED"}>Expected Check-out Time</FieldLabel>
                   <input
                     type="time"
+                    required={formData.check_in_source === "FIXED"}
                     className={inputCls}
                     value={formData.leaving_time}
                     onChange={e => setFormData(p => ({ ...p, leaving_time: e.target.value }))}
