@@ -13,7 +13,6 @@ import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { serializeIds, toggleId } from "@/components/filters/filter-params";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
-import { getAcademicYears, getCurrentAcademicYear } from "@/lib/fee-utils";
 import { STUDENT_STATUS_OPTIONS, type YesNoFilter } from "../_components/report-filters";
 import { ReportPager } from "../_components/report-pager";
 import { downloadReportFile } from "../_components/download-report";
@@ -51,6 +50,7 @@ type SegmentOption = {
 };
 
 type MatrixColumn = {
+  year: number;
   month: number;
   label: string;
 };
@@ -132,6 +132,19 @@ const YES_NO_OPTIONS: { id: "true" | "false"; label: string }[] = [
   { id: "false", label: "No" },
 ];
 
+function currentYearMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function addMonths(yearMonth: string, delta: number): string {
+  const [y, m] = yearMonth.split("-").map(Number);
+  const total = y * 12 + (m - 1) + delta;
+  const year = Math.floor(total / 12);
+  const month = (total % 12) + 1;
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
 export default function FeeMatrixReportPage() {
   const { user } = useAuthState();
   const canViewAnalytics =
@@ -142,8 +155,8 @@ export default function FeeMatrixReportPage() {
   const campuses = useAppSelector((s) => s.campuses.items);
   const campusesLoading = useAppSelector((s) => s.campuses.isLoading);
 
-  const academicYearOptions = useMemo(() => getAcademicYears(2, 1), []);
-  const [academicYear, setAcademicYear] = useState(getCurrentAcademicYear());
+  const [toMonth, setToMonth] = useState(currentYearMonth());
+  const [fromMonth, setFromMonth] = useState(() => addMonths(currentYearMonth(), -11));
   const [campusIds, setCampusIds] = useState<number[]>(
     campusLocked && user?.campusId != null ? [user.campusId] : [],
   );
@@ -166,7 +179,6 @@ export default function FeeMatrixReportPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [columns, setColumns] = useState<MatrixColumn[]>([]);
-  const [termStartMonth, setTermStartMonth] = useState(8);
   const [items, setItems] = useState<MatrixRow[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [totals, setTotals] = useState<MatrixTotals | null>(null);
@@ -286,7 +298,8 @@ export default function FeeMatrixReportPage() {
   }, [sectionOptions]);
 
   const buildParams = useCallback(() => ({
-    academic_year: academicYear,
+    from_month: fromMonth,
+    to_month: toMonth,
     campus_id: serializeIds(campusIds),
     class_id: serializeIds(classIds),
     section_id: serializeIds(sectionIds),
@@ -297,19 +310,25 @@ export default function FeeMatrixReportPage() {
     is_complementary: isComplementary || undefined,
     status: serializeIds(statuses),
   }), [
-    academicYear, campusIds, classIds, sectionIds, segmentIds, selectedCc,
+    fromMonth, toMonth, campusIds, classIds, sectionIds, segmentIds, selectedCc,
     studentStatuses, feeEndowment, isComplementary, statuses,
   ]);
 
   useEffect(() => {
     setPage(1);
   }, [
-    academicYear, campusIds, classIds, sectionIds, segmentIds, selectedCc,
+    fromMonth, toMonth, campusIds, classIds, sectionIds, segmentIds, selectedCc,
     studentStatuses, feeEndowment, isComplementary, statuses, pageSize,
   ]);
 
+  const rangeValid = fromMonth <= toMonth;
+
   useEffect(() => {
     if (!canViewAnalytics) {
+      setIsLoading(false);
+      return;
+    }
+    if (!rangeValid) {
       setIsLoading(false);
       return;
     }
@@ -322,7 +341,6 @@ export default function FeeMatrixReportPage() {
         });
         if (cancelled) return;
         setColumns(data?.data?.columns ?? []);
-        setTermStartMonth(data?.data?.term_start_month ?? 8);
         setItems(data?.data?.items ?? []);
         setPagination(data?.data?.pagination ?? null);
         setTotals(data?.data?.totals ?? null);
@@ -338,15 +356,19 @@ export default function FeeMatrixReportPage() {
     return () => {
       cancelled = true;
     };
-  }, [buildParams, canViewAnalytics, page, pageSize]);
+  }, [buildParams, canViewAnalytics, page, pageSize, rangeValid]);
 
   const handleExport = async (format: "xlsx" | "csv") => {
+    if (!rangeValid) {
+      toast.error("From month must be on or before to month");
+      return;
+    }
     setIsExporting(format);
     try {
       await downloadReportFile(
         "/v1/financial-reports/fee-matrix/export",
         { ...buildParams(), format },
-        `fee-matrix-${academicYear}.${format}`,
+        `fee-matrix-${fromMonth}-to-${toMonth}.${format}`,
       );
     } catch (err) {
       console.error(err);
@@ -370,7 +392,9 @@ export default function FeeMatrixReportPage() {
 
   const lockedCampusName =
     campuses.find((c) => c.id === user?.campusId)?.campus_name || "Your Campus";
-  const cycleLabel = termStartMonth === 4 ? "April – March" : "August – July";
+  const rangeLabel = columns.length
+    ? `${columns[0].label} – ${columns[columns.length - 1].label}`
+    : "";
 
   return (
     <div className="space-y-6">
@@ -405,29 +429,45 @@ export default function FeeMatrixReportPage() {
         </div>
       </div>
 
-      <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 text-blue-900 rounded-2xl p-4 text-sm dark:bg-blue-950/20 dark:border-blue-900/30 dark:text-blue-200">
-        <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-        <p>
-          Cycle for {academicYear}: <strong>{cycleLabel}</strong> — classes VI-X (special term classes) run Apr-Mar, every other class runs Aug-Jul.
-          If the class filter mixes both kinds, this cycle is used for all of them. Column and grand totals cover every student matching the filters, not just the rows on this page.
-        </p>
+      <div className={`flex items-start gap-3 rounded-2xl p-4 text-sm border ${
+        rangeValid
+          ? "bg-blue-50 border-blue-100 text-blue-900 dark:bg-blue-950/20 dark:border-blue-900/30 dark:text-blue-200"
+          : "bg-rose-50 border-rose-200 text-rose-900 dark:bg-rose-950/20 dark:border-rose-900/40 dark:text-rose-200"
+      }`}>
+        <Info className="h-5 w-5 flex-shrink-0 mt-0.5" />
+        {rangeValid ? (
+          <p>
+            Each head is placed by its own target month — resolved to a real calendar month using the term it was written under (Apr-Mar for classes VI-X, Aug-Jul for everyone else), not a fixed assumption. Column and grand totals, and the statistics below, cover every student matching the filters, not just the rows on this page.
+          </p>
+        ) : (
+          <p>From month must be on or before to month.</p>
+        )}
       </div>
 
       <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-5">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
-              <Calendar className="h-3 w-3" /> Academic year
+              <Calendar className="h-3 w-3" /> From month
             </label>
-            <select
-              value={academicYear}
-              onChange={(e) => setAcademicYear(e.target.value)}
+            <input
+              type="month"
+              value={fromMonth}
+              onChange={(e) => setFromMonth(e.target.value)}
               className="h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
-            >
-              {academicYearOptions.map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+              <Calendar className="h-3 w-3" /> To month
+            </label>
+            <input
+              type="month"
+              value={toMonth}
+              onChange={(e) => setToMonth(e.target.value)}
+              className="h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
+            />
           </div>
 
           {campusLocked ? (
@@ -597,7 +637,7 @@ export default function FeeMatrixReportPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <TotalTile label="Students" value={(totals?.student_count ?? 0).toLocaleString()} />
         <TotalTile label="Grand total" value={formatRs(totals?.grand_total)} accent />
-        <TotalTile label="Cycle" value={cycleLabel} sub={academicYear} />
+        <TotalTile label="Range" value={rangeLabel || "—"} sub={`${columns.length} month${columns.length === 1 ? "" : "s"}`} />
       </div>
 
       <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-4 space-y-2">
@@ -713,7 +753,7 @@ export default function FeeMatrixReportPage() {
                     </th>
                   ))}
                   {columns.map((col) => (
-                    <th key={col.month} className="px-3 py-3 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right whitespace-nowrap">
+                    <th key={`${col.year}-${col.month}`} className="px-3 py-3 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right whitespace-nowrap">
                       {col.label}
                     </th>
                   ))}
