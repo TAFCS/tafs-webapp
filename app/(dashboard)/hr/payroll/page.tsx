@@ -40,7 +40,7 @@ function StatusBadge({ status }: { status: PayrollRun["status"] }) {
           : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
       }`}
     >
-      {isFinal ? "Finalized" : "Draft"}
+      {isFinal ? "Complete" : "Incomplete"}
     </span>
   );
 }
@@ -346,7 +346,7 @@ export default function PayrollPage() {
                 </div>
 
                 <p className="text-[11px] text-zinc-400 dark:text-zinc-600 italic">
-                  Re-generating an existing draft for the same campus + month replaces it with freshly recomputed numbers — it won't create a duplicate.
+                  Re-generating for the same campus + month recomputes every still-pending employee in place — it won't create a duplicate, and finalized/settled employees are left untouched.
                 </p>
 
                 {/* Test mode */}

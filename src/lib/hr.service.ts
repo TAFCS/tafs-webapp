@@ -457,14 +457,26 @@ export interface PayrollRunLine extends AttendanceLineBase {
   break_deduction: number;
   sandwich_deduction: number;
   consecutive_late_deduction: number;
+  eobi_deduction?: number;
+  income_tax_deduction?: number;
+  /** Employer-side cost, internal bookkeeping only — never shown to the employee. */
+  eobi_employer_cost?: number;
+  /** Employer-side cost, internal bookkeeping only — never shown to the employee. */
+  sessi_employer_cost?: number;
   total_deductions: number;
   net_pay: number;
   disbursed_at?: string | null;
   disbursed_by?: string | null;
   disbursement_notes?: string | null;
+  finalized_at?: string | null;
+  finalized_by?: string | null;
+  /** Derived server-side: PENDING (open to regenerate) -> FINALIZED (locked) -> SETTLED (paid). */
+  line_status: PayrollLineStatus;
   payroll_settlements?: PayrollSettlement | null;
   payroll_flags?: PayrollFlag[];
 }
+
+export type PayrollLineStatus = 'PENDING' | 'FINALIZED' | 'SETTLED';
 
 export interface AttendanceMatrix {
   /** null when spanning every campus the caller can see (no campus_id filter applied). */
@@ -472,6 +484,26 @@ export interface AttendanceMatrix {
   period_start: string;
   period_end: string;
   lines: AttendanceLineBase[];
+}
+
+export type PayrollStatutoryRuleType = 'EOBI' | 'SESSI' | 'INCOME_TAX';
+
+export interface IncomeTaxSlab {
+  min: number;
+  max: number | null;
+  fixed_amount: number;
+  rate_percent: number;
+}
+
+export interface PayrollStatutoryRule {
+  id: number;
+  rule_type: PayrollStatutoryRuleType;
+  effective_from: string;
+  value_json: any;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PayrollRun {
@@ -489,6 +521,8 @@ export interface PayrollRun {
   payroll_run_lines?: PayrollRunLine[];
   _count?: { payroll_run_lines: number };
   totals?: { net_pay: number | null; total_deductions: number | null; unresolved_days: number | null };
+  /** Only present on the response from finalizePayrollRun ("Finalize All"). */
+  finalize_summary?: { finalized: number; skipped: { employee_id: number; reason: string }[] };
 }
 
 export interface GeneratePayrollRunPayload {
@@ -659,6 +693,38 @@ export const hrService = {
     await api.delete(`/v1/hr/policies/${setId}/rules/${id}`);
   },
 
+  // ── Payroll Statutory Rules API (EOBI / SESSI / Income Tax) ────────────────
+  async listPayrollStatutoryRules(ruleType?: PayrollStatutoryRuleType): Promise<PayrollStatutoryRule[]> {
+    const params = ruleType ? `?ruleType=${ruleType}` : '';
+    const { data } = await api.get<ApiEnvelope<PayrollStatutoryRule[]>>(`/v1/hr/payroll/statutory-rules${params}`);
+    return data.data;
+  },
+  async createPayrollStatutoryRule(payload: {
+    rule_type: PayrollStatutoryRuleType;
+    effective_from: string;
+    value_json: any;
+    description?: string;
+    is_active?: boolean;
+  }): Promise<PayrollStatutoryRule> {
+    const { data } = await api.post<ApiEnvelope<PayrollStatutoryRule>>('/v1/hr/payroll/statutory-rules', payload);
+    return data.data;
+  },
+  async updatePayrollStatutoryRule(
+    id: number,
+    payload: Partial<{
+      effective_from: string;
+      value_json: any;
+      description: string;
+      is_active: boolean;
+    }>,
+  ): Promise<PayrollStatutoryRule> {
+    const { data } = await api.patch<ApiEnvelope<PayrollStatutoryRule>>(`/v1/hr/payroll/statutory-rules/${id}`, payload);
+    return data.data;
+  },
+  async deletePayrollStatutoryRule(id: number): Promise<void> {
+    await api.delete(`/v1/hr/payroll/statutory-rules/${id}`);
+  },
+
   async listCalendarDays(campusId?: number, appliesTo?: string, employeeId?: number): Promise<CalendarDay[]> {
     const params = new URLSearchParams();
     if (campusId != null) params.set('campusId', String(campusId));
@@ -781,6 +847,18 @@ export const hrService = {
   },
   async deletePayrollRun(id: number): Promise<void> {
     await api.delete(`/v1/hr/payroll/runs/${id}`);
+  },
+  async regeneratePayrollLine(runId: number, employeeId: number): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/regenerate`,
+    );
+    return data.data;
+  },
+  async finalizePayrollLine(runId: number, employeeId: number): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/finalize`,
+    );
+    return data.data;
   },
   async disbursePayrollLine(
     runId: number,

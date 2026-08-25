@@ -131,8 +131,12 @@ const inputCls =
 const textareaCls =
   "w-full px-3 py-2 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 resize-none";
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">{children}</label>;
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+      {children}{required && <span className="text-rose-500 ml-0.5">*</span>}
+    </label>
+  );
 }
 
 function ReadField({ icon: Icon, label, value, missing }: { icon: any; label: string; value: React.ReactNode; missing?: boolean }) {
@@ -766,6 +770,10 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     onCancel={() => { setEditSchedule(false); syncForms(emp); }}
                     onSave={async () => {
                       if (!emp) return;
+                      if (scheduleForm.check_in_source === "FIXED" && (!scheduleForm.reporting_time.trim() || !scheduleForm.leaving_time.trim())) {
+                        alert("Expected check-in and check-out times are required when payroll uses fixed times.");
+                        return;
+                      }
                       setSavingSchedule(true);
                       try {
                         const updated = await hrService.updateEmployee(emp.id, {
@@ -830,12 +838,12 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         )}
                       </div>
                       <div>
-                        <FieldLabel>Reporting Time{scheduleForm.check_in_source === "TIMETABLE" ? " (fallback)" : ""}</FieldLabel>
-                        <input type="time" className={inputCls} disabled={scheduleForm.check_in_source === "TIMETABLE"} value={scheduleForm.reporting_time} onChange={e => setScheduleForm(p => ({ ...p, reporting_time: e.target.value }))} />
+                        <FieldLabel required={scheduleForm.check_in_source === "FIXED"}>Reporting Time{scheduleForm.check_in_source === "TIMETABLE" ? " (fallback)" : ""}</FieldLabel>
+                        <input type="time" required={scheduleForm.check_in_source === "FIXED"} className={inputCls} disabled={scheduleForm.check_in_source === "TIMETABLE"} value={scheduleForm.reporting_time} onChange={e => setScheduleForm(p => ({ ...p, reporting_time: e.target.value }))} />
                       </div>
                       <div>
-                        <FieldLabel>Leaving Time{scheduleForm.check_in_source === "TIMETABLE" ? " (fallback)" : ""}</FieldLabel>
-                        <input type="time" className={inputCls} disabled={scheduleForm.check_in_source === "TIMETABLE"} value={scheduleForm.leaving_time} onChange={e => setScheduleForm(p => ({ ...p, leaving_time: e.target.value }))} />
+                        <FieldLabel required={scheduleForm.check_in_source === "FIXED"}>Leaving Time{scheduleForm.check_in_source === "TIMETABLE" ? " (fallback)" : ""}</FieldLabel>
+                        <input type="time" required={scheduleForm.check_in_source === "FIXED"} className={inputCls} disabled={scheduleForm.check_in_source === "TIMETABLE"} value={scheduleForm.leaving_time} onChange={e => setScheduleForm(p => ({ ...p, leaving_time: e.target.value }))} />
                       </div>
                       <div><FieldLabel>Late Relaxation (minutes)</FieldLabel><input type="number" min={0} className={inputCls} value={scheduleForm.late_relaxation_minutes} onChange={e => setScheduleForm(p => ({ ...p, late_relaxation_minutes: e.target.value }))} /></div>
                       <div><FieldLabel>Working Days / Week</FieldLabel><input type="number" min={1} max={7} className={inputCls} value={scheduleForm.days_per_week} onChange={e => setScheduleForm(p => ({ ...p, days_per_week: e.target.value }))} /></div>

@@ -5,7 +5,7 @@ import {
   X, Loader2, AlertTriangle, RefreshCw, Coffee,
   CheckCircle2, Clock, AlertCircle, Timer,
 } from "lucide-react";
-import { hrService, PayrollRun, AttendanceLineBase, DayBreakdownEntry, DayClassification } from "@/lib/hr.service";
+import { hrService, PayrollRun, PayrollRunLine, AttendanceLineBase, DayBreakdownEntry, DayClassification } from "@/lib/hr.service";
 import { attendanceService, StaffAttendanceStatus } from "@/lib/attendance.service";
 import { AttendanceTagBadges } from "./AttendanceTagBadges";
 
@@ -48,6 +48,10 @@ function pct(value: string): number {
   if (value === "24:00") return 100;
   const d = new Date(value);
   return ((d.getUTCHours() * 60 + d.getUTCMinutes()) / 1440) * 100;
+}
+
+function formatPkr(value: number | string): string {
+  return `₨ ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function fmtT(value: string): string {
@@ -134,17 +138,37 @@ function applyManualOverridePreview(
 interface Seg { type: string; start: string; end: string; isMissingOut?: boolean }
 interface Tooltip { lines: string[]; x: number; y: number }
 
+type PayFields = Partial<
+  Pick<
+    PayrollRunLine,
+    | "monthly_pay"
+    | "total_deductions"
+    | "net_pay"
+    | "absence_deduction"
+    | "half_day_deduction"
+    | "late_deduction"
+    | "break_deduction"
+    | "sandwich_deduction"
+    | "consecutive_late_deduction"
+    | "eobi_deduction"
+    | "income_tax_deduction"
+    | "eobi_employer_cost"
+    | "sessi_employer_cost"
+  >
+>;
+
 interface Props {
   campusId: number;
   isFinal: boolean;
-  line: AttendanceLineBase;
+  /** Pay fields are only present when this line belongs to a persisted payroll run (not a bare attendance view). */
+  line: AttendanceLineBase & PayFields;
   onClose: () => void;
   initialDate?: string;
   /** Called after a resolve is saved, so a run-less caller (e.g. a dashboard widget) can refetch. */
   onResolved?: () => void;
   /** Only present when this line belongs to a persisted payroll run — offers the "regenerate" banner. */
   regenerate?: {
-    periodEnd: string;
+    runId: number;
     onRegenerated: (run: PayrollRun) => void;
   };
 }
@@ -244,12 +268,7 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
     setRegenerating(true);
     setError(null);
     try {
-      const end = new Date(regenerate.periodEnd);
-      const updated = await hrService.generatePayrollRun({
-        campus_id: campusId,
-        year: end.getUTCFullYear(),
-        month: end.getUTCMonth() + 1,
-      });
+      const updated = await hrService.regeneratePayrollLine(regenerate.runId, line.employee_id);
       regenerate.onRegenerated(updated);
       const refreshedLine = updated.payroll_run_lines?.find(l => l.employee_id === line.employee_id);
       if (refreshedLine) {
@@ -340,6 +359,88 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
               <p className="text-sm font-bold text-rose-600">{line.unpaid_leave_days ?? 0}</p>
             </div>
           </div>
+
+          {/* Pay breakdown — only present when this line belongs to a persisted payroll run */}
+          {line.total_deductions !== undefined && line.net_pay !== undefined && (
+            <div className="px-6 py-3 bg-white dark:bg-zinc-900/80 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold mb-2">Pay Breakdown</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 text-xs">
+                <div className="flex justify-between sm:block">
+                  <span className="text-zinc-400">Monthly Pay</span>
+                  <span className="sm:block font-semibold text-zinc-700 dark:text-zinc-300">{formatPkr(line.monthly_pay ?? 0)}</span>
+                </div>
+                {Number(line.absence_deduction) > 0 && (
+                  <div className="flex justify-between sm:block">
+                    <span className="text-zinc-400">Absence</span>
+                    <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.absence_deduction!)}</span>
+                  </div>
+                )}
+                {Number(line.half_day_deduction) > 0 && (
+                  <div className="flex justify-between sm:block">
+                    <span className="text-zinc-400">Half Day</span>
+                    <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.half_day_deduction!)}</span>
+                  </div>
+                )}
+                {Number(line.late_deduction) > 0 && (
+                  <div className="flex justify-between sm:block">
+                    <span className="text-zinc-400">Late</span>
+                    <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.late_deduction!)}</span>
+                  </div>
+                )}
+                {Number(line.break_deduction) > 0 && (
+                  <div className="flex justify-between sm:block">
+                    <span className="text-zinc-400">Break</span>
+                    <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.break_deduction!)}</span>
+                  </div>
+                )}
+                {Number(line.sandwich_deduction) > 0 && (
+                  <div className="flex justify-between sm:block">
+                    <span className="text-zinc-400">Off-Day (Sandwich)</span>
+                    <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.sandwich_deduction!)}</span>
+                  </div>
+                )}
+                {Number(line.consecutive_late_deduction) > 0 && (
+                  <div className="flex justify-between sm:block">
+                    <span className="text-zinc-400">3 Consecutive Lates</span>
+                    <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.consecutive_late_deduction!)}</span>
+                  </div>
+                )}
+                {Number(line.eobi_deduction) > 0 && (
+                  <div className="flex justify-between sm:block">
+                    <span className="text-zinc-400">EOBI</span>
+                    <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.eobi_deduction!)}</span>
+                  </div>
+                )}
+                {Number(line.income_tax_deduction) > 0 && (
+                  <div className="flex justify-between sm:block">
+                    <span className="text-zinc-400">Income Tax</span>
+                    <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.income_tax_deduction!)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between sm:block">
+                  <span className="text-zinc-400">Total Deductions</span>
+                  <span className="sm:block font-semibold text-rose-700">-{formatPkr(line.total_deductions)}</span>
+                </div>
+                <div className="flex justify-between sm:block">
+                  <span className="text-zinc-400">Net Pay</span>
+                  <span className="sm:block font-bold text-emerald-600">{formatPkr(line.net_pay)}</span>
+                </div>
+              </div>
+              {(Number(line.eobi_employer_cost) > 0 || Number(line.sessi_employer_cost) > 0) && (
+                <div className="mt-2.5 pt-2.5 border-t border-dashed border-zinc-200 dark:border-zinc-800 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+                  <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold w-full">
+                    Employer Cost — internal only, never on payslip
+                  </span>
+                  {Number(line.eobi_employer_cost) > 0 && (
+                    <span className="text-zinc-500">EOBI (employer): <span className="font-semibold text-zinc-700 dark:text-zinc-300">{formatPkr(line.eobi_employer_cost!)}</span></span>
+                  )}
+                  {Number(line.sessi_employer_cost) > 0 && (
+                    <span className="text-zinc-500">SESSI (employer): <span className="font-semibold text-zinc-700 dark:text-zinc-300">{formatPkr(line.sessi_employer_cost!)}</span></span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Banners */}
           {dirty && !isFinal && regenerate && (

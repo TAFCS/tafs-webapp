@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Wallet, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Lock,
   Trash2, AlertTriangle, Building2, Calendar, LayoutGrid, List, Download,
-  FlaskConical, FileText, HandCoins,
+  FlaskConical, FileText, HandCoins, RefreshCw,
 } from "lucide-react";
 import { hrService, PayrollRun, PayrollRunLine } from "@/lib/hr.service";
 import { PayrollLineDetailModal } from "../_components/PayrollLineDetailModal";
@@ -36,6 +36,12 @@ function initials(name: string) {
   return name.split(" ").filter(Boolean).map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 }
 
+// A line stops being regenerate-able the moment it's finalized — SETTLED
+// implies FINALIZED (settle can only happen on an already-finalized line).
+function isLineFinal(line: PayrollRunLine): boolean {
+  return line.line_status !== "PENDING";
+}
+
 function SummaryCard({ label, value, accent }: { label: string; value: string; accent?: "amber" | "rose" }) {
   const color = accent === "amber" ? "text-amber-600" : accent === "rose" ? "text-rose-600" : "text-zinc-900 dark:text-white";
   return (
@@ -59,7 +65,10 @@ export default function PayrollRunDetailPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [finalizing, setFinalizing] = useState(false);
+  const [finalizingAll, setFinalizingAll] = useState(false);
+  const [regeneratingAll, setRegeneratingAll] = useState(false);
+  const [regeneratingLineId, setRegeneratingLineId] = useState<number | null>(null);
+  const [finalizingLineId, setFinalizingLineId] = useState<number | null>(null);
   const [selectedLine, setSelectedLine] = useState<PayrollRunLine | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
   const [tab, setTab] = useState<"lines" | "matrix">("lines");
@@ -106,26 +115,91 @@ export default function PayrollRunDetailPage() {
   const totalGross = lines.reduce((sum, l) => sum + Number(l.monthly_pay), 0);
   const totalDeductions = lines.reduce((sum, l) => sum + Number(l.total_deductions), 0);
   const totalNet = lines.reduce((sum, l) => sum + Number(l.net_pay), 0);
-  const undisbursedCount = lines.filter((l) => !l.disbursed_at).length;
+  const undisbursedCount = lines.filter((l) => l.finalized_at && !l.disbursed_at).length;
   const pendingFlags = lines.reduce(
     (sum, l) => sum + (l.payroll_flags?.filter((f) => f.status === "PENDING").length ?? 0),
     0,
   );
+  const pendingCount = lines.filter((l) => l.line_status === "PENDING").length;
+  const lockedCount = lines.filter((l) => l.finalized_at).length;
 
-  const handleFinalize = async () => {
+  const handleRegenerateAll = async () => {
     if (!run) return;
-    if (!confirm(`Finalize payroll for ${formatPeriod(run.period_start, run.period_end)}? This locks the numbers — they won't be recomputable after this.`)) return;
-    setFinalizing(true);
+    setRegeneratingAll(true);
+    setError(null);
+    try {
+      const end = new Date(run.period_end);
+      const updated = await hrService.generatePayrollRun({
+        campus_id: run.campus_id,
+        year: end.getUTCFullYear(),
+        month: end.getUTCMonth() + 1,
+        // Test runs stay scoped to exactly the employees they were built
+        // with — a real run's roster is re-derived live from the campus on
+        // the backend (that's what auto-picks up a new hire).
+        employee_ids: run.is_test ? lines.map((l) => l.employee_id) : undefined,
+      });
+      setRun(updated);
+      setSuccess("Regenerated every pending employee's line with the latest attendance data.");
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to regenerate payroll run.");
+    } finally {
+      setRegeneratingAll(false);
+    }
+  };
+
+  const handleFinalizeAll = async () => {
+    if (!run) return;
+    if (!confirm(`Finalize every eligible pending employee for ${formatPeriod(run.period_start, run.period_end)}? Locked lines won't be recomputable after this.`)) return;
+    setFinalizingAll(true);
     setError(null);
     try {
       const updated = await hrService.finalizePayrollRun(run.id);
       setRun(updated);
-      setSuccess("Payroll run finalized.");
+      const summary = updated.finalize_summary;
+      setSuccess(
+        summary
+          ? summary.skipped.length > 0
+            ? `${summary.finalized} employee(s) finalized — ${summary.skipped.length} skipped (still have unresolved attendance or a pending flag).`
+            : `${summary.finalized} employee(s) finalized.`
+          : "Payroll finalized.",
+      );
     } catch (err: any) {
       console.error(err);
       setError(err.response?.data?.message || "Failed to finalize payroll run.");
     } finally {
-      setFinalizing(false);
+      setFinalizingAll(false);
+    }
+  };
+
+  const handleRegenerateLine = async (employeeId: number) => {
+    if (!run) return;
+    setRegeneratingLineId(employeeId);
+    setError(null);
+    try {
+      const updated = await hrService.regeneratePayrollLine(run.id, employeeId);
+      setRun(updated);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to regenerate this employee's payroll line.");
+    } finally {
+      setRegeneratingLineId(null);
+    }
+  };
+
+  const handleFinalizeLine = async (employeeId: number) => {
+    if (!run) return;
+    setFinalizingLineId(employeeId);
+    setError(null);
+    try {
+      const updated = await hrService.finalizePayrollLine(run.id, employeeId);
+      setRun(updated);
+      setSuccess("Employee payroll line finalized.");
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to finalize this employee's payroll line.");
+    } finally {
+      setFinalizingLineId(null);
     }
   };
 
@@ -215,7 +289,10 @@ export default function PayrollRunDetailPage() {
     );
   }
 
-  const isFinal = run.status === "FINALIZED";
+  // run.status is a derived rollup: FINALIZED only once every employee line
+  // is finalized/settled (no one left pending). It's no longer a manually-set
+  // switch — see recomputeRunStatus on the backend.
+  const cycleComplete = run.status === "FINALIZED";
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -247,12 +324,12 @@ export default function PayrollRunDetailPage() {
                 )}
                 <span
                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ml-2 ${
-                    isFinal
+                    cycleComplete
                       ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
                       : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
                   }`}
                 >
-                  {isFinal ? "Finalized" : "Draft"}
+                  {cycleComplete ? "Complete" : "Incomplete"}
                 </span>
               </div>
             </div>
@@ -267,33 +344,34 @@ export default function PayrollRunDetailPage() {
           >
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Excel
           </button>
-          {(!isFinal || run.is_test) && (
+          {(lockedCount === 0 || run.is_test) && (
             <button
               onClick={handleDelete}
               disabled={deleting}
-              title={isFinal && run.is_test ? "Test runs can be deleted even after finalizing" : undefined}
+              title={lockedCount > 0 && run.is_test ? "Test runs can be deleted even after finalizing" : undefined}
               className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-rose-200 dark:border-rose-900/30 text-rose-600 text-sm font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all disabled:opacity-50"
             >
               {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Delete
             </button>
           )}
-          {!isFinal && (
+          <button
+            onClick={handleRegenerateAll}
+            disabled={regeneratingAll || pendingCount === 0}
+            title={pendingCount === 0 ? "Every employee is already finalized — nothing pending to regenerate" : undefined}
+            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {regeneratingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Regen All
+          </button>
+          {pendingCount > 0 && (
             <button
-              onClick={handleFinalize}
-              disabled={finalizing || totalUnresolved > 0 || pendingFlags > 0}
-              title={
-                totalUnresolved > 0
-                  ? `Resolve ${totalUnresolved} unresolved attendance day(s) first`
-                  : pendingFlags > 0
-                    ? `Decide ${pendingFlags} pending flag(s) first`
-                    : undefined
-              }
+              onClick={handleFinalizeAll}
+              disabled={finalizingAll}
               className="inline-flex items-center gap-1.5 h-10 px-5 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-sm font-semibold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {finalizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Finalize
+              {finalizingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Finalize All
             </button>
           )}
-          {isFinal && undisbursedCount > 0 && (
+          {undisbursedCount > 0 && (
             <button
               onClick={handleDisburseAll}
               disabled={disbursingAll}
@@ -324,12 +402,12 @@ export default function PayrollRunDetailPage() {
           <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
           <p className="flex-1">
             <strong>{totalUnresolved}</strong> working day(s) across employees have no attendance record at all — neither present nor explicitly absent.
-            Resolve them in the Staff Attendance register, then regenerate this run before finalizing.
+            Resolve them in the Staff Attendance register, then regenerate that employee's line (or use Regen All) before finalizing them.
           </p>
         </div>
       )}
 
-      {!isFinal && <FlagReviewPanel run={run} lines={lines} onDecided={handleFlagsDecided} />}
+      <FlagReviewPanel run={run} lines={lines} onDecided={handleFlagsDecided} />
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -392,9 +470,7 @@ export default function PayrollRunDetailPage() {
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Total Pay</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Deductions</th>
                   <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Net Pay</th>
-                  {isFinal && (
-                    <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Disbursed</th>
-                  )}
+                  <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -402,8 +478,11 @@ export default function PayrollRunDetailPage() {
                   <PayrollLineRow
                     key={line.id}
                     line={line}
-                    isFinal={isFinal}
+                    regenerating={regeneratingLineId === line.employee_id}
+                    finalizing={finalizingLineId === line.employee_id}
                     onSettle={() => setSettlingLine(line)}
+                    onRegenerate={() => handleRegenerateLine(line.employee_id)}
+                    onFinalize={() => handleFinalizeLine(line.employee_id)}
                     onClick={() => { setSelectedLine(line); setSelectedDate(undefined); }}
                   />
                 ))}
@@ -416,19 +495,19 @@ export default function PayrollRunDetailPage() {
       {selectedLine && run && (
         <PayrollLineDetailModal
           campusId={run.campus_id}
-          isFinal={isFinal}
+          isFinal={isLineFinal(selectedLine)}
           line={selectedLine}
           initialDate={selectedDate}
           onClose={() => { setSelectedLine(null); setSelectedDate(undefined); }}
           regenerate={{
-            periodEnd: run.period_end,
+            runId: run.id,
             onRegenerated: (updated) => {
               setRun(updated);
               const refreshedLine = updated.payroll_run_lines?.find(
                 (l) => l.employee_id === selectedLine.employee_id,
               );
               if (refreshedLine) setSelectedLine(refreshedLine);
-              setSuccess("Payroll run regenerated with the latest attendance data.");
+              setSuccess("Regenerated this employee's line with the latest attendance data.");
             },
           }}
         />
@@ -449,17 +528,24 @@ export default function PayrollRunDetailPage() {
 function PayrollLineRow({
   line,
   onClick,
-  isFinal,
   onSettle,
+  onRegenerate,
+  onFinalize,
+  regenerating,
+  finalizing,
 }: {
   line: PayrollRunLine;
   onClick: () => void;
-  isFinal?: boolean;
-  onSettle?: () => void;
+  onSettle: () => void;
+  onRegenerate: () => void;
+  onFinalize: () => void;
+  regenerating: boolean;
+  finalizing: boolean;
 }) {
   const emp = line.employee_profiles;
   const name = emp?.full_name ?? `Employee #${line.employee_id}`;
   const hasIssue = line.unresolved_days > 0;
+  const pendingFlagCount = line.payroll_flags?.filter((f) => f.status === "PENDING").length ?? 0;
 
   return (
     <tr
@@ -521,35 +607,58 @@ function PayrollLineRow({
         {Number(line.total_deductions) > 0 ? `-${formatPkr(line.total_deductions)}` : formatPkr(0)}
       </td>
       <td className="px-5 py-3 text-right text-sm font-bold text-zinc-900 dark:text-white">{formatPkr(line.net_pay)}</td>
-      {isFinal && (
-        <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-          {line.disbursed_at ? (
-            <div className="flex items-center justify-end gap-2">
-              {line.payroll_settlements?.payslip_pdf_url && (
-                <a
-                  href={line.payroll_settlements.payslip_pdf_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="View payslip"
-                  className="text-zinc-400 hover:text-primary"
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                </a>
-              )}
-              <button onClick={onSettle} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 hover:opacity-80">
-                {new Date(line.disbursed_at).toLocaleDateString()}
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={onSettle}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-            >
-              <HandCoins className="h-3.5 w-3.5" /> Settle Payment
+      <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+        {line.line_status === "SETTLED" ? (
+          <div className="flex items-center justify-end gap-2">
+            {line.payroll_settlements?.payslip_pdf_url && (
+              <a
+                href={line.payroll_settlements.payslip_pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="View payslip"
+                className="text-zinc-400 hover:text-primary"
+              >
+                <FileText className="h-3.5 w-3.5" />
+              </a>
+            )}
+            <button onClick={onSettle} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 hover:opacity-80">
+              {new Date(line.disbursed_at!).toLocaleDateString()}
             </button>
-          )}
-        </td>
-      )}
+          </div>
+        ) : line.line_status === "FINALIZED" ? (
+          <button
+            onClick={onSettle}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+          >
+            <HandCoins className="h-3.5 w-3.5" /> Settle Payment
+          </button>
+        ) : (
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={onRegenerate}
+              disabled={regenerating}
+              title="Regenerate this employee's line from current attendance"
+              className="inline-flex items-center text-zinc-400 hover:text-primary disabled:opacity-50"
+            >
+              {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              onClick={onFinalize}
+              disabled={finalizing || hasIssue || pendingFlagCount > 0}
+              title={
+                hasIssue
+                  ? `Resolve ${line.unresolved_days} unresolved attendance day(s) first`
+                  : pendingFlagCount > 0
+                    ? `Decide ${pendingFlagCount} pending flag(s) first`
+                    : undefined
+              }
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline disabled:text-zinc-400"
+            >
+              {finalizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />} Finalize
+            </button>
+          </div>
+        )}
+      </td>
     </tr>
   );
 }
