@@ -557,6 +557,23 @@ export interface EmployeeSecurityDepositResponse {
   default_start_period_start: string;
 }
 
+export interface SecurityDepositListItem {
+  id: number;
+  employee_id: number;
+  full_name: string | null;
+  employee_code: string | null;
+  campus_name: string | null;
+  total_amount: number;
+  recovered_amount: number;
+  held_amount: number;
+  remaining_to_collect: number;
+  carried_forward_amount: number;
+  installment_amount: number;
+  installment_count: number;
+  start_period_start: string;
+  status: SecurityDepositStatus;
+}
+
 export interface PayrollRun {
   id: number;
   campus_id: number;
@@ -964,6 +981,13 @@ export const hrService = {
   async getEmployeeSecurityDeposit(employeeId: number): Promise<EmployeeSecurityDepositResponse> {
     const { data } = await api.get<ApiEnvelope<EmployeeSecurityDepositResponse>>(
       `/v1/hr/employees/${employeeId}/security-deposit`,
+    );
+    return data.data;
+  },
+  async listEmployeeSecurityDeposits(status?: 'ACTIVE' | 'COMPLETED'): Promise<SecurityDepositListItem[]> {
+    const { data } = await api.get<ApiEnvelope<SecurityDepositListItem[]>>(
+      '/v1/hr/security-deposits',
+      { params: status ? { status } : undefined },
     );
     return data.data;
   },
