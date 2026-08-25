@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Plus, Trash2, Save, Loader2, UserCheck, Phone, CheckCircle2, Search, Link, X as XIcon, User, RefreshCw, MapPin, Camera, ShieldAlert, Pencil } from "lucide-react";
 import { ChangeFamilyModal } from "@/src/features/students/components/student-profile-modal";
+import { FamilyDetailModal } from "@/src/features/families/components/family-detail-modal";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
 import { CountryCodeSelect } from "@/components/inputs/CountryCodeSelect";
@@ -494,6 +495,7 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
     const [linkRel, setLinkRel] = useState("GUARDIAN");
     const [isLinkPrimary, setIsLinkPrimary] = useState(false);
     const [isLinkEmergency, setIsLinkEmergency] = useState(false);
+    const [detailFamilyId, setDetailFamilyId] = useState<number | null>(null);
 
     const handleSearch = async () => {
         const query = parseGuardianSearch(searchCnic);
@@ -875,6 +877,13 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                         }}
                     />
                 )}
+
+                {detailFamilyId != null && (
+                    <FamilyDetailModal
+                        familyId={detailFamilyId}
+                        onClose={() => setDetailFamilyId(null)}
+                    />
+                )}
             </div>
 
             <div className="space-y-3">
@@ -909,15 +918,33 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                     {foundGuardian && (
                         <div className="mt-4 bg-white border border-emerald-100 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-300">
                             <div className="flex items-center justify-between mb-4 pb-3 border-b border-emerald-50">
-                                <div>
+                                <div className="min-w-0">
                                     <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Guardian Found</p>
                                     <h4 className="font-bold text-zinc-900 uppercase">{foundGuardian.full_name}</h4>
                                     <p className="text-[10px] font-bold text-zinc-400 mt-0.5">
-                                        #{foundGuardian.id}
-                                        {foundGuardian.cnic ? ` · ${foundGuardian.cnic}` : ""}
+                                        Guardian ID: {foundGuardian.id}
+                                        {foundGuardian.cnic ? ` · CNIC: ${foundGuardian.cnic}` : ""}
                                     </p>
+                                    {Array.isArray(foundGuardian.families) && foundGuardian.families.length > 0 ? (
+                                        <div className="mt-1.5 space-y-0.5">
+                                            {foundGuardian.families.map((fam: { id: number; household_name: string | null }) => (
+                                                <button
+                                                    key={fam.id}
+                                                    type="button"
+                                                    onClick={() => setDetailFamilyId(fam.id)}
+                                                    className="block text-left text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline underline-offset-2 transition-colors"
+                                                >
+                                                    Family: {(fam.household_name || "Assigned Family").toUpperCase()} · Family ID: #{fam.id}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="mt-1.5 text-[10px] font-bold text-zinc-400">
+                                            Family: Not linked to a household
+                                        </p>
+                                    )}
                                 </div>
-                                <button onClick={() => setFoundGuardian(null)} className="p-1 hover:bg-zinc-100 rounded-lg text-zinc-400">
+                                <button onClick={() => setFoundGuardian(null)} className="p-1 hover:bg-zinc-100 rounded-lg text-zinc-400 shrink-0">
                                     <XIcon className="h-4 w-4" />
                                 </button>
                             </div>
