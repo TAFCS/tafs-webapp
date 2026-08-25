@@ -492,6 +492,7 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
     const [searching, setSearching] = useState(false);
     const [foundGuardian, setFoundGuardian] = useState<any>(null);
     const [linking, setLinking] = useState(false);
+    const [deletingFound, setDeletingFound] = useState(false);
     const [linkRel, setLinkRel] = useState("GUARDIAN");
     const [isLinkPrimary, setIsLinkPrimary] = useState(false);
     const [isLinkEmergency, setIsLinkEmergency] = useState(false);
@@ -548,6 +549,26 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
         } catch (e) {
             alert("Failed to link guardian.");
         } finally { setLinking(false); }
+    };
+
+    const handleDeleteFound = async () => {
+        if (!foundGuardian) return;
+        const name = foundGuardian.full_name || `Guardian #${foundGuardian.id}`;
+        const hasFamilies = Array.isArray(foundGuardian.families) && foundGuardian.families.length > 0;
+        const warning = hasFamilies
+            ? `${name} may still be linked to students. Delete only works if they are fully unlinked.\n\nPermanently delete this guardian?`
+            : `Permanently delete ${name}? This cannot be undone.`;
+        if (!confirm(warning)) return;
+        setDeletingFound(true);
+        try {
+            await api.delete(`/v1/staff-editing/guardians/${foundGuardian.id}`);
+            setFoundGuardian(null);
+            setSearchCnic("");
+        } catch (e: any) {
+            alert(e?.response?.data?.message || "Failed to delete guardian");
+        } finally {
+            setDeletingFound(false);
+        }
     };
 
     // Unified Family Address state
@@ -965,14 +986,25 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                                 </div>
                             </div>
 
-                            <button
-                                onClick={handleLink}
-                                disabled={linking}
-                                className="w-full h-9 bg-emerald-600 text-white text-[11px] font-bold rounded-xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
-                            >
-                                {linking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link className="h-3.5 w-3.5" />}
-                                LINK TO THIS STUDENT
-                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleLink}
+                                    disabled={linking || deletingFound}
+                                    className="flex-1 h-9 bg-emerald-600 text-white text-[11px] font-bold rounded-xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    {linking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link className="h-3.5 w-3.5" />}
+                                    LINK TO THIS STUDENT
+                                </button>
+                                <button
+                                    onClick={handleDeleteFound}
+                                    disabled={deletingFound || linking}
+                                    title="Delete this guardian permanently"
+                                    className="h-9 px-3 bg-rose-50 text-rose-600 text-[11px] font-bold rounded-xl hover:bg-rose-100 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 border border-rose-100"
+                                >
+                                    {deletingFound ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                    DELETE
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
