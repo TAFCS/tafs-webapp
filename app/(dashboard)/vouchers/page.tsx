@@ -389,13 +389,24 @@ function VoucherRow({
     };
 
     const handleUnpaidDownload = async () => {
-        const pdfUrl = typeof voucher.pdf_url === "string" ? voucher.pdf_url.trim() : "";
-        if (pdfUrl) {
-            await downloadPdfBlob(pdfUrl, buildFilename());
+        setIsDownloading(true);
+        const loadingToast = toast.loading("Generating PDF…");
+        try {
+            const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`);
+            const pdfUrl = pdfRes.data?.pdf_url;
+            if (!pdfUrl) throw new Error("No PDF URL returned from server.");
+
+            await downloadPdfBlob(pdfUrl, pdfRes.data?.filename ?? buildFilename());
+
+            toast.dismiss(loadingToast);
             toast.success("Voucher downloaded.");
-            return;
+        } catch (err) {
+            console.error(err);
+            toast.dismiss(loadingToast);
+            toast.error("Failed to generate PDF.");
+        } finally {
+            setIsDownloading(false);
         }
-        toast.error("No PDF available for this voucher.");
     };
 
     const handlePaidDownload = async () => {
@@ -622,10 +633,10 @@ function VoucherRow({
                             onClick={handleUnpaidDownload}
                             disabled={isDownloading}
                             title="Download original PDF"
-                            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
                         >
-                            <Download className="h-3.5 w-3.5" />
-                            {isDownloading ? "..." : "PDF"}
+                            {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            {isDownloading ? "…" : "PDF"}
                         </button>
                     )}
 
