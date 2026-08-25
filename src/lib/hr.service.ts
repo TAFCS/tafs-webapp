@@ -459,6 +459,7 @@ export interface PayrollRunLine extends AttendanceLineBase {
   consecutive_late_deduction: number;
   eobi_deduction?: number;
   income_tax_deduction?: number;
+  security_deposit_deduction?: number;
   /** Employer-side cost, internal bookkeeping only — never shown to the employee. */
   eobi_employer_cost?: number;
   /** Employer-side cost, internal bookkeeping only — never shown to the employee. */
@@ -504,6 +505,73 @@ export interface PayrollStatutoryRule {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export type SecurityDepositStatus =
+  | 'ACTIVE'
+  | 'COMPLETED'
+  | 'REFUNDED'
+  | 'FORFEITED'
+  | 'PARTIALLY_FORFEITED';
+
+export type SecurityDepositTransactionType = 'DEDUCTION' | 'REFUND' | 'FORFEIT';
+
+export interface SecurityDepositTransaction {
+  id: number;
+  type: SecurityDepositTransactionType;
+  payroll_run_line_id: number | null;
+  due_amount: number;
+  amount: number;
+  running_balance: number;
+  reason: string | null;
+  created_by: string;
+  created_at: string;
+  period_start: string | null;
+  period_end: string | null;
+}
+
+export interface SecurityDepositPlan {
+  id: number;
+  employee_id: number;
+  total_amount: number;
+  installment_count: number;
+  installment_amount: number;
+  start_period_start: string;
+  recovered_amount: number;
+  refunded_amount: number;
+  forfeited_amount: number;
+  carried_forward_amount: number;
+  held_amount: number;
+  remaining_to_collect: number;
+  status: SecurityDepositStatus;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  transactions: SecurityDepositTransaction[];
+}
+
+export interface EmployeeSecurityDepositResponse {
+  current: SecurityDepositPlan | null;
+  history: SecurityDepositPlan[];
+  default_start_period_start: string;
+}
+
+export interface SecurityDepositListItem {
+  id: number;
+  employee_id: number;
+  full_name: string | null;
+  employee_code: string | null;
+  campus_name: string | null;
+  total_amount: number;
+  recovered_amount: number;
+  held_amount: number;
+  remaining_to_collect: number;
+  carried_forward_amount: number;
+  installment_amount: number;
+  installment_count: number;
+  start_period_start: string;
+  status: SecurityDepositStatus;
 }
 
 export interface PayrollRun {
@@ -907,6 +975,55 @@ export const hrService = {
     const { data } = await api.patch<ApiEnvelope<PayrollRun>>(
       `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/flags/${flagId}`,
       { status },
+    );
+    return data.data;
+  },
+  async getEmployeeSecurityDeposit(employeeId: number): Promise<EmployeeSecurityDepositResponse> {
+    const { data } = await api.get<ApiEnvelope<EmployeeSecurityDepositResponse>>(
+      `/v1/hr/employees/${employeeId}/security-deposit`,
+    );
+    return data.data;
+  },
+  async listEmployeeSecurityDeposits(status?: 'ACTIVE' | 'COMPLETED'): Promise<SecurityDepositListItem[]> {
+    const { data } = await api.get<ApiEnvelope<SecurityDepositListItem[]>>(
+      '/v1/hr/security-deposits',
+      { params: status ? { status } : undefined },
+    );
+    return data.data;
+  },
+  async createEmployeeSecurityDeposit(
+    employeeId: number,
+    payload: { total_amount: number; installment_count: number; start_period_start?: string; notes?: string },
+  ): Promise<EmployeeSecurityDepositResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeSecurityDepositResponse>>(
+      `/v1/hr/employees/${employeeId}/security-deposit`,
+      payload,
+    );
+    return data.data;
+  },
+  async refundEmployeeSecurityDeposit(
+    employeeId: number,
+    payload: { amount: number; notes?: string },
+  ): Promise<EmployeeSecurityDepositResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeSecurityDepositResponse>>(
+      `/v1/hr/employees/${employeeId}/security-deposit/refund`,
+      payload,
+    );
+    return data.data;
+  },
+  async forfeitEmployeeSecurityDeposit(
+    employeeId: number,
+    payload: { amount: number; reason: string },
+  ): Promise<EmployeeSecurityDepositResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeSecurityDepositResponse>>(
+      `/v1/hr/employees/${employeeId}/security-deposit/forfeit`,
+      payload,
+    );
+    return data.data;
+  },
+  async cancelEmployeeSecurityDeposit(employeeId: number): Promise<EmployeeSecurityDepositResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeSecurityDepositResponse>>(
+      `/v1/hr/employees/${employeeId}/security-deposit/cancel`,
     );
     return data.data;
   },

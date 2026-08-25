@@ -8,7 +8,7 @@ import {
   Phone, Mail, MapPin, CreditCard, Cake, Calendar, Building2,
   AlertTriangle, Users as UsersIcon, Pencil, Save, CheckCircle2,
   Landmark, PhoneCall, Shield, Fingerprint, CalendarClock, UserMinus,
-  ChevronDown, UserCheck, ShieldCheck, DoorOpen, Ban,
+  ChevronDown, UserCheck, ShieldCheck, DoorOpen, Ban, Wallet,
 } from "lucide-react";
 import {
   hrService,
@@ -29,6 +29,7 @@ import { useAuthState } from "@/context/AuthContext";
 import { EmployeePortalAccountTab } from "./EmployeePortalAccountTab";
 import { EmployeeBiometricTab } from "./EmployeeBiometricTab";
 import { EmployeeShiftOverridesTab } from "./EmployeeShiftOverridesTab";
+import { EmployeeSecurityDepositTab } from "./EmployeeSecurityDepositTab";
 import {
   assignmentsToRows,
   rowsToAssignments,
@@ -44,6 +45,7 @@ const BASE_TABS = [
   { id: "profile", label: "Profile", icon: User },
   { id: "employment", label: "Employment", icon: Briefcase },
   { id: "schedule", label: "Schedule & Pay", icon: Clock },
+  { id: "security_deposit", label: "Security Deposit", icon: Wallet },
   { id: "classes", label: "Class & Sections", icon: BookOpen },
 ] as const;
 
@@ -397,10 +399,20 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const handleStatusChange = async (next: EmployeeStatus) => {
     if (!emp || next === (emp.employment_status ?? "ACTIVE")) return;
     if (next === "TERMINATED" || next === "LEFT") {
+      let heldNote = "";
+      try {
+        const deposit = await hrService.getEmployeeSecurityDeposit(emp.id);
+        const held = deposit.current?.held_amount ?? 0;
+        if (held > 0) {
+          heldNote = `\n\nThis employee still has Rs. ${held.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} security deposit held. Refund or forfeit it on the Security Deposit tab — changing status will not move that money.`;
+        }
+      } catch {
+        // Status change should still proceed if the deposit lookup fails.
+      }
       const ok = confirm(
-        next === "LEFT"
+        (next === "LEFT"
           ? "Mark this employee as LEFT?\n\nTheir record stays in HR history, they will be excluded from payroll, and their portal login will be disabled."
-          : `Set status to ${next}? This will deactivate the employee’s portal login if one is linked.`,
+          : `Set status to ${next}? This will deactivate the employee’s portal login if one is linked.`) + heldNote,
       );
       if (!ok) return;
     }
@@ -758,6 +770,10 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     </div>
                   </EditableCard>
                   </div>
+                )}
+
+                {tab === "security_deposit" && (
+                  <EmployeeSecurityDepositTab employeeId={emp.id} />
                 )}
 
                 {tab === "schedule" && (
