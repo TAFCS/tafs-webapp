@@ -119,6 +119,7 @@ export const NAV_MODULES: NavModule[] = [
             { name: "Departments", description: "Departments and staff categories", href: "/hr/departments", icon: Layers, permission: "hr.employees.view" },
             { name: "Payroll", description: "Salary processing", href: "/hr/payroll", icon: Wallet, permission: "hr.payroll.view" },
             { name: "Payroll Rules", description: "EOBI, SESSI & income tax rates", href: "/hr/payroll/rules", icon: Landmark, permission: "hr.payroll.view" },
+            { name: "Security Deposits", description: "Caution money plans across employees", href: "/hr/security-deposits", icon: HandCoins, permission: "hr.employees.view" },
             { name: "Employee Notices", description: "Broadcast announcements to staff by role", href: "/hr/notices", icon: Megaphone, permission: "communication.send_employee_announcements" },
         ],
     },
