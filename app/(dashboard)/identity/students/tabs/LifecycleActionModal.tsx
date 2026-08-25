@@ -7,9 +7,15 @@ import { X, GraduationCap, DoorOpen, Ban, Loader2, AlertTriangle, RotateCcw, Use
 interface LifecycleActionModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (reason: string) => Promise<void>;
+    onConfirm: (reason: string, graduatedAcademicYear?: string) => Promise<void>;
     action: "graduate" | "expel" | "left" | "reenroll" | "soft_admission";
     studentName: string;
+}
+
+/** 2 years back, 3 ahead — same window used by ReturnStudentModal and bulk-promote. */
+function generateAcademicYears(): string[] {
+    const y = new Date().getFullYear();
+    return Array.from({ length: 6 }, (_, i) => `${y - 2 + i}-${y - 1 + i}`);
 }
 
 const actionConfig = {
@@ -72,18 +78,21 @@ const actionConfig = {
 
 export function LifecycleActionModal({ isOpen, onClose, onConfirm, action, studentName }: LifecycleActionModalProps) {
     const [reason, setReason] = useState("");
+    const [graduatedAcademicYear, setGraduatedAcademicYear] = useState("");
     const [loading, setLoading] = useState(false);
-    
+
     const config = actionConfig[action];
     const Icon = config.icon;
+    const academicYearOptions = generateAcademicYears();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            await onConfirm(reason);
+            await onConfirm(reason, action === "graduate" ? (graduatedAcademicYear || undefined) : undefined);
             onClose();
             setReason("");
+            setGraduatedAcademicYear("");
         } catch (error) {
             // Error handled by parent
         } finally {
@@ -143,6 +152,27 @@ export function LifecycleActionModal({ isOpen, onClose, onConfirm, action, stude
                                     {config.description}
                                 </p>
                             </div>
+
+                            {action === "graduate" && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-semibold text-zinc-700 ml-1">
+                                        Academic Year Graduated
+                                    </label>
+                                    <select
+                                        value={graduatedAcademicYear}
+                                        onChange={(e) => setGraduatedAcademicYear(e.target.value)}
+                                        className="w-full h-12 px-4 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-4 focus:ring-zinc-100 focus:border-zinc-300 transition-all outline-none text-zinc-800"
+                                    >
+                                        <option value="">Auto (student's current year)</option>
+                                        {academicYearOptions.map((yr) => (
+                                            <option key={yr} value={yr}>{yr}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-zinc-400 ml-1">
+                                        Records which academic year this student was studying in when they graduated. Defaults to their year on file if left blank.
+                                    </p>
+                                </div>
+                            )}
 
                             <div className="space-y-2">
                                 <label className="text-sm font-semibold text-zinc-700 ml-1">

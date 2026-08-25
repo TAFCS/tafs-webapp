@@ -225,13 +225,14 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
         setLifecycleModal({ open: true, targetStatus, label: labelMap[targetStatus] || targetStatus });
     };
 
-    const applyStatusChange = async (targetStatus: string, reason: string | undefined) => {
+    const applyStatusChange = async (targetStatus: string, reason: string | undefined, graduatedAcademicYear?: string) => {
         if (!cc) return;
         setActionLoading(targetStatus);
         try {
             await api.patch(`/v1/students/${cc}/status`, {
                 status: targetStatus,
                 reason: reason?.trim() || undefined,
+                ...(targetStatus === 'GRADUATED' && graduatedAcademicYear ? { graduated_academic_year: graduatedAcademicYear } : {}),
             });
             await reload();
             onUpdated?.();
@@ -245,8 +246,8 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
         }
     };
 
-    const confirmLifecycleAction = async (reason: string) => {
-        await applyStatusChange(lifecycleModal.targetStatus, reason);
+    const confirmLifecycleAction = async (reason: string, graduatedAcademicYear?: string) => {
+        await applyStatusChange(lifecycleModal.targetStatus, reason, graduatedAcademicYear);
     };
 
     if (!cc) return null;

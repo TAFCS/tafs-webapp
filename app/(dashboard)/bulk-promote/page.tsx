@@ -180,6 +180,7 @@ export default function BulkPromotePage() {
   const [reason, setReason] = useState("");
   const [sourceAcademicYear, setSourceAcademicYear] = useState(""); // filter: students currently in this year
   const [targetAcademicYear, setTargetAcademicYear] = useState(""); // override: destination year
+  const [graduatedAcademicYear, setGraduatedAcademicYear] = useState(""); // override: recorded graduation year
   const [dryRun, setDryRun] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [response, setResponse] = useState<PromotionResponse | null>(null);
@@ -525,6 +526,7 @@ export default function BulkPromotePage() {
     setStudentIdsRaw("");
     setReason("");
     setTargetAcademicYear("");
+    setGraduatedAcademicYear("");
     setDryRun(true);
     setResponse(null);
     setErrorLog(null);
@@ -584,6 +586,7 @@ export default function BulkPromotePage() {
     if (reason.trim()) payload.reason = reason.trim();
     if (sourceAcademicYear) payload.academic_year = sourceAcademicYear;   // source filter
     if (targetAcademicYear) payload.target_academic_year = targetAcademicYear; // destination override
+    if (isGraduating && graduatedAcademicYear) payload.graduated_academic_year = graduatedAcademicYear; // recorded graduation year
 
     const activeOverrides = Object.entries(grOverrides)
       .filter(([, v]) => v.trim())
@@ -728,6 +731,17 @@ export default function BulkPromotePage() {
               </select>
               <p className="text-[10px] text-zinc-400">Override destination year.</p>
             </div>
+            {isGraduating && (
+              <div className="space-y-2">
+                <label htmlFor="graduated-academic-year" className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Graduated As</label>
+                <select id="graduated-academic-year" value={graduatedAcademicYear} onChange={(e) => setGraduatedAcademicYear(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                  <option value="">Auto (each student's current year)</option>
+                  {academicYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
+                </select>
+                <p className="text-[10px] text-zinc-400">Recorded as the year each student was studying in when they graduated.</p>
+              </div>
+            )}
             <div className="space-y-2">
               <label htmlFor="campus-filter" className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Campus Filter</label>
               <select id="campus-filter" value={campusId} onChange={(e) => setCampusId(e.target.value)}
