@@ -8,7 +8,7 @@ import {
   Phone, Mail, MapPin, CreditCard, Cake, Calendar, Building2,
   AlertTriangle, Users as UsersIcon, Pencil, Save, CheckCircle2,
   Landmark, PhoneCall, Shield, Fingerprint, CalendarClock, UserMinus,
-  ChevronDown, UserCheck, ShieldCheck, DoorOpen, Ban, Wallet,
+  ChevronDown, UserCheck, ShieldCheck, DoorOpen, Ban, Wallet, HandCoins,
 } from "lucide-react";
 import {
   hrService,
@@ -30,6 +30,7 @@ import { EmployeePortalAccountTab } from "./EmployeePortalAccountTab";
 import { EmployeeBiometricTab } from "./EmployeeBiometricTab";
 import { EmployeeShiftOverridesTab } from "./EmployeeShiftOverridesTab";
 import { EmployeeSecurityDepositTab } from "./EmployeeSecurityDepositTab";
+import { EmployeeLoanTab } from "./EmployeeLoanTab";
 import {
   assignmentsToRows,
   rowsToAssignments,
@@ -46,6 +47,7 @@ const BASE_TABS = [
   { id: "employment", label: "Employment", icon: Briefcase },
   { id: "schedule", label: "Schedule & Pay", icon: Clock },
   { id: "security_deposit", label: "Security Deposit", icon: Wallet },
+  { id: "loan", label: "Loan", icon: HandCoins },
   { id: "classes", label: "Class & Sections", icon: BookOpen },
 ] as const;
 
@@ -408,6 +410,15 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
         }
       } catch {
         // Status change should still proceed if the deposit lookup fails.
+      }
+      try {
+        const loan = await hrService.getEmployeeLoan(emp.id);
+        const outstanding = loan.current?.outstanding_balance ?? 0;
+        if (outstanding > 0) {
+          heldNote += `\n\nThis employee still has Rs. ${outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} loan balance outstanding. Record a lump-sum repayment if you collected final dues, or mark it outstanding for follow-up, on the Loan tab.`;
+        }
+      } catch {
+        // Status change should still proceed if the loan lookup fails.
       }
       const ok = confirm(
         (next === "LEFT"
@@ -774,6 +785,10 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
 
                 {tab === "security_deposit" && (
                   <EmployeeSecurityDepositTab employeeId={emp.id} />
+                )}
+
+                {tab === "loan" && (
+                  <EmployeeLoanTab employeeId={emp.id} />
                 )}
 
                 {tab === "schedule" && (

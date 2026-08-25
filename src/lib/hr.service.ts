@@ -460,6 +460,7 @@ export interface PayrollRunLine extends AttendanceLineBase {
   eobi_deduction?: number;
   income_tax_deduction?: number;
   security_deposit_deduction?: number;
+  loan_deduction?: number;
   /** Employer-side cost, internal bookkeeping only — never shown to the employee. */
   eobi_employer_cost?: number;
   /** Employer-side cost, internal bookkeeping only — never shown to the employee. */
@@ -572,6 +573,77 @@ export interface SecurityDepositListItem {
   installment_count: number;
   start_period_start: string;
   status: SecurityDepositStatus;
+}
+
+export type LoanStatus =
+  | 'ACTIVE'
+  | 'COMPLETED'
+  | 'FORECLOSED'
+  | 'WRITTEN_OFF'
+  | 'OUTSTANDING';
+
+export type LoanTransactionType = 'OPENING_BALANCE' | 'DEDUCTION' | 'LUMP_SUM_REPAYMENT' | 'WRITE_OFF';
+
+export interface LoanTransaction {
+  id: number;
+  type: LoanTransactionType;
+  payroll_run_line_id: number | null;
+  due_amount: number;
+  amount: number;
+  balance_after: number;
+  reason: string | null;
+  created_by: string;
+  created_at: string;
+  period_start: string | null;
+  period_end: string | null;
+}
+
+export interface EmployeeLoan {
+  id: number;
+  employee_id: number;
+  total_amount: number;
+  amount_repaid_opening: number;
+  installment_count: number;
+  installment_amount: number;
+  disbursement_date: string;
+  start_period_start: string;
+  recovered_amount: number;
+  lump_sum_repaid_amount: number;
+  written_off_amount: number;
+  carried_forward_amount: number;
+  outstanding_balance: number;
+  status: LoanStatus;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  transactions: LoanTransaction[];
+}
+
+export interface EmployeeLoanResponse {
+  current: EmployeeLoan | null;
+  history: EmployeeLoan[];
+  default_start_period_start: string;
+}
+
+export interface LoanListItem {
+  id: number;
+  employee_id: number;
+  full_name: string | null;
+  employee_code: string | null;
+  campus_name: string | null;
+  total_amount: number;
+  amount_repaid_opening: number;
+  recovered_amount: number;
+  lump_sum_repaid_amount: number;
+  written_off_amount: number;
+  outstanding_balance: number;
+  carried_forward_amount: number;
+  installment_amount: number;
+  installment_count: number;
+  disbursement_date: string;
+  start_period_start: string;
+  status: LoanStatus;
 }
 
 export interface PayrollRun {
@@ -1054,6 +1126,68 @@ export const hrService = {
   async cancelEmployeeSecurityDeposit(employeeId: number): Promise<EmployeeSecurityDepositResponse> {
     const { data } = await api.post<ApiEnvelope<EmployeeSecurityDepositResponse>>(
       `/v1/hr/employees/${employeeId}/security-deposit/cancel`,
+    );
+    return data.data;
+  },
+  async getEmployeeLoan(employeeId: number): Promise<EmployeeLoanResponse> {
+    const { data } = await api.get<ApiEnvelope<EmployeeLoanResponse>>(
+      `/v1/hr/employees/${employeeId}/loan`,
+    );
+    return data.data;
+  },
+  async listEmployeeLoans(status?: 'ACTIVE' | 'OUTSTANDING'): Promise<LoanListItem[]> {
+    const { data } = await api.get<ApiEnvelope<LoanListItem[]>>(
+      '/v1/hr/employee-loans',
+      { params: status ? { status } : undefined },
+    );
+    return data.data;
+  },
+  async createEmployeeLoan(
+    employeeId: number,
+    payload: {
+      total_amount: number;
+      installment_count: number;
+      amount_repaid_opening?: number;
+      disbursement_date?: string;
+      start_period_start?: string;
+      notes?: string;
+    },
+  ): Promise<EmployeeLoanResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeLoanResponse>>(
+      `/v1/hr/employees/${employeeId}/loan`,
+      payload,
+    );
+    return data.data;
+  },
+  async repayLoanLumpSum(
+    employeeId: number,
+    payload: { amount: number; notes?: string },
+  ): Promise<EmployeeLoanResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeLoanResponse>>(
+      `/v1/hr/employees/${employeeId}/loan/lump-sum`,
+      payload,
+    );
+    return data.data;
+  },
+  async writeOffLoan(
+    employeeId: number,
+    payload: { amount: number; reason: string },
+  ): Promise<EmployeeLoanResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeLoanResponse>>(
+      `/v1/hr/employees/${employeeId}/loan/write-off`,
+      payload,
+    );
+    return data.data;
+  },
+  async cancelEmployeeLoan(employeeId: number): Promise<EmployeeLoanResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeLoanResponse>>(
+      `/v1/hr/employees/${employeeId}/loan/cancel`,
+    );
+    return data.data;
+  },
+  async markLoanOutstanding(employeeId: number): Promise<EmployeeLoanResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeLoanResponse>>(
+      `/v1/hr/employees/${employeeId}/loan/mark-outstanding`,
     );
     return data.data;
   },

@@ -120,6 +120,7 @@ export const NAV_MODULES: NavModule[] = [
             { name: "Payroll", description: "Salary processing", href: "/hr/payroll", icon: Wallet, permission: "hr.payroll.view" },
             { name: "Payroll Rules", description: "EOBI, SESSI & income tax rates", href: "/hr/payroll/rules", icon: Landmark, permission: "hr.payroll.view" },
             { name: "Security Deposits", description: "Caution money plans across employees", href: "/hr/security-deposits", icon: HandCoins, permission: "hr.employees.view" },
+            { name: "Employee Loans", description: "Salary advance loans across employees", href: "/hr/employee-loans", icon: Banknote, permission: "hr.employees.view" },
             { name: "Employee Notices", description: "Broadcast announcements to staff by role", href: "/hr/notices", icon: Megaphone, permission: "communication.send_employee_announcements" },
         ],
     },

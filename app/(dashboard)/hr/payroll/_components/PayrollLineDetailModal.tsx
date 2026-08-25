@@ -153,6 +153,7 @@ type PayFields = Partial<
     | "eobi_deduction"
     | "income_tax_deduction"
     | "security_deposit_deduction"
+    | "loan_deduction"
     | "eobi_employer_cost"
     | "sessi_employer_cost"
   >
@@ -416,6 +417,12 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                   <div className="flex justify-between sm:block">
                     <span className="text-zinc-400">Income Tax</span>
                     <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.income_tax_deduction!)}</span>
+                  </div>
+                )}
+                {Number(line.loan_deduction) > 0 && (
+                  <div className="flex justify-between sm:block">
+                    <span className="text-zinc-400">Loan</span>
+                    <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.loan_deduction!)}</span>
                   </div>
                 )}
                 {Number(line.security_deposit_deduction) > 0 && (
