@@ -519,10 +519,27 @@ export interface PayrollRun {
   is_test: boolean;
   campuses?: { id: number; campus_name: string };
   payroll_run_lines?: PayrollRunLine[];
+  payroll_run_exclusions?: PayrollRunExclusion[];
   _count?: { payroll_run_lines: number };
   totals?: { net_pay: number | null; total_deductions: number | null; unresolved_days: number | null };
   /** Only present on the response from finalizePayrollRun ("Finalize All"). */
   finalize_summary?: { finalized: number; skipped: { employee_id: number; reason: string }[] };
+}
+
+export interface PayrollRunExclusion {
+  id: number;
+  payroll_run_id: number;
+  employee_id: number;
+  reason: string | null;
+  excluded_by: string;
+  excluded_at: string;
+  employee_profiles?: {
+    id: number;
+    full_name: string | null;
+    employee_code: string | null;
+    job_title: string | null;
+    photo_url: string | null;
+  };
 }
 
 export interface GeneratePayrollRunPayload {
@@ -857,6 +874,19 @@ export const hrService = {
   async finalizePayrollLine(runId: number, employeeId: number): Promise<PayrollRun> {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>(
       `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/finalize`,
+    );
+    return data.data;
+  },
+  async excludePayrollLine(runId: number, employeeId: number, reason?: string): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/exclude`,
+      reason ? { reason } : {},
+    );
+    return data.data;
+  },
+  async includePayrollLine(runId: number, employeeId: number): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/include`,
     );
     return data.data;
   },

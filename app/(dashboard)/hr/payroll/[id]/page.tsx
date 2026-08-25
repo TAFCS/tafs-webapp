@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Wallet, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Lock,
   Trash2, AlertTriangle, Building2, Calendar, LayoutGrid, List, Download,
-  FlaskConical, FileText, HandCoins, RefreshCw,
+  FlaskConical, FileText, HandCoins, RefreshCw, UserMinus, UserPlus,
 } from "lucide-react";
 import { hrService, PayrollRun, PayrollRunLine } from "@/lib/hr.service";
 import { PayrollLineDetailModal } from "../_components/PayrollLineDetailModal";
@@ -52,6 +52,52 @@ function SummaryCard({ label, value, accent }: { label: string; value: string; a
   );
 }
 
+function ExcludedEmployeesPanel({
+  exclusions,
+  includingId,
+  onInclude,
+}: {
+  exclusions: NonNullable<PayrollRun["payroll_run_exclusions"]>;
+  includingId: number | null;
+  onInclude: (employeeId: number) => void;
+}) {
+  return (
+    <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+      <div className="flex items-center gap-3 px-5 py-4 bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
+        <UserMinus className="h-5 w-5 text-zinc-400 shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300">Excluded Employees</p>
+          <p className="text-xs text-zinc-400">Left out of this cycle for now — not computed, not paid, until re-included.</p>
+        </div>
+      </div>
+      <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {exclusions.map((ex) => {
+          const name = ex.employee_profiles?.full_name ?? `Employee #${ex.employee_id}`;
+          const including = includingId === ex.employee_id;
+          return (
+            <div key={ex.id} className="flex items-center justify-between gap-3 px-5 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white truncate">{name}</p>
+                <p className="text-[11px] text-zinc-400">
+                  {ex.employee_profiles?.employee_code ?? "—"}
+                  {ex.reason ? ` · ${ex.reason}` : ""}
+                </p>
+              </div>
+              <button
+                onClick={() => onInclude(ex.employee_id)}
+                disabled={including}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all disabled:opacity-50 shrink-0"
+              >
+                {including ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />} Include
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function PayrollRunDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -69,6 +115,8 @@ export default function PayrollRunDetailPage() {
   const [regeneratingAll, setRegeneratingAll] = useState(false);
   const [regeneratingLineId, setRegeneratingLineId] = useState<number | null>(null);
   const [finalizingLineId, setFinalizingLineId] = useState<number | null>(null);
+  const [excludingLineId, setExcludingLineId] = useState<number | null>(null);
+  const [includingLineId, setIncludingLineId] = useState<number | null>(null);
   const [selectedLine, setSelectedLine] = useState<PayrollRunLine | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
   const [tab, setTab] = useState<"lines" | "matrix">("lines");
@@ -200,6 +248,39 @@ export default function PayrollRunDetailPage() {
       setError(err.response?.data?.message || "Failed to finalize this employee's payroll line.");
     } finally {
       setFinalizingLineId(null);
+    }
+  };
+
+  const handleExcludeLine = async (employeeId: number, name: string) => {
+    if (!run) return;
+    if (!confirm(`Exclude ${name} from this payroll cycle? Their line will be removed until you Include them again.`)) return;
+    setExcludingLineId(employeeId);
+    setError(null);
+    try {
+      const updated = await hrService.excludePayrollLine(run.id, employeeId);
+      setRun(updated);
+      setSuccess(`${name} excluded from this payroll run.`);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to exclude this employee.");
+    } finally {
+      setExcludingLineId(null);
+    }
+  };
+
+  const handleIncludeLine = async (employeeId: number) => {
+    if (!run) return;
+    setIncludingLineId(employeeId);
+    setError(null);
+    try {
+      const updated = await hrService.includePayrollLine(run.id, employeeId);
+      setRun(updated);
+      setSuccess("Employee re-included on this payroll run.");
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to re-include this employee.");
+    } finally {
+      setIncludingLineId(null);
     }
   };
 
@@ -409,6 +490,14 @@ export default function PayrollRunDetailPage() {
 
       <FlagReviewPanel run={run} lines={lines} onDecided={handleFlagsDecided} />
 
+      {run.payroll_run_exclusions && run.payroll_run_exclusions.length > 0 && (
+        <ExcludedEmployeesPanel
+          exclusions={run.payroll_run_exclusions}
+          includingId={includingLineId}
+          onInclude={handleIncludeLine}
+        />
+      )}
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <SummaryCard label="Employees" value={String(lines.length)} />
@@ -480,9 +569,11 @@ export default function PayrollRunDetailPage() {
                     line={line}
                     regenerating={regeneratingLineId === line.employee_id}
                     finalizing={finalizingLineId === line.employee_id}
+                    excluding={excludingLineId === line.employee_id}
                     onSettle={() => setSettlingLine(line)}
                     onRegenerate={() => handleRegenerateLine(line.employee_id)}
                     onFinalize={() => handleFinalizeLine(line.employee_id)}
+                    onExclude={() => handleExcludeLine(line.employee_id, line.employee_profiles?.full_name ?? `Employee #${line.employee_id}`)}
                     onClick={() => { setSelectedLine(line); setSelectedDate(undefined); }}
                   />
                 ))}
@@ -531,16 +622,20 @@ function PayrollLineRow({
   onSettle,
   onRegenerate,
   onFinalize,
+  onExclude,
   regenerating,
   finalizing,
+  excluding,
 }: {
   line: PayrollRunLine;
   onClick: () => void;
   onSettle: () => void;
   onRegenerate: () => void;
   onFinalize: () => void;
+  onExclude: () => void;
   regenerating: boolean;
   finalizing: boolean;
+  excluding: boolean;
 }) {
   const emp = line.employee_profiles;
   const name = emp?.full_name ?? `Employee #${line.employee_id}`;
@@ -655,6 +750,14 @@ function PayrollLineRow({
               className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline disabled:text-zinc-400"
             >
               {finalizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />} Finalize
+            </button>
+            <button
+              onClick={onExclude}
+              disabled={excluding}
+              title="Exclude this employee from this payroll cycle (e.g. attendance wasn't tracked for them this period)"
+              className="inline-flex items-center text-zinc-400 hover:text-rose-600 disabled:opacity-50"
+            >
+              {excluding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserMinus className="h-3.5 w-3.5" />}
             </button>
           </div>
         )}
