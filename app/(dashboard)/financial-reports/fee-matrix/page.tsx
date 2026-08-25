@@ -28,11 +28,19 @@ const FEE_STATUSES = [
 ] as const;
 
 const STATUS_LEGEND = [
-  { status: "NOT_ISSUED", label: "Not issued", dot: "bg-zinc-300 dark:bg-zinc-600", hint: "Scheduled, not yet on a voucher" },
-  { status: "ISSUED", label: "Issued", dot: "bg-blue-500", hint: "Billed on a voucher, unpaid" },
-  { status: "PARTIALLY_PAID", label: "Partially paid", dot: "bg-amber-500", hint: "Billed, part paid" },
-  { status: "PAID", label: "Paid", dot: "bg-emerald-500", hint: "Fully paid" },
-  { status: "DISCOUNT", label: "Discount", dot: "bg-violet-500", hint: "Discount-status head" },
+  { status: "NOT_ISSUED", label: "Not issued", dot: "bg-zinc-300 dark:bg-zinc-600", hint: "scheduled but not yet put on a voucher" },
+  { status: "ISSUED", label: "Issued", dot: "bg-blue-500", hint: "billed on a voucher, still unpaid" },
+  { status: "PAID", label: "Paid", dot: "bg-emerald-500", hint: "fully paid" },
+] as const;
+
+const STATUS_LEGEND_SECONDARY = [
+  { status: "PARTIALLY_PAID", label: "Partially paid", dot: "bg-amber-500" },
+  { status: "DISCOUNT", label: "Discount", dot: "bg-violet-500" },
+] as const;
+
+const ALL_STATUS_DOTS = [
+  ...STATUS_LEGEND,
+  ...STATUS_LEGEND_SECONDARY.map((s) => ({ ...s, hint: s.label.toLowerCase() })),
 ] as const;
 
 type SegmentOption = {
@@ -104,7 +112,7 @@ type StudentSearchResult = {
 };
 
 function statusDotClass(status: string): string {
-  return STATUS_LEGEND.find((s) => s.status === status)?.dot ?? "bg-zinc-300 dark:bg-zinc-600";
+  return ALL_STATUS_DOTS.find((s) => s.status === status)?.dot ?? "bg-zinc-300 dark:bg-zinc-600";
 }
 
 function formatMode(mode: number[]): string {
@@ -592,15 +600,27 @@ export default function FeeMatrixReportPage() {
         <TotalTile label="Cycle" value={cycleLabel} sub={academicYear} />
       </div>
 
-      <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-1">Cell status</span>
-        {STATUS_LEGEND.map((s) => (
-          <div key={s.status} className="flex items-center gap-1.5" title={s.hint}>
-            <span className={`h-2 w-2 rounded-full flex-shrink-0 ${s.dot}`} />
-            <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">{s.label}</span>
-            <span className="text-[11px] text-zinc-400 hidden lg:inline">— {s.hint}</span>
-          </div>
-        ))}
+      <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-4 space-y-2">
+        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Cell status legend</p>
+        <div className="flex flex-col gap-1.5">
+          {STATUS_LEGEND.map((s) => (
+            <div key={s.status} className="flex items-center gap-2 text-sm">
+              <span className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${s.dot}`} />
+              <span className="font-semibold text-zinc-700 dark:text-zinc-200">{s.label}</span>
+              <span className="text-zinc-400">— {s.hint}</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-zinc-400">
+          {STATUS_LEGEND_SECONDARY.map((s, i) => (
+            <span key={s.status} className="inline-flex items-center gap-1.5 mr-3">
+              <span className={`h-1.5 w-1.5 rounded-full inline-block ${s.dot}`} />
+              {s.label.toLowerCase()}
+              {i < STATUS_LEGEND_SECONDARY.length - 1 && " and"}
+            </span>
+          ))}
+          are present too, just less common in most filters.
+        </p>
       </div>
 
       {statistics && (
