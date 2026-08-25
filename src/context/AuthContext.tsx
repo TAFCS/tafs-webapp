@@ -9,6 +9,10 @@ import { authService } from '@/lib/auth.service';
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
+// Routes that stay public even when there's no session, so this mount-time
+// refresh check must never bounce them to /auth/login.
+const PUBLIC_PATHS = ['/auth', '/privacy-policy'];
+
 // Only non-sensitive display data (name, role) is kept in localStorage.
 // Auth tokens live exclusively in httpOnly cookies set by the backend.
 const KEY_USER = 'tafs_user';
@@ -87,7 +91,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .catch(() => {
                 clearSession();
                 dispatch(clearCredentials());
-                if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
+                if (
+                    typeof window !== 'undefined' &&
+                    !PUBLIC_PATHS.some((p) => window.location.pathname.startsWith(p))
+                ) {
                     router.push('/auth/login');
                 }
             });
