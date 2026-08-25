@@ -7,12 +7,14 @@ import {
   hrService,
   EmployeeLoanResponse,
   EmployeeLoan,
+  EmployeeStatus,
   LoanStatus,
   LoanTransactionType,
 } from "@/lib/hr.service";
 
 interface Props {
   employeeId: number;
+  employmentStatus?: EmployeeStatus | null;
 }
 
 const inputCls =
@@ -59,7 +61,7 @@ function cycleLabel(txn: EmployeeLoan["transactions"][number]): string {
   return "-";
 }
 
-export function EmployeeLoanTab({ employeeId }: Props) {
+export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
   const [data, setData] = useState<EmployeeLoanResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -357,7 +359,9 @@ export function EmployeeLoanTab({ employeeId }: Props) {
                     Cancel loan
                   </button>
                 )}
-              {current.status === "ACTIVE" && current.outstanding_balance > 0 && (
+              {current.status === "ACTIVE" &&
+                current.outstanding_balance > 0 &&
+                (employmentStatus === "LEFT" || employmentStatus === "TERMINATED") && (
                 <button
                   type="button"
                   onClick={handleMarkOutstanding}

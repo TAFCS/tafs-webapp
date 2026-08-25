@@ -788,7 +788,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                 )}
 
                 {tab === "loan" && (
-                  <EmployeeLoanTab employeeId={emp.id} />
+                  <EmployeeLoanTab employeeId={emp.id} employmentStatus={emp.employment_status} />
                 )}
 
                 {tab === "schedule" && (
