@@ -277,6 +277,20 @@ export interface CalendarNotificationReport {
   }>;
 }
 
+export interface CalendarNotificationHistoryItem extends CalendarNotificationReport {
+  id: number | null;
+  calendar_day_id: number | null;
+  campus_id: number;
+  date: string;
+  day_type: string;
+  alert_type: string;
+  description: string | null;
+  summary: string | null;
+  created_by: string | null;
+  created_at: string | null;
+  source: "saved" | "reconstructed";
+}
+
 export interface CalendarDay {
   id: number;
   campus_id: number;
@@ -907,6 +921,19 @@ export const hrService = {
     if (appliesTo) params.set('appliesTo', appliesTo);
     if (employeeId != null) params.set('employeeId', String(employeeId));
     const { data } = await api.get<ApiEnvelope<CalendarDay[]>>(`/v1/hr/calendar?${params.toString()}`);
+    return data.data;
+  },
+  async listCalendarNotificationReports(
+    campusId: number,
+    limit = 50,
+  ): Promise<CalendarNotificationHistoryItem[]> {
+    const params = new URLSearchParams({
+      campusId: String(campusId),
+      limit: String(limit),
+    });
+    const { data } = await api.get<ApiEnvelope<CalendarNotificationHistoryItem[]>>(
+      `/v1/hr/calendar/notification-reports?${params.toString()}`,
+    );
     return data.data;
   },
   async createCalendarDay(payload: {

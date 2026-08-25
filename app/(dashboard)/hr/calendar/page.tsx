@@ -16,7 +16,7 @@ import {
   Pencil,
   RefreshCw,
 } from "lucide-react";
-import { hrService, CalendarDay, Department, EmployeeProfile, formatStaffCategory } from "@/lib/hr.service";
+import { hrService, CalendarDay, CalendarNotificationHistoryItem, Department, EmployeeProfile, formatStaffCategory } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
 import { useAuthState } from "@/context/AuthContext";
 import { useAppSelector } from "@/store/hooks";
@@ -137,6 +137,9 @@ export default function CalendarPage() {
   const [syncing, setSyncing] = useState(false);
   const [applyToAllCampuses, setApplyToAllCampuses] = useState(false);
   const [syncAllCampuses, setSyncAllCampuses] = useState(false);
+  const [notificationHistory, setNotificationHistory] = useState<CalendarNotificationHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCampuses = async () => {
@@ -197,6 +200,27 @@ export default function CalendarPage() {
       setLoading(false);
     }
   };
+
+  const fetchNotificationHistory = async (campusId: number) => {
+    setHistoryLoading(true);
+    try {
+      const rows = await hrService.listCalendarNotificationReports(campusId);
+      setNotificationHistory(rows);
+    } catch {
+      setNotificationHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedCampusId !== null && activeTab === "STUDENT") {
+      fetchNotificationHistory(selectedCampusId);
+    } else {
+      setNotificationHistory([]);
+      setExpandedHistoryId(null);
+    }
+  }, [selectedCampusId, activeTab]);
 
   const scopeLabel = (day: CalendarDay) => {
     if (day.section_id && day.sections) {
@@ -337,7 +361,10 @@ export default function CalendarPage() {
         );
       }
       setShowModal(false);
-      if (selectedCampusId !== null) fetchCalendar(selectedCampusId, activeTab);
+      if (selectedCampusId !== null) {
+        fetchCalendar(selectedCampusId, activeTab);
+        if (activeTab === "STUDENT") fetchNotificationHistory(selectedCampusId);
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to save calendar entry.");
     } finally {
@@ -598,6 +625,111 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
+
+      {isStudentTab && (
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-zinc-900 dark:text-white">Notification history</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Delivery reports for holidays and weekend opens on this campus. Older entries show estimated counts from the notification log.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => selectedCampusId != null && fetchNotificationHistory(selectedCampusId)}
+              disabled={historyLoading || selectedCampusId == null}
+              className="inline-flex items-center h-8 px-3 text-[11px] font-bold rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50"
+            >
+              {historyLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              <span className="ml-1.5">Refresh</span>
+            </button>
+          </div>
+
+          {historyLoading && notificationHistory.length === 0 ? (
+            <div className="flex items-center gap-2 text-xs text-zinc-500 py-4">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading reports…
+            </div>
+          ) : notificationHistory.length === 0 ? (
+            <p className="text-xs text-zinc-500 py-2">No notification reports for this campus yet.</p>
+          ) : (
+            <div className="divide-y divide-zinc-100 dark:divide-zinc-800 border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-hidden">
+              {notificationHistory.map((row) => {
+                const rowKey = `${row.source}-${row.id ?? "x"}-${String(row.date).slice(0, 10)}-${row.alert_type}`;
+                const expanded = expandedHistoryId === rowKey;
+                const dateLabel = String(row.date).slice(0, 10);
+                const covered = row.notified + row.already_notified;
+                return (
+                  <div key={rowKey} className="bg-white dark:bg-zinc-900">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedHistoryId(expanded ? null : rowKey)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors"
+                    >
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${getDayTypeBadge(row.day_type)}`}>
+                        {row.alert_type === "SCHOOL_OPEN" ? "Open" : "Holiday"}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                          {dateLabel}
+                          {row.description ? ` · ${row.description.replace(/^\[PINNED\]\s*/, "")}` : ""}
+                        </p>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                          {covered}/{row.attempted} covered
+                          {row.failed > 0 ? ` · ${row.failed} failed` : ""}
+                          {row.skipped_no_family > 0 ? ` · ${row.skipped_no_family} no family` : ""}
+                          {row.source === "reconstructed" ? " · estimated" : ""}
+                        </p>
+                      </div>
+                      <span className="text-zinc-300 text-xs">{expanded ? "▲" : "▼"}</span>
+                    </button>
+                    {expanded && (
+                      <div className="px-3 pb-3 space-y-2 bg-zinc-50/80 dark:bg-zinc-950/40">
+                        {row.summary && (
+                          <p className="text-[11px] text-zinc-600 dark:text-zinc-300">{row.summary}</p>
+                        )}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                          <div className="rounded-lg bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-2">
+                            Attempted <span className="block text-sm text-zinc-900 dark:text-white normal-case tracking-normal">{row.attempted}</span>
+                          </div>
+                          <div className="rounded-lg bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-2">
+                            Notified <span className="block text-sm text-emerald-600 normal-case tracking-normal">{row.notified}</span>
+                          </div>
+                          <div className="rounded-lg bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-2">
+                            Already <span className="block text-sm text-zinc-900 dark:text-white normal-case tracking-normal">{row.already_notified}</span>
+                          </div>
+                          <div className="rounded-lg bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-2">
+                            Failed <span className="block text-sm text-rose-600 normal-case tracking-normal">{row.failed}</span>
+                          </div>
+                        </div>
+                        {row.failures?.length > 0 && (
+                          <div className="rounded-lg border border-rose-100 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/20 p-2 max-h-40 overflow-y-auto">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-rose-600 mb-1">Failures</p>
+                            <ul className="space-y-1">
+                              {row.failures.map((f, i) => (
+                                <li key={`${f.student_cc}-${i}`} className="text-[11px] text-rose-800 dark:text-rose-200">
+                                  CC {f.student_cc}
+                                  {f.student_name ? ` · ${f.student_name}` : ""}
+                                  {f.reason ? ` — ${f.reason}` : ""}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {row.source === "reconstructed" && (
+                          <p className="text-[10px] text-zinc-400">
+                            Estimated from the notification log (saved before detailed reports existed). Failure lists are only available on newer saves.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
