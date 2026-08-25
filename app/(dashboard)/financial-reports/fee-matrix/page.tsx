@@ -132,6 +132,11 @@ const YES_NO_OPTIONS: { id: "true" | "false"; label: string }[] = [
   { id: "false", label: "No" },
 ];
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
 function currentYearMonth(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -142,6 +147,15 @@ function addMonths(yearMonth: string, delta: number): string {
   const total = y * 12 + (m - 1) + delta;
   const year = Math.floor(total / 12);
   const month = (total % 12) + 1;
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+function yearMonthParts(yearMonth: string): { year: number; month: number } {
+  const [year, month] = yearMonth.split("-").map(Number);
+  return { year, month };
+}
+
+function joinYearMonth(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
 
@@ -157,6 +171,10 @@ export default function FeeMatrixReportPage() {
 
   const [toMonth, setToMonth] = useState(currentYearMonth());
   const [fromMonth, setFromMonth] = useState(() => addMonths(currentYearMonth(), -11));
+  const yearOptions = useMemo(() => {
+    const current = new Date().getFullYear();
+    return Array.from({ length: 7 }, (_, i) => current - 4 + i);
+  }, []);
   const [campusIds, setCampusIds] = useState<number[]>(
     campusLocked && user?.campusId != null ? [user.campusId] : [],
   );
@@ -456,24 +474,52 @@ export default function FeeMatrixReportPage() {
             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
               <Calendar className="h-3 w-3" /> From month
             </label>
-            <input
-              type="month"
-              value={fromMonth}
-              onChange={(e) => setFromMonth(e.target.value)}
-              className="h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
-            />
+            <div className="flex gap-1.5">
+              <select
+                value={yearMonthParts(fromMonth).month}
+                onChange={(e) => setFromMonth(joinYearMonth(yearMonthParts(fromMonth).year, Number(e.target.value)))}
+                className="h-11 px-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
+              >
+                {MONTH_NAMES.map((name, i) => (
+                  <option key={name} value={i + 1}>{name}</option>
+                ))}
+              </select>
+              <select
+                value={yearMonthParts(fromMonth).year}
+                onChange={(e) => setFromMonth(joinYearMonth(Number(e.target.value), yearMonthParts(fromMonth).month))}
+                className="h-11 px-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
+              >
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
               <Calendar className="h-3 w-3" /> To month
             </label>
-            <input
-              type="month"
-              value={toMonth}
-              onChange={(e) => setToMonth(e.target.value)}
-              className="h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
-            />
+            <div className="flex gap-1.5">
+              <select
+                value={yearMonthParts(toMonth).month}
+                onChange={(e) => setToMonth(joinYearMonth(yearMonthParts(toMonth).year, Number(e.target.value)))}
+                className="h-11 px-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
+              >
+                {MONTH_NAMES.map((name, i) => (
+                  <option key={name} value={i + 1}>{name}</option>
+                ))}
+              </select>
+              <select
+                value={yearMonthParts(toMonth).year}
+                onChange={(e) => setToMonth(joinYearMonth(Number(e.target.value), yearMonthParts(toMonth).month))}
+                className="h-11 px-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
+              >
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {campusLocked ? (
