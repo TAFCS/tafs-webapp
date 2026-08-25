@@ -6,7 +6,8 @@ import {
     Search, Loader2, AlertCircle, FileText, ChevronDown, X,
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Building2, GraduationCap, Users, UserCheck, Hash, CreditCard, SlidersHorizontal,
-    ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2, AlertTriangle, Hourglass
+    ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2, AlertTriangle, Hourglass,
+    School, CalendarRange
 } from "lucide-react";
 import api from "@/lib/api";
 import { buildVoucherFilename } from "@/lib/voucher-filename";
@@ -18,6 +19,13 @@ import { fetchVouchers, VoucherFilters, VoucherItem } from "@/store/slices/vouch
 import toast from "react-hot-toast";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/filters/FilterDropdown";
 
+
+/** Newest-first "YYYY-YYYY" labels; the actual Apr-Mar vs Aug-Jul window for a
+ *  given year is resolved server-side per graduated_from_class's term system. */
+function generateGraduationYears(): string[] {
+    const y = new Date().getFullYear();
+    return Array.from({ length: 10 }, (_, i) => `${y - 8 + i}-${y - 7 + i}`).reverse();
+}
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -719,6 +727,8 @@ export default function VouchersPage() {
     // answers "who was billed under SR3 at the time".
     const [classScope, setClassScope] = useState<"current" | "as_issued">("current");
     const [studentStatuses, setStudentStatuses] = useState<string[]>([]);
+    const [graduatedFromClassIds, setGraduatedFromClassIds] = useState<number[]>([]);
+    const [graduatedYearRange, setGraduatedYearRange] = useState("");
     const [activeFiltersApplied, setActiveFiltersApplied] = useState<VoucherFilters>({});
 
     // Table state
@@ -799,6 +809,8 @@ export default function VouchersPage() {
             f.class_scope = "as_issued";
         }
         if (studentStatuses.length > 0) f.student_status = studentStatuses.join(",");
+        if (graduatedFromClassIds.length > 0) f.graduated_from_class_id = graduatedFromClassIds.join(",");
+        if (graduatedYearRange) f.graduated_year_range = graduatedYearRange;
         if (statusFilter.length > 0) f.status = statusFilter.join(",");
         if (dateFrom) f.date_from = dateFrom;
         if (dateTo) f.date_to = dateTo;
@@ -807,7 +819,7 @@ export default function VouchersPage() {
         if (!isNaN(ccNum) && ccNum > 0) f.cc = ccNum;
 
         return f;
-    }, [campusIds, classIds, sectionIds, classScope, studentStatuses, statusFilter, selectedCc, dateFrom, dateTo]);
+    }, [campusIds, classIds, sectionIds, classScope, studentStatuses, graduatedFromClassIds, graduatedYearRange, statusFilter, selectedCc, dateFrom, dateTo]);
 
     const handleApplyFilters = useCallback(() => {
         const filters = buildFilters();
@@ -830,6 +842,8 @@ export default function VouchersPage() {
         setMultipleFeeHeads(false);
         setClassScope("current");
         setStudentStatuses([]);
+        setGraduatedFromClassIds([]);
+        setGraduatedYearRange("");
         setActiveFiltersApplied({});
         setPage(1);
         dispatch(fetchVouchers({}));
@@ -946,6 +960,7 @@ export default function VouchersPage() {
     const campusOptions: FilterDropdownOption[] = campuses.map(c => ({ id: c.id, label: c.campus_name, sub: c.campus_code }));
     const classOptions: FilterDropdownOption[] = classes.map(c => ({ id: c.id, label: c.description, sub: c.class_code }));
     const sectionOptions: FilterDropdownOption[] = sections.map(s => ({ id: s.id, label: s.description }));
+    const graduationYears = generateGraduationYears();
 
     return (
         <div className="space-y-6 pb-20">
@@ -1238,6 +1253,35 @@ export default function VouchersPage() {
                                     onToggle={v => setStudentStatuses(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])}
                                     onClear={() => setStudentStatuses([])}
                                 />
+
+                                {/* Graduated From */}
+                                <FilterDropdown
+                                    label="Graduated From"
+                                    icon={School}
+                                    value={graduatedFromClassIds}
+                                    options={classOptions}
+                                    loading={classesLoading}
+                                    placeholder="Any Class"
+                                    hint="Which class the student graduated from — independent of class_scope above."
+                                    onToggle={v => setGraduatedFromClassIds(prev => prev.includes(v) ? prev.filter(id => id !== v) : [...prev, v])}
+                                    onClear={() => setGraduatedFromClassIds([])}
+                                />
+
+                                {/* Graduation Year */}
+                                <div className="flex flex-col gap-1.5">
+                                    <label htmlFor="filter-graduation-year" className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+                                        <CalendarRange className="h-3 w-3" /> Graduation Year
+                                    </label>
+                                    <select
+                                        id="filter-graduation-year"
+                                        value={graduatedYearRange}
+                                        onChange={e => setGraduatedYearRange(e.target.value)}
+                                        className="w-full h-11 px-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all text-zinc-700 dark:text-zinc-300"
+                                    >
+                                        <option value="">Any Year</option>
+                                        {graduationYears.map(yr => <option key={yr} value={yr}>{yr}</option>)}
+                                    </select>
+                                </div>
 
                                 {/* Date From */}
                                 <div className="flex flex-col gap-1.5">

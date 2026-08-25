@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Building2, Calendar, CheckCircle2, ChevronDown, ChevronUp, Download, FileText,
+  Building2, Calendar, CalendarRange, CheckCircle2, ChevronDown, ChevronUp, Download, FileText,
   Gift, GraduationCap, HeartHandshake, Info, LayoutDashboard, LayoutGrid, Layers,
-  Loader2, Search, Sigma, X,
+  Loader2, School, Search, Sigma, X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -16,7 +16,7 @@ import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { STUDENT_STATUS_OPTIONS, type YesNoFilter } from "../_components/report-filters";
 import { ReportPager } from "../_components/report-pager";
 import { downloadReportFile } from "../_components/download-report";
-import { formatRs, type PaginationMeta } from "../_components/report-utils";
+import { formatRs, generateGraduationYears, type PaginationMeta } from "../_components/report-utils";
 
 const FEE_STATUSES = [
   { id: "NOT_ISSUED", label: "Not issued" },
@@ -167,6 +167,8 @@ export default function FeeMatrixReportPage() {
   const [studentStatuses, setStudentStatuses] = useState<string[]>([]);
   const [feeEndowment, setFeeEndowment] = useState<YesNoFilter>("");
   const [isComplementary, setIsComplementary] = useState<YesNoFilter>("");
+  const [graduatedFromClassIds, setGraduatedFromClassIds] = useState<number[]>([]);
+  const [graduatedYearRange, setGraduatedYearRange] = useState("");
   const [statuses, setStatuses] = useState<string[]>([]);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -279,6 +281,8 @@ export default function FeeMatrixReportPage() {
     return Array.from(map, ([id, label]) => ({ id, label }));
   }, [scopedCampuses, classIds]);
 
+  const graduationYears = useMemo(() => generateGraduationYears(), []);
+
   useEffect(() => {
     if (classOptions.length === 0) return;
     const valid = new Set(classOptions.map((c) => c.id));
@@ -308,17 +312,19 @@ export default function FeeMatrixReportPage() {
     student_status: serializeIds(studentStatuses),
     is_fee_endowment: feeEndowment || undefined,
     is_complementary: isComplementary || undefined,
+    graduated_from_class_id: serializeIds(graduatedFromClassIds),
+    graduated_year_range: graduatedYearRange || undefined,
     status: serializeIds(statuses),
   }), [
     fromMonth, toMonth, campusIds, classIds, sectionIds, segmentIds, selectedCc,
-    studentStatuses, feeEndowment, isComplementary, statuses,
+    studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange, statuses,
   ]);
 
   useEffect(() => {
     setPage(1);
   }, [
     fromMonth, toMonth, campusIds, classIds, sectionIds, segmentIds, selectedCc,
-    studentStatuses, feeEndowment, isComplementary, statuses, pageSize,
+    studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange, statuses, pageSize,
   ]);
 
   const rangeValid = fromMonth <= toMonth;
@@ -570,6 +576,36 @@ export default function FeeMatrixReportPage() {
               onToggle={(id) => setIsComplementary(toggleYesNo(isComplementary, id))}
               onClear={() => setIsComplementary("")}
             />
+          </div>
+
+          <div className="min-w-[200px]">
+            <FilterDropdown
+              label="Graduated From"
+              icon={School}
+              value={graduatedFromClassIds}
+              options={classOptions}
+              placeholder="Any class"
+              hint="multi"
+              onToggle={(id) => setGraduatedFromClassIds(toggleId(graduatedFromClassIds, id))}
+              onSetValue={setGraduatedFromClassIds}
+              onClear={() => setGraduatedFromClassIds([])}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+              <CalendarRange className="h-3 w-3" /> Graduation Year
+            </label>
+            <select
+              value={graduatedYearRange}
+              onChange={(e) => setGraduatedYearRange(e.target.value)}
+              className="h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
+            >
+              <option value="">Any Year</option>
+              {graduationYears.map((yr) => (
+                <option key={yr} value={yr}>{yr}</option>
+              ))}
+            </select>
           </div>
 
           <div className="min-w-[200px]">

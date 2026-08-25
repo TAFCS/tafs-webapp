@@ -12,6 +12,13 @@ export function formatRs(n: number | null | undefined): string {
   return `Rs. ${Math.round(n ?? 0).toLocaleString()}`;
 }
 
+/** Newest-first "YYYY-YYYY" labels; the actual Apr-Mar vs Aug-Jul window for a
+ *  given year is resolved server-side per graduated_from_class's term system. */
+export function generateGraduationYears(): string[] {
+  const y = new Date().getFullYear();
+  return Array.from({ length: 10 }, (_, i) => `${y - 8 + i}-${y - 7 + i}`).reverse();
+}
+
 export type PaginationMeta = {
   page: number;
   limit: number;

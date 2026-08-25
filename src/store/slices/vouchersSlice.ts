@@ -185,6 +185,10 @@ export interface VoucherFilters {
     class_scope?: 'current' | 'as_issued';
     /** Comma-separated student_status values, e.g. "ENROLLED,LEFT". */
     student_status?: string;
+    /** Comma-separated class IDs the student graduated from. Applies under either class_scope. */
+    graduated_from_class_id?: string;
+    /** Graduation academic-year range, "YYYY-YYYY". */
+    graduated_year_range?: string;
 }
 
 // ─── Async Thunk ─────────────────────────────────────────────────────────────
@@ -209,6 +213,8 @@ export const fetchVouchers = createAsyncThunk(
             if (filters.multiple_fee_heads) params.multiple_fee_heads = 'true';
             if (filters.class_scope) params.class_scope = filters.class_scope;
             if (filters.student_status) params.student_status = filters.student_status;
+            if (filters.graduated_from_class_id) params.graduated_from_class_id = filters.graduated_from_class_id;
+            if (filters.graduated_year_range) params.graduated_year_range = filters.graduated_year_range;
 
             const response = await api.get('/v1/vouchers', { params });
             const data = response.data?.data;

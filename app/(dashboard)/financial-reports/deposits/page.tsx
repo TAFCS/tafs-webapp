@@ -70,6 +70,8 @@ export default function DepositsReportPage() {
   const [studentStatuses, setStudentStatuses] = useState<string[]>([]);
   const [feeEndowment, setFeeEndowment] = useState<YesNoFilter>("");
   const [isComplementary, setIsComplementary] = useState<YesNoFilter>("");
+  const [graduatedFromClassIds, setGraduatedFromClassIds] = useState<number[]>([]);
+  const [graduatedYearRange, setGraduatedYearRange] = useState("");
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [bankNames, setBankNames] = useState<string[]>([]);
   const [page, setPage] = useState(1);
@@ -94,13 +96,15 @@ export default function DepositsReportPage() {
     student_status: serializeIds(studentStatuses),
     is_fee_endowment: feeEndowment || undefined,
     is_complementary: isComplementary || undefined,
+    graduated_from_class_id: serializeIds(graduatedFromClassIds),
+    graduated_year_range: graduatedYearRange || undefined,
     payment_method: serializeIds(paymentMethods),
     bank_name: serializeIds(bankNames),
-  }), [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, paymentMethods, bankNames]);
+  }), [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange, paymentMethods, bankNames]);
 
   useEffect(() => {
     setPage(1);
-  }, [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, paymentMethods, bankNames, pageSize]);
+  }, [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange, paymentMethods, bankNames, pageSize]);
 
   useEffect(() => {
     if (!canViewAnalytics) {
@@ -216,6 +220,10 @@ export default function DepositsReportPage() {
           setFeeEndowment={setFeeEndowment}
           isComplementary={isComplementary}
           setIsComplementary={setIsComplementary}
+          graduatedFromClassIds={graduatedFromClassIds}
+          setGraduatedFromClassIds={setGraduatedFromClassIds}
+          graduatedYearRange={graduatedYearRange}
+          setGraduatedYearRange={setGraduatedYearRange}
           extra={
             <>
               <div className="min-w-[200px]">

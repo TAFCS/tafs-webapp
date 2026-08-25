@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Download, Loader2, CheckCircle2, Camera, Fingerprint, Receipt, Play } from "lucide-react";
+import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Download, Loader2, CheckCircle2, Camera, Fingerprint, Receipt, Play, School, CalendarRange } from "lucide-react";
 import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
@@ -364,6 +364,13 @@ function StudentCard({ student, onClick }: { student: Student; onClick: () => vo
     );
 }
 
+/** Newest-first "YYYY-YYYY" labels; the actual Apr-Mar vs Aug-Jul window for a
+ *  given year is resolved server-side per graduated_from_class's term system. */
+function generateGraduationYears(): string[] {
+    const y = new Date().getFullYear();
+    return Array.from({ length: 10 }, (_, i) => `${y - 8 + i}-${y - 7 + i}`).reverse();
+}
+
 function FilterSelect({ label, value, onChange, options, icon }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; icon?: React.ReactNode }) {
     return (
         <div className="relative">
@@ -403,6 +410,8 @@ function DirectoryContent() {
     const [sectionIds, setSectionIds] = useState<number[]>([]);
     const [houseIds, setHouseIds]     = useState<number[]>([]);
     const [statuses, setStatuses]     = useState<string[]>([]);
+    const [graduatedFromClassIds, setGraduatedFromClassIds] = useState<number[]>([]);
+    const [graduatedYearRange, setGraduatedYearRange] = useState("");
     const [auditType, setAuditType]   = useState("");
     const [photoFilter, setPhotoFilter] = useState("");
     const [hadQuickAdmission, setHadQuickAdmission] = useState(false);
@@ -446,11 +455,13 @@ function DirectoryContent() {
         if (sectionIds.length > 0) params.section_id = sectionIds.join(",");
         if (houseIds.length > 0) params.house_id = houseIds.join(",");
         if (statuses.length > 0) params.status = statuses.join(",");
+        if (graduatedFromClassIds.length > 0) params.graduated_from_class_id = graduatedFromClassIds.join(",");
+        if (graduatedYearRange) params.graduated_year_range = graduatedYearRange;
         if (auditType) params.audit_type = auditType;
         if (photoFilter) params.has_photo = photoFilter;
         if (hadQuickAdmission) params.had_quick_admission = "true";
         return params;
-    }, [page, search, campusIds, classIds, sectionIds, houseIds, statuses, auditType, photoFilter, hadQuickAdmission]);
+    }, [page, search, campusIds, classIds, sectionIds, houseIds, statuses, graduatedFromClassIds, graduatedYearRange, auditType, photoFilter, hadQuickAdmission]);
 
     const triggerFetch = useCallback(() => {
         fetchStudents(buildFilterParams());
@@ -465,15 +476,17 @@ function DirectoryContent() {
     }, [search]);
 
     // Instant on filter/page change
-    useEffect(() => { triggerFetch(); }, [page, campusIds, classIds, sectionIds, houseIds, statuses, auditType, photoFilter, hadQuickAdmission, triggerFetch]);
+    useEffect(() => { triggerFetch(); }, [page, campusIds, classIds, sectionIds, houseIds, statuses, graduatedFromClassIds, graduatedYearRange, auditType, photoFilter, hadQuickAdmission, triggerFetch]);
 
-    const hasFilters = campusIds.length > 0 || classIds.length > 0 || sectionIds.length > 0 || houseIds.length > 0 || statuses.length > 0 || auditType || photoFilter || hadQuickAdmission;
+    const hasFilters = campusIds.length > 0 || classIds.length > 0 || sectionIds.length > 0 || houseIds.length > 0 || statuses.length > 0 || graduatedFromClassIds.length > 0 || !!graduatedYearRange || auditType || photoFilter || hadQuickAdmission;
     const clearFilters = () => {
         setCampusIds([]);
         setClassIds([]);
         setSectionIds([]);
         setHouseIds([]);
         setStatuses([]);
+        setGraduatedFromClassIds([]);
+        setGraduatedYearRange("");
         setAuditType("");
         setPhotoFilter("");
         setHadQuickAdmission(false);
@@ -533,6 +546,7 @@ function DirectoryContent() {
         { value: "true", label: "Has Photo" },
         { value: "false", label: "No Photo" },
     ];
+    const graduationYearOptions = generateGraduationYears().map((yr) => ({ value: yr, label: yr }));
 
     const toggleId = <T extends string | number>(prev: T[], id: T): T[] =>
         prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
@@ -624,7 +638,26 @@ function DirectoryContent() {
                         />
                     </div>
 
+                    <div className="w-[180px]">
+                        <FilterDropdown
+                            label="Graduated From"
+                            icon={School}
+                            value={graduatedFromClassIds}
+                            options={classOptions}
+                            placeholder="Any Class"
+                            onToggle={id => { setGraduatedFromClassIds(prev => toggleId(prev, id)); setPage(1); }}
+                            onClear={() => { setGraduatedFromClassIds([]); setPage(1); }}
+                        />
+                    </div>
+
                     <div className="flex items-center gap-2 pb-0.5">
+                        <FilterSelect
+                            label="Graduation Year"
+                            value={graduatedYearRange}
+                            onChange={v => { setGraduatedYearRange(v); setPage(1); }}
+                            options={graduationYearOptions}
+                            icon={<CalendarRange className="h-3.5 w-3.5" />}
+                        />
                         <FilterSelect
                             label="Data Audit"
                             value={auditType}

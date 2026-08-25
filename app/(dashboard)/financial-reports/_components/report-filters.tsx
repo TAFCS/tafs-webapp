@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Building2, Calendar, CheckCircle2, Gift, GraduationCap, HeartHandshake, Layers, LayoutGrid } from "lucide-react";
+import { Building2, Calendar, CalendarRange, CheckCircle2, Gift, GraduationCap, HeartHandshake, Layers, LayoutGrid, School } from "lucide-react";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import api from "@/lib/api";
 import { useAuthState } from "@/context/AuthContext";
+import { generateGraduationYears } from "./report-utils";
 
 type SegmentOption = {
   id: number;
@@ -56,6 +57,10 @@ type Props = {
   setFeeEndowment: (value: YesNoFilter) => void;
   isComplementary: YesNoFilter;
   setIsComplementary: (value: YesNoFilter) => void;
+  graduatedFromClassIds: number[];
+  setGraduatedFromClassIds: (ids: number[]) => void;
+  graduatedYearRange: string;
+  setGraduatedYearRange: (value: string) => void;
   extra?: ReactNode;
 };
 
@@ -78,6 +83,10 @@ export function ReportFilters({
   setFeeEndowment,
   isComplementary,
   setIsComplementary,
+  graduatedFromClassIds,
+  setGraduatedFromClassIds,
+  graduatedYearRange,
+  setGraduatedYearRange,
   extra,
 }: Props) {
   const { user } = useAuthState();
@@ -152,6 +161,7 @@ export function ReportFilters({
 
   const lockedCampusName =
     campuses.find((c) => c.id === user?.campusId)?.campus_name || "Your Campus";
+  const graduationYears = useMemo(() => generateGraduationYears(), []);
 
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -278,6 +288,36 @@ export function ReportFilters({
           onToggle={(id) => setIsComplementary(toggleYesNo(isComplementary, id))}
           onClear={() => setIsComplementary("")}
         />
+      </div>
+
+      <div className="min-w-[200px]">
+        <FilterDropdown
+          label="Graduated From"
+          icon={School}
+          value={graduatedFromClassIds}
+          options={classOptions}
+          placeholder="Any class"
+          hint="multi"
+          onToggle={(id) => setGraduatedFromClassIds(toggleId(graduatedFromClassIds, id))}
+          onSetValue={setGraduatedFromClassIds}
+          onClear={() => setGraduatedFromClassIds([])}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+          <CalendarRange className="h-3 w-3" /> Graduation Year
+        </label>
+        <select
+          value={graduatedYearRange}
+          onChange={(e) => setGraduatedYearRange(e.target.value)}
+          className="h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
+        >
+          <option value="">Any Year</option>
+          {graduationYears.map((yr) => (
+            <option key={yr} value={yr}>{yr}</option>
+          ))}
+        </select>
       </div>
 
       {extra}

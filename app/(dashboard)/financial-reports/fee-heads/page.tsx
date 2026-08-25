@@ -149,6 +149,8 @@ export default function FeeHeadsReportPage() {
   const [studentStatuses, setStudentStatuses] = useState<string[]>([]);
   const [feeEndowment, setFeeEndowment] = useState<YesNoFilter>("");
   const [isComplementary, setIsComplementary] = useState<YesNoFilter>("");
+  const [graduatedFromClassIds, setGraduatedFromClassIds] = useState<number[]>([]);
+  const [graduatedYearRange, setGraduatedYearRange] = useState("");
   const [statuses, setStatuses] = useState<string[]>([]);
   const [view, setView] = useState<ReportView>("heads");
   const [page, setPage] = useState(1);
@@ -173,13 +175,15 @@ export default function FeeHeadsReportPage() {
     student_status: serializeIds(studentStatuses),
     is_fee_endowment: feeEndowment || undefined,
     is_complementary: isComplementary || undefined,
+    graduated_from_class_id: serializeIds(graduatedFromClassIds),
+    graduated_year_range: graduatedYearRange || undefined,
     status: serializeIds(statuses),
     view,
-  }), [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, statuses, view]);
+  }), [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange, statuses, view]);
 
   useEffect(() => {
     setPage(1);
-  }, [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, statuses, pageSize, view]);
+  }, [fromDate, toDate, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange, statuses, pageSize, view]);
 
   useEffect(() => {
     if (!canViewAnalytics) {
@@ -340,6 +344,10 @@ export default function FeeHeadsReportPage() {
           setFeeEndowment={setFeeEndowment}
           isComplementary={isComplementary}
           setIsComplementary={setIsComplementary}
+          graduatedFromClassIds={graduatedFromClassIds}
+          setGraduatedFromClassIds={setGraduatedFromClassIds}
+          graduatedYearRange={graduatedYearRange}
+          setGraduatedYearRange={setGraduatedYearRange}
           extra={
             <div className="min-w-[200px]">
               <FilterDropdown
