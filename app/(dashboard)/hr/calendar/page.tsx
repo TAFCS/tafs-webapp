@@ -48,6 +48,37 @@ const emptyForm = (): FormState => ({
 
 type ModalMode = "holiday" | "weekend-open";
 
+function joinWarnings(...parts: Array<string | null | undefined>): string | null {
+  const filtered = parts.map((p) => (typeof p === "string" ? p.trim() : "")).filter(Boolean);
+  return filtered.length > 0 ? filtered.join(" ") : null;
+}
+
+function applyCalendarSaveFeedback(
+  setSuccess: (v: string | null) => void,
+  setWarning: (v: string | null) => void,
+  baseSuccess: string,
+  opts: {
+    sync_warning?: string | null;
+    conflict_warning?: string | null;
+    notification_warning?: string | null;
+    notification_report?: { failed?: number } | null;
+  },
+) {
+  const notifFailed = (opts.notification_report?.failed ?? 0) > 0;
+  setSuccess(
+    !notifFailed && opts.notification_warning
+      ? `${baseSuccess} ${opts.notification_warning}`
+      : baseSuccess,
+  );
+  setWarning(
+    joinWarnings(
+      opts.sync_warning,
+      opts.conflict_warning,
+      notifFailed ? opts.notification_warning : null,
+    ),
+  );
+}
+
 function isWeekendDate(dateStr: string): boolean {
   const d = new Date(`${dateStr}T00:00:00`);
   const day = d.getDay();
@@ -253,8 +284,7 @@ export default function CalendarPage() {
               }),
         };
         const updated = await hrService.updateCalendarDay(editingDay.id, payload);
-        setSuccess("Calendar entry updated. Attendance synced for that date.");
-        setWarning(updated.sync_warning || updated.conflict_warning || null);
+        applyCalendarSaveFeedback(setSuccess, setWarning, "Calendar entry updated. Attendance synced for that date.", updated);
       } else if (applyToAllCampuses) {
         const result = await hrService.createBulkCalendarDays({
           date: formData.date,
@@ -262,15 +292,22 @@ export default function CalendarPage() {
           description: formData.description.trim() || undefined,
           applies_to: activeTab,
         });
-        setSuccess(
+        applyCalendarSaveFeedback(
+          setSuccess,
+          setWarning,
           `Holiday added on ${result.created} of ${result.campuses_total} campuses` +
             (result.skipped > 0 ? ` (${result.skipped} already had an entry)` : "") +
             (result.failed > 0 ? `; ${result.failed} failed` : "") +
             ". Attendance synced per campus.",
+          {
+            sync_warning:
+              result.sync_failed > 0
+                ? `Attendance re-sync failed on ${result.sync_failed} campus(es) — use "Apply holiday attendance manually" to retry.`
+                : null,
+            notification_warning: result.notification_warning,
+            notification_report: result.notification_report,
+          },
         );
-        if (result.sync_failed > 0) {
-          setWarning(`Attendance re-sync failed on ${result.sync_failed} campus(es) — use "Apply holiday attendance manually" to retry.`);
-        }
       } else {
         const payload = {
           campus_id: selectedCampusId!,
@@ -290,12 +327,14 @@ export default function CalendarPage() {
               }),
         };
         const created = await hrService.createCalendarDay(payload);
-        setSuccess(
+        applyCalendarSaveFeedback(
+          setSuccess,
+          setWarning,
           modalMode === "weekend-open"
             ? "Weekend marked as open. Attendance synced for that date."
             : "Calendar entry added. Attendance synced for that date.",
+          created,
         );
-        setWarning(created.sync_warning || created.conflict_warning || null);
       }
       setShowModal(false);
       if (selectedCampusId !== null) fetchCalendar(selectedCampusId, activeTab);

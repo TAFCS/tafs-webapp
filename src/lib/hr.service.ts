@@ -263,6 +263,20 @@ export interface PolicySet {
   hr_policy_rules?: PolicyRule[];
 }
 
+export interface CalendarNotificationReport {
+  attempted: number;
+  notified: number;
+  already_notified: number;
+  skipped_no_family: number;
+  failed: number;
+  failures: Array<{
+    student_cc: number;
+    family_id?: number;
+    student_name?: string | null;
+    reason: string;
+  }>;
+}
+
 export interface CalendarDay {
   id: number;
   campus_id: number;
@@ -284,6 +298,9 @@ export interface CalendarDay {
   sync_warning?: string | null;
   /** Present on create/update responses only, when this entry has no effect due to a mandatory Saturday override. */
   conflict_warning?: string | null;
+  /** Present on student create/update responses — family notification delivery summary. */
+  notification_report?: CalendarNotificationReport | null;
+  notification_warning?: string | null;
 }
 
 export interface WorkScheduleDay {
@@ -314,6 +331,8 @@ export interface BulkCalendarCreateResult {
   failed: number;
   errors: { campus_id: number; message: string }[];
   sync_failed: number;
+  notification_report?: CalendarNotificationReport | null;
+  notification_warning?: string | null;
 }
 
 export interface EmployeeCalendarDaysResult {
