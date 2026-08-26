@@ -128,6 +128,9 @@ export interface VoucherItem {
     voucher_heads?: VoucherHead[];
     voucher_arrear_surcharges?: VoucherArrearSurcharge[];
     deposit_allocations?: { id: number; amount: string | number }[];
+    released_to_parent_at?: string | null;
+    bulk_voucher_job_id?: number | null;
+    released_by?: string | null;
 }
 
 export interface VouchersPagination {

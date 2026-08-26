@@ -942,13 +942,15 @@ export default function BulkVoucherPage() {
                         </button>
                     </div>
 
-                    <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                    <div className={`flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 ${filters.holdForRelease ? "opacity-40 pointer-events-none" : ""}`}>
                         <div>
                             <p className="text-[13px] font-black text-zinc-900 dark:text-zinc-100">Notify Parents</p>
                             <p className="text-[11px] font-medium text-zinc-500">
-                                {filters.sendNotification
-                                    ? "App alert sent as each voucher is generated"
-                                    : "No alert now; due reminders still scheduled"}
+                                {filters.holdForRelease
+                                    ? "Moot until the batch is released"
+                                    : filters.sendNotification
+                                        ? "App alert sent as each voucher is generated"
+                                        : "No alert now; due reminders still scheduled"}
                             </p>
                         </div>
                         <button
@@ -956,6 +958,23 @@ export default function BulkVoucherPage() {
                             className={`h-6 w-11 rounded-full transition-all relative shrink-0 ${filters.sendNotification ? "bg-primary" : "bg-zinc-300 dark:bg-zinc-700"}`}
                         >
                             <div className={`h-4 w-4 bg-white rounded-full absolute top-1 transition-all ${filters.sendNotification ? "left-6" : "left-1"}`} />
+                        </button>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                        <div>
+                            <p className="text-[13px] font-black text-zinc-900 dark:text-zinc-100">Hold for Release</p>
+                            <p className="text-[11px] font-medium text-zinc-500">
+                                {filters.holdForRelease
+                                    ? "Invisible to parents until an admin releases this job"
+                                    : "Visible to parents as each voucher is generated"}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => handleFilterChange({ holdForRelease: !filters.holdForRelease })}
+                            className={`h-6 w-11 rounded-full transition-all relative shrink-0 ${filters.holdForRelease ? "bg-amber-500" : "bg-zinc-300 dark:bg-zinc-700"}`}
+                        >
+                            <div className={`h-4 w-4 bg-white rounded-full absolute top-1 transition-all ${filters.holdForRelease ? "left-6" : "left-1"}`} />
                         </button>
                     </div>
 
@@ -1263,6 +1282,15 @@ export default function BulkVoucherPage() {
                             {/* Last chance to flip the Step 1 "Notify Parents" rule — this run
                                 pushes one alert per generated voucher, so make it visible here. */}
                             {currentStep === 2 && (
+                                filters.holdForRelease ? (
+                                <div
+                                    title="This batch stays invisible to parents until an admin releases it"
+                                    className="h-14 px-6 flex items-center gap-3 rounded-[22px] border font-black text-[12px] uppercase tracking-widest bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200/60"
+                                >
+                                    <BellOff className="h-5 w-5" />
+                                    Held — Pending Release
+                                </div>
+                                ) : (
                                 <button
                                     onClick={() => handleFilterChange({ sendNotification: !filters.sendNotification })}
                                     title={filters.sendNotification
@@ -1273,6 +1301,7 @@ export default function BulkVoucherPage() {
                                     {filters.sendNotification ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
                                     {filters.sendNotification ? "Notify Parents: On" : "Notify Parents: Off"}
                                 </button>
+                                )
                             )}
 
                             <div className="hidden md:block text-right">

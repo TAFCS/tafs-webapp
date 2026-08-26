@@ -25,6 +25,7 @@ import {
   X,
   RefreshCw,
   Bell,
+  Lock,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -206,6 +207,7 @@ export default function FeeChallanGenerator() {
   // Instant "voucher issued" push to the parents at generation time. Turning it off
   // only suppresses that one push — the scheduled due/overdue/expiry reminders still go out.
   const [sendNotification, setSendNotification] = useState(true);
+  const [holdForRelease, setHoldForRelease] = useState(false);
   const [applyReprintFee, setApplyReprintFee] = useState(false);
   const [reprintFeeAmount, setReprintFeeAmount] = useState(100);
   // Per fee_date, since Part 3 can show multiple independent voucher-group cards
@@ -614,6 +616,7 @@ export default function FeeChallanGenerator() {
       formData.append("reprint_fee_amount", (reprintFeeAmount || 100).toString());
       formData.append("waive_surcharge", waiveSurcharge.toString());
       formData.append("send_notification", sendNotification.toString());
+      formData.append("requires_release", holdForRelease.toString());
       formData.append(
         "waived_by",
         (user?.fullName || user?.username || "Administrator").toString(),
@@ -738,6 +741,7 @@ export default function FeeChallanGenerator() {
       formData.append("reprint_fee_amount", (groupReprint?.amount || 100).toString());
       formData.append("waive_surcharge", waiveSurcharge.toString());
       formData.append("send_notification", sendNotification.toString());
+      formData.append("requires_release", holdForRelease.toString());
       formData.append(
         "waived_by",
         (user?.fullName || user?.username || "Administrator").toString(),
@@ -1241,14 +1245,32 @@ export default function FeeChallanGenerator() {
                         <Bell className="h-4 w-4 text-primary" />
                         <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Parent Notification</h3>
                       </div>
-                      <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50">
+                      <div className={`flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50 ${holdForRelease ? "opacity-40 pointer-events-none" : ""}`}>
                         <button onClick={() => setSendNotification(true)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${sendNotification ? "bg-white text-primary shadow-xl" : "text-zinc-400"}`}>Notify Now</button>
                         <button onClick={() => setSendNotification(false)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!sendNotification ? "bg-white text-zinc-500 shadow-xl" : "text-zinc-400"}`}>Don&apos;t Notify</button>
                       </div>
                       <p className="text-[11px] font-medium text-zinc-500 ml-1">
-                        {sendNotification
-                          ? "Parents get an app notification the moment this voucher is generated."
-                          : "No notification at generation. Due, overdue and expiry reminders are still sent on schedule."}
+                        {holdForRelease
+                          ? "Held vouchers stay silent until an admin releases them — the issued push fires then."
+                          : sendNotification
+                            ? "Parents get an app notification the moment this voucher is generated."
+                            : "No notification at generation. Due, overdue and expiry reminders are still sent on schedule."}
+                      </p>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3">
+                        <Lock className="h-4 w-4 text-amber-500" />
+                        <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Hold for Release</h3>
+                      </div>
+                      <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50">
+                        <button onClick={() => setHoldForRelease(false)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!holdForRelease ? "bg-white text-emerald-600 shadow-xl" : "text-zinc-400"}`}>Release Now</button>
+                        <button onClick={() => setHoldForRelease(true)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${holdForRelease ? "bg-white text-amber-600 shadow-xl" : "text-zinc-400"}`}>Hold</button>
+                      </div>
+                      <p className="text-[11px] font-medium text-zinc-500 ml-1">
+                        {holdForRelease
+                          ? "Created in the system but invisible to parents until an admin releases it."
+                          : "Visible to parents immediately after generation (today's default)."}
                       </p>
                     </div>
                   </div>
@@ -1288,8 +1310,12 @@ export default function FeeChallanGenerator() {
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                {/* Mirrors the Step 2 "Parent Notification" setting so the admin can flip it
-                    right where Generate is clicked — applies to every generate button below. */}
+                {holdForRelease ? (
+                  <div className="px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200/60">
+                    <Lock className="h-4 w-4" />
+                    Held — Pending Release
+                  </div>
+                ) : (
                 <button
                   onClick={() => setSendNotification(!sendNotification)}
                   title={sendNotification
@@ -1300,6 +1326,7 @@ export default function FeeChallanGenerator() {
                   <Bell className="h-4 w-4" />
                   {sendNotification ? "Notify Parents: On" : "Notify Parents: Off"}
                 </button>
+                )}
                 <button
                   onClick={() => setCurrentStep(2)}
                   className="px-6 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all flex items-center gap-2"

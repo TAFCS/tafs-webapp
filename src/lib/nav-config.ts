@@ -75,7 +75,7 @@ export const NAV_MODULES: NavModule[] = [
         border: "border-emerald-100 dark:border-emerald-900/50",
         permissions: [
             "fee_admin.classwise_schedule.view", "fee_admin.studentwise_schedule.view",
-            "finance.vouchers.view", "finance.deposits.view", "system.analytics.view",
+            "finance.vouchers.view", "finance.vouchers.release", "finance.deposits.view", "system.analytics.view",
         ],
         items: [
             { name: "Financial Reports", description: "Fee heads (accrual), deposits (cash), and a student x month fee matrix, with filters and exports", href: "/financial-reports", icon: FileText, permission: "system.analytics.view" },
@@ -84,6 +84,7 @@ export const NAV_MODULES: NavModule[] = [
             { name: "Single Voucher Issuance", description: "Print individual fee slips", href: "/fee-challan", icon: Printer, permission: "finance.vouchers.view" },
             { name: "Bulk Voucher Issuance", description: "Generate multiple vouchers", href: "/bulk-voucher", icon: FilePlus2, permission: "finance.vouchers.generate_bulk" },
             { name: "Vouchers", description: "All issued vouchers", href: "/vouchers", icon: CreditCard, permission: "finance.vouchers.view" },
+            { name: "Pending Release", description: "Held vouchers awaiting parent visibility", href: "/pending-release", icon: Clock, permission: "finance.vouchers.release" },
             { name: "Payment History", description: "Payment transaction log", href: "/payment-history", icon: History, permission: "finance.vouchers.view" },
             { name: "Receive Deposit", description: "Record cash and cheque deposits", href: "/vouchers/deposit", icon: HandCoins, permission: "finance.deposits.record" },
             { name: "Post-dated Cheques", description: "Cheque tracking and alerts", href: "/postdated-cheques", icon: Clock, permission: "finance.vouchers.view" },

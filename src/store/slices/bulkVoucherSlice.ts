@@ -23,6 +23,8 @@ export interface BulkFilters {
     /** Push the "voucher issued" alert to each family the moment their voucher is
      *  created. Off still leaves the scheduled due/overdue/expiry reminders running. */
     sendNotification: boolean;
+    /** Hold every voucher this job produces until an admin releases the batch. */
+    holdForRelease: boolean;
     jobType?: 'BULK' | 'BATCH';
     student_ccs?: number[];
 }
@@ -121,6 +123,7 @@ export const startBulkJob = createAsyncThunk(
                     skip_already_issued: filters.skipAlreadyIssued,
                     waive_surcharge: filters.waiveSurcharge,
                     send_notification: filters.sendNotification,
+                    hold_for_release: filters.holdForRelease,
                     job_type: filters.jobType || 'BULK',
                     student_ccs: studentCCs,
                 }
@@ -233,6 +236,7 @@ const initialState: BulkVoucherState = {
         skipAlreadyIssued: true,
         waiveSurcharge: false,
         sendNotification: true,
+        holdForRelease: false,
         jobType: 'BULK',
     },
     previewStudents: [],
