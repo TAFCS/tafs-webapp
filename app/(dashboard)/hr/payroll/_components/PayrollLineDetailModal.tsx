@@ -512,7 +512,11 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
               // though the calendar says it's not a working day.
               const hasPunches = segs.some(s => s.type === "WORK") || !!day.check_in_at;
               const cameOnOff = !day.is_working_day && hasPunches;
-              const canAct = !isFinal && (day.is_working_day || hasPunches) && isPast;
+              // Today is actionable too once it's actually complete (clocked
+              // in AND out) — only an ongoing, still-open shift stays blocked
+              // until the day is over.
+              const isTodayComplete = day.date === today && !!day.check_in_at && !!day.check_out_at;
+              const canAct = !isFinal && (day.is_working_day || hasPunches) && (isPast || isTodayComplete);
               const needsClock = isUnresolved && canAct;
 
               return (
