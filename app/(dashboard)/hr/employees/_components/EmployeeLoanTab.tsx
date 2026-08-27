@@ -11,6 +11,7 @@ import {
   LoanStatus,
   LoanTransactionType,
 } from "@/lib/hr.service";
+import { RecoveryScheduleEditor, RemainingScheduleList } from "../../_components/RecoveryScheduleEditor";
 
 interface Props {
   employeeId: number;
@@ -77,6 +78,7 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
   const [action, setAction] = useState<"lump-sum" | "write-off" | null>(null);
   const [actionAmount, setActionAmount] = useState("");
   const [actionNote, setActionNote] = useState("");
+  const [editingSchedule, setEditingSchedule] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -112,6 +114,7 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
     setAction(null);
     setActionAmount("");
     setActionNote("");
+    setEditingSchedule(false);
     setTotalAmount("");
     setMonths("5");
     setOpeningRepaid("");
@@ -222,6 +225,19 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
     }
   };
 
+  const handleSchedule = async (amounts: number[]) => {
+    setSaving(true);
+    setError(null);
+    try {
+      applyResponse(await hrService.updateEmployeeLoanSchedule(employeeId, amounts));
+      toast.success("Recovery plan updated.");
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to update recovery plan.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
@@ -312,13 +328,24 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
               <Stat label="Outstanding" value={formatPkr(current.outstanding_balance)} />
               <Stat label="Via payroll" value={formatPkr(current.recovered_amount)} />
             </div>
-            <p className="text-xs text-zinc-500 mb-4">
-              {formatPkr(current.installment_amount)} x {current.installment_count} months, starting {current.start_period_start}.
-              {current.amount_repaid_opening > 0 ? ` ${formatPkr(current.amount_repaid_opening)} already repaid before this was tracked here.` : ""}
-              {current.notes ? ` ${current.notes}` : ""}
-            </p>
+            <RemainingScheduleList
+              amounts={current.installment_schedule ?? []}
+              caption={`Starting ${current.start_period_start}.${current.amount_repaid_opening > 0 ? ` ${formatPkr(current.amount_repaid_opening)} already repaid before this was tracked here.` : ""}${current.notes ? ` ${current.notes}` : ""}`}
+            />
 
             <div className="flex flex-wrap gap-2 mb-4">
+              {current.status === "ACTIVE" && current.outstanding_balance > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingSchedule(true);
+                    setAction(null);
+                  }}
+                  className="h-9 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold"
+                >
+                  Edit recovery plan
+                </button>
+              )}
               {current.outstanding_balance > 0 && (current.status === "ACTIVE" || current.status === "OUTSTANDING") && (
                 <>
                   <button
@@ -327,6 +354,7 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
                       setAction("lump-sum");
                       setActionAmount(String(current.outstanding_balance));
                       setActionNote("");
+                      setEditingSchedule(false);
                     }}
                     className="h-9 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold"
                   >
@@ -338,6 +366,7 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
                       setAction("write-off");
                       setActionAmount(String(current.outstanding_balance));
                       setActionNote("");
+                      setEditingSchedule(false);
                     }}
                     className="h-9 px-3 rounded-xl border border-rose-200 text-rose-700 text-xs font-bold"
                   >
@@ -372,6 +401,20 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
                 </button>
               )}
             </div>
+
+            {editingSchedule && current.status === "ACTIVE" && current.outstanding_balance > 0 && (
+              <div className="mb-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                <h4 className="text-sm font-bold mb-3">Edit recovery plan</h4>
+                <RecoveryScheduleEditor
+                  key={`${current.id}-${current.updated_at}`}
+                  remaining={current.outstanding_balance}
+                  initialAmounts={current.installment_schedule ?? []}
+                  saving={saving}
+                  onSubmit={handleSchedule}
+                  onCancel={() => setEditingSchedule(false)}
+                />
+              </div>
+            )}
 
             {action && (
               <form onSubmit={handleAction} className="mb-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 grid grid-cols-1 sm:grid-cols-2 gap-3">

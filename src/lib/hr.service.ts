@@ -570,6 +570,7 @@ export interface SecurityDepositPlan {
   total_amount: number;
   installment_count: number;
   installment_amount: number;
+  installment_schedule: number[];
   start_period_start: string;
   recovered_amount: number;
   refunded_amount: number;
@@ -604,6 +605,7 @@ export interface SecurityDepositListItem {
   carried_forward_amount: number;
   installment_amount: number;
   installment_count: number;
+  installment_schedule: number[];
   start_period_start: string;
   status: SecurityDepositStatus;
 }
@@ -638,6 +640,7 @@ export interface EmployeeLoan {
   amount_repaid_opening: number;
   installment_count: number;
   installment_amount: number;
+  installment_schedule: number[];
   disbursement_date: string;
   start_period_start: string;
   recovered_amount: number;
@@ -674,6 +677,7 @@ export interface LoanListItem {
   carried_forward_amount: number;
   installment_amount: number;
   installment_count: number;
+  installment_schedule: number[];
   disbursement_date: string;
   start_period_start: string;
   status: LoanStatus;
@@ -1175,6 +1179,16 @@ export const hrService = {
     );
     return data.data;
   },
+  async updateEmployeeSecurityDepositSchedule(
+    employeeId: number,
+    installment_amounts: number[],
+  ): Promise<EmployeeSecurityDepositResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeSecurityDepositResponse>>(
+      `/v1/hr/employees/${employeeId}/security-deposit/schedule`,
+      { installment_amounts },
+    );
+    return data.data;
+  },
   async getEmployeeLoan(employeeId: number): Promise<EmployeeLoanResponse> {
     const { data } = await api.get<ApiEnvelope<EmployeeLoanResponse>>(
       `/v1/hr/employees/${employeeId}/loan`,
@@ -1234,6 +1248,16 @@ export const hrService = {
   async markLoanOutstanding(employeeId: number): Promise<EmployeeLoanResponse> {
     const { data } = await api.post<ApiEnvelope<EmployeeLoanResponse>>(
       `/v1/hr/employees/${employeeId}/loan/mark-outstanding`,
+    );
+    return data.data;
+  },
+  async updateEmployeeLoanSchedule(
+    employeeId: number,
+    installment_amounts: number[],
+  ): Promise<EmployeeLoanResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeLoanResponse>>(
+      `/v1/hr/employees/${employeeId}/loan/schedule`,
+      { installment_amounts },
     );
     return data.data;
   },

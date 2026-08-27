@@ -12,6 +12,7 @@ import {
 } from "@/lib/hr.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
+import { RecoveryScheduleEditor } from "../_components/RecoveryScheduleEditor";
 
 const inputCls =
   "w-full h-10 px-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10";
@@ -73,7 +74,7 @@ export default function SecurityDepositsPage() {
   const [notes, setNotes] = useState("");
 
   const [actionRow, setActionRow] = useState<SecurityDepositListItem | null>(null);
-  const [action, setAction] = useState<"refund" | "forfeit" | null>(null);
+  const [action, setAction] = useState<"refund" | "forfeit" | "schedule" | null>(null);
   const [actionAmount, setActionAmount] = useState("");
   const [actionNote, setActionNote] = useState("");
 
@@ -209,12 +210,29 @@ export default function SecurityDepositsPage() {
     }
   };
 
-  const openAction = (row: SecurityDepositListItem, next: "refund" | "forfeit") => {
+  const openAction = (row: SecurityDepositListItem, next: "refund" | "forfeit" | "schedule") => {
     setActionRow(row);
     setAction(next);
-    setActionAmount(String(row.held_amount));
+    setActionAmount(next === "schedule" ? "" : String(row.held_amount));
     setActionNote("");
     setError(null);
+  };
+
+  const handleSchedule = async (amounts: number[]) => {
+    if (!actionRow) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await hrService.updateEmployeeSecurityDepositSchedule(actionRow.employee_id, amounts);
+      toast.success("Recovery plan updated.");
+      setActionRow(null);
+      setAction(null);
+      await load();
+    } catch (err: unknown) {
+      setError(parseApiError(err, "Failed to update recovery plan."));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleAction = async (e: FormEvent) => {
@@ -428,7 +446,9 @@ export default function SecurityDepositsPage() {
                       <p className="text-xs text-zinc-400 mt-0.5">{row.campus_name}</p>
                     )}
                     <p className="text-xs text-zinc-400">
-                      {formatPkr(row.installment_amount)} x {row.installment_count} from {row.start_period_start}
+                      {(row.installment_schedule?.length
+                        ? `${row.installment_schedule.length} remaining month${row.installment_schedule.length === 1 ? "" : "s"}`
+                        : `${formatPkr(row.installment_amount)} x ${row.installment_count}`)} from {row.start_period_start}
                     </p>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">{formatPkr(row.total_amount)}</td>
@@ -441,24 +461,35 @@ export default function SecurityDepositsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {row.held_amount > 0 && (
-                      <div className="inline-flex gap-2">
+                    <div className="inline-flex gap-2">
+                      {row.status === "ACTIVE" && row.remaining_to_collect > 0 && (
                         <button
                           type="button"
-                          onClick={() => openAction(row, "refund")}
+                          onClick={() => openAction(row, "schedule")}
                           className="h-8 px-2 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-bold"
                         >
-                          Refund
+                          Edit plan
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => openAction(row, "forfeit")}
-                          className="h-8 px-2 rounded-lg border border-rose-200 text-rose-700 text-xs font-bold"
-                        >
-                          Forfeit
-                        </button>
-                      </div>
-                    )}
+                      )}
+                      {row.held_amount > 0 && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openAction(row, "refund")}
+                            className="h-8 px-2 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-bold"
+                          >
+                            Refund
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openAction(row, "forfeit")}
+                            className="h-8 px-2 rounded-lg border border-rose-200 text-rose-700 text-xs font-bold"
+                          >
+                            Forfeit
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -475,6 +506,28 @@ export default function SecurityDepositsPage() {
             onClick={() => { setActionRow(null); setAction(null); }}
             aria-label="Close"
           />
+          {action === "schedule" ? (
+            <div className="relative w-full max-w-lg bg-white dark:bg-zinc-900 h-full shadow-xl overflow-y-auto p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">Edit recovery plan</h2>
+                <button type="button" onClick={() => { setActionRow(null); setAction(null); }}>
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-sm text-zinc-500">
+                {actionRow.full_name ?? "Employee"}
+                {actionRow.employee_code ? ` (${actionRow.employee_code})` : ""}. Still to collect {formatPkr(actionRow.remaining_to_collect)}.
+              </p>
+              <RecoveryScheduleEditor
+                key={actionRow.id}
+                remaining={actionRow.remaining_to_collect}
+                initialAmounts={actionRow.installment_schedule ?? []}
+                saving={saving}
+                onSubmit={handleSchedule}
+                onCancel={() => { setActionRow(null); setAction(null); }}
+              />
+            </div>
+          ) : (
           <form
             onSubmit={handleAction}
             className="relative w-full max-w-md bg-white dark:bg-zinc-900 h-full shadow-xl overflow-y-auto p-6 space-y-4"
@@ -509,6 +562,7 @@ export default function SecurityDepositsPage() {
               {saving ? "Saving..." : action === "refund" ? "Record refund" : "Record forfeiture"}
             </button>
           </form>
+          )}
         </div>
       )}
     </div>

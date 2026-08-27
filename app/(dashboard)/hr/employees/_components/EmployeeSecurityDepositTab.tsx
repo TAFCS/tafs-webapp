@@ -10,6 +10,7 @@ import {
   SecurityDepositStatus,
   SecurityDepositTransactionType,
 } from "@/lib/hr.service";
+import { RecoveryScheduleEditor, RemainingScheduleList } from "../../_components/RecoveryScheduleEditor";
 
 interface Props {
   employeeId: number;
@@ -71,6 +72,7 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
   const [action, setAction] = useState<"refund" | "forfeit" | null>(null);
   const [actionAmount, setActionAmount] = useState("");
   const [actionNote, setActionNote] = useState("");
+  const [editingSchedule, setEditingSchedule] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,6 +105,7 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
     setAction(null);
     setActionAmount("");
     setActionNote("");
+    setEditingSchedule(false);
     setTotalAmount("");
     setMonths("5");
     setNotes("");
@@ -181,6 +184,19 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
       toast.success(action === "refund" ? "Refund recorded." : "Forfeiture recorded.");
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to record that action.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSchedule = async (amounts: number[]) => {
+    setSaving(true);
+    setError(null);
+    try {
+      applyResponse(await hrService.updateEmployeeSecurityDepositSchedule(employeeId, amounts));
+      toast.success("Recovery plan updated.");
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to update recovery plan.");
     } finally {
       setSaving(false);
     }
@@ -268,12 +284,24 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
               <Stat label="Held" value={formatPkr(current.held_amount)} />
               <Stat label="Still to collect" value={formatPkr(current.remaining_to_collect)} />
             </div>
-            <p className="text-xs text-zinc-500 mb-4">
-              {formatPkr(current.installment_amount)} x {current.installment_count} months, starting {current.start_period_start}.
-              {current.notes ? ` ${current.notes}` : ""}
-            </p>
+            <RemainingScheduleList
+              amounts={current.installment_schedule ?? []}
+              caption={`Starting ${current.start_period_start}.${current.notes ? ` ${current.notes}` : ""}`}
+            />
 
             <div className="flex flex-wrap gap-2 mb-4">
+              {current.status === "ACTIVE" && current.remaining_to_collect > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingSchedule(true);
+                    setAction(null);
+                  }}
+                  className="h-9 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold"
+                >
+                  Edit recovery plan
+                </button>
+              )}
               {current.held_amount > 0 && (
                 <>
                   <button
@@ -282,6 +310,7 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
                       setAction("refund");
                       setActionAmount(String(current.held_amount));
                       setActionNote("");
+                      setEditingSchedule(false);
                     }}
                     className="h-9 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold"
                   >
@@ -293,6 +322,7 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
                       setAction("forfeit");
                       setActionAmount(String(current.held_amount));
                       setActionNote("");
+                      setEditingSchedule(false);
                     }}
                     className="h-9 px-3 rounded-xl border border-rose-200 text-rose-700 text-xs font-bold"
                   >
@@ -311,6 +341,20 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
                 </button>
               )}
             </div>
+
+            {editingSchedule && current.status === "ACTIVE" && current.remaining_to_collect > 0 && (
+              <div className="mb-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                <h4 className="text-sm font-bold mb-3">Edit recovery plan</h4>
+                <RecoveryScheduleEditor
+                  key={`${current.id}-${current.updated_at}`}
+                  remaining={current.remaining_to_collect}
+                  initialAmounts={current.installment_schedule ?? []}
+                  saving={saving}
+                  onSubmit={handleSchedule}
+                  onCancel={() => setEditingSchedule(false)}
+                />
+              </div>
+            )}
 
             {action && (
               <form onSubmit={handleAction} className="mb-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 grid grid-cols-1 sm:grid-cols-2 gap-3">

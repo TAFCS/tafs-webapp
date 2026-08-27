@@ -12,6 +12,7 @@ import {
 } from "@/lib/hr.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
+import { RecoveryScheduleEditor } from "../_components/RecoveryScheduleEditor";
 
 const inputCls =
   "w-full h-10 px-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10";
@@ -75,7 +76,7 @@ export default function EmployeeLoansPage() {
   const [notes, setNotes] = useState("");
 
   const [actionRow, setActionRow] = useState<LoanListItem | null>(null);
-  const [action, setAction] = useState<"lump-sum" | "write-off" | null>(null);
+  const [action, setAction] = useState<"lump-sum" | "write-off" | "schedule" | null>(null);
   const [actionAmount, setActionAmount] = useState("");
   const [actionNote, setActionNote] = useState("");
 
@@ -226,12 +227,29 @@ export default function EmployeeLoansPage() {
     }
   };
 
-  const openAction = (row: LoanListItem, next: "lump-sum" | "write-off") => {
+  const openAction = (row: LoanListItem, next: "lump-sum" | "write-off" | "schedule") => {
     setActionRow(row);
     setAction(next);
-    setActionAmount(String(row.outstanding_balance));
+    setActionAmount(next === "schedule" ? "" : String(row.outstanding_balance));
     setActionNote("");
     setError(null);
+  };
+
+  const handleSchedule = async (amounts: number[]) => {
+    if (!actionRow) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await hrService.updateEmployeeLoanSchedule(actionRow.employee_id, amounts);
+      toast.success("Recovery plan updated.");
+      setActionRow(null);
+      setAction(null);
+      await load();
+    } catch (err: unknown) {
+      setError(parseApiError(err, "Failed to update recovery plan."));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleAction = async (e: FormEvent) => {
@@ -453,7 +471,9 @@ export default function EmployeeLoansPage() {
                       <p className="text-xs text-zinc-400 mt-0.5">{row.campus_name}</p>
                     )}
                     <p className="text-xs text-zinc-400">
-                      {formatPkr(row.installment_amount)} x {row.installment_count} from {row.start_period_start}
+                      {(row.installment_schedule?.length
+                        ? `${row.installment_schedule.length} remaining month${row.installment_schedule.length === 1 ? "" : "s"}`
+                        : `${formatPkr(row.installment_amount)} x ${row.installment_count}`)} from {row.start_period_start}
                     </p>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">{formatPkr(row.total_amount)}</td>
@@ -468,6 +488,15 @@ export default function EmployeeLoansPage() {
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     {row.outstanding_balance > 0 && (
                       <div className="inline-flex gap-2">
+                        {row.status === "ACTIVE" && (
+                          <button
+                            type="button"
+                            onClick={() => openAction(row, "schedule")}
+                            className="h-8 px-2 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-bold"
+                          >
+                            Edit plan
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => openAction(row, "lump-sum")}
@@ -500,40 +529,63 @@ export default function EmployeeLoansPage() {
             onClick={() => { setActionRow(null); setAction(null); }}
             aria-label="Close"
           />
-          <form
-            onSubmit={handleAction}
-            className="relative w-full max-w-md bg-white dark:bg-zinc-900 h-full shadow-xl overflow-y-auto p-6 space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">{action === "lump-sum" ? "Lump-sum repayment" : "Write off"}</h2>
-              <button type="button" onClick={() => { setActionRow(null); setAction(null); }}>
-                <X className="h-5 w-5" />
-              </button>
+          {action === "schedule" ? (
+            <div className="relative w-full max-w-lg bg-white dark:bg-zinc-900 h-full shadow-xl overflow-y-auto p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">Edit recovery plan</h2>
+                <button type="button" onClick={() => { setActionRow(null); setAction(null); }}>
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-sm text-zinc-500">
+                {actionRow.full_name ?? "Employee"}
+                {actionRow.employee_code ? ` (${actionRow.employee_code})` : ""}. Outstanding {formatPkr(actionRow.outstanding_balance)}.
+              </p>
+              <RecoveryScheduleEditor
+                key={actionRow.id}
+                remaining={actionRow.outstanding_balance}
+                initialAmounts={actionRow.installment_schedule ?? []}
+                saving={saving}
+                onSubmit={handleSchedule}
+                onCancel={() => { setActionRow(null); setAction(null); }}
+              />
             </div>
-            <p className="text-sm text-zinc-500">
-              {actionRow.full_name ?? "Employee"}
-              {actionRow.employee_code ? ` (${actionRow.employee_code})` : ""}. Outstanding {formatPkr(actionRow.outstanding_balance)}.
-            </p>
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
-                {action === "lump-sum" ? "Repayment amount" : "Write-off amount"}
-              </label>
-              <input className={inputCls} inputMode="decimal" value={actionAmount} onChange={(e) => setActionAmount(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
-                {action === "write-off" ? "Reason (required)" : "Notes"}
-              </label>
-              <textarea rows={3} className={textareaCls} value={actionNote} onChange={(e) => setActionNote(e.target.value)} />
-            </div>
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full h-10 rounded-xl bg-primary text-white text-sm font-bold disabled:opacity-60"
+          ) : (
+            <form
+              onSubmit={handleAction}
+              className="relative w-full max-w-md bg-white dark:bg-zinc-900 h-full shadow-xl overflow-y-auto p-6 space-y-4"
             >
-              {saving ? "Saving..." : action === "lump-sum" ? "Record repayment" : "Record write-off"}
-            </button>
-          </form>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">{action === "lump-sum" ? "Lump-sum repayment" : "Write off"}</h2>
+                <button type="button" onClick={() => { setActionRow(null); setAction(null); }}>
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-sm text-zinc-500">
+                {actionRow.full_name ?? "Employee"}
+                {actionRow.employee_code ? ` (${actionRow.employee_code})` : ""}. Outstanding {formatPkr(actionRow.outstanding_balance)}.
+              </p>
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                  {action === "lump-sum" ? "Repayment amount" : "Write-off amount"}
+                </label>
+                <input className={inputCls} inputMode="decimal" value={actionAmount} onChange={(e) => setActionAmount(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                  {action === "write-off" ? "Reason (required)" : "Notes"}
+                </label>
+                <textarea rows={3} className={textareaCls} value={actionNote} onChange={(e) => setActionNote(e.target.value)} />
+              </div>
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full h-10 rounded-xl bg-primary text-white text-sm font-bold disabled:opacity-60"
+              >
+                {saving ? "Saving..." : action === "lump-sum" ? "Record repayment" : "Record write-off"}
+              </button>
+            </form>
+          )}
         </div>
       )}
     </div>
