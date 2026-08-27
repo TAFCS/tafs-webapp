@@ -263,7 +263,7 @@ export default function FeeHeadsReportPage() {
             Fee Heads Report
           </h1>
           <p className="text-sm font-medium text-zinc-400 mt-1">
-            Accrual — issued on a voucher vs scheduled but not yet billed. Late payment surcharges are excluded.
+            Accrual — issued on a voucher vs scheduled but not yet billed. Discounts are netted in as negative amounts; late payment surcharges are excluded.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -312,6 +312,7 @@ export default function FeeHeadsReportPage() {
             Deposits Report
           </Link>
           . Date range filters on fee date; use <strong>By period</strong> for month-wise totals by academic period.
+          Discounts are included as negative amounts (status <strong>Discount</strong>) and net out of billed/outstanding totals.
         </p>
       </div>
 
