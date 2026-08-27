@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Loader2, User, Briefcase, Clock, BookOpen, Trash2,
@@ -52,6 +52,23 @@ const BASE_TABS = [
 ] as const;
 
 type TabId = typeof BASE_TABS[number]["id"] | "portal" | "biometric" | "shift_overrides";
+
+function tabFromParam(value: string | null): TabId | null {
+  if (
+    value === "profile" ||
+    value === "employment" ||
+    value === "schedule" ||
+    value === "security_deposit" ||
+    value === "loan" ||
+    value === "classes" ||
+    value === "portal" ||
+    value === "biometric" ||
+    value === "shift_overrides"
+  ) {
+    return value;
+  }
+  return null;
+}
 
 const WEEKDAY_ORDER = [
   { dow: 1, label: "Mon" },
@@ -236,6 +253,9 @@ interface Props {
 
 export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlEmployeeId = searchParams.get("id");
+  const urlTab = searchParams.get("tab");
   const { user } = useAuthState();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const [emp, setEmp] = useState<EmployeeProfile | null>(null);
@@ -351,9 +371,11 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       setEditSchedule(false);
       return;
     }
+    const matchedTab = Number(urlEmployeeId) === employeeId ? tabFromParam(urlTab) : null;
+    setTab(matchedTab ?? "profile");
     reload();
     hrService.listDepartments().then(setDepartments).catch(() => {});
-  }, [employeeId, reload]);
+  }, [employeeId, reload, urlEmployeeId, urlTab]);
 
   const patch = async (
     payload: Partial<EmployeeCreatePayload>,

@@ -8,6 +8,7 @@ import {
 import { hrService, PayrollRun, PayrollRunLine, AttendanceLineBase, DayBreakdownEntry, DayClassification } from "@/lib/hr.service";
 import { attendanceService, StaffAttendanceStatus } from "@/lib/attendance.service";
 import { AttendanceTagBadges } from "./AttendanceTagBadges";
+import { PayrollRecoveryCyclePanel } from "./PayrollRecoveryCyclePanel";
 
 // ── Segment types & styles ────────────────────────────────────────────────────
 
@@ -454,6 +455,17 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                 </div>
               )}
             </div>
+          )}
+
+          {line.total_deductions !== undefined && line.net_pay !== undefined && (
+            <PayrollRecoveryCyclePanel
+              employeeId={line.employee_id}
+              locked={isFinal}
+              loanDeduction={line.loan_deduction}
+              depositDeduction={line.security_deposit_deduction}
+              regenerate={isFinal ? undefined : regenerate}
+              onError={setError}
+            />
           )}
 
           {/* Banners */}
