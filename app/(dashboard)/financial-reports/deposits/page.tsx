@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle, Banknote, Download, Landmark, LayoutDashboard, Loader2,
 } from "lucide-react";
@@ -47,6 +48,8 @@ type DepositTotals = {
   lps_total: number;
   allocations_total: number;
   reconciles: boolean;
+  discounts_total: number;
+  discounts_count: number;
 };
 
 export default function DepositsReportPage() {
@@ -257,7 +260,7 @@ export default function DepositsReportPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
         <TotalTile label="Cash banked" value={formatRs(totals?.total_amount)} sub={`${(totals?.count ?? 0).toLocaleString()} deposits`} />
         <TotalTile label="Fee heads" value={formatRs(totals?.by_type?.FEE_HEAD)} />
         <TotalTile label="Late fee" value={formatRs(totals?.by_type?.LATE_FEE)} />
@@ -266,6 +269,11 @@ export default function DepositsReportPage() {
           label="LPS (late fee + surcharge)"
           value={formatRs(totals?.lps_total)}
           accent
+        />
+        <TotalTile
+          label="Discounts (non-cash)"
+          value={formatRs(totals?.discounts_total)}
+          sub={`${(totals?.discounts_count ?? 0).toLocaleString()} discount(s), by fee date`}
         />
       </div>
 
@@ -286,6 +294,17 @@ export default function DepositsReportPage() {
           {totals && !totals.reconciles
             ? " — these do not match. This is a data bug, not rounding: report it."
             : " — reconciled."}
+        </p>
+      </div>
+
+      <div className="flex items-start gap-3 rounded-2xl p-4 text-sm border bg-violet-50 border-violet-100 text-violet-900 dark:bg-violet-950/20 dark:border-violet-900/30 dark:text-violet-200">
+        <Banknote className="h-5 w-5 text-violet-500 flex-shrink-0 mt-0.5" />
+        <p>
+          Discounts are shown for context only — non-cash, dated by each discount&apos;s own fee date (not deposit date), and never part of the cash-vs-allocations reconciliation above. See{" "}
+          <Link href="/financial-reports/fee-heads" className="font-bold underline underline-offset-2">
+            Fee Heads Report
+          </Link>
+          {" "}for how discounts net into billed/outstanding totals.
         </p>
       </div>
 

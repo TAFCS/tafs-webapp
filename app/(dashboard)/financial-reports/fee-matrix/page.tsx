@@ -428,7 +428,7 @@ export default function FeeMatrixReportPage() {
             Fee Matrix
           </h1>
           <p className="text-sm font-medium text-zinc-400 mt-1">
-            One row per student, one column per month — heads placed by target month. Late payment surcharges are excluded.
+            One row per student, one column per month — heads placed by target month. Discounts are netted in as negative cells; late payment surcharges are excluded.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -461,7 +461,7 @@ export default function FeeMatrixReportPage() {
         <Info className="h-5 w-5 flex-shrink-0 mt-0.5" />
         {rangeValid ? (
           <p>
-            Each head is placed by its own target month — resolved to a real calendar month using the term it was written under (Apr-Mar for classes VI-X, Aug-Jul for everyone else), not a fixed assumption. Column and grand totals, and the statistics below, cover every student matching the filters, not just the rows on this page.
+            Each head is placed by its own target month — resolved to a real calendar month using the term it was written under (Apr-Mar for classes VI-X, Aug-Jul for everyone else), not a fixed assumption. Discount heads appear as negative-amount cells (violet dot, see legend) and net into row/column/grand totals and the statistics below, which cover every student matching the filters, not just the rows on this page.
           </p>
         ) : (
           <p>From month must be on or before to month.</p>
