@@ -11,7 +11,8 @@ import {
   LoanStatus,
   LoanTransactionType,
 } from "@/lib/hr.service";
-import { RecoveryScheduleEditor, RemainingScheduleList } from "../../_components/RecoveryScheduleEditor";
+import { PayrollRangeFields, RecoveryScheduleEditor, RemainingScheduleList } from "../../_components/RecoveryScheduleEditor";
+import { clampPayrollRange, defaultPayrollRange, payrollRangeCreatePayload } from "../../_components/payroll-cycle";
 
 interface Props {
   employeeId: number;
@@ -44,7 +45,8 @@ function statusBadgeClass(status: LoanStatus): string {
   }
 }
 
-function typeLabel(type: LoanTransactionType): string {
+function typeLabel(type: LoanTransactionType, dueAmount = 0, amount = 0): string {
+  if (type === "DEDUCTION" && dueAmount === 0 && amount === 0) return "Skipped";
   switch (type) {
     case "OPENING_BALANCE":
       return "Opening balance";
@@ -69,10 +71,10 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const [totalAmount, setTotalAmount] = useState("");
-  const [months, setMonths] = useState("5");
+  const [fromMonth, setFromMonth] = useState("");
+  const [toMonth, setToMonth] = useState("");
   const [openingRepaid, setOpeningRepaid] = useState("");
   const [disbursementDate, setDisbursementDate] = useState("");
-  const [startPeriod, setStartPeriod] = useState("");
   const [notes, setNotes] = useState("");
 
   const [action, setAction] = useState<"lump-sum" | "write-off" | null>(null);
@@ -86,7 +88,9 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
     try {
       const next = await hrService.getEmployeeLoan(employeeId);
       setData(next);
-      setStartPeriod((prev) => prev || next.default_start_period_start);
+      const range = defaultPayrollRange(next.default_start_period_start);
+      setFromMonth((prev) => prev || range.fromMonth);
+      setToMonth((prev) => prev || range.toMonth);
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to load loan.");
     } finally {
@@ -101,13 +105,11 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
   const previewInstallment = useMemo(() => {
     const total = Number(totalAmount);
     const opening = Number(openingRepaid || 0);
-    const count = Number(months);
-    if (!Number.isFinite(total) || total <= 0 || !Number.isInteger(count) || count < 1) return null;
+    const range = clampPayrollRange(fromMonth, toMonth);
+    if (!Number.isFinite(total) || total <= 0 || !range || range.count < 1) return null;
     if (!Number.isFinite(opening) || opening < 0 || opening >= total) return null;
-    const remaining = total - opening;
-    const installment = Math.floor((remaining * 100) / count) / 100;
-    return installment;
-  }, [totalAmount, openingRepaid, months]);
+    return Math.floor(((total - opening) * 100) / range.count) / 100;
+  }, [totalAmount, openingRepaid, fromMonth, toMonth]);
 
   const applyResponse = (next: EmployeeLoanResponse) => {
     setData(next);
@@ -116,24 +118,25 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
     setActionNote("");
     setEditingSchedule(false);
     setTotalAmount("");
-    setMonths("5");
+    const range = defaultPayrollRange(next.default_start_period_start);
+    setFromMonth(range.fromMonth);
+    setToMonth(range.toMonth);
     setOpeningRepaid("");
     setDisbursementDate("");
     setNotes("");
-    setStartPeriod(next.default_start_period_start);
   };
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
     const total = Number(totalAmount);
-    const count = Number(months);
+    const range = payrollRangeCreatePayload(fromMonth, toMonth);
     const opening = Number(openingRepaid || 0);
     if (!Number.isFinite(total) || total <= 0) {
       setError("Enter a total loan amount.");
       return;
     }
-    if (!Number.isInteger(count) || count < 1) {
-      setError("Enter the number of months as a whole number.");
+    if (!range) {
+      setError("Pick a from and to payroll month.");
       return;
     }
     if (!Number.isFinite(opening) || opening < 0) {
@@ -149,10 +152,10 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
     try {
       const next = await hrService.createEmployeeLoan(employeeId, {
         total_amount: total,
-        installment_count: count,
+        installment_count: range.installment_count,
         amount_repaid_opening: opening || undefined,
         disbursement_date: disbursementDate || undefined,
-        start_period_start: startPeriod || undefined,
+        start_period_start: range.start_period_start,
         notes: notes.trim() || undefined,
       });
       applyResponse(next);
@@ -272,10 +275,14 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total amount</label>
               <input className={inputCls} inputMode="decimal" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="50000" />
             </div>
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Months</label>
-              <input className={inputCls} inputMode="numeric" value={months} onChange={(e) => setMonths(e.target.value)} />
-            </div>
+            <PayrollRangeFields
+              fromMonth={fromMonth}
+              toMonth={toMonth}
+              onChange={(from, to) => {
+                setFromMonth(from);
+                setToMonth(to);
+              }}
+            />
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Already repaid (opening)</label>
               <input className={inputCls} inputMode="decimal" value={openingRepaid} onChange={(e) => setOpeningRepaid(e.target.value)} placeholder="0" />
@@ -283,10 +290,6 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Disbursement date</label>
               <input type="date" className={inputCls} value={disbursementDate} onChange={(e) => setDisbursementDate(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Starts deducting from cycle</label>
-              <input type="date" className={inputCls} value={startPeriod} onChange={(e) => setStartPeriod(e.target.value)} />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Notes / reason</label>
@@ -330,7 +333,8 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
             </div>
             <RemainingScheduleList
               amounts={current.installment_schedule ?? []}
-              caption={`Starting ${current.start_period_start}.${current.amount_repaid_opening > 0 ? ` ${formatPkr(current.amount_repaid_opening)} already repaid before this was tracked here.` : ""}${current.notes ? ` ${current.notes}` : ""}`}
+              startPeriodStart={current.start_period_start}
+              caption={`${current.amount_repaid_opening > 0 ? `${formatPkr(current.amount_repaid_opening)} already repaid before this was tracked here.` : ""}${current.notes ? ` ${current.notes}` : ""}`.trim() || undefined}
             />
 
             <div className="flex flex-wrap gap-2 mb-4">
@@ -409,6 +413,7 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
                   key={`${current.id}-${current.updated_at}`}
                   remaining={current.outstanding_balance}
                   initialAmounts={current.installment_schedule ?? []}
+                  startPeriodStart={current.start_period_start}
                   saving={saving}
                   onSubmit={handleSchedule}
                   onCancel={() => setEditingSchedule(false)}
@@ -496,7 +501,7 @@ function LedgerTable({ loan }: { loan: EmployeeLoan }) {
           {loan.transactions.map((txn) => (
             <tr key={txn.id} className="border-t border-zinc-100 dark:border-zinc-800">
               <td className="py-2 pr-3 whitespace-nowrap">{cycleLabel(txn)}</td>
-              <td className="py-2 pr-3">{typeLabel(txn.type)}</td>
+              <td className="py-2 pr-3">{typeLabel(txn.type, txn.due_amount, txn.amount)}</td>
               <td className="py-2 pr-3 text-right">{formatPkr(txn.due_amount)}</td>
               <td className="py-2 pr-3 text-right">{formatPkr(txn.amount)}</td>
               <td className="py-2 pr-3 text-right">{formatPkr(txn.balance_after)}</td>

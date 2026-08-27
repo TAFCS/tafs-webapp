@@ -10,7 +10,8 @@ import {
   SecurityDepositStatus,
   SecurityDepositTransactionType,
 } from "@/lib/hr.service";
-import { RecoveryScheduleEditor, RemainingScheduleList } from "../../_components/RecoveryScheduleEditor";
+import { PayrollRangeFields, RecoveryScheduleEditor, RemainingScheduleList } from "../../_components/RecoveryScheduleEditor";
+import { clampPayrollRange, defaultPayrollRange, payrollRangeCreatePayload } from "../../_components/payroll-cycle";
 
 interface Props {
   employeeId: number;
@@ -42,7 +43,8 @@ function statusBadgeClass(status: SecurityDepositStatus): string {
   }
 }
 
-function typeLabel(type: SecurityDepositTransactionType): string {
+function typeLabel(type: SecurityDepositTransactionType, dueAmount = 0, amount = 0): string {
+  if (type === "DEDUCTION" && dueAmount === 0 && amount === 0) return "Skipped";
   switch (type) {
     case "DEDUCTION":
       return "Payroll deduction";
@@ -65,8 +67,8 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const [totalAmount, setTotalAmount] = useState("");
-  const [months, setMonths] = useState("5");
-  const [startPeriod, setStartPeriod] = useState("");
+  const [fromMonth, setFromMonth] = useState("");
+  const [toMonth, setToMonth] = useState("");
   const [notes, setNotes] = useState("");
 
   const [action, setAction] = useState<"refund" | "forfeit" | null>(null);
@@ -80,7 +82,9 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
     try {
       const next = await hrService.getEmployeeSecurityDeposit(employeeId);
       setData(next);
-      setStartPeriod((prev) => prev || next.default_start_period_start);
+      const range = defaultPayrollRange(next.default_start_period_start);
+      setFromMonth((prev) => prev || range.fromMonth);
+      setToMonth((prev) => prev || range.toMonth);
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to load security deposit.");
     } finally {
@@ -94,11 +98,10 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
 
   const previewInstallment = useMemo(() => {
     const total = Number(totalAmount);
-    const count = Number(months);
-    if (!Number.isFinite(total) || total <= 0 || !Number.isInteger(count) || count < 1) return null;
-    const installment = Math.floor((total * 100) / count) / 100;
-    return installment;
-  }, [totalAmount, months]);
+    const range = clampPayrollRange(fromMonth, toMonth);
+    if (!Number.isFinite(total) || total <= 0 || !range || range.count < 1) return null;
+    return Math.floor((total * 100) / range.count) / 100;
+  }, [totalAmount, fromMonth, toMonth]);
 
   const applyResponse = (next: EmployeeSecurityDepositResponse) => {
     setData(next);
@@ -107,21 +110,22 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
     setActionNote("");
     setEditingSchedule(false);
     setTotalAmount("");
-    setMonths("5");
+    const range = defaultPayrollRange(next.default_start_period_start);
+    setFromMonth(range.fromMonth);
+    setToMonth(range.toMonth);
     setNotes("");
-    setStartPeriod(next.default_start_period_start);
   };
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
     const total = Number(totalAmount);
-    const count = Number(months);
+    const range = payrollRangeCreatePayload(fromMonth, toMonth);
     if (!Number.isFinite(total) || total <= 0) {
       setError("Enter a total deposit amount.");
       return;
     }
-    if (!Number.isInteger(count) || count < 1) {
-      setError("Enter the number of months as a whole number.");
+    if (!range) {
+      setError("Pick a from and to payroll month.");
       return;
     }
     setSaving(true);
@@ -129,8 +133,8 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
     try {
       const next = await hrService.createEmployeeSecurityDeposit(employeeId, {
         total_amount: total,
-        installment_count: count,
-        start_period_start: startPeriod || undefined,
+        installment_count: range.installment_count,
+        start_period_start: range.start_period_start,
         notes: notes.trim() || undefined,
       });
       applyResponse(next);
@@ -236,14 +240,14 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total amount</label>
               <input className={inputCls} inputMode="decimal" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="50000" />
             </div>
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Months</label>
-              <input className={inputCls} inputMode="numeric" value={months} onChange={(e) => setMonths(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Starts from cycle</label>
-              <input type="date" className={inputCls} value={startPeriod} onChange={(e) => setStartPeriod(e.target.value)} />
-            </div>
+            <PayrollRangeFields
+              fromMonth={fromMonth}
+              toMonth={toMonth}
+              onChange={(from, to) => {
+                setFromMonth(from);
+                setToMonth(to);
+              }}
+            />
             <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Notes</label>
               <textarea rows={2} className={textareaCls} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -286,7 +290,8 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
             </div>
             <RemainingScheduleList
               amounts={current.installment_schedule ?? []}
-              caption={`Starting ${current.start_period_start}.${current.notes ? ` ${current.notes}` : ""}`}
+              startPeriodStart={current.start_period_start}
+              caption={current.notes ?? undefined}
             />
 
             <div className="flex flex-wrap gap-2 mb-4">
@@ -349,6 +354,7 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
                   key={`${current.id}-${current.updated_at}`}
                   remaining={current.remaining_to_collect}
                   initialAmounts={current.installment_schedule ?? []}
+                  startPeriodStart={current.start_period_start}
                   saving={saving}
                   onSubmit={handleSchedule}
                   onCancel={() => setEditingSchedule(false)}
@@ -436,7 +442,7 @@ function LedgerTable({ plan }: { plan: SecurityDepositPlan }) {
           {plan.transactions.map((txn) => (
             <tr key={txn.id} className="border-t border-zinc-100 dark:border-zinc-800">
               <td className="py-2 pr-3 whitespace-nowrap">{cycleLabel(txn)}</td>
-              <td className="py-2 pr-3">{typeLabel(txn.type)}</td>
+              <td className="py-2 pr-3">{typeLabel(txn.type, txn.due_amount, txn.amount)}</td>
               <td className="py-2 pr-3 text-right">{formatPkr(txn.due_amount)}</td>
               <td className="py-2 pr-3 text-right">{formatPkr(txn.amount)}</td>
               <td className="py-2 pr-3 text-right">{formatPkr(txn.running_balance)}</td>

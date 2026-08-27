@@ -12,7 +12,8 @@ import {
 } from "@/lib/hr.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
-import { RecoveryScheduleEditor } from "../_components/RecoveryScheduleEditor";
+import { PayrollRangeFields, RecoveryScheduleEditor } from "../_components/RecoveryScheduleEditor";
+import { clampPayrollRange, defaultPayrollRange, payrollRangeCreatePayload } from "../_components/payroll-cycle";
 
 const inputCls =
   "w-full h-10 px-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10";
@@ -69,8 +70,8 @@ export default function SecurityDepositsPage() {
   const searchWrapRef = useRef<HTMLDivElement>(null);
 
   const [totalAmount, setTotalAmount] = useState("");
-  const [months, setMonths] = useState("5");
-  const [startPeriod, setStartPeriod] = useState("");
+  const [fromMonth, setFromMonth] = useState("");
+  const [toMonth, setToMonth] = useState("");
   const [notes, setNotes] = useState("");
 
   const [actionRow, setActionRow] = useState<SecurityDepositListItem | null>(null);
@@ -136,10 +137,10 @@ export default function SecurityDepositsPage() {
 
   const previewInstallment = useMemo(() => {
     const total = Number(totalAmount);
-    const count = Number(months);
-    if (!Number.isFinite(total) || total <= 0 || !Number.isInteger(count) || count < 1) return null;
-    return Math.floor((total * 100) / count) / 100;
-  }, [totalAmount, months]);
+    const range = clampPayrollRange(fromMonth, toMonth);
+    if (!Number.isFinite(total) || total <= 0 || !range || range.count < 1) return null;
+    return Math.floor((total * 100) / range.count) / 100;
+  }, [totalAmount, fromMonth, toMonth]);
 
   const resetStartForm = () => {
     setShowStart(false);
@@ -148,8 +149,8 @@ export default function SecurityDepositsPage() {
     setSearchQuery("");
     setSearchResults([]);
     setTotalAmount("");
-    setMonths("5");
-    setStartPeriod("");
+    setFromMonth("");
+    setToMonth("");
     setNotes("");
   };
 
@@ -161,7 +162,9 @@ export default function SecurityDepositsPage() {
     setError(null);
     try {
       const deposit = await hrService.getEmployeeSecurityDeposit(emp.id);
-      setStartPeriod(deposit.default_start_period_start);
+      const range = defaultPayrollRange(deposit.default_start_period_start);
+      setFromMonth(range.fromMonth);
+      setToMonth(range.toMonth);
       if (deposit.current) {
         setHasOpenPlan(true);
         setError("This employee already has an open security deposit plan.");
@@ -182,13 +185,13 @@ export default function SecurityDepositsPage() {
       return;
     }
     const total = Number(totalAmount);
-    const count = Number(months);
+    const range = payrollRangeCreatePayload(fromMonth, toMonth);
     if (!Number.isFinite(total) || total <= 0) {
       setError("Enter a total deposit amount.");
       return;
     }
-    if (!Number.isInteger(count) || count < 1) {
-      setError("Enter the number of months as a whole number.");
+    if (!range) {
+      setError("Pick a from and to payroll month.");
       return;
     }
     setSaving(true);
@@ -196,8 +199,8 @@ export default function SecurityDepositsPage() {
     try {
       await hrService.createEmployeeSecurityDeposit(picked.id, {
         total_amount: total,
-        installment_count: count,
-        start_period_start: startPeriod || undefined,
+        installment_count: range.installment_count,
+        start_period_start: range.start_period_start,
         notes: notes.trim() || undefined,
       });
       toast.success("Security deposit plan started.");
@@ -340,7 +343,7 @@ export default function SecurityDepositsPage() {
                 {picked.full_name ?? "Employee"}
                 {picked.employee_code ? ` (${picked.employee_code})` : ""}
               </span>
-              <button type="button" onClick={() => { setPicked(null); setHasOpenPlan(false); setStartPeriod(""); }} className="text-zinc-400 hover:text-rose-500">
+              <button type="button" onClick={() => { setPicked(null); setHasOpenPlan(false); setFromMonth(""); setToMonth(""); }} className="text-zinc-400 hover:text-rose-500">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -384,14 +387,14 @@ export default function SecurityDepositsPage() {
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total amount</label>
               <input className={inputCls} inputMode="decimal" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="50000" />
             </div>
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Months</label>
-              <input className={inputCls} inputMode="numeric" value={months} onChange={(e) => setMonths(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Starts from cycle</label>
-              <input type="date" className={inputCls} value={startPeriod} onChange={(e) => setStartPeriod(e.target.value)} />
-            </div>
+            <PayrollRangeFields
+              fromMonth={fromMonth}
+              toMonth={toMonth}
+              onChange={(from, to) => {
+                setFromMonth(from);
+                setToMonth(to);
+              }}
+            />
             <div className="sm:col-span-3">
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Notes</label>
               <textarea rows={2} className={textareaCls} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -522,6 +525,7 @@ export default function SecurityDepositsPage() {
                 key={actionRow.id}
                 remaining={actionRow.remaining_to_collect}
                 initialAmounts={actionRow.installment_schedule ?? []}
+                startPeriodStart={actionRow.start_period_start}
                 saving={saving}
                 onSubmit={handleSchedule}
                 onCancel={() => { setActionRow(null); setAction(null); }}

@@ -12,7 +12,8 @@ import {
 } from "@/lib/hr.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
-import { RecoveryScheduleEditor } from "../_components/RecoveryScheduleEditor";
+import { PayrollRangeFields, RecoveryScheduleEditor } from "../_components/RecoveryScheduleEditor";
+import { clampPayrollRange, defaultPayrollRange, payrollRangeCreatePayload } from "../_components/payroll-cycle";
 
 const inputCls =
   "w-full h-10 px-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10";
@@ -69,10 +70,10 @@ export default function EmployeeLoansPage() {
   const searchWrapRef = useRef<HTMLDivElement>(null);
 
   const [totalAmount, setTotalAmount] = useState("");
-  const [months, setMonths] = useState("5");
+  const [fromMonth, setFromMonth] = useState("");
+  const [toMonth, setToMonth] = useState("");
   const [openingRepaid, setOpeningRepaid] = useState("");
   const [disbursementDate, setDisbursementDate] = useState("");
-  const [startPeriod, setStartPeriod] = useState("");
   const [notes, setNotes] = useState("");
 
   const [actionRow, setActionRow] = useState<LoanListItem | null>(null);
@@ -139,11 +140,11 @@ export default function EmployeeLoansPage() {
   const previewInstallment = useMemo(() => {
     const total = Number(totalAmount);
     const opening = Number(openingRepaid || 0);
-    const count = Number(months);
-    if (!Number.isFinite(total) || total <= 0 || !Number.isInteger(count) || count < 1) return null;
+    const range = clampPayrollRange(fromMonth, toMonth);
+    if (!Number.isFinite(total) || total <= 0 || !range || range.count < 1) return null;
     if (!Number.isFinite(opening) || opening < 0 || opening >= total) return null;
-    return Math.floor(((total - opening) * 100) / count) / 100;
-  }, [totalAmount, openingRepaid, months]);
+    return Math.floor(((total - opening) * 100) / range.count) / 100;
+  }, [totalAmount, openingRepaid, fromMonth, toMonth]);
 
   const resetStartForm = () => {
     setShowStart(false);
@@ -152,10 +153,10 @@ export default function EmployeeLoansPage() {
     setSearchQuery("");
     setSearchResults([]);
     setTotalAmount("");
-    setMonths("5");
+    setFromMonth("");
+    setToMonth("");
     setOpeningRepaid("");
     setDisbursementDate("");
-    setStartPeriod("");
     setNotes("");
   };
 
@@ -167,7 +168,9 @@ export default function EmployeeLoansPage() {
     setError(null);
     try {
       const loan = await hrService.getEmployeeLoan(emp.id);
-      setStartPeriod(loan.default_start_period_start);
+      const range = defaultPayrollRange(loan.default_start_period_start);
+      setFromMonth(range.fromMonth);
+      setToMonth(range.toMonth);
       if (loan.current) {
         setHasOpenLoan(true);
         setError("This employee already has an open loan.");
@@ -188,14 +191,14 @@ export default function EmployeeLoansPage() {
       return;
     }
     const total = Number(totalAmount);
-    const count = Number(months);
+    const range = payrollRangeCreatePayload(fromMonth, toMonth);
     const opening = Number(openingRepaid || 0);
     if (!Number.isFinite(total) || total <= 0) {
       setError("Enter a total loan amount.");
       return;
     }
-    if (!Number.isInteger(count) || count < 1) {
-      setError("Enter the number of months as a whole number.");
+    if (!range) {
+      setError("Pick a from and to payroll month.");
       return;
     }
     if (!Number.isFinite(opening) || opening < 0) {
@@ -211,10 +214,10 @@ export default function EmployeeLoansPage() {
     try {
       await hrService.createEmployeeLoan(picked.id, {
         total_amount: total,
-        installment_count: count,
+        installment_count: range.installment_count,
         amount_repaid_opening: opening || undefined,
         disbursement_date: disbursementDate || undefined,
-        start_period_start: startPeriod || undefined,
+        start_period_start: range.start_period_start,
         notes: notes.trim() || undefined,
       });
       toast.success("Loan recorded.");
@@ -357,7 +360,7 @@ export default function EmployeeLoansPage() {
                 {picked.full_name ?? "Employee"}
                 {picked.employee_code ? ` (${picked.employee_code})` : ""}
               </span>
-              <button type="button" onClick={() => { setPicked(null); setHasOpenLoan(false); setStartPeriod(""); }} className="text-zinc-400 hover:text-rose-500">
+              <button type="button" onClick={() => { setPicked(null); setHasOpenLoan(false); setFromMonth(""); setToMonth(""); }} className="text-zinc-400 hover:text-rose-500">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -401,10 +404,14 @@ export default function EmployeeLoansPage() {
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total amount</label>
               <input className={inputCls} inputMode="decimal" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="50000" />
             </div>
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Months</label>
-              <input className={inputCls} inputMode="numeric" value={months} onChange={(e) => setMonths(e.target.value)} />
-            </div>
+            <PayrollRangeFields
+              fromMonth={fromMonth}
+              toMonth={toMonth}
+              onChange={(from, to) => {
+                setFromMonth(from);
+                setToMonth(to);
+              }}
+            />
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Already repaid (opening)</label>
               <input className={inputCls} inputMode="decimal" value={openingRepaid} onChange={(e) => setOpeningRepaid(e.target.value)} placeholder="0" />
@@ -412,10 +419,6 @@ export default function EmployeeLoansPage() {
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Disbursement date</label>
               <input type="date" className={inputCls} value={disbursementDate} onChange={(e) => setDisbursementDate(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Starts deducting from cycle</label>
-              <input type="date" className={inputCls} value={startPeriod} onChange={(e) => setStartPeriod(e.target.value)} />
             </div>
             <div className="sm:col-span-3">
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Notes / reason</label>
@@ -545,6 +548,7 @@ export default function EmployeeLoansPage() {
                 key={actionRow.id}
                 remaining={actionRow.outstanding_balance}
                 initialAmounts={actionRow.installment_schedule ?? []}
+                startPeriodStart={actionRow.start_period_start}
                 saving={saving}
                 onSubmit={handleSchedule}
                 onCancel={() => { setActionRow(null); setAction(null); }}
