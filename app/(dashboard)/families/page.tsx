@@ -2,8 +2,15 @@
 
 import { FamiliesDataTable } from "@/features/families/components/families-data-table";
 import { familiesService, type FamilyStats } from "@/lib/families.service";
-import { Link as LinkIcon, Users, UserCheck, Smartphone } from "lucide-react";
+import { Link as LinkIcon, Users, UserCheck, Smartphone, Play } from "lucide-react";
 import { useState, useEffect } from "react";
+import { VideoDemoModal } from "@/components/VideoDemoModal";
+
+const DEFAULT_FAMILIES_DEMO_VIDEO_URL =
+    "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/families/families-demo.mp4";
+
+const familiesDemoVideoUrl =
+    process.env.NEXT_PUBLIC_FAMILIES_DEMO_VIDEO_URL?.trim() || DEFAULT_FAMILIES_DEMO_VIDEO_URL;
 
 const STAT_CONFIG = [
     {
@@ -36,6 +43,7 @@ const STAT_CONFIG = [
 export default function FamiliesPage() {
     const [isCreateFamilyModalOpen, setIsCreateFamilyModalOpen] = useState(false);
     const [isChangeFamilyModalOpen, setIsChangeFamilyModalOpen] = useState(false);
+    const [isDemoOpen, setIsDemoOpen] = useState(false);
     const [stats, setStats] = useState<FamilyStats | null>(null);
     const [isStatsLoading, setIsStatsLoading] = useState(true);
 
@@ -55,6 +63,14 @@ export default function FamiliesPage() {
                     <p className="text-[13px] text-zinc-500 mt-0.5">Search and manage all household connections, guardians, and sibling rosters.</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => setIsDemoOpen(true)}
+                        className="flex items-center gap-1.5 px-4 h-9 text-[11px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors"
+                    >
+                        <Play className="h-3.5 w-3.5" />
+                        DEMO
+                    </button>
                     <button
                         onClick={() => setIsCreateFamilyModalOpen(true)}
                         className="inline-flex items-center justify-center h-9 px-4 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all font-bold text-[12px] shadow-sm active:scale-95"
@@ -103,6 +119,13 @@ export default function FamiliesPage() {
                 onCloseCreate={() => setIsCreateFamilyModalOpen(false)}
                 isAssignOpen={isChangeFamilyModalOpen}
                 onCloseAssign={() => setIsChangeFamilyModalOpen(false)}
+            />
+
+            <VideoDemoModal
+                isOpen={isDemoOpen}
+                onClose={() => setIsDemoOpen(false)}
+                videoUrl={familiesDemoVideoUrl}
+                title="Families Demo"
             />
         </div>
     );
