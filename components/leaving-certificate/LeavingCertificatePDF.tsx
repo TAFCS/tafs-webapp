@@ -534,14 +534,14 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
 
         switch (size) {
             case 'SMALL':
-                return isCamb ? { width: 120, height: 38 } : { width: 140, height: 40 };
+                return isCamb ? { width: 162, height: 32 } : { width: 133, height: 38 };
             case 'LARGE':
-                return isCamb ? { width: 190, height: 60 } : { width: 220, height: 64 };
+                return isCamb ? { width: 232, height: 46 } : { width: 203, height: 58 };
             case 'XLARGE':
-                return isCamb ? { width: 230, height: 72 } : { width: 260, height: 76 };
+                return isCamb ? { width: 273, height: 54 } : { width: 238, height: 68 };
             case 'MEDIUM':
             default:
-                return isCamb ? { width: 155, height: 48 } : { width: 180, height: 52 };
+                return isCamb ? { width: 192, height: 38 } : { width: 168, height: 48 };
         }
     };
 
