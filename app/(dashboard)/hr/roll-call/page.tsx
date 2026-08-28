@@ -597,13 +597,25 @@ export default function RollCallPage() {
           </div>
         ) : !session ? null : (
           <>
-            <div className="flex items-center justify-between px-1">
+            <div className="flex items-center justify-between px-1 gap-3">
               <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
                 Tap a student to mark present
               </p>
-              <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                {presentCount} / {roster.length} present
-              </p>
+              <div className="flex items-center gap-3">
+                {canEdit && roster.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setMarks({})}
+                    disabled={presentCount === 0}
+                    className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-40 disabled:no-underline"
+                  >
+                    Mark all absent
+                  </button>
+                )}
+                <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                  {presentCount} / {roster.length} present
+                </p>
+              </div>
             </div>
 
             <div className="space-y-2">
