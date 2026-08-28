@@ -160,10 +160,11 @@ const styles = StyleSheet.create({
         marginBottom: 6,
     },
     docTitle: {
-        fontSize: 13,
-        fontFamily: 'Helvetica-Bold',
+        fontSize: 14,
+        fontFamily: 'Stardos Stencil',
+        fontWeight: 'bold',
         textDecoration: 'underline',
-        letterSpacing: 0.5,
+        letterSpacing: 1,
         textTransform: 'uppercase',
         textAlign: 'center',
     },
@@ -212,6 +213,7 @@ const styles = StyleSheet.create({
         fontFamily: 'Stardos Stencil',
         fontWeight: 'bold',
         textAlign: 'center',
+        letterSpacing: 0.8,
     },
     photoBox: {
         width: 100,
@@ -405,7 +407,7 @@ function UnderlinedCell({
     return (
         <View style={[styles.underlinedValueContainer, { width, marginRight }]}>
             <Text style={[styles.underlinedValue, { width }]}>{value || '—'}</Text>
-            <Text style={styles.subLabel}>{subLabel}</Text>
+            <Text style={styles.subLabel}>{subLabel ? subLabel.toUpperCase() : ''}</Text>
         </View>
     );
 }
@@ -413,7 +415,7 @@ function UnderlinedCell({
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>{label}</Text>
+            <Text style={styles.fieldLabel}>{label ? label.toUpperCase() : ''}</Text>
             <View style={styles.fieldValuesRow}>{children}</View>
         </View>
     );
@@ -431,14 +433,63 @@ function TripleNameFields({
     const w = LAYOUT.nameColWidth;
     return (
         <>
-            <UnderlinedCell value={last} subLabel="Last" width={w} />
-            <UnderlinedCell value={first} subLabel="First" width={w} />
-            <UnderlinedCell value={middle} subLabel="Middle" width={w} marginRight={0} />
+            <UnderlinedCell value={last} subLabel="LAST" width={w} />
+            <UnderlinedCell value={first} subLabel="FIRST" width={w} />
+            <UnderlinedCell value={middle} subLabel="MIDDLE" width={w} marginRight={0} />
         </>
     );
 }
 
-export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }) => {
+export function formatGrNumber(val?: string | null): string {
+    if (!val) return '—';
+    const s = String(val).toUpperCase().trim();
+    return s.replace(/\s*-\s*/g, ' - ');
+}
+
+export function deepUppercase<T>(obj: T): T {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj === 'string') {
+        if (
+            obj.startsWith('data:') ||
+            obj.startsWith('http://') ||
+            obj.startsWith('https://') ||
+            obj.startsWith('/') ||
+            obj.endsWith('.png') ||
+            obj.endsWith('.jpg') ||
+            obj.endsWith('.jpeg')
+        ) {
+            return obj as any;
+        }
+        return obj.toUpperCase() as any;
+    }
+    if (Array.isArray(obj)) {
+        return obj.map(deepUppercase) as any;
+    }
+    if (typeof obj === 'object') {
+        const result: any = {};
+        for (const key of Object.keys(obj)) {
+            if (
+                key === 'photograph_url' ||
+                key === 'logo_url' ||
+                key === 'right_logo_url' ||
+                key === 'left_logo_id' ||
+                key === 'right_logo_id' ||
+                key === 'left_logo_size' ||
+                key === 'right_logo_size' ||
+                key === 'selected_campus'
+            ) {
+                result[key] = (obj as any)[key];
+            } else {
+                result[key] = deepUppercase((obj as any)[key]);
+            }
+        }
+        return result;
+    }
+    return obj;
+}
+
+export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertificateData }) => {
+    const data = deepUppercase(rawData);
     const g = (data.gender || 'MALE').trim().toUpperCase();
     const isMale = g === 'MALE' || g === 'M';
     const isFemale = g === 'FEMALE' || g === 'F';
@@ -482,8 +533,17 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
     const prefix = (data.header_prefix || '').trim().toUpperCase();
     const title = (data.header_title || '').toUpperCase();
     const isTafsal = prefix === 'TAFSAL' || title.includes('TAFSAL');
-    const isTafss = prefix === 'TAFSS' || title.includes('TAFSS');
+    const isTafss = prefix === 'TAFSS' || title.includes('TAFSS') || title.includes('SECONDARY');
     const isTafsol = prefix === 'TAFSOL' || title.includes('TAFSOL');
+
+    const classAdmittedLabel = isTafss
+        ? 'IN SECONDARY CLASS TO WHICH HE / SHE WAS ADMITTED'
+        : isTafsal
+        ? 'IN TAFSAL CLASS TO WHICH HE / SHE WAS ADMITTED'
+        : isTafsol
+        ? 'IN TAFSOL CLASS TO WHICH HE / SHE WAS ADMITTED'
+        : 'CLASS TO WHICH HE / SHE WAS ADMITTED';
+
     const defaultLeftLogo = isTafsal
         ? '/logo-tafsal.png'
         : isTafss
@@ -492,38 +552,18 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
         ? '/logo-tafsol.png'
         : '/logo.png';
 
-    // Determine if left logo is wide banner or square shield crest
-    const leftId = data.left_logo_id || (isTafsal ? 'TAFSAL' : isTafss ? 'TAFSS' : isTafsol ? 'TAFSOL' : 'DEFAULT');
-    const isLeftCrest = leftId === 'DEFAULT';
-
     const getLeftDims = () => {
         const size = data.left_logo_size || 'MEDIUM';
-        if (isLeftCrest) {
-            // Shield Crest 1:1 square aspect ratio — flush with left border line
-            switch (size) {
-                case 'SMALL':
-                    return { width: 44, height: 44 };
-                case 'LARGE':
-                    return { width: 72, height: 72 };
-                case 'XLARGE':
-                    return { width: 88, height: 88 };
-                case 'MEDIUM':
-                default:
-                    return { width: 58, height: 58 };
-            }
-        } else {
-            // Wide school banner / segment logos (~3.2:1 aspect ratio)
-            switch (size) {
-                case 'SMALL':
-                    return { width: 135, height: 40 };
-                case 'LARGE':
-                    return { width: 220, height: 64 };
-                case 'XLARGE':
-                    return { width: 260, height: 76 };
-                case 'MEDIUM':
-                default:
-                    return { width: 180, height: 52 };
-            }
+        switch (size) {
+            case 'SMALL':
+                return { width: 46, height: 44 };
+            case 'LARGE':
+                return { width: 75, height: 72 };
+            case 'XLARGE':
+                return { width: 91, height: 88 };
+            case 'MEDIUM':
+            default:
+                return { width: 60, height: 58 };
         }
     };
 
@@ -587,7 +627,7 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                             <View style={styles.sidebarBoxGroup}>
                                 <Text style={styles.sidebarLabel}>G. R. #</Text>
                                 <View style={styles.sidebarValueBox}>
-                                    <Text style={styles.sidebarValueText}>{data.gr_number || '—'}</Text>
+                                    <Text style={styles.sidebarValueText}>{formatGrNumber(data.gr_number)}</Text>
                                 </View>
                             </View>
 
@@ -605,7 +645,7 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                     <Image src={data.photograph_url} style={styles.photoImage} />
                                 ) : (
                                     <Text style={styles.photoPlaceholderText}>
-                                        Recent photograph{'\n'}1.5" x 2"
+                                        RECENT PHOTOGRAPH{'\n'}1.5" X 2"
                                     </Text>
                                 )}
                             </View>
@@ -613,7 +653,7 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
 
                         {/* Right Content Area */}
                         <View style={styles.rightContent}>
-                            <FieldRow label="Name :">
+                            <FieldRow label="NAME :">
                                 <TripleNameFields
                                     last={data.name?.last}
                                     first={data.name?.first}
@@ -621,7 +661,7 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                 />
                             </FieldRow>
 
-                            <FieldRow label={"Father's /Guardian's Name"}>
+                            <FieldRow label={"FATHER'S /GUARDIAN'S NAME"}>
                                 <TripleNameFields
                                     last={data.father_name?.last}
                                     first={data.father_name?.first}
@@ -629,23 +669,23 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                 />
                             </FieldRow>
 
-                            <FieldRow label="Date of Birth">
-                                <UnderlinedCell value={data.dob?.month} subLabel="Month" width={LAYOUT.dobMonthWidth} />
-                                <UnderlinedCell value={data.dob?.day} subLabel="Day" width={LAYOUT.dobDayWidth} />
-                                <UnderlinedCell value={data.dob?.year} subLabel="Year" width={LAYOUT.dobYearWidth} marginRight={0} />
+                            <FieldRow label="DATE OF BIRTH">
+                                <UnderlinedCell value={data.dob?.month} subLabel="MONTH" width={LAYOUT.dobMonthWidth} />
+                                <UnderlinedCell value={data.dob?.day} subLabel="DAY" width={LAYOUT.dobDayWidth} />
+                                <UnderlinedCell value={data.dob?.year} subLabel="YEAR" width={LAYOUT.dobYearWidth} marginRight={0} />
                             </FieldRow>
 
-                            <FieldRow label="Place of Birth">
-                                <UnderlinedCell value={data.place_of_birth?.country || 'PAKISTAN'} subLabel="Country" width={LAYOUT.pobCountryWidth} />
-                                <UnderlinedCell value={data.place_of_birth?.province || 'SINDH'} subLabel="Province" width={LAYOUT.pobProvinceWidth} />
-                                <UnderlinedCell value={data.place_of_birth?.city || 'KARACHI'} subLabel="City" width={LAYOUT.pobCityWidth} marginRight={0} />
+                            <FieldRow label="PLACE OF BIRTH">
+                                <UnderlinedCell value={data.place_of_birth?.country || 'PAKISTAN'} subLabel="COUNTRY" width={LAYOUT.pobCountryWidth} />
+                                <UnderlinedCell value={data.place_of_birth?.province || 'SINDH'} subLabel="PROVINCE" width={LAYOUT.pobProvinceWidth} />
+                                <UnderlinedCell value={data.place_of_birth?.city || 'KARACHI'} subLabel="CITY" width={LAYOUT.pobCityWidth} marginRight={0} />
                             </FieldRow>
 
-                            <FieldRow label="Nationality">
-                                <UnderlinedCell value={data.nationality || 'PAKISTANI'} subLabel="Country" width={140} marginRight={0} />
+                            <FieldRow label="NATIONALITY">
+                                <UnderlinedCell value={data.nationality || 'PAKISTANI'} subLabel="COUNTRY" width={140} marginRight={0} />
                             </FieldRow>
 
-                            <FieldRow label="Sex :">
+                            <FieldRow label="SEX :">
                                 <View style={styles.checkboxRow}>
                                     <View style={styles.checkbox}>
                                         {isMale && (
@@ -654,7 +694,7 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                             </Svg>
                                         )}
                                     </View>
-                                    <Text style={styles.checkboxLabel}>Male</Text>
+                                    <Text style={styles.checkboxLabel}>MALE</Text>
 
                                     <View style={styles.checkbox}>
                                         {isFemale && (
@@ -663,11 +703,11 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                             </Svg>
                                         )}
                                     </View>
-                                    <Text style={styles.checkboxLabel}>Female</Text>
+                                    <Text style={styles.checkboxLabel}>FEMALE</Text>
                                 </View>
                             </FieldRow>
 
-                            <FieldRow label="Religion :">
+                            <FieldRow label="RELIGION :">
                                 <View style={styles.checkboxRow}>
                                     <View style={styles.checkbox}>
                                         {isMuslim && (
@@ -676,7 +716,7 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                             </Svg>
                                         )}
                                     </View>
-                                    <Text style={styles.checkboxLabel}>Muslim</Text>
+                                    <Text style={styles.checkboxLabel}>MUSLIM</Text>
 
                                     <View style={styles.checkbox}>
                                         {isChristian && (
@@ -685,7 +725,7 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                             </Svg>
                                         )}
                                     </View>
-                                    <Text style={styles.checkboxLabel}>Christian</Text>
+                                    <Text style={styles.checkboxLabel}>CHRISTIAN</Text>
 
                                     <View style={styles.checkbox}>
                                         {isOtherReligion && (
@@ -694,28 +734,28 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                             </Svg>
                                         )}
                                     </View>
-                                    <Text style={styles.sigLabel}>Others</Text>
+                                    <Text style={styles.sigLabel}>OTHERS</Text>
                                     <Text style={[styles.lineFill, { maxWidth: 90, textAlign: 'center' }]}>
                                         {isOtherReligion ? religionStr : ''}
                                     </Text>
                                 </View>
                             </FieldRow>
 
-                            <FieldRow label="Mark (s) of Identification">
+                            <FieldRow label="MARK (S) OF IDENTIFICATION">
                                 <Text style={[styles.lineFill, { textAlign: 'center' }]}>{data.identification_marks || '—'}</Text>
                             </FieldRow>
 
-                            <FieldRow label="Last School Attended">
+                            <FieldRow label="LAST SCHOOL ATTENDED">
                                 <Text style={[styles.lineFill, { textAlign: 'center' }]}>{data.last_school_attended || '—'}</Text>
                             </FieldRow>
 
-                            <FieldRow label="Date of Admission">
-                                <UnderlinedCell value={data.date_of_admission?.month} subLabel="Month" width={LAYOUT.dobMonthWidth} />
-                                <UnderlinedCell value={data.date_of_admission?.day} subLabel="Day" width={LAYOUT.dobDayWidth} />
-                                <UnderlinedCell value={data.date_of_admission?.year} subLabel="Year" width={LAYOUT.dobYearWidth} marginRight={0} />
+                            <FieldRow label="DATE OF ADMISSION">
+                                <UnderlinedCell value={data.date_of_admission?.month} subLabel="MONTH" width={LAYOUT.dobMonthWidth} />
+                                <UnderlinedCell value={data.date_of_admission?.day} subLabel="DAY" width={LAYOUT.dobDayWidth} />
+                                <UnderlinedCell value={data.date_of_admission?.year} subLabel="YEAR" width={LAYOUT.dobYearWidth} marginRight={0} />
                             </FieldRow>
 
-                            <FieldRow label="Scholastic year">
+                            <FieldRow label="SCHOLASTIC YEAR">
                                 <View style={styles.squareBox}>
                                     <Text>{data.scholastic_year_admitted?.from || '—'}</Text>
                                 </View>
@@ -725,24 +765,24 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                 </View>
                             </FieldRow>
 
-                            <FieldRow label="Class to which he / she was admitted">
+                            <FieldRow label={classAdmittedLabel}>
                                 <View style={styles.squareBox}>
                                     <Text>{data.class_admitted || '—'}</Text>
                                 </View>
                             </FieldRow>
 
                             <View style={styles.fieldRow}>
-                                <Text style={styles.fieldLabel}>Present Level</Text>
+                                <Text style={styles.fieldLabel}>PRESENT LEVEL</Text>
                                 <View style={styles.fieldValuesRow}>
                                     <Text style={[styles.underlinedValue, { width: 70, marginRight: LAYOUT.fieldGap, textAlign: 'center' }]}>
                                         {data.present_level || '—'}
                                     </Text>
-                                    <Text style={[styles.sigLabel, { width: 48 }]}>Section</Text>
+                                    <Text style={[styles.sigLabel, { width: 48 }]}>SECTION</Text>
                                     <Text style={[styles.underlinedValue, { width: 50, textAlign: 'center' }]}>{data.section || '—'}</Text>
                                 </View>
                             </View>
 
-                            <FieldRow label="Scholastic year">
+                            <FieldRow label="SCHOLASTIC YEAR">
                                 <View style={styles.squareBox}>
                                     <Text>{data.scholastic_year_present?.from || '—'}</Text>
                                 </View>
@@ -752,17 +792,17 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                 </View>
                             </FieldRow>
 
-                            <FieldRow label="Last date of attendance at this school">
-                                <UnderlinedCell value={data.last_date_of_attendance?.month} subLabel="Month" width={LAYOUT.dobMonthWidth} />
-                                <UnderlinedCell value={data.last_date_of_attendance?.day} subLabel="Day" width={LAYOUT.dobDayWidth} />
-                                <UnderlinedCell value={data.last_date_of_attendance?.year} subLabel="Year" width={LAYOUT.dobYearWidth} marginRight={0} />
+                            <FieldRow label="LAST DATE OF ATTENDANCE AT THIS SCHOOL">
+                                <UnderlinedCell value={data.last_date_of_attendance?.month} subLabel="MONTH" width={LAYOUT.dobMonthWidth} />
+                                <UnderlinedCell value={data.last_date_of_attendance?.day} subLabel="DAY" width={LAYOUT.dobDayWidth} />
+                                <UnderlinedCell value={data.last_date_of_attendance?.year} subLabel="YEAR" width={LAYOUT.dobYearWidth} marginRight={0} />
                             </FieldRow>
 
-                            <FieldRow label="Reason for leaving the school">
+                            <FieldRow label="REASON FOR LEAVING THE SCHOOL">
                                 <Text style={[styles.lineFill, { textAlign: 'center' }]}>{data.reason_for_leaving || "ON PARENT'S REQUEST"}</Text>
                             </FieldRow>
 
-                            <FieldRow label="Result at the end of the scholastic year">
+                            <FieldRow label="RESULT AT THE END OF THE SCHOLASTIC YEAR">
                                 <View style={styles.squareBox}>
                                     <Text>{data.result_scholastic_year?.from || '—'}</Text>
                                 </View>
@@ -773,12 +813,12 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                             </FieldRow>
 
                             <View style={styles.fieldRow}>
-                                <Text style={[styles.fieldLabel, { width: LAYOUT.labelWidth + 8 }]}>a) Passed & promoted to level</Text>
+                                <Text style={[styles.fieldLabel, { width: LAYOUT.labelWidth + 8 }]}>A) PASSED & PROMOTED TO LEVEL</Text>
                                 <View style={styles.fieldValuesRow}>
                                     <Text style={[styles.underlinedValue, { width: 56, marginRight: LAYOUT.fieldGap, textAlign: 'center' }]}>
                                         {data.passed_promoted_level || '—'}
                                     </Text>
-                                    <Text style={[styles.sigLabel, { marginRight: 4 }]}>for the scholastic year</Text>
+                                    <Text style={[styles.sigLabel, { marginRight: 4 }]}>FOR THE SCHOLASTIC YEAR</Text>
                                     <View style={styles.squareBox}>
                                         <Text>{data.passed_promoted_year?.from || '—'}</Text>
                                     </View>
@@ -790,17 +830,17 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                             </View>
 
                             <View style={styles.fieldRow}>
-                                <Text style={[styles.fieldLabel, { width: LAYOUT.labelWidth + 8 }]}>b) He/She has to resit in the following subjects</Text>
+                                <Text style={[styles.fieldLabel, { width: LAYOUT.labelWidth + 8 }]}>B) HE/SHE HAS TO RESIT IN THE FOLLOWING SUBJECTS</Text>
                                 <Text style={[styles.lineFill, { textAlign: 'center' }]}>{data.resit_subjects || '—'}</Text>
                             </View>
 
                             <View style={styles.fieldRow}>
-                                <Text style={[styles.fieldLabel, { width: LAYOUT.labelWidth + 8 }]}>c) Detained in Level</Text>
+                                <Text style={[styles.fieldLabel, { width: LAYOUT.labelWidth + 8 }]}>C) DETAINED IN LEVEL</Text>
                                 <View style={styles.fieldValuesRow}>
                                     <Text style={[styles.underlinedValue, { width: 46, marginRight: LAYOUT.fieldGap, textAlign: 'center' }]}>
                                         {data.detained_level || '—'}
                                     </Text>
-                                    <Text style={[styles.sigLabel, { marginRight: 4 }]}>for the scholastic year</Text>
+                                    <Text style={[styles.sigLabel, { marginRight: 4 }]}>FOR THE SCHOLASTIC YEAR</Text>
                                     <View style={styles.squareBox}>
                                         <Text>{data.detained_year?.from || '—'}</Text>
                                     </View>
@@ -811,53 +851,53 @@ export const LeavingCertificatePDF = ({ data }: { data: LeavingCertificateData }
                                 </View>
                             </View>
 
-                            <FieldRow label="School Dues (If any)">
+                            <FieldRow label="SCHOOL DUES (IF ANY)">
                                 <Text style={[styles.lineFill, { textAlign: 'center' }]}>{data.school_dues || '—'}</Text>
                             </FieldRow>
 
-                            <FieldRow label="Remarks">
+                            <FieldRow label="REMARKS">
                                 <Text style={[styles.lineFill, { textAlign: 'center' }]}>{data.remarks || '—'}</Text>
                             </FieldRow>
 
                         <View style={styles.signaturesSection}>
                             <View style={styles.sigRow}>
                                 <View style={styles.sigField}>
-                                    <Text style={styles.sigLabel}>Prepared by</Text>
+                                    <Text style={styles.sigLabel}>PREPARED BY</Text>
                                     <Text style={styles.sigLine}>{data.prepared_by || ''}</Text>
                                 </View>
                                 <View style={styles.sigField}>
-                                    <Text style={styles.sigLabel}>Rechecked by</Text>
+                                    <Text style={styles.sigLabel}>RECHECKED BY</Text>
                                     <Text style={styles.sigLine}>{data.rechecked_by || ''}</Text>
                                 </View>
                                 <View style={styles.sigField}>
-                                    <Text style={styles.sigLabel}>Posted by</Text>
+                                    <Text style={styles.sigLabel}>POSTED BY</Text>
                                     <Text style={styles.sigLine}>{data.posted_by || ''}</Text>
                                 </View>
                             </View>
 
                             <View style={styles.sigRow}>
                                 <View style={styles.sigField}>
-                                    <Text style={styles.sigLabel}>Class Teacher</Text>
+                                    <Text style={styles.sigLabel}>LEAD TEACHER</Text>
                                     <Text style={styles.sigLine}>{data.class_teacher || ''}</Text>
                                 </View>
                                 <View style={styles.sigField}>
-                                    <Text style={styles.sigLabel}>Programme Directress</Text>
+                                    <Text style={styles.sigLabel}>PROGRAMME DIRECTRESS</Text>
                                     <Text style={styles.sigLine}>{data.programme_directress || ''}</Text>
                                 </View>
                             </View>
 
                             <View style={[styles.sigRow, { justifyContent: 'center' }]}>
                                 <View style={styles.sigField}>
-                                    <Text style={styles.sigLabel}>Day</Text>
+                                    <Text style={styles.sigLabel}>DAY</Text>
                                     <Text style={[styles.sigLine, { width: 80 }]}>{data.day || ''}</Text>
                                 </View>
                                 <View style={[styles.sigField, { marginLeft: 40 }]}>
-                                    <Text style={styles.sigLabel}>Date</Text>
+                                    <Text style={styles.sigLabel}>DATE</Text>
                                     <Text style={[styles.sigLine, { width: 120 }]}>{data.date || ''}</Text>
                                 </View>
                             </View>
 
-                            <Text style={styles.disclaimerText}>This certificate is issued without alteration or erasure</Text>
+                            <Text style={styles.disclaimerText}>THIS CERTIFICATE IS ISSUED WITHOUT ALTERATION OR ERASURE</Text>
                         </View>
                     </View>
                 </View>

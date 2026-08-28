@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Download, Loader2, Image as ImageIcon, CheckCircle2, Building2, Layout, Sparkles, Maximize2, X } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
-import { LeavingCertificatePDF, LeavingCertificateData } from './LeavingCertificatePDF';
+import { LeavingCertificatePDF, LeavingCertificateData, deepUppercase } from './LeavingCertificatePDF';
 
 interface LeavingCertificateFormProps {
     data: LeavingCertificateData;
@@ -37,7 +37,7 @@ const RIGHT_LOGOS: LogoOption[] = [
 ];
 
 export default function LeavingCertificateForm({ data: initialData }: LeavingCertificateFormProps) {
-    const [formData, setFormData] = useState<LeavingCertificateData>(initialData);
+    const [formData, setFormData] = useState<LeavingCertificateData>(() => deepUppercase(initialData));
     const [photoBase64, setPhotoBase64] = useState<string | null>(null);
     const [logoBase64Map, setLogoBase64Map] = useState<Record<string, string>>({});
     
@@ -58,7 +58,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
     const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
-        setFormData(initialData);
+        setFormData(deepUppercase(initialData));
         if (initialData.selected_campus) {
             setCampusSelection(initialData.selected_campus);
         }
