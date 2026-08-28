@@ -186,7 +186,12 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         : Number(h.balance ?? 0);
     const sfDeposited = (h: typeof heads[0]) => Math.max(sfNetAmt(h) - sfBalance(h), 0);
 
-    const totalBalance = heads.reduce((sum, h) => sum + sfBalance(h), 0);
+    // Any of this voucher's discount capacity not yet applied (see
+    // VouchersService.applyDiscountCreditInTx) — subtracted here so the fallback
+    // total (used only when voucher.total_balance is absent) agrees with the
+    // primary, backend-computed one instead of asking for the gross amount.
+    const totalDiscountUnapplied = Number(voucher.total_discount_unapplied ?? 0);
+    const totalBalance = Math.max(heads.reduce((sum, h) => sum + sfBalance(h), 0) - totalDiscountUnapplied, 0);
     const totalSurcharge = (voucher.late_fee_charge) ? Math.max(Number(voucher.total_payable_after_due ?? 0) - Number(voucher.total_payable_before_due ?? 0), 0) : 0;
     const remainingSurcharge = Math.max(totalSurcharge - Number(voucher.late_fee_deposited ?? 0), 0);
     const today = new Date();
@@ -703,31 +708,6 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             <span />
                         </div>
 
-                        {/* Total after discount row */}
-                        {DEV_SHOW_DISCOUNTS && discountHeads.length > 0 && (() => {
-                            const grossTotal = heads.reduce((s,f) => s+sfNetAmt(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount),0);
-                            const totalDiscount = discountHeads.reduce((s,h) => s+Math.abs(Number(h.net_amount ?? 0)),0);
-                            return (
-                                <div className="flex items-center justify-between gap-4 px-4 pt-1">
-                                    <div className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center flex-1">
-                                        <span className="text-[11px] font-black text-violet-500 uppercase tracking-widest">Total After Discount</span>
-                                        <span className="text-[11px] font-black text-violet-600 tabular-nums text-right col-span-3">{Math.round(grossTotal - totalDiscount).toLocaleString()}</span>
-                                        <span />
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1 shrink-0">
-                                        <button
-                                            type="button"
-                                            onClick={() => setAmount(finalTotal.toString())}
-                                            className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
-                                        >
-                                            <Wallet className="h-3 w-3" />
-                                            Deposit Full Amount
-                                        </button>
-                                        <span className="text-[9px] font-bold text-zinc-400 normal-case">Amount after discount shown for information only</span>
-                                    </div>
-                                </div>
-                            );
-                        })()}
                     </div>
                 </div>
 

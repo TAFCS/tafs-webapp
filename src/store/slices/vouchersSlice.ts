@@ -119,6 +119,7 @@ export interface VoucherItem {
     surcharge_balance?: string;
     head_balance?: string;
     total_balance?: string;
+    total_discount_unapplied?: string;
     total_deposited?: string;
     students: VoucherStudent;
     campuses: VoucherCampus;

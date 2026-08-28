@@ -50,6 +50,8 @@ type DepositTotals = {
   reconciles: boolean;
   discounts_total: number;
   discounts_count: number;
+  discounts_applied_total: number;
+  discounts_applied_count: number;
 };
 
 export default function DepositsReportPage() {
@@ -260,7 +262,7 @@ export default function DepositsReportPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-7 gap-4">
         <TotalTile label="Cash banked" value={formatRs(totals?.total_amount)} sub={`${(totals?.count ?? 0).toLocaleString()} deposits`} />
         <TotalTile label="Fee heads" value={formatRs(totals?.by_type?.FEE_HEAD)} />
         <TotalTile label="Late fee" value={formatRs(totals?.by_type?.LATE_FEE)} />
@@ -271,9 +273,14 @@ export default function DepositsReportPage() {
           accent
         />
         <TotalTile
-          label="Discounts (non-cash)"
+          label="Discounts scheduled (non-cash)"
           value={formatRs(totals?.discounts_total)}
           sub={`${(totals?.discounts_count ?? 0).toLocaleString()} discount(s), by fee date`}
+        />
+        <TotalTile
+          label="Discounts applied (non-cash)"
+          value={formatRs(totals?.discounts_applied_total)}
+          sub={`${(totals?.discounts_applied_count ?? 0).toLocaleString()} applied to a deposit in this period`}
         />
       </div>
 
@@ -300,7 +307,7 @@ export default function DepositsReportPage() {
       <div className="flex items-start gap-3 rounded-2xl p-4 text-sm border bg-violet-50 border-violet-100 text-violet-900 dark:bg-violet-950/20 dark:border-violet-900/30 dark:text-violet-200">
         <Banknote className="h-5 w-5 text-violet-500 flex-shrink-0 mt-0.5" />
         <p>
-          Discounts are shown for context only — non-cash, dated by each discount&apos;s own fee date (not deposit date), and never part of the cash-vs-allocations reconciliation above. See{" "}
+          Discounts are shown for context only, never as cash. &quot;Scheduled&quot; is dated by each discount&apos;s own fee date, whether or not it has closed a voucher yet; &quot;Applied&quot; is dated by the deposit that actually consumed it. Neither is part of the cash-vs-allocations reconciliation above. See{" "}
           <Link href="/financial-reports/fee-heads" className="font-bold underline underline-offset-2">
             Fee Heads Report
           </Link>
