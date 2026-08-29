@@ -309,10 +309,16 @@ export default function RollCallPage() {
   );
 
   const roster: RollSessionRosterEntry[] = session?.roster ?? [];
+  const sessionIsSaturday =
+    !!session?.session_date && new Date(session.session_date).getUTCDay() === 6;
   const isHolidaySkip =
     session?.status === "SKIPPED" &&
     !!session.skip_reason &&
-    session.skip_reason.startsWith("Holiday:");
+    session.skip_reason.startsWith("Holiday:") &&
+    // A-Level (AS/A2) runs Saturday classes, so a generic weekend skip on a
+    // Saturday isn't a real day off — the backend now accepts marking it.
+    // A named holiday ("Holiday: Eid") or a Sunday stays locked.
+    !(sessionIsSaturday && session.skip_reason === "Holiday: Weekend");
   // A non-holiday SKIPPED session (almost always auto-skipped because
   // nobody submitted it by the cutoff time) can still be marked — that's
   // routine correction of a missed roll call, not a locked final state.
