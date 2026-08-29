@@ -605,6 +605,22 @@ export default function RollCallPage() {
                 {canEdit && roster.length > 0 && (
                   <button
                     type="button"
+                    onClick={() =>
+                      setMarks(
+                        Object.fromEntries(
+                          roster.map((r) => [r.student.cc, "PRESENT" as RollRecordStatus]),
+                        ),
+                      )
+                    }
+                    disabled={presentCount === roster.length}
+                    className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-40 disabled:no-underline"
+                  >
+                    Mark all present
+                  </button>
+                )}
+                {canEdit && roster.length > 0 && (
+                  <button
+                    type="button"
                     onClick={() => setMarks({})}
                     disabled={presentCount === 0}
                     className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline disabled:opacity-40 disabled:no-underline"
