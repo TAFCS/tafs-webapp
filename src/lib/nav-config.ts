@@ -78,7 +78,7 @@ export const NAV_MODULES: NavModule[] = [
             "finance.vouchers.view", "finance.vouchers.release", "finance.deposits.view", "system.analytics.view",
         ],
         items: [
-            { name: "Financial Reports", description: "Fee heads (accrual), deposits (cash), and a student x month fee matrix, with filters and exports", href: "/financial-reports", icon: FileText, permission: "system.analytics.view" },
+            { name: "Financial Reports", description: "Fee heads (accrual), deposits (cash), a student x month fee matrix, and the defaulters list, with filters and exports", href: "/financial-reports", icon: FileText, permission: "system.analytics.view" },
             { name: "Class Fee Schedule", description: "Per-class fee configuration", href: "/classwise-fees-schedule", icon: CalendarDays, permission: "fee_admin.classwise_schedule.view" },
             { name: "Student Overrides", description: "Individual fee adjustments", href: "/studentwise-fees", icon: UserCog, permission: "fee_admin.studentwise_schedule.view" },
             { name: "Single Voucher Issuance", description: "Print individual fee slips", href: "/fee-challan", icon: Printer, permission: "finance.vouchers.view" },

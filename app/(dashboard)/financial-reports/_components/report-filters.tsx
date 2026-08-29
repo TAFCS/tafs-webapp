@@ -47,10 +47,12 @@ type Props = {
   setSectionIds: (ids: number[]) => void;
   segmentIds: number[];
   setSegmentIds: (ids: number[]) => void;
-  fromDate: string;
-  setFromDate: (value: string) => void;
-  toDate: string;
-  setToDate: (value: string) => void;
+  /** Omit setFromDate to hide the date-range inputs entirely — the Defaulters
+   *  report is "as of a date", not a range, and supplies its own control via `extra`. */
+  fromDate?: string;
+  setFromDate?: (value: string) => void;
+  toDate?: string;
+  setToDate?: (value: string) => void;
   studentStatuses: string[];
   setStudentStatuses: (ids: string[]) => void;
   feeEndowment: YesNoFilter;
@@ -165,28 +167,32 @@ export function ReportFilters({
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="flex flex-col gap-1.5">
-        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
-          <Calendar className="h-3 w-3" /> From
-        </label>
-        <input
-          type="date"
-          value={fromDate}
-          onChange={(e) => setFromDate(e.target.value)}
-          className="h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
-          <Calendar className="h-3 w-3" /> To
-        </label>
-        <input
-          type="date"
-          value={toDate}
-          onChange={(e) => setToDate(e.target.value)}
-          className="h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
-        />
-      </div>
+      {setFromDate && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+            <Calendar className="h-3 w-3" /> From
+          </label>
+          <input
+            type="date"
+            value={fromDate ?? ""}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
+          />
+        </div>
+      )}
+      {setToDate && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+            <Calendar className="h-3 w-3" /> To
+          </label>
+          <input
+            type="date"
+            value={toDate ?? ""}
+            onChange={(e) => setToDate(e.target.value)}
+            className="h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
+          />
+        </div>
+      )}
 
       {campusLocked ? (
         <div className="flex items-center gap-2 h-11 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-sm font-bold text-zinc-600 dark:text-zinc-300 min-w-[200px]">

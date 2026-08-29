@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Grid3x3, Landmark } from "lucide-react";
+import { AlertTriangle, FileText, Grid3x3, Landmark } from "lucide-react";
 
 const TABS = [
   { href: "/financial-reports/fee-heads", label: "Fee Heads", icon: FileText },
   { href: "/financial-reports/deposits", label: "Deposits", icon: Landmark },
   { href: "/financial-reports/fee-matrix", label: "Fee Matrix", icon: Grid3x3 },
+  { href: "/financial-reports/defaulters", label: "Defaulters", icon: AlertTriangle },
 ];
 
 export function ReportTabs() {
