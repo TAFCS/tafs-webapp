@@ -103,6 +103,11 @@ export interface RollSession {
     subjects: { id: number; name: string; code: string | null };
     employee_profiles: { id: number; full_name: string | null };
   } | null;
+  /** Subject/teacher as they stood when this session was created — frozen so a
+   * later timetable edit or teaching-group reassignment can't relabel history.
+   * Falls back to the live `teaching_groups` join server-side for pre-snapshot rows. */
+  subject?: { id: number; name: string; code: string | null } | null;
+  teacher?: { id: number; full_name: string | null } | null;
   campuses?: { id: number; campus_name: string; campus_code: string };
   records?: RollRecord[];
   roster?: RollSessionRosterEntry[];
