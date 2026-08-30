@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { FileText, Award, ArrowLeftRight, Receipt, DoorOpen, History, Loader2, Clock, User, ExternalLink } from "lucide-react";
+import { FileText, Award, ArrowLeftRight, Receipt, DoorOpen, History, Loader2, Clock, User, ExternalLink, Download } from "lucide-react";
 import api from "@/lib/api";
 import { AdmissionOrderTab } from "./AdmissionOrderTab";
 import { LeavingCertificateTab } from "./LeavingCertificateTab";
@@ -141,6 +141,30 @@ export function CertificatesStudioTab({ cc, student }: Props) {
             borderColor: "border-amber-200 dark:border-amber-800",
         },
     ];
+
+    const handleDownloadHistoryDoc = (item: HistoryLog) => {
+        const docTypeLower = (item.document_type || "").toLowerCase();
+
+        if (docTypeLower.includes("deposit")) {
+            window.open(`/api/v1/unconfirmed-admissions/${cc}/deposit-slip`, "_blank");
+            return;
+        }
+
+        if (docTypeLower.includes("leaving") || docTypeLower.includes("slc")) {
+            setActiveDoc("leaving_certificate");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            return;
+        }
+
+        if (docTypeLower.includes("transfer")) {
+            setActiveDoc("transfer_order");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            return;
+        }
+
+        setActiveDoc("admission_order");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
 
     return (
         <div className="space-y-8">
@@ -292,6 +316,7 @@ export function CertificatesStudioTab({ cc, student }: Props) {
                                     <th className="py-3 px-4">Notes</th>
                                     <th className="py-3 px-4">Issued By</th>
                                     <th className="py-3 px-4">Generated Date & Time</th>
+                                    <th className="py-3 px-4 rounded-r-xl text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60 font-medium">
@@ -317,6 +342,17 @@ export function CertificatesStudioTab({ cc, student }: Props) {
                                         </td>
                                         <td className="py-3 px-4 text-zinc-400 font-mono text-[11px]">
                                             {formatDate(item.generated_at)}
+                                        </td>
+                                        <td className="py-3 px-4 text-right">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDownloadHistoryDoc(item)}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/60 hover:bg-violet-100 dark:hover:bg-violet-900/60 border border-violet-200/80 dark:border-violet-800/80 rounded-xl transition-all shadow-sm active:scale-95"
+                                                title="Open and re-download form"
+                                            >
+                                                <Download className="h-3 w-3" />
+                                                <span>Re-Download</span>
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}

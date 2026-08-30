@@ -69,11 +69,10 @@ const TABS = [
     { id: "progression", label: "Progression", icon: TrendingUp },
     { id: "guardians",  label: "Guardians",   icon: Shield },
     { id: "biometric",  label: "Biometric",   icon: Fingerprint },
-    { id: "certificates", label: "Certificates", icon: Award },
     { id: "logs",       label: "Logs",        icon: History },
 ] as const;
 
-type TabId = typeof TABS[number]["id"] | "admission_order" | "transfer_order" | "leaving_certificate" | "danger_zone";
+type TabId = typeof TABS[number]["id"] | "certificates" | "danger_zone";
 
 interface Props {
     cc: number | null;
