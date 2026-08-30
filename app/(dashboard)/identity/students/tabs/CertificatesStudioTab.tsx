@@ -341,9 +341,14 @@ export function CertificatesStudioTab({ cc, student }: Props) {
                                             {item.notes || "—"}
                                         </td>
                                         <td className="py-3 px-4">
-                                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-700 dark:text-zinc-300">
+                                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-zinc-700 dark:text-zinc-300">
                                                 <User className="h-3 w-3 text-zinc-400" />
                                                 {item.generated_by || "STAFF"}
+                                                {item.generated_by?.includes("Historical") && (
+                                                    <span className="text-[9px] font-black uppercase tracking-wider bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded">
+                                                        Historical
+                                                    </span>
+                                                )}
                                             </span>
                                         </td>
                                         <td className="py-3 px-4 text-zinc-400 font-mono text-[11px]">
