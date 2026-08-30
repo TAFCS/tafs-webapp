@@ -201,7 +201,7 @@ export function CertificatesStudioTab({ cc, student }: Props) {
                             type="button"
                             disabled={!card.enabled}
                             onClick={() => handleSelectDoc(card.id)}
-                            className={`relative text-left p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between h-36 ${
+                            className={`relative text-left p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between min-h-[9.5rem] h-auto ${
                                 isSelected
                                     ? `ring-2 ring-violet-600 dark:ring-violet-400 ${card.bgColor} ${card.borderColor} shadow-lg`
                                     : card.enabled
@@ -225,7 +225,7 @@ export function CertificatesStudioTab({ cc, student }: Props) {
                             </div>
 
                             {!card.enabled && (
-                                <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-2 italic line-clamp-1">
+                                <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-2 italic leading-tight">
                                     ⚠️ {card.disabledReason}
                                 </p>
                             )}
