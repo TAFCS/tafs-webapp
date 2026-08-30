@@ -123,6 +123,12 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
         reload();
     }, [cc, reload]);
 
+    useEffect(() => {
+        if (tab === "leaving_certificate" && student && student.status !== "LEFT") {
+            setTab("identity");
+        }
+    }, [tab, student]);
+
     const isSoft = (student?.status || "").toUpperCase() === "SOFT_ADMISSION";
 
     // GR prefix enforcement for enrollment modal
@@ -319,15 +325,19 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                         <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
                                     </>
                                 )}
-                                <button
-                                    onClick={() => setTab("leaving_certificate")}
-                                    className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "leaving_certificate" ? "bg-red-600 text-white shadow-lg shadow-red-100" : "text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 border border-red-100/50"}`}
-                                    title="Leaving Certificate (SLC)"
-                                >
-                                    <FileText className="h-3.5 w-3.5" />
-                                    <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Leaving Certificate</span>
-                                </button>
-                                <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
+                                {student.status === "LEFT" && (
+                                    <>
+                                        <button
+                                            onClick={() => setTab("leaving_certificate")}
+                                            className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "leaving_certificate" ? "bg-red-600 text-white shadow-lg shadow-red-100" : "text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 border border-red-100/50"}`}
+                                            title="Leaving Certificate (SLC)"
+                                        >
+                                            <FileText className="h-3.5 w-3.5" />
+                                            <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Leaving Certificate</span>
+                                        </button>
+                                        <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
+                                    </>
+                                )}
                                 <button
                                     onClick={() => setTab("danger_zone")}
                                     className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "danger_zone" ? "bg-rose-600 text-white shadow-lg shadow-rose-200" : "text-rose-400 bg-rose-50 hover:bg-rose-100 hover:text-rose-600 border border-rose-100/50"}`}
