@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, ChevronDown, GraduationCap as GraduateIcon, Layers, TrendingUp } from "lucide-react";
+import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, ChevronDown, GraduationCap as GraduateIcon, Layers, TrendingUp, Award } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import { IdentityTab } from "./IdentityTab";
@@ -10,9 +10,7 @@ import type { CampusItem } from "@/src/store/slices/campusesSlice";
 import { AcademicTab } from "./AcademicTab";
 import { GuardiansTab } from "./GuardiansTab";
 import { LifecycleActionModal } from "./LifecycleActionModal";
-import { AdmissionOrderTab } from "./AdmissionOrderTab";
-import { TransferOrderTab } from "./TransferOrderTab";
-import { LeavingCertificateTab } from "./LeavingCertificateTab";
+import { CertificatesStudioTab } from "./CertificatesStudioTab";
 import { StudentLogsTab } from "./StudentLogsTab";
 import { DangerZoneTab } from "./DangerZoneTab";
 import { AcademicProgressionTab } from "./AcademicProgressionTab";
@@ -27,7 +25,7 @@ const TABS = [
     { id: "logs",       label: "Logs",        icon: History },
 ] as const;
 
-type TabId = typeof TABS[number]["id"] | "admission_order" | "transfer_order" | "leaving_certificate" | "danger_zone";
+type TabId = typeof TABS[number]["id"] | "certificates" | "danger_zone";
 
 interface Props {
     cc: number | null;
@@ -67,12 +65,6 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
         setTab("identity");
         reload();
     }, [cc, reload]);
-
-    useEffect(() => {
-        if (tab === "leaving_certificate" && student && student.status !== "LEFT") {
-            setTab("identity");
-        }
-    }, [tab, student]);
 
     const isSoft = (student?.status || "").toUpperCase() === "SOFT_ADMISSION";
 
@@ -149,45 +141,19 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                     <div className="flex items-center gap-2">
                         {student && (
                             <div className="flex items-center bg-zinc-50 border border-zinc-100 rounded-xl p-0.5 mr-2">
-                                                               {!isSoft && (
-                                    <>
-                                        <button
-                                            onClick={() => setTab("admission_order" as any)}
-                                            className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "admission_order" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "text-indigo-400 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-600 border border-indigo-100/50"}`}
-                                            title="Admission Order"
-                                        >
-                                            <FileText className="h-3.5 w-3.5" />
-                                            <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Admission Order</span>
-                                        </button>
-                                        <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
-                                    </>
-                                )}
-                                {student.has_transfer && (
-                                    <>
-                                        <button
-                                            onClick={() => setTab("transfer_order" as any)}
-                                            className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "transfer_order" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-100" : "text-emerald-400 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-600 border border-emerald-100/50"}`}
-                                            title="Transfer Order"
-                                        >
-                                            <FileText className="h-3.5 w-3.5" />
-                                            <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Transfer Order</span>
-                                        </button>
-                                        <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
-                                    </>
-                                )}
-                                {student?.status === "LEFT" && (
-                                    <>
-                                        <button
-                                            onClick={() => setTab("leaving_certificate" as any)}
-                                            className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "leaving_certificate" ? "bg-red-600 text-white shadow-lg shadow-red-100" : "text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 border border-red-100/50"}`}
-                                            title="Leaving Certificate (SLC)"
-                                        >
-                                            <FileText className="h-3.5 w-3.5" />
-                                            <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Leaving Certificate</span>
-                                        </button>
-                                        <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
-                                    </>
-                                )}
+                                <button
+                                    onClick={() => setTab("certificates" as any)}
+                                    className={`flex items-center gap-1.5 px-3 h-8 rounded-xl font-bold text-xs transition-all ${
+                                        tab === "certificates"
+                                            ? "bg-violet-600 text-white shadow-lg shadow-violet-200"
+                                            : "text-violet-600 bg-violet-50 hover:bg-violet-100 border border-violet-200/60"
+                                    }`}
+                                    title="Certificates & Documents Studio"
+                                >
+                                    <Award className="h-3.5 w-3.5" />
+                                    <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Certificates & Documents</span>
+                                </button>
+                                <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
                                 <button
                                     onClick={() => setTab("danger_zone" as any)}
                                     className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "danger_zone" ? "bg-rose-600 text-white shadow-lg shadow-rose-200" : "text-rose-400 bg-rose-50 hover:bg-rose-100 hover:text-rose-600 border border-rose-100/50"}`}
@@ -252,9 +218,7 @@ export function StudentDetailDrawer({ cc, onClose, onSwitchStudent, classes = []
                                 {tab === "academic" && <AcademicTab student={student} onReload={() => reload(true)} />}
                                 {tab === "progression" && <AcademicProgressionTab cc={student.cc} />}
                                 {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} />}
-                                {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
-                                {tab === "transfer_order" && <TransferOrderTab cc={student.cc} />}
-                                {tab === "leaving_certificate" && <LeavingCertificateTab cc={student.cc} />}
+                                {tab === "certificates" && <CertificatesStudioTab cc={student.cc} student={student} />}
                                 {tab === "logs" && <StudentLogsTab studentId={student.cc} />}
                                 {tab === "danger_zone" && <DangerZoneTab student={student} />}
                             </div>

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, ChevronDown, Layers, Hash, Sparkles, UserCheck, CheckCircle, Printer, ChevronRight, TrendingUp, Fingerprint, Receipt } from "lucide-react";
+import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, ChevronDown, Layers, Hash, Sparkles, UserCheck, CheckCircle, Printer, ChevronRight, TrendingUp, Fingerprint, Receipt, Award } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -15,6 +15,7 @@ import { ReturnStudentModal } from "./ReturnStudentModal";
 import { AdmissionOrderTab } from "./AdmissionOrderTab";
 import { TransferOrderTab } from "./TransferOrderTab";
 import { LeavingCertificateTab } from "./LeavingCertificateTab";
+import { CertificatesStudioTab } from "./CertificatesStudioTab";
 import { StudentLogsTab } from "./StudentLogsTab";
 import { DangerZoneTab } from "./DangerZoneTab";
 import { AcademicProgressionTab } from "./AcademicProgressionTab";
@@ -68,6 +69,7 @@ const TABS = [
     { id: "progression", label: "Progression", icon: TrendingUp },
     { id: "guardians",  label: "Guardians",   icon: Shield },
     { id: "biometric",  label: "Biometric",   icon: Fingerprint },
+    { id: "certificates", label: "Certificates", icon: Award },
     { id: "logs",       label: "Logs",        icon: History },
 ] as const;
 
@@ -122,12 +124,6 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
         setTab("identity");
         reload();
     }, [cc, reload]);
-
-    useEffect(() => {
-        if (tab === "leaving_certificate" && student && student.status !== "LEFT") {
-            setTab("identity");
-        }
-    }, [tab, student]);
 
     const isSoft = (student?.status || "").toUpperCase() === "SOFT_ADMISSION";
 
@@ -284,60 +280,20 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                     </div>
                     <div className="flex items-center gap-2">
                         {student && (
-                            <div className="flex items-center bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 rounded-xl p-0.5 mr-2">
-                                {student.has_quick_admission_slip && (
-                                    <>
-                                        <button
-                                            type="button"
-                                            onClick={() => window.open(`/api/v1/unconfirmed-admissions/${student.cc}/deposit-slip`, "_blank")}
-                                            className="flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all text-amber-700 bg-amber-50 hover:bg-amber-100 hover:text-amber-800 border border-amber-100/50"
-                                            title="Quick Admission deposit slip"
-                                        >
-                                            <Receipt className="h-3.5 w-3.5" />
-                                            <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Deposit Slip</span>
-                                        </button>
-                                        <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
-                                    </>
-                                )}
-                                {!isSoft && (
-                                    <>
-                                        <button
-                                            onClick={() => setTab("admission_order")}
-                                            className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "admission_order" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "text-indigo-400 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-600 border border-indigo-100/50"}`}
-                                            title="Admission Order"
-                                        >
-                                            <FileText className="h-3.5 w-3.5" />
-                                            <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Admission Order</span>
-                                        </button>
-                                        <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
-                                    </>
-                                )}
-                                {student.has_transfer && (
-                                    <>
-                                        <button
-                                            onClick={() => setTab("transfer_order")}
-                                            className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "transfer_order" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-100" : "text-emerald-400 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-600 border border-emerald-100/50"}`}
-                                            title="Transfer Order"
-                                        >
-                                            <FileText className="h-3.5 w-3.5" />
-                                            <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Transfer Order</span>
-                                        </button>
-                                        <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
-                                    </>
-                                )}
-                                {student.status === "LEFT" && (
-                                    <>
-                                        <button
-                                            onClick={() => setTab("leaving_certificate")}
-                                            className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "leaving_certificate" ? "bg-red-600 text-white shadow-lg shadow-red-100" : "text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 border border-red-100/50"}`}
-                                            title="Leaving Certificate (SLC)"
-                                        >
-                                            <FileText className="h-3.5 w-3.5" />
-                                            <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Leaving Certificate</span>
-                                        </button>
-                                        <div className="w-[1px] h-3 bg-zinc-200 mx-0.5" />
-                                    </>
-                                )}
+                            <div className="flex items-center bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 rounded-xl p-0.5">
+                                <button
+                                    onClick={() => setTab("certificates")}
+                                    className={`flex items-center gap-1.5 px-3 h-8 rounded-xl font-bold text-xs transition-all ${
+                                        tab === "certificates"
+                                            ? "bg-violet-600 text-white shadow-lg shadow-violet-200 dark:shadow-none"
+                                            : "text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/50 hover:bg-violet-100 dark:hover:bg-violet-900/50 border border-violet-200/60 dark:border-violet-800/60"
+                                    }`}
+                                    title="Certificates & Documents Studio"
+                                >
+                                    <Award className="h-3.5 w-3.5" />
+                                    <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Certificates & Documents</span>
+                                </button>
+                                <div className="w-[1px] h-3 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
                                 <button
                                     onClick={() => setTab("danger_zone")}
                                     className={`flex items-center gap-1.5 px-2.5 h-8 rounded-xl transition-all ${tab === "danger_zone" ? "bg-rose-600 text-white shadow-lg shadow-rose-200" : "text-rose-400 bg-rose-50 hover:bg-rose-100 hover:text-rose-600 border border-rose-100/50"}`}
@@ -371,7 +327,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                         <button
                             key={t.id}
                             onClick={() => setTab(t.id)}
-                            className={`flex items-center gap-2 px-4 py-3.5 text-[13px] font-bold transition-all border-b-2 -mb-[1px] ${tab === t.id ? "border-indigo-600 text-indigo-600" : "border-transparent text-zinc-400 hover:text-zinc-600"}`}
+                            className={`flex items-center gap-2 px-4 py-3.5 text-[13px] font-bold transition-all border-b-2 -mb-[1px] ${tab === t.id ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400" : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"}`}
                         >
                             <t.icon className="h-4 w-4" />
                             {t.label}
@@ -379,44 +335,40 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                     ))}
                 </div>
 
-                <div className="flex-1 overflow-y-auto bg-zinc-50/50 dark:bg-zinc-950/20">
-                    <div className="p-6">
-                        {loading ? (
-                            <div className="flex flex-col items-center justify-center py-20">
-                                <Loader2 className="h-10 w-10 text-indigo-600 animate-spin" />
-                                <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mt-4">Initializing Data Matrix...</p>
-                            </div>
-                        ) : student ? (
-                            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                {tab === "identity" && <IdentityTab student={student} onReload={() => reload(true)} />}
-                                {tab === "class_grade" && (
-                                    <ClassGradeTab
-                                        student={student}
-                                        classes={classes}
-                                        sections={sections}
-                                        campuses={campuses}
-                                        onReload={() => reload(true)}
-                                    />
-                                )}
-                                {tab === "admissions" && <AdmissionsTab student={student} onReload={() => reload(true)} classes={classes} />}
-                                {tab === "academic" && <AcademicTab student={student} onReload={() => reload(true)} />}
-                                {tab === "progression" && <AcademicProgressionTab cc={student.cc} />}
-                                {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} />}
-                                {tab === "biometric" && <StudentBiometricTab studentCc={student.cc} studentName={student.full_name} />}
-                                {tab === "admission_order" && <AdmissionOrderTab cc={student.cc} />}
-                                {tab === "transfer_order" && <TransferOrderTab cc={student.cc} />}
-                                {tab === "leaving_certificate" && <LeavingCertificateTab cc={student.cc} />}
-                                {tab === "logs" && <StudentLogsTab studentId={student.cc} />}
-                                {tab === "danger_zone" && <DangerZoneTab student={student} />}
-                            </div>
-                        ) : (
-                            <div className="text-center py-20">
-                                <p className="text-zinc-400">Unable to load student profile.</p>
-                            </div>
-                        )}
-                    </div>
+                {/* Main Content */}
+                <div className="flex-1 overflow-y-auto bg-zinc-50/50 dark:bg-zinc-950/20 p-6">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-20">
+                            <Loader2 className="h-10 w-10 text-indigo-600 animate-spin" />
+                            <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mt-4">Initializing Data Matrix...</p>
+                        </div>
+                    ) : student ? (
+                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            {tab === "identity" && <IdentityTab student={student} onReload={() => reload(true)} />}
+                            {tab === "class_grade" && (
+                                <ClassGradeTab
+                                    student={student}
+                                    classes={classes}
+                                    sections={sections}
+                                    campuses={campuses}
+                                    onReload={() => reload(true)}
+                                />
+                            )}
+                            {tab === "admissions" && <AdmissionsTab student={student} onReload={() => reload(true)} classes={classes} />}
+                            {tab === "academic" && <AcademicTab student={student} onReload={() => reload(true)} />}
+                            {tab === "progression" && <AcademicProgressionTab cc={student.cc} />}
+                            {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} />}
+                            {tab === "biometric" && <StudentBiometricTab studentCc={student.cc} studentName={student.full_name} />}
+                            {tab === "certificates" && <CertificatesStudioTab cc={student.cc} student={student} />}
+                            {tab === "logs" && <StudentLogsTab studentId={student.cc} />}
+                            {tab === "danger_zone" && <DangerZoneTab student={student} />}
+                        </div>
+                    ) : (
+                        <div className="text-center py-20">
+                            <p className="text-zinc-400">Unable to load student profile.</p>
+                        </div>
+                    )}
                 </div>
-            </div>
 
             {/* Enrollment Suggestion Modal */}
             <AnimatePresence>
@@ -705,6 +657,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                     getGRPrefix={getGRPrefix}
                 />
             )}
+            </div>
         </div>
     );
 }
