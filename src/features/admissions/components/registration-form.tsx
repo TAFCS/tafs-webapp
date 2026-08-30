@@ -930,7 +930,7 @@ export function RegistrationForm() {
         const trimmed = legacyCc.trim();
         if (!/^\d+$/.test(trimmed)) return null;
         const n = Number(trimmed);
-        return Number.isInteger(n) && n >= 1 ? n : null;
+        return Number.isInteger(n) && n >= 1 && n <= 2147483647 ? n : null;
     };
 
     const isLegacyCcGrValid = () => parseLegacyCc() != null && !!legacyGr.trim();
@@ -946,6 +946,17 @@ export function RegistrationForm() {
     const enterNewAdmissionMode = () => {
         setIsLegacyMode(false);
     };
+
+    const currentCampusPrefix = (() => {
+        if (formData.admissionSystem === 'alevel') return 'A-';
+        const selected = campuses.find((c) => String(c.id) === String(formData.campusId));
+        if (!selected) return '';
+        if (selected.campus_prefix) return selected.campus_prefix;
+        const name = (selected.campus_name || '').toUpperCase();
+        if (name.includes('KANEEZ FATIMA') || selected.id === 2) return 'KF-A';
+        if (name.includes('NORTH NAZIMABAD') || selected.id === 3) return 'A-N';
+        return '';
+    })();
 
     // Fetch a pending Quick Admission by CC and prefill the form with it.
     const prefillFromQuickAdmission = useCallback(async (cc: number) => {
@@ -1097,7 +1108,12 @@ export function RegistrationForm() {
 
         if (isLegacyMode) {
             if (parseLegacyCc() == null) {
-                setSubmitError("Legacy student Computer Code must be a positive whole number.");
+                const num = Number(legacyCc.trim());
+                if (num > 2147483647) {
+                    setSubmitError("Legacy student Computer Code cannot exceed 2,147,483,647.");
+                } else {
+                    setSubmitError("Legacy student Computer Code must be a positive whole number.");
+                }
                 return;
             }
             if (!legacyGr.trim()) {
@@ -1427,13 +1443,25 @@ export function RegistrationForm() {
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-zinc-700 dark:text-zinc-300 mb-1 uppercase tracking-widest">G.R. Number</label>
-                                <input
-                                    type="text"
-                                    value={legacyGr}
-                                    onChange={(e) => setLegacyGr(e.target.value)}
-                                    placeholder="e.g. A-5832"
-                                    className="w-full px-2 py-1.5 text-sm font-mono border border-amber-300 dark:border-amber-800 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none bg-white dark:bg-zinc-950"
-                                />
+                                <div className="flex rounded border border-amber-300 dark:border-amber-800 overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+                                    {currentCampusPrefix && (
+                                        <span className="inline-flex items-center px-2.5 py-1.5 text-xs font-bold font-mono bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border-r border-amber-300 dark:border-amber-800 select-none shrink-0">
+                                            {currentCampusPrefix}
+                                        </span>
+                                    )}
+                                    <input
+                                        type="text"
+                                        value={legacyGr}
+                                        onChange={(e) => setLegacyGr(e.target.value)}
+                                        placeholder={currentCampusPrefix ? "e.g. 5832" : "e.g. A-5832"}
+                                        className="w-full px-2 py-1.5 text-sm font-mono outline-none bg-white dark:bg-zinc-950"
+                                    />
+                                </div>
+                                {currentCampusPrefix && legacyGr.trim() && !legacyGr.toUpperCase().startsWith(currentCampusPrefix.toUpperCase()) && (
+                                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 font-medium">
+                                        Saved as: <span className="font-mono font-bold">{currentCampusPrefix}{legacyGr.trim()}</span>
+                                    </p>
+                                )}
                             </div>
                         </>
                     )}

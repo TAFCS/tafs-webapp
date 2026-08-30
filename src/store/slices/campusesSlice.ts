@@ -36,6 +36,7 @@ export interface CampusItem {
     campus_code: string;
     campus_name: string;
     address?: string;
+    campus_prefix?: string | null;
     offered_classes?: CampusClass[];
 }
 
