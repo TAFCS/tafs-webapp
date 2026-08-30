@@ -8,11 +8,18 @@ import {
     Badge, Briefcase, MapPin, School, Building2,
     Clock, History, ClipboardCheck, AlertCircle,
     Search, Filter, MoreVertical, ExternalLink,
-    Camera, Calendar
+    Camera, Calendar, Play
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
+import { VideoDemoModal } from "@/components/VideoDemoModal";
+
+const DEFAULT_PARENT_CHANGE_REQUESTS_DEMO_VIDEO_URL =
+    "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/parent-change-requests/parent-change-requests-demo.mp4";
+
+const parentChangeRequestsDemoVideoUrl =
+    process.env.NEXT_PUBLIC_PARENT_CHANGE_REQUESTS_DEMO_VIDEO_URL?.trim() || DEFAULT_PARENT_CHANGE_REQUESTS_DEMO_VIDEO_URL;
 
 export default function ParentChangeRequestsPage() {
     const router = useRouter();
@@ -25,6 +32,7 @@ export default function ParentChangeRequestsPage() {
     const [rejectionComment, setRejectionComment] = useState("");
     const [showRejectionModal, setShowRejectionModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [isDemoOpen, setIsDemoOpen] = useState(false);
 
     useEffect(() => {
         fetchRequests();
@@ -250,8 +258,16 @@ export default function ParentChangeRequestsPage() {
                     </p>
                 </div>
                 
-                {/* Stats */}
-                <div className="flex gap-4">
+                {/* Stats + Demo */}
+                <div className="flex items-center gap-4">
+                    <button
+                        type="button"
+                        onClick={() => setIsDemoOpen(true)}
+                        className="flex items-center gap-1.5 px-4 h-9 text-[11px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors shrink-0 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                    >
+                        <Play className="h-3.5 w-3.5" />
+                        DEMO
+                    </button>
                     <div className="px-6 py-4 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-w-[120px]">
                         <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Pending</span>
                         <span className="text-2xl font-black text-primary">{requests.filter(r => r.status === 'PENDING').length}</span>
@@ -958,6 +974,13 @@ export default function ParentChangeRequestsPage() {
                     </div>
                 )}
             </AnimatePresence>
+
+            <VideoDemoModal
+                isOpen={isDemoOpen}
+                onClose={() => setIsDemoOpen(false)}
+                videoUrl={parentChangeRequestsDemoVideoUrl}
+                title="Parent Change Requests Demo"
+            />
         </div>
     );
 }
