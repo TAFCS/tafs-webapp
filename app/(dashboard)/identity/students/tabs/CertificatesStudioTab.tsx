@@ -259,15 +259,21 @@ export function CertificatesStudioTab({ cc, student }: Props) {
                         <p className="text-xs text-amber-700 dark:text-amber-400 max-w-md mt-1 mb-4 leading-relaxed">
                             Generate and print the official bank deposit slip for this student record.
                         </p>
-                        <a
-                            href={`/api/v1/unconfirmed-admissions/${cc}/deposit-slip`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                        <button
+                            type="button"
+                            onClick={() => {
+                                window.open(`/api/v1/unconfirmed-admissions/${cc}/deposit-slip`, "_blank");
+                                api.post(`/v1/enrollments/${cc}/log-certificate-generation`, {
+                                    document_type: 'Deposit Slip',
+                                    ref_number: `CC #${cc}`,
+                                    note: `Generated Quick Admission Deposit Slip for ${student?.full_name || `CC #${cc}`}`,
+                                }).then(() => fetchHistory()).catch(() => {});
+                            }}
                             className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-md transition-all"
                         >
                             <ExternalLink className="h-4 w-4" />
                             Open & Print Deposit Slip PDF
-                        </a>
+                        </button>
                     </div>
                 )}
             </div>

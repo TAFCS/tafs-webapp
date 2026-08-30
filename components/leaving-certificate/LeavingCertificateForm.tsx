@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Download, Loader2, Image as ImageIcon, CheckCircle2, Building2, Layout, Sparkles, Maximize2, X } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { LeavingCertificatePDF, LeavingCertificateData, deepUppercase } from './LeavingCertificatePDF';
+import api from '@/lib/api';
 
 interface LeavingCertificateFormProps {
     data: LeavingCertificateData;
@@ -141,6 +142,15 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
             a.click();
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+            if (formData.cc) {
+                const fullName = [formData.name?.first, formData.name?.middle, formData.name?.last].filter(Boolean).join(' ') || `CC #${formData.cc}`;
+                api.post(`/v1/enrollments/${formData.cc}/log-certificate-generation`, {
+                    document_type: 'Leaving Certificate (SLC)',
+                    ref_number: formData.slc_number ? `SLC #${formData.slc_number}` : null,
+                    note: `Generated Leaving Certificate for ${fullName}`,
+                }).catch(() => {});
+            }
         } catch (error) {
             console.error('PDF generation failed:', error);
             alert('Failed to generate PDF. Please try again.');

@@ -272,6 +272,12 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
             document.body.removeChild(a);
 
             toast.success('Transfer Order PDF downloaded!');
+
+            api.post(`/v1/enrollments/${source.cc}/log-certificate-generation`, {
+                document_type: 'Transfer Order',
+                ref_number: source.gr_number ? `GR ${source.gr_number}` : `CC #${source.cc}`,
+                note: `Generated Transfer Order for ${source.full_name}`,
+            }).catch(() => {});
         } catch (err: any) {
             console.error(err);
             toast.error(err?.response?.data?.message || 'PDF generation failed. Please try again.');

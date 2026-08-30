@@ -5,7 +5,7 @@ import { Download, Loader2, AlertTriangle } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { AdmissionOrderPDF } from './AdmissionOrderPDF';
 import { useAuthState } from '@/context/AuthContext';
-
+import api from '@/lib/api';
 
 interface Student {
   cc: number;
@@ -228,6 +228,12 @@ export default function AdmissionOrderForm({ student }: AdmissionOrderFormProps)
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      api.post(`/v1/enrollments/${student.cc}/log-certificate-generation`, {
+        document_type: 'Admission Order',
+        ref_number: student.gr_number ? `GR ${student.gr_number}` : `CC #${student.cc}`,
+        note: `Generated Admission Order for ${student.full_name}`,
+      }).catch(() => {});
     } catch (error) {
       console.error('PDF generation failed:', error);
       alert('Failed to generate PDF. Please try again.');
