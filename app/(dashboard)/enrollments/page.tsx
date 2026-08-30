@@ -19,12 +19,20 @@ import {
     BookOpen,
     Layers,
     FileText,
-    Printer
+    Printer,
+    Play
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
+import { VideoDemoModal } from "@/components/VideoDemoModal";
+
+const DEFAULT_ENROLLMENTS_DEMO_VIDEO_URL =
+    "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/enrollments/enrollments-demo.mp4";
+
+const enrollmentsDemoVideoUrl =
+    process.env.NEXT_PUBLIC_ENROLLMENTS_DEMO_VIDEO_URL?.trim() || DEFAULT_ENROLLMENTS_DEMO_VIDEO_URL;
 import {
     extractApiErrorMessage,
     formatSectionOptionLabel,
@@ -110,6 +118,7 @@ export default function EnrollmentsPage() {
     const [isEnrolling, setIsEnrolling] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [enrolledReport, setEnrolledReport] = useState<any>(null);
+    const [isDemoOpen, setIsDemoOpen] = useState(false);
 
     useEffect(() => {
         fetchCandidates();
@@ -252,6 +261,14 @@ export default function EnrollmentsPage() {
                 </div>
 
                 <div className="relative z-10 flex flex-col sm:flex-row gap-3 w-full md:w-auto items-stretch sm:items-end">
+                    <button
+                        type="button"
+                        onClick={() => setIsDemoOpen(true)}
+                        className="flex items-center gap-1.5 px-4 h-11 text-[11px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors shrink-0 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                    >
+                        <Play className="h-3.5 w-3.5" />
+                        DEMO
+                    </button>
                     {/* Status Filter */}
                     <div className="w-full sm:w-56">
                         <FilterDropdown
@@ -674,6 +691,13 @@ export default function EnrollmentsPage() {
                     </div>
                 )}
             </AnimatePresence>
+
+            <VideoDemoModal
+                isOpen={isDemoOpen}
+                onClose={() => setIsDemoOpen(false)}
+                videoUrl={enrollmentsDemoVideoUrl}
+                title="Student Enrollments Demo"
+            />
         </div>
     );
 }
