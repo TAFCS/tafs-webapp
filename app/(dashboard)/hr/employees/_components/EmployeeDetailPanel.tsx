@@ -8,13 +8,14 @@ import {
   Phone, Mail, MapPin, CreditCard, Cake, Calendar, Building2,
   AlertTriangle, Users as UsersIcon, Pencil, Save, CheckCircle2,
   Landmark, PhoneCall, Shield, Fingerprint, CalendarClock, UserMinus,
-  ChevronDown, UserCheck, ShieldCheck, DoorOpen, Ban, Wallet, HandCoins,
+  ChevronDown, UserCheck, ShieldCheck, DoorOpen, Ban, Wallet, HandCoins, Layers,
 } from "lucide-react";
 import {
   hrService,
   EmployeeProfile,
   EmployeeCreatePayload,
   Department,
+  Segment,
   WorkScheduleDay,
   formatStaffCategory,
   CHECK_IN_SOURCE_OPTIONS,
@@ -263,7 +264,9 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const [tab, setTab] = useState<TabId>("profile");
   const [deleting, setDeleting] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
+  const [savingSegment, setSavingSegment] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [segments, setSegments] = useState<Segment[]>([]);
   const { campuses, allClasses, allSections, loading: classLookupsLoading } = useClassAssignmentLookups();
 
   const [editProfile, setEditProfile] = useState(false);
@@ -287,7 +290,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const [employmentForm, setEmploymentForm] = useState({
     employee_code: "", employee_code_dep: "", employee_code_number: "",
     department_id: "", staff_category_id: "", job_title: "",
-    campus_id: "", join_date: "", job_description: "",
+    campus_id: "", join_date: "", job_description: "", segment_id: "",
   });
   const [scheduleForm, setScheduleForm] = useState({
     reporting_time: "", leaving_time: "", check_in_source: "FIXED" as CheckInSource,
@@ -324,6 +327,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       campus_id: employee.campus_id ? String(employee.campus_id) : "",
       join_date: toDateInput(employee.join_date),
       job_description: employee.job_description ?? "",
+      segment_id: employee.segment_id ? String(employee.segment_id) : "",
     });
     setScheduleForm({
       reporting_time: parseTimeInput(employee.reporting_time),
@@ -375,6 +379,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     setTab(matchedTab ?? "profile");
     reload();
     hrService.listDepartments().then(setDepartments).catch(() => {});
+    hrService.listSegments().then(setSegments).catch(() => {});
   }, [employeeId, reload, urlEmployeeId, urlTab]);
 
   const patch = async (
@@ -463,6 +468,23 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   };
 
   const handleMarkAsLeft = () => handleStatusChange("LEFT");
+
+  const handleSegmentChange = async (segmentId: string) => {
+    if (!emp) return;
+    const next = optionalId(segmentId);
+    if (next === emp.segment_id) return;
+    setSavingSegment(true);
+    try {
+      const updated = await hrService.updateEmployee(emp.id, { segment_id: next });
+      setEmp(updated);
+      syncForms(updated);
+      onUpdated();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Failed to update segment.");
+    } finally {
+      setSavingSegment(false);
+    }
+  };
 
   if (!employeeId) return null;
 
@@ -706,6 +728,33 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         )}
                       </div>
                     </div>
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Segment</p>
+                          <p className="text-xs text-zinc-500 mt-0.5">
+                            Academic segment for scheduling, Saturday duty, and directory audit.
+                          </p>
+                        </div>
+                        <div className="relative min-w-[220px]">
+                          {savingSegment && (
+                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary animate-spin pointer-events-none" />
+                          )}
+                          <select
+                            className={`w-full h-9 pl-3 pr-9 text-[12px] font-semibold text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl appearance-none outline-none hover:border-zinc-300 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all disabled:opacity-60 ${savingSegment ? "pr-10" : ""}`}
+                            value={emp.segment_id ? String(emp.segment_id) : ""}
+                            disabled={savingSegment}
+                            onChange={(e) => handleSegmentChange(e.target.value)}
+                          >
+                            <option value="">— No segment —</option>
+                            {segments.map((s) => (
+                              <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
                   <EditableCard
                     title="Employment details"
                     editing={editEmployment}
@@ -723,6 +772,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       campus_id: employmentForm.campus_id ? parseInt(employmentForm.campus_id, 10) : undefined,
                       join_date: optionalText(employmentForm.join_date),
                       job_description: optionalText(employmentForm.job_description),
+                      segment_id: optionalId(employmentForm.segment_id),
                     }, setSavingEmployment, setSavedEmployment, () => setEditEmployment(false))}
                     readContent={
                       <>
@@ -737,6 +787,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         <ReadField icon={Building2} label="Department" value={emp.departments?.name} missing={!emp.departments} />
                         <ReadField icon={Briefcase} label="Category" value={formatStaffCategory(emp.staff_categories)} missing={!emp.staff_categories} />
                         <ReadField icon={Briefcase} label="Role" value={emp.job_title} missing={!emp.job_title} />
+                        <ReadField icon={Layers} label="Segment" value={emp.segments?.name} missing={!emp.segments} />
                         <ReadField icon={Building2} label="Campus" value={emp.campuses?.campus_name} missing={!emp.campuses} />
                         <ReadField icon={Calendar} label="Date of Joining" value={fmtDate(emp.join_date)} missing={!fmtDate(emp.join_date)} />
                         <ReadField icon={UsersIcon} label="Linked User" value={emp.users ? `${emp.users.full_name} (${emp.users.role})` : null} missing={!emp.users} />
@@ -797,6 +848,13 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         <select className={inputCls} value={employmentForm.campus_id} onChange={e => setEmploymentForm(p => ({ ...p, campus_id: e.target.value }))}>
                           <option value="">—</option>
                           {campuses.map(c => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <FieldLabel>Segment</FieldLabel>
+                        <select className={inputCls} value={employmentForm.segment_id} onChange={e => setEmploymentForm(p => ({ ...p, segment_id: e.target.value }))}>
+                          <option value="">— No segment —</option>
+                          {segments.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                       </div>
                       <div className="sm:col-span-2"><FieldLabel>Job Description</FieldLabel><textarea rows={2} className={`${textareaCls} uppercase`} value={employmentForm.job_description} onChange={e => setEmploymentForm(p => ({ ...p, job_description: e.target.value.toUpperCase() }))} /></div>
