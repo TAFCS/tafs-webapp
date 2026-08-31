@@ -12,6 +12,7 @@ function downloadBlob(data: BlobPart, filename: string): void {
 }
 
 export type RollSessionStatus = 'DRAFT' | 'SUBMITTED' | 'SKIPPED';
+export type RollSessionKind = 'REGULAR' | 'MAKEUP';
 export type RollRecordStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED' | 'LATE';
 export type StaffAttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'EXCUSED' | 'UNPAID_LEAVE' | 'SICK_LEAVE' | 'CASUAL_LEAVE' | 'ANNUAL_LEAVE';
 
@@ -35,7 +36,7 @@ export interface StaffAttendanceRecord {
   status: StaffAttendanceStatus;
   notes: string | null;
   marked_by: string | null;
-  source: 'MANUAL' | 'BIOMETRIC' | 'LEAVE' | 'HOLIDAY' | null;
+  source: 'MANUAL' | 'BIOMETRIC' | 'LEAVE' | 'HOLIDAY' | 'SYSTEM' | null;
 }
 
 export interface StaffRegisterRow {
@@ -91,10 +92,32 @@ export interface RollSession {
   session_date: string;
   period: number;
   timetable_slot_id?: number | null;
+  session_kind?: RollSessionKind;
+  reschedule_id?: number | null;
   status: RollSessionStatus;
   skip_reason: string | null;
   created_at: string;
   submitted_at: string | null;
+  class_session_reschedules?: {
+    id: number;
+    status: string;
+    source_date: string;
+    makeup_date: string;
+    source_timetable_slot?: { day_of_week: number; block_number: number };
+  } | null;
+  reschedule_as_source?: {
+    id: number;
+    status: string;
+    source_date: string;
+    makeup_date: string;
+  } | null;
+  reschedule_completion?: {
+    sourceCount: number;
+    excusedStudentCount: number;
+    absentStudentCount: number;
+    staffExcusedDays: number;
+    staffExcuseWarnings: string[];
+  };
   classes?: { id: number; description: string; class_code: string; academic_system: string };
   sections?: { id: number; description: string } | null;
   teaching_groups?: {
@@ -380,8 +403,10 @@ export const attendanceService = {
       records?: { student_cc: number; status: RollRecordStatus; notes?: string }[];
       submit?: boolean;
     },
-  ): Promise<RollSession> {
-    const { data } = await api.put<ApiEnvelope<RollSession>>(
+  ): Promise<RollSession & { reschedule_completion?: RollSession['reschedule_completion'] }> {
+    const { data } = await api.put<
+      ApiEnvelope<RollSession & { reschedule_completion?: RollSession['reschedule_completion'] }>
+    >(
       `/v1/attendance/roll-sessions/${id}`,
       payload,
     );

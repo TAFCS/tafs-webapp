@@ -453,22 +453,31 @@ export default function StaffRegisterPage() {
                             {STATUS_LABEL[currentStatus]} (Approved Leave)
                           </span>
                         ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {STATUS_OPTIONS.map((opt) => (
-                              <button
-                                key={opt.value}
-                                type="button"
-                                disabled={!canMark}
-                                onClick={() => setMark(emp.id, opt.value)}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition disabled:opacity-40 ${
-                                  currentStatus === opt.value
-                                    ? STATUS_STYLES[opt.value]
-                                    : INACTIVE_STYLES[opt.value]
-                                }`}
-                              >
-                                {opt.label}
-                              </button>
-                            ))}
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap gap-1">
+                              {STATUS_OPTIONS.map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  disabled={!canMark}
+                                  onClick={() => setMark(emp.id, opt.value)}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition disabled:opacity-40 ${
+                                    currentStatus === opt.value
+                                      ? STATUS_STYLES[opt.value]
+                                      : INACTIVE_STYLES[opt.value]
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                            {currentStatus === "EXCUSED" &&
+                              (row.record?.source === "SYSTEM" ||
+                                (notes[emp.id] ?? row.record?.notes ?? "").includes("Makeup class held")) && (
+                              <p className="text-[10px] text-sky-700 leading-snug max-w-xs">
+                                {notes[emp.id] ?? row.record?.notes ?? "Excused — class held on makeup date"}
+                              </p>
+                            )}
                           </div>
                         )}
                       </td>

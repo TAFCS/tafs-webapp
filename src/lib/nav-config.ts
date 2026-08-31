@@ -156,6 +156,7 @@ export const NAV_MODULES: NavModule[] = [
             // ── Scheduling ──
             { group: "Scheduling", name: "Timetables", description: "A-Level weekly class schedules", href: "/hr/timetables", icon: CalendarDays, permissions: ["hr.timetable.view", "hr.timetable.manage"] },
             { group: "Scheduling", name: "Teaching Groups", description: "Subject classes and student subject enrollment", href: "/hr/teaching-groups", icon: BookOpen, permissions: ["hr.timetable.view", "hr.timetable.manage"] },
+            { group: "Scheduling", name: "Class Reschedules", description: "A-Level makeup classes linked to missed original slots", href: "/hr/class-reschedules", icon: CalendarClock, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
             { group: "Scheduling", name: "Saturday Schedules", description: "Mandatory teacher Saturdays", href: "/hr/saturday-schedules", icon: CalendarDays },
             { group: "Scheduling", name: "Shift Overrides", description: "Override check-in/out time for a campus or segment on specific days", href: "/hr/shift-overrides", icon: CalendarClock },
             { group: "Scheduling", name: "Academic Calendar", description: "School year and events", href: "/hr/calendar", icon: CalendarDays, permission: "hr.policies.manage" },
