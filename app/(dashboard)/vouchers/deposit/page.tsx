@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
     Search, Loader2, AlertCircle, FileText,
@@ -158,22 +158,22 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         if (!voucherFeeDate || !h.student_fees?.fee_date) return false;
         return new Date(h.student_fees.fee_date) < voucherFeeDate;
     };
-    const arrearHeads = heads.filter(h => isArrearHead(h));
-    const currentHeads = heads.filter(h => !isArrearHead(h));
+
+    // The breakdown table — and auto-fill — run strictly top-down in this order:
+    //   1. Late-payment charges (red): the voucher-level Late Payment Surcharge,
+    //      then each arrear month's late surcharge ascending by month.
+    //   2. Arrears: past-due fee heads, sorted by target month.
+    //   3. Current fees: this voucher's own heads, sorted by target month.
+    const monthOf = (h: typeof heads[0]) => h.student_fees?.target_month || h.student_fees?.month || 0;
+    const timeOf = (d?: string | null) => (d ? new Date(d).getTime() : 0);
+    const byTargetMonth = (a: typeof heads[0], b: typeof heads[0]) =>
+        (monthOf(a) - monthOf(b)) || (timeOf(a.student_fees?.fee_date) - timeOf(b.student_fees?.fee_date));
+
+    const arrearHeads = heads.filter(isArrearHead).sort(byTargetMonth);
+    const currentHeads = heads.filter(h => !isArrearHead(h)).sort(byTargetMonth);
     const arrearCount = arrearHeads.length;
 
-    // Pair each arrear head with the surcharge for its own fee_date, so the
-    // table reads ARREAR HEAD → its surcharge, ARREAR HEAD → its surcharge,
-    // ... rather than all arrear heads followed by all surcharges in bulk.
-    const dateKey = (d?: string | null) => d ? new Date(d).toISOString().split("T")[0] : null;
-    const arrearGroups: { dateKey: string | null; heads: typeof arrearHeads; surcharges: typeof arrearSurcharges }[] = [];
-    const groupFor = (key: string | null) => {
-        let group = arrearGroups.find(g => g.dateKey === key);
-        if (!group) { group = { dateKey: key, heads: [], surcharges: [] }; arrearGroups.push(group); }
-        return group;
-    };
-    arrearHeads.forEach(h => groupFor(dateKey(h.student_fees?.fee_date)).heads.push(h));
-    arrearSurcharges.forEach(s => groupFor(dateKey(s.arrear_fee_date)).surcharges.push(s));
+    const sortedArrearSurcharges = [...arrearSurcharges].sort((a, b) => a.arrear_month - b.arrear_month);
 
     const sfNetAmt = (h: typeof heads[0]) => Number(h.student_fees?.amount ?? h.net_amount ?? 0);
     // Balance must be derived from student_fees.amount - amount_paid, not the
@@ -216,38 +216,42 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         let remaining = depositAmt;
         const dist: Record<number, string> = {};
         const sDist: Record<number, string> = {};
-        // 1 & 2. Arrear heads and their surcharges, filled in the same order
-        // they're displayed — each arrear month's heads, then its surcharge,
-        // before moving to the next arrear month. Surcharges are all-or-nothing
-        // — never partially paid — so only fill one if the remaining pool can
-        // cover it completely; otherwise skip it and let the leftover money
-        // flow to the next step.
-        arrearGroups.forEach(group => {
-            group.heads.forEach(h => {
-                const hBal = sfBalance(h);
-                const toFill = Math.min(remaining, hBal);
-                dist[h.id] = toFill.toString();
-                remaining -= toFill;
-            });
-            group.surcharges.forEach(s => {
-                const sBal = getSurchargeBalance(s);
-                if (sBal > 0 && remaining >= sBal) {
-                    sDist[s.id] = sBal.toString();
-                    remaining -= sBal;
-                } else {
-                    sDist[s.id] = "0";
-                }
-            });
+
+        // 1. Voucher-level Late Payment Surcharge — sits at the top of the list,
+        //    so it's consumed first. Partial payment is allowed here.
+        const lateToFill = Math.min(remaining, actualLateFee);
+        remaining -= lateToFill;
+
+        // 2. Each arrear month's late surcharge, ascending by month. Surcharges
+        //    are all-or-nothing — never partially paid — so only fill one if the
+        //    remaining pool covers it completely; otherwise skip it and let the
+        //    leftover money flow to the next step.
+        sortedArrearSurcharges.forEach(s => {
+            const sBal = getSurchargeBalance(s);
+            if (sBal > 0 && remaining >= sBal) {
+                sDist[s.id] = sBal.toString();
+                remaining -= sBal;
+            } else {
+                sDist[s.id] = "0";
+            }
         });
-        // 3. Current month fee heads
+
+        // 3. Arrear fee heads, sorted by target month.
+        arrearHeads.forEach(h => {
+            const hBal = sfBalance(h);
+            const toFill = Math.min(remaining, hBal);
+            dist[h.id] = toFill.toString();
+            remaining -= toFill;
+        });
+
+        // 4. Current fee heads, sorted by target month.
         currentHeads.forEach(h => {
             const hBal = sfBalance(h);
             const toFill = Math.min(remaining, hBal);
             dist[h.id] = toFill.toString();
             remaining -= toFill;
         });
-        // 4. Late fee last
-        const lateToFill = Math.min(remaining, actualLateFee);
+
         setManualLateFee(lateToFill.toString());
         setManualDistributions(dist);
         setSurchargeDistributions(sDist);
@@ -440,69 +444,38 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">To Deposit</span>
                         </div>
 
-                        {/* Arrear fee heads, each immediately followed by its own arrear-month surcharge */}
-                        {arrearGroups.map(group => (
-                        <Fragment key={`arrear-group-${group.dateKey ?? "none"}`}>
-                        {group.heads.map(h => {
-                            const hSfBal = sfBalance(h);
-                            const hSfNet = sfNetAmt(h);
-                            const hSfDep = sfDeposited(h);
-                            return (
-                                <div
-                                    key={h.id}
-                                    className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 border rounded-2xl transition-all bg-amber-50/30 dark:bg-amber-900/5 border-amber-100 dark:border-amber-900/20 hover:border-amber-200 dark:hover:border-amber-800/40"
-                                >
-                                    <div>
-                                        <p className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 truncate">
-                                            {h.description_prefix
-                                                ? `${h.description_prefix}${h.student_fees?.fee_types?.description || "Fee Head"}`
-                                                : h.student_fees?.fee_types?.description || "Fee Head"}
-                                        </p>
-                                        <div className="flex items-center gap-1.5 mt-0.5">
-                                            <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
-                                                Arrear
-                                            </span>
-                                            {(h.student_fees?.target_month || h.student_fees?.month) && (
-                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[9px] font-black uppercase tracking-widest rounded-md">
-                                                    {MONTH_NAMES[h.student_fees.target_month || h.student_fees.month!] || h.student_fees.target_month || h.student_fees.month}
-                                                </span>
-                                            )}
-                                            {h.is_installment && (
-                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-widest rounded-md">
-                                                    Installment
-                                                </span>
-                                            )}
-                                            {h.has_installment_merged && (
-                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[9px] font-black uppercase tracking-widest rounded-md">
-                                                    Merged Installment
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {/* Net Amount from student_fees */}
-                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{Math.round(hSfNet).toLocaleString()}</span>
-                                    {/* Deposited from student_fees.amount_paid */}
-                                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(hSfDep).toLocaleString()}</span>
-                                    {/* Balance = student_fees.amount - student_fees.amount_paid */}
-                                    <span className={`text-[11px] font-black tabular-nums text-right ${hSfBal === 0 ? "text-emerald-600" : "text-zinc-900 dark:text-zinc-100"}`}>
-                                        {Math.round(hSfBal).toLocaleString()}
-                                    </span>
-                                    <div className="flex justify-end">
-                                        {fillingMode === "manual" ? (
-                                            <input type="text" inputMode="numeric" pattern="[0-9]*" value={manualDistributions[h.id] || ""}
-                                                onChange={e => {
-                                                    const v = e.target.value.replace(/[^0-9]/g,'');
-                                                    setManualDistributions({ ...manualDistributions, [h.id]: v === "" || Number(v) <= hSfBal ? v : hSfBal.toString() });
-                                                }}
-                                                className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-primary transition-all font-mono" />
-                                        ) : (
-                                            <span className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 tabular-nums">Rs. {Math.round(Number(manualDistributions[h.id] || 0)).toLocaleString()}</span>
-                                        )}
-                                    </div>
+                        {/* ── Late Payment Charges (red) — top of the list ─── */}
+                        {(actualLateFee > 0 || sortedArrearSurcharges.length > 0) && (
+                            <div className="flex items-center gap-2 pt-1 pb-1 px-1">
+                                <ShieldAlert className="h-3.5 w-3.5 text-rose-500" />
+                                <span className="text-[10px] font-black text-rose-500 uppercase tracking-[0.18em]">Late Payment Charges</span>
+                            </div>
+                        )}
+
+                        {/* Voucher-level Late Payment Surcharge — consumes the deposit first */}
+                        {actualLateFee > 0 && (
+                            <div className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 bg-rose-50/40 dark:bg-rose-900/10 border border-rose-100/60 dark:border-rose-900/30 border-l-[3px] border-l-rose-400 rounded-2xl">
+                                <div>
+                                    <p className="text-[12px] font-black text-rose-600">Late Payment Surcharge</p>
+                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5">System • Priority 0</span>
                                 </div>
-                            );
-                        })}
-                        {group.surcharges.map(s => {
+                                <span className="text-[11px] font-bold text-zinc-400 tabular-nums text-right">—</span>
+                                <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(Number(voucher.late_fee_deposited ?? 0)).toLocaleString()}</span>
+                                <span className="text-[11px] font-black text-rose-600 tabular-nums text-right">{Math.round(actualLateFee).toLocaleString()}</span>
+                                <div className="flex justify-end">
+                                    {fillingMode === "manual" ? (
+                                        <input type="text" inputMode="numeric" pattern="[0-9]*" value={manualLateFee}
+                                            onChange={e => { const v = e.target.value.replace(/[^0-9]/g,''); setManualLateFee(v === "" || Number(v) <= actualLateFee ? v : actualLateFee.toString()); }}
+                                            className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-rose-500 transition-all font-mono" />
+                                    ) : (
+                                        <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {Math.round(Number(manualLateFee || 0)).toLocaleString()}</span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Per-arrear-month late surcharges, ascending by month */}
+                        {sortedArrearSurcharges.map(s => {
                             const sBal = getSurchargeBalance(s);
                             const sPaid = Number(s.amount_paid ?? 0);
                             const sTotal = Number(s.amount);
@@ -510,7 +483,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             return (
                                 <div
                                     key={s.id}
-                                    className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/60 dark:border-rose-900/30 rounded-2xl"
+                                    className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/60 dark:border-rose-900/30 border-l-[3px] border-l-rose-400 rounded-2xl"
                                 >
                                     <div>
                                         <p className="text-[12px] font-black text-rose-600">
@@ -552,19 +525,22 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                 </div>
                             );
                         })}
-                        </Fragment>
-                        ))}
 
-                        {/* Current month fee head rows */}
-                        {currentHeads.map(h => {
-                            const arrear = false;
+                        {/* ── Arrears (amber) — sorted by target month ─────── */}
+                        {arrearHeads.length > 0 && (
+                            <div className="flex items-center gap-2 pt-3 pb-1 px-1">
+                                <Clock className="h-3.5 w-3.5 text-amber-500" />
+                                <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.18em]">Arrears</span>
+                            </div>
+                        )}
+                        {arrearHeads.map(h => {
                             const hSfBal = sfBalance(h);
                             const hSfNet = sfNetAmt(h);
                             const hSfDep = sfDeposited(h);
                             return (
                                 <div
                                     key={h.id}
-                                    className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 border rounded-2xl transition-all bg-zinc-50 dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 hover:border-zinc-200 dark:hover:border-zinc-700"
+                                    className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 border rounded-2xl transition-all bg-amber-50/30 dark:bg-amber-900/5 border-amber-100 dark:border-amber-900/20 border-l-[3px] border-l-amber-400 hover:border-amber-200 dark:hover:border-amber-800/40"
                                 >
                                     <div>
                                         <p className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 truncate">
@@ -573,9 +549,6 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                                 : h.student_fees?.fee_types?.description || "Fee Head"}
                                         </p>
                                         <div className="flex items-center gap-1.5 mt-0.5">
-                                            <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
-                                                Current
-                                            </span>
                                             {(h.student_fees?.target_month || h.student_fees?.month) && (
                                                 <span className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[9px] font-black uppercase tracking-widest rounded-md">
                                                     {MONTH_NAMES[h.student_fees.target_month || h.student_fees.month!] || h.student_fees.target_month || h.student_fees.month}
@@ -614,27 +587,66 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             );
                         })}
 
-                        {/* Late fee row — after all fee heads */}
-                        {actualLateFee > 0 && (
-                            <div className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-900/30 rounded-2xl">
-                                <div>
-                                    <p className="text-[12px] font-black text-rose-600">Late Payment Surcharge</p>
-                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5">System • Priority 0</span>
-                                </div>
-                                <span className="text-[11px] font-bold text-zinc-400 tabular-nums text-right">—</span>
-                                <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(Number(voucher.late_fee_deposited ?? 0)).toLocaleString()}</span>
-                                <span className="text-[11px] font-black text-rose-600 tabular-nums text-right">{Math.round(actualLateFee).toLocaleString()}</span>
-                                <div className="flex justify-end">
-                                    {fillingMode === "manual" ? (
-                                        <input type="text" inputMode="numeric" pattern="[0-9]*" value={manualLateFee}
-                                            onChange={e => { const v = e.target.value.replace(/[^0-9]/g,''); setManualLateFee(v === "" || Number(v) <= actualLateFee ? v : actualLateFee.toString()); }}
-                                            className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-rose-500 transition-all font-mono" />
-                                    ) : (
-                                        <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {Math.round(Number(manualLateFee || 0)).toLocaleString()}</span>
-                                    )}
-                                </div>
+                        {/* ── Current Fees — sorted by target month ────────── */}
+                        {currentHeads.length > 0 && (
+                            <div className="flex items-center gap-2 pt-3 pb-1 px-1">
+                                <Receipt className="h-3.5 w-3.5 text-zinc-400" />
+                                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em]">Current Fees</span>
                             </div>
                         )}
+                        {currentHeads.map(h => {
+                            const hSfBal = sfBalance(h);
+                            const hSfNet = sfNetAmt(h);
+                            const hSfDep = sfDeposited(h);
+                            return (
+                                <div
+                                    key={h.id}
+                                    className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 border rounded-2xl transition-all bg-zinc-50 dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 border-l-[3px] border-l-zinc-300 dark:border-l-zinc-700 hover:border-zinc-200 dark:hover:border-zinc-700"
+                                >
+                                    <div>
+                                        <p className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 truncate">
+                                            {h.description_prefix
+                                                ? `${h.description_prefix}${h.student_fees?.fee_types?.description || "Fee Head"}`
+                                                : h.student_fees?.fee_types?.description || "Fee Head"}
+                                        </p>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                            {(h.student_fees?.target_month || h.student_fees?.month) && (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[9px] font-black uppercase tracking-widest rounded-md">
+                                                    {MONTH_NAMES[h.student_fees.target_month || h.student_fees.month!] || h.student_fees.target_month || h.student_fees.month}
+                                                </span>
+                                            )}
+                                            {h.is_installment && (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-widest rounded-md">
+                                                    Installment
+                                                </span>
+                                            )}
+                                            {h.has_installment_merged && (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[9px] font-black uppercase tracking-widest rounded-md">
+                                                    Merged Installment
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{Math.round(hSfNet).toLocaleString()}</span>
+                                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(hSfDep).toLocaleString()}</span>
+                                    <span className={`text-[11px] font-black tabular-nums text-right ${hSfBal === 0 ? "text-emerald-600" : "text-zinc-900 dark:text-zinc-100"}`}>
+                                        {Math.round(hSfBal).toLocaleString()}
+                                    </span>
+                                    <div className="flex justify-end">
+                                        {fillingMode === "manual" ? (
+                                            <input type="text" inputMode="numeric" pattern="[0-9]*" value={manualDistributions[h.id] || ""}
+                                                onChange={e => {
+                                                    const v = e.target.value.replace(/[^0-9]/g,'');
+                                                    setManualDistributions({ ...manualDistributions, [h.id]: v === "" || Number(v) <= hSfBal ? v : hSfBal.toString() });
+                                                }}
+                                                className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-primary transition-all font-mono" />
+                                        ) : (
+                                            <span className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 tabular-nums">Rs. {Math.round(Number(manualDistributions[h.id] || 0)).toLocaleString()}</span>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
 
                         {/* ── Discount Heads Section ────────────────────────── */}
                         {DEV_SHOW_DISCOUNTS && discountHeads.length > 0 && (
