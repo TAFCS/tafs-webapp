@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   Check,
@@ -307,7 +307,7 @@ function sourceDateChipLabel(
   }
 }
 
-export default function RollCallPage() {
+function RollCallPageInner() {
   const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const campuses = useAppSelector((s) => s.campuses.items);
@@ -2060,5 +2060,19 @@ export default function RollCallPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function RollCallPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-64 items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+        </div>
+      }
+    >
+      <RollCallPageInner />
+    </Suspense>
   );
 }
