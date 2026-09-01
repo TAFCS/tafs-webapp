@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
 import {
     Search, Loader2, AlertCircle, FileText,
@@ -160,9 +160,11 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     };
 
     // The breakdown table — and auto-fill — run strictly top-down in this order:
-    //   1. Late-payment charges (red): the voucher-level Late Payment Surcharge,
-    //      then each arrear month's late surcharge ascending by month.
-    //   2. Arrears: past-due fee heads, sorted by target month.
+    //   1. Voucher-level Late Payment Surcharge (red) — not tied to any one
+    //      month, so it's pinned above everything else.
+    //   2. Arrears, one block per overdue month ascending. Inside a month the
+    //      late-payment surcharge PENALTY comes before that month's fee heads
+    //      (e.g. "Oct Late Payment Surcharge" then "Oct Monthly Tuition Fee").
     //   3. Current fees: this voucher's own heads, sorted by target month.
     const monthOf = (h: typeof heads[0]) => h.student_fees?.target_month || h.student_fees?.month || 0;
     const timeOf = (d?: string | null) => (d ? new Date(d).getTime() : 0);
@@ -173,7 +175,22 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const currentHeads = heads.filter(h => !isArrearHead(h)).sort(byTargetMonth);
     const arrearCount = arrearHeads.length;
 
-    const sortedArrearSurcharges = [...arrearSurcharges].sort((a, b) => a.arrear_month - b.arrear_month);
+    // One block per overdue month: that month's late surcharge(s) first, then
+    // that month's past-due heads. Blocks ascending by month.
+    type ArrearBlock = { month: number; surcharges: typeof arrearSurcharges; heads: typeof arrearHeads };
+    const arrearBlocks: ArrearBlock[] = [];
+    const blockForMonth = (m: number) => {
+        let b = arrearBlocks.find(x => x.month === m);
+        if (!b) { b = { month: m, surcharges: [], heads: [] }; arrearBlocks.push(b); }
+        return b;
+    };
+    arrearSurcharges.forEach(s => blockForMonth(s.arrear_month).surcharges.push(s));
+    arrearHeads.forEach(h => blockForMonth(monthOf(h)).heads.push(h));
+    arrearBlocks.sort((a, b) => (a.month || 99) - (b.month || 99));
+    arrearBlocks.forEach(b => {
+        b.surcharges.sort((x, y) => x.arrear_month - y.arrear_month);
+        b.heads.sort(byTargetMonth);
+    });
 
     const sfNetAmt = (h: typeof heads[0]) => Number(h.student_fees?.amount ?? h.net_amount ?? 0);
     // Balance must be derived from student_fees.amount - amount_paid, not the
@@ -217,34 +234,35 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         const dist: Record<number, string> = {};
         const sDist: Record<number, string> = {};
 
-        // 1. Voucher-level Late Payment Surcharge — sits at the top of the list,
-        //    so it's consumed first. Partial payment is allowed here.
+        // 1. Voucher-level Late Payment Surcharge — pinned to the top of the
+        //    list, so it's consumed first. Partial payment is allowed here.
         const lateToFill = Math.min(remaining, actualLateFee);
         remaining -= lateToFill;
 
-        // 2. Each arrear month's late surcharge, ascending by month. Surcharges
-        //    are all-or-nothing — never partially paid — so only fill one if the
-        //    remaining pool covers it completely; otherwise skip it and let the
-        //    leftover money flow to the next step.
-        sortedArrearSurcharges.forEach(s => {
-            const sBal = getSurchargeBalance(s);
-            if (sBal > 0 && remaining >= sBal) {
-                sDist[s.id] = sBal.toString();
-                remaining -= sBal;
-            } else {
-                sDist[s.id] = "0";
-            }
+        // 2. Arrears, month by month ascending. Within a month the late-payment
+        //    surcharge penalty is filled BEFORE that month's fee heads. Arrear
+        //    surcharges are all-or-nothing — never partially paid — so one is
+        //    only filled if the remaining pool covers it completely; otherwise
+        //    it's skipped and the leftover flows on to that month's heads.
+        arrearBlocks.forEach(block => {
+            block.surcharges.forEach(s => {
+                const sBal = getSurchargeBalance(s);
+                if (sBal > 0 && remaining >= sBal) {
+                    sDist[s.id] = sBal.toString();
+                    remaining -= sBal;
+                } else {
+                    sDist[s.id] = "0";
+                }
+            });
+            block.heads.forEach(h => {
+                const hBal = sfBalance(h);
+                const toFill = Math.min(remaining, hBal);
+                dist[h.id] = toFill.toString();
+                remaining -= toFill;
+            });
         });
 
-        // 3. Arrear fee heads, sorted by target month.
-        arrearHeads.forEach(h => {
-            const hBal = sfBalance(h);
-            const toFill = Math.min(remaining, hBal);
-            dist[h.id] = toFill.toString();
-            remaining -= toFill;
-        });
-
-        // 4. Current fee heads, sorted by target month.
+        // 3. Current fee heads, sorted by target month.
         currentHeads.forEach(h => {
             const hBal = sfBalance(h);
             const toFill = Math.min(remaining, hBal);
@@ -444,11 +462,11 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">To Deposit</span>
                         </div>
 
-                        {/* ── Late Payment Charges (red) — top of the list ─── */}
-                        {(actualLateFee > 0 || sortedArrearSurcharges.length > 0) && (
+                        {/* ── Late Payment Surcharge (red) — pinned to the top ─── */}
+                        {actualLateFee > 0 && (
                             <div className="flex items-center gap-2 pt-1 pb-1 px-1">
                                 <ShieldAlert className="h-3.5 w-3.5 text-rose-500" />
-                                <span className="text-[10px] font-black text-rose-500 uppercase tracking-[0.18em]">Late Payment Charges</span>
+                                <span className="text-[10px] font-black text-rose-500 uppercase tracking-[0.18em]">Late Payment Surcharge</span>
                             </div>
                         )}
 
@@ -474,8 +492,21 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             </div>
                         )}
 
-                        {/* Per-arrear-month late surcharges, ascending by month */}
-                        {sortedArrearSurcharges.map(s => {
+                        {/* ── Arrears (amber) — one block per overdue month ──── */}
+                        {arrearBlocks.length > 0 && (
+                            <div className="flex items-center gap-2 pt-3 pb-1 px-1">
+                                <Clock className="h-3.5 w-3.5 text-amber-500" />
+                                <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.18em]">Arrears</span>
+                            </div>
+                        )}
+                        {arrearBlocks.map(block => (
+                        <Fragment key={`arrear-block-${block.month}`}>
+                        {block.month > 0 && (
+                            <p className="text-[10px] font-black text-amber-500/70 uppercase tracking-[0.18em] pt-2 pl-1">
+                                {MONTH_NAMES[block.month] || `Month ${block.month}`}
+                            </p>
+                        )}
+                        {block.surcharges.map(s => {
                             const sBal = getSurchargeBalance(s);
                             const sPaid = Number(s.amount_paid ?? 0);
                             const sTotal = Number(s.amount);
@@ -526,14 +557,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             );
                         })}
 
-                        {/* ── Arrears (amber) — sorted by target month ─────── */}
-                        {arrearHeads.length > 0 && (
-                            <div className="flex items-center gap-2 pt-3 pb-1 px-1">
-                                <Clock className="h-3.5 w-3.5 text-amber-500" />
-                                <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.18em]">Arrears</span>
-                            </div>
-                        )}
-                        {arrearHeads.map(h => {
+                        {block.heads.map(h => {
                             const hSfBal = sfBalance(h);
                             const hSfNet = sfNetAmt(h);
                             const hSfDep = sfDeposited(h);
@@ -586,6 +610,8 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                 </div>
                             );
                         })}
+                        </Fragment>
+                        ))}
 
                         {/* ── Current Fees — sorted by target month ────────── */}
                         {currentHeads.length > 0 && (
