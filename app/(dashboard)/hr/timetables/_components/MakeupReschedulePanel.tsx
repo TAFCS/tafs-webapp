@@ -6,6 +6,7 @@ import type { TimetableBlock, TimetableSlot } from '@/lib/timetables.service';
 import type { TeachingGroup } from '@/lib/teaching-groups.service';
 import type { MakeupSlotCellStatus, RescheduleLinkInfo } from '@/lib/makeup-calendar';
 import type { SourceDatePresentStudent } from '@/lib/class-reschedules.service';
+import type { MakeupCalendarMode } from './TimetableGrid';
 
 export type AlevelSourcePick = { slotId: number; sourceDate: string };
 
@@ -43,6 +44,7 @@ interface Props {
   initialPresentStudents?: SourceDatePresentStudent[];
   onAttendanceSaved: () => void;
   onMakeupDeleted?: () => void;
+  calendarMode?: MakeupCalendarMode;
 }
 
 export function MakeupReschedulePanel({
@@ -79,6 +81,7 @@ export function MakeupReschedulePanel({
   initialPresentStudents,
   onAttendanceSaved,
   onMakeupDeleted,
+  calendarMode = 'schedule',
 }: Props) {
   if (variant === 'olevel' && sectionId != null) {
     return (
@@ -123,6 +126,7 @@ export function MakeupReschedulePanel({
         initialPresentStudents={initialPresentStudents}
         onAttendanceSaved={onAttendanceSaved}
         onMakeupDeleted={onMakeupDeleted}
+        calendarMode={calendarMode}
       />
     );
   }

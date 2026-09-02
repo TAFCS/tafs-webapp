@@ -43,6 +43,8 @@ export function blockDisplayLabel(block: TimetableBlock): string {
 
 export type TimetableGridInteractionMode = "edit" | "makeup" | "view";
 
+export type MakeupCalendarMode = "schedule" | "attendance";
+
 interface Props {
   blocks: TimetableBlock[];
   slots: TimetableSlot[];
@@ -50,7 +52,10 @@ interface Props {
   interactionMode?: TimetableGridInteractionMode;
   pendingSlotIds?: number[];
   selectedMakeupSlotIds?: number[];
+  selectedSourceCells?: Array<{ slotId: number; dateIso: string }>;
   selectedMakeupCell?: { slotId?: number | null; blockNumber?: number; dateIso: string } | null;
+  makeupCalendarMode?: MakeupCalendarMode;
+  onMakeupCalendarModeChange?: (mode: MakeupCalendarMode) => void;
   makeupOverlays?: MakeupCalendarOverlay[];
   selectedAttendanceCell?: { slotId: number; dateIso: string; blockNumber?: number } | null;
   academicYear?: string;
@@ -94,7 +99,10 @@ export function TimetableGrid({
   interactionMode = "edit",
   pendingSlotIds = [],
   selectedMakeupSlotIds = [],
+  selectedSourceCells = [],
   selectedMakeupCell = null,
+  makeupCalendarMode = "schedule",
+  onMakeupCalendarModeChange,
   makeupOverlays = [],
   selectedAttendanceCell = null,
   academicYear,
@@ -113,6 +121,10 @@ export function TimetableGrid({
   const isMakeup = interactionMode === "makeup";
   const pendingSet = useMemo(() => new Set(pendingSlotIds), [pendingSlotIds]);
   const selectedSet = useMemo(() => new Set(selectedMakeupSlotIds), [selectedMakeupSlotIds]);
+  const selectedSourceKeySet = useMemo(
+    () => new Set(selectedSourceCells.map((cell) => `${cell.slotId}|${cell.dateIso}`)),
+    [selectedSourceCells],
+  );
 
   const showMakeupDelete = (cellStatus: MakeupSlotCellStatus | undefined) =>
     canDeleteMakeup && cellStatus === "makeup_upcoming";
@@ -188,7 +200,24 @@ export function TimetableGrid({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {onMakeupCalendarModeChange && (
+              <button
+                type="button"
+                onClick={() =>
+                  onMakeupCalendarModeChange(
+                    makeupCalendarMode === "attendance" ? "schedule" : "attendance",
+                  )
+                }
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition-colors ${
+                  makeupCalendarMode === "attendance"
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    : "border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                }`}
+              >
+                {makeupCalendarMode === "attendance" ? "Exit attendance" : "Attendance mode"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => shiftWeek(-1)}
@@ -315,7 +344,9 @@ export function TimetableGrid({
                         <div className="flex flex-col gap-1.5 min-h-[58px]">
                           {cellSlots.map((slot) => {
                             const hasPending = pendingSet.has(slot.id);
-                            const isWizardSelected = selectedSet.has(slot.id);
+                            const isWizardSelected = selectedSourceKeySet.has(
+                              `${slot.id}|${dateIso}`,
+                            );
                             const isMakeupTarget =
                               selectedMakeupCell?.dateIso === dateIso &&
                               (selectedMakeupCell?.slotId === slot.id ||

@@ -21,7 +21,7 @@ import { WEEKDAY_FULL } from '@/lib/weekday-dates';
 import type { MakeupSlotCellStatus, RescheduleLinkInfo } from '@/lib/makeup-calendar';
 import { formatRescheduleDate } from '@/lib/reschedule-ui';
 import { SlotAttendancePanel } from './SlotAttendancePanel';
-import { blockDisplayLabel } from './TimetableGrid';
+import { blockDisplayLabel, type MakeupCalendarMode } from './TimetableGrid';
 
 type SourcePick = { slotId: number; sourceDate: string };
 
@@ -49,6 +49,7 @@ interface Props {
   initialPresentStudents?: SourceDatePresentStudent[];
   onAttendanceSaved: () => void;
   onMakeupDeleted?: () => void;
+  calendarMode?: MakeupCalendarMode;
 }
 
 export function ALevelMakeupPanel({
@@ -75,6 +76,7 @@ export function ALevelMakeupPanel({
   initialPresentStudents = [],
   onAttendanceSaved,
   onMakeupDeleted,
+  calendarMode = 'schedule',
 }: Props) {
   const [eligibleSlots, setEligibleSlots] = useState<EligibleSourceSlot[]>([]);
   const [eligibleLoading, setEligibleLoading] = useState(false);
@@ -275,6 +277,7 @@ export function ALevelMakeupPanel({
 
   return (
     <div className="space-y-6">
+      {calendarMode !== 'attendance' && (
       <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-b from-indigo-50/70 via-white to-white dark:from-indigo-950/30 dark:via-zinc-900 dark:to-zinc-900 p-6 space-y-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-100 dark:border-indigo-900/50 pb-4">
           <div className="flex items-center gap-2.5">
@@ -337,7 +340,9 @@ export function ALevelMakeupPanel({
             ) : (
               <div className="space-y-3">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Select missed slot(s) using the pills below. Click a red cell on the calendar to mark student attendance.
+                  Click red or purple cells on the calendar to add missed lessons here, or use the
+                  pills below. Switch to <strong>Attendance mode</strong> to mark student
+                  attendance.
                 </p>
                 {slotsByWeekday.map((group) => (
                   <div key={group.dayOfWeek} className="space-y-1.5">
@@ -347,6 +352,9 @@ export function ALevelMakeupPanel({
                     <div className="flex flex-wrap gap-2">
                       {group.slots.map((slot) => {
                         const selected = selectedSources.some((p) => p.slotId === slot.id);
+                        const selectedDate =
+                          selectedSources.find((p) => p.slotId === slot.id)?.sourceDate ??
+                          slot.default_source_date;
                         return (
                           <button
                             key={slot.id}
@@ -359,6 +367,9 @@ export function ALevelMakeupPanel({
                             }`}
                           >
                             Block {slot.block_number} ({slot.time_label})
+                            {selected && selectedDate !== slot.default_source_date
+                              ? ` · ${formatRescheduleDate(selectedDate)}`
+                              : ''}
                           </button>
                         );
                       })}
@@ -381,7 +392,8 @@ export function ALevelMakeupPanel({
 
             <div className="space-y-3">
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Click an upcoming cell on the timetable or set the date below:
+                Pick any future date below, or click an upcoming cell on the calendar. Missed
+                lessons can come from any week — browse the calendar to add them in step 1.
               </p>
               <label className="block space-y-1.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1">
@@ -392,10 +404,7 @@ export function ALevelMakeupPanel({
                   type="date"
                   className="block w-full h-10 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                   value={makeupDate}
-                  onChange={(e) => {
-                    onMakeupDateChange(e.target.value);
-                    onSelectedSourcesChange([]);
-                  }}
+                  onChange={(e) => onMakeupDateChange(e.target.value)}
                 />
               </label>
 
@@ -493,6 +502,7 @@ export function ALevelMakeupPanel({
           </div>
         )}
       </div>
+      )}
 
       <SlotAttendancePanel
         slot={attendanceSlot}

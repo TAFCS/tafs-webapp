@@ -22,7 +22,7 @@ import {
   timetablesService,
 } from "@/lib/timetables.service";
 import { teachingGroupsService, TeachingGroup } from "@/lib/teaching-groups.service";
-import { DAYS, TimetableGrid, blockDisplayLabel } from "./_components/TimetableGrid";
+import { DAYS, TimetableGrid, blockDisplayLabel, type MakeupCalendarMode } from "./_components/TimetableGrid";
 import { SlotEditorModal, SlotEditorTarget } from "./_components/SlotEditorModal";
 import { PeriodEditor } from "./_components/PeriodEditor";
 import { isAsA2Class } from "@/lib/alevel-classes";
@@ -46,6 +46,25 @@ import {
 } from "@/lib/makeup-calendar";
 
 const ACADEMIC_YEARS = getAcademicYears(1, 2);
+
+function navigateCalendarWeek(mondayIso: string, academicYear: string): string {
+  return clampWeekMonday(mondayIso, academicYear);
+}
+
+function resolveCellStatus(
+  statusByCell: Record<string, MakeupSlotCellStatus>,
+  slot: TimetableSlot,
+  dateIso: string,
+  rescheduleLink?: RescheduleLinkInfo,
+): MakeupSlotCellStatus {
+  const key = cellStatusKey(slot.id, dateIso);
+  const blockKey = blockCellStatusKey(slot.block_number, dateIso);
+  const status = statusByCell[key] ?? statusByCell[blockKey] ?? "missed";
+  if (rescheduleLink?.role === "makeup" && status === "missed") {
+    return "makeup_upcoming";
+  }
+  return status;
+}
 
 function initialWeekMonday(academicYear: string): string {
   const today = new Date().toISOString().slice(0, 10);
@@ -117,6 +136,7 @@ function TimetablesPageContent() {
   const [makeupDate, setMakeupDate] = useState(() => todayIsoUtc());
   const [makeupBlockNumber, setMakeupBlockNumber] = useState<number | null>(null);
   const [deletingMakeup, setDeletingMakeup] = useState(false);
+  const [makeupCalendarMode, setMakeupCalendarMode] = useState<MakeupCalendarMode>("schedule");
 
   // URL deep-link prefill
   useEffect(() => {
@@ -131,6 +151,13 @@ function TimetablesPageContent() {
     if (qpSection) setSectionId(qpSection);
     if (qpGroup) setTeachingGroupId(qpGroup);
   }, [searchParams]);
+
+  useEffect(() => {
+    if (pageMode === "makeup") {
+      setMakeupCalendarMode("schedule");
+      setAttendanceTarget(null);
+    }
+  }, [pageMode]);
 
   useEffect(() => {
     dispatch(fetchCampuses());
@@ -321,6 +348,48 @@ function TimetablesPageContent() {
 
   const canDeleteSelectedMakeup = canMarkRoll;
 
+  const handleActiveWeekDateChange = useCallback(
+    (mondayIso: string) => {
+      setActiveWeekDate(navigateCalendarWeek(mondayIso, academicYear));
+    },
+    [academicYear],
+  );
+
+  const toggleSourcePick = useCallback((slotId: number, sourceDate: string) => {
+    setAlevelSelectedSources((prev) => {
+      const exists = prev.some((p) => p.slotId === slotId && p.sourceDate === sourceDate);
+      if (exists) {
+        return prev.filter((p) => !(p.slotId === slotId && p.sourceDate === sourceDate));
+      }
+      return [
+        ...prev.filter((p) => p.slotId !== slotId),
+        { slotId, sourceDate },
+      ];
+    });
+    setActiveWeekDate(navigateCalendarWeek(getMondayUtc(sourceDate), academicYear));
+  }, [academicYear]);
+
+  const openAttendance = useCallback(
+    (
+      slot: TimetableSlot,
+      dateIso: string,
+      cellStatus: MakeupSlotCellStatus,
+      rescheduleLink?: RescheduleLinkInfo,
+    ) => {
+      setAttendanceTarget({ slot, dateIso, cellStatus, rescheduleLink });
+      if (cellStatus === "makeup_upcoming") {
+        setMakeupTarget({
+          slotId: null,
+          dateIso,
+          blockNumber: slot.block_number,
+        });
+        setMakeupDate(dateIso);
+        setMakeupBlockNumber(slot.block_number);
+      }
+    },
+    [],
+  );
+
   const handleMakeupSlotClick = useCallback(
     (slot: TimetableSlot, dateIso?: string) => {
       if (isOLevel) {
@@ -330,19 +399,53 @@ function TimetablesPageContent() {
       }
       if (!isALevel || !dateIso) return;
 
-      const key = cellStatusKey(slot.id, dateIso);
-      const blockKey = blockCellStatusKey(slot.block_number, dateIso);
-      const cellStatus =
-        statusByCell[key] ?? statusByCell[blockKey] ?? "missed";
       const rescheduleLink =
-        rescheduleLinksByCell[key] ?? rescheduleLinksByCell[blockKey];
+        rescheduleLinksByCell[cellStatusKey(slot.id, dateIso)] ??
+        rescheduleLinksByCell[blockCellStatusKey(slot.block_number, dateIso)];
+      const cellStatus = resolveCellStatus(
+        statusByCell,
+        slot,
+        dateIso,
+        rescheduleLink,
+      );
 
       if (cellStatus === "off_day") {
         return;
       }
 
+      if (makeupCalendarMode === "schedule") {
+        if (cellStatus === "missed" || cellStatus === "rescheduled") {
+          toggleSourcePick(slot.id, dateIso);
+          return;
+        }
+
+        if (cellStatus === "makeup_upcoming") {
+          setMakeupTarget({
+            slotId: null,
+            dateIso,
+            blockNumber: slot.block_number,
+          });
+          setMakeupDate(dateIso);
+          setMakeupBlockNumber(slot.block_number);
+          handleActiveWeekDateChange(getMondayUtc(dateIso));
+          return;
+        }
+
+        if (cellStatus === "upcoming" || dateIso >= todayIsoUtc()) {
+          setMakeupTarget({
+            slotId: null,
+            dateIso,
+            blockNumber: slot.block_number,
+          });
+          setMakeupDate(dateIso);
+          setMakeupBlockNumber(slot.block_number);
+          handleActiveWeekDateChange(getMondayUtc(dateIso));
+        }
+        return;
+      }
+
       if (cellStatus === "missed") {
-        setAttendanceTarget({ slot, dateIso, cellStatus, rescheduleLink });
+        openAttendance(slot, dateIso, cellStatus, rescheduleLink);
         return;
       }
 
@@ -353,32 +456,19 @@ function TimetablesPageContent() {
         cellStatus === "conducted" ||
         cellStatus === "skipped"
       ) {
-        setAttendanceTarget({ slot, dateIso, cellStatus, rescheduleLink });
-        if (cellStatus === "makeup_upcoming") {
-          setMakeupTarget({
-            slotId: null,
-            dateIso,
-            blockNumber: slot.block_number,
-          });
-          setMakeupDate(dateIso);
-          setMakeupBlockNumber(slot.block_number);
-        }
-        return;
-      }
-
-      if (cellStatus === "upcoming" || dateIso >= todayIsoUtc()) {
-        setMakeupTarget({
-          slotId: null,
-          dateIso,
-          blockNumber: slot.block_number,
-        });
-        setMakeupDate(dateIso);
-        setMakeupBlockNumber(slot.block_number);
-        const weekMonday = getMondayUtc(dateIso);
-        setActiveWeekDate((prev) => clampWeekMonday(weekMonday, academicYear));
+        openAttendance(slot, dateIso, cellStatus, rescheduleLink);
       }
     },
-    [isOLevel, isALevel, statusByCell, rescheduleLinksByCell, academicYear],
+    [
+      isOLevel,
+      isALevel,
+      statusByCell,
+      rescheduleLinksByCell,
+      makeupCalendarMode,
+      toggleSourcePick,
+      handleActiveWeekDateChange,
+      openAttendance,
+    ],
   );
 
   const handleMakeupDateChange = useCallback(
@@ -404,10 +494,9 @@ function TimetablesPageContent() {
         setMakeupTarget(null);
         setMakeupBlockNumber(null);
       }
-      const weekMonday = getMondayUtc(dateIso);
-      setActiveWeekDate((prev) => clampWeekMonday(weekMonday, academicYear));
+      handleActiveWeekDateChange(getMondayUtc(dateIso));
     },
-    [slots, blocks, academicYear],
+    [slots, blocks, handleActiveWeekDateChange],
   );
 
   const gridInteractionMode = useMemo(() => {
@@ -744,6 +833,25 @@ function TimetablesPageContent() {
                 ? alevelSelectedSources.map((p) => p.slotId)
                 : []
             }
+            selectedSourceCells={
+              pageMode === "makeup" && isALevel
+                ? alevelSelectedSources.map((p) => ({
+                    slotId: p.slotId,
+                    dateIso: p.sourceDate,
+                  }))
+                : []
+            }
+            makeupCalendarMode={pageMode === "makeup" && isALevel ? makeupCalendarMode : "schedule"}
+            onMakeupCalendarModeChange={
+              pageMode === "makeup" && isALevel
+                ? (mode) => {
+                    setMakeupCalendarMode(mode);
+                    if (mode === "schedule") {
+                      setAttendanceTarget(null);
+                    }
+                  }
+                : undefined
+            }
             selectedMakeupCell={
               pageMode === "makeup" && isALevel && makeupTarget
                 ? {
@@ -757,7 +865,10 @@ function TimetablesPageContent() {
               pageMode === "makeup" && isALevel ? makeupOverlays : []
             }
             selectedAttendanceCell={
-              pageMode === "makeup" && isALevel && attendanceTarget
+              pageMode === "makeup" &&
+              isALevel &&
+              makeupCalendarMode === "attendance" &&
+              attendanceTarget
                 ? {
                     slotId: attendanceTarget.slot.id,
                     dateIso: attendanceTarget.dateIso,
@@ -767,7 +878,7 @@ function TimetablesPageContent() {
             }
             academicYear={academicYear}
             activeWeekDateIso={activeWeekDate}
-            onActiveWeekDateChange={setActiveWeekDate}
+            onActiveWeekDateChange={handleActiveWeekDateChange}
             statusByCell={pageMode === "makeup" && isALevel ? statusByCell : undefined}
             statusLoading={statusLoading}
             statusWeekRefreshing={statusWeekRefreshing}
@@ -838,6 +949,7 @@ function TimetablesPageContent() {
                 clearMakeupSelection();
                 void refreshCalendarStatus();
               }}
+              calendarMode={makeupCalendarMode}
             />
           )}
         </>

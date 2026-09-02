@@ -76,6 +76,7 @@ export function SlotAttendancePanel({
     classId,
     teachingGroupId,
     cellStatus,
+    rescheduleLink,
     initialPresentStudents,
     canMark,
     onSaved,

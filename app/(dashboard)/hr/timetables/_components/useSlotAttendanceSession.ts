@@ -9,7 +9,7 @@ import {
   RollSessionRosterEntry,
 } from '@/lib/attendance.service';
 import { classReschedulesService } from '@/lib/class-reschedules.service';
-import type { MakeupSlotCellStatus } from '@/lib/makeup-calendar';
+import type { MakeupSlotCellStatus, RescheduleLinkInfo } from '@/lib/makeup-calendar';
 import type { SourceDatePresentStudent } from '@/lib/class-reschedules.service';
 
 interface Options {
@@ -20,6 +20,7 @@ interface Options {
   classId: number;
   teachingGroupId: number;
   cellStatus: MakeupSlotCellStatus | null;
+  rescheduleLink?: RescheduleLinkInfo;
   initialPresentStudents?: SourceDatePresentStudent[];
   canMark: boolean;
   onSaved: () => void;
@@ -42,6 +43,7 @@ export function useSlotAttendanceSession({
   classId,
   teachingGroupId,
   cellStatus,
+  rescheduleLink,
   initialPresentStudents = [],
   canMark,
   onSaved,
@@ -134,6 +136,7 @@ export function useSlotAttendanceSession({
         const isMakeupAttendance =
           cellStatus === 'makeup_upcoming' ||
           cellStatus === 'made_up' ||
+          rescheduleLink?.role === 'makeup' ||
           Boolean(asMakeup);
 
         const linkedSessionId =
@@ -162,8 +165,13 @@ export function useSlotAttendanceSession({
             period: makeupPeriod,
           };
           if (!isMakeupAttendance || asMakeup?.makeup_timetable_slot_id != null) {
-            listParams.timetable_slot_id =
+            const slotIdForQuery =
               asMakeup?.makeup_timetable_slot_id ?? slot.id;
+            const slotDow = slot.day_of_week;
+            const sessionDow = new Date(`${dateIso}T00:00:00.000Z`).getUTCDay();
+            if (!isMakeupAttendance || slotDow === sessionDow) {
+              listParams.timetable_slot_id = slotIdForQuery;
+            }
           }
 
           const existing = await attendanceService.listRollSessions(listParams);
@@ -202,7 +210,9 @@ export function useSlotAttendanceSession({
               class_id: classId,
               teaching_group_id: teachingGroupId,
               period: slot.block_number,
-              timetable_slot_id: slot.id,
+              ...(slot.day_of_week === new Date(`${dateIso}T00:00:00.000Z`).getUTCDay()
+                ? { timetable_slot_id: slot.id }
+                : {}),
             });
           } else if (activeSession) {
             activeSession = await attendanceService.getRollSession(activeSession.id);
@@ -250,6 +260,7 @@ export function useSlotAttendanceSession({
       applySession,
       initialDateIso,
       cellStatus,
+      rescheduleLink,
       initialPresentStudents,
     ],
   );
