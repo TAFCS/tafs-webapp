@@ -17,6 +17,7 @@ interface Props {
   effectiveFrom: string | null;
   onClose: () => void;
   onCreated: () => void;
+  defaultSourceDate?: string;
 }
 
 export function SlotMakeupModal({
@@ -28,6 +29,7 @@ export function SlotMakeupModal({
   effectiveFrom,
   onClose,
   onCreated,
+  defaultSourceDate,
 }: Props) {
   const [sourceDate, setSourceDate] = useState('');
   const [makeupDate, setMakeupDate] = useState('');
@@ -55,12 +57,15 @@ export function SlotMakeupModal({
 
   useEffect(() => {
     if (!open || !slot) return;
-    const defaultSource = sourceDateOptions[0] ?? '';
-    setSourceDate(defaultSource);
+    const preferred =
+      defaultSourceDate && sourceDateOptions.includes(defaultSourceDate)
+        ? defaultSourceDate
+        : sourceDateOptions[0] ?? '';
+    setSourceDate(preferred);
     setMakeupDate(new Date().toISOString().slice(0, 10));
     setStaffHint(null);
     setError(null);
-  }, [open, slot, sourceDateOptions]);
+  }, [open, slot, sourceDateOptions, defaultSourceDate]);
 
   useEffect(() => {
     if (!open || !slot || !sourceDate) {

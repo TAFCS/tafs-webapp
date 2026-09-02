@@ -4,6 +4,10 @@ import { OLevelMakeupPanel } from './OLevelMakeupPanel';
 import { ALevelMakeupPanel } from './ALevelMakeupPanel';
 import type { TimetableSlot } from '@/lib/timetables.service';
 import type { TeachingGroup } from '@/lib/teaching-groups.service';
+import type { MakeupSlotCellStatus } from '@/lib/makeup-calendar';
+import type { SourceDatePresentStudent } from '@/lib/class-reschedules.service';
+
+export type AlevelSourcePick = { slotId: number; sourceDate: string };
 
 interface Props {
   variant: 'olevel' | 'alevel';
@@ -19,11 +23,19 @@ interface Props {
   canViewRoll: boolean;
   canEditLocked: boolean;
   onPendingSlotIdsChange: (ids: number[]) => void;
-  onMakeupSlotClick: (slot: TimetableSlot) => void;
+  onMakeupSlotClick: (slot: TimetableSlot, dateIso?: string) => void;
   selectedMakeupSlot: TimetableSlot | null;
+  initialMakeupSourceDate?: string;
   onClearMakeupSlot: () => void;
-  alevelSelectedSlotIds: number[];
+  alevelSelectedSources: AlevelSourcePick[];
+  onAlevelSelectedSourcesChange: (sources: AlevelSourcePick[]) => void;
   onClearAlevelSelection: () => void;
+  onRescheduleCreated?: () => void;
+  attendanceSlot: TimetableSlot | null;
+  attendanceDateIso: string;
+  attendanceCellStatus: MakeupSlotCellStatus | null;
+  initialPresentStudents?: SourceDatePresentStudent[];
+  onAttendanceSaved: () => void;
 }
 
 export function MakeupReschedulePanel({
@@ -42,9 +54,17 @@ export function MakeupReschedulePanel({
   onPendingSlotIdsChange,
   onMakeupSlotClick,
   selectedMakeupSlot,
+  initialMakeupSourceDate,
   onClearMakeupSlot,
-  alevelSelectedSlotIds,
+  alevelSelectedSources,
+  onAlevelSelectedSourcesChange,
   onClearAlevelSelection,
+  onRescheduleCreated,
+  attendanceSlot,
+  attendanceDateIso,
+  attendanceCellStatus,
+  initialPresentStudents,
+  onAttendanceSaved,
 }: Props) {
   if (variant === 'olevel' && sectionId != null) {
     return (
@@ -56,6 +76,7 @@ export function MakeupReschedulePanel({
         slots={slots}
         canMark={canMarkStaff}
         selectedSlot={selectedMakeupSlot}
+        initialSourceDate={initialMakeupSourceDate}
         onClearSelectedSlot={onClearMakeupSlot}
         onPendingSlotIdsChange={onPendingSlotIdsChange}
       />
@@ -72,11 +93,15 @@ export function MakeupReschedulePanel({
         slots={slots}
         canMark={canMarkRoll}
         canView={canViewRoll}
-        canEditLocked={canEditLocked}
-        onSlotClick={onMakeupSlotClick}
-        selectedSlotIds={alevelSelectedSlotIds}
-        onPendingSlotIdsChange={onPendingSlotIdsChange}
+        selectedSources={alevelSelectedSources}
+        onSelectedSourcesChange={onAlevelSelectedSourcesChange}
         onSelectionClear={onClearAlevelSelection}
+        onRescheduleCreated={onRescheduleCreated}
+        attendanceSlot={attendanceSlot}
+        attendanceDateIso={attendanceDateIso}
+        attendanceCellStatus={attendanceCellStatus}
+        initialPresentStudents={initialPresentStudents}
+        onAttendanceSaved={onAttendanceSaved}
       />
     );
   }

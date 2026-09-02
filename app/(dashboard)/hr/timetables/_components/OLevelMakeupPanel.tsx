@@ -29,6 +29,7 @@ interface Props {
   slots: TimetableSlot[];
   canMark: boolean;
   selectedSlot: TimetableSlot | null;
+  initialSourceDate?: string;
   onClearSelectedSlot: () => void;
   onPendingSlotIdsChange: (ids: number[]) => void;
 }
@@ -41,6 +42,7 @@ export function OLevelMakeupPanel({
   slots,
   canMark,
   selectedSlot,
+  initialSourceDate,
   onClearSelectedSlot,
   onPendingSlotIdsChange,
 }: Props) {
@@ -299,6 +301,7 @@ export function OLevelMakeupPanel({
           setSuccess('Pending reschedule created.');
           void loadRows();
         }}
+        defaultSourceDate={initialSourceDate}
       />
     </div>
   );

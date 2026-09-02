@@ -421,6 +421,13 @@ export const attendanceService = {
     return data.data;
   },
 
+  async revertRollSession(id: number): Promise<RollSession> {
+    const { data } = await api.post<ApiEnvelope<RollSession>>(
+      `/v1/attendance/roll-sessions/${id}/revert`,
+    );
+    return data.data;
+  },
+
   // ── Staff Daily Register ─────────────────────────────────────────────────
 
   async getStaffRegister(params: {

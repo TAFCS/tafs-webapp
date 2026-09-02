@@ -27,6 +27,11 @@ export interface SourceDateHoldStatusRow {
   hold_status: SourceDateHoldStatus;
   held: boolean;
   present_by_slot?: SourceDatePresentBySlot[];
+  by_slot?: Array<{
+    slot_id: number;
+    hold_status: SourceDateHoldStatus;
+    held: boolean;
+  }>;
 }
 
 export interface EligibleSourceSlot {
@@ -36,6 +41,7 @@ export interface EligibleSourceSlot {
   block_number: number;
   subject: { id: number; name: string; code: string | null };
   default_source_date: string;
+  missed_dates: string[];
   time_label: string;
   start_time: string | null;
   end_time: string | null;
