@@ -148,8 +148,7 @@ function TimetablesPageContent() {
     cellStatus: MakeupSlotCellStatus;
     rescheduleLink?: RescheduleLinkInfo;
   } | null>(null);
-  const [olevelMakeupCalendarMode, setOlevelMakeupCalendarMode] =
-    useState<MakeupCalendarMode>("schedule");
+
   const [alevelSelectedSources, setAlevelSelectedSources] = useState<
     Array<{ slotId: number; sourceDate: string }>
   >([]);
@@ -195,7 +194,6 @@ function TimetablesPageContent() {
       setAttendanceTarget(null);
     }
     if (pageMode === "olevel_teacher_makeup") {
-      setOlevelMakeupCalendarMode("schedule");
       setOlevelConfirmTarget(null);
     }
   }, [pageMode]);
@@ -586,42 +584,36 @@ function TimetablesPageContent() {
       );
       if (cellStatus === "off_day") return;
 
-      if (olevelMakeupCalendarMode === "schedule") {
-        if (cellStatus === "missed" || cellStatus === "rescheduled") {
-          toggleOlevelSourcePick(slot, dateIso);
-          return;
-        }
-        if (cellStatus === "makeup_upcoming") {
-          setMakeupTarget({
-            slotId: null,
-            dateIso,
-            blockNumber: slot.block_number,
-          });
-          setMakeupDate(dateIso);
-          setMakeupBlockNumber(slot.block_number);
-          handleActiveWeekDateChange(getMondayUtc(dateIso));
-          return;
-        }
-        if (cellStatus === "upcoming" || dateIso >= todayIsoUtc()) {
-          setMakeupTarget({
-            slotId: null,
-            dateIso,
-            blockNumber: slot.block_number,
-          });
-          setMakeupDate(dateIso);
-          setMakeupBlockNumber(slot.block_number);
-          handleActiveWeekDateChange(getMondayUtc(dateIso));
-        }
+      if (cellStatus === "missed" || cellStatus === "rescheduled") {
+        toggleOlevelSourcePick(slot, dateIso);
         return;
       }
-
-      setOlevelConfirmTarget({ slot, dateIso, cellStatus, rescheduleLink });
+      if (cellStatus === "makeup_upcoming") {
+        setMakeupTarget({
+          slotId: null,
+          dateIso,
+          blockNumber: slot.block_number,
+        });
+        setMakeupDate(dateIso);
+        setMakeupBlockNumber(slot.block_number);
+        handleActiveWeekDateChange(getMondayUtc(dateIso));
+        return;
+      }
+      if (cellStatus === "upcoming" || dateIso >= todayIsoUtc()) {
+        setMakeupTarget({
+          slotId: null,
+          dateIso,
+          blockNumber: slot.block_number,
+        });
+        setMakeupDate(dateIso);
+        setMakeupBlockNumber(slot.block_number);
+        handleActiveWeekDateChange(getMondayUtc(dateIso));
+      }
     },
     [
       selectedEmployeeId,
       teacherRescheduleLinksByCell,
       teacherStatusByCell,
-      olevelMakeupCalendarMode,
       toggleOlevelSourcePick,
       handleActiveWeekDateChange,
     ],
@@ -1237,13 +1229,7 @@ function TimetablesPageContent() {
                 slotId: p.slotId,
                 dateIso: p.sourceDate,
               }))}
-              makeupCalendarMode={olevelMakeupCalendarMode}
-              onMakeupCalendarModeChange={(mode) => {
-                setOlevelMakeupCalendarMode(mode);
-                if (mode === "schedule") {
-                  setOlevelConfirmTarget(null);
-                }
-              }}
+              makeupCalendarMode="schedule"
               selectedMakeupCell={
                 makeupTarget
                   ? {
@@ -1254,15 +1240,7 @@ function TimetablesPageContent() {
                   : null
               }
               makeupOverlays={teacherMakeupOverlays}
-              selectedAttendanceCell={
-                olevelMakeupCalendarMode === "attendance" && olevelConfirmTarget
-                  ? {
-                      slotId: olevelConfirmTarget.slot.id,
-                      dateIso: olevelConfirmTarget.dateIso,
-                      blockNumber: olevelConfirmTarget.slot.block_number,
-                    }
-                  : null
-              }
+              selectedAttendanceCell={null}
               academicYear={academicYear}
               activeWeekDateIso={activeWeekDate}
               onActiveWeekDateChange={handleActiveWeekDateChange}
@@ -1300,11 +1278,10 @@ function TimetablesPageContent() {
               onMakeupDateChange={handleTeacherMakeupDateChange}
               makeupBlockNumber={makeupBlockNumber}
               onMakeupBlockNumberChange={setMakeupBlockNumber}
-              confirmSlot={olevelConfirmTarget?.slot ?? null}
-              confirmDateIso={olevelConfirmTarget?.dateIso ?? ""}
-              confirmCellStatus={olevelConfirmTarget?.cellStatus ?? null}
-              confirmRescheduleLink={olevelConfirmTarget?.rescheduleLink}
-              calendarMode={olevelMakeupCalendarMode}
+              confirmSlot={null}
+              confirmDateIso=""
+              confirmCellStatus={null}
+              calendarMode="schedule"
             />
           </>
         )
