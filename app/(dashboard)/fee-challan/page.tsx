@@ -637,10 +637,13 @@ export default function FeeChallanGenerator() {
         }));
       const currentLines = studentFees.map((f) => ({
         student_fee_id: Number(f.id),
-        discount_amount: Math.max(
-          0,
-          Number(f.amount_before_discount || 0) - Number(f.amount || 0),
-        ),
+        discount_amount:
+          Math.round(
+            Math.max(
+              0,
+              Number(f.amount_before_discount || 0) - Number(f.amount || 0),
+            ) * 100,
+          ) / 100,
         discount_label: f.voucher_heads?.[0]?.discount_amount
           ? "Applied Discount"
           : undefined,
@@ -760,10 +763,13 @@ export default function FeeChallanGenerator() {
         }));
       const currentLines = group.fees.map((f) => ({
         student_fee_id: Number(f.id),
-        discount_amount: Math.max(
-          0,
-          Number(f.amount_before_discount || 0) - Number(f.amount || 0),
-        ),
+        discount_amount:
+          Math.round(
+            Math.max(
+              0,
+              Number(f.amount_before_discount || 0) - Number(f.amount || 0),
+            ) * 100,
+          ) / 100,
         discount_label: f.voucher_heads?.[0]?.discount_amount
           ? "Applied Discount"
           : undefined,
