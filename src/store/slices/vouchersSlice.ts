@@ -98,6 +98,8 @@ export interface VoucherItem {
     validity_date: string | null;
     status: string | null;
     pdf_url?: string | null;
+    paid_pdf_url?: string | null;
+    paid_pdf_filename?: string | null;
     late_fee_charge: boolean;
     academic_year: string | null;
     month: number | null;
