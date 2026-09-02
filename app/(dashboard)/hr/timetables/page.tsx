@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   AlertCircle,
@@ -36,7 +36,7 @@ import { MakeupReschedulePanel } from "./_components/MakeupReschedulePanel";
 
 const ACADEMIC_YEARS = getAcademicYears(1, 2);
 
-export default function TimetablesPage() {
+function TimetablesPageContent() {
   const dispatch = useAppDispatch();
   const campuses = useAppSelector((s) => s.campuses.items);
   const { user } = useAuthState();
@@ -81,6 +81,7 @@ export default function TimetablesPage() {
   const [makeupSlot, setMakeupSlot] = useState<TimetableSlot | null>(null);
   const [pendingSlotIds, setPendingSlotIds] = useState<number[]>([]);
   const [alevelSelectedSlotIds, setAlevelSelectedSlotIds] = useState<number[]>([]);
+  const [activeWeekDate, setActiveWeekDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   // URL deep-link prefill
   useEffect(() => {
@@ -366,9 +367,20 @@ export default function TimetablesPage() {
           </div>
 
           <div>
-            <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
-              <GraduationCap className="w-3 h-3" />
-              Class <span className="text-rose-500">*</span>
+            <label className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
+              <span className="flex items-center gap-1">
+                <GraduationCap className="w-3 h-3 text-rose-500" />
+                Class <span className="text-rose-500">*</span>
+              </span>
+              {classId && (
+                <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold tracking-normal ${
+                  isALevel
+                    ? "bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300"
+                    : "bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300"
+                }`}>
+                  {isALevel ? "A-LEVEL" : isOLevel ? "O-LEVEL" : "GENERAL"}
+                </span>
+              )}
             </label>
             <div className="relative">
               <select
@@ -526,6 +538,8 @@ export default function TimetablesPage() {
             interactionMode={gridInteractionMode}
             pendingSlotIds={pageMode === "makeup" ? pendingSlotIds : []}
             selectedMakeupSlotIds={pageMode === "makeup" && isALevel ? alevelSelectedSlotIds : []}
+            activeWeekDateIso={activeWeekDate}
+            onActiveWeekDateChange={setActiveWeekDate}
             onAdd={openAdd}
             onEdit={openEdit}
             onMakeupSlot={pageMode === "makeup" && supportsMakeup ? handleMakeupSlotClick : undefined}
@@ -580,5 +594,20 @@ export default function TimetablesPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function TimetablesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center py-24 text-zinc-500 gap-3">
+          <Loader2 className="w-7 h-7 animate-spin text-rose-500" />
+          <span className="text-sm font-medium">Loading timetables…</span>
+        </div>
+      }
+    >
+      <TimetablesPageContent />
+    </Suspense>
   );
 }

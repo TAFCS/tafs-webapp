@@ -11,6 +11,10 @@ import {
   Sparkles,
   Undo2,
   XCircle,
+  Calendar,
+  Clock,
+  User,
+  BookOpen,
 } from 'lucide-react';
 import type { TimetableSlot } from '@/lib/timetables.service';
 import type { TeachingGroup } from '@/lib/teaching-groups.service';
@@ -206,12 +210,12 @@ export function ALevelMakeupPanel({
           source_date: s.sourceDate,
         })),
         makeup_date: makeupDate,
-        makeup_period: makeupSlot?.block_number ?? selectedSources[0]
+        makeup_period: makeupSlot?.block_number ?? (selectedSources[0]
           ? eligibleSlots.find((e) => e.id === selectedSources[0].slotId)?.block_number ?? 1
-          : 1,
+          : 1),
         ...(makeupSlot ? { makeup_timetable_slot_id: makeupSlot.id } : {}),
       });
-      setSuccess('Pending makeup reschedule created. Take attendance on the makeup date.');
+      setSuccess('Pending makeup reschedule created. Take attendance on the makeup date to excuse teacher.');
       setSelectedSources([]);
       onSelectionClear?.();
       await loadRows();
@@ -266,235 +270,327 @@ export function ALevelMakeupPanel({
   }
 
   return (
-    <>
-      <div className="rounded-xl border border-indigo-200/80 dark:border-indigo-900/50 bg-indigo-50/60 dark:bg-indigo-950/30 px-4 py-3 text-xs text-indigo-900 dark:text-indigo-200 flex gap-2.5">
-        <Info className="h-4 w-4 shrink-0 mt-0.5" />
-        <p>
-          Pick a makeup date, select missed slot(s), then save. Take student attendance on Roll Call
-          on the makeup date — students who attended get excused on the original missed date.
-        </p>
-      </div>
-
-      {error && (
-        <div className="rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
-          {success}
-        </div>
-      )}
-
-      <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-b from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-zinc-950 p-5 space-y-4">
-        <div className="flex flex-wrap items-end gap-4">
-          <label className="space-y-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-              Makeup date (held on)
+    <div className="space-y-6">
+      {/* 2-Step Makeup Wizard Creation Box */}
+      <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-b from-indigo-50/70 via-white to-white dark:from-indigo-950/30 dark:via-zinc-900 dark:to-zinc-900 p-6 space-y-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-100 dark:border-indigo-900/50 pb-4">
+          <div className="flex items-center gap-2.5">
+            <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-600 text-white shadow-xs">
+              <Sparkles className="w-5 h-5" />
             </span>
-            <input
-              type="date"
-              className="block h-10 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm"
-              value={makeupDate}
-              onChange={(e) => {
-                setMakeupDate(e.target.value);
-                setSelectedSources([]);
-              }}
-            />
-          </label>
+            <div>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+                Schedule A-Level Makeup Class
+              </h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Connect a missed class session with an upcoming makeup session.
+              </p>
+            </div>
+          </div>
+
           {selectedGroup && (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 pb-2">
-              {selectedGroup.subjects?.name} — {selectedGroup.employee_profiles?.full_name}
-            </p>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-100/80 dark:bg-indigo-900/50 text-indigo-900 dark:text-indigo-200 text-xs font-semibold">
+              <BookOpen className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>{selectedGroup.subjects?.name}</span>
+              <span className="text-indigo-400">·</span>
+              <User className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>{selectedGroup.employee_profiles?.full_name}</span>
+            </div>
           )}
         </div>
 
-        <div>
-          <h3 className="text-sm font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-indigo-500" />
-            Select missed slot(s)
-          </h3>
-          {eligibleLoading ? (
-            <div className="flex items-center gap-2 py-4 text-xs text-indigo-600">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading eligible slots…
+        {error && (
+          <div className="rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            {success}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Step 1: Missed Lesson Selection */}
+          <div className="space-y-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 p-4">
+            <div className="flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-xs font-bold">
+                1
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                Which Lesson Was Missed?
+              </h4>
             </div>
-          ) : eligibleSlots.length === 0 ? (
-            <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
-              No timetable slots for this teaching group. Add slots in Schedule mode first.
-            </p>
-          ) : (
-            <div className="mt-3 space-y-3">
-              {slotsByWeekday.map((group) => (
-                <div key={group.dayOfWeek} className="space-y-2">
-                  <div className="text-xs font-bold text-zinc-500">{group.dayLabel}</div>
-                  <div className="flex flex-wrap gap-2">
-                    {group.slots.map((slot) => {
-                      const selected = selectedSlotIds.includes(slot.id);
-                      return (
-                        <button
-                          key={slot.id}
-                          type="button"
-                          onClick={() => toggleSlot(slot)}
-                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                            selected
-                              ? 'border-indigo-600 bg-indigo-600 text-white'
-                              : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-indigo-300'
-                          }`}
-                        >
-                          P{slot.block_number} · {slot.time_label}
-                        </button>
-                      );
-                    })}
+
+            {eligibleLoading ? (
+              <div className="flex items-center gap-2 py-4 text-xs text-indigo-600">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading slots…
+              </div>
+            ) : eligibleSlots.length === 0 ? (
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                No timetable slots for this teaching group. Add slots in Schedule mode first.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Select missed slot(s) from the grid above or click pills below:
+                </p>
+                {slotsByWeekday.map((group) => (
+                  <div key={group.dayOfWeek} className="space-y-1.5">
+                    <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                      {group.dayLabel}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {group.slots.map((slot) => {
+                        const selected = selectedSlotIds.includes(slot.id);
+                        return (
+                          <button
+                            key={slot.id}
+                            type="button"
+                            onClick={() => toggleSlot(slot)}
+                            className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
+                              selected
+                                ? 'border-indigo-600 bg-indigo-600 text-white shadow-xs'
+                                : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-indigo-400'
+                            }`}
+                          >
+                            Block {slot.block_number} ({slot.time_label})
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Step 2: Makeup Session Target */}
+          <div className="space-y-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 p-4">
+            <div className="flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-xs font-bold">
+                2
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                When Is The Makeup Class Held?
+              </h4>
             </div>
-          )}
+
+            <div className="space-y-3">
+              <label className="block space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-indigo-500" />
+                  Makeup Date (Held On)
+                </span>
+                <input
+                  type="date"
+                  className="block w-full h-10 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                  value={makeupDate}
+                  onChange={(e) => {
+                    setMakeupDate(e.target.value);
+                    setSelectedSources([]);
+                  }}
+                />
+              </label>
+
+              {/* Impact Callout */}
+              <div className="rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-900/60 p-3 text-xs text-indigo-900 dark:text-indigo-200 space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
+                  <Info className="w-3.5 h-3.5 shrink-0" />
+                  Live Operational Impact
+                </div>
+                <ul className="space-y-1 text-[11px] list-disc list-inside text-indigo-800/90 dark:text-indigo-300/90">
+                  <li>Creates a Roll Call attendance session on <strong>{formatRescheduleDate(makeupDate)}</strong></li>
+                  <li>Excuses teacher on Staff Register for the original missed date once Roll Call is taken.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
 
+        {/* Selected Sources Date Picker & Submit Bar */}
         {selectedSources.length > 0 && (
-          <div className="space-y-3 pt-2 border-t border-indigo-200/60 dark:border-indigo-900/40">
-            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
-              Missed dates ({selectedSources.length} slot{selectedSources.length === 1 ? '' : 's'})
-            </p>
-            {selectedSources.map((pick) => {
-              const slot = eligibleSlots.find((s) => s.id === pick.slotId);
-              if (!slot) return null;
-              const yesterday = new Date();
-              yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-              const dates = generateWeekdayOccurrences(
-                slot.day_of_week,
-                minSourceDateIso,
-                yesterday.toISOString().slice(0, 10),
-              ).reverse();
-              return (
-                <div key={pick.slotId} className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                    {WEEKDAY_FULL[slot.day_of_week]} P{slot.block_number}:
-                  </span>
-                  <select
-                    className="h-8 px-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs"
-                    value={pick.sourceDate}
-                    onChange={(e) => updateSourceDate(pick.slotId, e.target.value)}
-                  >
-                    {dates.map((d) => (
-                      <option key={d} value={d}>
-                        {formatRescheduleDate(d)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              );
-            })}
+          <div className="space-y-4 pt-4 border-t border-indigo-200/80 dark:border-indigo-900/60">
+            <h4 className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+              Confirm Original Missed Date(s) ({selectedSources.length} slot{selectedSources.length === 1 ? '' : 's'})
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {selectedSources.map((pick) => {
+                const slot = eligibleSlots.find((s) => s.id === pick.slotId);
+                if (!slot) return null;
+                const yesterday = new Date();
+                yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+                const dates = generateWeekdayOccurrences(
+                  slot.day_of_week,
+                  minSourceDateIso,
+                  yesterday.toISOString().slice(0, 10),
+                ).reverse();
+                return (
+                  <div key={pick.slotId} className="flex items-center justify-between gap-2 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850">
+                    <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                      {WEEKDAY_FULL[slot.day_of_week]} Block {slot.block_number}:
+                    </span>
+                    <select
+                      className="h-8 px-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-xs font-medium"
+                      value={pick.sourceDate}
+                      onChange={(e) => updateSourceDate(pick.slotId, e.target.value)}
+                    >
+                      {dates.map((d) => (
+                        <option key={d} value={d}>
+                          {formatRescheduleDate(d)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+
             {canMark && (
-              <button
-                type="button"
-                disabled={creating}
-                onClick={() => void handleCreate()}
-                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                {creating && <Loader2 className="h-4 w-4 animate-spin" />}
-                Save pending reschedule
-              </button>
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  disabled={creating}
+                  onClick={() => void handleCreate()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-sm font-semibold text-white shadow-xs disabled:opacity-50 transition-all"
+                >
+                  {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Save Pending Reschedule
+                </button>
+              </div>
             )}
           </div>
         )}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 p-5 space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-            Reschedules for this teaching group
-          </h3>
-          <select
-            className="h-8 px-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as ClassRescheduleStatus | '')}
-          >
-            <option value="">All</option>
-            <option value="PENDING">Pending</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="CANCELLED">Cancelled</option>
-          </select>
+      {/* Reschedules Activity Dashboard Card */}
+      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 p-6 space-y-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-3">
+          <div>
+            <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+              Reschedules for this Teaching Group
+            </h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Track pending, completed, and cancelled makeup sessions.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-zinc-500 font-medium">Filter Status:</span>
+            <select
+              className="h-8 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as ClassRescheduleStatus | '')}
+            >
+              <option value="">All Statuses</option>
+              <option value="PENDING">Pending Attendance</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
         </div>
 
         {loading && (
-          <div className="flex items-center gap-2 text-sm text-zinc-500 py-4">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading…
+          <div className="flex items-center justify-center gap-2 text-sm text-zinc-500 py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+            Loading reschedules history…
           </div>
         )}
 
-        <ul className="space-y-3 max-h-96 overflow-y-auto">
+        {!loading && rows.length === 0 && (
+          <div className="text-center py-12 text-zinc-400 text-xs">
+            No reschedules recorded for this teaching group.
+          </div>
+        )}
+
+        <ul className="space-y-3">
           {rows.map((row) => (
             <li
               key={row.id}
-              className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 space-y-2 text-sm"
+              className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 p-4 transition-all hover:bg-zinc-50 dark:hover:bg-zinc-800/70"
             >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="font-medium text-zinc-900 dark:text-zinc-100">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                {/* Missed Lesson Column */}
+                <div className="md:col-span-4 space-y-1">
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/60 rounded px-2 py-0.5">
+                    Original Missed
+                  </span>
+                  <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                     {row.teaching_groups?.subjects?.name ?? 'Lesson'}
                   </div>
-                  <div className="text-xs text-zinc-500">
-                    Missed P{row.source_timetable_slot?.block_number ?? '?'}
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">
+                    {formatRescheduleDate(row.source_date)} · Block {row.source_timetable_slot?.block_number ?? '?'}
                   </div>
                 </div>
-                <RescheduleStatusBadge status={row.status} />
-              </div>
-              <div className="flex items-center gap-2 text-xs text-zinc-500">
-                <span>{formatRescheduleDate(row.source_date)}</span>
-                <ArrowRight className="h-3 w-3" />
-                <span>{formatRescheduleDate(row.makeup_date)}</span>
-              </div>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {row.status === 'PENDING' && canMark && (
-                  <>
-                    <Link
-                      href={rollCallMakeupHref({
-                        makeupDate: row.makeup_date,
-                        teachingGroupId: row.teaching_group_id,
-                        classId,
-                        campusId,
-                      })}
-                      className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1 text-xs text-white"
-                    >
-                      <ClipboardList className="h-3 w-3" />
-                      Take Attendance
-                    </Link>
-                    <button
-                      type="button"
-                      disabled={actionId === row.id}
-                      className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-700 px-2.5 py-1 text-xs"
-                      onClick={() => void handleCancel(row.id)}
-                    >
-                      <XCircle className="h-3 w-3" />
-                      Cancel
-                    </button>
-                  </>
-                )}
-                {row.status === 'COMPLETED' && canEditLocked && (
-                  <button
-                    type="button"
-                    disabled={actionId === row.id}
-                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-700 px-2.5 py-1 text-xs"
-                    onClick={() => void handleReverse(row.id)}
-                  >
-                    <Undo2 className="h-3 w-3" />
-                    Reverse
-                  </button>
-                )}
+
+                {/* Arrow Flow */}
+                <div className="md:col-span-1 flex items-center justify-center text-zinc-400">
+                  <ArrowRight className="w-5 h-5 hidden md:block" />
+                </div>
+
+                {/* Makeup Lesson Column */}
+                <div className="md:col-span-4 space-y-1">
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/60 rounded px-2 py-0.5">
+                    Makeup Session
+                  </span>
+                  <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    Held on {formatRescheduleDate(row.makeup_date)}
+                  </div>
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">
+                    Block {row.makeup_period}
+                  </div>
+                </div>
+
+                {/* Status & Actions Column */}
+                <div className="md:col-span-3 flex flex-col md:items-end gap-2">
+                  <RescheduleStatusBadge status={row.status} />
+
+                  <div className="flex items-center gap-2 mt-1">
+                    {row.status === 'PENDING' && canMark && (
+                      <Link
+                        href={rollCallMakeupHref({
+                          makeupDate: row.makeup_date,
+                          teachingGroupId: row.teaching_group_id,
+                          classId: row.teaching_groups?.class_id ?? classId,
+                          campusId: row.teaching_groups?.campus_id ?? campusId,
+                        })}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs transition-colors"
+                      >
+                        <ClipboardList className="w-3.5 h-3.5" />
+                        Take Roll Call
+                      </Link>
+                    )}
+
+                    {row.status === 'PENDING' && canMark && (
+                      <button
+                        type="button"
+                        disabled={actionId === row.id}
+                        onClick={() => void handleCancel(row.id)}
+                        className="px-2.5 py-1.5 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    )}
+
+                    {row.status === 'COMPLETED' && canEditLocked && (
+                      <button
+                        type="button"
+                        disabled={actionId === row.id}
+                        onClick={() => void handleReverse(row.id)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-xl border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 transition-colors"
+                      >
+                        <Undo2 className="w-3.5 h-3.5" />
+                        Reverse
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </li>
           ))}
-          {!loading && rows.length === 0 && (
-            <li className="text-sm text-zinc-400 text-center py-8">
-              No reschedules for this teaching group yet.
-            </li>
-          )}
         </ul>
       </div>
-    </>
+    </div>
   );
 }
