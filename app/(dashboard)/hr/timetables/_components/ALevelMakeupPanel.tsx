@@ -504,6 +504,47 @@ export function ALevelMakeupPanel({
       </div>
       )}
 
+      {selectedSources.length > 0 && calendarMode !== 'attendance' && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-2xl bg-zinc-900/95 dark:bg-zinc-950/95 text-white backdrop-blur-md border border-zinc-800 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-500 text-white shrink-0">
+              <Sparkles className="w-4 h-4" />
+            </span>
+            <div>
+              <div className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
+                {selectedSources.length} Missed {selectedSources.length === 1 ? 'Lesson' : 'Lessons'} Selected
+              </div>
+              <div className="text-xs text-zinc-300 mt-0.5 truncate max-w-sm">
+                Target: {makeupDate ? formatRescheduleDate(makeupDate) : 'Select date'} {makeupBlockNumber ? `(Block ${makeupBlockNumber})` : ''}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {onSelectionClear && (
+              <button
+                type="button"
+                onClick={onSelectionClear}
+                className="px-3 py-1.5 rounded-xl border border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800 text-xs font-semibold transition-colors"
+              >
+                Clear
+              </button>
+            )}
+            {canMark && (
+              <button
+                type="button"
+                disabled={creating || makeupBlockNumber == null}
+                onClick={() => void handleCreate()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all disabled:opacity-50"
+              >
+                {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                Confirm Schedule
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <SlotAttendancePanel
         slot={attendanceSlot}
         dateIso={attendanceDateIso}

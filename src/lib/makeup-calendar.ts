@@ -14,47 +14,55 @@ export type MakeupSlotCellStatus =
 
 export const MAKEUP_STATUS_STYLES: Record<
   MakeupSlotCellStatus,
-  { card: string; accent: string; label: string }
+  { card: string; accent: string; label: string; badge: string }
 > = {
   conducted: {
-    card: 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-400 dark:border-emerald-600 text-emerald-950 dark:text-emerald-100',
+    card: 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-100',
     accent: 'bg-emerald-500',
     label: 'Conducted',
+    badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/70 dark:text-emerald-200',
   },
   missed: {
-    card: 'bg-rose-50 dark:bg-rose-950/50 border-rose-400 dark:border-rose-600 text-rose-950 dark:text-rose-100',
+    card: 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60 text-rose-950 dark:text-rose-100',
     accent: 'bg-rose-500',
     label: 'Not conducted',
+    badge: 'bg-rose-100 text-rose-800 dark:bg-rose-900/70 dark:text-rose-200',
   },
   upcoming: {
-    card: 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 opacity-90',
+    card: 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-800/50 text-amber-900 dark:text-amber-200',
     accent: 'bg-amber-400',
     label: 'Upcoming',
+    badge: 'bg-amber-100 text-amber-800 dark:bg-amber-900/70 dark:text-amber-200',
   },
   rescheduled: {
-    card: 'bg-purple-50 dark:bg-purple-950/50 border-purple-400 dark:border-purple-600 text-purple-950 dark:text-purple-100',
+    card: 'bg-purple-50/70 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800/60 text-purple-950 dark:text-purple-100',
     accent: 'bg-purple-500',
     label: 'Rescheduled',
+    badge: 'bg-purple-100 text-purple-800 dark:bg-purple-900/70 dark:text-purple-200',
   },
   made_up: {
-    card: 'bg-pink-50 dark:bg-pink-950/50 border-pink-400 dark:border-pink-600 text-pink-950 dark:text-pink-100',
+    card: 'bg-pink-50/70 dark:bg-pink-950/30 border-pink-200 dark:border-pink-800/60 text-pink-950 dark:text-pink-100',
     accent: 'bg-pink-500',
-    label: 'Makeup class',
+    label: 'Makeup Class',
+    badge: 'bg-pink-100 text-pink-800 dark:bg-pink-900/70 dark:text-pink-200',
   },
   makeup_upcoming: {
-    card: 'bg-pink-50 dark:bg-pink-950/50 border-pink-400 dark:border-pink-600 text-pink-950 dark:text-pink-100',
+    card: 'bg-pink-50/70 dark:bg-pink-950/30 border-pink-200 dark:border-pink-800/60 text-pink-950 dark:text-pink-100',
     accent: 'bg-pink-500',
-    label: 'Upcoming',
+    label: 'Scheduled Makeup',
+    badge: 'bg-pink-100 text-pink-800 dark:bg-pink-900/70 dark:text-pink-200',
   },
   off_day: {
-    card: 'bg-zinc-100/80 dark:bg-zinc-800/40 border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500',
+    card: 'bg-zinc-100/60 dark:bg-zinc-800/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-500',
     accent: 'bg-zinc-300 dark:bg-zinc-600',
     label: 'Off day',
+    badge: 'bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
   },
   skipped: {
-    card: 'bg-zinc-100 dark:bg-zinc-800/60 border-zinc-300 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400',
+    card: 'bg-zinc-100/70 dark:bg-zinc-800/40 border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400',
     accent: 'bg-zinc-400',
     label: 'Skipped',
+    badge: 'bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
   },
 };
 

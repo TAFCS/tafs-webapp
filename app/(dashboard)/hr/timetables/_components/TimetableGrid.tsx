@@ -177,77 +177,110 @@ export function TimetableGrid({
   return (
     <div className="space-y-3">
       {isMakeup && (
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-900/60 p-3 rounded-2xl">
-          <div className="flex items-center gap-2">
-            <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300">
-              <Calendar className="w-4 h-4" />
-            </span>
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                Reschedule Calendar View
-              </div>
-              <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                Week of {weekRangeLabel}
-                {statusWeekRefreshing && (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
-                )}
-              </div>
-              {academicYear && (
-                <div className="text-[10px] text-zinc-500 mt-0.5">
-                  Term starts August {academicYear.split("-")[0]}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-indigo-50/90 via-purple-50/50 to-white dark:from-indigo-950/40 dark:via-zinc-900 dark:to-zinc-900 border border-indigo-200/80 dark:border-indigo-900/60 p-3.5 rounded-2xl shadow-xs">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-600 text-white shadow-xs">
+                <Calendar className="w-5 h-5" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                    Reschedule Calendar View
+                  </span>
+                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                    makeupCalendarMode === "attendance"
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                      : "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300"
+                  }`}>
+                    {makeupCalendarMode === "attendance" ? "Attendance Mode" : "Schedule Mode"}
+                  </span>
                 </div>
+                <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 mt-0.5">
+                  Week of {weekRangeLabel}
+                  {statusWeekRefreshing && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {onMakeupCalendarModeChange && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onMakeupCalendarModeChange(
+                      makeupCalendarMode === "attendance" ? "schedule" : "attendance",
+                    )
+                  }
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-xs transition-all ${
+                    makeupCalendarMode === "attendance"
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-500/30"
+                      : "border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                  }`}
+                >
+                  {makeupCalendarMode === "attendance" ? "✓ Exit Attendance Mode" : "📋 Attendance Mode"}
+                </button>
               )}
+
+              <div className="flex items-center gap-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-1 shadow-xs">
+                <input
+                  type="date"
+                  value={mondayIso}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const mon = academicYear
+                        ? clampWeekMonday(getMondayUtc(e.target.value), academicYear)
+                        : getMondayUtc(e.target.value);
+                      onActiveWeekDateChange?.(mon);
+                    }
+                  }}
+                  className="text-xs bg-transparent text-zinc-700 dark:text-zinc-300 font-semibold px-2 py-0.5 focus:outline-none cursor-pointer"
+                  title="Jump to specific week"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => shiftWeek(-1)}
+                disabled={!canGoPrev}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Prev Week
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const mon = academicYear
+                    ? clampWeekMonday(getMondayUtc(today), academicYear)
+                    : getMondayUtc(today);
+                  onActiveWeekDateChange?.(mon);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors"
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => shiftWeek(1)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+              >
+                Next Week
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {onMakeupCalendarModeChange && (
-              <button
-                type="button"
-                onClick={() =>
-                  onMakeupCalendarModeChange(
-                    makeupCalendarMode === "attendance" ? "schedule" : "attendance",
-                  )
-                }
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition-colors ${
-                  makeupCalendarMode === "attendance"
-                    ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                    : "border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-                }`}
-              >
-                {makeupCalendarMode === "attendance" ? "Exit attendance" : "Attendance mode"}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => shiftWeek(-1)}
-              disabled={!canGoPrev}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Prev Week
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const today = new Date().toISOString().slice(0, 10);
-                const mon = academicYear
-                  ? clampWeekMonday(getMondayUtc(today), academicYear)
-                  : getMondayUtc(today);
-                onActiveWeekDateChange?.(mon);
-              }}
-              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-colors"
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => shiftWeek(1)}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
-            >
-              Next Week
-              <ChevronRight className="w-4 h-4" />
-            </button>
+          <div className="px-4 py-2 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 text-xs text-indigo-900 dark:text-indigo-200 flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2 font-medium">
+              <Info className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              {makeupCalendarMode === "attendance"
+                ? "Click any session card to mark or review student roll call attendance."
+                : "Click any red/missed cell to pick missed lesson(s), then choose a makeup date below or on the grid."}
+            </span>
           </div>
         </div>
       )}
@@ -406,8 +439,8 @@ export function TimetableGrid({
                                   </span>
                                 )}
                                 {cellStatus && (
-                                  <span className="absolute top-1 right-1 text-[8px] font-black uppercase tracking-wide opacity-70">
-                                    {MAKEUP_STATUS_STYLES[cellStatus].label}
+                                  <span className={`absolute top-1.5 right-1.5 text-[8.5px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded-md shadow-2xs ${statusStyle?.badge ?? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'}`}>
+                                    {statusStyle?.label}
                                   </span>
                                 )}
                                 <div className="pl-1.5 pr-4">
@@ -644,8 +677,9 @@ export function TimetableGrid({
         </table>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400 px-2 py-1">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs bg-zinc-50/80 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl px-4 py-3 shadow-xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mr-1">Status Legend:</span>
           {isMakeup ? (
             (
               [
@@ -656,27 +690,25 @@ export function TimetableGrid({
                 "made_up",
               ] as MakeupSlotCellStatus[]
             ).map((s) => (
-              <span key={s} className="flex items-center gap-1.5">
+              <span key={s} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-zinc-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-800/80 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 shadow-2xs">
                 <span
-                  className={`w-2.5 h-2.5 rounded-full ${MAKEUP_STATUS_STYLES[s].accent}`}
+                  className={`w-2 h-2 rounded-full ${MAKEUP_STATUS_STYLES[s].accent}`}
                 />
-                <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                  {MAKEUP_STATUS_STYLES[s].label}
-                </span>
+                <span>{MAKEUP_STATUS_STYLES[s].label}</span>
               </span>
             ))
           ) : (
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">Class slot</span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
+              <span>Standard Class Period</span>
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 text-[11px] text-zinc-400">
-          <Info className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+          <Info className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
           {isMakeup
-            ? "Green = conducted. Red = not conducted. Yellow = upcoming. Purple = rescheduled. Pink = makeup class."
-            : "Click any slot to edit or remove"}
+            ? "Click any card on the grid to manage missed lessons or roll call."
+            : "Click any period card to edit subject, teacher, or timing."}
         </div>
       </div>
     </div>

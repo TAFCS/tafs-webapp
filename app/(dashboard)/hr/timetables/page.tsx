@@ -621,12 +621,23 @@ function TimetablesPageContent() {
         </p>
       )}
 
-      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 backdrop-blur-sm p-5 space-y-4 shadow-sm dark:shadow-none">
+      <div className="rounded-2xl border border-zinc-200/90 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/80 backdrop-blur-md p-5 space-y-4 shadow-xs">
+        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-3">
+          <div className="text-xs font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            Timetable Scope Filters
+          </div>
+          {isScopeReady && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+              ✓ Ready
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
-              <MapPin className="w-3 h-3" />
-              Campus <span className="text-rose-500">*</span>
+              <MapPin className="w-3 h-3 text-rose-500" />
+              1. Campus <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
               <select
@@ -652,7 +663,7 @@ function TimetablesPageContent() {
             <label className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
               <span className="flex items-center gap-1">
                 <GraduationCap className="w-3 h-3 text-rose-500" />
-                Class <span className="text-rose-500">*</span>
+                2. Class <span className="text-rose-500">*</span>
               </span>
               {classId && (
                 <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold tracking-normal ${
@@ -688,7 +699,7 @@ function TimetablesPageContent() {
           {isALevel ? (
             <div>
               <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
-                Teaching Group <span className="text-rose-500">*</span>
+                3. Teaching Group <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <select
@@ -722,7 +733,7 @@ function TimetablesPageContent() {
           ) : (
             <div>
               <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
-                Section <span className="text-rose-500">*</span>
+                3. Section <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <select
@@ -754,7 +765,7 @@ function TimetablesPageContent() {
 
           <div>
             <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
-              Academic Year
+              4. Academic Year
             </label>
             <div className="relative">
               <select
