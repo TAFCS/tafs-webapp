@@ -2,7 +2,7 @@
 
 import { OLevelMakeupPanel } from './OLevelMakeupPanel';
 import { ALevelMakeupPanel } from './ALevelMakeupPanel';
-import type { TimetableSlot } from '@/lib/timetables.service';
+import type { TimetableBlock, TimetableSlot } from '@/lib/timetables.service';
 import type { TeachingGroup } from '@/lib/teaching-groups.service';
 import type { MakeupSlotCellStatus } from '@/lib/makeup-calendar';
 import type { SourceDatePresentStudent } from '@/lib/class-reschedules.service';
@@ -18,6 +18,7 @@ interface Props {
   selectedGroup?: TeachingGroup;
   effectiveFrom: string | null;
   slots: TimetableSlot[];
+  blocks: TimetableBlock[];
   canMarkStaff: boolean;
   canMarkRoll: boolean;
   canViewRoll: boolean;
@@ -51,6 +52,7 @@ export function MakeupReschedulePanel({
   selectedGroup,
   effectiveFrom,
   slots,
+  blocks,
   canMarkStaff,
   canMarkRoll,
   canViewRoll,
@@ -99,6 +101,7 @@ export function MakeupReschedulePanel({
         teachingGroupId={teachingGroupId}
         selectedGroup={selectedGroup}
         slots={slots}
+        blocks={blocks}
         canMark={canMarkRoll}
         canView={canViewRoll}
         selectedSources={alevelSelectedSources}

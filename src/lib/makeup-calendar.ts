@@ -108,6 +108,42 @@ export function cellStatusKey(slotId: number, dateIso: string): string {
   return `${slotId}|${dateIso}`;
 }
 
+export function blockCellStatusKey(blockNumber: number, dateIso: string): string {
+  return `block:${blockNumber}|${dateIso}`;
+}
+
+export type MakeupCalendarOverlay = {
+  dateIso: string;
+  blockNumber: number;
+  status: MakeupSlotCellStatus;
+  rescheduleId: number;
+};
+
+export function resolveMakeupOverlayStatus(
+  row: {
+    status: string;
+    makeup_date: string;
+    makeup_roll_session?: { status: string } | null;
+  },
+  todayIso: string = todayIsoUtc(),
+): MakeupSlotCellStatus {
+  const makeupIso = rescheduleDateIso(row.makeup_date);
+  if (row.status === 'COMPLETED' || row.makeup_roll_session?.status === 'SUBMITTED') {
+    return 'made_up';
+  }
+  if (makeupIso >= todayIso) return 'upcoming';
+  return 'missed';
+}
+
+export function hasRecurringSlotOnDate(
+  slots: Array<{ day_of_week: number; block_number: number }>,
+  dateIso: string,
+  blockNumber: number,
+): boolean {
+  const dow = new Date(`${dateIso}T00:00:00.000Z`).getUTCDay();
+  return slots.some((s) => s.day_of_week === dow && s.block_number === blockNumber);
+}
+
 export function formatWeekRangeLabel(mondayIso: string): string {
   const monday = new Date(`${mondayIso}T00:00:00.000Z`);
   const saturday = new Date(monday);

@@ -10,7 +10,7 @@ import {
   User,
   BookOpen,
 } from 'lucide-react';
-import type { TimetableSlot } from '@/lib/timetables.service';
+import type { TimetableBlock, TimetableSlot } from '@/lib/timetables.service';
 import type { TeachingGroup } from '@/lib/teaching-groups.service';
 import {
   classReschedulesService,
@@ -21,6 +21,7 @@ import { WEEKDAY_FULL } from '@/lib/weekday-dates';
 import type { MakeupSlotCellStatus } from '@/lib/makeup-calendar';
 import { formatRescheduleDate } from '@/lib/reschedule-ui';
 import { SlotAttendancePanel } from './SlotAttendancePanel';
+import { blockDisplayLabel } from './TimetableGrid';
 
 type SourcePick = { slotId: number; sourceDate: string };
 
@@ -30,6 +31,7 @@ interface Props {
   teachingGroupId: number;
   selectedGroup: TeachingGroup | undefined;
   slots: TimetableSlot[];
+  blocks: TimetableBlock[];
   canMark: boolean;
   canView: boolean;
   selectedSources: SourcePick[];
@@ -53,6 +55,7 @@ export function ALevelMakeupPanel({
   teachingGroupId,
   selectedGroup,
   slots,
+  blocks,
   canMark,
   canView,
   selectedSources,
@@ -126,28 +129,26 @@ export function ALevelMakeupPanel({
     [slots, makeupDayOfWeek],
   );
 
-  const allBlockNumbers = useMemo(
-    () => [...new Set(slots.map((s) => s.block_number))].sort((a, b) => a - b),
-    [slots],
+  const classBlocks = useMemo(
+    () =>
+      blocks
+        .filter((b) => !b.is_break)
+        .sort((a, b) => a.block_number - b.block_number),
+    [blocks],
   );
 
-  const makeupBlockOptions = useMemo(() => {
-    if (makeupDaySlots.length > 0) {
-      return makeupDaySlots.map((slot) => ({
-        blockNumber: slot.block_number,
-        slotId: slot.id,
-        label: `Block ${slot.block_number}${slot.room ? ` · ${slot.room}` : ''}`,
-      }));
-    }
-    return allBlockNumbers.map((blockNumber) => {
-      const example = slots.find((s) => s.block_number === blockNumber);
-      return {
-        blockNumber,
-        slotId: null as number | null,
-        label: `Block ${blockNumber}${example?.room ? ` · ${example.room}` : ''}`,
-      };
-    });
-  }, [makeupDaySlots, allBlockNumbers, slots]);
+  const makeupBlockOptions = useMemo(
+    () =>
+      classBlocks.map((block) => {
+        const daySlot = makeupDaySlots.find((s) => s.block_number === block.block_number);
+        return {
+          blockNumber: block.block_number,
+          slotId: daySlot?.id ?? null,
+          label: `Block ${block.block_number} (${blockDisplayLabel(block)})`,
+        };
+      }),
+    [classBlocks, makeupDaySlots],
+  );
 
   useEffect(() => {
     if (makeupBlockOptions.length === 0) {
@@ -423,7 +424,7 @@ export function ALevelMakeupPanel({
                 </label>
               ) : (
                 <p className="text-xs text-amber-700 dark:text-amber-300">
-                  No blocks found in this timetable — add slots in Schedule mode first.
+                  No class periods found — configure blocks in Schedule mode first.
                 </p>
               )}
 

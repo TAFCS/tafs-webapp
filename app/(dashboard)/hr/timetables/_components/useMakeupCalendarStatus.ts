@@ -1,16 +1,21 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { TimetableSlot } from '@/lib/timetables.service';
 import {
   classReschedulesService,
   ClassReschedule,
   SourceDatePresentStudent,
 } from '@/lib/class-reschedules.service';
 import {
+  blockCellStatusKey,
   cellStatusKey,
+  hasRecurringSlotOnDate,
   isValidRescheduleRow,
+  MakeupCalendarOverlay,
   MakeupSlotCellStatus,
   resolveMakeupCellStatus,
+  resolveMakeupOverlayStatus,
   RescheduleCellRole,
   weekDatesFromMonday,
 } from '@/lib/makeup-calendar';
@@ -18,6 +23,7 @@ import {
 interface Options {
   teachingGroupId: number | null;
   slotIds: number[];
+  slots: TimetableSlot[];
   weekMondayIso: string;
   enabled: boolean;
 }
@@ -26,6 +32,8 @@ function buildMaps(
   reschedules: ClassReschedule[],
   holdStatus: Awaited<ReturnType<typeof classReschedulesService.getSourceDateHoldStatus>>,
   slotIds: number[],
+  slots: TimetableSlot[],
+  weekDates: string[],
 ) {
   const holdByKey = new Map<string, string>();
   for (const row of holdStatus.dates) {
@@ -39,12 +47,14 @@ function buildMaps(
   }
 
   const rescheduleByKey = new Map<string, RescheduleCellRole>();
+  const makeupOverlays: MakeupCalendarOverlay[] = [];
+
   for (const row of reschedules) {
-    if (!isValidRescheduleRow(row)) continue;
+    if (row.status === 'CANCELLED') continue;
 
     const src = row.source_date.slice(0, 10);
     const sourceKey = cellStatusKey(row.source_timetable_slot_id, src);
-    if (holdByKey.get(sourceKey) !== 'held') {
+    if (isValidRescheduleRow(row) && holdByKey.get(sourceKey) !== 'held') {
       rescheduleByKey.set(sourceKey, {
         role: 'source',
         status: row.status === 'COMPLETED' ? 'COMPLETED' : 'SCHEDULED',
@@ -52,11 +62,42 @@ function buildMaps(
     }
 
     const makeup = row.makeup_date.slice(0, 10);
-    const makeupSlotId = row.makeup_timetable_slot_id ?? row.source_timetable_slot_id;
-    rescheduleByKey.set(cellStatusKey(makeupSlotId, makeup), {
-      role: 'makeup',
-      status: row.status === 'COMPLETED' ? 'COMPLETED' : 'SCHEDULED',
-    });
+    if (!weekDates.includes(makeup)) continue;
+
+    const blockNumber = row.makeup_period;
+    const overlayStatus = resolveMakeupOverlayStatus(row);
+    const onRecurringCell =
+      row.makeup_timetable_slot_id != null &&
+      hasRecurringSlotOnDate(slots, makeup, blockNumber);
+
+    if (onRecurringCell && row.makeup_timetable_slot_id != null) {
+      rescheduleByKey.set(cellStatusKey(row.makeup_timetable_slot_id, makeup), {
+        role: 'makeup',
+        status: row.status === 'COMPLETED' ? 'COMPLETED' : 'SCHEDULED',
+      });
+    } else {
+      const next: MakeupCalendarOverlay = {
+        dateIso: makeup,
+        blockNumber,
+        status: overlayStatus,
+        rescheduleId: row.id,
+      };
+      const existing = makeupOverlays.find(
+        (o) => o.dateIso === makeup && o.blockNumber === blockNumber,
+      );
+      if (
+        !existing ||
+        overlayStatus === 'made_up' ||
+        (overlayStatus === 'upcoming' && existing.status === 'missed')
+      ) {
+        if (existing) {
+          const idx = makeupOverlays.indexOf(existing);
+          makeupOverlays[idx] = next;
+        } else {
+          makeupOverlays.push(next);
+        }
+      }
+    }
   }
 
   const statusPatch: Record<string, MakeupSlotCellStatus> = {};
@@ -80,15 +121,21 @@ function buildMaps(
     }
   }
 
+  for (const overlay of makeupOverlays) {
+    statusPatch[blockCellStatusKey(overlay.blockNumber, overlay.dateIso)] = overlay.status;
+  }
+
   return {
     statusPatch,
     presentPatch,
+    makeupOverlays,
   };
 }
 
 export function useMakeupCalendarStatus({
   teachingGroupId,
   slotIds,
+  slots,
   weekMondayIso,
   enabled,
 }: Options) {
@@ -104,6 +151,7 @@ export function useMakeupCalendarStatus({
   const [presentByCell, setPresentByCell] = useState<
     Record<string, SourceDatePresentStudent[]>
   >({});
+  const [makeupOverlays, setMakeupOverlays] = useState<MakeupCalendarOverlay[]>([]);
   const [initialLoading, setInitialLoading] = useState(false);
   const [weekRefreshing, setWeekRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,9 +189,9 @@ export function useMakeupCalendarStatus({
         dates: dates.join(','),
       });
 
-      return buildMaps(reschedules, holdStatus, slotIds);
+      return buildMaps(reschedules, holdStatus, slotIds, slots, dates);
     },
-    [teachingGroupId, slotIdsKey],
+    [teachingGroupId, slotIdsKey, slots],
   );
 
   const applyWeekResult = useCallback(
@@ -151,6 +199,7 @@ export function useMakeupCalendarStatus({
       if (!result) return;
       setStatusByCell((prev) => ({ ...prev, ...result.statusPatch }));
       setPresentByCell((prev) => ({ ...prev, ...result.presentPatch }));
+      setMakeupOverlays(result.makeupOverlays);
     },
     [],
   );
@@ -159,6 +208,7 @@ export function useMakeupCalendarStatus({
     if (!enabled || !teachingGroupId || slotIds.length === 0) {
       setStatusByCell({});
       setPresentByCell({});
+      setMakeupOverlays([]);
       setError(null);
       setInitialLoading(false);
       setWeekRefreshing(false);
@@ -224,6 +274,7 @@ export function useMakeupCalendarStatus({
     weekDates,
     statusByCell,
     presentByCell,
+    makeupOverlays,
     loading: initialLoading,
     weekRefreshing,
     error,

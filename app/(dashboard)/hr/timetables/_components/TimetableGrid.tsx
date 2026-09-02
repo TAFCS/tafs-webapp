@@ -5,7 +5,9 @@ import { Plus, ChevronLeft, ChevronRight, Calendar, User, Info, MapPin, Loader2 
 import type { TimetableBlock, TimetableSlot } from "@/lib/timetables.service";
 import {
   MAKEUP_STATUS_STYLES,
+  type MakeupCalendarOverlay,
   type MakeupSlotCellStatus,
+  blockCellStatusKey,
   cellStatusKey,
   clampWeekMonday,
   formatDayHeader,
@@ -48,7 +50,8 @@ interface Props {
   interactionMode?: TimetableGridInteractionMode;
   pendingSlotIds?: number[];
   selectedMakeupSlotIds?: number[];
-  selectedMakeupCell?: { slotId: number; dateIso: string } | null;
+  selectedMakeupCell?: { slotId?: number | null; blockNumber?: number; dateIso: string } | null;
+  makeupOverlays?: MakeupCalendarOverlay[];
   selectedAttendanceCell?: { slotId: number; dateIso: string } | null;
   academicYear?: string;
   activeWeekDateIso?: string;
@@ -89,6 +92,7 @@ export function TimetableGrid({
   pendingSlotIds = [],
   selectedMakeupSlotIds = [],
   selectedMakeupCell = null,
+  makeupOverlays = [],
   selectedAttendanceCell = null,
   academicYear,
   activeWeekDateIso,
@@ -304,8 +308,10 @@ export function TimetableGrid({
                             const hasPending = pendingSet.has(slot.id);
                             const isWizardSelected = selectedSet.has(slot.id);
                             const isMakeupTarget =
-                              selectedMakeupCell?.slotId === slot.id &&
-                              selectedMakeupCell?.dateIso === dateIso;
+                              selectedMakeupCell?.dateIso === dateIso &&
+                              (selectedMakeupCell?.slotId === slot.id ||
+                                (selectedMakeupCell?.slotId == null &&
+                                  selectedMakeupCell?.blockNumber === block.block_number));
                             const isAttendanceSelected =
                               selectedAttendanceCell?.slotId === slot.id &&
                               selectedAttendanceCell?.dateIso === dateIso;
@@ -371,6 +377,73 @@ export function TimetableGrid({
                               </button>
                             );
                           })}
+                          {(() => {
+                            const overlay = makeupOverlays.find(
+                              (o) =>
+                                o.dateIso === dateIso &&
+                                o.blockNumber === block.block_number,
+                            );
+                            if (!overlay || cellSlots.length > 0) return null;
+
+                            const template =
+                              slots.find((s) => s.block_number === block.block_number) ??
+                              slots[0];
+                            if (!template) return null;
+
+                            const isMakeupTarget =
+                              selectedMakeupCell?.dateIso === dateIso &&
+                              selectedMakeupCell?.blockNumber === block.block_number;
+                            const overlayKey = blockCellStatusKey(
+                              block.block_number,
+                              dateIso,
+                            );
+                            const cellStatus =
+                              statusByCell[overlayKey] ?? overlay.status;
+                            const statusStyle = MAKEUP_STATUS_STYLES[cellStatus];
+                            const theme = getSubjectTheme(template.subjects?.name);
+
+                            return (
+                              <button
+                                key={`overlay-${overlay.rescheduleId}`}
+                                type="button"
+                                disabled={!onMakeupSlot || statusLoading}
+                                onClick={() =>
+                                  onMakeupSlot?.(
+                                    { ...template, block_number: block.block_number },
+                                    dateIso,
+                                  )
+                                }
+                                className={`text-left rounded-xl p-2.5 border border-dashed text-[11px] leading-snug transition-all relative group overflow-hidden ${
+                                  isMakeupTarget
+                                    ? "border-violet-500 dark:border-violet-400 bg-violet-50 dark:bg-violet-950/60 ring-2 ring-violet-500/50 shadow-sm cursor-pointer"
+                                    : `${statusStyle.card} hover:brightness-[0.98] dark:hover:brightness-110 cursor-pointer hover:shadow-sm`
+                                }`}
+                              >
+                                <span
+                                  className={`absolute left-0 top-0 bottom-0 w-1 ${statusStyle.accent}`}
+                                />
+                                <span className="absolute top-1 right-1 text-[8px] font-black uppercase tracking-wide opacity-70">
+                                  {MAKEUP_STATUS_STYLES[cellStatus].label}
+                                </span>
+                                <div className="pl-1.5 pr-4">
+                                  <div className="font-extrabold truncate tracking-tight uppercase text-[10.5px]">
+                                    {template.subjects?.name ??
+                                      `Subject #${template.subject_id}`}
+                                  </div>
+                                  <div className="flex items-center gap-1 text-zinc-600 dark:text-zinc-300 truncate mt-1 text-[10px] font-medium">
+                                    <User className="w-3 h-3 text-zinc-400 shrink-0" />
+                                    <span className="truncate">
+                                      {template.employee_profiles?.full_name ??
+                                        `Teacher #${template.employee_id}`}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-500/10 rounded-md px-1.5 py-0.5 uppercase tracking-wider">
+                                    Makeup class
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })()}
                         </div>
                       </td>
                     );

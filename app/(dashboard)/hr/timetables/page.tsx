@@ -36,6 +36,7 @@ import { MakeupReschedulePanel } from "./_components/MakeupReschedulePanel";
 import { useMakeupCalendarStatus } from "./_components/useMakeupCalendarStatus";
 import {
   cellStatusKey,
+  blockCellStatusKey,
   clampWeekMonday,
   getMondayUtc,
   todayIsoUtc,
@@ -235,6 +236,7 @@ function TimetablesPageContent() {
   const {
     statusByCell,
     presentByCell,
+    makeupOverlays,
     loading: statusLoading,
     weekRefreshing: statusWeekRefreshing,
     error: statusError,
@@ -242,6 +244,7 @@ function TimetablesPageContent() {
   } = useMakeupCalendarStatus({
     teachingGroupId: isALevel && teachingGroupId ? Number(teachingGroupId) : null,
     slotIds,
+    slots,
     weekMondayIso: activeWeekDate,
     enabled: pageMode === "makeup" && isALevel && isScopeReady,
   });
@@ -271,7 +274,9 @@ function TimetablesPageContent() {
       if (!isALevel || !dateIso) return;
 
       const key = cellStatusKey(slot.id, dateIso);
-      const cellStatus = statusByCell[key] ?? "missed";
+      const blockKey = blockCellStatusKey(slot.block_number, dateIso);
+      const cellStatus =
+        statusByCell[key] ?? statusByCell[blockKey] ?? "missed";
 
       if (cellStatus === "off_day") {
         return;
@@ -297,7 +302,7 @@ function TimetablesPageContent() {
 
       if (cellStatus === "upcoming" || dateIso >= todayIsoUtc()) {
         setMakeupTarget({
-          slotId: slot.id,
+          slotId: null,
           dateIso,
           blockNumber: slot.block_number,
         });
@@ -327,10 +332,10 @@ function TimetablesPageContent() {
         .filter((s) => s.day_of_week === dow)
         .sort((a, b) => a.block_number - b.block_number);
       const daySlot = daySlots[0];
-      const allBlocks = [...new Set(slots.map((s) => s.block_number))].sort(
-        (a, b) => a - b,
-      );
-      const blockNumber = daySlot?.block_number ?? allBlocks[0] ?? null;
+      const classBlocks = blocks
+        .filter((b) => !b.is_break)
+        .sort((a, b) => a.block_number - b.block_number);
+      const blockNumber = daySlot?.block_number ?? classBlocks[0]?.block_number ?? null;
       if (blockNumber != null) {
         setMakeupTarget({
           slotId: daySlot?.id ?? null,
@@ -345,7 +350,7 @@ function TimetablesPageContent() {
       const weekMonday = getMondayUtc(dateIso);
       setActiveWeekDate((prev) => clampWeekMonday(weekMonday, academicYear));
     },
-    [slots, academicYear],
+    [slots, blocks, academicYear],
   );
 
   const gridInteractionMode = useMemo(() => {
@@ -683,12 +688,16 @@ function TimetablesPageContent() {
                 : []
             }
             selectedMakeupCell={
-              pageMode === "makeup" && isALevel && makeupTarget?.slotId
+              pageMode === "makeup" && isALevel && makeupTarget
                 ? {
                     slotId: makeupTarget.slotId,
+                    blockNumber: makeupTarget.blockNumber,
                     dateIso: makeupTarget.dateIso,
                   }
                 : null
+            }
+            makeupOverlays={
+              pageMode === "makeup" && isALevel ? makeupOverlays : []
             }
             selectedAttendanceCell={
               pageMode === "makeup" && isALevel && attendanceTarget
@@ -719,6 +728,7 @@ function TimetablesPageContent() {
               selectedGroup={selectedGroup}
               effectiveFrom={effectiveFrom}
               slots={slots}
+              blocks={blocks}
               canMarkStaff={canMarkStaff}
               canMarkRoll={canMarkRoll}
               canViewRoll={canViewRoll}
