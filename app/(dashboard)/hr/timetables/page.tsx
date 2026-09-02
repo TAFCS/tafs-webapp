@@ -34,6 +34,7 @@ import {
 } from "./_components/TimetableModeToggle";
 import { MakeupReschedulePanel } from "./_components/MakeupReschedulePanel";
 import { useMakeupCalendarStatus } from "./_components/useMakeupCalendarStatus";
+import { classReschedulesService } from "@/lib/class-reschedules.service";
 import {
   cellStatusKey,
   blockCellStatusKey,
@@ -115,6 +116,7 @@ function TimetablesPageContent() {
   } | null>(null);
   const [makeupDate, setMakeupDate] = useState(() => todayIsoUtc());
   const [makeupBlockNumber, setMakeupBlockNumber] = useState<number | null>(null);
+  const [deletingMakeup, setDeletingMakeup] = useState(false);
 
   // URL deep-link prefill
   useEffect(() => {
@@ -266,6 +268,58 @@ function TimetablesPageContent() {
       );
     }
   }, [statusByCell, attendanceTarget]);
+
+  const clearMakeupSelection = useCallback(() => {
+    setAttendanceTarget(null);
+    setMakeupTarget(null);
+  }, []);
+
+  const handleDeleteMakeup = useCallback(
+    async (target?: { dateIso: string; blockNumber: number }) => {
+      const dateIso = target?.dateIso ?? attendanceTarget?.dateIso;
+      const period = target?.blockNumber ?? attendanceTarget?.slot.block_number;
+      if (!dateIso || period == null || !canMarkRoll || !teachingGroupId) {
+        return;
+      }
+      if (
+        !window.confirm(
+          "Cancel this makeup class? The missed lesson(s) will show as not conducted again on the calendar.",
+        )
+      ) {
+        return;
+      }
+      setDeletingMakeup(true);
+      try {
+        const rows = await classReschedulesService.list({
+          teaching_group_id: Number(teachingGroupId),
+          status: "SCHEDULED",
+        });
+        const bundle = rows.filter(
+          (row) =>
+            row.makeup_date.slice(0, 10) === dateIso && row.makeup_period === period,
+        );
+        if (bundle.length === 0) return;
+        for (const row of bundle) {
+          await classReschedulesService.cancel(row.id);
+        }
+        clearMakeupSelection();
+        void refreshCalendarStatus();
+      } catch {
+        // keep selection so user can retry
+      } finally {
+        setDeletingMakeup(false);
+      }
+    },
+    [
+      attendanceTarget,
+      canMarkRoll,
+      teachingGroupId,
+      clearMakeupSelection,
+      refreshCalendarStatus,
+    ],
+  );
+
+  const canDeleteSelectedMakeup = canMarkRoll;
 
   const handleMakeupSlotClick = useCallback(
     (slot: TimetableSlot, dateIso?: string) => {
@@ -707,6 +761,7 @@ function TimetablesPageContent() {
                 ? {
                     slotId: attendanceTarget.slot.id,
                     dateIso: attendanceTarget.dateIso,
+                    blockNumber: attendanceTarget.slot.block_number,
                   }
                 : null
             }
@@ -719,6 +774,9 @@ function TimetablesPageContent() {
             onAdd={openAdd}
             onEdit={openEdit}
             onMakeupSlot={pageMode === "makeup" && supportsMakeup ? handleMakeupSlotClick : undefined}
+            canDeleteMakeup={canDeleteSelectedMakeup}
+            deletingMakeup={deletingMakeup}
+            onDeleteMakeup={(target) => void handleDeleteMakeup(target)}
           />
 
           {pageMode === "makeup" && supportsMakeup && (
@@ -777,8 +835,7 @@ function TimetablesPageContent() {
               }
               onAttendanceSaved={() => void refreshCalendarStatus()}
               onMakeupDeleted={() => {
-                setAttendanceTarget(null);
-                setMakeupTarget(null);
+                clearMakeupSelection();
                 void refreshCalendarStatus();
               }}
             />

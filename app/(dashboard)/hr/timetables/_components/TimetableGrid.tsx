@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Plus, ChevronLeft, ChevronRight, Calendar, User, Info, MapPin, Loader2 } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Calendar, User, Info, MapPin, Loader2, Trash2 } from "lucide-react";
 import type { TimetableBlock, TimetableSlot } from "@/lib/timetables.service";
 import {
   MAKEUP_STATUS_STYLES,
@@ -52,7 +52,7 @@ interface Props {
   selectedMakeupSlotIds?: number[];
   selectedMakeupCell?: { slotId?: number | null; blockNumber?: number; dateIso: string } | null;
   makeupOverlays?: MakeupCalendarOverlay[];
-  selectedAttendanceCell?: { slotId: number; dateIso: string } | null;
+  selectedAttendanceCell?: { slotId: number; dateIso: string; blockNumber?: number } | null;
   academicYear?: string;
   activeWeekDateIso?: string;
   onActiveWeekDateChange?: (mondayIso: string) => void;
@@ -62,6 +62,9 @@ interface Props {
   onAdd: (dayOfWeek: number, blockNumber: number, slotOrder: number) => void;
   onEdit: (slot: TimetableSlot) => void;
   onMakeupSlot?: (slot: TimetableSlot, dateIso: string) => void;
+  canDeleteMakeup?: boolean;
+  deletingMakeup?: boolean;
+  onDeleteMakeup?: (target: { dateIso: string; blockNumber: number }) => void;
 }
 
 function getSubjectTheme(name?: string) {
@@ -103,10 +106,16 @@ export function TimetableGrid({
   onAdd,
   onEdit,
   onMakeupSlot,
+  canDeleteMakeup = false,
+  deletingMakeup = false,
+  onDeleteMakeup,
 }: Props) {
   const isMakeup = interactionMode === "makeup";
   const pendingSet = useMemo(() => new Set(pendingSlotIds), [pendingSlotIds]);
   const selectedSet = useMemo(() => new Set(selectedMakeupSlotIds), [selectedMakeupSlotIds]);
+
+  const showMakeupDelete = (cellStatus: MakeupSlotCellStatus | undefined) =>
+    canDeleteMakeup && cellStatus === "makeup_upcoming";
 
   const minMondayIso = useMemo(
     () => (academicYear ? minWeekMondayForAcademicYear(academicYear) : null),
@@ -313,8 +322,9 @@ export function TimetableGrid({
                                 (selectedMakeupCell?.slotId == null &&
                                   selectedMakeupCell?.blockNumber === block.block_number));
                             const isAttendanceSelected =
-                              selectedAttendanceCell?.slotId === slot.id &&
-                              selectedAttendanceCell?.dateIso === dateIso;
+                              selectedAttendanceCell?.dateIso === dateIso &&
+                              (selectedAttendanceCell?.blockNumber === block.block_number ||
+                                selectedAttendanceCell?.slotId === slot.id);
                             const slotClickable = Boolean(onMakeupSlot);
                             const cellKey = cellStatusKey(slot.id, dateIso);
                             const cellStatus = statusByCell[cellKey];
@@ -322,20 +332,33 @@ export function TimetableGrid({
                               ? MAKEUP_STATUS_STYLES[cellStatus]
                               : null;
                             const theme = statusStyle ?? getSubjectTheme(slot.subjects?.name);
+                            const isSelected = isAttendanceSelected || isMakeupTarget;
+                            const showDelete = showMakeupDelete(cellStatus);
 
                             return (
-                              <button
+                              <div
                                 key={slot.id}
+                                className={`rounded-xl transition-all relative overflow-hidden ${
+                                  isAttendanceSelected
+                                    ? "ring-2 ring-emerald-500/50 shadow-sm"
+                                    : isMakeupTarget
+                                      ? "ring-2 ring-violet-500/50 shadow-sm"
+                                      : isWizardSelected
+                                        ? "ring-2 ring-indigo-500/50 shadow-sm"
+                                        : ""
+                                }`}
+                              >
+                              <button
                                 type="button"
                                 disabled={!slotClickable || (statusLoading && !cellStatus)}
                                 onClick={() => onMakeupSlot?.(slot, dateIso)}
-                                className={`text-left rounded-xl p-2.5 border text-[11px] leading-snug transition-all relative group overflow-hidden ${
+                                className={`w-full text-left rounded-xl p-2.5 border text-[11px] leading-snug transition-all relative group overflow-hidden ${
                                   isAttendanceSelected
-                                    ? "border-emerald-500 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 ring-2 ring-emerald-500/50 shadow-sm cursor-pointer"
+                                    ? "border-emerald-500 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 cursor-pointer"
                                     : isMakeupTarget
-                                      ? "border-violet-500 dark:border-violet-400 bg-violet-50 dark:bg-violet-950/60 ring-2 ring-violet-500/50 shadow-sm cursor-pointer"
+                                      ? "border-violet-500 dark:border-violet-400 bg-violet-50 dark:bg-violet-950/60 cursor-pointer"
                                       : isWizardSelected
-                                        ? "border-indigo-500 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 ring-2 ring-indigo-500/50 shadow-sm cursor-pointer"
+                                        ? "border-indigo-500 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 cursor-pointer"
                                         : `${theme.card} hover:brightness-[0.98] dark:hover:brightness-110 cursor-pointer hover:shadow-sm`
                                 }`}
                               >
@@ -375,6 +398,28 @@ export function TimetableGrid({
                                   )}
                                 </div>
                               </button>
+                              {showDelete && (
+                                <button
+                                  type="button"
+                                  disabled={deletingMakeup}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    onDeleteMakeup?.({
+                                      dateIso,
+                                      blockNumber: block.block_number,
+                                    });
+                                  }}
+                                  className="w-full flex items-center justify-center gap-1 mt-1 px-2 py-1.5 rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-rose-950/60 text-[10px] font-bold uppercase tracking-wide text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950 disabled:opacity-50"
+                                >
+                                  {deletingMakeup ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-3 h-3" />
+                                  )}
+                                  Cancel makeup
+                                </button>
+                              )}
+                              </div>
                             );
                           })}
                           {(() => {
@@ -393,6 +438,10 @@ export function TimetableGrid({
                             const isMakeupTarget =
                               selectedMakeupCell?.dateIso === dateIso &&
                               selectedMakeupCell?.blockNumber === block.block_number;
+                            const isAttendanceSelected =
+                              selectedAttendanceCell?.dateIso === dateIso &&
+                              (selectedAttendanceCell?.blockNumber === block.block_number ||
+                                selectedAttendanceCell?.slotId === template.id);
                             const overlayKey = blockCellStatusKey(
                               block.block_number,
                               dateIso,
@@ -400,11 +449,21 @@ export function TimetableGrid({
                             const cellStatus =
                               statusByCell[overlayKey] ?? overlay.status;
                             const statusStyle = MAKEUP_STATUS_STYLES[cellStatus];
-                            const theme = getSubjectTheme(template.subjects?.name);
+                            const isSelected = isAttendanceSelected || isMakeupTarget;
+                            const showDelete = showMakeupDelete(cellStatus);
 
                             return (
-                              <button
+                              <div
                                 key={`overlay-${overlay.rescheduleId}`}
+                                className={`rounded-xl border border-dashed transition-all overflow-hidden ${
+                                  isSelected
+                                    ? isAttendanceSelected
+                                      ? "border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-500/50 shadow-sm"
+                                      : "border-violet-500 dark:border-violet-400 ring-2 ring-violet-500/50 shadow-sm"
+                                    : statusStyle.card
+                                }`}
+                              >
+                              <button
                                 type="button"
                                 disabled={!onMakeupSlot || statusLoading}
                                 onClick={() =>
@@ -413,10 +472,12 @@ export function TimetableGrid({
                                     dateIso,
                                   )
                                 }
-                                className={`text-left rounded-xl p-2.5 border border-dashed text-[11px] leading-snug transition-all relative group overflow-hidden ${
-                                  isMakeupTarget
-                                    ? "border-violet-500 dark:border-violet-400 bg-violet-50 dark:bg-violet-950/60 ring-2 ring-violet-500/50 shadow-sm cursor-pointer"
-                                    : `${statusStyle.card} hover:brightness-[0.98] dark:hover:brightness-110 cursor-pointer hover:shadow-sm`
+                                className={`w-full text-left rounded-t-xl p-2.5 text-[11px] leading-snug transition-all relative group overflow-hidden ${
+                                  isSelected
+                                    ? isAttendanceSelected
+                                      ? "bg-emerald-50 dark:bg-emerald-950/60 cursor-pointer"
+                                      : "bg-violet-50 dark:bg-violet-950/60 cursor-pointer"
+                                    : "hover:brightness-[0.98] dark:hover:brightness-110 cursor-pointer hover:shadow-sm"
                                 }`}
                               >
                                 <span
@@ -442,6 +503,30 @@ export function TimetableGrid({
                                   </div>
                                 </div>
                               </button>
+                              {showDelete && (
+                                <div className="px-2 pb-2">
+                                  <button
+                                    type="button"
+                                    disabled={deletingMakeup}
+                                    onClick={(event) => {
+                                    event.stopPropagation();
+                                    onDeleteMakeup?.({
+                                      dateIso,
+                                      blockNumber: block.block_number,
+                                    });
+                                  }}
+                                    className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-rose-950/60 text-[10px] font-bold uppercase tracking-wide text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950 disabled:opacity-50"
+                                  >
+                                    {deletingMakeup ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-3 h-3" />
+                                    )}
+                                    Cancel makeup
+                                  </button>
+                                </div>
+                              )}
+                              </div>
                             );
                           })()}
                         </div>

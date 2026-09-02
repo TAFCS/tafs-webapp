@@ -82,48 +82,72 @@ export function SlotAttendancePanel({
   });
 
   const statusMeta = cellStatus ? MAKEUP_STATUS_STYLES[cellStatus] : null;
-  const canDeleteMakeup =
+  const canCancelReschedule =
     canMark &&
     rescheduleLink?.status === 'SCHEDULED' &&
-    (cellStatus === 'makeup_upcoming' ||
-      (cellStatus === 'rescheduled' && rescheduleLink.role === 'source'));
+    cellStatus === 'rescheduled' &&
+    rescheduleLink.role === 'source';
+  const canCancelMakeup = canMark && cellStatus === 'makeup_upcoming';
 
-  const handleDeleteMakeup = async () => {
-    if (!rescheduleLink || !canDeleteMakeup) return;
-    const label =
-      rescheduleLink.role === 'makeup'
-        ? 'Delete this makeup class?'
-        : 'Cancel this reschedule?';
-    const detail =
-      rescheduleLink.role === 'makeup'
-        ? 'The missed lesson(s) will show as not conducted again on the calendar.'
-        : 'The makeup class will be removed and this lesson will show as not conducted again.';
-    if (!window.confirm(`${label} ${detail}`)) return;
+  const cancelMakeupBundle = async () => {
+    if (!slot || !dateIso) return;
+    const rows = await classReschedulesService.list({
+      teaching_group_id: teachingGroupId,
+      status: 'SCHEDULED',
+    });
+    const bundle = rows.filter(
+      (row) =>
+        row.makeup_date.slice(0, 10) === dateIso &&
+        row.makeup_period === slot.block_number,
+    );
+    for (const row of bundle) {
+      await classReschedulesService.cancel(row.id);
+    }
+  };
+
+  const handleCancelReschedule = async () => {
+    if (!rescheduleLink || !canCancelReschedule) return;
+    if (
+      !window.confirm(
+        'Cancel this reschedule? The makeup class will be removed and this lesson will show as not conducted again.',
+      )
+    ) {
+      return;
+    }
 
     setDeleting(true);
     setDeleteError(null);
     try {
-      if (rescheduleLink.role === 'makeup') {
-        const rows = await classReschedulesService.list({
-          teaching_group_id: teachingGroupId,
-          status: 'SCHEDULED',
-        });
-        const bundle = rows.filter(
-          (row) =>
-            row.makeup_date.slice(0, 10) === rescheduleLink.makeupDate &&
-            row.makeup_period === rescheduleLink.makeupPeriod,
-        );
-        for (const row of bundle) {
-          await classReschedulesService.cancel(row.id);
-        }
-      } else {
-        await classReschedulesService.cancel(rescheduleLink.rescheduleId);
-      }
+      await classReschedulesService.cancel(rescheduleLink.rescheduleId);
       onMakeupDeleted?.();
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setDeleteError(msg || 'Failed to delete makeup class.');
+      setDeleteError(msg || 'Failed to cancel reschedule.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCancelMakeup = async () => {
+    if (!canCancelMakeup) return;
+    if (
+      !window.confirm(
+        'Cancel this makeup class? The missed lesson(s) will show as not conducted again on the calendar.',
+      )
+    ) {
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await cancelMakeupBundle();
+      onMakeupDeleted?.();
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setDeleteError(msg || 'Failed to cancel makeup class.');
     } finally {
       setDeleting(false);
     }
@@ -161,11 +185,13 @@ export function SlotAttendancePanel({
             </span>
           )}
         </div>
-        {canDeleteMakeup && (
+        {(canCancelReschedule || canCancelMakeup) && (
           <button
             type="button"
             disabled={deleting || saving || reverting}
-            onClick={() => void handleDeleteMakeup()}
+            onClick={() =>
+              void (canCancelMakeup ? handleCancelMakeup() : handleCancelReschedule())
+            }
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-50"
           >
             {deleting ? (
@@ -173,7 +199,7 @@ export function SlotAttendancePanel({
             ) : (
               <Trash2 className="h-3.5 w-3.5" />
             )}
-            {rescheduleLink?.role === 'makeup' ? 'Delete makeup class' : 'Cancel reschedule'}
+            {canCancelMakeup ? 'Cancel makeup' : 'Cancel reschedule'}
           </button>
         )}
       </div>
