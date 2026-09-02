@@ -43,6 +43,7 @@ import {
   SourceDateHoldStatus,
   SourceDateHoldStatusRow,
 } from "@/lib/class-reschedules.service";
+import { timetablesMakeupHref } from "@/lib/reschedule-ui";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -1283,6 +1284,12 @@ function RollCallPageInner() {
 
   const selectedGroup = groups.find((g) => String(g.id) === teachingGroupId);
 
+  const timetablesMakeupLink = timetablesMakeupHref({
+    campusId: lockedCampusId || undefined,
+    classId: classId || undefined,
+    teachingGroupId: teachingGroupId || undefined,
+  });
+
   return (
     <div className="pb-28 sm:pb-8 max-w-4xl mx-auto space-y-6">
       {/* Top Header */}
@@ -1305,11 +1312,11 @@ function RollCallPageInner() {
 
         <div className="flex items-center gap-2 shrink-0">
           <Link
-            href="/hr/class-reschedules"
+            href={timetablesMakeupLink}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors shadow-sm"
           >
             <History className="h-3.5 w-3.5 text-indigo-500" />
-            Reschedules Log
+            Manage on Timetables
           </Link>
 
           <button

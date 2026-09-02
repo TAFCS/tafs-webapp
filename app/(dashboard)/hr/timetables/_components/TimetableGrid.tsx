@@ -26,15 +26,34 @@ export function blockDisplayLabel(block: TimetableBlock): string {
   return `${formatBlockTime(block.start_time)}–${formatBlockTime(block.end_time)}`;
 }
 
+export type TimetableGridInteractionMode = 'edit' | 'makeup' | 'view';
+
 interface Props {
   blocks: TimetableBlock[];
   slots: TimetableSlot[];
   canEdit: boolean;
+  interactionMode?: TimetableGridInteractionMode;
+  pendingSlotIds?: number[];
+  selectedMakeupSlotIds?: number[];
   onAdd: (dayOfWeek: number, blockNumber: number, slotOrder: number) => void;
   onEdit: (slot: TimetableSlot) => void;
+  onMakeupSlot?: (slot: TimetableSlot) => void;
 }
 
-export function TimetableGrid({ blocks, slots, canEdit, onAdd, onEdit }: Props) {
+export function TimetableGrid({
+  blocks,
+  slots,
+  canEdit,
+  interactionMode = 'edit',
+  pendingSlotIds = [],
+  selectedMakeupSlotIds = [],
+  onAdd,
+  onEdit,
+  onMakeupSlot,
+}: Props) {
+  const isMakeup = interactionMode === 'makeup';
+  const pendingSet = new Set(pendingSlotIds);
+  const selectedSet = new Set(selectedMakeupSlotIds);
   function slotsFor(day: number, block: number): TimetableSlot[] {
     return slots
       .filter((s) => s.day_of_week === day && s.block_number === block)
@@ -97,18 +116,34 @@ export function TimetableGrid({ blocks, slots, canEdit, onAdd, onEdit }: Props) 
                     className="px-2 py-2 border-b border-zinc-200 dark:border-zinc-800 min-w-[130px]"
                   >
                     <div className="flex flex-col gap-1.5 min-h-[56px]">
-                      {cellSlots.map((slot) => (
+                      {cellSlots.map((slot) => {
+                        const hasPending = pendingSet.has(slot.id);
+                        const isSelected = selectedSet.has(slot.id);
+                        const slotClickable = isMakeup ? Boolean(onMakeupSlot) : canEdit;
+                        return (
                         <button
                           key={slot.id}
                           type="button"
-                          disabled={!canEdit}
-                          onClick={() => canEdit && onEdit(slot)}
-                          className={`text-left rounded-xl px-2.5 py-2 border text-[11px] leading-snug transition-all ${
-                            canEdit
+                          disabled={!slotClickable}
+                          onClick={() => {
+                            if (isMakeup && onMakeupSlot) onMakeupSlot(slot);
+                            else if (canEdit) onEdit(slot);
+                          }}
+                          className={`text-left rounded-xl px-2.5 py-2 border text-[11px] leading-snug transition-all relative ${
+                            isMakeup
+                              ? isSelected
+                                ? "border-indigo-500 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 ring-2 ring-indigo-400/40 cursor-pointer"
+                                : hasPending
+                                  ? "border-amber-300 dark:border-amber-700 bg-amber-50/80 dark:bg-amber-950/40 hover:border-amber-400 cursor-pointer"
+                                  : "border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/50 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 cursor-pointer"
+                              : canEdit
                               ? "border-rose-200 dark:border-rose-800/50 bg-rose-50/70 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-950/70 hover:border-rose-300 dark:hover:border-rose-700/60 cursor-pointer active:scale-[0.98]"
                               : "border-zinc-200 dark:border-zinc-700/60 bg-zinc-55 dark:bg-zinc-800/40 cursor-default"
                           }`}
                         >
+                          {hasPending && isMakeup && (
+                            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-zinc-900" />
+                          )}
                           <div className="font-bold text-rose-950 dark:text-zinc-100 truncate tracking-wide uppercase text-[10px]">
                             {slot.subjects?.name ?? `Subject #${slot.subject_id}`}
                           </div>
@@ -121,9 +156,10 @@ export function TimetableGrid({ blocks, slots, canEdit, onAdd, onEdit }: Props) 
                             </div>
                           )}
                         </button>
-                      ))}
+                        );
+                      })}
 
-                      {canEdit && cellSlots.length === 0 && (
+                      {!isMakeup && canEdit && cellSlots.length === 0 && (
                         <button
                           type="button"
                           onClick={() => onAdd(d.dow, block.block_number, 1)}
@@ -134,7 +170,7 @@ export function TimetableGrid({ blocks, slots, canEdit, onAdd, onEdit }: Props) 
                         </button>
                       )}
 
-                      {canEdit && maxSlotOrder >= 1 && maxSlotOrder < 3 && (
+                      {!isMakeup && canEdit && maxSlotOrder >= 1 && maxSlotOrder < 3 && (
                         <button
                           type="button"
                           onClick={() => onAdd(d.dow, block.block_number, nextSlotOrder)}

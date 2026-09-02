@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   CalendarRange,
@@ -25,7 +26,13 @@ import { DAYS, TimetableGrid, blockDisplayLabel } from "./_components/TimetableG
 import { SlotEditorModal, SlotEditorTarget } from "./_components/SlotEditorModal";
 import { PeriodEditor } from "./_components/PeriodEditor";
 import { isAsA2Class } from "@/lib/alevel-classes";
+import { isOLevelClass } from "@/lib/olevel-classes";
 import type { CampusClass } from "@/store/slices/campusesSlice";
+import {
+  TimetableModeToggle,
+  type TimetablePageMode,
+} from "./_components/TimetableModeToggle";
+import { MakeupReschedulePanel } from "./_components/MakeupReschedulePanel";
 
 const ACADEMIC_YEARS = getAcademicYears(1, 2);
 
@@ -33,6 +40,7 @@ export default function TimetablesPage() {
   const dispatch = useAppDispatch();
   const campuses = useAppSelector((s) => s.campuses.items);
   const { user } = useAuthState();
+  const searchParams = useSearchParams();
 
   const canEdit =
     user?.permissions?.includes("hr.timetable.manage") ||
@@ -41,7 +49,21 @@ export default function TimetablesPage() {
     canEdit ||
     user?.permissions?.includes("hr.timetable.view") ||
     user?.role === "SUPER_ADMIN";
+  const canMarkStaff =
+    user?.permissions?.includes("attendance.staff.mark") ||
+    user?.role === "SUPER_ADMIN";
+  const canMarkRoll =
+    user?.permissions?.includes("attendance.student.rollcall.mark") ||
+    user?.role === "SUPER_ADMIN";
+  const canViewRoll =
+    canMarkRoll ||
+    user?.permissions?.includes("attendance.student.rollcall.view") ||
+    user?.role === "SUPER_ADMIN";
+  const canEditLocked =
+    user?.role === "SUPER_ADMIN" ||
+    (user?.permissions ?? []).includes("attendance.student.edit_locked");
 
+  const [pageMode, setPageMode] = useState<TimetablePageMode>("schedule");
   const [campusId, setCampusId] = useState(user?.campusId ? String(user.campusId) : "");
   const [classId, setClassId] = useState("");
   const [teachingGroupId, setTeachingGroupId] = useState("");
@@ -52,9 +74,27 @@ export default function TimetablesPage() {
   const [blocks, setBlocks] = useState<TimetableBlock[]>([]);
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
   const [timetableId, setTimetableId] = useState<number | null>(null);
+  const [effectiveFrom, setEffectiveFrom] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editor, setEditor] = useState<SlotEditorTarget | null>(null);
+  const [makeupSlot, setMakeupSlot] = useState<TimetableSlot | null>(null);
+  const [pendingSlotIds, setPendingSlotIds] = useState<number[]>([]);
+  const [alevelSelectedSlotIds, setAlevelSelectedSlotIds] = useState<number[]>([]);
+
+  // URL deep-link prefill
+  useEffect(() => {
+    const mode = searchParams.get("mode");
+    if (mode === "makeup") setPageMode("makeup");
+    const qpCampus = searchParams.get("campus_id");
+    const qpClass = searchParams.get("class_id");
+    const qpSection = searchParams.get("section_id");
+    const qpGroup = searchParams.get("teaching_group_id");
+    if (qpCampus) setCampusId(qpCampus);
+    if (qpClass) setClassId(qpClass);
+    if (qpSection) setSectionId(qpSection);
+    if (qpGroup) setTeachingGroupId(qpGroup);
+  }, [searchParams]);
 
   useEffect(() => {
     dispatch(fetchCampuses());
@@ -66,29 +106,39 @@ export default function TimetablesPage() {
     }
   }, [campuses, campusId, user?.campusId]);
 
-  // Only AS/A2 (A-Level) classes use the cross-section Teaching Group model.
-  // Every other class/segment (O-Level, other classes, sports staff, etc.)
-  // schedules directly against its own campus+class+section timetable —
-  // no Teaching Group container required.
   const selectedCampus = campuses.find((c) => String(c.id) === campusId);
   const availableClasses: CampusClass[] = selectedCampus?.offered_classes ?? [];
   const selectedClass = availableClasses.find((c) => String(c.id) === classId);
   const isALevel = selectedClass ? isAsA2Class(selectedClass) : false;
+  const isOLevel = classId ? isOLevelClass(Number(classId)) : false;
+  const supportsMakeup = isALevel || isOLevel;
   const selectedGroup = groups.find((g) => String(g.id) === teachingGroupId);
   const availableSections = selectedClass?.sections?.filter((s) => s.is_active) ?? [];
 
-  // Reset teaching group/section when class changes
+  const showMakeupTab =
+    supportsMakeup &&
+    (isOLevel ? canMarkStaff : canViewRoll);
+
   useEffect(() => {
     setTeachingGroupId("");
     setSectionId("");
+    setMakeupSlot(null);
+    setAlevelSelectedSlotIds([]);
   }, [classId]);
 
-  // Reset class/group/section when campus changes
   useEffect(() => {
     setClassId("");
     setTeachingGroupId("");
     setSectionId("");
+    setMakeupSlot(null);
+    setAlevelSelectedSlotIds([]);
   }, [campusId]);
+
+  useEffect(() => {
+    if (!showMakeupTab && pageMode === "makeup") {
+      setPageMode("schedule");
+    }
+  }, [showMakeupTab, pageMode]);
 
   useEffect(() => {
     if (!isALevel || !campusId || !classId) {
@@ -133,11 +183,13 @@ export default function TimetablesPage() {
       setBlocks(grid.blocks);
       setSlots(grid.slots);
       setTimetableId(grid.timetable?.id ?? null);
+      setEffectiveFrom(grid.timetable?.effective_from ?? null);
     } catch (e: any) {
       setError(e?.response?.data?.message || e.message || "Failed to load timetable");
       setBlocks([]);
       setSlots([]);
       setTimetableId(null);
+      setEffectiveFrom(null);
     } finally {
       setLoading(false);
     }
@@ -146,6 +198,29 @@ export default function TimetablesPage() {
   useEffect(() => {
     loadGrid();
   }, [loadGrid]);
+
+  const handlePendingSlotIdsChange = useCallback((ids: number[]) => {
+    setPendingSlotIds(ids);
+  }, []);
+
+  const handleMakeupSlotClick = useCallback(
+    (slot: TimetableSlot) => {
+      if (isOLevel) {
+        setMakeupSlot(slot);
+      } else if (isALevel) {
+        setAlevelSelectedSlotIds((prev) =>
+          prev.includes(slot.id) ? prev.filter((id) => id !== slot.id) : [...prev, slot.id],
+        );
+      }
+    },
+    [isOLevel, isALevel],
+  );
+
+  const gridInteractionMode = useMemo(() => {
+    if (pageMode === "makeup") return "makeup" as const;
+    if (canEdit) return "edit" as const;
+    return "view" as const;
+  }, [pageMode, canEdit]);
 
   async function ensureTimetableId(): Promise<number> {
     if (timetableId) return timetableId;
@@ -219,9 +294,17 @@ export default function TimetablesPage() {
     );
   }
 
+  const subtitle =
+    pageMode === "makeup"
+      ? isALevel
+        ? "Schedule A-Level makeup classes — take student attendance on Roll Call when the makeup is held."
+        : "Schedule O-Level missed lessons — confirm makeup held to excuse teacher on Staff Register."
+      : isALevel
+        ? "Weekly schedule for a teaching group (subject + teacher). Edits apply going forward."
+        : "Weekly schedule for a class/section. Pick any subject + teacher per slot. Edits apply going forward.";
+
   return (
     <div className="p-6 space-y-6 max-w-[1400px]">
-      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2.5">
@@ -230,11 +313,7 @@ export default function TimetablesPage() {
             </span>
             Timetables
           </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1.5 ml-11">
-            {isALevel
-              ? "Weekly schedule for a teaching group (subject + teacher). Edits apply going forward."
-              : "Weekly schedule for a class/section. Pick any subject + teacher per slot. Edits apply going forward."}
-          </p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1.5 ml-11">{subtitle}</p>
         </div>
         <button
           type="button"
@@ -247,11 +326,20 @@ export default function TimetablesPage() {
         </button>
       </div>
 
-      {/* Scope Card */}
+      <TimetableModeToggle
+        mode={pageMode}
+        onChange={setPageMode}
+        showMakeup={showMakeupTab}
+      />
+
+      {pageMode === "makeup" && !supportsMakeup && classId && (
+        <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-xl px-4 py-2.5">
+          Makeup reschedules are only available for O-Level (OI/OII/OIII) and A-Level (AS/A2) classes.
+        </p>
+      )}
+
       <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 backdrop-blur-sm p-5 space-y-4 shadow-sm dark:shadow-none">
-        {/* Campus · Class · Teaching Group/Section · Academic Year */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Campus */}
           <div>
             <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
               <MapPin className="w-3 h-3" />
@@ -277,7 +365,6 @@ export default function TimetablesPage() {
             </div>
           </div>
 
-          {/* Class */}
           <div>
             <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
               <GraduationCap className="w-3 h-3" />
@@ -304,7 +391,6 @@ export default function TimetablesPage() {
             </div>
           </div>
 
-          {/* Teaching Group (A-Level only) / Section (everyone else) */}
           {isALevel ? (
             <div>
               <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
@@ -316,6 +402,7 @@ export default function TimetablesPage() {
                   onChange={(e) => {
                     setTeachingGroupId(e.target.value);
                     setTimetableId(null);
+                    setAlevelSelectedSlotIds([]);
                   }}
                   disabled={!classId || groupsLoading}
                   className={selectCls}
@@ -348,6 +435,7 @@ export default function TimetablesPage() {
                   onChange={(e) => {
                     setSectionId(e.target.value);
                     setTimetableId(null);
+                    setMakeupSlot(null);
                   }}
                   disabled={!classId}
                   className={selectCls}
@@ -369,7 +457,6 @@ export default function TimetablesPage() {
             </div>
           )}
 
-          {/* Academic Year */}
           <div>
             <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
               Academic Year
@@ -395,11 +482,11 @@ export default function TimetablesPage() {
         </div>
       </div>
 
-      {campusId && classId && (
+      {pageMode === "schedule" && campusId && classId && (
         <PeriodEditor campusId={Number(campusId)} classId={Number(classId)} canEdit={!!canEdit} />
       )}
 
-      {!canEdit && (
+      {pageMode === "schedule" && !canEdit && (
         <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-xl px-4 py-2.5">
           Read-only — you can view the timetable but not edit slots.
         </p>
@@ -431,36 +518,67 @@ export default function TimetablesPage() {
           <span className="text-sm font-medium">Loading timetable…</span>
         </div>
       ) : (
-        <TimetableGrid
-          blocks={blocks}
-          slots={slots}
-          canEdit={!!canEdit}
-          onAdd={openAdd}
-          onEdit={openEdit}
-        />
+        <>
+          <TimetableGrid
+            blocks={blocks}
+            slots={slots}
+            canEdit={!!canEdit}
+            interactionMode={gridInteractionMode}
+            pendingSlotIds={pageMode === "makeup" ? pendingSlotIds : []}
+            selectedMakeupSlotIds={pageMode === "makeup" && isALevel ? alevelSelectedSlotIds : []}
+            onAdd={openAdd}
+            onEdit={openEdit}
+            onMakeupSlot={pageMode === "makeup" && supportsMakeup ? handleMakeupSlotClick : undefined}
+          />
+
+          {pageMode === "makeup" && supportsMakeup && (
+            <MakeupReschedulePanel
+              variant={isALevel ? "alevel" : "olevel"}
+              campusId={Number(campusId)}
+              classId={Number(classId)}
+              sectionId={sectionId ? Number(sectionId) : undefined}
+              teachingGroupId={teachingGroupId ? Number(teachingGroupId) : undefined}
+              selectedGroup={selectedGroup}
+              effectiveFrom={effectiveFrom}
+              slots={slots}
+              canMarkStaff={canMarkStaff}
+              canMarkRoll={canMarkRoll}
+              canViewRoll={canViewRoll}
+              canEditLocked={canEditLocked}
+              onPendingSlotIdsChange={handlePendingSlotIdsChange}
+              onMakeupSlotClick={handleMakeupSlotClick}
+              selectedMakeupSlot={makeupSlot}
+              onClearMakeupSlot={() => setMakeupSlot(null)}
+              alevelSelectedSlotIds={alevelSelectedSlotIds}
+              onClearAlevelSelection={() => setAlevelSelectedSlotIds([])}
+            />
+          )}
+        </>
       )}
 
-      <SlotEditorModal
-        open={!!editor}
-        target={editor}
-        campusId={campusId ? Number(campusId) : null}
-        dayLabel={editorDayLabel}
-        blockLabel={editorBlockLabel}
-        academicSystem={selectedClass?.academic_system}
-        lockedGroup={
-          isALevel && selectedGroup && selectedGroup.subjects && selectedGroup.employee_profiles
-            ? {
-                subjectId: selectedGroup.subjects.id,
-                subjectName: selectedGroup.subjects.name,
-                employeeId: selectedGroup.employee_profiles.id,
-                employeeName: selectedGroup.employee_profiles.full_name ?? `Employee #${selectedGroup.employee_profiles.id}`,
-              }
-            : undefined
-        }
-        onClose={() => setEditor(null)}
-        onSave={handleSave}
-        onDelete={canEdit ? handleDelete : undefined}
-      />
+      {pageMode === "schedule" && (
+        <SlotEditorModal
+          open={!!editor}
+          target={editor}
+          campusId={campusId ? Number(campusId) : null}
+          dayLabel={editorDayLabel}
+          blockLabel={editorBlockLabel}
+          academicSystem={selectedClass?.academic_system}
+          lockedGroup={
+            isALevel && selectedGroup && selectedGroup.subjects && selectedGroup.employee_profiles
+              ? {
+                  subjectId: selectedGroup.subjects.id,
+                  subjectName: selectedGroup.subjects.name,
+                  employeeId: selectedGroup.employee_profiles.id,
+                  employeeName: selectedGroup.employee_profiles.full_name ?? `Employee #${selectedGroup.employee_profiles.id}`,
+                }
+              : undefined
+          }
+          onClose={() => setEditor(null)}
+          onSave={handleSave}
+          onDelete={canEdit ? handleDelete : undefined}
+        />
+      )}
     </div>
   );
 }

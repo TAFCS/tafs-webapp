@@ -142,7 +142,6 @@ export const NAV_MODULES: NavModule[] = [
         items: [
             // ── Employees ──
             { group: "Employees", name: "Staff Register", description: "Daily staff punch-in", href: "/hr/staff-register", icon: ClipboardCheck, permission: "attendance.staff.mark" },
-            { group: "Employees", name: "Staff Lesson Reschedules", description: "O-Level missed lessons — excuse teacher on Staff Register when makeup is held", href: "/hr/staff-lesson-reschedules", icon: CalendarClock, permission: "attendance.staff.mark" },
             { group: "Employees", name: "Employee Attendance", description: "Daily staff clock-in/out from biometric devices", href: "/hr/attendance-dashboard", icon: UserCheck, permissions: ["attendance.staff.mark", "hr.objections.review"] },
             { group: "Employees", name: "Employee Attendance by Cycle", description: "Employee lines and punch matrix over a date range", href: "/hr/attendance-dashboard/cycle", icon: LayoutGrid, permission: "hr.payroll.view" },
             { group: "Employees", name: "Attendance Objections", description: "Review employee attendance disputes", href: "/hr/objections", icon: ClipboardList, permission: "hr.objections.review" },
@@ -155,9 +154,8 @@ export const NAV_MODULES: NavModule[] = [
             { group: "Students", name: "A-Level Roll Call", description: "A-level section marking", href: "/hr/roll-call", icon: ClipboardList, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
 
             // ── Scheduling ──
-            { group: "Scheduling", name: "Timetables", description: "A-Level weekly class schedules", href: "/hr/timetables", icon: CalendarDays, permissions: ["hr.timetable.view", "hr.timetable.manage"] },
+            { group: "Scheduling", name: "Timetables", description: "Weekly schedules and O/A-Level makeup reschedules", href: "/hr/timetables", icon: CalendarDays, permissions: ["hr.timetable.view", "hr.timetable.manage"] },
             { group: "Scheduling", name: "Teaching Groups", description: "Subject classes and student subject enrollment", href: "/hr/teaching-groups", icon: BookOpen, permissions: ["hr.timetable.view", "hr.timetable.manage"] },
-            { group: "Scheduling", name: "Class Reschedules", description: "A-Level makeup classes linked to missed original slots", href: "/hr/class-reschedules", icon: CalendarClock, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
             { group: "Scheduling", name: "Saturday Schedules", description: "Mandatory teacher Saturdays", href: "/hr/saturday-schedules", icon: CalendarDays },
             { group: "Scheduling", name: "Shift Overrides", description: "Override check-in/out time for a campus or segment on specific days", href: "/hr/shift-overrides", icon: CalendarClock },
             { group: "Scheduling", name: "Academic Calendar", description: "School year and events", href: "/hr/calendar", icon: CalendarDays, permission: "hr.policies.manage" },
