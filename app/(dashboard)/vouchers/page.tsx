@@ -7,7 +7,7 @@ import {
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Building2, GraduationCap, Users, UserCheck, Hash, CreditCard, SlidersHorizontal,
     ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2, AlertTriangle, Hourglass,
-    School, CalendarRange
+    School, CalendarRange, Bell, Lock
 } from "lucide-react";
 import api from "@/lib/api";
 import { buildVoucherFilename } from "@/lib/voucher-filename";
@@ -370,6 +370,9 @@ function VoucherRow({
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [localPdfUrl, setLocalPdfUrl] = useState<string | null | undefined>(voucher.pdf_url);
     const [showPartialModal, setShowPartialModal] = useState(false);
+    const [showRegenerateModal, setShowRegenerateModal] = useState(false);
+    const [regenNotify, setRegenNotify] = useState(true);
+    const [regenHold, setRegenHold] = useState(false);
     const user = useAppSelector(s => s.auth.user);
 
     useEffect(() => {
@@ -402,7 +405,10 @@ function VoucherRow({
         }
     };
 
-    const handleUnpaidDownload = async (regenerate = false) => {
+    const handleUnpaidDownload = async (
+        regenerate = false,
+        opts?: { send_notification?: boolean; requires_release?: boolean },
+    ) => {
         setIsDownloading(true);
         if (regenerate) setIsRegenerating(true);
         const loadingToast = toast.loading(
@@ -411,6 +417,12 @@ function VoucherRow({
         try {
             const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, {
                 regenerate: regenerate === true,
+                ...(regenerate
+                    ? {
+                        send_notification: opts?.send_notification === true,
+                        requires_release: opts?.requires_release === true,
+                    }
+                    : {}),
             });
             const pdfUrl = pdfRes.data?.pdf_url;
             if (!pdfUrl) throw new Error("No PDF URL returned from server.");
@@ -421,6 +433,7 @@ function VoucherRow({
 
             toast.dismiss(loadingToast);
             toast.success(regenerate ? "Voucher regenerated." : "Voucher downloaded.");
+            if (regenerate) onRefresh();
         } catch (err) {
             console.error(err);
             toast.dismiss(loadingToast);
@@ -429,6 +442,21 @@ function VoucherRow({
             setIsDownloading(false);
             setIsRegenerating(false);
         }
+    };
+
+    const openRegenerateModal = () => {
+        const currentlyHeld = voucher.released_to_parent_at == null;
+        setRegenHold(currentlyHeld);
+        setRegenNotify(!currentlyHeld);
+        setShowRegenerateModal(true);
+    };
+
+    const confirmRegenerate = async () => {
+        setShowRegenerateModal(false);
+        await handleUnpaidDownload(true, {
+            send_notification: regenHold ? false : regenNotify,
+            requires_release: regenHold,
+        });
     };
 
     const handlePaidDownload = async () => {
@@ -666,7 +694,7 @@ function VoucherRow({
                         </button>
                         {localPdfUrl && (
                             <button
-                                onClick={() => handleUnpaidDownload(true)}
+                                onClick={openRegenerateModal}
                                 disabled={isDownloading}
                                 title="Re-render and replace the stored PDF"
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
@@ -700,6 +728,100 @@ function VoucherRow({
                 </div>
             </td>
         </tr>
+        {showRegenerateModal && createPortal(
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in p-4">
+                <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95">
+                    <div className="w-12 h-12 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mb-4 text-zinc-600 dark:text-zinc-300">
+                        <RefreshCw className="h-6 w-6" />
+                    </div>
+                    <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-1">Regenerate PDF?</h2>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-5">
+                        This replaces the stored PDF for voucher #{voucher.id}. Choose whether parents should see it and whether to notify them.
+                    </p>
+
+                    <div className="space-y-5">
+                        <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <Lock className="h-3.5 w-3.5 text-amber-500" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Visibility</span>
+                            </div>
+                            <div className="flex items-center gap-2 bg-zinc-100/70 dark:bg-zinc-900/50 p-1.5 rounded-xl border border-zinc-200/60 dark:border-zinc-800">
+                                <button
+                                    type="button"
+                                    onClick={() => setRegenHold(false)}
+                                    className={`flex-1 h-9 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!regenHold ? "bg-white dark:bg-zinc-800 text-emerald-600 shadow-sm" : "text-zinc-400"}`}
+                                >
+                                    Release now
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setRegenHold(true); setRegenNotify(false); }}
+                                    className={`flex-1 h-9 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${regenHold ? "bg-white dark:bg-zinc-800 text-amber-600 shadow-sm" : "text-zinc-400"}`}
+                                >
+                                    Hold
+                                </button>
+                            </div>
+                            <p className="text-[11px] text-zinc-500 mt-1.5">
+                                {regenHold
+                                    ? "Parents cannot see this voucher until it is released."
+                                    : "Visible to parents immediately after regeneration."}
+                            </p>
+                        </div>
+
+                        <div className={regenHold ? "opacity-40 pointer-events-none" : ""}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <Bell className="h-3.5 w-3.5 text-primary" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Parent notification</span>
+                            </div>
+                            <div className="flex items-center gap-2 bg-zinc-100/70 dark:bg-zinc-900/50 p-1.5 rounded-xl border border-zinc-200/60 dark:border-zinc-800">
+                                <button
+                                    type="button"
+                                    onClick={() => setRegenNotify(true)}
+                                    className={`flex-1 h-9 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${regenNotify ? "bg-white dark:bg-zinc-800 text-primary shadow-sm" : "text-zinc-400"}`}
+                                >
+                                    Notify now
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setRegenNotify(false)}
+                                    className={`flex-1 h-9 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!regenNotify ? "bg-white dark:bg-zinc-800 text-zinc-500 shadow-sm" : "text-zinc-400"}`}
+                                >
+                                    Don&apos;t notify
+                                </button>
+                            </div>
+                            <p className="text-[11px] text-zinc-500 mt-1.5">
+                                {regenHold
+                                    ? "Held vouchers stay silent until an admin releases them."
+                                    : regenNotify
+                                        ? "Parents get an app notification when this PDF is regenerated."
+                                        : "No instant notification. Scheduled due/overdue reminders still run."}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 justify-end mt-6">
+                        <button
+                            type="button"
+                            onClick={() => setShowRegenerateModal(false)}
+                            disabled={isDownloading}
+                            className="px-5 py-2.5 text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-xl transition-colors disabled:opacity-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={confirmRegenerate}
+                            disabled={isDownloading}
+                            className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 hover:bg-zinc-800 rounded-xl transition-colors disabled:opacity-50"
+                        >
+                            {isRegenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                            Regenerate
+                        </button>
+                    </div>
+                </div>
+            </div>,
+            document.body
+        )}
         {showPartialModal && createPortal(
             <PartiallyPaidModal
                 voucher={voucher}
