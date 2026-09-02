@@ -1,6 +1,6 @@
 import api from './api';
 
-export type StaffLessonRescheduleStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED';
+export type StaffLessonRescheduleStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
 
 export interface StaffLessonTeacher {
   employee_id: number;

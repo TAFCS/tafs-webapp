@@ -38,7 +38,6 @@ function buildMaps(
     }
   }
 
-  const validPendingSlotIds = new Set<number>();
   const rescheduleByKey = new Map<string, RescheduleCellRole>();
   for (const row of reschedules) {
     if (!isValidRescheduleRow(row)) continue;
@@ -48,7 +47,7 @@ function buildMaps(
     if (holdByKey.get(sourceKey) !== 'held') {
       rescheduleByKey.set(sourceKey, {
         role: 'source',
-        status: row.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
+        status: row.status === 'COMPLETED' ? 'COMPLETED' : 'SCHEDULED',
       });
     }
 
@@ -56,12 +55,8 @@ function buildMaps(
     const makeupSlotId = row.makeup_timetable_slot_id ?? row.source_timetable_slot_id;
     rescheduleByKey.set(cellStatusKey(makeupSlotId, makeup), {
       role: 'makeup',
-      status: row.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
+      status: row.status === 'COMPLETED' ? 'COMPLETED' : 'SCHEDULED',
     });
-
-    if (row.status === 'PENDING') {
-      validPendingSlotIds.add(row.source_timetable_slot_id);
-    }
   }
 
   const statusPatch: Record<string, MakeupSlotCellStatus> = {};
@@ -88,7 +83,6 @@ function buildMaps(
   return {
     statusPatch,
     presentPatch,
-    pendingSlotIds: [...validPendingSlotIds],
   };
 }
 
@@ -110,7 +104,6 @@ export function useMakeupCalendarStatus({
   const [presentByCell, setPresentByCell] = useState<
     Record<string, SourceDatePresentStudent[]>
   >({});
-  const [pendingSlotIds, setPendingSlotIds] = useState<number[]>([]);
   const [initialLoading, setInitialLoading] = useState(false);
   const [weekRefreshing, setWeekRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -158,7 +151,6 @@ export function useMakeupCalendarStatus({
       if (!result) return;
       setStatusByCell((prev) => ({ ...prev, ...result.statusPatch }));
       setPresentByCell((prev) => ({ ...prev, ...result.presentPatch }));
-      setPendingSlotIds(result.pendingSlotIds);
     },
     [],
   );
@@ -167,7 +159,6 @@ export function useMakeupCalendarStatus({
     if (!enabled || !teachingGroupId || slotIds.length === 0) {
       setStatusByCell({});
       setPresentByCell({});
-      setPendingSlotIds([]);
       setError(null);
       setInitialLoading(false);
       setWeekRefreshing(false);
@@ -233,7 +224,6 @@ export function useMakeupCalendarStatus({
     weekDates,
     statusByCell,
     presentByCell,
-    pendingSlotIds,
     loading: initialLoading,
     weekRefreshing,
     error,

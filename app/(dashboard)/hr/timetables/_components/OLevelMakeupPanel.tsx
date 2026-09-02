@@ -47,7 +47,7 @@ export function OLevelMakeupPanel({
   onPendingSlotIdsChange,
 }: Props) {
   const [rows, setRows] = useState<StaffLessonReschedule[]>([]);
-  const [statusFilter, setStatusFilter] = useState<StaffLessonRescheduleStatus | ''>('PENDING');
+  const [statusFilter, setStatusFilter] = useState<StaffLessonRescheduleStatus | ''>('SCHEDULED');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -78,7 +78,7 @@ export function OLevelMakeupPanel({
   const pendingSlotIds = useMemo(
     () =>
       rows
-        .filter((r) => r.status === 'PENDING')
+        .filter((r) => r.status === 'SCHEDULED')
         .map((r) => r.source_timetable_slot_id),
     [rows],
   );
@@ -184,7 +184,7 @@ export function OLevelMakeupPanel({
               }
             >
               <option value="">All Statuses</option>
-              <option value="PENDING">Pending Confirmation</option>
+              <option value="SCHEDULED">Awaiting confirmation</option>
               <option value="COMPLETED">Completed</option>
               <option value="CANCELLED">Cancelled</option>
             </select>
@@ -245,7 +245,7 @@ export function OLevelMakeupPanel({
                   <RescheduleStatusBadge status={row.status} />
 
                   <div className="flex items-center gap-2 mt-1">
-                    {row.status === 'PENDING' && (
+                    {row.status === 'SCHEDULED' && (
                       <>
                         <button
                           type="button"

@@ -1,7 +1,7 @@
 import api from './api';
 import type { RollSession } from './attendance.service';
 
-export type ClassRescheduleStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED';
+export type ClassRescheduleStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
 
 export type SourceDateHoldStatus =
   | 'held'

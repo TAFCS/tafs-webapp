@@ -31,6 +31,10 @@ interface Props {
   onAlevelSelectedSourcesChange: (sources: AlevelSourcePick[]) => void;
   onClearAlevelSelection: () => void;
   onRescheduleCreated?: () => void;
+  makeupDate: string;
+  onMakeupDateChange: (dateIso: string) => void;
+  makeupBlockNumber: number | null;
+  onMakeupBlockNumberChange: (blockNumber: number | null) => void;
   attendanceSlot: TimetableSlot | null;
   attendanceDateIso: string;
   attendanceCellStatus: MakeupSlotCellStatus | null;
@@ -60,6 +64,10 @@ export function MakeupReschedulePanel({
   onAlevelSelectedSourcesChange,
   onClearAlevelSelection,
   onRescheduleCreated,
+  makeupDate,
+  onMakeupDateChange,
+  makeupBlockNumber,
+  onMakeupBlockNumberChange,
   attendanceSlot,
   attendanceDateIso,
   attendanceCellStatus,
@@ -97,6 +105,10 @@ export function MakeupReschedulePanel({
         onSelectedSourcesChange={onAlevelSelectedSourcesChange}
         onSelectionClear={onClearAlevelSelection}
         onRescheduleCreated={onRescheduleCreated}
+        makeupDate={makeupDate}
+        onMakeupDateChange={onMakeupDateChange}
+        makeupBlockNumber={makeupBlockNumber}
+        onMakeupBlockNumberChange={onMakeupBlockNumberChange}
         attendanceSlot={attendanceSlot}
         attendanceDateIso={attendanceDateIso}
         attendanceCellStatus={attendanceCellStatus}

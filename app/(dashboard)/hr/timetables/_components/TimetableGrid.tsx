@@ -48,6 +48,7 @@ interface Props {
   interactionMode?: TimetableGridInteractionMode;
   pendingSlotIds?: number[];
   selectedMakeupSlotIds?: number[];
+  selectedMakeupCell?: { slotId: number; dateIso: string } | null;
   selectedAttendanceCell?: { slotId: number; dateIso: string } | null;
   academicYear?: string;
   activeWeekDateIso?: string;
@@ -87,6 +88,7 @@ export function TimetableGrid({
   interactionMode = "edit",
   pendingSlotIds = [],
   selectedMakeupSlotIds = [],
+  selectedMakeupCell = null,
   selectedAttendanceCell = null,
   academicYear,
   activeWeekDateIso,
@@ -301,6 +303,9 @@ export function TimetableGrid({
                           {cellSlots.map((slot) => {
                             const hasPending = pendingSet.has(slot.id);
                             const isWizardSelected = selectedSet.has(slot.id);
+                            const isMakeupTarget =
+                              selectedMakeupCell?.slotId === slot.id &&
+                              selectedMakeupCell?.dateIso === dateIso;
                             const isAttendanceSelected =
                               selectedAttendanceCell?.slotId === slot.id &&
                               selectedAttendanceCell?.dateIso === dateIso;
@@ -321,9 +326,11 @@ export function TimetableGrid({
                                 className={`text-left rounded-xl p-2.5 border text-[11px] leading-snug transition-all relative group overflow-hidden ${
                                   isAttendanceSelected
                                     ? "border-emerald-500 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 ring-2 ring-emerald-500/50 shadow-sm cursor-pointer"
-                                    : isWizardSelected
-                                      ? "border-indigo-500 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 ring-2 ring-indigo-500/50 shadow-sm cursor-pointer"
-                                      : `${theme.card} hover:brightness-[0.98] dark:hover:brightness-110 cursor-pointer hover:shadow-sm`
+                                    : isMakeupTarget
+                                      ? "border-violet-500 dark:border-violet-400 bg-violet-50 dark:bg-violet-950/60 ring-2 ring-violet-500/50 shadow-sm cursor-pointer"
+                                      : isWizardSelected
+                                        ? "border-indigo-500 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 ring-2 ring-indigo-500/50 shadow-sm cursor-pointer"
+                                        : `${theme.card} hover:brightness-[0.98] dark:hover:brightness-110 cursor-pointer hover:shadow-sm`
                                 }`}
                               >
                                 <span
@@ -331,7 +338,6 @@ export function TimetableGrid({
                                 />
                                 {hasPending &&
                                   cellStatus !== "rescheduled" &&
-                                  cellStatus !== "pending_makeup" &&
                                   cellStatus !== "conducted" &&
                                   cellStatus !== "made_up" && (
                                   <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
@@ -457,7 +463,6 @@ export function TimetableGrid({
                 "conducted",
                 "missed",
                 "upcoming",
-                "pending_makeup",
                 "rescheduled",
                 "made_up",
               ] as MakeupSlotCellStatus[]
@@ -481,7 +486,7 @@ export function TimetableGrid({
         <div className="flex items-center gap-1 text-[11px] text-zinc-400">
           <Info className="w-3.5 h-3.5" />
           {isMakeup
-            ? "Green = conducted. Red = missed. Yellow = upcoming. Orange = pending makeup. Purple = rescheduled. Pink = made up class."
+            ? "Green = conducted. Red = not conducted. Yellow = upcoming. Purple = rescheduled. Pink = made up class."
             : "Click any slot to edit or remove"}
         </div>
       </div>

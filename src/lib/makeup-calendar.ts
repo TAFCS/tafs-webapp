@@ -7,7 +7,6 @@ export type MakeupSlotCellStatus =
   | 'missed'
   | 'upcoming'
   | 'rescheduled'
-  | 'pending_makeup'
   | 'made_up'
   | 'off_day'
   | 'skipped';
@@ -35,11 +34,6 @@ export const MAKEUP_STATUS_STYLES: Record<
     card: 'bg-purple-50 dark:bg-purple-950/50 border-purple-400 dark:border-purple-600 text-purple-950 dark:text-purple-100',
     accent: 'bg-purple-500',
     label: 'Rescheduled',
-  },
-  pending_makeup: {
-    card: 'bg-orange-50 dark:bg-orange-950/50 border-orange-400 dark:border-orange-600 text-orange-950 dark:text-orange-100',
-    accent: 'bg-orange-500',
-    label: 'Pending makeup',
   },
   made_up: {
     card: 'bg-pink-50 dark:bg-pink-950/50 border-pink-400 dark:border-pink-600 text-pink-950 dark:text-pink-100',
@@ -135,7 +129,7 @@ export function formatDayHeader(iso: string): string {
 
 export type RescheduleCellRole = {
   role: 'source' | 'makeup';
-  status: 'PENDING' | 'COMPLETED';
+  status: 'SCHEDULED' | 'COMPLETED';
 };
 
 export function rescheduleDateIso(value: string): string {
@@ -180,21 +174,18 @@ export function resolveMakeupCellStatus(
   hold: SourceDateHoldStatus,
   reschedule?: RescheduleCellRole,
 ): MakeupSlotCellStatus {
-  if (reschedule?.role === 'makeup' && reschedule.status === 'PENDING') {
-    return 'pending_makeup';
-  }
-
   if (hold === 'upcoming') return 'upcoming';
   if (hold === 'off_day') return 'off_day';
   if (hold === 'skipped') return 'skipped';
 
   if (reschedule?.role === 'source') {
     if (hold === 'held' || reschedule.status === 'COMPLETED') return 'conducted';
-    if (reschedule.status === 'PENDING') return 'pending_makeup';
     if (hold === 'missed' || hold === 'skipped') return 'rescheduled';
   }
 
-  if (reschedule?.role === 'makeup') return 'made_up';
+  if (reschedule?.role === 'makeup' && reschedule.status === 'COMPLETED') {
+    return 'made_up';
+  }
 
   if (hold === 'held') return 'conducted';
 

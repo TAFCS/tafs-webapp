@@ -183,8 +183,7 @@ export function useSlotAttendanceSession({
           dateIso === normalizeIsoDate(initialDateIso) &&
           (cellStatus === 'conducted' ||
             cellStatus === 'made_up' ||
-            cellStatus === 'rescheduled' ||
-            cellStatus === 'pending_makeup')
+            cellStatus === 'rescheduled')
             ? initialPresentStudents
             : undefined;
         applySession(activeSession, prefill);

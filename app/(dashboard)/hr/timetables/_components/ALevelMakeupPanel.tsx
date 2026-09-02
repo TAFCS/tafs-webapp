@@ -36,6 +36,10 @@ interface Props {
   onSelectedSourcesChange: (sources: SourcePick[]) => void;
   onSelectionClear?: () => void;
   onRescheduleCreated?: () => void;
+  makeupDate: string;
+  onMakeupDateChange: (dateIso: string) => void;
+  makeupBlockNumber: number | null;
+  onMakeupBlockNumberChange: (blockNumber: number | null) => void;
   attendanceSlot: TimetableSlot | null;
   attendanceDateIso: string;
   attendanceCellStatus: MakeupSlotCellStatus | null;
@@ -55,14 +59,16 @@ export function ALevelMakeupPanel({
   onSelectedSourcesChange,
   onSelectionClear,
   onRescheduleCreated,
+  makeupDate,
+  onMakeupDateChange,
+  makeupBlockNumber,
+  onMakeupBlockNumberChange,
   attendanceSlot,
   attendanceDateIso,
   attendanceCellStatus,
   initialPresentStudents = [],
   onAttendanceSaved,
 }: Props) {
-  const [makeupDate, setMakeupDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [makeupBlockNumber, setMakeupBlockNumber] = useState<number | null>(null);
   const [eligibleSlots, setEligibleSlots] = useState<EligibleSourceSlot[]>([]);
   const [eligibleLoading, setEligibleLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -120,18 +126,58 @@ export function ALevelMakeupPanel({
     [slots, makeupDayOfWeek],
   );
 
+  const allBlockNumbers = useMemo(
+    () => [...new Set(slots.map((s) => s.block_number))].sort((a, b) => a - b),
+    [slots],
+  );
+
+  const makeupBlockOptions = useMemo(() => {
+    if (makeupDaySlots.length > 0) {
+      return makeupDaySlots.map((slot) => ({
+        blockNumber: slot.block_number,
+        slotId: slot.id,
+        label: `Block ${slot.block_number}${slot.room ? ` · ${slot.room}` : ''}`,
+      }));
+    }
+    return allBlockNumbers.map((blockNumber) => {
+      const example = slots.find((s) => s.block_number === blockNumber);
+      return {
+        blockNumber,
+        slotId: null as number | null,
+        label: `Block ${blockNumber}${example?.room ? ` · ${example.room}` : ''}`,
+      };
+    });
+  }, [makeupDaySlots, allBlockNumbers, slots]);
+
   useEffect(() => {
-    if (makeupDaySlots.length === 0) {
-      setMakeupBlockNumber(null);
+    if (makeupBlockOptions.length === 0) {
+      onMakeupBlockNumberChange(null);
       return;
     }
-    setMakeupBlockNumber((prev) => {
-      if (prev != null && makeupDaySlots.some((s) => s.block_number === prev)) {
-        return prev;
-      }
-      return makeupDaySlots[0].block_number;
-    });
-  }, [makeupDaySlots, makeupDate]);
+    if (
+      makeupBlockNumber != null &&
+      makeupBlockOptions.some((o) => o.blockNumber === makeupBlockNumber)
+    ) {
+      return;
+    }
+    const sourceBlock =
+      selectedSources.length > 0
+        ? slots.find((s) => s.id === selectedSources[0].slotId)?.block_number
+        : undefined;
+    const defaultBlock =
+      sourceBlock != null &&
+      makeupBlockOptions.some((o) => o.blockNumber === sourceBlock)
+        ? sourceBlock
+        : makeupBlockOptions[0].blockNumber;
+    onMakeupBlockNumberChange(defaultBlock);
+  }, [
+    makeupBlockOptions,
+    makeupDate,
+    makeupBlockNumber,
+    onMakeupBlockNumberChange,
+    selectedSources,
+    slots,
+  ]);
 
   const slotsByWeekday = useMemo(() => {
     const map = new Map<number, EligibleSourceSlot[]>();
@@ -169,9 +215,11 @@ export function ALevelMakeupPanel({
   };
 
   const handleCreate = async () => {
-    if (selectedSources.length === 0 || !canMark) return;
-    const makeupSlot = makeupDaySlots.find((s) => s.block_number === makeupBlockNumber);
-    if (!makeupSlot) {
+    if (selectedSources.length === 0 || !canMark || makeupBlockNumber == null) return;
+    const makeupOption = makeupBlockOptions.find(
+      (o) => o.blockNumber === makeupBlockNumber,
+    );
+    if (!makeupOption) {
       setError('Select a makeup block for the chosen date.');
       return;
     }
@@ -188,10 +236,12 @@ export function ALevelMakeupPanel({
           source_date: s.sourceDate,
         })),
         makeup_date: makeupDate,
-        makeup_period: makeupSlot.block_number,
-        makeup_timetable_slot_id: makeupSlot.id,
+        makeup_period: makeupBlockNumber,
+        ...(makeupOption.slotId != null
+          ? { makeup_timetable_slot_id: makeupOption.slotId }
+          : {}),
       });
-      setSuccess('Pending makeup reschedule created. Take attendance on the makeup date to excuse teacher.');
+      setSuccess('Makeup class scheduled. Take attendance on the makeup date to excuse teacher.');
       onSelectedSourcesChange([]);
       onSelectionClear?.();
       onRescheduleCreated?.();
@@ -231,7 +281,7 @@ export function ALevelMakeupPanel({
                 Schedule A-Level Makeup Class
               </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Connect a missed class session with an upcoming makeup session.
+                Click missed cells on the timetable or use pills below, then pick a makeup date on the grid.
               </p>
             </div>
           </div>
@@ -282,7 +332,7 @@ export function ALevelMakeupPanel({
             ) : (
               <div className="space-y-3">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Select missed slot(s) using pills below:
+                  Select missed slot(s) using pills below or click red cells on the timetable:
                 </p>
                 {slotsByWeekday.map((group) => (
                   <div key={group.dayOfWeek} className="space-y-1.5">
@@ -325,6 +375,9 @@ export function ALevelMakeupPanel({
             </div>
 
             <div className="space-y-3">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Click an upcoming cell on the timetable or set the date below:
+              </p>
               <label className="block space-y-1.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1">
                   <Calendar className="w-3 h-3 text-indigo-500" />
@@ -335,33 +388,42 @@ export function ALevelMakeupPanel({
                   className="block w-full h-10 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                   value={makeupDate}
                   onChange={(e) => {
-                    setMakeupDate(e.target.value);
+                    onMakeupDateChange(e.target.value);
                     onSelectedSourcesChange([]);
                   }}
                 />
               </label>
 
-              {makeupDaySlots.length > 0 ? (
+              {makeupBlockOptions.length > 0 ? (
                 <label className="block space-y-1.5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-                    Makeup Block ({WEEKDAY_FULL[makeupDayOfWeek] ?? 'Day'})
+                    Makeup Block
+                    {makeupDaySlots.length > 0
+                      ? ` (${WEEKDAY_FULL[makeupDayOfWeek] ?? 'Day'})`
+                      : ` (${WEEKDAY_FULL[makeupDayOfWeek] ?? 'Day'} — one-off)`}
                   </span>
                   <select
                     className="block w-full h-10 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm font-medium text-zinc-900 dark:text-zinc-100"
                     value={makeupBlockNumber ?? ''}
-                    onChange={(e) => setMakeupBlockNumber(Number(e.target.value))}
+                    onChange={(e) => onMakeupBlockNumberChange(Number(e.target.value))}
                   >
-                    {makeupDaySlots.map((slot) => (
-                      <option key={slot.id} value={slot.block_number}>
-                        Block {slot.block_number}
-                        {slot.room ? ` · ${slot.room}` : ''}
+                    {makeupBlockOptions.map((option) => (
+                      <option key={option.blockNumber} value={option.blockNumber}>
+                        {option.label}
                       </option>
                     ))}
                   </select>
+                  {makeupDaySlots.length === 0 && (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      No regular slot on {WEEKDAY_FULL[makeupDayOfWeek] ?? 'this day'} — pick
+                      which period to use. Roll call will still open on{' '}
+                      {formatRescheduleDate(makeupDate)}.
+                    </p>
+                  )}
                 </label>
               ) : (
                 <p className="text-xs text-amber-700 dark:text-amber-300">
-                  No timetable slot on {WEEKDAY_FULL[makeupDayOfWeek] ?? 'this day'} — add one in Schedule mode or pick another makeup date.
+                  No blocks found in this timetable — add slots in Schedule mode first.
                 </p>
               )}
 
@@ -419,7 +481,7 @@ export function ALevelMakeupPanel({
                   className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-sm font-semibold text-white shadow-xs disabled:opacity-50 transition-all"
                 >
                   {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  Save Pending Reschedule
+                  Schedule Makeup Class
                 </button>
               </div>
             )}

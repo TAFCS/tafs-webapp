@@ -417,7 +417,7 @@ function RollCallPageInner() {
     classReschedulesService
       .list({
         teaching_group_id: Number(teachingGroupId),
-        status: "PENDING",
+        status: "SCHEDULED",
       })
       .then((pending) => {
         if (cancelled) return;
@@ -889,7 +889,7 @@ function RollCallPageInner() {
         if (makeupMode && normalizedSelectedSources.length > 0) {
           const pendingList = await classReschedulesService.list({
             teaching_group_id: groupId,
-            status: "PENDING",
+            status: "SCHEDULED",
           });
           const bundlePending = pendingList.filter(
             (r) => r.makeup_date.slice(0, 10) === sessionDate,

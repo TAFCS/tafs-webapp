@@ -38,6 +38,7 @@ import {
   cellStatusKey,
   clampWeekMonday,
   getMondayUtc,
+  todayIsoUtc,
   type MakeupSlotCellStatus,
 } from "@/lib/makeup-calendar";
 
@@ -104,6 +105,13 @@ function TimetablesPageContent() {
     cellStatus: MakeupSlotCellStatus;
   } | null>(null);
   const [makeupSlotDate, setMakeupSlotDate] = useState("");
+  const [makeupTarget, setMakeupTarget] = useState<{
+    slotId: number | null;
+    dateIso: string;
+    blockNumber: number;
+  } | null>(null);
+  const [makeupDate, setMakeupDate] = useState(() => todayIsoUtc());
+  const [makeupBlockNumber, setMakeupBlockNumber] = useState<number | null>(null);
 
   // URL deep-link prefill
   useEffect(() => {
@@ -227,7 +235,6 @@ function TimetablesPageContent() {
   const {
     statusByCell,
     presentByCell,
-    pendingSlotIds,
     loading: statusLoading,
     weekRefreshing: statusWeekRefreshing,
     error: statusError,
@@ -266,13 +273,79 @@ function TimetablesPageContent() {
       const key = cellStatusKey(slot.id, dateIso);
       const cellStatus = statusByCell[key] ?? "missed";
 
-      if (cellStatus === "upcoming" || cellStatus === "off_day") {
+      if (cellStatus === "off_day") {
         return;
       }
 
-      setAttendanceTarget({ slot, dateIso, cellStatus });
+      if (cellStatus === "missed" || cellStatus === "rescheduled") {
+        setAlevelSelectedSources((prev) => {
+          const exists = prev.some(
+            (p) => p.slotId === slot.id && p.sourceDate === dateIso,
+          );
+          if (exists) {
+            return prev.filter(
+              (p) => !(p.slotId === slot.id && p.sourceDate === dateIso),
+            );
+          }
+          return [
+            ...prev.filter((p) => p.slotId !== slot.id),
+            { slotId: slot.id, sourceDate: dateIso },
+          ];
+        });
+        return;
+      }
+
+      if (cellStatus === "upcoming" || dateIso >= todayIsoUtc()) {
+        setMakeupTarget({
+          slotId: slot.id,
+          dateIso,
+          blockNumber: slot.block_number,
+        });
+        setMakeupDate(dateIso);
+        setMakeupBlockNumber(slot.block_number);
+        const weekMonday = getMondayUtc(dateIso);
+        setActiveWeekDate((prev) => clampWeekMonday(weekMonday, academicYear));
+        return;
+      }
+
+      if (
+        cellStatus === "conducted" ||
+        cellStatus === "made_up" ||
+        cellStatus === "skipped"
+      ) {
+        setAttendanceTarget({ slot, dateIso, cellStatus });
+      }
     },
-    [isOLevel, isALevel, statusByCell],
+    [isOLevel, isALevel, statusByCell, academicYear],
+  );
+
+  const handleMakeupDateChange = useCallback(
+    (dateIso: string) => {
+      setMakeupDate(dateIso);
+      const dow = new Date(`${dateIso}T00:00:00.000Z`).getUTCDay();
+      const daySlots = slots
+        .filter((s) => s.day_of_week === dow)
+        .sort((a, b) => a.block_number - b.block_number);
+      const daySlot = daySlots[0];
+      const allBlocks = [...new Set(slots.map((s) => s.block_number))].sort(
+        (a, b) => a - b,
+      );
+      const blockNumber = daySlot?.block_number ?? allBlocks[0] ?? null;
+      if (blockNumber != null) {
+        setMakeupTarget({
+          slotId: daySlot?.id ?? null,
+          dateIso,
+          blockNumber,
+        });
+        setMakeupBlockNumber(blockNumber);
+      } else {
+        setMakeupTarget(null);
+        setMakeupBlockNumber(null);
+      }
+      const weekMonday = getMondayUtc(dateIso);
+      setActiveWeekDate((prev) => clampWeekMonday(weekMonday, academicYear));
+    },
+    [slots, academicYear],
   );
 
   const gridInteractionMode = useMemo(() => {
@@ -602,16 +675,20 @@ function TimetablesPageContent() {
             canEdit={!!canEdit}
             interactionMode={gridInteractionMode}
             pendingSlotIds={
-              pageMode === "makeup"
-                ? isALevel
-                  ? pendingSlotIds
-                  : olevelPendingSlotIds
-                : []
+              pageMode === "makeup" && !isALevel ? olevelPendingSlotIds : []
             }
             selectedMakeupSlotIds={
               pageMode === "makeup" && isALevel
                 ? alevelSelectedSources.map((p) => p.slotId)
                 : []
+            }
+            selectedMakeupCell={
+              pageMode === "makeup" && isALevel && makeupTarget?.slotId
+                ? {
+                    slotId: makeupTarget.slotId,
+                    dateIso: makeupTarget.dateIso,
+                  }
+                : null
             }
             selectedAttendanceCell={
               pageMode === "makeup" && isALevel && attendanceTarget
@@ -656,8 +733,18 @@ function TimetablesPageContent() {
               }}
               alevelSelectedSources={alevelSelectedSources}
               onAlevelSelectedSourcesChange={setAlevelSelectedSources}
-              onClearAlevelSelection={() => setAlevelSelectedSources([])}
-              onRescheduleCreated={() => void refreshCalendarStatus()}
+              onClearAlevelSelection={() => {
+                setAlevelSelectedSources([]);
+                setMakeupTarget(null);
+              }}
+              onRescheduleCreated={() => {
+                setMakeupTarget(null);
+                void refreshCalendarStatus();
+              }}
+              makeupDate={makeupDate}
+              onMakeupDateChange={handleMakeupDateChange}
+              makeupBlockNumber={makeupBlockNumber}
+              onMakeupBlockNumberChange={setMakeupBlockNumber}
               attendanceSlot={attendanceTarget?.slot ?? null}
               attendanceDateIso={attendanceTarget?.dateIso ?? ""}
               attendanceCellStatus={attendanceTarget?.cellStatus ?? null}
