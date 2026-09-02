@@ -1029,10 +1029,13 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
 
     const handlePaidDownload = async () => {
         setIsDownloading(true);
-        const isFrozen = Boolean((voucher as any).paid_pdf_url);
+        const isFrozen = Boolean(voucher.paid_pdf_url);
         const loadingToast = toast.loading(isFrozen ? "Fetching saved receipt…" : "Generating PAID PDF…");
         try {
-            const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, { paid_stamp: true });
+            const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, {
+                paid_stamp: true,
+                regenerate: false,
+            });
             const pdfUrl = pdfRes.data?.pdf_url;
             if (!pdfUrl) throw new Error("No PDF URL returned from server.");
 

@@ -654,7 +654,7 @@ export default function FeeChallanGenerator() {
       const voucherId: number = createRes.data.id;
 
       // Generate PDF using backend (single source of truth)
-      const genRes = await api.post(`/v1/vouchers/${voucherId}/generate-pdf`);
+      const genRes = await api.post(`/v1/vouchers/${voucherId}/generate-pdf`, { regenerate: false });
       const pdfUrl = genRes.data?.data?.pdf_url || null;
       setSavedVoucherPdfUrl(pdfUrl);
       setSavedVoucherId(voucherId);
@@ -777,7 +777,7 @@ export default function FeeChallanGenerator() {
       const voucherId: number = createRes.data.id;
 
       // Generate PDF using backend (single source of truth)
-      const genRes = await api.post(`/v1/vouchers/${voucherId}/generate-pdf`);
+      const genRes = await api.post(`/v1/vouchers/${voucherId}/generate-pdf`, { regenerate: false });
       const groupPdfUrl = genRes.data?.data?.pdf_url || null;
       if (groupPdfUrl) {
         setSavedGroupVoucherPdfUrls((prev) => ({ ...prev, [group.fee_date]: groupPdfUrl }));

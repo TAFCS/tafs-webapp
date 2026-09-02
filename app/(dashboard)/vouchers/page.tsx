@@ -367,13 +367,19 @@ function VoucherRow({
 }) {
     const status = getStatusConfig(voucher.status);
     const [isDownloading, setIsDownloading] = useState(false);
+    const [isRegenerating, setIsRegenerating] = useState(false);
+    const [localPdfUrl, setLocalPdfUrl] = useState<string | null | undefined>(voucher.pdf_url);
     const [showPartialModal, setShowPartialModal] = useState(false);
     const user = useAppSelector(s => s.auth.user);
 
+    useEffect(() => {
+        setLocalPdfUrl(voucher.pdf_url);
+    }, [voucher.pdf_url]);
+
     const buildFilename = (suffix?: string) =>
         buildVoucherFilename({
-            grNumber: (voucher as any).students?.gr_number,
-            cc: (voucher as any).students?.cc,
+            grNumber: voucher.students?.gr_number,
+            cc: voucher.students?.cc,
             feeDate: voucher.fee_date,
             voucherId: voucher.id,
             suffix,
@@ -396,33 +402,44 @@ function VoucherRow({
         }
     };
 
-    const handleUnpaidDownload = async () => {
+    const handleUnpaidDownload = async (regenerate = false) => {
         setIsDownloading(true);
-        const loadingToast = toast.loading("Generating PDF…");
+        if (regenerate) setIsRegenerating(true);
+        const loadingToast = toast.loading(
+            regenerate ? "Regenerating PDF…" : localPdfUrl ? "Downloading…" : "Generating PDF…",
+        );
         try {
-            const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`);
+            const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, {
+                regenerate: regenerate === true,
+            });
             const pdfUrl = pdfRes.data?.pdf_url;
             if (!pdfUrl) throw new Error("No PDF URL returned from server.");
+
+            if (pdfRes.data?.pdf_url) setLocalPdfUrl(pdfRes.data.pdf_url);
 
             await downloadPdfBlob(pdfUrl, pdfRes.data?.filename ?? buildFilename());
 
             toast.dismiss(loadingToast);
-            toast.success("Voucher downloaded.");
+            toast.success(regenerate ? "Voucher regenerated." : "Voucher downloaded.");
         } catch (err) {
             console.error(err);
             toast.dismiss(loadingToast);
-            toast.error("Failed to generate PDF.");
+            toast.error(regenerate ? "Failed to regenerate PDF." : "Failed to generate PDF.");
         } finally {
             setIsDownloading(false);
+            setIsRegenerating(false);
         }
     };
 
     const handlePaidDownload = async () => {
         setIsDownloading(true);
-        const isFrozen = Boolean((voucher as any).paid_pdf_url);
+        const isFrozen = Boolean(voucher.paid_pdf_url);
         const loadingToast = toast.loading(isFrozen ? "Fetching saved receipt…" : "Generating PAID PDF…");
         try {
-            const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, { paid_stamp: true });
+            const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, {
+                paid_stamp: true,
+                regenerate: false,
+            });
             const pdfUrl = pdfRes.data?.pdf_url;
             if (!pdfUrl) throw new Error("No PDF URL returned from server.");
 
@@ -606,7 +623,7 @@ function VoucherRow({
                         <button
                             onClick={handlePaidDownload}
                             disabled={isDownloading}
-                            title={(voucher as any).paid_pdf_url
+                            title={voucher.paid_pdf_url
                                 ? "Download the saved PAID receipt (generated once, never re-rendered)"
                                 : "Generate and download the PAID-stamped PDF"}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
@@ -637,15 +654,28 @@ function VoucherRow({
                             Split
                         </button>
                     ) : (
+                        <>
                         <button
-                            onClick={handleUnpaidDownload}
+                            onClick={() => handleUnpaidDownload(false)}
                             disabled={isDownloading}
-                            title="Download original PDF"
+                            title={localPdfUrl ? "Download the stored PDF" : "Generate and download the PDF"}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
                         >
-                            {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                            {isDownloading ? "…" : "PDF"}
+                            {isDownloading && !isRegenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            {isDownloading && !isRegenerating ? "…" : "Download"}
                         </button>
+                        {localPdfUrl && (
+                            <button
+                                onClick={() => handleUnpaidDownload(true)}
+                                disabled={isDownloading}
+                                title="Re-render and replace the stored PDF"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                            >
+                                {isRegenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                                {isRegenerating ? "…" : "Regenerate"}
+                            </button>
+                        )}
+                        </>
                     )}
 
                     {(voucher.status === "UNPAID" || voucher.status === "OVERDUE" || voucher.status === "VOID" || voucher.status === "EXPIRED") && (
