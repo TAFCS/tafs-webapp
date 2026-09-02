@@ -7,6 +7,7 @@ import {
   StaffLessonReschedule,
   type StaffLessonTeacherSlot,
 } from '@/lib/staff-lesson-reschedules.service';
+import { attendanceService, type TimelineDay } from '@/lib/attendance.service';
 import {
   blockCellStatusKey,
   cellStatusKey,
@@ -49,6 +50,55 @@ function baselineHoldForSlotDate(
   return 'missed';
 }
 
+function timelineDayPresent(day: TimelineDay): boolean {
+  if (
+    day.status === 'PRESENT' ||
+    day.status === 'LATE' ||
+    day.status === 'HALF_DAY'
+  ) {
+    return true;
+  }
+  return day.segments.some((s) => s.type === 'WORK' || s.type === 'OVERTIME');
+}
+
+async function buildHoldFromTimeline(
+  employeeId: number,
+  weekDates: string[],
+  gridSlots: TimetableSlot[],
+): Promise<HoldStatusPayload> {
+  if (weekDates.length === 0) return { dates: [] };
+
+  const todayIso = todayIsoUtc();
+  const timeline = await attendanceService.getStaffTimeline(employeeId, {
+    date_from: weekDates[0]!,
+    date_to: weekDates[weekDates.length - 1]!,
+  });
+  const dayByDate = new Map(
+    timeline.days.map((d) => [d.date.slice(0, 10), d]),
+  );
+
+  return {
+    dates: weekDates.map((dateIso) => {
+      const day = dayByDate.get(dateIso);
+      const dow = new Date(`${dateIso}T00:00:00.000Z`).getUTCDay();
+      const by_slot = gridSlots
+        .filter((slot) => slot.day_of_week === dow)
+        .map((slot) => {
+          let hold_status: TeacherHoldStatus = 'missed';
+          if (dateIso > todayIso) {
+            hold_status = 'upcoming';
+          } else if (day?.is_working_day === false) {
+            hold_status = 'off_day';
+          } else if (day && timelineDayPresent(day)) {
+            hold_status = 'held';
+          }
+          return { slot_id: slot.id, hold_status };
+        });
+      return { date: dateIso, by_slot };
+    }),
+  };
+}
+
 function buildHoldByKey(
   holdStatus: HoldStatusPayload,
   slotIds: number[],
@@ -67,8 +117,9 @@ function buildHoldByKey(
   }
 
   for (const row of holdStatus.dates) {
+    const dateIso = row.date.slice(0, 10);
     for (const slotId of slotIds) {
-      const key = cellStatusKey(slotId, row.date);
+      const key = cellStatusKey(slotId, dateIso);
       const slotHold =
         row.by_slot?.find((s) => s.slot_id === slotId)?.hold_status ??
         (slotIds.length === 1 ? row.hold_status : undefined);
@@ -285,8 +336,9 @@ export function useOLevelTeacherCalendarStatus({
         return buildMaps(reschedules, emptyHold, slotIds, gridSlots, dates);
       }
 
+      let holdStatus: HoldStatusPayload = emptyHold;
       try {
-        const holdStatus = await staffLessonReschedulesService.getTeacherHoldStatus(
+        holdStatus = await staffLessonReschedulesService.getTeacherHoldStatus(
           employeeId,
           {
             source_timetable_slot_ids: slotIds.join(','),
@@ -294,10 +346,23 @@ export function useOLevelTeacherCalendarStatus({
             ...(academicYear ? { academic_year: academicYear } : {}),
           },
         );
-        return buildMaps(reschedules, holdStatus, slotIds, gridSlots, dates);
       } catch {
-        return buildMaps(reschedules, emptyHold, slotIds, gridSlots, dates);
+        try {
+          holdStatus = await buildHoldFromTimeline(employeeId, dates, gridSlots);
+        } catch {
+          holdStatus = emptyHold;
+        }
       }
+
+      if (holdStatus.dates.length === 0) {
+        try {
+          holdStatus = await buildHoldFromTimeline(employeeId, dates, gridSlots);
+        } catch {
+          // keep empty hold; baseline missed/upcoming still applies
+        }
+      }
+
+      return buildMaps(reschedules, holdStatus, slotIds, gridSlots, dates);
     },
     [employeeId, slotIdsKey, gridSlotsKey, slotIds, gridSlots, academicYear],
   );
