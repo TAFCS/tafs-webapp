@@ -142,6 +142,7 @@ export const NAV_MODULES: NavModule[] = [
         items: [
             // ── Employees ──
             { group: "Employees", name: "Staff Register", description: "Daily staff punch-in", href: "/hr/staff-register", icon: ClipboardCheck, permission: "attendance.staff.mark" },
+            { group: "Employees", name: "Staff Lesson Reschedules", description: "O-Level missed lessons — excuse teacher on Staff Register when makeup is held", href: "/hr/staff-lesson-reschedules", icon: CalendarClock, permission: "attendance.staff.mark" },
             { group: "Employees", name: "Employee Attendance", description: "Daily staff clock-in/out from biometric devices", href: "/hr/attendance-dashboard", icon: UserCheck, permissions: ["attendance.staff.mark", "hr.objections.review"] },
             { group: "Employees", name: "Employee Attendance by Cycle", description: "Employee lines and punch matrix over a date range", href: "/hr/attendance-dashboard/cycle", icon: LayoutGrid, permission: "hr.payroll.view" },
             { group: "Employees", name: "Attendance Objections", description: "Review employee attendance disputes", href: "/hr/objections", icon: ClipboardList, permission: "hr.objections.review" },
