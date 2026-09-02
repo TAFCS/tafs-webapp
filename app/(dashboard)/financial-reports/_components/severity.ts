@@ -4,17 +4,26 @@
  * Mirrors tafs-backend/src/modules/financial-reports/defaulter-severity.ts.
  * Keep the two in sync — the backend decides the band, this decides how it looks.
  *
- * A "month behind" is one distinct (academic year, target month) among a
- * student's unpaid heads, which is also the number of Rs 1,000 late payment
- * surcharges their next voucher would carry. DEFAULTER (2 months) is the
- * school's escalation threshold.
+ * A student appears on this report only if their voucher situation says so:
+ *  ARREARS  — an active voucher already carries real, previously-charged
+ *             arrears (voucher_arrear_surcharges rows). months_behind counts
+ *             distinct arrear months, which is also the number of Rs 1,000
+ *             surcharges already charged on it. DEFAULTER (2 months) is the
+ *             school's escalation threshold.
+ *  EXPIRING — a single-fee_date voucher (no bundled arrears) whose own
+ *             status is EXPIRED — not an arrear yet, but about to become one
+ *             the moment the next voucher rolls it forward. months_behind is
+ *             always 0 for this category, and it is deliberately kept
+ *             outside the WATCH..CRITICAL ramp — it is a warning, not a
+ *             severity level.
  *
  * Colour is never the only channel: every band is rendered alongside its
- * numeric months-behind, and the row carries a left border accent as well as a
- * tint, because the WATCH/DEFAULTER tints are hard to tell apart in dark mode.
+ * numeric months-behind (or "Expiring"), and the row carries a left border
+ * accent as well as a tint, because the WATCH/DEFAULTER tints are hard to
+ * tell apart in dark mode.
  */
 
-export type SeverityBand = "WATCH" | "DEFAULTER" | "SEVERE" | "CRITICAL";
+export type SeverityBand = "EXPIRING" | "WATCH" | "DEFAULTER" | "SEVERE" | "CRITICAL";
 
 export type SeverityBandSpec = {
   id: SeverityBand;
@@ -31,6 +40,17 @@ export type SeverityBandSpec = {
 };
 
 export const SEVERITY_BANDS: SeverityBandSpec[] = [
+  {
+    id: "EXPIRING",
+    label: "Expiring",
+    monthsLabel: "not an arrear yet",
+    // Blue/slate, deliberately outside the red WATCH..CRITICAL ramp — this is
+    // an early warning, not a severity level.
+    chip: "bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300",
+    row: "border-l-4 border-l-sky-300 dark:border-l-sky-700/70 bg-sky-50/40 dark:bg-sky-950/10",
+    bar: "bg-sky-300 dark:bg-sky-600",
+    text: "text-sky-600 dark:text-sky-400",
+  },
   {
     id: "WATCH",
     label: "Watch",
@@ -75,14 +95,6 @@ export const SEVERITY_BY_ID: Record<SeverityBand, SeverityBandSpec> =
     SeverityBandSpec
   >;
 
-/**
- * Never-billed months are a categorically different problem from unpaid ones —
- * the office failed to invoice, not the family failed to pay — so they get a
- * colour family outside the severity ramp entirely.
- */
-export const UNBILLED_CHIP =
-  "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300";
-
 /** Payment-strip cell colours, keyed by state. */
 export const STRIP_STATE = {
   not_billed: "bg-zinc-100 dark:bg-zinc-800/60",
@@ -91,7 +103,13 @@ export const STRIP_STATE = {
   unpaid: "bg-zinc-300 dark:bg-zinc-600",
 } as const;
 
-/** An unpaid month that actually counts toward months_behind. */
+/**
+ * A month actually recorded as an arrear on the voucher ledger — NOT merely
+ * "unpaid and dated before as_of". A head can be unpaid and in the past yet
+ * never have been rolled into a voucher as an arrear (one month of a
+ * whole-year advance bill that hasn't been superseded yet); that renders
+ * STRIP_STATE.unpaid (grey), not red.
+ */
 export const STRIP_ARREAR = "bg-red-500 dark:bg-red-500";
 
 export type StripCellState = keyof typeof STRIP_STATE;

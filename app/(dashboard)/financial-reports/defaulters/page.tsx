@@ -16,7 +16,7 @@ import { TotalTile } from "../_components/total-tile";
 import { downloadReportFile } from "../_components/download-report";
 import { formatRs, type PaginationMeta } from "../_components/report-utils";
 import {
-  SEVERITY_BANDS, SEVERITY_BY_ID, UNBILLED_CHIP, type SeverityBand,
+  SEVERITY_BANDS, SEVERITY_BY_ID, type SeverityBand,
 } from "../_components/severity";
 import { MonthStrip, StripLegend, type StripCell } from "./_components/month-strip";
 import { SeverityBar, type SeverityDistributionRow } from "./_components/severity-bar";
@@ -46,9 +46,10 @@ type StudentRow = {
   class_name: string;
   section: string;
   student_status: string;
+  /** ARREARS: an active voucher already bundles real arrears. EXPIRING: no
+   *  arrears yet, but the current voucher's own window has lapsed unpaid. */
+  category: "ARREARS" | "EXPIRING";
   months_behind: number;
-  months_behind_billed: number;
-  months_behind_unbilled: number;
   severity: SeverityBand;
   arrears_outstanding: number;
   arrear_head_count: number;
@@ -101,6 +102,7 @@ type Totals = {
   in_scope_students: number;
   defaulter_count: number;
   defaulter_rate: number;
+  expiring_count: number;
   watch_count: number;
   defaulter_band_count: number;
   severe_count: number;
@@ -110,7 +112,6 @@ type Totals = {
   months_behind_total: number;
   months_behind_avg: number;
   months_behind_max: number;
-  months_behind_unbilled_total: number;
   lps_charged: number;
   lps_outstanding: number;
   lps_waived: number;
@@ -410,11 +411,16 @@ export default function DefaultersReportPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-7 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-8 gap-4">
         <TotalTile
           label="Defaulters"
           value={(totals?.defaulter_count ?? 0).toLocaleString()}
           sub={`${totals?.defaulter_rate ?? 0}% of ${(totals?.in_scope_students ?? 0).toLocaleString()} in scope`}
+        />
+        <TotalTile
+          label="Expiring · not yet an arrear"
+          value={(totals?.expiring_count ?? 0).toLocaleString()}
+          sub="current bill lapsed unpaid"
         />
         <TotalTile label="Watch · 1 month" value={(totals?.watch_count ?? 0).toLocaleString()} />
         <TotalTile label="Defaulter · 2 months" value={(totals?.defaulter_band_count ?? 0).toLocaleString()} accent />
@@ -444,9 +450,9 @@ export default function DefaultersReportPage() {
           )}
           <span>LPS already charged <b className="text-zinc-700 dark:text-zinc-200 tabular-nums">{formatRs(totals?.lps_charged)}</b>, of which <b className="text-zinc-700 dark:text-zinc-200 tabular-nums">{formatRs(totals?.lps_outstanding)}</b> unpaid</span>
           <span>Waived <b className="text-zinc-700 dark:text-zinc-200 tabular-nums">{formatRs(totals?.lps_waived)}</b></span>
-          {(totals?.months_behind_unbilled_total ?? 0) > 0 && (
-            <span className="text-violet-600 dark:text-violet-400">
-              <b className="tabular-nums">{totals?.months_behind_unbilled_total}</b> arrear months were never billed
+          {(totals?.expiring_count ?? 0) > 0 && (
+            <span className="text-sky-600 dark:text-sky-400">
+              <b className="tabular-nums">{totals?.expiring_count}</b> student{totals?.expiring_count === 1 ? "" : "s"} have a lapsed bill that isn&apos;t an arrear yet
             </span>
           )}
         </div>
@@ -455,14 +461,17 @@ export default function DefaultersReportPage() {
       <div className="flex items-start gap-3 rounded-2xl p-4 text-sm border bg-zinc-50 border-zinc-200 text-zinc-600 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-300">
         <Info className="h-5 w-5 text-zinc-400 flex-shrink-0 mt-0.5" />
         <p>
-          A student is <b>one month behind</b> for each distinct month they owe fees for — the same
-          count the voucher engine uses to charge Rs. 1,000 late payment surcharge per arrear month,
-          so <b>months behind = surcharges on the next voucher</b>. Two or more is the school&apos;s
-          escalation threshold. Heads that were never issued still count (the engine counts them),
-          but are called out separately, because those mean the office never billed the family.
-          These figures are computed from the voucher engine&apos;s own arrears definition and will
-          not match the arrears shown on the dashboard or a student&apos;s profile, which use two
-          older and mutually inconsistent definitions. See{" "}
+          A student appears here only if a real voucher says so. <b>Defaulter</b> (and Watch/Severe/Critical)
+          means an active voucher already has real arrears bundled into it — months behind counts the
+          distinct months already charged Rs. 1,000 late payment surcharge each. <b>Expiring</b> means
+          the opposite case: nothing is bundled in yet, but the current bill&apos;s own payment window
+          has lapsed unpaid, so it becomes an arrear the moment the next voucher is generated — an early
+          warning, not a severity level. A student billed a whole year of fees on one voucher is <b>not</b>{" "}
+          counted as many months behind just because that one bill is now overdue — only once the office
+          actually rolls it forward as an arrear does it show up here, with the real count. These figures
+          come from the voucher engine&apos;s own arrears ledger and will not match the arrears shown on
+          the dashboard or a student&apos;s profile, which use two older and mutually inconsistent
+          definitions. See{" "}
           <Link href="/financial-reports/fee-heads" className="font-bold underline underline-offset-2">
             Fee Heads
           </Link>{" "}
@@ -554,19 +563,13 @@ function StudentsTable({ rows }: { rows: StudentRow[] }) {
               <td className={TD}>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className={`px-2 py-0.5 rounded-md text-[11px] font-black tabular-nums ${spec?.chip ?? ""}`}>
-                    {row.months_behind} mo
+                    {row.category === "EXPIRING" ? "Expiring" : `${row.months_behind} mo`}
                   </span>
-                  {row.months_behind_unbilled > 0 && (
-                    <span
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${UNBILLED_CHIP}`}
-                      title="These arrear months were never issued on a voucher — the family was never billed for them."
-                    >
-                      {row.months_behind_unbilled} never billed
-                    </span>
-                  )}
                 </div>
                 <p className="text-[11px] text-zinc-400 mt-0.5">
-                  {spec?.label} · {row.arrear_head_count} head{row.arrear_head_count === 1 ? "" : "s"}
+                  {row.category === "EXPIRING"
+                    ? "current bill lapsed, not an arrear yet"
+                    : `${spec?.label} · ${row.arrear_head_count} head${row.arrear_head_count === 1 ? "" : "s"}`}
                 </p>
               </td>
               <td className={TD}>
