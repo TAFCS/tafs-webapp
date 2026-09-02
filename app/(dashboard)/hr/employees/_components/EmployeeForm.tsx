@@ -794,8 +794,9 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     if (!formData.department_id) return "Department selection is required.";
     if (!formData.staff_category_id) return "Subcategory selection is required.";
     if (!formData.full_name.trim()) return "Full name is required.";
-    if (!formData.cnic.trim()) return "CNIC is required.";
-    if (formData.cnic.replace(/\D/g, "").length !== 13) return "CNIC must be 13 digits (XXXXX-XXXXXXX-X).";
+    if (formData.cnic.trim() && formData.cnic.replace(/\D/g, "").length !== 13) {
+      return "CNIC must be 13 digits (XXXXX-XXXXXXX-X).";
+    }
     if (formData.personal_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.personal_email.trim())) {
       return "Please enter a valid email address (e.g. name@example.com).";
     }
@@ -1323,10 +1324,9 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
 
                 {/* CNIC */}
                 <div className="space-y-1.5">
-                  <FieldLabel required>Employee CNIC</FieldLabel>
+                  <FieldLabel>Employee CNIC</FieldLabel>
                   <input
                     type="text"
-                    required
                     placeholder="XXXXX-XXXXXXX-X"
                     inputMode="numeric"
                     className={`${inputCls} font-mono`}
