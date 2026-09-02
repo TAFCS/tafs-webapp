@@ -41,6 +41,7 @@ import {
   getMondayUtc,
   todayIsoUtc,
   type MakeupSlotCellStatus,
+  type RescheduleLinkInfo,
 } from "@/lib/makeup-calendar";
 
 const ACADEMIC_YEARS = getAcademicYears(1, 2);
@@ -104,6 +105,7 @@ function TimetablesPageContent() {
     slot: TimetableSlot;
     dateIso: string;
     cellStatus: MakeupSlotCellStatus;
+    rescheduleLink?: RescheduleLinkInfo;
   } | null>(null);
   const [makeupSlotDate, setMakeupSlotDate] = useState("");
   const [makeupTarget, setMakeupTarget] = useState<{
@@ -237,6 +239,7 @@ function TimetablesPageContent() {
     statusByCell,
     presentByCell,
     makeupOverlays,
+    rescheduleLinksByCell,
     loading: statusLoading,
     weekRefreshing: statusWeekRefreshing,
     error: statusError,
@@ -277,26 +280,35 @@ function TimetablesPageContent() {
       const blockKey = blockCellStatusKey(slot.block_number, dateIso);
       const cellStatus =
         statusByCell[key] ?? statusByCell[blockKey] ?? "missed";
+      const rescheduleLink =
+        rescheduleLinksByCell[key] ?? rescheduleLinksByCell[blockKey];
 
       if (cellStatus === "off_day") {
         return;
       }
 
-      if (cellStatus === "missed" || cellStatus === "rescheduled") {
-        setAlevelSelectedSources((prev) => {
-          const exists = prev.some(
-            (p) => p.slotId === slot.id && p.sourceDate === dateIso,
-          );
-          if (exists) {
-            return prev.filter(
-              (p) => !(p.slotId === slot.id && p.sourceDate === dateIso),
-            );
-          }
-          return [
-            ...prev.filter((p) => p.slotId !== slot.id),
-            { slotId: slot.id, sourceDate: dateIso },
-          ];
-        });
+      if (cellStatus === "missed") {
+        setAttendanceTarget({ slot, dateIso, cellStatus, rescheduleLink });
+        return;
+      }
+
+      if (
+        cellStatus === "rescheduled" ||
+        cellStatus === "makeup_upcoming" ||
+        cellStatus === "made_up" ||
+        cellStatus === "conducted" ||
+        cellStatus === "skipped"
+      ) {
+        setAttendanceTarget({ slot, dateIso, cellStatus, rescheduleLink });
+        if (cellStatus === "makeup_upcoming") {
+          setMakeupTarget({
+            slotId: null,
+            dateIso,
+            blockNumber: slot.block_number,
+          });
+          setMakeupDate(dateIso);
+          setMakeupBlockNumber(slot.block_number);
+        }
         return;
       }
 
@@ -310,18 +322,9 @@ function TimetablesPageContent() {
         setMakeupBlockNumber(slot.block_number);
         const weekMonday = getMondayUtc(dateIso);
         setActiveWeekDate((prev) => clampWeekMonday(weekMonday, academicYear));
-        return;
-      }
-
-      if (
-        cellStatus === "conducted" ||
-        cellStatus === "made_up" ||
-        cellStatus === "skipped"
-      ) {
-        setAttendanceTarget({ slot, dateIso, cellStatus });
       }
     },
-    [isOLevel, isALevel, statusByCell, academicYear],
+    [isOLevel, isALevel, statusByCell, rescheduleLinksByCell, academicYear],
   );
 
   const handleMakeupDateChange = useCallback(
@@ -758,14 +761,26 @@ function TimetablesPageContent() {
               attendanceSlot={attendanceTarget?.slot ?? null}
               attendanceDateIso={attendanceTarget?.dateIso ?? ""}
               attendanceCellStatus={attendanceTarget?.cellStatus ?? null}
+              attendanceRescheduleLink={attendanceTarget?.rescheduleLink}
               initialPresentStudents={
                 attendanceTarget
                   ? presentByCell[
                       cellStatusKey(attendanceTarget.slot.id, attendanceTarget.dateIso)
+                    ] ??
+                    presentByCell[
+                      blockCellStatusKey(
+                        attendanceTarget.slot.block_number,
+                        attendanceTarget.dateIso,
+                      )
                     ]
                   : undefined
               }
               onAttendanceSaved={() => void refreshCalendarStatus()}
+              onMakeupDeleted={() => {
+                setAttendanceTarget(null);
+                setMakeupTarget(null);
+                void refreshCalendarStatus();
+              }}
             />
           )}
         </>

@@ -4,7 +4,7 @@ import { OLevelMakeupPanel } from './OLevelMakeupPanel';
 import { ALevelMakeupPanel } from './ALevelMakeupPanel';
 import type { TimetableBlock, TimetableSlot } from '@/lib/timetables.service';
 import type { TeachingGroup } from '@/lib/teaching-groups.service';
-import type { MakeupSlotCellStatus } from '@/lib/makeup-calendar';
+import type { MakeupSlotCellStatus, RescheduleLinkInfo } from '@/lib/makeup-calendar';
 import type { SourceDatePresentStudent } from '@/lib/class-reschedules.service';
 
 export type AlevelSourcePick = { slotId: number; sourceDate: string };
@@ -39,8 +39,10 @@ interface Props {
   attendanceSlot: TimetableSlot | null;
   attendanceDateIso: string;
   attendanceCellStatus: MakeupSlotCellStatus | null;
+  attendanceRescheduleLink?: RescheduleLinkInfo;
   initialPresentStudents?: SourceDatePresentStudent[];
   onAttendanceSaved: () => void;
+  onMakeupDeleted?: () => void;
 }
 
 export function MakeupReschedulePanel({
@@ -73,8 +75,10 @@ export function MakeupReschedulePanel({
   attendanceSlot,
   attendanceDateIso,
   attendanceCellStatus,
+  attendanceRescheduleLink,
   initialPresentStudents,
   onAttendanceSaved,
+  onMakeupDeleted,
 }: Props) {
   if (variant === 'olevel' && sectionId != null) {
     return (
@@ -115,8 +119,10 @@ export function MakeupReschedulePanel({
         attendanceSlot={attendanceSlot}
         attendanceDateIso={attendanceDateIso}
         attendanceCellStatus={attendanceCellStatus}
+        attendanceRescheduleLink={attendanceRescheduleLink}
         initialPresentStudents={initialPresentStudents}
         onAttendanceSaved={onAttendanceSaved}
+        onMakeupDeleted={onMakeupDeleted}
       />
     );
   }

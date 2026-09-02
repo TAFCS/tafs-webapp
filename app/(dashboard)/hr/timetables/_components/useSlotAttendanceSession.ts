@@ -127,8 +127,14 @@ export function useSlotAttendanceSession({
             row.status !== 'CANCELLED' &&
             row.makeup_date.slice(0, 10) === dateIso &&
             (row.makeup_timetable_slot_id === slot.id ||
-              row.source_timetable_slot_id === slot.id),
+              row.source_timetable_slot_id === slot.id ||
+              row.makeup_period === slot.block_number),
         );
+
+        const isMakeupAttendance =
+          cellStatus === 'makeup_upcoming' ||
+          cellStatus === 'made_up' ||
+          Boolean(asMakeup);
 
         const linkedSessionId =
           asMakeup?.makeup_roll_session_id ??
@@ -140,23 +146,56 @@ export function useSlotAttendanceSession({
         if (linkedSessionId) {
           activeSession = await attendanceService.getRollSession(linkedSessionId);
         } else {
-          const existing = await attendanceService.listRollSessions({
+          const makeupPeriod = asMakeup?.makeup_period ?? slot.block_number;
+          const listParams: {
+            date: string;
+            campus_id: number;
+            class_id: number;
+            teaching_group_id: number;
+            period: number;
+            timetable_slot_id?: number;
+          } = {
             date: dateIso,
             campus_id: campusId,
             class_id: classId,
             teaching_group_id: teachingGroupId,
-            period: slot.block_number,
-            timetable_slot_id: slot.id,
-          });
+            period: makeupPeriod,
+          };
+          if (!isMakeupAttendance || asMakeup?.makeup_timetable_slot_id != null) {
+            listParams.timetable_slot_id =
+              asMakeup?.makeup_timetable_slot_id ?? slot.id;
+          }
+
+          const existing = await attendanceService.listRollSessions(listParams);
 
           activeSession =
-            existing.find(
-              (s) =>
+            existing.find((s) => {
+              if (asMakeup?.makeup_roll_session_id) {
+                return s.id === asMakeup.makeup_roll_session_id;
+              }
+              if (isMakeupAttendance && asMakeup?.makeup_timetable_slot_id == null) {
+                return (
+                  s.timetable_slot_id == null &&
+                  s.period === makeupPeriod &&
+                  s.session_date.slice(0, 10) === dateIso
+                );
+              }
+              return (
                 s.timetable_slot_id === slot.id ||
-                (s.timetable_slot_id == null && s.period === slot.block_number),
-            ) ?? null;
+                (s.timetable_slot_id == null && s.period === makeupPeriod)
+              );
+            }) ?? null;
 
           if (!activeSession && canMark) {
+            if (isMakeupAttendance) {
+              if (seq !== loadSeq.current) return;
+              setSession(null);
+              setMarks({});
+              setError(
+                'Makeup roll session not found. Refresh the page or re-schedule the makeup class.',
+              );
+              return;
+            }
             activeSession = await attendanceService.createRollSession({
               session_date: dateIso,
               campus_id: campusId,
@@ -183,6 +222,7 @@ export function useSlotAttendanceSession({
           dateIso === normalizeIsoDate(initialDateIso) &&
           (cellStatus === 'conducted' ||
             cellStatus === 'made_up' ||
+            cellStatus === 'makeup_upcoming' ||
             cellStatus === 'rescheduled')
             ? initialPresentStudents
             : undefined;

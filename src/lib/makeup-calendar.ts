@@ -7,6 +7,7 @@ export type MakeupSlotCellStatus =
   | 'missed'
   | 'upcoming'
   | 'rescheduled'
+  | 'makeup_upcoming'
   | 'made_up'
   | 'off_day'
   | 'skipped';
@@ -38,7 +39,12 @@ export const MAKEUP_STATUS_STYLES: Record<
   made_up: {
     card: 'bg-pink-50 dark:bg-pink-950/50 border-pink-400 dark:border-pink-600 text-pink-950 dark:text-pink-100',
     accent: 'bg-pink-500',
-    label: 'Made up class',
+    label: 'Makeup class',
+  },
+  makeup_upcoming: {
+    card: 'bg-pink-50 dark:bg-pink-950/50 border-pink-400 dark:border-pink-600 text-pink-950 dark:text-pink-100',
+    accent: 'bg-pink-500',
+    label: 'Upcoming',
   },
   off_day: {
     card: 'bg-zinc-100/80 dark:bg-zinc-800/40 border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500',
@@ -119,6 +125,15 @@ export type MakeupCalendarOverlay = {
   rescheduleId: number;
 };
 
+export type RescheduleLinkInfo = {
+  rescheduleId: number;
+  sourceDate: string;
+  makeupDate: string;
+  makeupPeriod: number;
+  role: 'source' | 'makeup';
+  status: 'SCHEDULED' | 'COMPLETED';
+};
+
 export function resolveMakeupOverlayStatus(
   row: {
     status: string;
@@ -127,11 +142,11 @@ export function resolveMakeupOverlayStatus(
   },
   todayIso: string = todayIsoUtc(),
 ): MakeupSlotCellStatus {
-  const makeupIso = rescheduleDateIso(row.makeup_date);
   if (row.status === 'COMPLETED' || row.makeup_roll_session?.status === 'SUBMITTED') {
     return 'made_up';
   }
-  if (makeupIso >= todayIso) return 'upcoming';
+  const makeupIso = rescheduleDateIso(row.makeup_date);
+  if (makeupIso >= todayIso) return 'makeup_upcoming';
   return 'missed';
 }
 
@@ -219,8 +234,9 @@ export function resolveMakeupCellStatus(
     if (hold === 'missed' || hold === 'skipped') return 'rescheduled';
   }
 
-  if (reschedule?.role === 'makeup' && reschedule.status === 'COMPLETED') {
-    return 'made_up';
+  if (reschedule?.role === 'makeup') {
+    if (reschedule.status === 'COMPLETED') return 'made_up';
+    return 'makeup_upcoming';
   }
 
   if (hold === 'held') return 'conducted';

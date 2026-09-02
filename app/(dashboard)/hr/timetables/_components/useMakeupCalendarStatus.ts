@@ -17,6 +17,7 @@ import {
   resolveMakeupCellStatus,
   resolveMakeupOverlayStatus,
   RescheduleCellRole,
+  RescheduleLinkInfo,
   weekDatesFromMonday,
 } from '@/lib/makeup-calendar';
 
@@ -48,11 +49,38 @@ function buildMaps(
 
   const rescheduleByKey = new Map<string, RescheduleCellRole>();
   const makeupOverlays: MakeupCalendarOverlay[] = [];
+  const rescheduleLinksByCell: Record<string, RescheduleLinkInfo> = {};
 
   for (const row of reschedules) {
     if (row.status === 'CANCELLED') continue;
 
     const src = row.source_date.slice(0, 10);
+    const makeup = row.makeup_date.slice(0, 10);
+    const linkBase = {
+      rescheduleId: row.id,
+      sourceDate: src,
+      makeupDate: makeup,
+      makeupPeriod: row.makeup_period,
+      status: (row.status === 'COMPLETED' ? 'COMPLETED' : 'SCHEDULED') as
+        | 'SCHEDULED'
+        | 'COMPLETED',
+    };
+
+    rescheduleLinksByCell[cellStatusKey(row.source_timetable_slot_id, src)] = {
+      ...linkBase,
+      role: 'source',
+    };
+
+    const makeupSlotKey =
+      row.makeup_timetable_slot_id != null &&
+      hasRecurringSlotOnDate(slots, makeup, row.makeup_period)
+        ? cellStatusKey(row.makeup_timetable_slot_id, makeup)
+        : blockCellStatusKey(row.makeup_period, makeup);
+    rescheduleLinksByCell[makeupSlotKey] = {
+      ...linkBase,
+      role: 'makeup',
+    };
+
     const sourceKey = cellStatusKey(row.source_timetable_slot_id, src);
     if (isValidRescheduleRow(row) && holdByKey.get(sourceKey) !== 'held') {
       rescheduleByKey.set(sourceKey, {
@@ -61,7 +89,6 @@ function buildMaps(
       });
     }
 
-    const makeup = row.makeup_date.slice(0, 10);
     if (!weekDates.includes(makeup)) continue;
 
     const blockNumber = row.makeup_period;
@@ -88,7 +115,8 @@ function buildMaps(
       if (
         !existing ||
         overlayStatus === 'made_up' ||
-        (overlayStatus === 'upcoming' && existing.status === 'missed')
+        (overlayStatus === 'makeup_upcoming' &&
+          (existing.status === 'missed' || existing.status === 'upcoming'))
       ) {
         if (existing) {
           const idx = makeupOverlays.indexOf(existing);
@@ -129,6 +157,7 @@ function buildMaps(
     statusPatch,
     presentPatch,
     makeupOverlays,
+    rescheduleLinksByCell,
   };
 }
 
@@ -152,6 +181,9 @@ export function useMakeupCalendarStatus({
     Record<string, SourceDatePresentStudent[]>
   >({});
   const [makeupOverlays, setMakeupOverlays] = useState<MakeupCalendarOverlay[]>([]);
+  const [rescheduleLinksByCell, setRescheduleLinksByCell] = useState<
+    Record<string, RescheduleLinkInfo>
+  >({});
   const [initialLoading, setInitialLoading] = useState(false);
   const [weekRefreshing, setWeekRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -200,6 +232,7 @@ export function useMakeupCalendarStatus({
       setStatusByCell((prev) => ({ ...prev, ...result.statusPatch }));
       setPresentByCell((prev) => ({ ...prev, ...result.presentPatch }));
       setMakeupOverlays(result.makeupOverlays);
+      setRescheduleLinksByCell(result.rescheduleLinksByCell);
     },
     [],
   );
@@ -209,6 +242,7 @@ export function useMakeupCalendarStatus({
       setStatusByCell({});
       setPresentByCell({});
       setMakeupOverlays([]);
+      setRescheduleLinksByCell({});
       setError(null);
       setInitialLoading(false);
       setWeekRefreshing(false);
@@ -275,6 +309,7 @@ export function useMakeupCalendarStatus({
     statusByCell,
     presentByCell,
     makeupOverlays,
+    rescheduleLinksByCell,
     loading: initialLoading,
     weekRefreshing,
     error,

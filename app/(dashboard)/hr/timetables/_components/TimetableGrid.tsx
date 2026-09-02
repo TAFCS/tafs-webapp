@@ -559,7 +559,7 @@ export function TimetableGrid({
         <div className="flex items-center gap-1 text-[11px] text-zinc-400">
           <Info className="w-3.5 h-3.5" />
           {isMakeup
-            ? "Green = conducted. Red = not conducted. Yellow = upcoming. Purple = rescheduled. Pink = made up class."
+            ? "Green = conducted. Red = not conducted. Yellow = upcoming. Purple = rescheduled. Pink = makeup class."
             : "Click any slot to edit or remove"}
         </div>
       </div>

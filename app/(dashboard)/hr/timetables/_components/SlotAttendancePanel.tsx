@@ -1,11 +1,22 @@
 'use client';
 
-import { Check, CheckCircle2, Loader2, Undo2, UserCheck, UserX, Users } from 'lucide-react';
+import { useState } from 'react';
+import {
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Loader2,
+  Trash2,
+  Undo2,
+  UserCheck,
+  UserX,
+  Users,
+} from 'lucide-react';
 import type { TimetableSlot } from '@/lib/timetables.service';
 import { formatRescheduleDate } from '@/lib/reschedule-ui';
-import type { MakeupSlotCellStatus } from '@/lib/makeup-calendar';
+import type { MakeupSlotCellStatus, RescheduleLinkInfo } from '@/lib/makeup-calendar';
 import { MAKEUP_STATUS_STYLES } from '@/lib/makeup-calendar';
-import type { SourceDatePresentStudent } from '@/lib/class-reschedules.service';
+import { classReschedulesService, type SourceDatePresentStudent } from '@/lib/class-reschedules.service';
 import { useSlotAttendanceSession } from './useSlotAttendanceSession';
 
 interface Props {
@@ -15,9 +26,11 @@ interface Props {
   classId: number;
   teachingGroupId: number;
   cellStatus: MakeupSlotCellStatus | null;
+  rescheduleLink?: RescheduleLinkInfo;
   initialPresentStudents?: SourceDatePresentStudent[];
   canMark: boolean;
   onSaved: () => void;
+  onMakeupDeleted?: () => void;
 }
 
 export function SlotAttendancePanel({
@@ -27,10 +40,14 @@ export function SlotAttendancePanel({
   classId,
   teachingGroupId,
   cellStatus,
+  rescheduleLink,
   initialPresentStudents = [],
   canMark,
   onSaved,
+  onMakeupDeleted,
 }: Props) {
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const active = Boolean(slot && dateIso);
 
   const {
@@ -65,6 +82,52 @@ export function SlotAttendancePanel({
   });
 
   const statusMeta = cellStatus ? MAKEUP_STATUS_STYLES[cellStatus] : null;
+  const canDeleteMakeup =
+    canMark &&
+    rescheduleLink?.status === 'SCHEDULED' &&
+    (cellStatus === 'makeup_upcoming' ||
+      (cellStatus === 'rescheduled' && rescheduleLink.role === 'source'));
+
+  const handleDeleteMakeup = async () => {
+    if (!rescheduleLink || !canDeleteMakeup) return;
+    const label =
+      rescheduleLink.role === 'makeup'
+        ? 'Delete this makeup class?'
+        : 'Cancel this reschedule?';
+    const detail =
+      rescheduleLink.role === 'makeup'
+        ? 'The missed lesson(s) will show as not conducted again on the calendar.'
+        : 'The makeup class will be removed and this lesson will show as not conducted again.';
+    if (!window.confirm(`${label} ${detail}`)) return;
+
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      if (rescheduleLink.role === 'makeup') {
+        const rows = await classReschedulesService.list({
+          teaching_group_id: teachingGroupId,
+          status: 'SCHEDULED',
+        });
+        const bundle = rows.filter(
+          (row) =>
+            row.makeup_date.slice(0, 10) === rescheduleLink.makeupDate &&
+            row.makeup_period === rescheduleLink.makeupPeriod,
+        );
+        for (const row of bundle) {
+          await classReschedulesService.cancel(row.id);
+        }
+      } else {
+        await classReschedulesService.cancel(rescheduleLink.rescheduleId);
+      }
+      onMakeupDeleted?.();
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setDeleteError(msg || 'Failed to delete makeup class.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (!slot) {
     return (
@@ -98,7 +161,47 @@ export function SlotAttendancePanel({
             </span>
           )}
         </div>
+        {canDeleteMakeup && (
+          <button
+            type="button"
+            disabled={deleting || saving || reverting}
+            onClick={() => void handleDeleteMakeup()}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-50"
+          >
+            {deleting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            {rescheduleLink?.role === 'makeup' ? 'Delete makeup class' : 'Cancel reschedule'}
+          </button>
+        )}
       </div>
+
+      {rescheduleLink && (
+        <div className="rounded-xl border border-pink-200 dark:border-pink-900/60 bg-pink-50/80 dark:bg-pink-950/30 px-4 py-3 text-sm text-pink-950 dark:text-pink-100">
+          {rescheduleLink.role === 'source' ? (
+            <p className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold">Missed lesson rescheduled</span>
+              <ArrowRight className="w-4 h-4 shrink-0 text-pink-500" />
+              <span>
+                Makeup on{' '}
+                <strong>{formatRescheduleDate(rescheduleLink.makeupDate)}</strong>
+                {' · '}Block {rescheduleLink.makeupPeriod}
+              </span>
+            </p>
+          ) : (
+            <p className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold">Makeup class</span>
+              <ArrowRight className="w-4 h-4 shrink-0 text-pink-500" />
+              <span>
+                Covers missed lesson on{' '}
+                <strong>{formatRescheduleDate(rescheduleLink.sourceDate)}</strong>
+              </span>
+            </p>
+          )}
+        </div>
+      )}
 
       <label className="block space-y-1.5">
         <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
@@ -115,6 +218,11 @@ export function SlotAttendancePanel({
       {error && (
         <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
           {error}
+        </div>
+      )}
+      {deleteError && (
+        <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
+          {deleteError}
         </div>
       )}
       {success && (

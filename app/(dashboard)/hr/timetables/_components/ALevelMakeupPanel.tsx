@@ -18,7 +18,7 @@ import {
   SourceDatePresentStudent,
 } from '@/lib/class-reschedules.service';
 import { WEEKDAY_FULL } from '@/lib/weekday-dates';
-import type { MakeupSlotCellStatus } from '@/lib/makeup-calendar';
+import type { MakeupSlotCellStatus, RescheduleLinkInfo } from '@/lib/makeup-calendar';
 import { formatRescheduleDate } from '@/lib/reschedule-ui';
 import { SlotAttendancePanel } from './SlotAttendancePanel';
 import { blockDisplayLabel } from './TimetableGrid';
@@ -45,8 +45,10 @@ interface Props {
   attendanceSlot: TimetableSlot | null;
   attendanceDateIso: string;
   attendanceCellStatus: MakeupSlotCellStatus | null;
+  attendanceRescheduleLink?: RescheduleLinkInfo;
   initialPresentStudents?: SourceDatePresentStudent[];
   onAttendanceSaved: () => void;
+  onMakeupDeleted?: () => void;
 }
 
 export function ALevelMakeupPanel({
@@ -69,8 +71,10 @@ export function ALevelMakeupPanel({
   attendanceSlot,
   attendanceDateIso,
   attendanceCellStatus,
+  attendanceRescheduleLink,
   initialPresentStudents = [],
   onAttendanceSaved,
+  onMakeupDeleted,
 }: Props) {
   const [eligibleSlots, setEligibleSlots] = useState<EligibleSourceSlot[]>([]);
   const [eligibleLoading, setEligibleLoading] = useState(false);
@@ -333,7 +337,7 @@ export function ALevelMakeupPanel({
             ) : (
               <div className="space-y-3">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Select missed slot(s) using pills below or click red cells on the timetable:
+                  Select missed slot(s) using the pills below. Click a red cell on the calendar to mark student attendance.
                 </p>
                 {slotsByWeekday.map((group) => (
                   <div key={group.dayOfWeek} className="space-y-1.5">
@@ -497,9 +501,11 @@ export function ALevelMakeupPanel({
         classId={classId}
         teachingGroupId={teachingGroupId}
         cellStatus={attendanceCellStatus}
+        rescheduleLink={attendanceRescheduleLink}
         initialPresentStudents={initialPresentStudents}
         canMark={canMark}
         onSaved={onAttendanceSaved}
+        onMakeupDeleted={onMakeupDeleted}
       />
     </div>
   );
