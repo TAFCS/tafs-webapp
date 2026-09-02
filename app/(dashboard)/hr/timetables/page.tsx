@@ -63,6 +63,9 @@ function resolveCellStatus(
   if (rescheduleLink?.role === "makeup" && status === "missed") {
     return "makeup_upcoming";
   }
+  if (rescheduleLink?.role === "source" && rescheduleLink.status === "COMPLETED") {
+    return "excused";
+  }
   return status;
 }
 
@@ -74,7 +77,12 @@ function initialWeekMonday(academicYear: string): string {
 function TimetablesPageContent() {
   const dispatch = useAppDispatch();
   const campuses = useAppSelector((s) => s.campuses.items);
-  const { user } = useAuthState();
+  const { user, isLoading: authLoading } = useAuthState();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const searchParams = useSearchParams();
 
   const canEdit =
@@ -451,6 +459,7 @@ function TimetablesPageContent() {
 
       if (
         cellStatus === "rescheduled" ||
+        cellStatus === "excused" ||
         cellStatus === "makeup_upcoming" ||
         cellStatus === "made_up" ||
         cellStatus === "conducted" ||
@@ -565,6 +574,15 @@ function TimetablesPageContent() {
 
   const selectCls =
     "w-full h-10 pl-3 pr-8 appearance-none bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-100 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
+
+  if (!mounted || authLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-zinc-500 gap-3">
+        <Loader2 className="w-7 h-7 animate-spin text-rose-500" />
+        <span className="text-sm font-medium">Loading timetables…</span>
+      </div>
+    );
+  }
 
   if (!canView) {
     return (
@@ -891,6 +909,9 @@ function TimetablesPageContent() {
             activeWeekDateIso={activeWeekDate}
             onActiveWeekDateChange={handleActiveWeekDateChange}
             statusByCell={pageMode === "makeup" && isALevel ? statusByCell : undefined}
+            rescheduleLinksByCell={
+              pageMode === "makeup" && isALevel ? rescheduleLinksByCell : undefined
+            }
             statusLoading={statusLoading}
             statusWeekRefreshing={statusWeekRefreshing}
             onAdd={openAdd}

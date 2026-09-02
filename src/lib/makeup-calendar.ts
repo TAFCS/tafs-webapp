@@ -7,6 +7,7 @@ export type MakeupSlotCellStatus =
   | 'missed'
   | 'upcoming'
   | 'rescheduled'
+  | 'excused'
   | 'makeup_upcoming'
   | 'made_up'
   | 'off_day'
@@ -39,6 +40,12 @@ export const MAKEUP_STATUS_STYLES: Record<
     accent: 'bg-purple-500',
     label: 'Rescheduled',
     badge: 'bg-purple-100 text-purple-800 dark:bg-purple-900/70 dark:text-purple-200',
+  },
+  excused: {
+    card: 'bg-violet-50/70 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800/60 text-violet-950 dark:text-violet-100',
+    accent: 'bg-violet-600',
+    label: 'Excused',
+    badge: 'bg-violet-100 text-violet-800 dark:bg-violet-900/70 dark:text-violet-200',
   },
   made_up: {
     card: 'bg-pink-50/70 dark:bg-pink-950/30 border-pink-200 dark:border-pink-800/60 text-pink-950 dark:text-pink-100',
@@ -238,8 +245,9 @@ export function resolveMakeupCellStatus(
   if (hold === 'skipped') return 'skipped';
 
   if (reschedule?.role === 'source') {
-    if (hold === 'held' || reschedule.status === 'COMPLETED') return 'conducted';
-    if (hold === 'missed' || hold === 'skipped') return 'rescheduled';
+    if (reschedule.status === 'COMPLETED') return 'excused';
+    if (hold === 'held') return 'conducted';
+    if (hold === 'missed') return 'rescheduled';
   }
 
   if (reschedule?.role === 'makeup') {

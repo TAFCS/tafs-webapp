@@ -231,6 +231,7 @@ export function useSlotAttendanceSession({
         const prefill =
           dateIso === normalizeIsoDate(initialDateIso) &&
           (cellStatus === 'conducted' ||
+            cellStatus === 'excused' ||
             cellStatus === 'made_up' ||
             cellStatus === 'makeup_upcoming' ||
             cellStatus === 'rescheduled')
@@ -279,8 +280,18 @@ export function useSlotAttendanceSession({
   }, [active, slot, sessionDate, loadSession]);
 
   const roster: RollSessionRosterEntry[] = session?.roster ?? [];
-  const isLocked = session?.status === 'SUBMITTED' || session?.status === 'SKIPPED';
-  const canEdit = canMark && session?.status === 'DRAFT';
+  const isMakeupSession =
+    session?.session_kind === 'MAKEUP' ||
+    rescheduleLink?.role === 'makeup' ||
+    cellStatus === 'makeup_upcoming' ||
+    cellStatus === 'made_up';
+  const isLocked =
+    session?.status === 'SUBMITTED' ||
+    (session?.status === 'SKIPPED' && !isMakeupSession);
+  const canEdit =
+    canMark &&
+    (session?.status === 'DRAFT' ||
+      (session?.status === 'SKIPPED' && isMakeupSession));
 
   const presentCount = useMemo(
     () => roster.filter((r) => marks[r.student.cc] === 'PRESENT').length,

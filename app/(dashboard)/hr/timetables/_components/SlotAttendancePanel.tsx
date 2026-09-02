@@ -82,13 +82,19 @@ export function SlotAttendancePanel({
     onSaved,
   });
 
-  const statusMeta = cellStatus ? MAKEUP_STATUS_STYLES[cellStatus] : null;
+  const displayCellStatus: MakeupSlotCellStatus | null =
+    cellStatus === 'missed' && rescheduleLink?.role === 'makeup'
+      ? 'makeup_upcoming'
+      : cellStatus;
+  const statusMeta = displayCellStatus ? MAKEUP_STATUS_STYLES[displayCellStatus] : null;
   const canCancelReschedule =
     canMark &&
     rescheduleLink?.status === 'SCHEDULED' &&
-    cellStatus === 'rescheduled' &&
+    displayCellStatus === 'rescheduled' &&
     rescheduleLink.role === 'source';
-  const canCancelMakeup = canMark && cellStatus === 'makeup_upcoming';
+  const canCancelMakeup =
+    canMark &&
+    (displayCellStatus === 'makeup_upcoming' || rescheduleLink?.role === 'makeup');
 
   const cancelMakeupBundle = async () => {
     if (!slot || !dateIso) return;
@@ -209,10 +215,12 @@ export function SlotAttendancePanel({
         <div className="rounded-xl border border-pink-200 dark:border-pink-900/60 bg-pink-50/80 dark:bg-pink-950/30 px-4 py-3 text-sm text-pink-950 dark:text-pink-100">
           {rescheduleLink.role === 'source' ? (
             <p className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold">Missed lesson rescheduled</span>
+              <span className="font-semibold">
+                {cellStatus === 'excused' ? 'Lesson excused' : 'Missed lesson rescheduled'}
+              </span>
               <ArrowRight className="w-4 h-4 shrink-0 text-pink-500" />
               <span>
-                Makeup on{' '}
+                {cellStatus === 'excused' ? 'Makeup held on' : 'Makeup on'}{' '}
                 <strong>{formatRescheduleDate(rescheduleLink.makeupDate)}</strong>
                 {' · '}Block {rescheduleLink.makeupPeriod}
               </span>

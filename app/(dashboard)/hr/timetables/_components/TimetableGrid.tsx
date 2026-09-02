@@ -7,6 +7,7 @@ import {
   MAKEUP_STATUS_STYLES,
   type MakeupCalendarOverlay,
   type MakeupSlotCellStatus,
+  type RescheduleLinkInfo,
   blockCellStatusKey,
   cellStatusKey,
   clampWeekMonday,
@@ -17,6 +18,7 @@ import {
   minWeekMondayForAcademicYear,
   weekDatesFromMonday,
 } from "@/lib/makeup-calendar";
+import { formatRescheduleDate } from "@/lib/reschedule-ui";
 
 const DAYS: Array<{ dow: number; label: string }> = [
   { dow: 1, label: "Mon" },
@@ -62,6 +64,7 @@ interface Props {
   activeWeekDateIso?: string;
   onActiveWeekDateChange?: (mondayIso: string) => void;
   statusByCell?: Record<string, MakeupSlotCellStatus>;
+  rescheduleLinksByCell?: Record<string, RescheduleLinkInfo>;
   statusLoading?: boolean;
   statusWeekRefreshing?: boolean;
   onAdd: (dayOfWeek: number, blockNumber: number, slotOrder: number) => void;
@@ -92,6 +95,17 @@ function getSubjectTheme(name?: string) {
   };
 }
 
+function rescheduleHint(
+  cellStatus: MakeupSlotCellStatus | undefined,
+  link: RescheduleLinkInfo | undefined,
+): string | null {
+  if (!link || link.role !== "source") return null;
+  const makeupLabel = formatRescheduleDate(link.makeupDate);
+  if (cellStatus === "excused") return `Makeup held ${makeupLabel}`;
+  if (cellStatus === "rescheduled") return `Makeup on ${makeupLabel}`;
+  return null;
+}
+
 export function TimetableGrid({
   blocks,
   slots,
@@ -109,6 +123,7 @@ export function TimetableGrid({
   activeWeekDateIso,
   onActiveWeekDateChange,
   statusByCell = {},
+  rescheduleLinksByCell = {},
   statusLoading = false,
   statusWeekRefreshing = false,
   onAdd,
@@ -392,6 +407,8 @@ export function TimetableGrid({
                             const slotClickable = Boolean(onMakeupSlot);
                             const cellKey = cellStatusKey(slot.id, dateIso);
                             const cellStatus = statusByCell[cellKey];
+                            const rescheduleLink = rescheduleLinksByCell[cellKey];
+                            const hint = rescheduleHint(cellStatus, rescheduleLink);
                             const statusStyle = cellStatus
                               ? MAKEUP_STATUS_STYLES[cellStatus]
                               : null;
@@ -431,6 +448,7 @@ export function TimetableGrid({
                                 />
                                 {hasPending &&
                                   cellStatus !== "rescheduled" &&
+                                  cellStatus !== "excused" &&
                                   cellStatus !== "conducted" &&
                                   cellStatus !== "made_up" && (
                                   <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
@@ -458,6 +476,11 @@ export function TimetableGrid({
                                     <div className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-bold text-zinc-700 dark:text-zinc-300 bg-black/5 dark:bg-white/10 rounded-md px-1.5 py-0.5 uppercase tracking-wider">
                                       <MapPin className="w-2.5 h-2.5" />
                                       {slot.room}
+                                    </div>
+                                  )}
+                                  {hint && (
+                                    <div className="mt-1.5 text-[9px] font-semibold text-violet-700 dark:text-violet-300 leading-tight">
+                                      {hint}
                                     </div>
                                   )}
                                 </div>
@@ -687,6 +710,7 @@ export function TimetableGrid({
                 "missed",
                 "upcoming",
                 "rescheduled",
+                "excused",
                 "made_up",
               ] as MakeupSlotCellStatus[]
             ).map((s) => (

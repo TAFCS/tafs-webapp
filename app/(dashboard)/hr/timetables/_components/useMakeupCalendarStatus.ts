@@ -82,10 +82,15 @@ function buildMaps(
     };
 
     const sourceKey = cellStatusKey(row.source_timetable_slot_id, src);
-    if (isValidRescheduleRow(row) && holdByKey.get(sourceKey) !== 'held') {
+    if (row.status === 'COMPLETED') {
       rescheduleByKey.set(sourceKey, {
         role: 'source',
-        status: row.status === 'COMPLETED' ? 'COMPLETED' : 'SCHEDULED',
+        status: 'COMPLETED',
+      });
+    } else if (isValidRescheduleRow(row) && holdByKey.get(sourceKey) !== 'held') {
+      rescheduleByKey.set(sourceKey, {
+        role: 'source',
+        status: 'SCHEDULED',
       });
     }
 
