@@ -27,12 +27,17 @@ export function timetablesMakeupHref(params: {
   classId?: string | number;
   sectionId?: string | number;
   teachingGroupId?: string | number;
+  employeeId?: string | number;
+  mode?: 'alevel_makeup' | 'olevel_teacher_makeup';
 }): string {
-  const q = new URLSearchParams({ mode: 'makeup' });
+  const q = new URLSearchParams({
+    mode: params.mode ?? (params.employeeId ? 'olevel_teacher_makeup' : 'alevel_makeup'),
+  });
   if (params.campusId) q.set('campus_id', String(params.campusId));
   if (params.classId) q.set('class_id', String(params.classId));
   if (params.sectionId) q.set('section_id', String(params.sectionId));
   if (params.teachingGroupId) q.set('teaching_group_id', String(params.teachingGroupId));
+  if (params.employeeId) q.set('employee_id', String(params.employeeId));
   return `/hr/timetables?${q.toString()}`;
 }
 

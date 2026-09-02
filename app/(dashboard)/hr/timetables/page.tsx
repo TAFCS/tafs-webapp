@@ -10,6 +10,7 @@ import {
   MapPin,
   GraduationCap,
   ChevronDown,
+  User,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
@@ -33,8 +34,19 @@ import {
   type TimetablePageMode,
 } from "./_components/TimetableModeToggle";
 import { MakeupReschedulePanel } from "./_components/MakeupReschedulePanel";
+import { OLevelTeacherMakeupPanel, type OlevelSourcePick } from "./_components/OLevelTeacherMakeupPanel";
 import { useMakeupCalendarStatus } from "./_components/useMakeupCalendarStatus";
+import {
+  useOLevelTeacherCalendarStatus,
+  teacherSlotToGridSlot,
+  syntheticTeacherBlocks,
+} from "./_components/useOLevelTeacherCalendarStatus";
 import { classReschedulesService } from "@/lib/class-reschedules.service";
+import {
+  staffLessonReschedulesService,
+  type StaffLessonTeacher,
+  type StaffLessonTeacherSlot,
+} from "@/lib/staff-lesson-reschedules.service";
 import {
   cellStatusKey,
   blockCellStatusKey,
@@ -121,8 +133,23 @@ function TimetablesPageContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editor, setEditor] = useState<SlotEditorTarget | null>(null);
-  const [makeupSlot, setMakeupSlot] = useState<TimetableSlot | null>(null);
-  const [olevelPendingSlotIds, setOlevelPendingSlotIds] = useState<number[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<StaffLessonTeacher | null>(null);
+  const [teacherSlots, setTeacherSlots] = useState<StaffLessonTeacherSlot[]>([]);
+  const [teacherGridSlots, setTeacherGridSlots] = useState<TimetableSlot[]>([]);
+  const [teacherBlocks, setTeacherBlocks] = useState<TimetableBlock[]>([]);
+  const [teacherLoading, setTeacherLoading] = useState(false);
+  const [eligibleTeachers, setEligibleTeachers] = useState<StaffLessonTeacher[]>([]);
+  const [teachersLoading, setTeachersLoading] = useState(false);
+  const [olevelSelectedSources, setOlevelSelectedSources] = useState<OlevelSourcePick[]>([]);
+  const [olevelConfirmTarget, setOlevelConfirmTarget] = useState<{
+    slot: TimetableSlot;
+    dateIso: string;
+    cellStatus: MakeupSlotCellStatus;
+    rescheduleLink?: RescheduleLinkInfo;
+  } | null>(null);
+  const [olevelMakeupCalendarMode, setOlevelMakeupCalendarMode] =
+    useState<MakeupCalendarMode>("schedule");
   const [alevelSelectedSources, setAlevelSelectedSources] = useState<
     Array<{ slotId: number; sourceDate: string }>
   >([]);
@@ -135,7 +162,6 @@ function TimetablesPageContent() {
     cellStatus: MakeupSlotCellStatus;
     rescheduleLink?: RescheduleLinkInfo;
   } | null>(null);
-  const [makeupSlotDate, setMakeupSlotDate] = useState("");
   const [makeupTarget, setMakeupTarget] = useState<{
     slotId: number | null;
     dateIso: string;
@@ -149,21 +175,28 @@ function TimetablesPageContent() {
   // URL deep-link prefill
   useEffect(() => {
     const mode = searchParams.get("mode");
-    if (mode === "makeup") setPageMode("makeup");
+    if (mode === "alevel_makeup" || mode === "makeup") setPageMode("alevel_makeup");
+    if (mode === "olevel_teacher_makeup") setPageMode("olevel_teacher_makeup");
     const qpCampus = searchParams.get("campus_id");
     const qpClass = searchParams.get("class_id");
     const qpSection = searchParams.get("section_id");
     const qpGroup = searchParams.get("teaching_group_id");
+    const qpEmployee = searchParams.get("employee_id");
     if (qpCampus) setCampusId(qpCampus);
     if (qpClass) setClassId(qpClass);
     if (qpSection) setSectionId(qpSection);
     if (qpGroup) setTeachingGroupId(qpGroup);
+    if (qpEmployee) setSelectedEmployeeId(Number(qpEmployee));
   }, [searchParams]);
 
   useEffect(() => {
-    if (pageMode === "makeup") {
+    if (pageMode === "alevel_makeup") {
       setMakeupCalendarMode("schedule");
       setAttendanceTarget(null);
+    }
+    if (pageMode === "olevel_teacher_makeup") {
+      setOlevelMakeupCalendarMode("schedule");
+      setOlevelConfirmTarget(null);
     }
   }, [pageMode]);
 
@@ -182,18 +215,24 @@ function TimetablesPageContent() {
   const selectedClass = availableClasses.find((c) => String(c.id) === classId);
   const isALevel = selectedClass ? isAsA2Class(selectedClass) : false;
   const isOLevel = classId ? isOLevelClass(Number(classId)) : false;
-  const supportsMakeup = isALevel || isOLevel;
   const selectedGroup = groups.find((g) => String(g.id) === teachingGroupId);
   const availableSections = selectedClass?.sections?.filter((s) => s.is_active) ?? [];
 
-  const showMakeupTab =
-    supportsMakeup &&
-    (isOLevel ? canMarkStaff : canViewRoll);
+  const showAlevelMakeupTab = canViewRoll;
+  const showOlevelTeacherMakeupTab = canMarkStaff;
+
+  useEffect(() => {
+    if (!showAlevelMakeupTab && pageMode === "alevel_makeup") {
+      setPageMode("schedule");
+    }
+    if (!showOlevelTeacherMakeupTab && pageMode === "olevel_teacher_makeup") {
+      setPageMode("schedule");
+    }
+  }, [showAlevelMakeupTab, showOlevelTeacherMakeupTab, pageMode]);
 
   useEffect(() => {
     setTeachingGroupId("");
     setSectionId("");
-    setMakeupSlot(null);
     setAlevelSelectedSources([]);
   }, [classId]);
 
@@ -201,15 +240,72 @@ function TimetablesPageContent() {
     setClassId("");
     setTeachingGroupId("");
     setSectionId("");
-    setMakeupSlot(null);
     setAlevelSelectedSources([]);
+    setSelectedEmployeeId(null);
+    setSelectedTeacher(null);
+    setTeacherSlots([]);
   }, [campusId]);
 
   useEffect(() => {
-    if (!showMakeupTab && pageMode === "makeup") {
-      setPageMode("schedule");
+    if (pageMode !== "olevel_teacher_makeup" || !campusId || !canMarkStaff) {
+      setEligibleTeachers([]);
+      return;
     }
-  }, [showMakeupTab, pageMode]);
+    let cancelled = false;
+    setTeachersLoading(true);
+    staffLessonReschedulesService
+      .listTeachers({ campus_id: Number(campusId), academic_year: academicYear })
+      .then((rows) => {
+        if (!cancelled) setEligibleTeachers(rows);
+      })
+      .catch(() => !cancelled && setEligibleTeachers([]))
+      .finally(() => !cancelled && setTeachersLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [pageMode, campusId, academicYear, canMarkStaff]);
+
+  useEffect(() => {
+    if (!selectedEmployeeId || pageMode !== "olevel_teacher_makeup") {
+      setTeacherSlots([]);
+      setTeacherGridSlots([]);
+      setTeacherBlocks([]);
+      setSelectedTeacher(null);
+      return;
+    }
+    const teacher =
+      eligibleTeachers.find((t) => t.employee_id === selectedEmployeeId) ?? null;
+    setSelectedTeacher(teacher);
+    let cancelled = false;
+    setTeacherLoading(true);
+    staffLessonReschedulesService
+      .getTeacherSlots(selectedEmployeeId, { academic_year: academicYear })
+      .then((data) => {
+        if (cancelled) return;
+        setTeacherSlots(data.slots);
+        const maxBlock = Math.max(8, ...data.slots.map((s) => s.block_number));
+        setTeacherBlocks(syntheticTeacherBlocks(maxBlock));
+        setTeacherGridSlots(
+          data.slots.map((s) =>
+            teacherSlotToGridSlot(
+              s,
+              selectedEmployeeId,
+              teacher?.full_name ?? null,
+            ),
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTeacherSlots([]);
+          setTeacherGridSlots([]);
+        }
+      })
+      .finally(() => !cancelled && setTeacherLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEmployeeId, pageMode, academicYear, eligibleTeachers]);
 
   useEffect(() => {
     if (!isALevel || !campusId || !classId) {
@@ -286,8 +382,78 @@ function TimetablesPageContent() {
     slotIds,
     slots,
     weekMondayIso: activeWeekDate,
-    enabled: pageMode === "makeup" && isALevel && isScopeReady,
+    enabled: pageMode === "alevel_makeup" && isALevel && isScopeReady,
   });
+
+  const teacherSlotIds = useMemo(() => teacherSlots.map((s) => s.id), [teacherSlots]);
+
+  const {
+    statusByCell: teacherStatusByCell,
+    makeupOverlays: teacherMakeupOverlays,
+    rescheduleLinksByCell: teacherRescheduleLinksByCell,
+    loading: teacherStatusLoading,
+    weekRefreshing: teacherStatusWeekRefreshing,
+    error: teacherStatusError,
+    refresh: refreshTeacherCalendarStatus,
+  } = useOLevelTeacherCalendarStatus({
+    employeeId: selectedEmployeeId,
+    teacherSlots,
+    gridSlots: teacherGridSlots,
+    weekMondayIso: activeWeekDate,
+    academicYear,
+    enabled:
+      pageMode === "olevel_teacher_makeup" &&
+      selectedEmployeeId != null &&
+      teacherSlots.length > 0,
+  });
+
+  const isTeacherScopeReady =
+    Boolean(campusId) && selectedEmployeeId != null && teacherGridSlots.length > 0;
+
+  const reloadTeacherScope = useCallback(async () => {
+    if (!selectedEmployeeId) return;
+    setTeacherLoading(true);
+    try {
+      const teacher =
+        eligibleTeachers.find((t) => t.employee_id === selectedEmployeeId) ?? null;
+      const data = await staffLessonReschedulesService.getTeacherSlots(
+        selectedEmployeeId,
+        { academic_year: academicYear },
+      );
+      setTeacherSlots(data.slots);
+      const maxBlock = Math.max(8, ...data.slots.map((s) => s.block_number));
+      setTeacherBlocks(syntheticTeacherBlocks(maxBlock));
+      setTeacherGridSlots(
+        data.slots.map((s) =>
+          teacherSlotToGridSlot(
+            s,
+            selectedEmployeeId,
+            teacher?.full_name ?? selectedTeacher?.full_name ?? null,
+          ),
+        ),
+      );
+      void refreshTeacherCalendarStatus();
+    } catch {
+      setTeacherSlots([]);
+      setTeacherGridSlots([]);
+    } finally {
+      setTeacherLoading(false);
+    }
+  }, [
+    selectedEmployeeId,
+    academicYear,
+    eligibleTeachers,
+    selectedTeacher,
+    refreshTeacherCalendarStatus,
+  ]);
+
+  const handleRefresh = useCallback(() => {
+    if (pageMode === "olevel_teacher_makeup") {
+      void reloadTeacherScope();
+    } else {
+      void loadGrid();
+    }
+  }, [pageMode, reloadTeacherScope, loadGrid]);
 
   useEffect(() => {
     setActiveWeekDate((prev) => clampWeekMonday(prev, academicYear));
@@ -377,6 +543,124 @@ function TimetablesPageContent() {
     setActiveWeekDate(navigateCalendarWeek(getMondayUtc(sourceDate), academicYear));
   }, [academicYear]);
 
+  const toggleOlevelSourcePick = useCallback(
+    (slot: TimetableSlot, sourceDate: string) => {
+      const meta = teacherSlots.find((s) => s.id === slot.id);
+      if (!meta || !selectedEmployeeId) return;
+      setOlevelSelectedSources((prev) => {
+        const exists = prev.some(
+          (p) => p.slotId === slot.id && p.sourceDate === sourceDate,
+        );
+        if (exists) {
+          return prev.filter(
+            (p) => !(p.slotId === slot.id && p.sourceDate === sourceDate),
+          );
+        }
+        return [
+          ...prev.filter((p) => p.slotId !== slot.id),
+          {
+            slotId: slot.id,
+            sourceDate,
+            campusId: meta.campus_id,
+            classId: meta.class_id,
+            sectionId: meta.section_id,
+          },
+        ];
+      });
+      setActiveWeekDate(navigateCalendarWeek(getMondayUtc(sourceDate), academicYear));
+    },
+    [teacherSlots, selectedEmployeeId, academicYear],
+  );
+
+  const handleTeacherMakeupSlotClick = useCallback(
+    (slot: TimetableSlot, dateIso?: string) => {
+      if (!dateIso || !selectedEmployeeId) return;
+      const rescheduleLink =
+        teacherRescheduleLinksByCell[cellStatusKey(slot.id, dateIso)] ??
+        teacherRescheduleLinksByCell[blockCellStatusKey(slot.block_number, dateIso)];
+      const cellStatus = resolveCellStatus(
+        teacherStatusByCell,
+        slot,
+        dateIso,
+        rescheduleLink,
+      );
+      if (cellStatus === "off_day") return;
+
+      if (olevelMakeupCalendarMode === "schedule") {
+        if (cellStatus === "missed" || cellStatus === "rescheduled") {
+          toggleOlevelSourcePick(slot, dateIso);
+          return;
+        }
+        if (cellStatus === "makeup_upcoming") {
+          setMakeupTarget({
+            slotId: null,
+            dateIso,
+            blockNumber: slot.block_number,
+          });
+          setMakeupDate(dateIso);
+          setMakeupBlockNumber(slot.block_number);
+          handleActiveWeekDateChange(getMondayUtc(dateIso));
+          return;
+        }
+        if (cellStatus === "upcoming" || dateIso >= todayIsoUtc()) {
+          setMakeupTarget({
+            slotId: null,
+            dateIso,
+            blockNumber: slot.block_number,
+          });
+          setMakeupDate(dateIso);
+          setMakeupBlockNumber(slot.block_number);
+          handleActiveWeekDateChange(getMondayUtc(dateIso));
+        }
+        return;
+      }
+
+      setOlevelConfirmTarget({ slot, dateIso, cellStatus, rescheduleLink });
+    },
+    [
+      selectedEmployeeId,
+      teacherRescheduleLinksByCell,
+      teacherStatusByCell,
+      olevelMakeupCalendarMode,
+      toggleOlevelSourcePick,
+      handleActiveWeekDateChange,
+    ],
+  );
+
+  const handleDeleteOlevelMakeup = useCallback(
+    async (target: { dateIso: string; blockNumber: number }) => {
+      if (!selectedEmployeeId || !canMarkStaff) return;
+      if (
+        !window.confirm(
+          "Cancel this makeup class? The missed lesson will show as not conducted again.",
+        )
+      ) {
+        return;
+      }
+      setDeletingMakeup(true);
+      try {
+        const rows = await staffLessonReschedulesService.list({
+          employee_id: selectedEmployeeId,
+          status: "SCHEDULED",
+        });
+        const bundle = rows.filter(
+          (row) =>
+            row.makeup_date.slice(0, 10) === target.dateIso &&
+            (row.makeup_period ?? row.makeup_timetable_slot?.block_number) ===
+              target.blockNumber,
+        );
+        for (const row of bundle) {
+          await staffLessonReschedulesService.cancel(row.id);
+        }
+        setOlevelConfirmTarget(null);
+        void refreshTeacherCalendarStatus();
+      } finally {
+        setDeletingMakeup(false);
+      }
+    },
+    [selectedEmployeeId, canMarkStaff, refreshTeacherCalendarStatus],
+  );
+
   const openAttendance = useCallback(
     (
       slot: TimetableSlot,
@@ -400,11 +684,6 @@ function TimetablesPageContent() {
 
   const handleMakeupSlotClick = useCallback(
     (slot: TimetableSlot, dateIso?: string) => {
-      if (isOLevel) {
-        setMakeupSlot(slot);
-        setMakeupSlotDate(dateIso ?? "");
-        return;
-      }
       if (!isALevel || !dateIso) return;
 
       const rescheduleLink =
@@ -469,7 +748,6 @@ function TimetablesPageContent() {
       }
     },
     [
-      isOLevel,
       isALevel,
       statusByCell,
       rescheduleLinksByCell,
@@ -508,8 +786,39 @@ function TimetablesPageContent() {
     [slots, blocks, handleActiveWeekDateChange],
   );
 
+  const handleTeacherMakeupDateChange = useCallback(
+    (dateIso: string) => {
+      setMakeupDate(dateIso);
+      const dow = new Date(`${dateIso}T00:00:00.000Z`).getUTCDay();
+      const daySlots = teacherGridSlots
+        .filter((s) => s.day_of_week === dow)
+        .sort((a, b) => a.block_number - b.block_number);
+      const daySlot = daySlots[0];
+      const classBlocks = teacherBlocks
+        .filter((b) => !b.is_break)
+        .sort((a, b) => a.block_number - b.block_number);
+      const blockNumber =
+        daySlot?.block_number ?? classBlocks[0]?.block_number ?? null;
+      if (blockNumber != null) {
+        setMakeupTarget({
+          slotId: daySlot?.id ?? null,
+          dateIso,
+          blockNumber,
+        });
+        setMakeupBlockNumber(blockNumber);
+      } else {
+        setMakeupTarget(null);
+        setMakeupBlockNumber(null);
+      }
+      handleActiveWeekDateChange(getMondayUtc(dateIso));
+    },
+    [teacherGridSlots, teacherBlocks, handleActiveWeekDateChange],
+  );
+
   const gridInteractionMode = useMemo(() => {
-    if (pageMode === "makeup") return "makeup" as const;
+    if (pageMode === "alevel_makeup" || pageMode === "olevel_teacher_makeup") {
+      return "makeup" as const;
+    }
     if (canEdit) return "edit" as const;
     return "view" as const;
   }, [pageMode, canEdit]);
@@ -596,13 +905,13 @@ function TimetablesPageContent() {
   }
 
   const subtitle =
-    pageMode === "makeup"
-      ? isALevel
-        ? "Schedule A-Level makeup classes — take student attendance on Roll Call when the makeup is held."
-        : "Schedule O-Level missed lessons — confirm makeup held to excuse teacher on Staff Register."
-      : isALevel
-        ? "Weekly schedule for a teaching group (subject + teacher). Edits apply going forward."
-        : "Weekly schedule for a class/section. Pick any subject + teacher per slot. Edits apply going forward.";
+    pageMode === "alevel_makeup"
+      ? "Schedule A-Level makeup classes — take student attendance on Roll Call when the makeup is held."
+      : pageMode === "olevel_teacher_makeup"
+        ? "Schedule makeup for O-Level teachers on timetable-derived pay — confirm held to excuse on Staff Register."
+        : isALevel
+          ? "Weekly schedule for a teaching group (subject + teacher). Edits apply going forward."
+          : "Weekly schedule for a class/section. Pick any subject + teacher per slot. Edits apply going forward.";
 
   return (
     <div className="p-6 space-y-6 max-w-[1400px]">
@@ -618,11 +927,19 @@ function TimetablesPageContent() {
         </div>
         <button
           type="button"
-          onClick={loadGrid}
-          disabled={!isScopeReady || loading}
+          onClick={handleRefresh}
+          disabled={
+            pageMode === "olevel_teacher_makeup"
+              ? !selectedEmployeeId || teacherLoading
+              : !isScopeReady || loading
+          }
           className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-880/60 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100 disabled:opacity-40 transition-colors"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`w-3.5 h-3.5 ${
+              loading || teacherLoading ? "animate-spin" : ""
+            }`}
+          />
           Refresh
         </button>
       </div>
@@ -630,12 +947,13 @@ function TimetablesPageContent() {
       <TimetableModeToggle
         mode={pageMode}
         onChange={setPageMode}
-        showMakeup={showMakeupTab}
+        showAlevelMakeup={showAlevelMakeupTab}
+        showOlevelTeacherMakeup={showOlevelTeacherMakeupTab}
       />
 
-      {pageMode === "makeup" && !supportsMakeup && classId && (
+      {pageMode === "alevel_makeup" && classId && !isALevel && (
         <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-xl px-4 py-2.5">
-          Makeup reschedules are only available for O-Level (OI/OII/OIII) and A-Level (AS/A2) classes.
+          A-Level makeup requires an AS/A2 class and teaching group.
         </p>
       )}
 
@@ -643,15 +961,21 @@ function TimetablesPageContent() {
         <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-3">
           <div className="text-xs font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-            Timetable Scope Filters
+            {pageMode === "olevel_teacher_makeup"
+              ? "Teacher Makeup Scope"
+              : "Timetable Scope Filters"}
           </div>
-          {isScopeReady && (
+          {(pageMode === "olevel_teacher_makeup" ? isTeacherScopeReady : isScopeReady) && (
             <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
               ✓ Ready
             </span>
           )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div
+          className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${
+            pageMode === "olevel_teacher_makeup" ? "lg:grid-cols-3" : "lg:grid-cols-4"
+          }`}
+        >
           <div>
             <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
               <MapPin className="w-3 h-3 text-rose-500" />
@@ -677,113 +1001,156 @@ function TimetablesPageContent() {
             </div>
           </div>
 
-          <div>
-            <label className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
-              <span className="flex items-center gap-1">
-                <GraduationCap className="w-3 h-3 text-rose-500" />
-                2. Class <span className="text-rose-500">*</span>
-              </span>
-              {classId && (
-                <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold tracking-normal ${
-                  isALevel
-                    ? "bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300"
-                    : "bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300"
-                }`}>
-                  {isALevel ? "A-LEVEL" : isOLevel ? "O-LEVEL" : "GENERAL"}
-                </span>
-              )}
-            </label>
-            <div className="relative">
-              <select
-                value={classId}
-                onChange={(e) => {
-                  setClassId(e.target.value);
-                  setTimetableId(null);
-                }}
-                disabled={!campusId || availableClasses.length === 0}
-                className={selectCls}
-              >
-                <option value="" className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">Select class…</option>
-                {availableClasses.map((c) => (
-                  <option key={c.id} value={c.id} className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
-                    {c.class_code ? `${c.class_code} — ${c.description}` : c.description}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
-            </div>
-          </div>
-
-          {isALevel ? (
+          {pageMode === "olevel_teacher_makeup" ? (
             <div>
               <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
-                3. Teaching Group <span className="text-rose-500">*</span>
+                <User className="w-3 h-3 text-rose-500" />
+                2. Teacher <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <select
-                  value={teachingGroupId}
+                  value={selectedEmployeeId ?? ""}
                   onChange={(e) => {
-                    setTeachingGroupId(e.target.value);
-                    setTimetableId(null);
-                    setAlevelSelectedSources([]);
-                    setAttendanceTarget(null);
+                    const id = e.target.value ? Number(e.target.value) : null;
+                    setSelectedEmployeeId(id);
+                    setOlevelSelectedSources([]);
+                    setOlevelConfirmTarget(null);
+                    setMakeupTarget(null);
                   }}
-                  disabled={!classId || groupsLoading}
+                  disabled={!campusId || teachersLoading}
                   className={selectCls}
                 >
                   <option value="" className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
-                    {groupsLoading ? "Loading…" : "Select teaching group…"}
+                    {teachersLoading ? "Loading teachers…" : "Select teacher…"}
                   </option>
-                  {groups.map((g) => (
-                    <option key={g.id} value={g.id} className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
-                      {g.subjects?.name} — {g.employee_profiles?.full_name}
+                  {eligibleTeachers.map((t) => (
+                    <option
+                      key={t.employee_id}
+                      value={t.employee_id}
+                      className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100"
+                    >
+                      {t.full_name} · {t.slot_count} slot{t.slot_count === 1 ? "" : "s"}
                     </option>
                   ))}
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
               </div>
-              {classId && !groupsLoading && groups.length === 0 && (
+              {campusId && !teachersLoading && eligibleTeachers.length === 0 && (
                 <p className="text-xs text-zinc-400 mt-1.5">
-                  No teaching groups yet — create one under Teaching Groups first.
+                  No eligible teachers — set Schedule &amp; Pay to &quot;Derived from timetable&quot; for O-Level faculty.
                 </p>
               )}
             </div>
           ) : (
-            <div>
-              <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
-                3. Section <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <select
-                  value={sectionId}
-                  onChange={(e) => {
-                    setSectionId(e.target.value);
-                    setTimetableId(null);
-                    setMakeupSlot(null);
-                  }}
-                  disabled={!classId}
-                  className={selectCls}
-                >
-                  <option value="" className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
-                    Select section…
-                  </option>
-                  {availableSections.map((s) => (
-                    <option key={s.id} value={s.id} className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
-                      {s.description}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
+            <>
+              <div>
+                <label className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
+                  <span className="flex items-center gap-1">
+                    <GraduationCap className="w-3 h-3 text-rose-500" />
+                    2. Class <span className="text-rose-500">*</span>
+                  </span>
+                  {classId && (
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold tracking-normal ${
+                      isALevel
+                        ? "bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300"
+                        : "bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300"
+                    }`}>
+                      {isALevel ? "A-LEVEL" : isOLevel ? "O-LEVEL" : "GENERAL"}
+                    </span>
+                  )}
+                </label>
+                <div className="relative">
+                  <select
+                    value={classId}
+                    onChange={(e) => {
+                      setClassId(e.target.value);
+                      setTimetableId(null);
+                    }}
+                    disabled={!campusId || availableClasses.length === 0}
+                    className={selectCls}
+                  >
+                    <option value="" className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">Select class…</option>
+                    {availableClasses.map((c) => (
+                      <option key={c.id} value={c.id} className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
+                        {c.class_code ? `${c.class_code} — ${c.description}` : c.description}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
+                </div>
               </div>
-              {classId && availableSections.length === 0 && (
-                <p className="text-xs text-zinc-400 mt-1.5">No sections offered for this class at this campus.</p>
+
+              {isALevel ? (
+                <div>
+                  <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
+                    3. Teaching Group <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={teachingGroupId}
+                      onChange={(e) => {
+                        setTeachingGroupId(e.target.value);
+                        setTimetableId(null);
+                        setAlevelSelectedSources([]);
+                        setAttendanceTarget(null);
+                      }}
+                      disabled={!classId || groupsLoading}
+                      className={selectCls}
+                    >
+                      <option value="" className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
+                        {groupsLoading ? "Loading…" : "Select teaching group…"}
+                      </option>
+                      {groups.map((g) => (
+                        <option key={g.id} value={g.id} className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
+                          {g.subjects?.name} — {g.employee_profiles?.full_name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
+                  </div>
+                  {classId && !groupsLoading && groups.length === 0 && (
+                    <p className="text-xs text-zinc-400 mt-1.5">
+                      No teaching groups yet — create one under Teaching Groups first.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
+                    3. Section <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={sectionId}
+                      onChange={(e) => {
+                        setSectionId(e.target.value);
+                        setTimetableId(null);
+                      }}
+                      disabled={!classId}
+                      className={selectCls}
+                    >
+                      <option value="" className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
+                        Select section…
+                      </option>
+                      {availableSections.map((s) => (
+                        <option key={s.id} value={s.id} className="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100">
+                          {s.description}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
+                  </div>
+                  {classId && availableSections.length === 0 && (
+                    <p className="text-xs text-zinc-400 mt-1.5">No sections offered for this class at this campus.</p>
+                  )}
+                </div>
               )}
-            </div>
+            </>
           )}
 
           <div>
             <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-2">
-              4. Academic Year
+              {pageMode === "olevel_teacher_makeup" ? "3." : "4."} Academic Year
             </label>
             <div className="relative">
               <select
@@ -816,29 +1183,143 @@ function TimetablesPageContent() {
         </p>
       )}
 
-      {statusError && pageMode === "makeup" && isALevel && (
+      {statusError && pageMode === "alevel_makeup" && isALevel && (
         <div className="rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
           {statusError}
         </div>
       )}
 
-      {error && (
+      {teacherStatusError && pageMode === "olevel_teacher_makeup" && (
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+          {teacherStatusError}
+        </div>
+      )}
+
+      {error && pageMode !== "olevel_teacher_makeup" && (
         <div className="rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300 flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           {error}
         </div>
       )}
 
-      {!isScopeReady ? (
+      {pageMode === "olevel_teacher_makeup" ? (
+        !campusId || !selectedEmployeeId ? (
+          <div className="rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 px-6 py-20 text-center">
+            <div className="flex flex-col items-center gap-3">
+              <span className="flex items-center justify-center w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700">
+                <User className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
+              </span>
+              <p className="text-sm text-zinc-400 dark:text-zinc-500">
+                Pick an eligible O-Level teacher to manage missed lessons.
+              </p>
+            </div>
+          </div>
+        ) : teacherLoading ? (
+          <div className="flex flex-col items-center justify-center py-24 text-zinc-500 dark:text-zinc-400 gap-3">
+            <Loader2 className="w-7 h-7 animate-spin text-rose-500" />
+            <span className="text-sm font-medium">Loading teacher timetable…</span>
+          </div>
+        ) : teacherGridSlots.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 px-6 py-20 text-center">
+            <p className="text-sm text-zinc-400 dark:text-zinc-500">
+              This teacher has no active O-Level section slots for {academicYear}.
+            </p>
+          </div>
+        ) : (
+          <>
+            <TimetableGrid
+              blocks={teacherBlocks}
+              slots={teacherGridSlots}
+              canEdit={false}
+              interactionMode={gridInteractionMode}
+              selectedMakeupSlotIds={olevelSelectedSources.map((p) => p.slotId)}
+              selectedSourceCells={olevelSelectedSources.map((p) => ({
+                slotId: p.slotId,
+                dateIso: p.sourceDate,
+              }))}
+              makeupCalendarMode={olevelMakeupCalendarMode}
+              onMakeupCalendarModeChange={(mode) => {
+                setOlevelMakeupCalendarMode(mode);
+                if (mode === "schedule") {
+                  setOlevelConfirmTarget(null);
+                }
+              }}
+              selectedMakeupCell={
+                makeupTarget
+                  ? {
+                      slotId: makeupTarget.slotId,
+                      blockNumber: makeupTarget.blockNumber,
+                      dateIso: makeupTarget.dateIso,
+                    }
+                  : null
+              }
+              makeupOverlays={teacherMakeupOverlays}
+              selectedAttendanceCell={
+                olevelMakeupCalendarMode === "attendance" && olevelConfirmTarget
+                  ? {
+                      slotId: olevelConfirmTarget.slot.id,
+                      dateIso: olevelConfirmTarget.dateIso,
+                      blockNumber: olevelConfirmTarget.slot.block_number,
+                    }
+                  : null
+              }
+              academicYear={academicYear}
+              activeWeekDateIso={activeWeekDate}
+              onActiveWeekDateChange={handleActiveWeekDateChange}
+              statusByCell={teacherStatusByCell}
+              rescheduleLinksByCell={teacherRescheduleLinksByCell}
+              statusLoading={teacherStatusLoading}
+              statusWeekRefreshing={teacherStatusWeekRefreshing}
+              onMakeupSlot={handleTeacherMakeupSlotClick}
+              canDeleteMakeup={canMarkStaff}
+              deletingMakeup={deletingMakeup}
+              onDeleteMakeup={(target) => void handleDeleteOlevelMakeup(target)}
+              onAdd={() => {}}
+              onEdit={() => {}}
+            />
+
+            <OLevelTeacherMakeupPanel
+              employeeId={selectedEmployeeId}
+              employeeName={selectedTeacher?.full_name ?? null}
+              teacherSlots={teacherSlots}
+              gridSlots={teacherGridSlots}
+              blocks={teacherBlocks}
+              canMark={canMarkStaff}
+              selectedSources={olevelSelectedSources}
+              onSelectedSourcesChange={setOlevelSelectedSources}
+              onSelectionClear={() => {
+                setOlevelSelectedSources([]);
+                setMakeupTarget(null);
+              }}
+              onRescheduleCreated={() => {
+                setMakeupTarget(null);
+                setOlevelConfirmTarget(null);
+                void refreshTeacherCalendarStatus();
+              }}
+              makeupDate={makeupDate}
+              onMakeupDateChange={handleTeacherMakeupDateChange}
+              makeupBlockNumber={makeupBlockNumber}
+              onMakeupBlockNumberChange={setMakeupBlockNumber}
+              confirmSlot={olevelConfirmTarget?.slot ?? null}
+              confirmDateIso={olevelConfirmTarget?.dateIso ?? ""}
+              confirmCellStatus={olevelConfirmTarget?.cellStatus ?? null}
+              confirmRescheduleLink={olevelConfirmTarget?.rescheduleLink}
+              calendarMode={olevelMakeupCalendarMode}
+            />
+          </>
+        )
+      ) : !isScopeReady ? (
         <div className="rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 px-6 py-20 text-center">
           <div className="flex flex-col items-center gap-3">
             <span className="flex items-center justify-center w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700">
               <CalendarRange className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
             </span>
             <p className="text-sm text-zinc-400 dark:text-zinc-500">
-              {isALevel
-                ? "Select a class and teaching group to view its timetable."
-                : "Select a class and section to view its timetable."}
+              {pageMode === "alevel_makeup" && !isALevel
+                ? "Select an AS/A2 class and teaching group for A-Level makeup."
+                : isALevel
+                  ? "Select a class and teaching group to view its timetable."
+                  : "Select a class and section to view its timetable."}
             </p>
           </div>
         </div>
@@ -854,25 +1335,24 @@ function TimetablesPageContent() {
             slots={slots}
             canEdit={!!canEdit}
             interactionMode={gridInteractionMode}
-            pendingSlotIds={
-              pageMode === "makeup" && !isALevel ? olevelPendingSlotIds : []
-            }
             selectedMakeupSlotIds={
-              pageMode === "makeup" && isALevel
+              pageMode === "alevel_makeup"
                 ? alevelSelectedSources.map((p) => p.slotId)
                 : []
             }
             selectedSourceCells={
-              pageMode === "makeup" && isALevel
+              pageMode === "alevel_makeup"
                 ? alevelSelectedSources.map((p) => ({
                     slotId: p.slotId,
                     dateIso: p.sourceDate,
                   }))
                 : []
             }
-            makeupCalendarMode={pageMode === "makeup" && isALevel ? makeupCalendarMode : "schedule"}
+            makeupCalendarMode={
+              pageMode === "alevel_makeup" ? makeupCalendarMode : "schedule"
+            }
             onMakeupCalendarModeChange={
-              pageMode === "makeup" && isALevel
+              pageMode === "alevel_makeup"
                 ? (mode) => {
                     setMakeupCalendarMode(mode);
                     if (mode === "schedule") {
@@ -882,7 +1362,7 @@ function TimetablesPageContent() {
                 : undefined
             }
             selectedMakeupCell={
-              pageMode === "makeup" && isALevel && makeupTarget
+              pageMode === "alevel_makeup" && makeupTarget
                 ? {
                     slotId: makeupTarget.slotId,
                     blockNumber: makeupTarget.blockNumber,
@@ -890,12 +1370,9 @@ function TimetablesPageContent() {
                   }
                 : null
             }
-            makeupOverlays={
-              pageMode === "makeup" && isALevel ? makeupOverlays : []
-            }
+            makeupOverlays={pageMode === "alevel_makeup" ? makeupOverlays : []}
             selectedAttendanceCell={
-              pageMode === "makeup" &&
-              isALevel &&
+              pageMode === "alevel_makeup" &&
               makeupCalendarMode === "attendance" &&
               attendanceTarget
                 ? {
@@ -908,43 +1385,35 @@ function TimetablesPageContent() {
             academicYear={academicYear}
             activeWeekDateIso={activeWeekDate}
             onActiveWeekDateChange={handleActiveWeekDateChange}
-            statusByCell={pageMode === "makeup" && isALevel ? statusByCell : undefined}
+            statusByCell={pageMode === "alevel_makeup" ? statusByCell : undefined}
             rescheduleLinksByCell={
-              pageMode === "makeup" && isALevel ? rescheduleLinksByCell : undefined
+              pageMode === "alevel_makeup" ? rescheduleLinksByCell : undefined
             }
             statusLoading={statusLoading}
             statusWeekRefreshing={statusWeekRefreshing}
             onAdd={openAdd}
             onEdit={openEdit}
-            onMakeupSlot={pageMode === "makeup" && supportsMakeup ? handleMakeupSlotClick : undefined}
+            onMakeupSlot={
+              pageMode === "alevel_makeup" && isALevel
+                ? handleMakeupSlotClick
+                : undefined
+            }
             canDeleteMakeup={canDeleteSelectedMakeup}
             deletingMakeup={deletingMakeup}
             onDeleteMakeup={(target) => void handleDeleteMakeup(target)}
           />
 
-          {pageMode === "makeup" && supportsMakeup && (
+          {pageMode === "alevel_makeup" && isALevel && teachingGroupId && (
             <MakeupReschedulePanel
-              variant={isALevel ? "alevel" : "olevel"}
               campusId={Number(campusId)}
               classId={Number(classId)}
-              sectionId={sectionId ? Number(sectionId) : undefined}
-              teachingGroupId={teachingGroupId ? Number(teachingGroupId) : undefined}
+              teachingGroupId={Number(teachingGroupId)}
               selectedGroup={selectedGroup}
-              effectiveFrom={effectiveFrom}
               slots={slots}
               blocks={blocks}
-              canMarkStaff={canMarkStaff}
               canMarkRoll={canMarkRoll}
               canViewRoll={canViewRoll}
               canEditLocked={canEditLocked}
-              onPendingSlotIdsChange={setOlevelPendingSlotIds}
-              onMakeupSlotClick={handleMakeupSlotClick}
-              selectedMakeupSlot={makeupSlot}
-              initialMakeupSourceDate={makeupSlotDate}
-              onClearMakeupSlot={() => {
-                setMakeupSlot(null);
-                setMakeupSlotDate("");
-              }}
               alevelSelectedSources={alevelSelectedSources}
               onAlevelSelectedSourcesChange={setAlevelSelectedSources}
               onClearAlevelSelection={() => {

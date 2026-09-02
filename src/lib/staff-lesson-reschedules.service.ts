@@ -44,6 +44,7 @@ export interface StaffLessonReschedule {
   source_date: string;
   makeup_date: string;
   makeup_timetable_slot_id: number | null;
+  makeup_period?: number | null;
   status: StaffLessonRescheduleStatus;
   notes: string | null;
   employee_profiles?: { id: number; full_name: string | null; employee_code: string | null };
@@ -55,7 +56,25 @@ export interface StaffLessonReschedule {
     block_number: number;
     subjects?: { id: number; name: string; code: string | null };
   };
+  makeup_timetable_slot?: {
+    id: number;
+    day_of_week: number;
+    block_number: number;
+  } | null;
   users?: { id: string; full_name: string | null };
+}
+
+export type TeacherHoldStatus = 'held' | 'missed' | 'off_day' | 'upcoming';
+
+export interface TeacherHoldStatusRow {
+  date: string;
+  hold_status: TeacherHoldStatus;
+  held: boolean;
+  by_slot?: Array<{
+    slot_id: number;
+    hold_status: TeacherHoldStatus;
+    held: boolean;
+  }>;
 }
 
 interface ApiEnvelope<T> {
@@ -92,6 +111,18 @@ export const staffLessonReschedulesService = {
         slots: StaffLessonTeacherSlot[];
       }>
     >(`/v1/attendance/staff-lesson-reschedules/teachers/${employeeId}/slots`, {
+      params,
+    });
+    return data.data;
+  },
+
+  async getTeacherHoldStatus(
+    employeeId: number,
+    params: { source_timetable_slot_ids: string; dates: string; academic_year?: string },
+  ): Promise<{ dates: TeacherHoldStatusRow[] }> {
+    const { data } = await api.get<
+      ApiEnvelope<{ dates: TeacherHoldStatusRow[] }>
+    >(`/v1/attendance/staff-lesson-reschedules/teachers/${employeeId}/hold-status`, {
       params,
     });
     return data.data;
@@ -139,6 +170,7 @@ export const staffLessonReschedulesService = {
     source_date: string;
     makeup_date: string;
     makeup_timetable_slot_id?: number;
+    makeup_period?: number;
     notes?: string;
   }): Promise<StaffLessonReschedule> {
     const { data } = await api.post<ApiEnvelope<StaffLessonReschedule>>(
