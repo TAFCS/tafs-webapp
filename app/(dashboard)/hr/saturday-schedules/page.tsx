@@ -342,7 +342,7 @@ export default function SaturdaySchedulesPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{name}</p>
                   <p className="text-xs text-zinc-500">
-                    {section || "No class assignment"} · {assigned}/2 Saturdays
+                    {section || "No class assignment"} · {assigned}/5 Saturdays
                   </p>
                 </div>
               </li>
@@ -364,7 +364,7 @@ export default function SaturdaySchedulesPage() {
       const notes: string[] = [];
       if (result.skipped_cap.length > 0) {
         const names = result.skipped_cap.map((e) => e.full_name ?? `Employee #${e.employee_id}`).join(", ");
-        notes.push(`Skipped (already at the 2/month cap): ${names}.`);
+        notes.push(`Skipped (already at the 5/month cap): ${names}.`);
       }
       if (result.holiday_conflicts.length > 0) {
         const names = result.holiday_conflicts.map((e) => e.full_name ?? `Employee #${e.employee_id}`).join(", ");
@@ -421,7 +421,7 @@ export default function SaturdaySchedulesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Saturday Schedules</h1>
           <p className="text-sm text-zinc-500">
-            Assign up to two mandatory Saturdays per teacher per month
+            Assign up to five mandatory Saturdays per teacher per month
           </p>
         </div>
       </div>
