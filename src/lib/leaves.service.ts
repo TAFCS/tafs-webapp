@@ -111,7 +111,7 @@ export interface ListSaturdaySchedulesParams {
 
 export interface CreateSaturdaySchedulesResult {
   created: SaturdaySchedule[];
-  /** Employees skipped because they're already at the 2-per-month cap. */
+  /** Employees skipped because they're already at the 5-per-month cap. */
   skipped_cap: { employee_id: number; full_name: string | null }[];
   /** Employees who already have a HOLIDAY calendar override for this date —
    *  the mandatory Saturday now takes priority and the holiday will be ignored for them. */
