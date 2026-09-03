@@ -25,7 +25,11 @@ import {
   TeachingGroup,
   TeachingGroupEnrollment,
 } from "@/lib/teaching-groups.service";
-import { studentsService, SectionRosterStudent } from "@/lib/students.service";
+import {
+  studentsService,
+  SectionRosterStudent,
+  SimpleStudentSearchResult,
+} from "@/lib/students.service";
 
 const ACADEMIC_YEARS = getAcademicYears(1, 2);
 
@@ -297,6 +301,8 @@ function TeachingGroupCard({
   const [loadingRoster, setLoadingRoster] = useState(false);
   const [candidates, setCandidates] = useState<SectionRosterStudent[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [searchHits, setSearchHits] = useState<SimpleStudentSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [enrolling, setEnrolling] = useState(false);
@@ -337,14 +343,68 @@ function TeachingGroupCard({
   }
 
   const enrolledIds = useMemo(() => new Set(roster.map((r) => r.student_id)), [roster]);
+
+  // Live server-side search (name / GR# / CC) via /students/search-simple,
+  // scoped to this group's campus + class. Runs independently of "Load class roster".
+  useEffect(() => {
+    const q = search.trim();
+    if (q.length < 2) {
+      setSearchHits([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const hits = await studentsService.searchSimple({
+          q,
+          campus_id: campusId,
+          class_id: classId,
+        });
+        setSearchHits(hits);
+      } catch {
+        setSearchHits([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, campusId, classId]);
+
+  // Union of the (optionally) loaded class roster and live search hits, keyed by cc.
+  const candidatePool = useMemo(() => {
+    const map = new Map<
+      number,
+      { cc: number; full_name: string | null; gr_number: string | null; section: string | null }
+    >();
+    for (const c of candidates) {
+      map.set(c.cc, {
+        cc: c.cc,
+        full_name: c.full_name ?? c.student_full_name ?? null,
+        gr_number: c.gr_number ?? null,
+        section: null,
+      });
+    }
+    for (const h of searchHits) {
+      if (map.has(h.cc)) continue;
+      map.set(h.cc, {
+        cc: h.cc,
+        full_name: h.full_name,
+        gr_number: h.gr_number,
+        section: h.sections?.description ?? null,
+      });
+    }
+    return Array.from(map.values());
+  }, [candidates, searchHits]);
+
   const filteredCandidates = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return candidates.filter((c) => {
+    return candidatePool.filter((c) => {
       if (enrolledIds.has(c.cc)) return false;
       if (!q) return true;
       return (c.full_name || "").toLowerCase().includes(q) || String(c.gr_number ?? "").includes(q);
     });
-  }, [candidates, enrolledIds, search]);
+  }, [candidatePool, enrolledIds, search]);
 
   function toggleSelected(cc: number) {
     setSelected((prev) => {
@@ -466,12 +526,17 @@ function TeachingGroupCard({
           {canEdit && (
             <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/60 space-y-3">
               <div className="flex items-center gap-2">
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search students by name or GR#…"
-                  className="flex-1 h-9 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/60 px-3 text-sm text-zinc-800 dark:text-zinc-100"
-                />
+                <div className="relative flex-1">
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search any student by name, GR# or CC…"
+                    className="w-full h-9 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/60 pl-3 pr-8 text-sm text-zinc-800 dark:text-zinc-100"
+                  />
+                  {searching && (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={loadCandidates}
@@ -481,8 +546,11 @@ function TeachingGroupCard({
                   {loadingCandidates ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Load class roster"}
                 </button>
               </div>
+              <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                Type a name to search across the whole class, or load the full class roster to browse.
+              </p>
 
-              {candidates.length > 0 && (
+              {(candidatePool.length > 0 || searching) && (
                 <div className="max-h-[220px] overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-700 divide-y divide-zinc-100 dark:divide-zinc-800/60">
                   {filteredCandidates.map((c) => (
                     <label
@@ -495,11 +563,16 @@ function TeachingGroupCard({
                         onChange={() => toggleSelected(c.cc)}
                       />
                       <span className="text-zinc-800 dark:text-zinc-100">{c.full_name}</span>
+                      {c.section && (
+                        <span className="text-xs text-zinc-400">· {c.section}</span>
+                      )}
                       <span className="text-xs text-zinc-400 ml-auto">GR# {c.gr_number ?? "—"}</span>
                     </label>
                   ))}
                   {filteredCandidates.length === 0 && (
-                    <p className="text-xs text-zinc-400 px-3 py-4 text-center">No matching students.</p>
+                    <p className="text-xs text-zinc-400 px-3 py-4 text-center">
+                      {searching ? "Searching…" : "No matching students."}
+                    </p>
                   )}
                 </div>
               )}
