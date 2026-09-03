@@ -1164,11 +1164,10 @@ function RollCallPageInner() {
     !(sessionIsSaturday && session.skip_reason === "Holiday: Weekend");
   const isReopenableSkip = session?.status === "SKIPPED" && !isHolidaySkip;
   const isSubmitted = session?.status === "SUBMITTED";
-  // Permission to reopen/correct a submitted (locked) roll call.
-  const canEditLocked =
-    (user?.permissions?.includes("attendance.student.edit_locked") ?? false) ||
-    user?.role === "SUPER_ADMIN";
-  const editingSubmitted = isSubmitted && canEditLocked && editSubmitted;
+  // Correcting a submitted roll call is available to anyone who can take
+  // roll call — same as the backend, which no longer requires a separate
+  // edit_locked permission for this screen.
+  const editingSubmitted = isSubmitted && canMark && editSubmitted;
   const isLocked =
     (isSubmitted && !editingSubmitted) || isHolidaySkip;
   const canEdit =
@@ -2046,7 +2045,7 @@ function RollCallPageInner() {
           )}
 
           {isLocked && (
-            isSubmitted && canEditLocked ? (
+            isSubmitted && canMark ? (
               <div className="flex flex-col items-center gap-2 py-3">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 text-center">
                   This roll call has been submitted and recorded.
@@ -2063,7 +2062,7 @@ function RollCallPageInner() {
               <p className="text-xs text-zinc-500 dark:text-zinc-400 text-center py-2">
                 {isHolidaySkip
                   ? "This day is marked as a holiday / day off, so attendance cannot be recorded."
-                  : "This session is locked. Contact an administrator with edit_locked permission to modify submitted roll call records."}
+                  : "This roll call has been submitted. You need roll-call marking access to edit it."}
               </p>
             )
           )}
