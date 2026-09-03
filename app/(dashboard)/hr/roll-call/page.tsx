@@ -23,6 +23,7 @@ import {
   UserX,
   History,
   CalendarRange,
+  Pencil,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses, CampusClass } from "@/store/slices/campusesSlice";
@@ -351,6 +352,9 @@ function RollCallPageInner() {
   const [success, setSuccess] = useState<string | null>(null);
   const [skipReason, setSkipReason] = useState("");
   const [showSkip, setShowSkip] = useState(false);
+  // Explicit opt-in to editing an already-submitted roll call (undo/correct
+  // errors). Requires the attendance.student.edit_locked permission.
+  const [editSubmitted, setEditSubmitted] = useState(false);
   const [makeupMode, setMakeupMode] = useState(false);
   const [eligibleSlots, setEligibleSlots] = useState<EligibleSourceSlot[]>([]);
   const [timetableEffectiveFrom, setTimetableEffectiveFrom] = useState<string | null>(null);
@@ -801,6 +805,12 @@ function RollCallPageInner() {
     [makeupMode, getSourcePresentStudents],
   );
 
+  // Leave "edit submitted" mode whenever we move to a different session or
+  // its status changes, so a finalized roll call is never silently editable.
+  useEffect(() => {
+    setEditSubmitted(false);
+  }, [session?.id, session?.status]);
+
   useEffect(() => {
     userEditedMarks.current = false;
   }, [session?.id, sessionDate, teachingGroupId, selectedSources]);
@@ -1153,8 +1163,17 @@ function RollCallPageInner() {
     session.skip_reason.startsWith("Holiday:") &&
     !(sessionIsSaturday && session.skip_reason === "Holiday: Weekend");
   const isReopenableSkip = session?.status === "SKIPPED" && !isHolidaySkip;
-  const isLocked = session?.status === "SUBMITTED" || isHolidaySkip;
-  const canEdit = canMark && (session?.status === "DRAFT" || isReopenableSkip);
+  const isSubmitted = session?.status === "SUBMITTED";
+  // Permission to reopen/correct a submitted (locked) roll call.
+  const canEditLocked =
+    (user?.permissions?.includes("attendance.student.edit_locked") ?? false) ||
+    user?.role === "SUPER_ADMIN";
+  const editingSubmitted = isSubmitted && canEditLocked && editSubmitted;
+  const isLocked =
+    (isSubmitted && !editingSubmitted) || isHolidaySkip;
+  const canEdit =
+    canMark &&
+    (session?.status === "DRAFT" || isReopenableSkip || editingSubmitted);
 
   const presentCount = useMemo(
     () => roster.filter((r) => marks[r.student.cc] === "PRESENT").length,
@@ -1186,14 +1205,19 @@ function RollCallPageInner() {
     setError(null);
     setSuccess(null);
     try {
+      const wasEditingSubmitted = editingSubmitted;
       const updated = await attendanceService.updateRollSession(session.id, {
         records: buildRecords(),
       });
       applySession(updated);
-      setSuccess("Draft saved successfully.");
+      setSuccess(
+        wasEditingSubmitted
+          ? "Changes saved. This roll call is still marked submitted."
+          : "Draft saved successfully.",
+      );
     } catch (err: unknown) {
       console.error(err);
-      setError("Failed to save draft.");
+      setError(editingSubmitted ? "Failed to save changes." : "Failed to save draft.");
     } finally {
       setSaving(false);
     }
@@ -1205,11 +1229,13 @@ function RollCallPageInner() {
     setError(null);
     setSuccess(null);
     try {
+      const wasEditingSubmitted = editingSubmitted;
       const updated = await attendanceService.updateRollSession(session.id, {
         records: buildRecords(),
         submit: true,
       });
       applySession(updated);
+      setEditSubmitted(false);
       const completion = updated.reschedule_completion;
       if (completion) {
         const parts = [
@@ -1231,6 +1257,8 @@ function RollCallPageInner() {
           parts.push(completion.staffExcuseWarnings[0]);
         }
         setSuccess(`Roll call submitted! ${parts.join("; ")}.`);
+      } else if (wasEditingSubmitted) {
+        setSuccess("Roll call corrected. The recorded attendance has been updated.");
       } else {
         setSuccess("Roll call submitted! Attendance has been recorded.");
       }
@@ -2018,26 +2046,64 @@ function RollCallPageInner() {
           )}
 
           {isLocked && (
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 text-center py-2">
-              {isHolidaySkip
-                ? "This day is marked as a holiday / day off, so attendance cannot be recorded."
-                : "This session is locked. Contact an administrator with edit_locked permission to modify submitted roll call records."}
-            </p>
+            isSubmitted && canEditLocked ? (
+              <div className="flex flex-col items-center gap-2 py-3">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 text-center">
+                  This roll call has been submitted and recorded.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setEditSubmitted(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Edit / correct this roll call
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 text-center py-2">
+                {isHolidaySkip
+                  ? "This day is marked as a holiday / day off, so attendance cannot be recorded."
+                  : "This session is locked. Contact an administrator with edit_locked permission to modify submitted roll call records."}
+              </p>
+            )
+          )}
+
+          {editingSubmitted && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3">
+              <Pencil className="h-4 w-4 text-amber-700 dark:text-amber-300 mt-0.5 shrink-0" />
+              <div className="text-xs text-amber-800 dark:text-amber-200">
+                <p className="font-bold">Editing a submitted roll call</p>
+                <p className="mt-0.5 text-amber-700/90 dark:text-amber-300/80">
+                  Your changes overwrite the recorded attendance. Use{" "}
+                  <span className="font-semibold">Save &amp; re-submit</span> to keep it finalized, or{" "}
+                  <button
+                    type="button"
+                    onClick={() => setEditSubmitted(false)}
+                    className="font-semibold underline underline-offset-2"
+                  >
+                    cancel
+                  </button>{" "}
+                  to leave it unchanged.
+                </p>
+              </div>
+            </div>
           )}
         </div>
       )}
 
       {/* Sticky Bottom Action Bar */}
-      {canMark && (session?.status === "DRAFT" || isReopenableSkip) && roster.length > 0 && (
+      {canEdit && roster.length > 0 && (
         <div className="fixed bottom-0 inset-x-0 sm:static bg-white/95 dark:bg-zinc-950/95 backdrop-blur border-t sm:border-t-0 border-zinc-200 dark:border-zinc-800 p-4 sm:p-0 sm:mt-6 flex gap-3 shadow-[0_-8px_20px_rgba(0,0,0,0.08)] sm:shadow-none z-30">
-          <button
-            type="button"
-            onClick={() => setShowSkip((v) => !v)}
-            title="Skip session"
-            className="px-3.5 py-3 sm:py-3 text-sm border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 flex items-center justify-center transition-colors shadow-sm"
-          >
-            <SkipForward className="h-4 w-4" />
-          </button>
+          {!editingSubmitted && (
+            <button
+              type="button"
+              onClick={() => setShowSkip((v) => !v)}
+              title="Skip session"
+              className="px-3.5 py-3 sm:py-3 text-sm border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 flex items-center justify-center transition-colors shadow-sm"
+            >
+              <SkipForward className="h-4 w-4" />
+            </button>
+          )}
 
           <button
             type="button"
@@ -2045,7 +2111,7 @@ function RollCallPageInner() {
             disabled={saving}
             className="flex-1 py-3 text-sm border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800/80 disabled:opacity-50 transition-all shadow-sm"
           >
-            Save Draft
+            {editingSubmitted ? "Save Changes" : "Save Draft"}
           </button>
 
           <button
@@ -2056,11 +2122,13 @@ function RollCallPageInner() {
           >
             {saving ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Submitting...
+                <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                {editingSubmitted ? "Saving..." : "Submitting..."}
               </>
             ) : (
               <>
-                <CheckCircle2 className="h-4 w-4" /> Submit Roll Call
+                <CheckCircle2 className="h-4 w-4" />{" "}
+                {editingSubmitted ? "Save & Re-submit" : "Submit Roll Call"}
               </>
             )}
           </button>
