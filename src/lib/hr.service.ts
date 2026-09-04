@@ -751,6 +751,31 @@ interface ApiEnvelope<T> {
   message: string;
 }
 
+export interface EmployeeProgressionPeriod {
+  id: number;
+  employee_id: number;
+  campus_id: number | null;
+  segment_id: number | null;
+  department_id: number | null;
+  staff_category_id: number | null;
+  reporting_manager_id: number | null;
+  job_title: string | null;
+  employment_type: string | null;
+  employment_status: string;
+  monthly_pay: string | null;
+  payroll_enabled: boolean;
+  class_sections: { class_id: number; section_id: number | null }[] | null;
+  change_type: string;
+  changed_by: string | null;
+  notes: string | null;
+  valid_from: string;
+  valid_to: string | null;
+  campuses: { campus_name: string } | null;
+  segments: { name: string; code: string } | null;
+  departments: { name: string } | null;
+  staff_categories: { name: string; code: string } | null;
+}
+
 export const hrService = {
   // ── Employees API ──────────────────────────────────────────────────────────
   async listEmployees(): Promise<EmployeeProfile[]> {
@@ -764,6 +789,10 @@ export const hrService = {
   },
   async getEmployee(id: number): Promise<EmployeeProfile> {
     const { data } = await api.get<ApiEnvelope<EmployeeProfile>>(`/v1/hr/employees/${id}`);
+    return data.data;
+  },
+  async listEmployeeProgression(id: number): Promise<EmployeeProgressionPeriod[]> {
+    const { data } = await api.get<ApiEnvelope<EmployeeProgressionPeriod[]>>(`/v1/hr/employees/${id}/progression`);
     return data.data;
   },
   async createEmployee(payload: EmployeeCreatePayload): Promise<EmployeeProfile> {

@@ -8,7 +8,7 @@ import {
   Phone, Mail, MapPin, CreditCard, Cake, Calendar, Building2,
   AlertTriangle, Users as UsersIcon, Pencil, Save, CheckCircle2,
   Landmark, PhoneCall, Shield, Fingerprint, CalendarClock, UserMinus,
-  ChevronDown, UserCheck, ShieldCheck, DoorOpen, Ban, Wallet, HandCoins, Layers,
+  ChevronDown, UserCheck, ShieldCheck, DoorOpen, Ban, Wallet, HandCoins, Layers, TrendingUp,
 } from "lucide-react";
 import {
   hrService,
@@ -41,6 +41,7 @@ import {
   type ClassSectionRow,
 } from "./EmployeeClassAssignmentsEditor";
 import { EmployeeCodeFields } from "./EmployeeCodeFields";
+import { EmployeeProgressionTab } from "./EmployeeProgressionTab";
 import { employeeCodePartsFromProfile, formatEmployeeCodeDisplay } from "@/lib/employee-code";
 
 const BASE_TABS = [
@@ -50,6 +51,7 @@ const BASE_TABS = [
   { id: "security_deposit", label: "Security Deposit", icon: Wallet },
   { id: "loan", label: "Loan", icon: HandCoins },
   { id: "classes", label: "Class & Sections", icon: BookOpen },
+  { id: "progression", label: "Progression", icon: TrendingUp },
 ] as const;
 
 type TabId = typeof BASE_TABS[number]["id"] | "portal" | "biometric" | "shift_overrides";
@@ -62,6 +64,7 @@ function tabFromParam(value: string | null): TabId | null {
     value === "security_deposit" ||
     value === "loan" ||
     value === "classes" ||
+    value === "progression" ||
     value === "portal" ||
     value === "biometric" ||
     value === "shift_overrides"
@@ -1062,6 +1065,8 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     )}
                   </EditableCard>
                 )}
+
+                {tab === "progression" && <EmployeeProgressionTab id={emp.id} />}
               </>
             )}
           </div>
