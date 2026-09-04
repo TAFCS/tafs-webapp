@@ -310,6 +310,7 @@ export function mergeNavModules(catalog: AccessCatalog | null | undefined): NavM
 export function isTileVisible(
     user: Pick<StaffUser, "role" | "permissions" | "effectiveTileIds"> | null | undefined,
     item: NavItem,
+    tileIdSet?: Set<string>,
 ): boolean {
     if (!user) return false;
     if (item.href === "/admin/developer" || item.href === "/attendance/zk-device-logs") {
@@ -317,7 +318,7 @@ export function isTileVisible(
     }
     if (user.effectiveTileIds) {
         if (!item.id) return false;
-        return user.effectiveTileIds.includes(item.id);
+        return (tileIdSet ?? new Set(user.effectiveTileIds)).has(item.id);
     }
     if (user.role === "SUPER_ADMIN") return true;
     if (item.href === "/hr/saturday-schedules" || item.href === "/hr/shift-overrides") {
@@ -336,8 +337,9 @@ export function visibleModulesForUser(
     modules: NavModule[] = NAV_MODULES,
 ): NavModule[] {
     if (!user) return [];
+    const tileIdSet = user.effectiveTileIds ? new Set(user.effectiveTileIds) : undefined;
     return modules
-        .map((mod) => ({ ...mod, items: mod.items.filter((item) => isTileVisible(user, item)) }))
+        .map((mod) => ({ ...mod, items: mod.items.filter((item) => isTileVisible(user, item, tileIdSet)) }))
         .filter((mod) => mod.items.length > 0);
 }
 
