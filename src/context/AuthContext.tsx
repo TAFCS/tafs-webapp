@@ -53,6 +53,9 @@ function normalizeStaffUser(user: StaffUser): StaffUser {
         ...user,
         allowedClassIds: user.allowedClassIds ?? [],
         permissions: user.permissions ?? [],
+        effectiveTileIds: user.effectiveTileIds,
+        payrollEnabled: user.payrollEnabled,
+        hasEmployeeProfile: user.hasEmployeeProfile,
     };
 }
 

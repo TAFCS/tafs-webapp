@@ -11,6 +11,9 @@ export interface StaffUser {
   campusName: string | null;
   allowedClassIds: number[];
   permissions: string[];
+  effectiveTileIds?: string[];
+  payrollEnabled?: boolean;
+  hasEmployeeProfile?: boolean;
 }
 
 interface AuthState {

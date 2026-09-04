@@ -892,60 +892,37 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     setError(null);
     setSuccess(null);
     let createdUsername: string | null = null;
-    // Set only when the login was created by its own request and could be left
-    // orphaned if the employee write then fails — never for the transactional create.
-    let strandedUsername: string | null = null;
     try {
       const payload = buildPayload();
       let activeEmpId: number;
+      let linkedUserId: string | null = null;
 
       if (needsPortalAccount) {
-        if (isEdit) {
-          // The profile already exists, so the login has to be created separately.
-          try {
-            const { data } = await api.post<{ data: { id: string } }>("/v1/users", {
-              username: portalUsername.trim(),
-              full_name: formData.full_name.trim(),
-              password: portalPassword,
-              role: "EMPLOYEE",
-              campus_id: formData.campus_id || undefined,
-            });
-            payload.user_id = data.data.id;
-            createdUsername = portalUsername.trim();
-            strandedUsername = createdUsername;
-          } catch (userErr: any) {
-            const msg = userErr.response?.data?.message || "Failed to create portal account.";
-            setError(Array.isArray(msg) ? msg.join(", ") : msg);
-            setSaving(false);
-            return;
-          }
-        } else {
-          // Registration creates profile + login in one transaction, so a rejected
-          // profile (duplicate CNIC, bad code) rolls the username back for the retry.
-          payload.portal_account = {
-            username: portalUsername.trim(),
-            password: portalPassword,
-            role: "EMPLOYEE",
-            campus_id: formData.campus_id ? parseInt(formData.campus_id, 10) : undefined,
-          };
-          createdUsername = portalUsername.trim();
-        }
+        payload.portal_account = {
+          username: portalUsername.trim(),
+          password: portalPassword,
+          role: "EMPLOYEE",
+          campus_id: formData.campus_id ? parseInt(formData.campus_id, 10) : undefined,
+        };
+        createdUsername = portalUsername.trim();
       }
 
       if (isEdit && employeeId) {
-        await hrService.updateEmployee(employeeId, payload);
+        const updated = await hrService.updateEmployee(employeeId, payload);
         if (useCustomSchedule) {
           await hrService.updateEmployeeWorkSchedule(employeeId, buildScheduleDays(weekSchedule));
         } else {
           await hrService.clearEmployeeWorkSchedule(employeeId);
         }
         activeEmpId = employeeId;
+        linkedUserId = updated.user_id;
       } else {
         const created = await hrService.createEmployee(payload);
         if (useCustomSchedule) {
           await hrService.updateEmployeeWorkSchedule(created.id, buildScheduleDays(weekSchedule));
         }
         activeEmpId = created.id;
+        linkedUserId = created.user_id;
       }
 
       // Upload selected photo files directly for all 4 slots
@@ -968,7 +945,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
             : "Employee profile updated successfully.",
         );
         if (createdUsername) {
-          setFormData((p) => ({ ...p, user_id: payload.user_id ?? p.user_id }));
+          setFormData((p) => ({ ...p, user_id: linkedUserId ?? p.user_id }));
           setPortalPassword("");
         }
       } else if (createdUsername) {
@@ -981,11 +958,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       console.error(err);
       const base = err.response?.data?.message || "Failed to save employee profile.";
       const msg = Array.isArray(base) ? base.join(", ") : base;
-      setError(
-        strandedUsername
-          ? `${msg} Portal username "${strandedUsername}" was already created — link or remove it in System → Users.`
-          : msg,
-      );
+      setError(msg);
     } finally {
       setSaving(false);
     }

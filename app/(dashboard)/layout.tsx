@@ -8,7 +8,8 @@ import { GlobalHeader } from "@/components/layout/global-header";
 import { useAuth, useAuthState } from "@/context/AuthContext";
 import { NavigationProvider } from "@/context/NavigationContext";
 import { useNavigation } from "@/context/NavigationContext";
-import { NAV_MODULES } from "@/lib/nav-config";
+import { hrefToModuleId, visibleModulesForUser, type NavModule } from "@/lib/nav-config";
+import { useAccessCatalog } from "@/hooks/use-access-catalog";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState } from "@/store/store";
 import { useSocket } from "@/context/SocketContext";
@@ -29,8 +30,9 @@ const RAIL_LABELS: Record<string, string> = {
 };
 
 // Map every nav item href → its module id for URL-based highlighting
-const URL_TO_MODULE: Record<string, string> = {};
-NAV_MODULES.forEach(m => m.items.forEach(item => { URL_TO_MODULE[item.href] = m.id; }));
+function urlToModule(modules: NavModule[]): Record<string, string> {
+    return hrefToModuleId(modules);
+}
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
     const { user, isLoading } = useAuthState();
@@ -40,6 +42,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     const { activeModuleId } = useNavigation();
     const dispatch = useDispatch();
     const { socket } = useSocket();
+    const { modules } = useAccessCatalog();
     const { pendingApprovals } = useSelector((state: RootState) => state.supportTickets);
 
     useEffect(() => {
@@ -92,12 +95,8 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         }
     }, [user, isLoading, pathname, router]);
 
-    const hasPermission = (perm: string) => {
-        if (user?.role === "SUPER_ADMIN") return true;
-        return user?.permissions?.includes(perm) ?? false;
-    };
-
-    const visibleModules = NAV_MODULES.filter(m => m.permissions.some(hasPermission));
+    const visibleModules = visibleModulesForUser(user, modules);
+    const URL_TO_MODULE = urlToModule(modules);
 
     // Determine which module to highlight:
     // - on /dashboard: use context state

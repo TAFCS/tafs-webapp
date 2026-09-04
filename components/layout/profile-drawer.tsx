@@ -2,10 +2,10 @@ import { X, LogOut, LayoutDashboard, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useAuth, useAuthState } from "@/context/AuthContext";
-import { canViewSupportTickets, SUPPORT_TICKETS_VIEW_PERMISSION } from "@/features/support-tickets/supportTicketAccess";
 import { classBandLabel } from "@/lib/class-bands";
 import { motion, AnimatePresence } from "framer-motion";
-import { NAV_MODULES, type NavItem } from "@/lib/nav-config";
+import { visibleModulesForUser } from "@/lib/nav-config";
+import { useAccessCatalog } from "@/hooks/use-access-catalog";
 
 interface ProfileDrawerProps {
     isOpen: boolean;
@@ -15,6 +15,7 @@ interface ProfileDrawerProps {
 export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     const { logout } = useAuth();
     const { user } = useAuthState();
+    const { modules } = useAccessCatalog();
     const [signingOut, setSigningOut] = useState(false);
     const [openModule, setOpenModule] = useState<string | null>(null);
 
@@ -35,23 +36,7 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
         ? user.fullName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
         : "?";
 
-    const hasPermission = (perm: string) => {
-        if (user?.role === "SUPER_ADMIN") return true;
-        if (perm === SUPPORT_TICKETS_VIEW_PERMISSION) return canViewSupportTickets(user);
-        return user?.permissions?.includes(perm) ?? false;
-    };
-
-    const isItemVisible = (item: NavItem) => {
-        if (item.href === "/admin/developer" || item.href === "/attendance/zk-device-logs") {
-            return user?.role === "SUPER_ADMIN";
-        }
-        if (item.href === "/hr/saturday-schedules") {
-            return user?.role === "SUPER_ADMIN" || user?.role === "CAMPUS_ADMIN";
-        }
-        if (item.permissions) return item.permissions.some(hasPermission);
-        if (item.permission) return hasPermission(item.permission);
-        return false;
-    };
+    const visibleModules = visibleModulesForUser(user, modules);
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -161,8 +146,8 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
 
                             <div className="w-full h-px bg-gradient-to-r from-transparent via-zinc-200 dark:via-zinc-800 to-transparent my-3" />
 
-                            {NAV_MODULES.map(module => {
-                                const visibleItems = module.items.filter(isItemVisible);
+                            {visibleModules.map(module => {
+                                const visibleItems = module.items;
                                 if (visibleItems.length === 0) return null;
 
                                 const isOpen = openModule === module.id;

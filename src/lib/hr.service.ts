@@ -116,6 +116,7 @@ export interface EmployeeProfile {
   check_in_source: CheckInSource;
   late_relaxation_minutes: number | null;
   monthly_pay: number | null;
+  payroll_enabled?: boolean;
   campus_id: number | null;
   days_per_week: number | null;
   photo_url: string | null;
@@ -178,8 +179,8 @@ export interface EmployeeCreatePayload {
   join_date?: string | null;
   employment_type?: string | null;
   employment_status?: EmployeeStatus;
-  department_id?: number;
-  reporting_manager_id?: number;
+  department_id?: number | null;
+  reporting_manager_id?: number | null;
   employee_code?: string | null;
   employee_code_dep?: string | null;
   employee_code_number?: string | null;
@@ -200,8 +201,9 @@ export interface EmployeeCreatePayload {
   leaving_time?: string | null;
   check_in_source?: CheckInSource;
   late_relaxation_minutes?: number;
-  monthly_pay?: number;
-  campus_id?: number;
+  monthly_pay?: number | null;
+  payroll_enabled?: boolean;
+  campus_id?: number | null;
   days_per_week?: number;
   photo_url?: string | null;
   father_photo_url?: string | null;
@@ -218,8 +220,9 @@ export interface EmployeeCreatePayload {
   emergency_contact_relationship?: string | null;
   class_section_assignments?: { class_id: number; section_id: number }[];
   /**
-   * Create the portal login together with the profile. The backend does both in one
-   * transaction, so a rejected profile no longer leaves the username burned behind it.
+   * Create the portal login together with the profile (or attach one on edit).
+   * The backend writes both in one transaction, so a rejected write no longer
+   * leaves the username burned behind it.
    */
   portal_account?: {
     username: string;
@@ -227,6 +230,8 @@ export interface EmployeeCreatePayload {
     role?: string;
     campus_id?: number;
   };
+  packIds?: string[];
+  tileGrants?: { tileId: string; allow: boolean; note?: string }[];
 }
 
 export interface EmployeeAccountUpdatePayload {

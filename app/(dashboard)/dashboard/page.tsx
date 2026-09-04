@@ -5,8 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useAuthState } from "@/context/AuthContext";
-import { canViewSupportTickets, SUPPORT_TICKETS_VIEW_PERMISSION } from "@/features/support-tickets/supportTicketAccess";
-import { NAV_MODULES, type NavItem } from "@/lib/nav-config";
+import { NAV_MODULES, type NavItem, visibleModulesForUser } from "@/lib/nav-config";
+import { useAccessCatalog } from "@/hooks/use-access-catalog";
 import { useNavigation } from "@/context/NavigationContext";
 import api from "@/lib/api";
 import { useSelector } from "react-redux";
@@ -74,6 +74,7 @@ function ModuleParamSync() {
 
 export default function DashboardPage() {
     const { user } = useAuthState();
+    const { modules } = useAccessCatalog();
     const { activeModuleId, setActiveModule } = useNavigation();
     const [statsData, setStatsData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -95,27 +96,9 @@ export default function DashboardPage() {
         fetchStats();
     }, []);
 
-    const hasPermission = (perm: string) => {
-        if (user?.role === "SUPER_ADMIN") return true;
-        if (perm === SUPPORT_TICKETS_VIEW_PERMISSION) return canViewSupportTickets(user);
-        return user?.permissions?.includes(perm) ?? false;
-    };
-
-    const isItemVisible = (item: NavItem) => {
-        if (item.href === "/admin/developer" || item.href === "/attendance/zk-device-logs") {
-            return user?.role === "SUPER_ADMIN";
-        }
-        if (item.href === "/hr/saturday-schedules" || item.href === "/hr/shift-overrides") {
-            return user?.role === "SUPER_ADMIN" || user?.role === "CAMPUS_ADMIN";
-        }
-        if (item.permissions) return item.permissions.some(hasPermission);
-        if (item.permission) return hasPermission(item.permission);
-        return false;
-    };
-
-    const visibleModules = NAV_MODULES.filter(m => m.permissions.some(hasPermission));
+    const visibleModules = visibleModulesForUser(user, modules);
     const activeModule = visibleModules.find(m => m.id === activeModuleId) ?? visibleModules[0];
-    const visibleItems = activeModule?.items.filter(isItemVisible) ?? [];
+    const visibleItems = activeModule?.items ?? [];
 
     // Sections in the order their group first appears. A module that sets no
     // groups collapses to a single "Pages" section — i.e. the flat grid.

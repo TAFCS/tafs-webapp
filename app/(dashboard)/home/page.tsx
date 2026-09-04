@@ -10,7 +10,8 @@ import {
     AlertTriangle, CheckCircle, ExternalLink, Loader2, User, ArrowRight,
 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
-import { NAV_MODULES } from "@/lib/nav-config";
+import { visibleModulesForUser } from "@/lib/nav-config";
+import { useAccessCatalog } from "@/hooks/use-access-catalog";
 import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
 import { formatAuditActor } from "@/lib/audit-actor";
 import { AuditLogSubjectBadges, AuditLogSubjectLine, employeeSubjectFromLog } from "@/components/audit/AuditLogSubjectBadges";
@@ -549,14 +550,11 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function HomePage() {
     const { user, isLoading } = useAuthState();
+    const { modules } = useAccessCatalog();
 
-    const hasPermission = (perm: string) => {
-        if (user?.role === "SUPER_ADMIN") return true;
-        return user?.permissions?.includes(perm) ?? false;
-    };
-
-    const visibleModules = NAV_MODULES.filter(m => m.permissions.some(hasPermission));
-    const fallbackActions = visibleModules.flatMap(m => m.items.slice(0, 1));
+    const visibleModules = visibleModulesForUser(user, modules);
+    const visibleHrefs = new Set(visibleModules.flatMap((m) => m.items.map((i) => i.href)));
+    const fallbackActions = visibleModules.flatMap((m) => m.items.slice(0, 1));
 
     if (isLoading || !user) return null;
 
@@ -570,6 +568,14 @@ export default function HomePage() {
     const isFinanceRole = role === "SUPER_ADMIN" || role === "FINANCE_CLERK";
     const canSeeFeeBenefitAlerts =
         isAdminRole || isFinanceRole || role === "PRINCIPAL";
+
+    const curatedActions =
+        role === "SUPER_ADMIN" ? SUPER_ADMIN_ACTIONS
+        : role === "FINANCE_CLERK" ? FINANCE_CLERK_ACTIONS
+        : null;
+    const quickActions = curatedActions
+        ? curatedActions.filter((a) => visibleHrefs.has(a.href))
+        : fallbackActions.map((a) => ({ label: a.name, href: a.href, icon: a.icon }));
 
     return (
         <motion.div
@@ -602,34 +608,12 @@ export default function HomePage() {
 
                     {/* Main — 2/3 */}
                     <div className="md:col-span-2 flex flex-col gap-6">
-                        {role === "SUPER_ADMIN" && (
+                        {quickActions.length > 0 && (
                             <div className="flex flex-col gap-4">
                                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">Quick Actions</p>
                                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {SUPER_ADMIN_ACTIONS.map(a => (
-                                        <ActionCard key={a.href} {...a} />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {role === "FINANCE_CLERK" && (
-                            <div className="flex flex-col gap-4">
-                                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">Quick Actions</p>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {FINANCE_CLERK_ACTIONS.map(a => (
-                                        <ActionCard key={a.href} {...a} />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {role !== "SUPER_ADMIN" && role !== "FINANCE_CLERK" && fallbackActions.length > 0 && (
-                            <div className="flex flex-col gap-4">
-                                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">Quick Actions</p>
-                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {fallbackActions.map(a => (
-                                        <ActionCard key={a.href} label={a.name} href={a.href} icon={a.icon} />
+                                    {quickActions.map((a) => (
+                                        <ActionCard key={a.href} label={a.label} href={a.href} icon={a.icon} />
                                     ))}
                                 </div>
                             </div>
