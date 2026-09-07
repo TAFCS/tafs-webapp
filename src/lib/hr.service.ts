@@ -782,6 +782,16 @@ export const hrService = {
     const { data } = await api.get<ApiEnvelope<EmployeeProfile[]>>('/v1/hr/employees');
     return data.data;
   },
+  /**
+   * Lean list for the directory grid — only card + filter fields. The detail
+   * panel re-fetches the full record via getEmployee when a card is opened.
+   */
+  async listEmployeesSummary(): Promise<EmployeeProfile[]> {
+    const { data } = await api.get<ApiEnvelope<EmployeeProfile[]>>('/v1/hr/employees', {
+      params: { view: 'summary' },
+    });
+    return data.data;
+  },
   async exportMasterEmployeesExcel(): Promise<void> {
     const res = await api.get('/v1/hr/employees/export-master-excel', { responseType: 'blob' });
     const filename = `TAFS_Master_Employee_Database_${new Date().toISOString().split('T')[0]}.xlsx`;

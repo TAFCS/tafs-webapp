@@ -148,13 +148,15 @@ const MAPPING_AUDIT_STATUSES = ["ACTIVE", "PERMANENT"];
 /** Synthetic serial for the one-off old-device Excel attendance backfill — not a real biometric device. */
 const OLD_DEVICE_BACKFILL_SN = "OLDDEV-XLS";
 
+/**
+ * A real, usable biometric enrolment. The OLDDEV-XLS serial is a historical
+ * import artifact — those staff still need enrolling on a live device, so it
+ * does not count here.
+ */
 function hasActiveDeviceMapping(emp: EmployeeProfile): boolean {
-  return (emp.device_user_mappings || []).some((m) => m.is_active !== false);
-}
-
-/** True when the employee has any mapping to the old-device backfill serial (active or not). */
-function hasOldDeviceBackfillMapping(emp: EmployeeProfile): boolean {
-  return (emp.device_user_mappings || []).some((m) => m.device_sn === OLD_DEVICE_BACKFILL_SN);
+  return (emp.device_user_mappings || []).some(
+    (m) => m.is_active !== false && m.device_sn !== OLD_DEVICE_BACKFILL_SN,
+  );
 }
 
 /** Teaching-related staff, i.e. the whole ACADEMICS department — the only ones a missing segment is a defect for. */
@@ -215,7 +217,7 @@ function EmployeesContent() {
     setLoading(true);
     setError(null);
     try {
-      const empList = await hrService.listEmployees();
+      const empList = await hrService.listEmployeesSummary();
       setEmployees(empList);
     } catch (err: any) {
       console.error(err);
@@ -287,9 +289,6 @@ function EmployeesContent() {
         if (auditFilter === "no_device_mapping") {
           if (!MAPPING_AUDIT_STATUSES.includes(emp.employment_status ?? "ACTIVE")) return false;
           if (hasActiveDeviceMapping(emp)) return false;
-          // Old-device Excel-backfill staff carry an OLDDEV-XLS mapping instead of a real
-          // device enrolment — don't flag them as missing a mapping.
-          if (hasOldDeviceBackfillMapping(emp)) return false;
         }
         if (auditFilter === "no_segment") {
           if (!isAcademicsDeptEmployee(emp)) return false;
