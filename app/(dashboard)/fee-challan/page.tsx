@@ -41,6 +41,13 @@ import {
   MONTH_TO_NUM,
   getCurrentAcademicYear,
 } from "@/lib/fee-utils";
+// SHARED voucher-issuance settings form — the SAME component the voucher-split
+// modals use. Any setting added here / in the split modals must be threaded
+// through BOTH the create-voucher and split-partially-paid backends. See the
+// banner in VoucherSettingsPanel.tsx.
+import VoucherSettingsPanel, {
+  type VoucherSettings,
+} from "@/features/vouchers/components/VoucherSettingsPanel";
 
 // ─── Dev flags ───────────────────────────────────────────────────────────────
 // Kill switch: set to true to re-enable discount display in voucher generation.
@@ -468,6 +475,42 @@ export default function FeeChallanGenerator() {
     setBranchCode(bank.branch_code || "");
     setBankAddress(bank.bank_address || "");
     setIban(bank.iban || "");
+  };
+
+  // ── Adapter for the SHARED VoucherSettingsPanel ────────────────────────────
+  // This page keeps its own individual state fields (used across FormData
+  // building, effects and Step 3 badges); the panel is driven as a controlled
+  // component by projecting those fields in and fanning changes back out.
+  // balanceDisposition is unused here (single issuance always issues).
+  const panelSettings: VoucherSettings = {
+    bankAccountId: selectedBank?.id ?? null,
+    issueDate,
+    dueDate,
+    validityDate,
+    applyLateFee,
+    lateFeeAmount,
+    waiveSurcharge,
+    sendNotification,
+    holdForRelease,
+    applyReprintFee,
+    reprintFeeAmount,
+    balanceDisposition: "ISSUE_AND_NOTIFY",
+  };
+  const handlePanelChange = (n: VoucherSettings) => {
+    if ((n.bankAccountId ?? null) !== (selectedBank?.id ?? null)) {
+      const b = banks.find((x) => x.id === n.bankAccountId);
+      if (b) selectBank(b);
+    }
+    setIssueDate(n.issueDate);
+    setDueDate(n.dueDate);
+    setValidityDate(n.validityDate);
+    setApplyLateFee(n.applyLateFee);
+    setLateFeeAmount(n.lateFeeAmount);
+    setWaiveSurcharge(n.waiveSurcharge);
+    setSendNotification(n.sendNotification);
+    setHoldForRelease(n.holdForRelease);
+    setApplyReprintFee(n.applyReprintFee);
+    setReprintFeeAmount(n.reprintFeeAmount);
   };
 
   const handleRefresh = async () => {
@@ -1114,89 +1157,11 @@ export default function FeeChallanGenerator() {
             </div>
 
             <div className={`p-10 space-y-12 ${currentStep !== 2 ? "pointer-events-none" : ""}`}>
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
-                {/* Left Column: Bank & Dates */}
-                <div className="space-y-12">
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-3">
-                      <Building2 className="h-4 w-4 text-primary" />
-                      <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
-                        Collection Bank
-                      </h3>
-                    </div>
-                    <div className="relative" ref={bankDropdownRef}>
-                      <button
-                        onClick={() => setShowBankDropdown(!showBankDropdown)}
-                        className="w-full min-h-[64px] p-5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-3xl flex items-center justify-between hover:border-primary/50 transition-all group"
-                      >
-                        <div className="flex items-center gap-5">
-                          <div className="h-10 w-10 bg-white dark:bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-400 group-hover:text-primary transition-colors">
-                            <Building2 className="h-5 w-5" />
-                          </div>
-                          <div className="text-left">
-                            <p className="text-[14px] font-black text-zinc-900 dark:text-zinc-100">
-                              {selectedBank ? selectedBank.bank_name : "Select Bank Account"}
-                            </p>
-                            {selectedBank && (
-                              <p className="text-[11px] font-bold text-zinc-400">
-                                {selectedBank.account_title} - {selectedBank.account_number}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <ChevronDown className={`h-5 w-5 text-zinc-400 transition-transform ${showBankDropdown ? "rotate-180" : ""}`} />
-                      </button>
-                      {showBankDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-4">
-                          <div className="max-h-[300px] overflow-y-auto p-3">
-                            {banks.map((b) => (
-                              <button
-                                key={b.id}
-                                onClick={() => { selectBank(b); setShowBankDropdown(false); }}
-                                className={`w-full p-5 rounded-2xl flex items-center justify-between transition-all ${selectedBank?.id === b.id ? "bg-primary/5 border-2 border-primary/20" : "hover:bg-zinc-50 dark:hover:bg-zinc-900 border-2 border-transparent"}`}
-                              >
-                                <div className="text-left">
-                                  <p className="text-[13px] font-black text-zinc-900 dark:text-zinc-100">{b.bank_name}</p>
-                                  <p className="text-[11px] font-bold text-zinc-400">{b.account_title} - {b.account_number}</p>
-                                </div>
-                                {selectedBank?.id === b.id && <CheckCircle2 className="h-5 w-5 text-primary" />}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-4 w-4 text-primary" />
-                      <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">
-                        Voucher Timeline
-                      </h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {[
-                        { label: "Date of Issue", val: issueDate, setter: setIssueDate, color: "primary" },
-                        { label: "Due Date", val: dueDate, setter: setDueDate, color: "primary" },
-                        { label: "Valid Till", val: validityDate, setter: setValidityDate, color: "rose" },
-                      ].map((item) => (
-                        <div key={item.label} className="space-y-2">
-                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">{item.label}</label>
-                          <input
-                            type="date"
-                            value={item.val}
-                            onChange={(e) => item.setter(e.target.value)}
-                            className={`w-full h-12 px-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[13px] font-black focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all ${item.color === "rose" ? "text-rose-600" : ""}`}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column: Date Range and Policies */}
-                <div className="space-y-12">
+              {/* Bank / dates / late fee / waiver / notification / hold now
+                  live in the SHARED VoucherSettingsPanel below — the same form
+                  the voucher-split modals render. Fee Date Range stays here
+                  because it selects WHICH fees to bill, not a voucher setting. */}
+              <div className="space-y-12">
                   <div className="space-y-6">
                     <div className="flex items-center gap-3">
                       <Calendar className="h-4 w-4 text-primary" />
@@ -1217,72 +1182,19 @@ export default function FeeChallanGenerator() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-3">
-                        <AlertCircle className="h-4 w-4 text-rose-500" />
-                        <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Late Surcharge</h3>
-                      </div>
-                      <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50">
-                        <button onClick={() => setApplyLateFee(true)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${applyLateFee ? "bg-white text-rose-600 shadow-xl" : "text-zinc-400"}`}>Apply</button>
-                        <button onClick={() => setApplyLateFee(false)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!applyLateFee ? "bg-white text-zinc-400 shadow-xl" : "text-zinc-400"}`}>None</button>
-                      </div>
-                      {applyLateFee && (
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Surcharge Amount (PKR)</label>
-                          <input type="number" value={lateFeeAmount} onChange={(e) => setLateFeeAmount(Number(e.target.value))} className="w-full h-12 px-5 bg-rose-50/50 border-2 border-rose-100 rounded-2xl text-[14px] font-black text-rose-600" />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-3">
-                        <Info className="h-4 w-4 text-emerald-500" />
-                        <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Waiver Policy</h3>
-                      </div>
-                      <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50">
-                        <button onClick={() => setWaiveSurcharge(true)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${waiveSurcharge ? "bg-white text-emerald-600 shadow-xl" : "text-zinc-400"}`}>Waive</button>
-                        <button onClick={() => setWaiveSurcharge(false)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!waiveSurcharge ? "bg-white text-emerald-600 shadow-xl" : "text-zinc-400"}`}>Charge</button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-3">
-                        <Bell className="h-4 w-4 text-primary" />
-                        <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Parent Notification</h3>
-                      </div>
-                      <div className={`flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50 ${holdForRelease ? "opacity-40 pointer-events-none" : ""}`}>
-                        <button onClick={() => setSendNotification(true)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${sendNotification ? "bg-white text-primary shadow-xl" : "text-zinc-400"}`}>Notify Now</button>
-                        <button onClick={() => setSendNotification(false)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!sendNotification ? "bg-white text-zinc-500 shadow-xl" : "text-zinc-400"}`}>Don&apos;t Notify</button>
-                      </div>
-                      <p className="text-[11px] font-medium text-zinc-500 ml-1">
-                        {holdForRelease
-                          ? "Held vouchers stay silent until an admin releases them — the issued push fires then."
-                          : sendNotification
-                            ? "Parents get an app notification the moment this voucher is generated."
-                            : "No notification at generation. Due, overdue and expiry reminders are still sent on schedule."}
-                      </p>
-                    </div>
-
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-3">
-                        <Lock className="h-4 w-4 text-amber-500" />
-                        <h3 className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-widest">Hold for Release</h3>
-                      </div>
-                      <div className="flex items-center gap-4 bg-zinc-100/50 dark:bg-zinc-900/50 p-1.5 rounded-[20px] border border-zinc-200/50">
-                        <button onClick={() => setHoldForRelease(false)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!holdForRelease ? "bg-white text-emerald-600 shadow-xl" : "text-zinc-400"}`}>Release Now</button>
-                        <button onClick={() => setHoldForRelease(true)} className={`flex-1 h-10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${holdForRelease ? "bg-white text-amber-600 shadow-xl" : "text-zinc-400"}`}>Hold</button>
-                      </div>
-                      <p className="text-[11px] font-medium text-zinc-500 ml-1">
-                        {holdForRelease
-                          ? "Created in the system but invisible to parents until an admin releases it."
-                          : "Visible to parents immediately after generation (today's default)."}
-                      </p>
-                    </div>
-                  </div>
+                  {/* SHARED with the voucher-split modals — see the banner in
+                      VoucherSettingsPanel.tsx. Do not re-inline these controls
+                      here; extend the shared component instead. */}
+                  <VoucherSettingsPanel
+                    value={panelSettings}
+                    onChange={handlePanelChange}
+                    banks={banks}
+                    variant="full"
+                    showReprintFee={false}
+                    disabled={currentStep !== 2}
+                  />
                 </div>
               </div>
-            </div>
 
             {currentStep === 2 && (
               <div className="p-10 border-t border-zinc-100 dark:border-zinc-900 flex justify-end bg-zinc-50/30 dark:bg-zinc-900/10 rounded-b-[40px]">
