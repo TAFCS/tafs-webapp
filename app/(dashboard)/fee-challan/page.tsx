@@ -77,6 +77,8 @@ interface VoucherHead {
     id: number;
     issue_date: string;
     status: string | null;
+    // null => covering voucher is HELD (unreleased): parents can't see it yet.
+    released_to_parent_at?: string | null;
   } | null;
 }
 
@@ -119,43 +121,57 @@ type VoucherGenStatus = {
   anyGenerated: boolean;
   anyPaid: boolean;
   anyPartiallyPaid: boolean;
+  // At least one covering voucher is HELD (released_to_parent_at == null):
+  // generated but not yet released to parents.
+  anyUnreleased: boolean;
 };
 
 function computeVoucherGenStatus(fees: StudentFee[]): VoucherGenStatus {
   let anyGenerated = false;
   let anyPaid = false;
   let anyPartiallyPaid = false;
+  let anyUnreleased = false;
   for (const fee of fees) {
     const head = fee.voucher_heads?.[0];
     if (head) {
       anyGenerated = true;
-      const voucherStatus = head.vouchers?.status;
+      const voucher = head.vouchers;
+      const voucherStatus = voucher?.status;
       if (voucherStatus === "PAID") anyPaid = true;
       if (voucherStatus === "PARTIALLY_PAID") anyPartiallyPaid = true;
+      if (voucher && voucherStatus !== "VOID" && voucher.released_to_parent_at == null) {
+        anyUnreleased = true;
+      }
     }
   }
-  return { anyGenerated, anyPaid, anyPartiallyPaid };
+  return { anyGenerated, anyPaid, anyPartiallyPaid, anyUnreleased };
 }
 
 function VoucherGenBadge({ status }: { status: VoucherGenStatus }) {
   if (!status.anyGenerated) return null;
-  if (status.anyPaid) {
-    return (
-      <span className="text-[10px] font-black bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-1.5">
-        <CheckCircle2 className="h-3 w-3" /> Already Paid
-      </span>
-    );
-  }
-  if (status.anyPartiallyPaid) {
-    return (
-      <span className="text-[10px] font-black bg-amber-500/10 text-amber-600 px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-1.5">
-        <AlertCircle className="h-3 w-3" /> Partially Paid
-      </span>
-    );
-  }
   return (
-    <span className="text-[10px] font-black bg-blue-500/10 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-1.5">
-      <Info className="h-3 w-3" /> Already Generated
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      {status.anyPaid ? (
+        <span className="text-[10px] font-black bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-1.5">
+          <CheckCircle2 className="h-3 w-3" /> Already Paid
+        </span>
+      ) : status.anyPartiallyPaid ? (
+        <span className="text-[10px] font-black bg-amber-500/10 text-amber-600 px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-1.5">
+          <AlertCircle className="h-3 w-3" /> Partially Paid
+        </span>
+      ) : (
+        <span className="text-[10px] font-black bg-blue-500/10 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-1.5">
+          <Info className="h-3 w-3" /> Already Generated
+        </span>
+      )}
+      {status.anyUnreleased && (
+        <span
+          title="Held — not yet released to parents (invisible & silent until an admin releases it)"
+          className="text-[10px] font-black bg-violet-500/10 text-violet-600 dark:text-violet-300 px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-1.5"
+        >
+          <Lock className="h-3 w-3" /> Unreleased
+        </span>
+      )}
     </span>
   );
 }

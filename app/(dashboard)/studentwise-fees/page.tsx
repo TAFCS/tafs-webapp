@@ -61,6 +61,9 @@ interface SpreadsheetRow {
     installment_fee_type_desc?: string | null;
     installment_fee_type_id?: number | null;
     status?: "NOT_ISSUED" | "ISSUED" | "PARTIALLY_PAID" | "PAID";
+    // True when this row's covering voucher exists but has not been released to
+    // parents yet (released_to_parent_at == null). Shown as an "Unreleased" chip.
+    heldUnreleased?: boolean;
     description_prefix?: string | null;
 }
 
@@ -725,6 +728,10 @@ function StudentwiseFeeEditor() {
                     installment_fee_type_id: sf.student_fee_installments?.fee_types?.id,
                     // If backend status is NOT_ISSUED but it has voucher_heads, it's effectively ISSUED or in a draft state
                     status: (sf.voucher_heads && sf.voucher_heads.length > 0) ? (sf.status === 'NOT_ISSUED' ? 'ISSUED' : sf.status) : sf.status,
+                    // Covering voucher generated but not yet released to parents.
+                    heldUnreleased: !!(sf.voucher_heads || []).some(
+                        (vh: any) => vh?.vouchers && vh.vouchers.status !== 'VOID' && vh.vouchers.released_to_parent_at == null,
+                    ),
                     description_prefix: sf.description_prefix,
                 }));
             }
@@ -2496,6 +2503,15 @@ function StudentwiseFeeEditor() {
                                                         <div className="flex items-center gap-1 px-1.5 py-0.5 bg-zinc-100 border border-zinc-200 rounded-md">
                                                             <span className="h-1 w-1 rounded-full bg-zinc-300" />
                                                             <span className="text-[8px] font-black text-zinc-400 uppercase tracking-tighter text-nowrap">Pending</span>
+                                                        </div>
+                                                    )}
+                                                    {row.heldUnreleased && (
+                                                        <div
+                                                            title="Held — covering voucher not yet released to parents"
+                                                            className="flex items-center gap-1 px-1.5 py-0.5 bg-violet-500/10 border border-violet-500/20 rounded-md"
+                                                        >
+                                                            <span className="h-1 w-1 rounded-full bg-violet-500" />
+                                                            <span className="text-[8px] font-black text-violet-600 dark:text-violet-300 uppercase tracking-tighter text-nowrap">Unreleased</span>
                                                         </div>
                                                     )}
                                                 </div>

@@ -27,6 +27,9 @@ import VoucherSettingsPanel, {
     defaultVoucherSettings,
     type VoucherSettings,
 } from "@/features/vouchers/components/VoucherSettingsPanel";
+// "Unreleased" = held / pending-release voucher (released_to_parent_at == null).
+// Same badge is used on /fee-challan, /studentwise-fees and /vouchers/deposit.
+import { isVoucherHeld, UnreleasedBadge } from "@/features/vouchers/components/held-voucher";
 
 
 /** Newest-first "YYYY-YYYY" labels; the actual Apr-Mar vs Aug-Jul window for a
@@ -664,9 +667,12 @@ function VoucherRow({
                 </span>
             </td>
             <td className="px-5 py-3.5">
-                <span className={`inline-flex items-center px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border ${status.classes}`}>
-                    {status.label}
-                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`inline-flex items-center px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border ${status.classes}`}>
+                        {status.label}
+                    </span>
+                    {isVoucherHeld(voucher) && <UnreleasedBadge />}
+                </div>
             </td>
             <td className="px-5 py-3.5">
                 <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate max-w-[140px] block">

@@ -25,6 +25,8 @@ import VoucherSettingsPanel, {
     defaultVoucherSettings,
     type VoucherSettings,
 } from "@/features/vouchers/components/VoucherSettingsPanel";
+// "Unreleased" = held / pending-release voucher (released_to_parent_at == null).
+import { isVoucherHeld, UnreleasedBadge } from "@/features/vouchers/components/held-voucher";
 
 
 
@@ -1236,9 +1238,12 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                 </span>
             </td>
             <td className="px-5 py-3.5">
-                <span className={`inline-flex items-center px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border ${status.classes}`}>
-                    {status.label}
-                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`inline-flex items-center px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border ${status.classes}`}>
+                        {status.label}
+                    </span>
+                    {isVoucherHeld(voucher) && <UnreleasedBadge />}
+                </div>
             </td>
             <td className="px-5 py-3.5">
                 <div className="flex flex-col gap-0.5">
