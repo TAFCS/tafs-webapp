@@ -18,6 +18,15 @@ import { fetchSections } from "@/store/slices/sectionsSlice";
 import { fetchVouchers, VoucherFilters, VoucherItem } from "@/store/slices/vouchersSlice";
 import toast from "react-hot-toast";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/filters/FilterDropdown";
+import { bankAccountsService, type BankAccount } from "@/lib/bank-accounts.service";
+// SHARED voucher-issuance settings form — the SAME component /fee-challan uses.
+// Any setting added here / on /fee-challan must be threaded through BOTH the
+// create-voucher and split-partially-paid backends. See the banner in
+// VoucherSettingsPanel.tsx.
+import VoucherSettingsPanel, {
+    defaultVoucherSettings,
+    type VoucherSettings,
+} from "@/features/vouchers/components/VoucherSettingsPanel";
 
 
 /** Newest-first "YYYY-YYYY" labels; the actual Apr-Mar vs Aug-Jul window for a
@@ -114,34 +123,67 @@ function PartiallyPaidModal({
     sections: any[];
     user: any;
     onClose: () => void;
-    onSuccess: (newVoucherId: number) => void;
+    onSuccess: (newVoucherId: number | null) => void;
 }) {
     const heads = voucher.voucher_heads || [];
     const paidHeads = heads.filter(h => Number(h.amount_deposited) > 0);
     const unpaidHeads = heads.filter(h => Number(h.balance) > 0);
 
-    const [issueDate, setIssueDate] = useState(() => new Date().toISOString().split("T")[0]);
-    const [dueDate, setDueDate] = useState("");
-    const [validityDate, setValidityDate] = useState("");
+    // Voucher-issuance settings for the balance voucher — rendered by the SAME
+    // shared component /fee-challan uses (VoucherSettingsPanel). Seed the bank /
+    // late-fee flags from the voucher being split so "no change" reproduces the
+    // parent's setup.
+    const [settings, setSettings] = useState<VoucherSettings>(() =>
+        defaultVoucherSettings({
+            bankAccountId: (voucher as any).bank_account_id ?? null,
+            applyLateFee: (voucher as any).late_fee_charge ?? true,
+        }),
+    );
+    const [banks, setBanks] = useState<BankAccount[]>([]);
     const [submitting, setSubmitting] = useState(false);
+
+    useEffect(() => {
+        bankAccountsService.getAll().then(setBanks).catch(() => setBanks([]));
+    }, []);
 
     const paidTotal = paidHeads.reduce((s, h) => s + Number(h.amount_deposited), 0);
     const unpaidTotal = unpaidHeads.reduce((s, h) => s + Number(h.balance), 0);
 
+    const issuesBalance = settings.balanceDisposition !== "DO_NOT_ISSUE";
+
     const handleConfirm = async () => {
-        if (!dueDate) { toast.error("Please enter the due date for the new balance voucher."); return; }
+        if (issuesBalance && !settings.dueDate) {
+            toast.error("Please enter the due date for the new balance voucher.");
+            return;
+        }
 
         setSubmitting(true);
         const loadingToast = toast.loading("Splitting voucher…");
         try {
+            // KEEP IN SYNC with /fee-challan's FormData and with
+            // split-partially-paid.dto.ts / create-voucher.dto.ts.
             const { data: splitRes } = await api.post(`/v1/vouchers/${voucher.id}/split-partially-paid`, {
-                issue_date: issueDate,
-                due_date: dueDate,
-                ...(validityDate ? { validity_date: validityDate } : {}),
+                issue_date: settings.issueDate,
+                due_date: settings.dueDate || settings.issueDate,
+                ...(settings.validityDate ? { validity_date: settings.validityDate } : {}),
+                balance_disposition: settings.balanceDisposition,
+                ...(settings.bankAccountId ? { bank_account_id: settings.bankAccountId } : {}),
+                late_fee_charge: settings.applyLateFee,
+                late_fee_amount: settings.lateFeeAmount,
+                reprint_fee_charge: settings.applyReprintFee,
+                reprint_fee_amount: settings.reprintFeeAmount,
+                waive_surcharge: settings.waiveSurcharge,
+                waived_by: user?.fullName || user?.username || "Administrator",
+                send_notification: settings.sendNotification,
+                requires_release: settings.holdForRelease,
             });
 
             toast.dismiss(loadingToast);
-            toast.success(`Voucher split — Paid #${splitRes.data?.paid_voucher_id}, Balance #${splitRes.data?.unpaid_voucher_id}`);
+            toast.success(
+                splitRes.data?.unpaid_voucher_id
+                    ? `Voucher split — Paid #${splitRes.data?.paid_voucher_id}, Balance #${splitRes.data?.unpaid_voucher_id}`
+                    : `Voucher split — Paid #${splitRes.data?.paid_voucher_id}, balance left un-issued`,
+            );
 
             // Download both the PAID receipt and the new UNPAID balance voucher.
             const feeDateStr = voucher.fee_date ? String(voucher.fee_date).slice(0, 10) : "unknown";
@@ -171,7 +213,7 @@ function PartiallyPaidModal({
                 await downloadPdf(splitRes.data.unpaid_pdf_url, `${feeDateStr}-${grOrCc}-${splitRes.data?.unpaid_voucher_id}-unpaid.pdf`);
             }
 
-            onSuccess(splitRes.data?.unpaid_voucher_id);
+            onSuccess(splitRes.data?.unpaid_voucher_id ?? null);
         } catch (err: any) {
             toast.dismiss(loadingToast);
             toast.error(err?.response?.data?.message || 'Failed to process partial payment split.');
@@ -287,40 +329,28 @@ function PartiallyPaidModal({
                         </table>
                     </div>
 
-                    {/* New voucher date form */}
+                    {/* Balance-voucher settings — SHARED with /fee-challan via
+                        VoucherSettingsPanel. Do not fork this; add new knobs to
+                        the shared component (and both backends). */}
                     {unpaidHeads.length > 0 && (
-                        <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 space-y-4">
-                            <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
-                                <Calendar className="h-3.5 w-3.5 text-primary" />
-                                New Unpaid Voucher Dates
-                            </p>
-                            <div className="grid grid-cols-3 gap-3">
-                                {[
-                                    { id: "pp-issue", label: "Issue Date", value: issueDate, onChange: setIssueDate, required: true },
-                                    { id: "pp-due", label: "Due Date", value: dueDate, onChange: setDueDate, required: true },
-                                    { id: "pp-validity", label: "Validity Date", value: validityDate, onChange: setValidityDate, required: false },
-                                ].map(f => (
-                                    <div key={f.id} className="flex flex-col gap-1">
-                                        <label htmlFor={f.id} className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                                            {f.label}{f.required && <span className="text-rose-500 ml-0.5">*</span>}
-                                        </label>
-                                        <input
-                                            id={f.id}
-                                            type="date"
-                                            value={f.value}
-                                            onChange={e => f.onChange(e.target.value)}
-                                            className="h-10 px-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all text-zinc-700 dark:text-zinc-300"
-                                        />
-                                    </div>
-                                ))}
-                            </div>
+                        <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4">
+                            <VoucherSettingsPanel
+                                value={settings}
+                                onChange={setSettings}
+                                banks={banks}
+                                variant="compact"
+                                showReprintFee
+                                showBalanceDisposition
+                                disabled={submitting}
+                            />
                         </div>
                     )}
 
                     {/* Actions */}
                     <div className="flex items-center justify-between pt-1">
                         <p className="text-[11px] text-zinc-400 max-w-xs">
-                            The original voucher stays in the system unchanged. Both the PAID-stamped receipt and the new UNPAID balance voucher will be downloaded.
+                            The original voucher is marked VOID and replaced by a PAID receipt
+                            {issuesBalance ? " plus a new balance voucher (settings above)." : "; the outstanding balance is left un-issued."}
                         </p>
                         <div className="flex gap-3">
                             <button
