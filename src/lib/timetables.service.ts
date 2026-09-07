@@ -122,6 +122,9 @@ export interface UpsertSlotPayload {
   subject_id: number;
   employee_id: number;
   room?: string;
+  /** Skip the "teacher already scheduled at this time" check — set when the
+   * two classes are deliberately merged and taught together. */
+  allow_teacher_overlap?: boolean;
 }
 
 interface ApiEnvelope<T> {

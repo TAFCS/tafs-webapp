@@ -148,7 +148,7 @@ export function SlotEditorModal({
     }
   }
 
-  async function handleSave() {
+  async function handleSave(allowTeacherOverlap = false) {
     if (!subjectId || !employeeId) {
       setError("Subject and teacher are required");
       return;
@@ -163,10 +163,26 @@ export function SlotEditorModal({
         subject_id: Number(subjectId),
         employee_id: Number(employeeId),
         room: room.trim() || undefined,
+        allow_teacher_overlap: allowTeacherOverlap || undefined,
       });
       onClose();
     } catch (e: any) {
-      setError(e?.response?.data?.message || e.message || "Failed to save slot");
+      const msg = e?.response?.data?.message || e.message || "Failed to save slot";
+      // A teacher already teaching another class at this time is usually a
+      // mistake, but merged/combined sections are one lesson taught to two
+      // groups at once — let the user confirm and override.
+      if (!allowTeacherOverlap && /already scheduled/i.test(String(msg))) {
+        setSaving(false);
+        if (
+          confirm(
+            `${msg}\n\nIf these classes are merged and taught together, you can schedule the teacher in both. Allow it?`,
+          )
+        ) {
+          await handleSave(true);
+        }
+        return;
+      }
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -423,7 +439,7 @@ export function SlotEditorModal({
             </button>
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => handleSave()}
               disabled={saving || loadingMeta}
               className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold disabled:opacity-50 transition-colors"
             >
