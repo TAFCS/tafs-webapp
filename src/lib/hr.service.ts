@@ -180,7 +180,7 @@ export interface EmployeeProfile {
 export type SalaryIncrementMode = "PERCENTAGE" | "FIXED_AMOUNT";
 export interface SalaryIncrementSettings { id: number; default_cycle_months: number; upcoming_window_days: number; }
 export type SalaryIncrementStatusCode = "DUE" | "UPCOMING" | "OK" | "MISSING_ANCHOR";
-export interface SalaryIncrementDueRow { employee_id: number; name: string | null; employee_code: string | null; monthly_pay: number | null; join_date: string | null; last_increment_at: string | null; campus: string | null; department: string | null; segment: string | null; cycle_months: number; next_due_date: string | null; months_remaining: number | null; status: SalaryIncrementStatusCode; }
+export interface SalaryIncrementDueRow { employee_id: number; name: string | null; employee_code: string | null; monthly_pay: number | null; join_date: string | null; last_increment_at: string | null; campus: string | null; department: string | null; segment: string | null; staff_category?: string | null; employment_type?: string | null; cycle_months: number; next_due_date: string | null; months_remaining: number | null; status: SalaryIncrementStatusCode; }
 export interface SalaryIncrementEmployeeStatus { cycle_months: number; anchor_date: string | null; next_due_date: string | null; months_remaining: number | null; days_remaining: number | null; status: SalaryIncrementStatusCode; }
 export interface SalaryIncrementPayload { employee_ids: number[]; mode: SalaryIncrementMode; percentage?: number; fixed_amount?: number; effective_from: string; notes?: string; }
 export interface SalaryIncrementPreview extends SalaryIncrementDueRow { employee_name?: string | null; previous_pay?: number; new_pay?: number; annual_pay_before?: number; annual_pay_after?: number; increment_amount?: number; error?: string; }
@@ -857,7 +857,20 @@ export const hrService = {
   },
   async getSalaryIncrementSettings(): Promise<SalaryIncrementSettings> { const { data } = await api.get<ApiEnvelope<SalaryIncrementSettings>>('/v1/hr/salary-increments/settings'); return data.data; },
   async updateSalaryIncrementSettings(payload: Pick<SalaryIncrementSettings, 'default_cycle_months' | 'upcoming_window_days'>): Promise<SalaryIncrementSettings> { const { data } = await api.patch<ApiEnvelope<SalaryIncrementSettings>>('/v1/hr/salary-increments/settings', payload); return data.data; },
-  async listSalaryIncrementDue(params?: { status?: 'due' | 'upcoming' | 'all'; campus_id?: number; department_id?: number; segment_id?: number; class_id?: number; search?: string }): Promise<SalaryIncrementDueRow[]> { const { data } = await api.get<ApiEnvelope<SalaryIncrementDueRow[]>>('/v1/hr/salary-increments/due', { params }); return data.data; },
+  async listSalaryIncrementDue(params?: { status?: 'due' | 'upcoming' | 'all'; campus_ids?: number[]; department_ids?: number[]; segment_ids?: number[]; staff_category_ids?: number[]; employment_types?: string[]; search?: string }): Promise<SalaryIncrementDueRow[]> {
+    const csv = (v?: (string | number)[]) => (v && v.length ? v.join(',') : undefined);
+    const query = {
+      status: params?.status,
+      campus_ids: csv(params?.campus_ids),
+      department_ids: csv(params?.department_ids),
+      segment_ids: csv(params?.segment_ids),
+      staff_category_ids: csv(params?.staff_category_ids),
+      employment_types: csv(params?.employment_types),
+      search: params?.search || undefined,
+    };
+    const { data } = await api.get<ApiEnvelope<SalaryIncrementDueRow[]>>('/v1/hr/salary-increments/due', { params: query });
+    return data.data;
+  },
   async previewSalaryIncrement(payload: SalaryIncrementPayload): Promise<SalaryIncrementPreview[]> { const { data } = await api.post<ApiEnvelope<SalaryIncrementPreview[]>>('/v1/hr/salary-increments/preview', payload); return data.data; },
   async applySalaryIncrement(payload: SalaryIncrementPayload): Promise<{ bulk_batch_id: string | null; successes: SalaryIncrementPreview[]; failures: { employee_id: number; error: string }[] }> { const { data } = await api.post<ApiEnvelope<{ bulk_batch_id: string | null; successes: SalaryIncrementPreview[]; failures: { employee_id: number; error: string }[] }>>('/v1/hr/salary-increments/apply', payload); return data.data; },
   async getSalaryIncrementStatus(id: number): Promise<SalaryIncrementEmployeeStatus> { const { data } = await api.get<ApiEnvelope<SalaryIncrementEmployeeStatus>>(`/v1/hr/employees/${id}/salary-increment-status`); return data.data; },
