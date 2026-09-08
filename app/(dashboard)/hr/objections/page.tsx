@@ -206,7 +206,15 @@ export default function AttendanceObjectionsPage() {
                   </td>
                   <td className="px-4 py-3 text-sm">{formatDate(row.attendance_date)}</td>
                   <td className="px-4 py-3 text-sm">
-                    {row.scan ? formatTime(row.scan.scan_time) : "—"}
+                    {row.scan ? (
+                      <span className="font-mono text-xs">
+                        {formatTime(row.scan.scan_time)} <span className="text-zinc-400">({row.scan.direction ?? "PUNCH"})</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                        Day Objection (0 scans)
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm">{formatTime(row.claimed_time)}</td>
                   <td className="px-4 py-3 text-sm text-zinc-500 max-w-xs truncate">{row.reason}</td>
@@ -238,8 +246,21 @@ export default function AttendanceObjectionsPage() {
             <p className="text-sm text-zinc-600">
               <strong>{selected.employee?.full_name}</strong> — {formatDate(selected.attendance_date)}
             </p>
-            <p className="text-sm">Claimed: {formatTime(selected.claimed_time)}</p>
-            <p className="text-sm text-zinc-600">{selected.reason}</p>
+            {selected.scan ? (
+              <p className="text-sm text-zinc-600">
+                Original Recorded Punch: <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formatTime(selected.scan.scan_time)}</span> ({selected.scan.direction ?? "PUNCH"})
+              </p>
+            ) : (
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+                <strong>Day-Level Objection:</strong> No biometric scans on record for this day. Approving will mark the employee <strong>PRESENT</strong> and clear any absent flags.
+              </div>
+            )}
+            <p className="text-sm">
+              <span className="text-zinc-500">Claimed Arrival / Time:</span> <span className="font-semibold">{formatTime(selected.claimed_time)}</span>
+            </p>
+            <p className="text-sm text-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800">
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">Reason:</span> {selected.reason}
+            </p>
             <textarea
               value={adminNotes}
               onChange={(e) => setAdminNotes(e.target.value)}
