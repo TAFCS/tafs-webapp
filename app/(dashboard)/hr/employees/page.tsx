@@ -603,6 +603,16 @@ function EmployeesContent() {
     }
   }, [idParam]);
 
+  useEffect(() => {
+    if (searchParams.get("created") === "1") {
+      toast.success("Employee registered successfully!");
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("created");
+      const nextQuery = params.toString() ? `?${params.toString()}` : "";
+      router.replace(`/hr/employees${nextQuery}`, { scroll: false });
+    }
+  }, [searchParams, router]);
+
   const [search, setSearch] = useState("");
   const [campusIds, setCampusIds] = useState<number[]>([]);
   const [departmentIds, setDepartmentIds] = useState<number[]>([]);

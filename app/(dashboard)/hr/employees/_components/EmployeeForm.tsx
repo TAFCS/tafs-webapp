@@ -21,7 +21,8 @@ import {
   type ClassSectionRow,
 } from "./EmployeeClassAssignmentsEditor";
 import { EmployeeCodeFields } from "./EmployeeCodeFields";
-import { employeeCodePartsFromProfile, isLegacyEmployeeCode } from "@/lib/employee-code";
+import { employeeCodePartsFromProfile, isLegacyEmployeeCode, campusPrefixForId } from "@/lib/employee-code";
+import toast from "react-hot-toast";
 
 const PORTAL_PASSWORD_MIN = 6;
 
@@ -199,7 +200,8 @@ function defaultWeekSchedule(daysPerWeek: number): Record<number, boolean> {
   const map: Record<number, boolean> = {
     0: false, 1: true, 2: true, 3: true, 4: true, 5: true, 6: false,
   };
-  if (daysPerWeek === 6) map[6] = true;
+  if (daysPerWeek >= 6) map[6] = true;
+  if (daysPerWeek >= 7) map[0] = true;
   return map;
 }
 
@@ -223,10 +225,21 @@ function ImagePicker({
   onChange: (file: File | null) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const previewUrl = useMemo(() => {
-    if (file) return URL.createObjectURL(file);
-    return value;
-  }, [file, value]);
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) {
+      setObjectUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setObjectUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [file]);
+
+  const previewUrl = objectUrl || value;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -441,11 +454,11 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const { user } = useAuthState();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const isEdit = !!employeeId;
-  const justCreated = searchParams.get('created') === '1';
 
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
   const [classSectionRows, setClassSectionRows] = useState<ClassSectionRow[]>([]);
   const [hasSpouse, setHasSpouse] = useState(false);
+  const [createPortalAccount, setCreatePortalAccount] = useState(true);
 
   // Local pending files for upload upon creation
   const [photoFiles, setPhotoFiles] = useState<{
@@ -530,6 +543,18 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
 
     return isTeacherCategory || isAcademicDept;
   }, [formData.department_id, formData.staff_category_id, departments]);
+
+  const selectedCampus = useMemo(() => {
+    if (!formData.campus_id) return null;
+    const cid = parseInt(formData.campus_id, 10);
+    return campuses.find((c) => c.id === cid) ?? null;
+  }, [formData.campus_id, campuses]);
+
+  const campusPrefix = useMemo(() => {
+    if (!formData.campus_id) return null;
+    const cid = parseInt(formData.campus_id, 10);
+    return selectedCampus?.campus_prefix || selectedCampus?.campus_code || campusPrefixForId(cid);
+  }, [formData.campus_id, selectedCampus]);
 
   // ── Load reference data ───────────────────────────────────────────────────
   const loadLookups = useCallback(async () => {
@@ -795,20 +820,37 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     if (!formData.staff_category_id) return "Subcategory selection is required.";
     if (!formData.full_name.trim()) return "Full name is required.";
     if (formData.cnic.trim() && formData.cnic.replace(/\D/g, "").length !== 13) {
-      return "CNIC must be 13 digits (XXXXX-XXXXXXX-X).";
+      return "Employee CNIC must be 13 digits (XXXXX-XXXXXXX-X).";
+    }
+    if (formData.father_cnic.trim() && formData.father_cnic.replace(/\D/g, "").length !== 13) {
+      return "Father's CNIC must be 13 digits (XXXXX-XXXXXXX-X).";
+    }
+    if (formData.mother_cnic.trim() && formData.mother_cnic.replace(/\D/g, "").length !== 13) {
+      return "Mother's CNIC must be 13 digits (XXXXX-XXXXXXX-X).";
+    }
+    if (hasSpouse && formData.spouse_cnic.trim() && formData.spouse_cnic.replace(/\D/g, "").length !== 13) {
+      return "Spouse's CNIC must be 13 digits (XXXXX-XXXXXXX-X).";
     }
     if (formData.personal_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.personal_email.trim())) {
       return "Please enter a valid email address (e.g. name@example.com).";
     }
-    if (formData.personal_phone.trim() && formData.personal_phone.replace(/\D/g, "").length > 13) {
-      return "Personal phone number cannot exceed 13 digits.";
-    }
-    if (formData.secondary_phone.trim() && formData.secondary_phone.replace(/\D/g, "").length > 13) {
-      return "Secondary phone number cannot exceed 13 digits.";
-    }
-    if (formData.emergency_contact_phone.trim() && formData.emergency_contact_phone.replace(/\D/g, "").length > 13) {
-      return "Emergency contact phone number cannot exceed 13 digits.";
-    }
+
+    const validatePhone = (phone: string, label: string) => {
+      const digits = phone.replace(/\D/g, "");
+      if (!digits) return null;
+      if (digits.length < 10 || digits.length > 13) {
+        return `${label} must be between 10 and 13 digits (e.g. 03XX-XXXXXXX).`;
+      }
+      return null;
+    };
+
+    const personalPhoneErr = validatePhone(formData.personal_phone, "Personal phone number");
+    if (personalPhoneErr) return personalPhoneErr;
+    const secondaryPhoneErr = validatePhone(formData.secondary_phone, "Secondary phone number");
+    if (secondaryPhoneErr) return secondaryPhoneErr;
+    const emergencyPhoneErr = validatePhone(formData.emergency_contact_phone, "Emergency contact phone number");
+    if (emergencyPhoneErr) return emergencyPhoneErr;
+
     const hasSplitCode = formData.employee_code_dep.trim() && formData.employee_code_number.trim();
     const hasLegacyCode = Boolean(formData.employee_code.trim()) && isLegacyEmployeeCode(formData.employee_code);
     if (!hasSplitCode && !hasLegacyCode) return "Employee code is required (dept + number).";
@@ -817,7 +859,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       if (!formData.reporting_time.trim()) return "Expected check-in time is required when payroll uses fixed times.";
       if (!formData.leaving_time.trim()) return "Expected check-out time is required when payroll uses fixed times.";
     }
-    if (needsPortalAccount) {
+    if (needsPortalAccount && createPortalAccount) {
       if (!portalUsername.trim()) return "Portal username is required.";
       if (/@tafs\.com$/i.test(portalUsername.trim())) {
         return 'Portal username may not use the "@tafs.com" format — use a "name1.name2.name3" style username.';
@@ -886,7 +928,11 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const validationError = validate();
-    if (validationError) { setError(validationError); return; }
+    if (validationError) {
+      setError(validationError);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -897,11 +943,11 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       let activeEmpId: number;
       let linkedUserId: string | null = null;
 
-      if (needsPortalAccount) {
+      if (needsPortalAccount && createPortalAccount) {
         payload.portal_account = {
           username: portalUsername.trim(),
           password: portalPassword,
-          role: "EMPLOYEE",
+          role: isAcademicStaff ? "TEACHER" : "EMPLOYEE",
           campus_id: formData.campus_id ? parseInt(formData.campus_id, 10) : undefined,
         };
         createdUsername = portalUsername.trim();
@@ -909,56 +955,93 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
 
       if (isEdit && employeeId) {
         const updated = await hrService.updateEmployee(employeeId, payload);
-        if (useCustomSchedule) {
-          await hrService.updateEmployeeWorkSchedule(employeeId, buildScheduleDays(weekSchedule));
-        } else {
-          await hrService.clearEmployeeWorkSchedule(employeeId);
-        }
         activeEmpId = employeeId;
         linkedUserId = updated.user_id;
       } else {
         const created = await hrService.createEmployee(payload);
-        if (useCustomSchedule) {
-          await hrService.updateEmployeeWorkSchedule(created.id, buildScheduleDays(weekSchedule));
-        }
         activeEmpId = created.id;
         linkedUserId = created.user_id;
       }
 
-      // Upload selected photo files directly for all 4 slots
-      const slots: ('profile' | 'father' | 'mother' | 'spouse')[] = ['profile', 'father', 'mother', 'spouse'];
-      for (const slot of slots) {
+      // ── Post-create/update steps (Schedule & Photo uploads) ──────────────────
+      let scheduleError = false;
+      try {
+        if (useCustomSchedule) {
+          await hrService.updateEmployeeWorkSchedule(activeEmpId, buildScheduleDays(weekSchedule));
+        } else if (isEdit) {
+          await hrService.clearEmployeeWorkSchedule(activeEmpId);
+        }
+      } catch (schedErr) {
+        console.error("Failed to update work schedule:", schedErr);
+        scheduleError = true;
+      }
+
+      // Upload selected photo files directly (spouse gated by hasSpouse)
+      const failedUploads: string[] = [];
+      const slots: { slot: 'profile' | 'father' | 'mother' | 'spouse'; label: string }[] = [
+        { slot: 'profile', label: 'Employee photo' },
+        { slot: 'father', label: "Father's photo" },
+        { slot: 'mother', label: "Mother's photo" },
+        ...(hasSpouse ? [{ slot: 'spouse' as const, label: "Spouse's photo" }] : []),
+      ];
+
+      for (const { slot, label } of slots) {
         const fileToUpload = photoFiles[slot];
         if (fileToUpload) {
           try {
             await hrService.uploadEmployeePhotoSlot(activeEmpId, fileToUpload, slot);
           } catch (uploadErr) {
             console.error(`Failed to upload ${slot} photo:`, uploadErr);
+            failedUploads.push(label);
           }
         }
       }
 
-      if (isEdit) {
-        setSuccess(
-          createdUsername
-            ? `Employee updated and portal account "${createdUsername}" linked.`
-            : "Employee profile updated successfully.",
-        );
-        if (createdUsername) {
-          setFormData((p) => ({ ...p, user_id: linkedUserId ?? p.user_id }));
-          setPortalPassword("");
+      // Partial failure handling: employee already exists in DB
+      const postIssues: string[] = [];
+      if (scheduleError) postIssues.push("custom work schedule could not be saved");
+      if (failedUploads.length > 0) postIssues.push(`failed to upload: ${failedUploads.join(", ")}`);
+
+      if (postIssues.length > 0) {
+        const issueMsg = `Employee profile ${isEdit ? "updated" : "created"} (ID #${activeEmpId}), but ${postIssues.join("; ")}.`;
+        if (isEdit) {
+          setError(issueMsg);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+          // Prevent blind create retry which causes 409 Conflict.
+          if (createdUsername) {
+            setError(issueMsg);
+            setCreatedAccount({ username: createdUsername, password: portalPassword });
+          } else {
+            toast.error(issueMsg, { duration: 6000 });
+            router.push(`/hr/employees/${activeEmpId}/edit`);
+            return;
+          }
         }
-      } else if (createdUsername) {
-        // Force the admin to copy the password before leaving — it can't be shown in plaintext again.
-        setCreatedAccount({ username: createdUsername, password: portalPassword });
       } else {
-        router.push(`/hr/employees?created=1`);
+        if (isEdit) {
+          setSuccess(
+            createdUsername
+              ? `Employee updated and portal account "${createdUsername}" linked.`
+              : "Employee profile updated successfully.",
+          );
+          if (createdUsername) {
+            setFormData((p) => ({ ...p, user_id: linkedUserId ?? p.user_id }));
+            setPortalPassword("");
+          }
+        } else if (createdUsername) {
+          // Force the admin to copy the password before leaving — it can't be shown in plaintext again.
+          setCreatedAccount({ username: createdUsername, password: portalPassword });
+        } else {
+          router.push(`/hr/employees?created=1`);
+        }
       }
     } catch (err: any) {
       console.error(err);
       const base = err.response?.data?.message || "Failed to save employee profile.";
       const msg = Array.isArray(base) ? base.join(", ") : base;
       setError(msg);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setSaving(false);
     }
@@ -1062,6 +1145,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                 required
                 inputCls={inputCls}
                 campusId={formData.campus_id ? parseInt(formData.campus_id, 10) : null}
+                campusPrefix={campusPrefix}
                 value={{
                   employee_code: formData.employee_code,
                   employee_code_dep: formData.employee_code_dep,
@@ -1469,12 +1553,20 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                   file={photoFiles.mother}
                   onChange={(file) => setPhotoFiles(p => ({ ...p, mother: file }))}
                 />
-                <ImagePicker
-                  label="Spouse's Photo"
-                  value={formData.spouse_photo_url || null}
-                  file={photoFiles.spouse}
-                  onChange={(file) => setPhotoFiles(p => ({ ...p, spouse: file }))}
-                />
+                {hasSpouse ? (
+                  <ImagePicker
+                    label="Spouse's Photo"
+                    value={formData.spouse_photo_url || null}
+                    file={photoFiles.spouse}
+                    onChange={(file) => setPhotoFiles(p => ({ ...p, spouse: file }))}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-4 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/20 text-center text-zinc-400">
+                    <Heart className="h-6 w-6 text-zinc-300 dark:text-zinc-600 mb-1" />
+                    <span className="text-xs font-semibold text-zinc-500">Spouse&apos;s Photo</span>
+                    <span className="text-[10px] text-zinc-400 mt-1">Check &quot;Add Spouse Details&quot; in Section 2 to enable</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1643,111 +1735,135 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
             ═══════════════════════════════════════════════════════════ */}
             {needsPortalAccount ? (
               <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
-                <SectionHeader
-                  icon={Key}
-                  title="5. Portal Account"
-                  subtitle="Creates a System Users login with employee self-service access"
-                />
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-                  Creates a System Users login with role Employee (attendance, payroll, leave).
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <FieldLabel required>Username</FieldLabel>
-                    <div className="relative">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                  <SectionHeader
+                    icon={Key}
+                    title="5. Portal Account"
+                    subtitle="Creates a System Users login with employee self-service access"
+                  />
+                  {!isEdit && (
+                    <label className="inline-flex items-center gap-2 cursor-pointer self-start sm:self-auto bg-zinc-50 dark:bg-zinc-800/60 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
                       <input
-                        type="text"
-                        required
-                        autoComplete="off"
-                        placeholder="e.g. muhammad.ali.khan"
-                        className={`${inputCls} pr-9`}
-                        value={portalUsername}
-                        onChange={(e) => {
-                          setUsernameTouched(true);
-                          setPortalUsername(e.target.value.toLowerCase());
-                        }}
+                        type="checkbox"
+                        checked={createPortalAccount}
+                        onChange={(e) => setCreatePortalAccount(e.target.checked)}
+                        className="rounded border-zinc-300 text-primary focus:ring-primary/30"
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                        {usernameStatus === "checking" && <Loader2 className="h-4 w-4 text-zinc-400 animate-spin" />}
-                        {usernameStatus === "available" && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
-                        {usernameStatus === "taken" && <AlertCircle className="h-4 w-4 text-rose-500" />}
+                      <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                        Create Portal Login
                       </span>
-                    </div>
-                    <p className={`text-[11px] ${
-                      usernameStatus === "taken" ? "text-rose-500 font-semibold"
-                      : usernameStatus === "available" ? "text-emerald-600"
-                      : "text-zinc-400"
-                    }`}>
-                      {usernameStatus === "checking" && "Checking availability…"}
-                      {usernameStatus === "taken" && "Already taken — try a different username."}
-                      {usernameStatus === "available" && "Available."}
-                      {usernameStatus === "idle" && "Auto-generated as name1.name2.name3 from the full name above — edit only if it collides with an existing account."}
-                    </p>
-                  </div>
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <FieldLabel required>Auto-generated password</FieldLabel>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type={showPortalPassword ? "text" : "password"}
-                        required
-                        readOnly
-                        autoComplete="new-password"
-                        className={`${inputCls} font-mono tracking-wide bg-zinc-50 dark:bg-zinc-950`}
-                        value={portalPassword}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPortalPassword((v) => !v)}
-                        className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        title={showPortalPassword ? "Hide password" : "Reveal password"}
-                      >
-                        {showPortalPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => copyPortalPassword(portalPassword)}
-                        className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        title="Copy password"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={regeneratePortalPassword}
-                        className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        title="Generate a new password"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <p className={`text-[11px] ${passwordCopied ? "text-emerald-600 font-semibold" : "text-zinc-400"}`}>
-                      {passwordCopied ? "Copied to clipboard." : "You'll be prompted to copy this once more after registration completes."}
-                    </p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel>Role</FieldLabel>
-                    <input
-                      type="text"
-                      disabled
-                      className={`${inputCls} opacity-70 cursor-not-allowed`}
-                      value="Employee"
-                      readOnly
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel>Campus</FieldLabel>
-                    <input
-                      type="text"
-                      disabled
-                      className={`${inputCls} opacity-70 cursor-not-allowed`}
-                      value={
-                        campuses.find((c) => String(c.id) === formData.campus_id)?.campus_name
-                        || (formData.campus_id ? `Campus #${formData.campus_id}` : "Same as employee (optional)")
-                      }
-                      readOnly
-                    />
-                  </div>
+                    </label>
+                  )}
                 </div>
+
+                {!createPortalAccount ? (
+                  <div className="p-4 bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs text-zinc-500 dark:text-zinc-400">
+                    Registration will complete without creating a system user login. A portal login can be created or linked later from the employee profile.
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
+                      Creates a System Users login with role <strong className="text-zinc-800 dark:text-zinc-200">{isAcademicStaff ? "Teacher" : "Employee"}</strong> ({isAcademicStaff ? "lesson plans, student marks, attendance, leave" : "attendance, payroll, leave"}).
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <FieldLabel required>Username</FieldLabel>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required
+                            autoComplete="off"
+                            placeholder="e.g. muhammad.ali.khan"
+                            className={`${inputCls} pr-9`}
+                            value={portalUsername}
+                            onChange={(e) => {
+                              setUsernameTouched(true);
+                              setPortalUsername(e.target.value.toLowerCase());
+                            }}
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                            {usernameStatus === "checking" && <Loader2 className="h-4 w-4 text-zinc-400 animate-spin" />}
+                            {usernameStatus === "available" && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                            {usernameStatus === "taken" && <AlertCircle className="h-4 w-4 text-rose-500" />}
+                          </span>
+                        </div>
+                        <p className={`text-[11px] ${
+                          usernameStatus === "taken" ? "text-rose-500 font-semibold"
+                          : usernameStatus === "available" ? "text-emerald-600"
+                          : "text-zinc-400"
+                        }`}>
+                          {usernameStatus === "checking" && "Checking availability…"}
+                          {usernameStatus === "taken" && "Already taken — try a different username."}
+                          {usernameStatus === "available" && "Available."}
+                          {usernameStatus === "idle" && "Auto-generated as name1.name2.name3 from the full name above — edit only if it collides with an existing account."}
+                        </p>
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <FieldLabel required>Auto-generated password</FieldLabel>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type={showPortalPassword ? "text" : "password"}
+                            required
+                            readOnly
+                            autoComplete="new-password"
+                            className={`${inputCls} font-mono tracking-wide bg-zinc-50 dark:bg-zinc-950`}
+                            value={portalPassword}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPortalPassword((v) => !v)}
+                            className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            title={showPortalPassword ? "Hide password" : "Reveal password"}
+                          >
+                            {showPortalPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => copyPortalPassword(portalPassword)}
+                            className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            title="Copy password"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={regeneratePortalPassword}
+                            className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            title="Generate a new password"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <p className={`text-[11px] ${passwordCopied ? "text-emerald-600 font-semibold" : "text-zinc-400"}`}>
+                          {passwordCopied ? "Copied to clipboard." : "You'll be prompted to copy this once more after registration completes."}
+                        </p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <FieldLabel>Role</FieldLabel>
+                        <input
+                          type="text"
+                          disabled
+                          className={`${inputCls} opacity-70 cursor-not-allowed`}
+                          value={isAcademicStaff ? "Teacher (Academic)" : "Employee"}
+                          readOnly
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <FieldLabel>Campus</FieldLabel>
+                        <input
+                          type="text"
+                          disabled
+                          className={`${inputCls} opacity-70 cursor-not-allowed`}
+                          value={
+                            campuses.find((c) => String(c.id) === formData.campus_id)?.campus_name
+                            || (formData.campus_id ? `Campus #${formData.campus_id}` : "Same as employee (optional)")
+                          }
+                          readOnly
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40 rounded-3xl p-5 flex items-start gap-3">

@@ -113,14 +113,14 @@ export function EmployeeClassAssignmentsEditor({
     : null;
 
   const getSectionsForClass = (classId: number | ""): { id: number; description?: string; name?: string }[] => {
-    if (!classId) return [];
+    if (!classId || campusId == null) return [];
     if (campusOfferedClasses && campusOfferedClasses.length > 0) {
       const found = campusOfferedClasses.find((c) => c.id === Number(classId));
       if (found && found.sections && found.sections.length > 0) {
         return found.sections.filter((s) => s.is_active);
       }
     }
-    return allSections;
+    return [];
   };
 
   const addClassRow = () => {
@@ -234,7 +234,9 @@ export function EmployeeClassAssignmentsEditor({
                   {!row.class_id ? (
                     <span className="text-[11px] text-zinc-400 dark:text-zinc-600 self-center px-1">Select a class first</span>
                   ) : rowSections.length === 0 ? (
-                    <span className="text-[11px] text-zinc-400 dark:text-zinc-600 self-center px-1">No sections available</span>
+                    <span className="text-[11px] text-zinc-400 dark:text-zinc-600 self-center px-1">
+                      {campusId == null ? "Select a campus above to view sections" : "No sections available"}
+                    </span>
                   ) : (
                     rowSections.map((sec) => {
                       const selected = row.section_ids.includes(sec.id);

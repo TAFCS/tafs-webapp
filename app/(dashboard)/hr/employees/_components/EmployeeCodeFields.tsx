@@ -17,6 +17,8 @@ interface EmployeeCodeFieldsProps {
   inputCls: string;
   /** When set, preview/full code includes campus prefix (GEJ/GKF/NNN). */
   campusId?: number | null;
+  /** Explicit campus prefix from campus model (e.g. campus_prefix or campus_code), overrides hardcoded map */
+  campusPrefix?: string | null;
 }
 
 export function EmployeeCodeFields({
@@ -26,9 +28,10 @@ export function EmployeeCodeFields({
   onDepChange,
   inputCls,
   campusId = null,
+  campusPrefix: campusPrefixProp,
 }: EmployeeCodeFieldsProps) {
   const legacy = isLegacyEmployeeCode(value.employee_code);
-  const campusPrefix = campusPrefixForId(campusId);
+  const campusPrefix = campusPrefixProp ?? campusPrefixForId(campusId);
   const splitPreview = useMemo(() => {
     if (legacy) return value.employee_code;
     if (value.employee_code_dep.trim() && value.employee_code_number.trim()) {

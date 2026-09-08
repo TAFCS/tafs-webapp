@@ -88,7 +88,8 @@ function defaultWeekSchedule(daysPerWeek: number): Record<number, boolean> {
   const map: Record<number, boolean> = {
     0: false, 1: true, 2: true, 3: true, 4: true, 5: true, 6: false,
   };
-  if (daysPerWeek === 6) map[6] = true;
+  if (daysPerWeek >= 6) map[6] = true;
+  if (daysPerWeek >= 7) map[0] = true;
   return map;
 }
 
