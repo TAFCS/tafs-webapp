@@ -27,6 +27,7 @@ const FEE_STATUSES = [
   { id: "PARTIALLY_PAID", label: "Partially paid" },
   { id: "PAID", label: "Paid" },
   { id: "DISCOUNT", label: "Discount" },
+  { id: "WAIVED", label: "Waived" },
 ] as const;
 
 const VIEW_OPTIONS = [
@@ -53,6 +54,7 @@ type FeeHeadRow = {
   status: string;
   amount: number;
   amount_paid: number;
+  waived_amount: number;
   outstanding: number;
 };
 
@@ -61,8 +63,10 @@ type FeeHeadTotals = {
   student_count: number;
   billed_count: number;
   to_be_billed_count: number;
+  waived_count: number;
   billed: number;
   to_be_billed: number;
+  waived: number;
   amount: number;
   amount_paid: number;
   outstanding: number;
@@ -81,6 +85,7 @@ type StudentRollupRow = {
   head_count: number;
   amount: number;
   amount_paid: number;
+  waived: number;
   outstanding: number;
 };
 
@@ -90,6 +95,7 @@ type FeeTypeRollupRow = {
   head_count: number;
   amount: number;
   amount_paid: number;
+  waived: number;
   outstanding: number;
 };
 
@@ -100,6 +106,7 @@ type PeriodRollupRow = {
   head_count: number;
   amount: number;
   amount_paid: number;
+  waived: number;
   outstanding: number;
 };
 
@@ -110,6 +117,7 @@ type ClassRollupRow = {
   head_count: number;
   amount: number;
   amount_paid: number;
+  waived: number;
   outstanding: number;
 };
 
@@ -123,6 +131,8 @@ function statusClass(status: string): string {
       return "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900";
     case "DISCOUNT":
       return "bg-violet-50 text-violet-700 border-violet-100 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900";
+    case "WAIVED":
+      return "bg-teal-50 text-teal-700 border-teal-100 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-900";
     default:
       return "bg-zinc-50 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700";
   }
@@ -371,7 +381,7 @@ export default function FeeHeadsReportPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
         <TotalTile label="Heads" value={(totals?.count ?? 0).toLocaleString()} />
         <TotalTile label="Students" value={(totals?.student_count ?? 0).toLocaleString()} />
         <TotalTile
@@ -383,6 +393,11 @@ export default function FeeHeadsReportPage() {
           label="Billed"
           value={formatRs(totals?.billed)}
           sub={`${(totals?.billed_count ?? 0).toLocaleString()} on a voucher`}
+        />
+        <TotalTile
+          label="Waived"
+          value={formatRs(totals?.waived)}
+          sub={`${(totals?.waived_count ?? 0).toLocaleString()} written off`}
         />
         <TotalTile label="Total" value={formatRs(totals?.amount)} />
         <TotalTile label="Paid" value={formatRs(totals?.amount_paid)} />
@@ -413,7 +428,7 @@ export default function FeeHeadsReportPage() {
           </div>
         ) : view === "student" ? (
           <RollupTable
-            headers={["CC", "GR", "Name", "Campus", "Class", "Section", "Heads", "Amount", "Paid", "Outstanding"]}
+            headers={["CC", "GR", "Name", "Campus", "Class", "Section", "Heads", "Amount", "Paid", "Waived", "Outstanding"]}
             rightAlignFrom={6}
             rows={studentItems.map((row) => [
               row.cc,
@@ -425,26 +440,28 @@ export default function FeeHeadsReportPage() {
               row.head_count.toLocaleString(),
               formatRs(row.amount),
               formatRs(row.amount_paid),
+              formatRs(row.waived),
               formatRs(row.outstanding),
             ])}
             rowKey={(row) => String(row[0])}
           />
         ) : view === "fee_type" ? (
           <RollupTable
-            headers={["Fee type", "Heads", "Amount", "Paid", "Outstanding"]}
+            headers={["Fee type", "Heads", "Amount", "Paid", "Waived", "Outstanding"]}
             rightAlignFrom={1}
             rows={feeTypeItems.map((row) => [
               row.fee_type,
               row.head_count.toLocaleString(),
               formatRs(row.amount),
               formatRs(row.amount_paid),
+              formatRs(row.waived),
               formatRs(row.outstanding),
             ])}
             rowKey={(row) => String(row[0])}
           />
         ) : view === "period" ? (
           <RollupTable
-            headers={["Period", "Academic year", "Heads", "Amount", "Paid", "Outstanding"]}
+            headers={["Period", "Academic year", "Heads", "Amount", "Paid", "Waived", "Outstanding"]}
             rightAlignFrom={2}
             rows={periodItems.map((row) => [
               row.period_label,
@@ -452,13 +469,14 @@ export default function FeeHeadsReportPage() {
               row.head_count.toLocaleString(),
               formatRs(row.amount),
               formatRs(row.amount_paid),
+              formatRs(row.waived),
               formatRs(row.outstanding),
             ])}
             rowKey={(row) => `${row[0]}-${row[1]}`}
           />
         ) : view === "class" ? (
           <RollupTable
-            headers={["Class", "Students", "Heads", "Amount", "Paid", "Outstanding"]}
+            headers={["Class", "Students", "Heads", "Amount", "Paid", "Waived", "Outstanding"]}
             rightAlignFrom={1}
             rows={classItems.map((row) => [
               row.class_name,
@@ -466,6 +484,7 @@ export default function FeeHeadsReportPage() {
               row.head_count.toLocaleString(),
               formatRs(row.amount),
               formatRs(row.amount_paid),
+              formatRs(row.waived),
               formatRs(row.outstanding),
             ])}
             rowKey={(row) => String(row[0])}
@@ -475,10 +494,10 @@ export default function FeeHeadsReportPage() {
             <table className="w-full border-collapse text-sm">
               <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800">
                 <tr>
-                  {["CC", "GR", "Name", "Campus", "Class", "Section", "Fee type", "Period", "Fee date", "Status", "Amount", "Paid", "Outstanding"].map((h) => (
+                  {["CC", "GR", "Name", "Campus", "Class", "Section", "Fee type", "Period", "Fee date", "Status", "Amount", "Paid", "Waived", "Outstanding"].map((h) => (
                     <th
                       key={h}
-                      className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest text-zinc-400 ${["Amount", "Paid", "Outstanding"].includes(h) ? "text-right" : "text-left"}`}
+                      className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest text-zinc-400 ${["Amount", "Paid", "Waived", "Outstanding"].includes(h) ? "text-right" : "text-left"}`}
                     >
                       {h}
                     </th>
@@ -504,6 +523,7 @@ export default function FeeHeadsReportPage() {
                     </td>
                     <td className="px-4 py-3 text-right font-semibold tabular-nums">{formatRs(row.amount)}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-zinc-500">{formatRs(row.amount_paid)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-teal-600 dark:text-teal-400">{row.waived_amount ? formatRs(row.waived_amount) : "—"}</td>
                     <td className="px-4 py-3 text-right font-bold tabular-nums">{formatRs(row.outstanding)}</td>
                   </tr>
                 ))}
