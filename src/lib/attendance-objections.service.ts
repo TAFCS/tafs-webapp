@@ -25,7 +25,7 @@ export interface AttendanceObjection {
     scan_time: string;
     direction: string | null;
   } | null;
-  reviewer?: { id: string; full_name: string } | null;
+  reviewer?: { id: string; full_name: string; username?: string; role?: string } | null;
 }
 
 interface ApiEnvelope<T> {
