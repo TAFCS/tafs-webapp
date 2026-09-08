@@ -854,6 +854,9 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     const hasSplitCode = formData.employee_code_dep.trim() && formData.employee_code_number.trim();
     const hasLegacyCode = Boolean(formData.employee_code.trim()) && isLegacyEmployeeCode(formData.employee_code);
     if (!hasSplitCode && !hasLegacyCode) return "Employee code is required (dept + number).";
+    if (formData.job_title.trim().length > 100) {
+      return "Job title must be at most 100 characters.";
+    }
     if (!formData.monthly_pay) return "Monthly pay is required.";
     if (formData.check_in_source === "FIXED") {
       if (!formData.reporting_time.trim()) return "Expected check-in time is required when payroll uses fixed times.";
@@ -1187,11 +1190,15 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                 <FieldLabel>Role / Job Title</FieldLabel>
                 <input
                   type="text"
+                  maxLength={100}
                   placeholder="e.g. URDU TEACHER, CLASS TEACHER"
                   className={inputCls}
                   value={formData.job_title}
-                  onChange={e => setFormData(p => ({ ...p, job_title: e.target.value.toUpperCase() }))}
+                  onChange={e => setFormData(p => ({ ...p, job_title: e.target.value.toUpperCase().slice(0, 100) }))}
                 />
+                {formData.job_title.length >= 90 && (
+                  <p className="text-[10px] text-zinc-400">{formData.job_title.length}/100 characters</p>
+                )}
               </div>
             )}
 
