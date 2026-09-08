@@ -792,6 +792,18 @@ export const hrService = {
     });
     return data.data;
   },
+  async exportEmployeesExcel(params?: { columns?: string[]; ids?: number[] }): Promise<void> {
+    const queryParams: Record<string, string> = {};
+    if (params?.columns?.length) queryParams.columns = params.columns.join(',');
+    if (params?.ids?.length) queryParams.ids = params.ids.join(',');
+
+    const res = await api.get('/v1/hr/employees/export', {
+      params: queryParams,
+      responseType: 'blob',
+    });
+    const filename = `employee-directory-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    downloadBlob(res.data, filename);
+  },
   async exportMasterEmployeesExcel(): Promise<void> {
     const res = await api.get('/v1/hr/employees/export-master-excel', { responseType: 'blob' });
     const filename = `TAFS_Master_Employee_Database_${new Date().toISOString().split('T')[0]}.xlsx`;
