@@ -63,6 +63,7 @@ export interface Segment {
   code: string;
   name: string;
   display_order: number;
+  _count?: { classes: number; employee_profiles: number };
 }
 
 /** Trim text; return null when empty so PATCH payloads can clear optional fields. */
