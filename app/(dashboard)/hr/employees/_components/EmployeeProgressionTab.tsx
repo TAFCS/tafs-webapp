@@ -10,6 +10,7 @@ const CHANGE_TYPE_STYLES: Record<string, { bg: string; text: string }> = {
   TRANSFERRED: { bg: "bg-amber-50 border-amber-200", text: "text-amber-700" },
   SEGMENT_CHANGED: { bg: "bg-violet-50 border-violet-200", text: "text-violet-700" },
   PAY_CHANGED: { bg: "bg-blue-50 border-blue-200", text: "text-blue-700" },
+  SALARY_INCREMENT: { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700" },
   STATUS_CHANGED: { bg: "bg-rose-50 border-rose-200", text: "text-rose-700" },
   CLASS_REASSIGNED: { bg: "bg-indigo-50 border-indigo-200", text: "text-indigo-700" },
   LEFT: { bg: "bg-orange-50 border-orange-200", text: "text-orange-700" },

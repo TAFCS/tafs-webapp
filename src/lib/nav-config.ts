@@ -1,5 +1,5 @@
 import {
-    Users, UserPlus, ArrowLeftRight, UserCircle, Banknote,
+    Users, UserPlus, ArrowLeftRight, UserCircle, Banknote, BadgePercent,
     Settings, Landmark, UserCog, ShieldCheck, LandPlot, BookOpen,
     LayoutGrid, TrendingUp, UserCheck, Contact, Tags, CalendarDays,
     FilePlus2, HandCoins, Printer, FileText, History, Layers,
@@ -87,6 +87,7 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "hr.payroll_rules": Landmark,
     "hr.security_deposits": HandCoins,
     "hr.employee_loans": Banknote,
+    "hr.salary_increments": BadgePercent,
     "hr.employee_notices": Megaphone,
     "attendance.staff_register": ClipboardCheck,
     "attendance.employee_attendance": UserCheck,
@@ -205,6 +206,7 @@ export const NAV_MODULES: NavModule[] = [
             { id: "hr.payroll_rules", name: "Payroll Rules", description: "EOBI, SESSI & income tax rates", href: "/hr/payroll/rules", icon: Landmark, permission: "hr.payroll.view" },
             { id: "hr.security_deposits", name: "Security Deposits", description: "Caution money plans across employees", href: "/hr/security-deposits", icon: HandCoins, permission: "hr.employees.view" },
             { id: "hr.employee_loans", name: "Employee Loans", description: "Salary advance loans across employees", href: "/hr/employee-loans", icon: Banknote, permission: "hr.employees.view" },
+            { id: "hr.salary_increments", name: "Salary Increments", description: "Review, preview and apply staff salary increases", href: "/hr/salary-increments", icon: BadgePercent, permission: "hr.employees.view" },
             { id: "hr.employee_notices", name: "Employee Notices", description: "Broadcast announcements to staff by role", href: "/hr/notices", icon: Megaphone, permission: "communication.send_employee_announcements" },
         ],
     },
