@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent, useMemo, Suspense } from "react";
-import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Minus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info, CreditCard, ArrowRight, Layers, Pencil, ClipboardList, Repeat } from "lucide-react";
+import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw, Trash2, Plus, Minus, Users2, Settings2, UserSearch, Calendar, LayoutGrid, Info, CreditCard, ArrowRight, Layers, Pencil, ClipboardList, Repeat, Ban, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
@@ -60,11 +60,17 @@ interface SpreadsheetRow {
     installment_amount?: string | null;
     installment_fee_type_desc?: string | null;
     installment_fee_type_id?: number | null;
-    status?: "NOT_ISSUED" | "ISSUED" | "PARTIALLY_PAID" | "PAID";
+    status?: "NOT_ISSUED" | "ISSUED" | "PARTIALLY_PAID" | "PAID" | "WAIVED";
     // True when this row's covering voucher exists but has not been released to
     // parents yet (released_to_parent_at == null). Shown as an "Unreleased" chip.
     heldUnreleased?: boolean;
     description_prefix?: string | null;
+    // Fee waiver — set when status === "WAIVED".
+    waivedAmount?: string | null;
+    waiveReason?: string | null;
+    // voucher id of the covering voucher, when this row sits on one (drives
+    // whether "Waive" hits the voucher endpoint or the loose-head endpoint).
+    voucherId?: number | null;
 }
 
 interface DiscountRow {
@@ -726,8 +732,15 @@ function StudentwiseFeeEditor() {
                     installment_amount: sf.installment_amount?.toString(),
                     installment_fee_type_desc: sf.student_fee_installments?.fee_types?.description,
                     installment_fee_type_id: sf.student_fee_installments?.fee_types?.id,
-                    // If backend status is NOT_ISSUED but it has voucher_heads, it's effectively ISSUED or in a draft state
-                    status: (sf.voucher_heads && sf.voucher_heads.length > 0) ? (sf.status === 'NOT_ISSUED' ? 'ISSUED' : sf.status) : sf.status,
+                    // WAIVED is a terminal write-off — keep it as-is. Otherwise, if
+                    // backend status is NOT_ISSUED but it has voucher_heads, it's
+                    // effectively ISSUED or in a draft state.
+                    status: sf.status === 'WAIVED'
+                        ? 'WAIVED'
+                        : (sf.voucher_heads && sf.voucher_heads.length > 0) ? (sf.status === 'NOT_ISSUED' ? 'ISSUED' : sf.status) : sf.status,
+                    waivedAmount: sf.waived_amount != null ? sf.waived_amount.toString() : null,
+                    waiveReason: sf.waive_reason ?? null,
+                    voucherId: (sf.voucher_heads || [])[0]?.vouchers?.id ?? (sf.voucher_heads || [])[0]?.voucher_id ?? null,
                     // Covering voucher generated but not yet released to parents.
                     heldUnreleased: !!(sf.voucher_heads || []).some(
                         (vh: any) => vh?.vouchers && vh.vouchers.status !== 'VOID' && vh.vouchers.released_to_parent_at == null,
@@ -1189,6 +1202,57 @@ function StudentwiseFeeEditor() {
         }
     }, [activeCell]);
 
+    // ── Fee Waiver ─────────────────────────────────────────────────────
+    // A waived head/voucher is a permanent write-off: never expected, never
+    // deposited against, never an arrear. Rows on a voucher waive the whole
+    // voucher (and its PDF gets a WAIVED watermark); loose NOT_ISSUED rows
+    // waive just that head.
+    const [waiveBusyRow, setWaiveBusyRow] = useState<string | null>(null);
+
+    const handleWaiveRow = async (row: SpreadsheetRow) => {
+        if (!row.dbId && !row.voucherId) {
+            toast.error("Save the row before waiving it.");
+            return;
+        }
+        if (row.status === "PARTIALLY_PAID" || row.status === "PAID") {
+            toast.error("Split the voucher first — it has payments recorded.");
+            return;
+        }
+        const reason = window.prompt("Reason for waiving this fee (optional):") ?? undefined;
+        setWaiveBusyRow(row.__id);
+        try {
+            if (row.voucherId) {
+                await api.post(`/v1/vouchers/${row.voucherId}/waive`, { reason });
+                toast.success("Voucher waived — fee heads written off.");
+            } else {
+                await api.post(`/v1/student-fees/waive`, { student_fee_ids: [row.dbId], reason });
+                toast.success("Fee head waived.");
+            }
+            await refreshStudentFeeData();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to waive.");
+        } finally {
+            setWaiveBusyRow(null);
+        }
+    };
+
+    const handleUnwaiveRow = async (row: SpreadsheetRow) => {
+        setWaiveBusyRow(row.__id);
+        try {
+            if (row.voucherId) {
+                await api.post(`/v1/vouchers/${row.voucherId}/unwaive`, {});
+            } else {
+                await api.post(`/v1/student-fees/unwaive`, { student_fee_ids: [row.dbId] });
+            }
+            toast.success("Waiver reversed.");
+            await refreshStudentFeeData();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to reverse the waiver.");
+        } finally {
+            setWaiveBusyRow(null);
+        }
+    };
+
     // ── Reset All Heads ─────────────────────────────────────────────────
     const handleResetAllHeads = async () => {
         const numericMatch = studentId.match(/\d+$/);
@@ -1326,7 +1390,8 @@ function StudentwiseFeeEditor() {
     const isRowLocked = (row?: SpreadsheetRow) =>
         row?.status === "PAID" ||
         row?.status === "PARTIALLY_PAID" ||
-        row?.status === "ISSUED";
+        row?.status === "ISSUED" ||
+        row?.status === "WAIVED";
 
     const deleteRow = (idx: number) => {
         if (isRowLocked(rows[idx])) {
@@ -2346,13 +2411,34 @@ function StudentwiseFeeEditor() {
                                             <td data-row={rIdx} data-col={COL_ACTIONS} tabIndex={0} onFocus={() => setActiveCell({ row: rIdx, col: COL_ACTIONS })}
                                                 className={`border-r border-b border-zinc-100 text-center ${aCell(COL_ACTIONS) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950" : ""}`}
                                             >
-                                                <button
-                                                    onClick={() => deleteRow(rIdx)}
-                                                    disabled={isLocked}
-                                                    className={`p-2 rounded-lg transition-all active:scale-90 ${isLocked ? "opacity-20 cursor-not-allowed" : "hover:bg-rose-50 text-zinc-300 hover:text-rose-600"}`}
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </button>
+                                                <div className="flex items-center justify-center gap-0.5">
+                                                    <button
+                                                        onClick={() => deleteRow(rIdx)}
+                                                        disabled={isLocked}
+                                                        className={`p-2 rounded-lg transition-all active:scale-90 ${isLocked ? "opacity-20 cursor-not-allowed" : "hover:bg-rose-50 text-zinc-300 hover:text-rose-600"}`}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    {row.status === "WAIVED" ? (
+                                                        <button
+                                                            onClick={() => handleUnwaiveRow(row)}
+                                                            disabled={waiveBusyRow === row.__id}
+                                                            title={row.waiveReason ? `Waived: ${row.waiveReason}` : "Reverse waiver"}
+                                                            className="p-2 rounded-lg transition-all active:scale-90 hover:bg-teal-50 text-teal-500 hover:text-teal-700 disabled:opacity-30"
+                                                        >
+                                                            {waiveBusyRow === row.__id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
+                                                        </button>
+                                                    ) : (row.dbId || row.voucherId) && row.status !== "PAID" && row.status !== "PARTIALLY_PAID" ? (
+                                                        <button
+                                                            onClick={() => handleWaiveRow(row)}
+                                                            disabled={waiveBusyRow === row.__id}
+                                                            title={row.voucherId ? "Waive this voucher (write off)" : "Waive this fee head (write off)"}
+                                                            className="p-2 rounded-lg transition-all active:scale-90 hover:bg-amber-50 text-zinc-300 hover:text-amber-600 disabled:opacity-30"
+                                                        >
+                                                            {waiveBusyRow === row.__id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}
+                                                        </button>
+                                                    ) : null}
+                                                </div>
                                             </td>
 
                                             <td className="border-r border-b border-zinc-100 text-center font-mono text-[10px] text-zinc-400">{rIdx + 1}</td>
@@ -2503,6 +2589,15 @@ function StudentwiseFeeEditor() {
                                                         <div className="flex items-center gap-1 px-1.5 py-0.5 bg-zinc-100 border border-zinc-200 rounded-md">
                                                             <span className="h-1 w-1 rounded-full bg-zinc-300" />
                                                             <span className="text-[8px] font-black text-zinc-400 uppercase tracking-tighter text-nowrap">Pending</span>
+                                                        </div>
+                                                    )}
+                                                    {row.status === "WAIVED" && (
+                                                        <div
+                                                            title={row.waiveReason ? `Waived: ${row.waiveReason}` : "Waived — written off, never expected"}
+                                                            className="flex items-center gap-1 px-1.5 py-0.5 bg-teal-500/10 border border-teal-500/20 rounded-md"
+                                                        >
+                                                            <span className="h-1 w-1 rounded-full bg-teal-500" />
+                                                            <span className="text-[8px] font-black text-teal-600 uppercase tracking-tighter text-nowrap">Waived</span>
                                                         </div>
                                                     )}
                                                     {row.heldUnreleased && (

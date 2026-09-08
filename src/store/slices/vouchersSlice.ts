@@ -134,6 +134,10 @@ export interface VoucherItem {
     released_to_parent_at?: string | null;
     bulk_voucher_job_id?: number | null;
     released_by?: string | null;
+    // Set when the whole voucher was waived (status === 'WAIVED').
+    waived_at?: string | null;
+    waived_by?: string | null;
+    waive_reason?: string | null;
 }
 
 export interface VouchersPagination {

@@ -7,7 +7,7 @@ import {
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Hash, SlidersHorizontal, ShieldAlert,
     ChevronLeft, ChevronRight, Wallet, UserCircle, UserSearch, Ban, X,
-    Stamp, Split, Calendar, Hourglass
+    Stamp, Split, Calendar, Hourglass, Undo2
 } from "lucide-react";
 import api from "@/lib/api";
 import { buildVoucherFilename } from "@/lib/voucher-filename";
@@ -46,6 +46,7 @@ const STATUS_OPTIONS = [
     { value: "OVERDUE", label: "Overdue", icon: XCircle, color: "text-rose-500" },
     { value: "VOID", label: "Void", icon: Ban, color: "text-zinc-400" },
     { value: "EXPIRED", label: "Expired", icon: Hourglass, color: "text-orange-400" },
+    { value: "WAIVED", label: "Waived", icon: Ban, color: "text-teal-500" },
 ];
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
@@ -76,6 +77,8 @@ function getStatusConfig(status: string | null) {
             return { label: "Void", classes: "bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800/40 dark:text-zinc-500 dark:border-zinc-700" };
         case "EXPIRED":
             return { label: "Expired", classes: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800" };
+        case "WAIVED":
+            return { label: "Waived", classes: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/20 dark:text-teal-400 dark:border-teal-800" };
         default:
             return { label: "Unpaid", classes: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800" };
     }
@@ -1059,8 +1062,37 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
     const isExpired = voucher.status === "EXPIRED";
     const isPaid = voucher.status === "PAID";
     const isPartiallyPaid = voucher.status === "PARTIALLY_PAID";
+    const isWaived = voucher.status === "WAIVED";
     const [isDownloading, setIsDownloading] = useState(false);
     const [showPartialModal, setShowPartialModal] = useState(false);
+    const [isWaiving, setIsWaiving] = useState(false);
+
+    const handleWaive = async () => {
+        const reason = window.prompt("Reason for waiving this voucher (optional):") ?? undefined;
+        setIsWaiving(true);
+        try {
+            await api.post(`/v1/vouchers/${voucher.id}/waive`, { reason });
+            toast.success("Voucher waived — fee heads written off.");
+            onRefresh();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to waive the voucher.");
+        } finally {
+            setIsWaiving(false);
+        }
+    };
+
+    const handleUnwaive = async () => {
+        setIsWaiving(true);
+        try {
+            await api.post(`/v1/vouchers/${voucher.id}/unwaive`, {});
+            toast.success("Waiver reversed — fee heads restored.");
+            onRefresh();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to reverse the waiver.");
+        } finally {
+            setIsWaiving(false);
+        }
+    };
 
     const handlePaidDownload = async () => {
         setIsDownloading(true);
@@ -1286,6 +1318,16 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                                 Voided
                             </button>
                         )
+                    ) : isWaived ? (
+                        <button
+                            onClick={handleUnwaive}
+                            disabled={isWaiving}
+                            title={voucher.waive_reason ? `Waived: ${voucher.waive_reason}` : "Reverse the waiver and restore the fee heads"}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-teal-200 dark:border-teal-800/50 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors disabled:opacity-50"
+                        >
+                            {isWaiving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
+                            {isWaiving ? "…" : "Un-waive"}
+                        </button>
                     ) : isPaid ? (
                         <>
                         <button
@@ -1322,6 +1364,15 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                                     Split
                                 </button>
                             )}
+                            <button
+                                onClick={isPartiallyPaid ? undefined : handleWaive}
+                                disabled={isWaiving || isPartiallyPaid}
+                                title={isPartiallyPaid ? "Split the voucher first — it has payments recorded" : "Waive this voucher — write off every fee head"}
+                                className={`flex items-center gap-2 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg border transition-all active:scale-95 ${isPartiallyPaid ? "bg-zinc-100 dark:bg-zinc-800/60 text-zinc-400 border-zinc-200 dark:border-zinc-700 cursor-not-allowed" : "bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20"} disabled:opacity-50`}
+                            >
+                                {isWaiving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}
+                                Waive
+                            </button>
                             <button
                                 onClick={() => onDeposit(voucher)}
                                 className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
