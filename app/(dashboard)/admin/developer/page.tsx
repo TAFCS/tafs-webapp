@@ -28,11 +28,13 @@ export default function DeveloperSettingsPage() {
     min_ios_build: "1",
     android_store_url: "",
     ios_store_url: "",
+    pay_immediately_enabled: "false",
   });
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingVersions, setIsSavingVersions] = useState(false);
   const [isSavingMaintenance, setIsSavingMaintenance] = useState(false);
+  const [isSavingPayImmediate, setIsSavingPayImmediate] = useState(false);
   const [showConfirmMaintenance, setShowConfirmMaintenance] = useState(false);
   const [pendingMaintenanceVal, setPendingMaintenanceVal] = useState<boolean>(false);
 
@@ -102,6 +104,22 @@ export default function DeveloperSettingsPage() {
     }
   };
 
+  const handleSavePayImmediate = async (nextVal: boolean) => {
+    const prevVal = configs.pay_immediately_enabled;
+    setConfigs((prev) => ({ ...prev, pay_immediately_enabled: String(nextVal) }));
+    setIsSavingPayImmediate(true);
+    const loadingToast = toast.loading("Saving PAY IMMEDIATELY setting...");
+    try {
+      await api.patch("/v1/app-config/pay_immediately_enabled", { value: String(nextVal) });
+      toast.success("PAY IMMEDIATELY setting updated successfully", { id: loadingToast });
+    } catch (error: any) {
+      setConfigs((prev) => ({ ...prev, pay_immediately_enabled: prevVal }));
+      toast.error("Failed to save PAY IMMEDIATELY setting", { id: loadingToast });
+    } finally {
+      setIsSavingPayImmediate(false);
+    }
+  };
+
   const handleMaintenanceToggle = (targetVal: boolean) => {
     if (targetVal) {
       setPendingMaintenanceVal(true);
@@ -131,6 +149,7 @@ export default function DeveloperSettingsPage() {
   }
 
   const isMaintenanceOn = configs.maintenance_mode === "true";
+  const isPayImmediateOn = configs.pay_immediately_enabled === "true";
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-20">
@@ -306,6 +325,47 @@ export default function DeveloperSettingsPage() {
               </button>
             </div>
           </form>
+
+          {/* Card 3: PAY IMMEDIATELY Vouchers */}
+          <div className="bg-white p-8 rounded-[32px] border border-zinc-100 shadow-sm space-y-6">
+            <div className="space-y-2">
+              <h3 className="font-black text-zinc-800 text-lg">PAY IMMEDIATELY Vouchers</h3>
+              <p className="text-xs text-zinc-400 font-medium">
+                When on, a voucher issued to a student 2+ months behind on fees automatically gets a
+                4-day due date and a &quot;PAY IMMEDIATELY&quot; watermark. Applies to single, bulk,
+                and split issuance. Off by default — turn on once you&apos;ve confirmed the behavior.
+              </p>
+            </div>
+
+            {/* Toggle Status Widget */}
+            <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-xl ${isPayImmediateOn ? "bg-rose-100 text-rose-700" : "bg-zinc-200 text-zinc-500"}`}>
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">PAY IMMEDIATELY</p>
+                  <p className="text-xs font-black text-zinc-700">{isPayImmediateOn ? "ENFORCED" : "DISABLED"}</p>
+                </div>
+              </div>
+
+              {/* Toggle Switch */}
+              <button
+                type="button"
+                disabled={isSavingPayImmediate}
+                onClick={() => handleSavePayImmediate(!isPayImmediateOn)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none disabled:opacity-50 ${
+                  isPayImmediateOn ? "bg-rose-600" : "bg-zinc-200"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    isPayImmediateOn ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
 
         </div>
       )}
