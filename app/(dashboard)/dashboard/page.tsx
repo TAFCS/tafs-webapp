@@ -9,6 +9,7 @@ import { NAV_MODULES, type NavItem, visibleModulesForUser } from "@/lib/nav-conf
 import { useAccessCatalog } from "@/hooks/use-access-catalog";
 import { useNavigation } from "@/context/NavigationContext";
 import api from "@/lib/api";
+import { attendanceObjectionsService } from "@/lib/attendance-objections.service";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
 
@@ -79,6 +80,14 @@ export default function DashboardPage() {
     const [statsData, setStatsData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const { pendingApprovals } = useSelector((s: RootState) => s.supportTickets);
+    const [pendingObjectionsCount, setPendingObjectionsCount] = useState(0);
+
+    useEffect(() => {
+        const canReview = user?.role === "SUPER_ADMIN" || user?.permissions?.includes("hr.objections.review");
+        if (canReview) {
+            attendanceObjectionsService.countPending().then(setPendingObjectionsCount).catch(() => {});
+        }
+    }, [user]);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -213,6 +222,11 @@ export default function DashboardPage() {
                                             {item.href === "/support-tickets" && user?.role === "SUPER_ADMIN" && pendingApprovals.length > 0 && (
                                                 <span className="absolute top-5 right-5 inline-flex items-center justify-center px-2 py-1 text-[10px] font-black leading-none text-white bg-rose-600 rounded-full animate-pulse">
                                                     {pendingApprovals.length}
+                                                </span>
+                                            )}
+                                            {item.href === "/hr/objections" && pendingObjectionsCount > 0 && (
+                                                <span className="absolute top-5 right-5 inline-flex items-center justify-center px-2 py-1 text-[10px] font-black leading-none text-white bg-amber-500 rounded-full animate-pulse">
+                                                    {pendingObjectionsCount}
                                                 </span>
                                             )}
                                             <div className="flex-1">

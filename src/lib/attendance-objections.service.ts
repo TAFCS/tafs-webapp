@@ -47,4 +47,12 @@ export const attendanceObjectionsService = {
     );
     return data.data;
   },
+  async countPending(): Promise<number> {
+    try {
+      const { data } = await api.get<ApiEnvelope<{ count: number }>>('/v1/attendance/objections/pending-count');
+      return data.data?.count ?? 0;
+    } catch {
+      return 0;
+    }
+  },
 };

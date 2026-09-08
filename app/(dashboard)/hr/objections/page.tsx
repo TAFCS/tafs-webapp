@@ -38,6 +38,7 @@ export default function AttendanceObjectionsPage() {
   const [items, setItems] = useState<AttendanceObjection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [selected, setSelected] = useState<AttendanceObjection | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -101,6 +102,12 @@ export default function AttendanceObjectionsPage() {
       });
       setSelected(null);
       setAdminNotes("");
+      if (decision === "ACCEPTED") {
+        setSuccess("Objection accepted. Daily attendance record has been updated to Present with the claimed time.");
+      } else {
+        setSuccess("Objection rejected.");
+      }
+      setTimeout(() => setSuccess(null), 5000);
       await load();
     } catch (err: unknown) {
       console.error(err);
@@ -161,6 +168,13 @@ export default function AttendanceObjectionsPage() {
         <div className="flex items-center gap-3 bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl p-4 text-sm">
           <AlertCircle className="h-5 w-5" />
           {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-2xl p-4 text-sm">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+          {success}
         </div>
       )}
 

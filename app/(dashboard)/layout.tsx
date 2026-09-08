@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { LogOut, Home } from "lucide-react";
@@ -18,13 +18,14 @@ import {
     addPendingApproval,
     updateMessageReviewStatus
 } from "@/store/slices/supportTicketsSlice";
+import { attendanceObjectionsService } from "@/lib/attendance-objections.service";
 
 const RAIL_LABELS: Record<string, string> = {
     student: "Students",
     finance: "Finance",
     communication: "Comms",
-    hr: "HR",
-    attendance: "Attend.",
+    hr: "Staff",
+    attendance: "Attendance",
     "school-setup": "Setup",
     system: "System",
 };
@@ -44,6 +45,14 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     const { socket } = useSocket();
     const { modules } = useAccessCatalog();
     const { pendingApprovals } = useSelector((state: RootState) => state.supportTickets);
+    const [pendingObjectionsCount, setPendingObjectionsCount] = useState(0);
+
+    useEffect(() => {
+        const canReview = user?.role === "SUPER_ADMIN" || user?.permissions?.includes("hr.objections.review");
+        if (canReview) {
+            attendanceObjectionsService.countPending().then(setPendingObjectionsCount).catch(() => {});
+        }
+    }, [user, pathname]);
 
     useEffect(() => {
         if (user?.role === "SUPER_ADMIN") {
@@ -134,7 +143,11 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
                 {visibleModules.map(module => {
                     const isActive = module.id === highlightedId;
                     const isComms = module.id === "communication";
-                    const showBadge = isComms && user?.role === "SUPER_ADMIN" && pendingApprovals.length > 0;
+                    const isAttendance = module.id === "attendance";
+                    const showBadge = (isComms && user?.role === "SUPER_ADMIN" && pendingApprovals.length > 0)
+                        || (isAttendance && pendingObjectionsCount > 0);
+                    const pingColor = isAttendance ? "bg-amber-400" : "bg-rose-400";
+                    const badgeColor = isAttendance ? "bg-amber-500" : "bg-rose-500";
                     return (
                         <Link
                             key={module.id}
@@ -149,8 +162,8 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
                             <module.icon className="h-6 w-6" />
                             {showBadge && (
                                 <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+                                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${pingColor} opacity-75`}></span>
+                                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${badgeColor}`}></span>
                                 </span>
                             )}
                             <span className="text-[9px] font-bold tracking-wide leading-tight text-center">
