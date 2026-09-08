@@ -32,6 +32,8 @@ import { EmployeeBiometricTab } from "./EmployeeBiometricTab";
 import { EmployeeShiftOverridesTab } from "./EmployeeShiftOverridesTab";
 import { EmployeeSecurityDepositTab } from "./EmployeeSecurityDepositTab";
 import { EmployeeLoanTab } from "./EmployeeLoanTab";
+import { EmployeePreviousEmployersSection } from "./EmployeePreviousEmployersSection";
+import { EmployeeProgressionTab } from "./EmployeeProgressionTab";
 import {
   assignmentsToRows,
   rowsToAssignments,
@@ -41,7 +43,6 @@ import {
   type ClassSectionRow,
 } from "./EmployeeClassAssignmentsEditor";
 import { EmployeeCodeFields } from "./EmployeeCodeFields";
-import { EmployeeProgressionTab } from "./EmployeeProgressionTab";
 import { employeeCodePartsFromProfile, formatEmployeeCodeDisplay } from "@/lib/employee-code";
 
 const BASE_TABS = [
@@ -299,6 +300,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const [scheduleForm, setScheduleForm] = useState({
     reporting_time: "", leaving_time: "", check_in_source: "FIXED" as CheckInSource,
     late_relaxation_minutes: "", days_per_week: "", monthly_pay: "",
+    payroll_enabled: true,
     account_number: "", bank_name: "",
   });
   const [useCustomSchedule, setUseCustomSchedule] = useState(false);
@@ -340,6 +342,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       late_relaxation_minutes: employee.late_relaxation_minutes != null ? String(employee.late_relaxation_minutes) : "",
       days_per_week: employee.days_per_week != null ? String(employee.days_per_week) : "",
       monthly_pay: employee.monthly_pay != null ? String(employee.monthly_pay) : "",
+      payroll_enabled: employee.payroll_enabled !== false,
       account_number: employee.account_number ?? "",
       bank_name: employee.bank_name ?? "",
     });
@@ -412,18 +415,38 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const handleDelete = async () => {
     if (!emp) return;
     const name = emp.full_name || emp.users?.full_name || `Profile #${emp.id}`;
-    if (!confirm(
-      `Permanently delete ${name}'s employee profile?\n\n` +
-      `Use this only for mistaken or duplicate profiles. For people who left, use Mark as Left instead — that keeps HR history and disables their portal login.\n\n` +
-      `Delete cannot be undone and will also deactivate any linked portal login.`,
-    )) return;
+    const soft = confirm(
+      `Offboard ${name}?\n\n` +
+      `This marks them TERMINATED, keeps HR progression history, excludes them from payroll, and disables their portal login.\n\n` +
+      `For people who left voluntarily, prefer Mark as Left instead.`,
+    );
+    if (!soft) return;
+
+    const hard = confirm(
+      `Permanently purge this profile instead?\n\n` +
+      `OK = hard delete (wipes progression history — only for mistaken/duplicate profiles)\n` +
+      `Cancel = soft offboard (keeps history)`,
+    );
+
     setDeleting(true);
     try {
-      await hrService.deleteEmployee(emp.id);
-      onDeleted();
-      onClose();
+      if (hard) {
+        await hrService.deleteEmployee(emp.id, { purge: true });
+        onDeleted();
+        onClose();
+      } else {
+        const updated = await hrService.deleteEmployee(emp.id);
+        if (updated && typeof updated === "object" && "id" in updated) {
+          setEmp(updated as EmployeeProfile);
+          syncForms(updated as EmployeeProfile);
+          onUpdated();
+        } else {
+          onDeleted();
+          onClose();
+        }
+      }
     } catch (err: any) {
-      alert(err?.response?.data?.message || "Failed to delete employee profile.");
+      alert(err?.response?.data?.message || "Failed to offboard employee profile.");
     } finally {
       setDeleting(false);
     }
@@ -431,6 +454,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
 
   const handleStatusChange = async (next: EmployeeStatus) => {
     if (!emp || next === (emp.employment_status ?? "ACTIVE")) return;
+    let notes: string | null = null;
     if (next === "TERMINATED" || next === "LEFT") {
       let heldNote = "";
       try {
@@ -457,10 +481,13 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
           : `Set status to ${next}? This will deactivate the employee’s portal login if one is linked.`) + heldNote,
       );
       if (!ok) return;
+      const reason = window.prompt("Optional reason (saved on progression history):", "");
+      if (reason === null) return;
+      notes = reason.trim() || null;
     }
     setSavingStatus(true);
     try {
-      const updated = await hrService.updateEmployeeStatus(emp.id, next);
+      const updated = await hrService.updateEmployeeStatus(emp.id, next, notes);
       setEmp(updated);
       syncForms(updated);
       onUpdated();
@@ -580,7 +607,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
               onClick={handleDelete}
               disabled={deleting || !emp}
               className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-rose-50 text-rose-600 text-xs font-bold hover:bg-rose-100 transition-all disabled:opacity-50"
-              title="Permanent delete — prefer Mark as Left for offboarding"
+              title="Soft-offboard (keeps history). Confirm again to hard-purge mistaken profiles."
             >
               {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Delete
             </button>
@@ -715,7 +742,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Employment Status</p>
                           <p className="text-xs text-zinc-500 mt-0.5">
                             {isSuperAdmin
-                              ? "Mark as Left keeps the record and disables portal login. Delete is only for mistaken/duplicate profiles."
+                              ? "Mark as Left keeps the record and disables portal login. Delete soft-offboards by default; hard purge is only for mistaken/duplicate profiles."
                               : "Status is read-only for your role."}
                           </p>
                         </div>
@@ -864,6 +891,15 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       <div className="sm:col-span-2"><FieldLabel>Job Description</FieldLabel><textarea rows={2} className={`${textareaCls} uppercase`} value={employmentForm.job_description} onChange={e => setEmploymentForm(p => ({ ...p, job_description: e.target.value.toUpperCase() }))} /></div>
                     </div>
                   </EditableCard>
+                  <EmployeePreviousEmployersSection
+                    employeeId={emp.id}
+                    initial={emp.employee_previous_employers}
+                    onChanged={async () => {
+                      const refreshed = await hrService.getEmployee(emp.id);
+                      setEmp(refreshed);
+                      onUpdated();
+                    }}
+                  />
                   </div>
                 )}
 
@@ -898,6 +934,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           late_relaxation_minutes: scheduleForm.late_relaxation_minutes ? parseInt(scheduleForm.late_relaxation_minutes, 10) : undefined,
                           days_per_week: scheduleForm.days_per_week ? parseInt(scheduleForm.days_per_week, 10) : undefined,
                           monthly_pay: scheduleForm.monthly_pay ? parseFloat(scheduleForm.monthly_pay) : undefined,
+                          payroll_enabled: scheduleForm.payroll_enabled,
                           account_number: optionalText(scheduleForm.account_number),
                           bank_name: optionalText(scheduleForm.bank_name),
                         });
@@ -927,6 +964,11 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         <ReadField icon={Calendar} label="Working Days / Week" value={emp.days_per_week} missing={emp.days_per_week == null} />
                         <ReadField icon={Calendar} label="Weekly Pattern" value={formatWeekScheduleLabel(useCustomSchedule, weekSchedule, emp.days_per_week)} />
                         <ReadField icon={Briefcase} label="Monthly Pay" value={fmtMoney(emp.monthly_pay)} missing={emp.monthly_pay == null} />
+                        <ReadField
+                          icon={Wallet}
+                          label="Payroll"
+                          value={emp.payroll_enabled === false ? "Off payroll" : "On payroll"}
+                        />
                         <ReadField icon={Landmark} label="Bank Account" value={
                           emp.account_number ? `${emp.bank_name ?? "Bank"} · ${emp.account_number}` : null
                         } missing={!emp.account_number} />
@@ -963,6 +1005,22 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       <div><FieldLabel>Late Relaxation (minutes)</FieldLabel><input type="number" min={0} className={inputCls} value={scheduleForm.late_relaxation_minutes} onChange={e => setScheduleForm(p => ({ ...p, late_relaxation_minutes: e.target.value }))} /></div>
                       <div><FieldLabel>Working Days / Week</FieldLabel><input type="number" min={1} max={7} className={inputCls} value={scheduleForm.days_per_week} onChange={e => setScheduleForm(p => ({ ...p, days_per_week: e.target.value }))} /></div>
                       <div className="sm:col-span-2"><FieldLabel>Monthly Pay (PKR)</FieldLabel><input type="number" min={0} className={inputCls} value={scheduleForm.monthly_pay} onChange={e => setScheduleForm(p => ({ ...p, monthly_pay: e.target.value }))} /></div>
+                      <div className="sm:col-span-2">
+                        <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-zinc-200 dark:border-zinc-700 px-3 py-3">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5"
+                            checked={scheduleForm.payroll_enabled}
+                            onChange={(e) => setScheduleForm((p) => ({ ...p, payroll_enabled: e.target.checked }))}
+                          />
+                          <span>
+                            <span className="block text-[13px] font-bold text-zinc-800 dark:text-zinc-200">Include in payroll runs</span>
+                            <span className="block text-xs text-zinc-500 mt-0.5">
+                              Turn off for test / placeholder staff so they are never picked up by payroll.
+                            </span>
+                          </span>
+                        </label>
+                      </div>
                       <div className="sm:col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                         <p className="text-[11px] font-bold text-zinc-400 uppercase mb-3">Financial</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

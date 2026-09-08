@@ -9,7 +9,7 @@ import {
 import {
   hrService, EmployeeCreatePayload, Department, StaffCategory, Segment,
   WorkScheduleDay, CHECK_IN_SOURCE_OPTIONS, CheckInSource, optionalText, optionalId,
-  EMPLOYEE_STATUS_OPTIONS, EmployeeStatus,
+  EMPLOYEE_STATUS_OPTIONS, EmployeeStatus, EmployeePreviousEmployerPayload,
 } from "@/lib/hr.service";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus, OfferedClass, SectionInfo } from "@/lib/campuses.service";
@@ -457,6 +457,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
 
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
   const [classSectionRows, setClassSectionRows] = useState<ClassSectionRow[]>([]);
+  const [previousEmployers, setPreviousEmployers] = useState<EmployeePreviousEmployerPayload[]>([]);
   const [hasSpouse, setHasSpouse] = useState(false);
   const [createPortalAccount, setCreatePortalAccount] = useState(true);
 
@@ -924,6 +925,20 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       bank_name: optionalText(formData.bank_name),
       user_id: optionalText(formData.user_id) ?? undefined,
       class_section_assignments: isAcademicStaff && assignments.length > 0 ? assignments : [],
+      ...(!isEdit
+        ? {
+            previous_employers: previousEmployers
+              .filter((e) => e.employer_name?.trim())
+              .map((e) => ({
+                employer_name: e.employer_name.trim(),
+                location: e.location?.trim() || null,
+                job_title: e.job_title?.trim() || null,
+                employed_from: e.employed_from?.trim() || null,
+                employed_to: e.employed_to?.trim() || null,
+                reason_for_leaving: e.reason_for_leaving?.trim() || null,
+              })),
+          }
+        : {}),
     };
   };
 
@@ -1900,6 +1915,142 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                   allClasses={allClasses}
                   allSections={allSections}
                 />
+              </div>
+            )}
+
+            {!isEdit && (
+              <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
+                <SectionHeader
+                  icon={Briefcase}
+                  title={`${isAcademicStaff ? "7" : "6"}. Previous Employment`}
+                  subtitle="Optional — employers before joining TAFS"
+                />
+                <div className="space-y-4">
+                  {previousEmployers.map((row, idx) => (
+                    <div
+                      key={idx}
+                      className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/30 relative"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setPreviousEmployers((prev) => prev.filter((_, i) => i !== idx))}
+                        className="absolute top-3 right-3 p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"
+                        aria-label="Remove employer"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                      <label className="space-y-1">
+                        <FieldLabel>Employer Name</FieldLabel>
+                        <input
+                          className={`${inputCls} uppercase`}
+                          value={row.employer_name}
+                          onChange={(e) =>
+                            setPreviousEmployers((prev) =>
+                              prev.map((r, i) =>
+                                i === idx ? { ...r, employer_name: e.target.value.toUpperCase() } : r,
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <FieldLabel>Location</FieldLabel>
+                        <input
+                          className={`${inputCls} uppercase`}
+                          value={row.location || ""}
+                          onChange={(e) =>
+                            setPreviousEmployers((prev) =>
+                              prev.map((r, i) =>
+                                i === idx ? { ...r, location: e.target.value.toUpperCase() } : r,
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <FieldLabel>Job Title</FieldLabel>
+                        <input
+                          className={`${inputCls} uppercase`}
+                          value={row.job_title || ""}
+                          onChange={(e) =>
+                            setPreviousEmployers((prev) =>
+                              prev.map((r, i) =>
+                                i === idx ? { ...r, job_title: e.target.value.toUpperCase() } : r,
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="space-y-1">
+                          <FieldLabel>From</FieldLabel>
+                          <input
+                            className={inputCls}
+                            placeholder="2019"
+                            value={row.employed_from || ""}
+                            onChange={(e) =>
+                              setPreviousEmployers((prev) =>
+                                prev.map((r, i) =>
+                                  i === idx ? { ...r, employed_from: e.target.value } : r,
+                                ),
+                              )
+                            }
+                          />
+                        </label>
+                        <label className="space-y-1">
+                          <FieldLabel>To</FieldLabel>
+                          <input
+                            className={inputCls}
+                            placeholder="2022"
+                            value={row.employed_to || ""}
+                            onChange={(e) =>
+                              setPreviousEmployers((prev) =>
+                                prev.map((r, i) =>
+                                  i === idx ? { ...r, employed_to: e.target.value } : r,
+                                ),
+                              )
+                            }
+                          />
+                        </label>
+                      </div>
+                      <label className="space-y-1 sm:col-span-2">
+                        <FieldLabel>Reason for Leaving</FieldLabel>
+                        <input
+                          className={`${inputCls} uppercase`}
+                          value={row.reason_for_leaving || ""}
+                          onChange={(e) =>
+                            setPreviousEmployers((prev) =>
+                              prev.map((r, i) =>
+                                i === idx
+                                  ? { ...r, reason_for_leaving: e.target.value.toUpperCase() }
+                                  : r,
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPreviousEmployers((prev) => [
+                        ...prev,
+                        {
+                          employer_name: "",
+                          location: "",
+                          job_title: "",
+                          employed_from: "",
+                          employed_to: "",
+                          reason_for_leaving: "",
+                        },
+                      ])
+                    }
+                    className="h-9 px-4 rounded-xl border border-dashed border-zinc-300 text-[12px] font-bold text-zinc-600 hover:bg-zinc-50"
+                  >
+                    + Add previous employer
+                  </button>
+                </div>
               </div>
             )}
 

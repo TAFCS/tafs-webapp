@@ -171,6 +171,28 @@ export interface EmployeeProfile {
     device_pin: string;
     is_active: boolean;
   }[];
+  employee_previous_employers?: EmployeePreviousEmployer[];
+}
+
+export interface EmployeePreviousEmployer {
+  id: number;
+  employee_id: number;
+  employer_name: string | null;
+  location: string | null;
+  job_title: string | null;
+  employed_from: string | null;
+  employed_to: string | null;
+  reason_for_leaving: string | null;
+}
+
+export interface EmployeePreviousEmployerPayload {
+  id?: number;
+  employer_name: string;
+  location?: string | null;
+  job_title?: string | null;
+  employed_from?: string | null;
+  employed_to?: string | null;
+  reason_for_leaving?: string | null;
 }
 
 export interface EmployeeCreatePayload {
@@ -232,6 +254,7 @@ export interface EmployeeCreatePayload {
   };
   packIds?: string[];
   tileGrants?: { tileId: string; allow: boolean; note?: string }[];
+  previous_employers?: EmployeePreviousEmployerPayload[];
 }
 
 export interface EmployeeAccountUpdatePayload {
@@ -774,6 +797,7 @@ export interface EmployeeProgressionPeriod {
   segments: { name: string; code: string } | null;
   departments: { name: string } | null;
   staff_categories: { name: string; code: string } | null;
+  reporting_manager?: { id: number; full_name: string | null } | null;
 }
 
 export const hrService = {
@@ -825,9 +849,29 @@ export const hrService = {
     const { data } = await api.patch<ApiEnvelope<EmployeeProfile>>(`/v1/hr/employees/${id}`, payload);
     return data.data;
   },
-  async updateEmployeeStatus(id: number, status: EmployeeStatus): Promise<EmployeeProfile> {
-    const { data } = await api.patch<ApiEnvelope<EmployeeProfile>>(`/v1/hr/employees/${id}/status`, { status });
+  async updateEmployeeStatus(
+    id: number,
+    status: EmployeeStatus,
+    notes?: string | null,
+  ): Promise<EmployeeProfile> {
+    const { data } = await api.patch<ApiEnvelope<EmployeeProfile>>(`/v1/hr/employees/${id}/status`, {
+      status,
+      ...(notes != null && notes !== "" ? { notes } : {}),
+    });
     return data.data;
+  },
+  async upsertPreviousEmployer(
+    employeeId: number,
+    payload: EmployeePreviousEmployerPayload,
+  ): Promise<EmployeePreviousEmployer> {
+    const { data } = await api.post<ApiEnvelope<EmployeePreviousEmployer>>(
+      `/v1/hr/employees/${employeeId}/previous-employers`,
+      payload,
+    );
+    return data.data;
+  },
+  async deletePreviousEmployer(id: number): Promise<void> {
+    await api.delete(`/v1/hr/employees/previous-employers/${id}`);
   },
   async updateEmployeeAccount(id: number, payload: EmployeeAccountUpdatePayload) {
     const { data } = await api.patch<ApiEnvelope<EmployeeProfile['users']>>(`/v1/hr/employees/${id}/account`, payload);
@@ -844,8 +888,11 @@ export const hrService = {
     const { data } = await api.patch<ApiEnvelope<{ id: string; username: string }>>(`/v1/hr/employees/${id}/account/username`, { username });
     return data.data;
   },
-  async deleteEmployee(id: number): Promise<void> {
-    await api.delete(`/v1/hr/employees/${id}`);
+  async deleteEmployee(id: number, opts?: { purge?: boolean }): Promise<EmployeeProfile | void> {
+    const { data } = await api.delete<ApiEnvelope<EmployeeProfile | void>>(`/v1/hr/employees/${id}`, {
+      params: opts?.purge ? { purge: "true" } : undefined,
+    });
+    return data.data;
   },
   async getUnlinkedUsers(): Promise<any[]> {
     const { data } = await api.get<ApiEnvelope<any[]>>('/v1/hr/employees/unlinked-users');
