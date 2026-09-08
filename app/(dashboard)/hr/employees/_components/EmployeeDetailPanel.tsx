@@ -34,6 +34,7 @@ import { EmployeeSecurityDepositTab } from "./EmployeeSecurityDepositTab";
 import { EmployeeLoanTab } from "./EmployeeLoanTab";
 import { EmployeePreviousEmployersSection } from "./EmployeePreviousEmployersSection";
 import { EmployeeProgressionTab } from "./EmployeeProgressionTab";
+import { EmployeeSalaryIncrementSection } from "./EmployeeSalaryIncrementSection";
 import {
   assignmentsToRows,
   rowsToAssignments,
@@ -264,6 +265,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const urlTab = searchParams.get("tab");
   const { user } = useAuthState();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const canManageIncrements = isSuperAdmin || !!user?.permissions?.includes("hr.employees.edit");
   const [emp, setEmp] = useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<TabId>("profile");
@@ -1062,6 +1064,18 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       </div>
                     </div>
                   </EditableCard>
+                )}
+
+                {tab === "schedule" && (
+                  <div className="mt-6 border-t border-zinc-100 pt-6 dark:border-zinc-800">
+                    <EmployeeSalaryIncrementSection
+                      employeeId={emp.id}
+                      monthlyPay={emp.monthly_pay ?? null}
+                      cycleOverride={emp.increment_cycle_months ?? null}
+                      canManage={canManageIncrements}
+                      onApplied={reload}
+                    />
+                  </div>
                 )}
 
                 {tab === "portal" && emp.users && (
