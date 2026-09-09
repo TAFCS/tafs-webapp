@@ -108,7 +108,7 @@ export interface LeavingCertificateData {
 const LAYOUT = {
     contentWidth: 540,
     sidebarWidth: 120,
-    fieldGap: 6,
+    fieldGap: 10,
 };
 
 const styles = StyleSheet.create({
@@ -232,26 +232,48 @@ const styles = StyleSheet.create({
     },
     rightContent: {
         flex: 1,
-        paddingHorizontal: 7,
+        width: LAYOUT.contentWidth - LAYOUT.sidebarWidth,
+        paddingHorizontal: 8,
         paddingTop: 4,
         paddingBottom: 4,
         justifyContent: 'space-between',
     },
     fieldRow: {
+        width: '100%',
         flexDirection: 'row',
         alignItems: 'flex-end',
         marginVertical: 1.5,
+    },
+    fieldRowWithSublabels: {
+        width: '100%',
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginVertical: 1.5,
+    },
+    labelColWithSublabels: {
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        marginRight: 4,
     },
     fieldLabelInline: {
         fontSize: 7.5,
         fontFamily: 'Helvetica-Bold',
         textAlign: 'left',
         marginRight: 4,
+        paddingBottom: 0.5,
+    },
+    fieldLabelWithSublabels: {
+        fontSize: 7.5,
+        fontFamily: 'Helvetica-Bold',
+        textAlign: 'left',
+        marginRight: 4,
+        paddingTop: 1,
     },
     fieldValuesRow: {
         flex: 1,
+        width: '100%',
         flexDirection: 'row',
-        alignItems: 'flex-end',
+        alignItems: 'flex-start',
     },
     underlinedCol: {
         flex: 1,
@@ -272,11 +294,18 @@ const styles = StyleSheet.create({
         fontSize: 6,
         fontFamily: 'Helvetica-Bold',
         color: '#000000',
-        marginTop: 1,
+        marginTop: 1.5,
         textAlign: 'center',
+    },
+    subLabelSpacer: {
+        fontSize: 6,
+        fontFamily: 'Helvetica-Bold',
+        marginTop: 1.5,
+        opacity: 0,
     },
     checkboxRow: {
         flex: 1,
+        width: '100%',
         flexDirection: 'row',
         alignItems: 'center',
     },
@@ -334,17 +363,20 @@ const styles = StyleSheet.create({
         fontSize: 7.5,
         fontFamily: 'Helvetica-Bold',
         marginRight: 3,
+        paddingBottom: 0.5,
     },
-    sigLine: {
+    sigLineWrap: {
+        flex: 1,
         borderBottomWidth: 1,
         borderBottomColor: '#000000',
-        flex: 1,
+        paddingBottom: 0.5,
+        alignItems: 'center',
+    },
+    sigLineText: {
         textAlign: 'center',
         fontSize: 7.5,
         fontFamily: 'Stardos Stencil',
         fontWeight: 'bold',
-        paddingBottom: 0.5,
-        marginRight: 6,
     },
     disclaimerText: {
         fontSize: 7.5,
@@ -364,15 +396,15 @@ const styles = StyleSheet.create({
     },
     addressText: {
         fontSize: 6.5,
-        fontFamily: 'Helvetica',
+        fontFamily: 'Helvetica-Bold',
         textAlign: 'center',
-        color: '#111111',
-        lineHeight: 1.15,
+        color: '#000000',
+        lineHeight: 1.18,
     },
     linkText: {
         fontSize: 6.5,
-        fontFamily: 'Helvetica',
-        color: '#0055cc',
+        fontFamily: 'Helvetica-Bold',
+        color: '#000000',
         textDecoration: 'underline',
     },
 });
@@ -569,7 +601,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             </View>
 
                             <View style={styles.sidebarBoxGroup}>
-                                <Text style={styles.sidebarLabel}>Computer Code #</Text>
+                                <Text style={styles.sidebarLabel}>COMPUTER CODE #</Text>
                                 <View style={styles.sidebarValueBox}>
                                     <Text style={styles.sidebarValueText}>
                                         {`${data.header_prefix || 'TAF'}/SLC  ${data.cc || '—'}`}
@@ -591,97 +623,170 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                         {/* Right Content Area */}
                         <View style={styles.rightContent}>
                             {/* 1. NAME */}
-                            <View style={styles.fieldRow}>
-                                <Text style={styles.fieldLabelInline}>NAME :</Text>
-                                <View style={styles.fieldValuesRow}>
-                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
-                                        <Text style={styles.underlinedValue}>{data.name?.last || '—'}</Text>
-                                        <Text style={styles.subLabel}>LAST</Text>
+                            <View style={styles.fieldRowWithSublabels}>
+                                <View style={{ flex: 1, flexDirection: 'column' }}>
+                                    <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-end' }}>
+                                        <Text style={styles.fieldLabelInline}>NAME :</Text>
+                                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end' }}>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.underlinedValue}>{data.name?.last || '—'}</Text>
+                                            </View>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.underlinedValue}>{data.name?.first || '—'}</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.underlinedValue}>{data.name?.middle || '—'}</Text>
+                                            </View>
+                                        </View>
                                     </View>
-                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
-                                        <Text style={styles.underlinedValue}>{data.name?.first || '—'}</Text>
-                                        <Text style={styles.subLabel}>FIRST</Text>
-                                    </View>
-                                    <View style={styles.underlinedCol}>
-                                        <Text style={styles.underlinedValue}>{data.name?.middle || '—'}</Text>
-                                        <Text style={styles.subLabel}>MIDDLE</Text>
+                                    <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-start' }}>
+                                        <Text style={[styles.fieldLabelInline, { opacity: 0 }]}>NAME :</Text>
+                                        <View style={{ flex: 1, flexDirection: 'row' }}>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.subLabel}>LAST</Text>
+                                            </View>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.subLabel}>FIRST</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.subLabel}>MIDDLE</Text>
+                                            </View>
+                                        </View>
                                     </View>
                                 </View>
                             </View>
 
                             {/* 2. FATHER'S / GUARDIAN'S NAME */}
-                            <View style={styles.fieldRow}>
-                                <Text style={styles.fieldLabelInline}>FATHER'S / GUARDIAN'S NAME :</Text>
-                                <View style={styles.fieldValuesRow}>
-                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
-                                        <Text style={styles.underlinedValue}>{data.father_name?.last || '—'}</Text>
-                                        <Text style={styles.subLabel}>LAST</Text>
+                            <View style={styles.fieldRowWithSublabels}>
+                                <View style={{ flex: 1, flexDirection: 'column' }}>
+                                    <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-end' }}>
+                                        <Text style={styles.fieldLabelInline}>FATHER'S / GUARDIAN'S NAME :</Text>
+                                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end' }}>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.underlinedValue}>{data.father_name?.last || '—'}</Text>
+                                            </View>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.underlinedValue}>{data.father_name?.first || '—'}</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.underlinedValue}>{data.father_name?.middle || '—'}</Text>
+                                            </View>
+                                        </View>
                                     </View>
-                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
-                                        <Text style={styles.underlinedValue}>{data.father_name?.first || '—'}</Text>
-                                        <Text style={styles.subLabel}>FIRST</Text>
-                                    </View>
-                                    <View style={styles.underlinedCol}>
-                                        <Text style={styles.underlinedValue}>{data.father_name?.middle || '—'}</Text>
-                                        <Text style={styles.subLabel}>MIDDLE</Text>
+                                    <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-start' }}>
+                                        <Text style={[styles.fieldLabelInline, { opacity: 0 }]}>FATHER'S / GUARDIAN'S NAME :</Text>
+                                        <View style={{ flex: 1, flexDirection: 'row' }}>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.subLabel}>LAST</Text>
+                                            </View>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.subLabel}>FIRST</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.subLabel}>MIDDLE</Text>
+                                            </View>
+                                        </View>
                                     </View>
                                 </View>
                             </View>
 
                             {/* 3. DATE OF BIRTH */}
-                            <View style={styles.fieldRow}>
-                                <Text style={styles.fieldLabelInline}>DATE OF BIRTH :</Text>
-                                <View style={styles.fieldValuesRow}>
-                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
-                                        <Text style={styles.underlinedValue}>{data.dob?.month || '—'}</Text>
-                                        <Text style={styles.subLabel}>MONTH</Text>
+                            <View style={styles.fieldRowWithSublabels}>
+                                <View style={{ flex: 1, flexDirection: 'column' }}>
+                                    <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-end' }}>
+                                        <Text style={styles.fieldLabelInline}>DATE OF BIRTH :</Text>
+                                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end' }}>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.underlinedValue}>{data.dob?.month || '—'}</Text>
+                                            </View>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.underlinedValue}>{data.dob?.day || '—'}</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.underlinedValue}>{data.dob?.year || '—'}</Text>
+                                            </View>
+                                        </View>
                                     </View>
-                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
-                                        <Text style={styles.underlinedValue}>{data.dob?.day || '—'}</Text>
-                                        <Text style={styles.subLabel}>DAY</Text>
-                                    </View>
-                                    <View style={styles.underlinedCol}>
-                                        <Text style={styles.underlinedValue}>{data.dob?.year || '—'}</Text>
-                                        <Text style={styles.subLabel}>YEAR</Text>
+                                    <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-start' }}>
+                                        <Text style={[styles.fieldLabelInline, { opacity: 0 }]}>DATE OF BIRTH :</Text>
+                                        <View style={{ flex: 1, flexDirection: 'row' }}>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.subLabel}>MONTH</Text>
+                                            </View>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.subLabel}>DAY</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.subLabel}>YEAR</Text>
+                                            </View>
+                                        </View>
                                     </View>
                                 </View>
                             </View>
 
                             {/* 4. PLACE OF BIRTH */}
-                            <View style={styles.fieldRow}>
-                                <Text style={styles.fieldLabelInline}>PLACE OF BIRTH :</Text>
-                                <View style={styles.fieldValuesRow}>
-                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
-                                        <Text style={styles.underlinedValue}>{data.place_of_birth?.country || 'PAKISTAN'}</Text>
-                                        <Text style={styles.subLabel}>COUNTRY</Text>
+                            <View style={styles.fieldRowWithSublabels}>
+                                <View style={{ flex: 1, flexDirection: 'column' }}>
+                                    <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-end' }}>
+                                        <Text style={styles.fieldLabelInline}>PLACE OF BIRTH :</Text>
+                                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end' }}>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.underlinedValue}>{data.place_of_birth?.country || 'PAKISTAN'}</Text>
+                                            </View>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.underlinedValue}>{data.place_of_birth?.province || 'SINDH'}</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.underlinedValue}>{data.place_of_birth?.city || 'KARACHI'}</Text>
+                                            </View>
+                                        </View>
                                     </View>
-                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
-                                        <Text style={styles.underlinedValue}>{data.place_of_birth?.province || 'SINDH'}</Text>
-                                        <Text style={styles.subLabel}>PROVINCE</Text>
-                                    </View>
-                                    <View style={styles.underlinedCol}>
-                                        <Text style={styles.underlinedValue}>{data.place_of_birth?.city || 'KARACHI'}</Text>
-                                        <Text style={styles.subLabel}>CITY</Text>
+                                    <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-start' }}>
+                                        <Text style={[styles.fieldLabelInline, { opacity: 0 }]}>PLACE OF BIRTH :</Text>
+                                        <View style={{ flex: 1, flexDirection: 'row' }}>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.subLabel}>COUNTRY</Text>
+                                            </View>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.subLabel}>PROVINCE</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.subLabel}>CITY</Text>
+                                            </View>
+                                        </View>
                                     </View>
                                 </View>
                             </View>
 
                             {/* 5. NATIONALITY */}
-                            <View style={styles.fieldRow}>
-                                <Text style={styles.fieldLabelInline}>NATIONALITY :</Text>
-                                <View style={styles.fieldValuesRow}>
-                                    <View style={styles.underlinedCol}>
-                                        <Text style={styles.underlinedValue}>{data.nationality || 'PAKISTANI'}</Text>
-                                        <Text style={styles.subLabel}>COUNTRY</Text>
+                            <View style={styles.fieldRowWithSublabels}>
+                                <View style={{ flex: 1, flexDirection: 'column' }}>
+                                    <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-end' }}>
+                                        <Text style={styles.fieldLabelInline}>NATIONALITY :</Text>
+                                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end' }}>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.underlinedValue}>{data.nationality || 'PAKISTANI'}</Text>
+                                            </View>
+                                        </View>
+                                    </View>
+                                    <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-start' }}>
+                                        <Text style={[styles.fieldLabelInline, { opacity: 0 }]}>NATIONALITY :</Text>
+                                        <View style={{ flex: 1, flexDirection: 'row' }}>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.subLabel}>COUNTRY</Text>
+                                            </View>
+                                        </View>
                                     </View>
                                 </View>
                             </View>
 
                             {/* 6. SEX */}
                             <View style={styles.fieldRow}>
-                                <Text style={styles.fieldLabelInline}>SEX :</Text>
-                                <View style={styles.checkboxRow}>
-                                    <View style={[styles.checkbox, { marginLeft: 14 }]}>
+                                <View style={{ width: 62 }}>
+                                    <Text style={styles.fieldLabelInline}>SEX :</Text>
+                                </View>
+                                <View style={{ width: 72, flexDirection: 'row', alignItems: 'center' }}>
+                                    <View style={styles.checkbox}>
                                         {isMale && (
                                             <Svg width="7" height="7" viewBox="0 0 24 24">
                                                 <Path d="M20 6L9 17l-5-5" stroke="#000000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
@@ -689,8 +794,9 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                                         )}
                                     </View>
                                     <Text style={styles.checkboxLabel}>MALE</Text>
-
-                                    <View style={[styles.checkbox, { marginLeft: 16 }]}>
+                                </View>
+                                <View style={{ width: 85, flexDirection: 'row', alignItems: 'center' }}>
+                                    <View style={styles.checkbox}>
                                         {isFemale && (
                                             <Svg width="7" height="7" viewBox="0 0 24 24">
                                                 <Path d="M20 6L9 17l-5-5" stroke="#000000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
@@ -703,9 +809,11 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
 
                             {/* 7. RELIGION */}
                             <View style={styles.fieldRow}>
-                                <Text style={styles.fieldLabelInline}>RELIGION :</Text>
-                                <View style={styles.checkboxRow}>
-                                    <View style={[styles.checkbox, { marginLeft: 8 }]}>
+                                <View style={{ width: 62 }}>
+                                    <Text style={styles.fieldLabelInline}>RELIGION :</Text>
+                                </View>
+                                <View style={{ width: 72, flexDirection: 'row', alignItems: 'center' }}>
+                                    <View style={styles.checkbox}>
                                         {isMuslim && (
                                             <Svg width="7" height="7" viewBox="0 0 24 24">
                                                 <Path d="M20 6L9 17l-5-5" stroke="#000000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
@@ -713,8 +821,9 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                                         )}
                                     </View>
                                     <Text style={styles.checkboxLabel}>MUSLIM</Text>
-
-                                    <View style={[styles.checkbox, { marginLeft: 12 }]}>
+                                </View>
+                                <View style={{ width: 85, flexDirection: 'row', alignItems: 'center' }}>
+                                    <View style={styles.checkbox}>
                                         {isChristian && (
                                             <Svg width="7" height="7" viewBox="0 0 24 24">
                                                 <Path d="M20 6L9 17l-5-5" stroke="#000000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
@@ -722,45 +831,67 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                                         )}
                                     </View>
                                     <Text style={styles.checkboxLabel}>CHRISTIAN</Text>
-
-                                    <Text style={[styles.fieldLabelInline, { marginLeft: 12, marginRight: 4 }]}>OTHERS</Text>
-                                    <Text style={[styles.lineFill, { textAlign: 'center' }]}>
-                                        {isOtherReligion ? religionStr : ''}
-                                    </Text>
+                                </View>
+                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                                    <Text style={[styles.fieldLabelInline, { marginRight: 4 }]}>OTHERS</Text>
+                                    <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                        <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                            {isOtherReligion ? religionStr : ''}
+                                        </Text>
+                                    </View>
                                 </View>
                             </View>
 
                             {/* 8. MARK (S) OF IDENTIFICATION */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>MARK (S) OF IDENTIFICATION :</Text>
-                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>
-                                    {data.identification_marks || '—'}
-                                </Text>
+                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                        {data.identification_marks || '—'}
+                                    </Text>
+                                </View>
                             </View>
 
                             {/* 9. LAST SCHOOL ATTENDED */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>LAST SCHOOL ATTENDED :</Text>
-                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>
-                                    {data.last_school_attended || '—'}
-                                </Text>
+                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                        {data.last_school_attended || '—'}
+                                    </Text>
+                                </View>
                             </View>
 
                             {/* 10. DATE OF ADMISSION */}
-                            <View style={styles.fieldRow}>
-                                <Text style={styles.fieldLabelInline}>DATE OF ADMISSION :</Text>
-                                <View style={styles.fieldValuesRow}>
-                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
-                                        <Text style={styles.underlinedValue}>{data.date_of_admission?.month || '—'}</Text>
-                                        <Text style={styles.subLabel}>MONTH</Text>
+                            <View style={styles.fieldRowWithSublabels}>
+                                <View style={{ flex: 1, flexDirection: 'column' }}>
+                                    <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-end' }}>
+                                        <Text style={styles.fieldLabelInline}>DATE OF ADMISSION :</Text>
+                                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end' }}>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.underlinedValue}>{data.date_of_admission?.month || '—'}</Text>
+                                            </View>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.underlinedValue}>{data.date_of_admission?.day || '—'}</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.underlinedValue}>{data.date_of_admission?.year || '—'}</Text>
+                                            </View>
+                                        </View>
                                     </View>
-                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
-                                        <Text style={styles.underlinedValue}>{data.date_of_admission?.day || '—'}</Text>
-                                        <Text style={styles.subLabel}>DAY</Text>
-                                    </View>
-                                    <View style={styles.underlinedCol}>
-                                        <Text style={styles.underlinedValue}>{data.date_of_admission?.year || '—'}</Text>
-                                        <Text style={styles.subLabel}>YEAR</Text>
+                                    <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-start' }}>
+                                        <Text style={[styles.fieldLabelInline, { opacity: 0 }]}>DATE OF ADMISSION :</Text>
+                                        <View style={{ flex: 1, flexDirection: 'row' }}>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.subLabel}>MONTH</Text>
+                                            </View>
+                                            <View style={{ flex: 1, marginRight: LAYOUT.fieldGap }}>
+                                                <Text style={styles.subLabel}>DAY</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.subLabel}>YEAR</Text>
+                                            </View>
+                                        </View>
                                     </View>
                                 </View>
                             </View>
@@ -792,13 +923,17 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             {/* 13. PRESENT CLASS & SECTION */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>PRESENT CLASS :</Text>
-                                <Text style={[styles.lineFill, { textAlign: 'center', flex: 1, marginRight: 8 }]}>
-                                    {data.present_level || '—'}
-                                </Text>
+                                <View style={{ flex: 1.2, borderBottomWidth: 1, borderBottomColor: '#000000', marginRight: 10, paddingBottom: 0.5, alignItems: 'center' }}>
+                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                        {data.present_level || '—'}
+                                    </Text>
+                                </View>
                                 <Text style={styles.fieldLabelInline}>SECTION :</Text>
-                                <Text style={[styles.lineFill, { textAlign: 'center', flex: 1 }]}>
-                                    {data.section || '—'}
-                                </Text>
+                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                        {data.section || '—'}
+                                    </Text>
+                                </View>
                             </View>
 
                             {/* 14. SCHOLASTIC YEAR */}
@@ -816,9 +951,11 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             </View>
 
                             {/* 15. LAST DATE OF ATTENDANCE AT THIS SCHOOL */}
-                            <View style={{ marginVertical: 1.5 }}>
-                                <Text style={styles.fieldLabelInline}>LAST DATE OF ATTENDANCE AT THIS SCHOOL :</Text>
-                                <View style={[styles.fieldValuesRow, { marginTop: 1.5 }]}>
+                            <View style={{ width: '100%', flexDirection: 'column', marginVertical: 2 }}>
+                                <Text style={[styles.fieldLabelInline, { width: '100%', marginBottom: 2.5 }]}>
+                                    LAST DATE OF ATTENDANCE AT THIS SCHOOL :
+                                </Text>
+                                <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-start' }}>
                                     <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
                                         <Text style={styles.underlinedValue}>{data.last_date_of_attendance?.month || '—'}</Text>
                                         <Text style={styles.subLabel}>MONTH</Text>
@@ -837,9 +974,11 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             {/* 16. REASON FOR LEAVING */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>{`REASON FOR LEAVING ${prefix} :`}</Text>
-                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>
-                                    {data.reason_for_leaving || "ON PARENT'S REQUEST"}
-                                </Text>
+                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                        {data.reason_for_leaving || "ON PARENT'S REQUEST"}
+                                    </Text>
+                                </View>
                             </View>
 
                             {/* 17. RESULT AT THE END OF THE SCHOLASTIC YEAR */}
@@ -859,9 +998,11 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             {/* 18. a ) PASSED & PROMOTED TO CLASS */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>a ) PASSED & PROMOTED TO CLASS :</Text>
-                                <Text style={[styles.lineFill, { textAlign: 'center', flex: 1, marginRight: 6 }]}>
-                                    {data.passed_promoted_level || '—'}
-                                </Text>
+                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', marginRight: 6, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 0.5 }}>
+                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                        {data.passed_promoted_level || '—'}
+                                    </Text>
+                                </View>
                                 <Text style={[styles.fieldLabelInline, { marginRight: 3 }]}>FOR THE SCHOLASTIC YEAR :</Text>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                     <View style={styles.squareBox}>
@@ -875,26 +1016,32 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             </View>
 
                             {/* 19. b ) THE CHILD HAS TO RESIT IN THE FOLLOWING SUBJECTS */}
-                            <View style={{ marginVertical: 1.2 }}>
-                                <View style={styles.fieldRow}>
+                            <View style={{ width: '100%', flexDirection: 'column', marginVertical: 1.5 }}>
+                                <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-end' }}>
                                     <Text style={styles.fieldLabelInline}>b ) THE CHILD HAS TO RESIT IN THE FOLLOWING SUBJECTS :</Text>
-                                    <Text style={[styles.lineFill, { textAlign: 'center', flex: 1 }]}>
-                                        {data.resit_subjects || '—'}
-                                    </Text>
+                                    <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                        <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                            {data.resit_subjects || '—'}
+                                        </Text>
+                                    </View>
                                 </View>
-                                <View style={[styles.fieldRow, { marginTop: 1.5 }]}>
-                                    <Text style={[styles.lineFill, { textAlign: 'center', width: '100%' }]}>
-                                        {'—'}
-                                    </Text>
+                                <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-end', marginTop: 3 }}>
+                                    <View style={{ flex: 1, marginLeft: 16, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                        <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                            {'—'}
+                                        </Text>
+                                    </View>
                                 </View>
                             </View>
 
                             {/* 20. c ) DETAINED IN CLASS */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>c ) DETAINED IN CLASS :</Text>
-                                <Text style={[styles.lineFill, { textAlign: 'center', flex: 1, marginRight: 6 }]}>
-                                    {data.detained_level || '—'}
-                                </Text>
+                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', marginRight: 6, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 0.5 }}>
+                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                        {data.detained_level || '—'}
+                                    </Text>
+                                </View>
                                 <Text style={[styles.fieldLabelInline, { marginRight: 3 }]}>FOR THE SCHOLASTIC YEAR :</Text>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                     <View style={styles.squareBox}>
@@ -910,17 +1057,21 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             {/* 21. TAFS / TAFSS / TAFCS DUES (IF ANY) */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>{`${prefix} DUES (IF ANY) :`}</Text>
-                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>
-                                    {data.school_dues || '—'}
-                                </Text>
+                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                        {data.school_dues || '—'}
+                                    </Text>
+                                </View>
                             </View>
 
                             {/* 22. REMARKS */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>REMARKS :</Text>
-                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>
-                                    {data.remarks || '—'}
-                                </Text>
+                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                        {data.remarks || '—'}
+                                    </Text>
+                                </View>
                             </View>
 
                             {/* 23. Signatures Section */}
@@ -928,37 +1079,51 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                                 <View style={styles.sigRow}>
                                     <View style={styles.sigField}>
                                         <Text style={styles.sigLabel}>PREPARED BY :</Text>
-                                        <Text style={styles.sigLine}>{data.prepared_by || ''}</Text>
+                                        <View style={[styles.sigLineWrap, { marginRight: 6 }]}>
+                                            <Text style={styles.sigLineText}>{data.prepared_by || ''}</Text>
+                                        </View>
                                     </View>
                                     <View style={styles.sigField}>
                                         <Text style={styles.sigLabel}>RECHECKED BY :</Text>
-                                        <Text style={styles.sigLine}>{data.rechecked_by || ''}</Text>
+                                        <View style={[styles.sigLineWrap, { marginRight: 6 }]}>
+                                            <Text style={styles.sigLineText}>{data.rechecked_by || ''}</Text>
+                                        </View>
                                     </View>
                                     <View style={styles.sigField}>
                                         <Text style={styles.sigLabel}>POSTED BY :</Text>
-                                        <Text style={styles.sigLine}>{data.posted_by || ''}</Text>
+                                        <View style={styles.sigLineWrap}>
+                                            <Text style={styles.sigLineText}>{data.posted_by || ''}</Text>
+                                        </View>
                                     </View>
                                 </View>
 
                                 <View style={styles.sigRow}>
                                     <View style={styles.sigField}>
                                         <Text style={styles.sigLabel}>LEAD TEACHER :</Text>
-                                        <Text style={[styles.sigLine, { width: 120 }]}>{data.class_teacher || ''}</Text>
+                                        <View style={[styles.sigLineWrap, { marginRight: 10 }]}>
+                                            <Text style={styles.sigLineText}>{data.class_teacher || ''}</Text>
+                                        </View>
                                     </View>
                                     <View style={styles.sigField}>
                                         <Text style={styles.sigLabel}>PROGRAMME DIRECTRESS :</Text>
-                                        <Text style={[styles.sigLine, { width: 120 }]}>{data.programme_directress || ''}</Text>
+                                        <View style={styles.sigLineWrap}>
+                                            <Text style={styles.sigLineText}>{data.programme_directress || ''}</Text>
+                                        </View>
                                     </View>
                                 </View>
 
-                                <View style={[styles.sigRow, { justifyContent: 'space-between', paddingHorizontal: 16 }]}>
-                                    <View style={styles.sigField}>
+                                <View style={[styles.sigRow, { justifyContent: 'space-between' }]}>
+                                    <View style={[styles.sigField, { flex: 0.8, marginRight: 16 }]}>
                                         <Text style={styles.sigLabel}>DAY :</Text>
-                                        <Text style={[styles.sigLine, { width: 90 }]}>{data.day || ''}</Text>
+                                        <View style={styles.sigLineWrap}>
+                                            <Text style={styles.sigLineText}>{data.day || ''}</Text>
+                                        </View>
                                     </View>
-                                    <View style={styles.sigField}>
+                                    <View style={[styles.sigField, { flex: 1.2 }]}>
                                         <Text style={styles.sigLabel}>DATE :</Text>
-                                        <Text style={[styles.sigLine, { width: 130 }]}>{data.date || ''}</Text>
+                                        <View style={styles.sigLineWrap}>
+                                            <Text style={styles.sigLineText}>{data.date || ''}</Text>
+                                        </View>
                                     </View>
                                 </View>
 
