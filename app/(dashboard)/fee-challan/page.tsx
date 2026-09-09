@@ -124,6 +124,9 @@ type VoucherGenStatus = {
   // At least one covering voucher is HELD (released_to_parent_at == null):
   // generated but not yet released to parents.
   anyUnreleased: boolean;
+  // Every non-discount fee in the group is a permanent write-off (status =
+  // 'WAIVED') — issuing this group produces a written-off WAIVED voucher.
+  allWaived: boolean;
 };
 
 function computeVoucherGenStatus(fees: StudentFee[]): VoucherGenStatus {
@@ -144,10 +147,19 @@ function computeVoucherGenStatus(fees: StudentFee[]): VoucherGenStatus {
       }
     }
   }
-  return { anyGenerated, anyPaid, anyPartiallyPaid, anyUnreleased };
+  const nonDiscount = fees.filter((f) => !f.is_discount);
+  const allWaived = nonDiscount.length > 0 && nonDiscount.every((f) => f.status === "WAIVED");
+  return { anyGenerated, anyPaid, anyPartiallyPaid, anyUnreleased, allWaived };
 }
 
 function VoucherGenBadge({ status }: { status: VoucherGenStatus }) {
+  if (status.allWaived) {
+    return (
+      <span className="text-[10px] font-black bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-1.5">
+        <CheckCircle2 className="h-3 w-3" /> Waived
+      </span>
+    );
+  }
   if (!status.anyGenerated) return null;
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
@@ -1519,6 +1531,20 @@ export default function FeeChallanGenerator() {
                         </div>
                       );
                     }
+                    if (f.status === 'WAIVED') {
+                      // Permanent write-off — shown for the record, contributes 0 to the total.
+                      return (
+                        <div key={f.id} className="flex items-center justify-between gap-4">
+                          <span className="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 flex-1">
+                            {f.fee_types?.description || 'Fee'}{installLabel}
+                            <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-emerald-500">Waived</span>
+                          </span>
+                          <span className="font-black text-emerald-500 text-[13px] font-mono tabular-nums line-through decoration-1">
+                            PKR {Number(f.amount).toLocaleString()}
+                          </span>
+                        </div>
+                      );
+                    }
                     const discount = Math.max(0, Number(f.amount_before_discount || 0) - Number(f.amount || 0));
                     return (
                       <div key={f.id} className="flex items-center justify-between gap-4">
@@ -1541,7 +1567,7 @@ export default function FeeChallanGenerator() {
                 <span className="font-black text-zinc-900 dark:text-zinc-100 text-[18px] font-mono tabular-nums">
                   PKR {(
                     (contentPreviewArrears?.rows ?? []).reduce((s, r) => s + Number(r.outstanding), 0) +
-                    contentPreviewFees.reduce((s, f) => s + (f.is_discount ? -Number(f.amount) : Number(f.amount)), 0)
+                    contentPreviewFees.reduce((s, f) => s + (f.status === 'WAIVED' ? 0 : f.is_discount ? -Number(f.amount) : Number(f.amount)), 0)
                   ).toLocaleString()}
                 </span>
               </div>
