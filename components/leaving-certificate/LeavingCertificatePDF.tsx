@@ -872,7 +872,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                                 </View>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                     <Text style={[styles.fieldLabelInline, { marginRight: 4 }]}>OTHERS</Text>
-                                    <View style={{ width: 70, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                    <View style={{ width: 70, alignItems: 'center' }}>
                                         <Text style={styles.underlinedValue}>
                                             {isOtherReligion ? religionStr : ''}
                                         </Text>
@@ -883,7 +883,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             {/* 8. MARK (S) OF IDENTIFICATION */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>MARK (S) OF IDENTIFICATION :</Text>
-                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                <View style={{ flex: 1, alignItems: 'center' }}>
                                     <Text style={styles.underlinedValue}>
                                         {data.identification_marks || '—'}
                                     </Text>
@@ -893,7 +893,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             {/* 9. LAST SCHOOL ATTENDED */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>LAST SCHOOL ATTENDED :</Text>
-                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                <View style={{ flex: 1, alignItems: 'center' }}>
                                     <Text style={styles.underlinedValue}>
                                         {data.last_school_attended || '—'}
                                     </Text>
@@ -955,13 +955,13 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             {/* 13. PRESENT CLASS & SECTION */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>PRESENT CLASS :</Text>
-                                <View style={{ flex: 1.2, borderBottomWidth: 1, borderBottomColor: '#000000', marginRight: 10, paddingBottom: 0.5, alignItems: 'center' }}>
+                                <View style={{ flex: 1.2, marginRight: 10, alignItems: 'center' }}>
                                     <Text style={styles.underlinedValue}>
                                         {data.present_level || '—'}
                                     </Text>
                                 </View>
                                 <Text style={styles.fieldLabelInline}>SECTION :</Text>
-                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                <View style={{ flex: 1, alignItems: 'center' }}>
                                     <Text style={styles.underlinedValue}>
                                         {data.section || '—'}
                                     </Text>
@@ -1002,7 +1002,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             {/* 16. REASON FOR LEAVING */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>{`REASON FOR LEAVING ${prefix} :`}</Text>
-                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                <View style={{ flex: 1, alignItems: 'center' }}>
                                     <Text style={styles.underlinedValue}>
                                         {data.reason_for_leaving || "ON PARENT'S REQUEST"}
                                     </Text>
@@ -1022,7 +1022,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             {/* 18. a ) PASSED & PROMOTED TO CLASS */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>a ) PASSED & PROMOTED TO CLASS :</Text>
-                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', marginRight: 6, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 0.5 }}>
+                                <View style={{ flex: 1, marginRight: 6, alignItems: 'center' }}>
                                     <Text style={styles.underlinedValue}>
                                         {data.passed_promoted_level || '—'}
                                     </Text>
@@ -1039,14 +1039,14 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             <View style={{ width: '100%', flexDirection: 'column', marginVertical: 1.5 }}>
                                 <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-end' }}>
                                     <Text style={styles.fieldLabelInline}>b ) THE CHILD HAS TO RESIT IN THE FOLLOWING SUBJECTS :</Text>
-                                    <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                    <View style={{ flex: 1, alignItems: 'center' }}>
                                         <Text style={styles.underlinedValue}>
                                             {data.resit_subjects || '—'}
                                         </Text>
                                     </View>
                                 </View>
                                 <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-end', marginTop: 3 }}>
-                                    <View style={{ flex: 1, marginLeft: 16, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                    <View style={{ flex: 1, marginLeft: 16, alignItems: 'center' }}>
                                         <Text style={styles.underlinedValue}>
                                             {'—'}
                                         </Text>
@@ -1057,7 +1057,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             {/* 20. c ) DETAINED IN CLASS */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>c ) DETAINED IN CLASS :</Text>
-                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', marginRight: 6, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 0.5 }}>
+                                <View style={{ flex: 1, marginRight: 6, alignItems: 'center' }}>
                                     <Text style={styles.underlinedValue}>
                                         {data.detained_level || '—'}
                                     </Text>
@@ -1073,7 +1073,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             {/* 21. TAFS / TAFSS / TAFCS DUES (IF ANY) */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>{`${prefix} DUES (IF ANY) :`}</Text>
-                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                <View style={{ flex: 1, alignItems: 'center' }}>
                                     <Text style={styles.underlinedValue}>
                                         {data.school_dues || '—'}
                                     </Text>
@@ -1083,7 +1083,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             {/* 22. REMARKS */}
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>REMARKS :</Text>
-                                <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                <View style={{ flex: 1, alignItems: 'center' }}>
                                     <Text style={styles.underlinedValue}>
                                         {data.remarks || '—'}
                                     </Text>
