@@ -832,9 +832,9 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                                     </View>
                                     <Text style={styles.checkboxLabel}>CHRISTIAN</Text>
                                 </View>
-                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                     <Text style={[styles.fieldLabelInline, { marginRight: 4 }]}>OTHERS</Text>
-                                    <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
+                                    <View style={{ width: 70, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
                                         <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
                                             {isOtherReligion ? religionStr : ''}
                                         </Text>
