@@ -15,9 +15,20 @@ Font.register({
     ],
 });
 
+Font.register({
+    family: 'Saira Stencil One',
+    src: 'https://fonts.gstatic.com/s/sairastencilone/v19/SLXSc03I6HkvZGJ1GvvipLoYSTEL9AsM.ttf',
+});
+
+Font.register({
+    family: 'Black Ops One',
+    src: 'https://fonts.gstatic.com/s/blackopsone/v21/qWcsB6-ypo7xBdr6Xshe96H3WDw.ttf',
+});
+
 export interface LeavingCertificateData {
     header_title?: string;
     header_prefix?: string;
+    font_weight_style?: 'STANDARD' | 'SUPER_BOLD' | 'ULTRA_HEAVY';
     slc_number?: string;
     cc?: number;
     gr_number?: string;
@@ -102,6 +113,7 @@ export interface LeavingCertificateData {
     campus_name?: string;
     campus_address?: string;
     selected_campus?: 'AUTO' | 'ALL' | 'JAUHAR' | 'KANEEZ' | 'NAZIMABAD';
+    footer_font_size?: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE' | number;
 }
 
 /** Shared layout constants */
@@ -445,6 +457,8 @@ export function deepUppercase<T>(obj: T): T {
                 key === 'right_logo_id' ||
                 key === 'left_logo_size' ||
                 key === 'right_logo_size' ||
+                key === 'footer_font_size' ||
+                key === 'font_weight_style' ||
                 key === 'selected_campus'
             ) {
                 result[key] = (obj as any)[key];
@@ -459,6 +473,28 @@ export function deepUppercase<T>(obj: T): T {
 
 export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertificateData }) => {
     const data = deepUppercase(rawData);
+    const isSuperBold = data.font_weight_style === 'SUPER_BOLD' || data.font_weight_style === 'ULTRA_HEAVY';
+    const isUltra = data.font_weight_style === 'ULTRA_HEAVY';
+    const headerFont = isUltra ? 'Black Ops One' : isSuperBold ? 'Saira Stencil One' : 'Stardos Stencil';
+
+    const getFooterFontSize = () => {
+        if (typeof data.footer_font_size === 'number') {
+            return data.footer_font_size;
+        }
+        switch (data.footer_font_size) {
+            case 'SMALL':
+                return 5.5;
+            case 'LARGE':
+                return 7.5;
+            case 'XLARGE':
+                return 8.5;
+            case 'MEDIUM':
+            default:
+                return 6.5;
+        }
+    };
+
+    const footerFontSize = getFooterFontSize();
     const g = (data.gender || 'MALE').trim().toUpperCase();
     const isMale = g === 'MALE' || g === 'M';
     const isFemale = g === 'FEMALE' || g === 'F';
@@ -579,7 +615,9 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
 
                     {/* Title */}
                     <View style={styles.docTitleContainer}>
-                        <Text style={styles.docTitle}>{data.header_title || 'TAFS LEAVING CERTIFICATE'}</Text>
+                        <Text style={[styles.docTitle, { fontFamily: headerFont, fontSize: isSuperBold ? 14 : 13.5, letterSpacing: isSuperBold ? 0.6 : 1 }]}>
+                            {data.header_title || 'TAFS LEAVING CERTIFICATE'}
+                        </Text>
                     </View>
 
                     {/* Main Grid Container */}
@@ -835,7 +873,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                     <Text style={[styles.fieldLabelInline, { marginRight: 4 }]}>OTHERS</Text>
                                     <View style={{ width: 70, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
-                                        <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                        <Text style={styles.underlinedValue}>
                                             {isOtherReligion ? religionStr : ''}
                                         </Text>
                                     </View>
@@ -846,7 +884,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>MARK (S) OF IDENTIFICATION :</Text>
                                 <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
-                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                    <Text style={styles.underlinedValue}>
                                         {data.identification_marks || '—'}
                                     </Text>
                                 </View>
@@ -856,7 +894,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>LAST SCHOOL ATTENDED :</Text>
                                 <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
-                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                    <Text style={styles.underlinedValue}>
                                         {data.last_school_attended || '—'}
                                     </Text>
                                 </View>
@@ -900,13 +938,9 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>SCHOLASTIC YEAR :</Text>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 2 }}>
-                                    <View style={styles.squareBox}>
-                                        <Text>{data.scholastic_year_admitted?.from || '—'}</Text>
-                                    </View>
+                                    <Text style={styles.squareBox}>{data.scholastic_year_admitted?.from || '—'}</Text>
                                     <Text style={{ marginHorizontal: 2, fontFamily: 'Helvetica-Bold', fontSize: 8 }}>/</Text>
-                                    <View style={styles.squareBox}>
-                                        <Text>{data.scholastic_year_admitted?.to || '—'}</Text>
-                                    </View>
+                                    <Text style={styles.squareBox}>{data.scholastic_year_admitted?.to || '—'}</Text>
                                 </View>
                             </View>
 
@@ -914,9 +948,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>{classAdmittedLabel} :</Text>
                                 <View style={{ marginLeft: 2 }}>
-                                    <View style={styles.squareBox}>
-                                        <Text>{data.class_admitted || '—'}</Text>
-                                    </View>
+                                    <Text style={styles.squareBox}>{data.class_admitted || '—'}</Text>
                                 </View>
                             </View>
 
@@ -924,13 +956,13 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>PRESENT CLASS :</Text>
                                 <View style={{ flex: 1.2, borderBottomWidth: 1, borderBottomColor: '#000000', marginRight: 10, paddingBottom: 0.5, alignItems: 'center' }}>
-                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                    <Text style={styles.underlinedValue}>
                                         {data.present_level || '—'}
                                     </Text>
                                 </View>
                                 <Text style={styles.fieldLabelInline}>SECTION :</Text>
                                 <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
-                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                    <Text style={styles.underlinedValue}>
                                         {data.section || '—'}
                                     </Text>
                                 </View>
@@ -940,13 +972,9 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>SCHOLASTIC YEAR :</Text>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 2 }}>
-                                    <View style={styles.squareBox}>
-                                        <Text>{data.scholastic_year_present?.from || '—'}</Text>
-                                    </View>
+                                    <Text style={styles.squareBox}>{data.scholastic_year_present?.from || '—'}</Text>
                                     <Text style={{ marginHorizontal: 2, fontFamily: 'Helvetica-Bold', fontSize: 8 }}>/</Text>
-                                    <View style={styles.squareBox}>
-                                        <Text>{data.scholastic_year_present?.to || '—'}</Text>
-                                    </View>
+                                    <Text style={styles.squareBox}>{data.scholastic_year_present?.to || '—'}</Text>
                                 </View>
                             </View>
 
@@ -975,7 +1003,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>{`REASON FOR LEAVING ${prefix} :`}</Text>
                                 <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
-                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                    <Text style={styles.underlinedValue}>
                                         {data.reason_for_leaving || "ON PARENT'S REQUEST"}
                                     </Text>
                                 </View>
@@ -985,13 +1013,9 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>RESULT AT THE END OF THE SCHOLASTIC YEAR :</Text>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 2 }}>
-                                    <View style={styles.squareBox}>
-                                        <Text>{data.result_scholastic_year?.from || '—'}</Text>
-                                    </View>
+                                    <Text style={styles.squareBox}>{data.result_scholastic_year?.from || '—'}</Text>
                                     <Text style={{ marginHorizontal: 2, fontFamily: 'Helvetica-Bold', fontSize: 8 }}>/</Text>
-                                    <View style={styles.squareBox}>
-                                        <Text>{data.result_scholastic_year?.to || '—'}</Text>
-                                    </View>
+                                    <Text style={styles.squareBox}>{data.result_scholastic_year?.to || '—'}</Text>
                                 </View>
                             </View>
 
@@ -999,19 +1023,15 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>a ) PASSED & PROMOTED TO CLASS :</Text>
                                 <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', marginRight: 6, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 0.5 }}>
-                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                    <Text style={styles.underlinedValue}>
                                         {data.passed_promoted_level || '—'}
                                     </Text>
                                 </View>
                                 <Text style={[styles.fieldLabelInline, { marginRight: 3 }]}>FOR THE SCHOLASTIC YEAR :</Text>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <View style={styles.squareBox}>
-                                        <Text>{data.passed_promoted_year?.from || '—'}</Text>
-                                    </View>
+                                    <Text style={styles.squareBox}>{data.passed_promoted_year?.from || '—'}</Text>
                                     <Text style={{ marginHorizontal: 2, fontFamily: 'Helvetica-Bold', fontSize: 8 }}>/</Text>
-                                    <View style={styles.squareBox}>
-                                        <Text>{data.passed_promoted_year?.to || '—'}</Text>
-                                    </View>
+                                    <Text style={styles.squareBox}>{data.passed_promoted_year?.to || '—'}</Text>
                                 </View>
                             </View>
 
@@ -1020,14 +1040,14 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                                 <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-end' }}>
                                     <Text style={styles.fieldLabelInline}>b ) THE CHILD HAS TO RESIT IN THE FOLLOWING SUBJECTS :</Text>
                                     <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
-                                        <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                        <Text style={styles.underlinedValue}>
                                             {data.resit_subjects || '—'}
                                         </Text>
                                     </View>
                                 </View>
                                 <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-end', marginTop: 3 }}>
                                     <View style={{ flex: 1, marginLeft: 16, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
-                                        <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                        <Text style={styles.underlinedValue}>
                                             {'—'}
                                         </Text>
                                     </View>
@@ -1038,19 +1058,15 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>c ) DETAINED IN CLASS :</Text>
                                 <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', marginRight: 6, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 0.5 }}>
-                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                    <Text style={styles.underlinedValue}>
                                         {data.detained_level || '—'}
                                     </Text>
                                 </View>
                                 <Text style={[styles.fieldLabelInline, { marginRight: 3 }]}>FOR THE SCHOLASTIC YEAR :</Text>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <View style={styles.squareBox}>
-                                        <Text>{data.detained_year?.from || '—'}</Text>
-                                    </View>
+                                    <Text style={styles.squareBox}>{data.detained_year?.from || '—'}</Text>
                                     <Text style={{ marginHorizontal: 2, fontFamily: 'Helvetica-Bold', fontSize: 8 }}>/</Text>
-                                    <View style={styles.squareBox}>
-                                        <Text>{data.detained_year?.to || '—'}</Text>
-                                    </View>
+                                    <Text style={styles.squareBox}>{data.detained_year?.to || '—'}</Text>
                                 </View>
                             </View>
 
@@ -1058,7 +1074,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>{`${prefix} DUES (IF ANY) :`}</Text>
                                 <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
-                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                    <Text style={styles.underlinedValue}>
                                         {data.school_dues || '—'}
                                     </Text>
                                 </View>
@@ -1068,7 +1084,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                             <View style={styles.fieldRow}>
                                 <Text style={styles.fieldLabelInline}>REMARKS :</Text>
                                 <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: '#000000', paddingBottom: 0.5, alignItems: 'center' }}>
-                                    <Text style={{ fontSize: 7.5, fontFamily: 'Stardos Stencil', fontWeight: 'bold', textAlign: 'center' }}>
+                                    <Text style={styles.underlinedValue}>
                                         {data.remarks || '—'}
                                     </Text>
                                 </View>
@@ -1126,28 +1142,31 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                                         </View>
                                     </View>
                                 </View>
-
-                                <Text style={styles.disclaimerText}>THIS CERTIFICATE IS ISSUED WITHOUT ALTERATION OR ERASURE</Text>
                             </View>
                         </View>
                     </View>
 
-                    {/* Footer 3-Campus Addresses */}
+                    {/* Disclaimer */}
+                    <Text style={styles.disclaimerText}>
+                        ANY ERASING, OVERWRITING, OR ALTERATION INVALIDATES THIS CERTIFICATE.
+                    </Text>
+
+                    {/* Footer Campuses */}
                     <View style={styles.footer}>
                         {/* GULISTAN-E-JAUHAR */}
                         {showJauhar && (
                             <View style={[styles.campusBlock, !showKaneez && !showNazimabad ? { marginBottom: 0 } : {}]}>
-                                <Text style={styles.addressText}>
+                                <Text style={[styles.addressText, { fontSize: footerFontSize }]}>
                                     C - 61, 62, 63, 64 & 65, BLOCK # 13, GULISTAN-E-JAUHAR, KARACHI.
                                 </Text>
-                                <Text style={styles.addressText}>
+                                <Text style={[styles.addressText, { fontSize: footerFontSize }]}>
                                     HELLO # (92-21) 3476-5111, 3476-5112, 3476-5113 FAX # : (92-21) 3476-5114, HELP LINE # : 0300-8258061.
                                 </Text>
-                                <Text style={styles.addressText}>
-                                    Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>info@tafs.edu.pk</Text>
+                                <Text style={[styles.addressText, { fontSize: footerFontSize }]}>
+                                    Email : <Text style={[styles.linkText, { fontSize: footerFontSize }]}>american@cyber.net.pk</Text> , / <Text style={[styles.linkText, { fontSize: footerFontSize }]}>info@tafs.edu.pk</Text>
                                 </Text>
-                                <Text style={styles.addressText}>
-                                    Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
+                                <Text style={[styles.addressText, { fontSize: footerFontSize }]}>
+                                    Website : <Text style={[styles.linkText, { fontSize: footerFontSize }]}>www.tafs.edu.pk</Text>.
                                 </Text>
                             </View>
                         )}
@@ -1155,20 +1174,20 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                         {/* GULSHAN-E-KANEEZ FATIMA */}
                         {showKaneez && (
                             <View style={[styles.campusBlock, !showNazimabad ? { marginBottom: 0 } : {}]}>
-                                <Text style={styles.addressText}>
+                                <Text style={[styles.addressText, { fontSize: footerFontSize }]}>
                                     B-2, BLOCK # 2, GULSHAN-E-KANEEZ FATIMA SOCIETY,
                                 </Text>
-                                <Text style={styles.addressText}>
+                                <Text style={[styles.addressText, { fontSize: footerFontSize }]}>
                                     GULZAR-E-HIJRI, K.D.A. SCHEME # 33, KARACHI.
                                 </Text>
-                                <Text style={styles.addressText}>
+                                <Text style={[styles.addressText, { fontSize: footerFontSize }]}>
                                     HELLO # : (92-21) 3469-0972, 3469-0973, 3469-0975 FAX # : (92-21) 3469-0978, HELP LINE # : 0300-8258061.
                                 </Text>
-                                <Text style={styles.addressText}>
-                                    Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>info@tafs.edu.pk</Text>
+                                <Text style={[styles.addressText, { fontSize: footerFontSize }]}>
+                                    Email : <Text style={[styles.linkText, { fontSize: footerFontSize }]}>american@cyber.net.pk</Text> , / <Text style={[styles.linkText, { fontSize: footerFontSize }]}>info@tafs.edu.pk</Text>
                                 </Text>
-                                <Text style={styles.addressText}>
-                                    Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
+                                <Text style={[styles.addressText, { fontSize: footerFontSize }]}>
+                                    Website : <Text style={[styles.linkText, { fontSize: footerFontSize }]}>www.tafs.edu.pk</Text>.
                                 </Text>
                             </View>
                         )}
@@ -1176,17 +1195,17 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                         {/* NORTH NAZIMABAD */}
                         {showNazimabad && (
                             <View style={[styles.campusBlock, { marginBottom: 0 }]}>
-                                <Text style={styles.addressText}>
+                                <Text style={[styles.addressText, { fontSize: footerFontSize }]}>
                                     C – 22, BLOCK – I NORTH NAZIMABAD KARACHI.
                                 </Text>
-                                <Text style={styles.addressText}>
+                                <Text style={[styles.addressText, { fontSize: footerFontSize }]}>
                                     HELLO # : (92-21) 3663-1051, 3663-1052, HELP LINE # : 0300-8258061.
                                 </Text>
-                                <Text style={styles.addressText}>
-                                    Email : <Text style={styles.linkText}>american@cyber.net.pk</Text> , / <Text style={styles.linkText}>info@tafs.edu.pk</Text>
+                                <Text style={[styles.addressText, { fontSize: footerFontSize }]}>
+                                    Email : <Text style={[styles.linkText, { fontSize: footerFontSize }]}>american@cyber.net.pk</Text> , / <Text style={[styles.linkText, { fontSize: footerFontSize }]}>info@tafs.edu.pk</Text>
                                 </Text>
-                                <Text style={styles.addressText}>
-                                    Website : <Text style={styles.linkText}>www.tafs.edu.pk</Text>.
+                                <Text style={[styles.addressText, { fontSize: footerFontSize }]}>
+                                    Website : <Text style={[styles.linkText, { fontSize: footerFontSize }]}>www.tafs.edu.pk</Text>.
                                 </Text>
                             </View>
                         )}

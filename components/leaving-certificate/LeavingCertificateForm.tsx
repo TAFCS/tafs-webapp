@@ -24,6 +24,19 @@ const LOGO_SIZES: { id: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE'; label: string; 
     { id: 'XLARGE', label: 'X-Large', scaleText: '140%' },
 ];
 
+const FOOTER_FONT_SIZES: { id: 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE'; label: string; pt: string }[] = [
+    { id: 'SMALL', label: 'Small', pt: '5.5 pt' },
+    { id: 'MEDIUM', label: 'Medium', pt: '6.5 pt' },
+    { id: 'LARGE', label: 'Large', pt: '7.5 pt' },
+    { id: 'XLARGE', label: 'X-Large', pt: '8.5 pt' },
+];
+
+const FONT_WEIGHT_STYLES: { id: 'STANDARD' | 'SUPER_BOLD' | 'ULTRA_HEAVY'; label: string; desc: string }[] = [
+    { id: 'STANDARD', label: 'Standard Stencil', desc: 'Classic Standard Weight' },
+    { id: 'SUPER_BOLD', label: 'Heavy Bold', desc: 'Official Replica (Scanned Sample)' },
+    { id: 'ULTRA_HEAVY', label: 'Ultra Heavy', desc: 'Maximum Black Weight' },
+];
+
 const LEFT_LOGOS: LogoOption[] = [
     { id: 'DEFAULT', name: 'TAFS Crest', subtitle: 'Official Shield Crest', url: '/logo.png' },
     { id: 'TAFCS', name: 'The American Foundation School', subtitle: 'TAFCS Red Banner Logo', url: '/logo-tafcs.png' },
@@ -52,6 +65,12 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
 
     // Campus selection key
     const [campusSelection, setCampusSelection] = useState<'AUTO' | 'ALL' | 'JAUHAR' | 'KANEEZ' | 'NAZIMABAD'>('AUTO');
+
+    // Footer font size
+    const [footerFontSize, setFooterFontSize] = useState<'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE'>('MEDIUM');
+
+    // Title and Values Boldness Style
+    const [fontWeightStyle, setFontWeightStyle] = useState<'STANDARD' | 'SUPER_BOLD' | 'ULTRA_HEAVY'>('SUPER_BOLD');
     
     // Full screen modal state
     const [isHeaderModalOpen, setIsHeaderModalOpen] = useState(false);
@@ -68,6 +87,12 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
         }
         if (initialData.right_logo_size) {
             setRightLogoSize(initialData.right_logo_size);
+        }
+        if (typeof initialData.footer_font_size === 'string') {
+            setFooterFontSize(initialData.footer_font_size as any);
+        }
+        if (initialData.font_weight_style) {
+            setFontWeightStyle(initialData.font_weight_style);
         }
     }, [initialData]);
 
@@ -129,6 +154,8 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                 right_logo_id: rightLogoId,
                 left_logo_size: leftLogoSize,
                 right_logo_size: rightLogoSize,
+                font_weight_style: fontWeightStyle,
+                footer_font_size: footerFontSize,
                 selected_campus: campusSelection,
             };
 
@@ -157,7 +184,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
         } finally {
             setIsGenerating(false);
         }
-    }, [formData, photoBase64, activeLeftUrl, activeRightUrl, logoBase64Map, campusSelection, leftLogoId, rightLogoId, leftLogoSize, rightLogoSize]);
+    }, [formData, photoBase64, activeLeftUrl, activeRightUrl, logoBase64Map, campusSelection, footerFontSize, fontWeightStyle, leftLogoId, rightLogoId, leftLogoSize, rightLogoSize]);
 
     // Format display for enrolled campus info
     const studentCampusName = formData.campus_name || 'Enrolled Campus';
@@ -452,6 +479,45 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             </div>
                         </div>
                     </div>
+
+                    {/* STENCIL FONT WEIGHT & BOLDNESS SELECTOR */}
+                    <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-[11px] font-bold text-zinc-700 dark:text-zinc-300 uppercase">
+                                Certificate Header Title Font Weight & Boldness
+                            </label>
+                            <span className="text-[10px] font-black text-red-600 dark:text-red-400">
+                                {FONT_WEIGHT_STYLES.find(s => s.id === fontWeightStyle)?.label}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            {FONT_WEIGHT_STYLES.map(opt => {
+                                const isSelected = fontWeightStyle === opt.id;
+                                return (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => setFontWeightStyle(opt.id)}
+                                        className={`p-3 rounded-xl border text-left transition-all relative ${
+                                            isSelected
+                                                ? 'border-red-600 bg-red-50/60 dark:bg-red-950/20 ring-2 ring-red-500/30'
+                                                : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300'
+                                        }`}
+                                    >
+                                        {isSelected && (
+                                            <CheckCircle2 className="h-4 w-4 text-red-600 absolute top-2 right-2" />
+                                        )}
+                                        <span className={`block text-xs font-black uppercase ${isSelected ? 'text-red-600 dark:text-red-400' : 'text-zinc-800 dark:text-zinc-200'}`}>
+                                            {opt.label}
+                                        </span>
+                                        <span className="block text-[10px] text-zinc-400 mt-0.5 font-medium leading-tight">
+                                            {opt.desc}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Section 1: Certificate Numbers & Candidate Name */}
@@ -672,6 +738,40 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                 <option value="NAZIMABAD">North Nazimabad Campus Only</option>
                                 <option value="ALL">All 3 Campuses (Full Institutional Footer)</option>
                             </select>
+                        </div>
+
+                        {/* FOOTER ADDRESS FONT SIZE SELECTOR */}
+                        <div className="col-span-1 md:col-span-2 pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="block text-[11px] font-bold text-zinc-700 dark:text-zinc-300 uppercase">
+                                    Footer Address Font Size
+                                </label>
+                                <span className="text-[10px] font-black text-red-600 dark:text-red-400">
+                                    {FOOTER_FONT_SIZES.find(s => s.id === footerFontSize)?.label} ({FOOTER_FONT_SIZES.find(s => s.id === footerFontSize)?.pt})
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                {FOOTER_FONT_SIZES.map(opt => {
+                                    const isSelected = footerFontSize === opt.id;
+                                    return (
+                                        <button
+                                            key={opt.id}
+                                            type="button"
+                                            onClick={() => setFooterFontSize(opt.id)}
+                                            className={`p-2.5 rounded-xl border text-center transition-all ${
+                                                isSelected
+                                                    ? 'bg-red-600 text-white border-red-600 shadow-md shadow-red-200 dark:shadow-none'
+                                                    : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300'
+                                            }`}
+                                        >
+                                            <span className="block text-xs font-bold leading-tight">{opt.label}</span>
+                                            <span className={`block text-[10px] mt-0.5 font-medium ${isSelected ? 'text-red-100' : 'text-zinc-400'}`}>
+                                                {opt.pt}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
                 </div>
