@@ -176,6 +176,18 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const currentHeads = heads.filter(h => !isArrearHead(h));
     const arrearCount = arrearHeads.length;
 
+    // Month label for the current-month divider header. target_month wins, then
+    // the raw month, then the voucher's own fee_date.
+    const currentMonthNum =
+        currentHeads[0]?.student_fees?.target_month ??
+        currentHeads[0]?.student_fees?.month ??
+        voucher.month ??
+        (voucher.fee_date ? new Date(voucher.fee_date).getUTCMonth() + 1 : 0);
+    const currentYearLabel = voucher.fee_date ? String(new Date(voucher.fee_date).getUTCFullYear()) : "";
+    const currentMonthLabel = currentMonthNum
+        ? `${MONTH_NAMES[currentMonthNum] || currentMonthNum}${currentYearLabel ? " " + currentYearLabel : ""}`
+        : "Current";
+
     // Pair each arrear head with the surcharge for its own fee_date, so the
     // table reads ARREAR HEAD → its surcharge, ARREAR HEAD → its surcharge,
     // ... rather than all arrear heads followed by all surcharges in bulk.
@@ -230,19 +242,12 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         let remaining = depositAmt;
         const dist: Record<number, string> = {};
         const sDist: Record<number, string> = {};
-        // 1 & 2. Arrear heads and their surcharges, filled in the same order
-        // they're displayed — each arrear month's heads, then its surcharge,
-        // before moving to the next arrear month. Surcharges are all-or-nothing
-        // — never partially paid — so only fill one if the remaining pool can
-        // cover it completely; otherwise skip it and let the leftover money
-        // flow to the next step.
+        // Fill in the SAME order the rows are displayed: for each arrear month,
+        // its late surcharge FIRST (red, above), then that month's arrear heads
+        // (amber). Surcharges are all-or-nothing — never partially paid — so only
+        // fill one if the remaining pool can cover it completely; otherwise skip
+        // it and let the leftover money flow to the heads below.
         arrearGroups.forEach(group => {
-            group.heads.forEach(h => {
-                const hBal = sfBalance(h);
-                const toFill = Math.min(remaining, hBal);
-                dist[h.id] = toFill.toString();
-                remaining -= toFill;
-            });
             group.surcharges.forEach(s => {
                 const sBal = getSurchargeBalance(s);
                 if (sBal > 0 && remaining >= sBal) {
@@ -252,17 +257,24 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                     sDist[s.id] = "0";
                 }
             });
+            group.heads.forEach(h => {
+                const hBal = sfBalance(h);
+                const toFill = Math.min(remaining, hBal);
+                dist[h.id] = toFill.toString();
+                remaining -= toFill;
+            });
         });
-        // 3. Current month fee heads
+        // Current month: the current-month Late Payment Surcharge FIRST (only
+        // charged when the voucher is overdue), then the current-month fee heads.
+        const lateToFill = Math.min(remaining, actualLateFee);
+        remaining -= lateToFill;
+        setManualLateFee(lateToFill.toString());
         currentHeads.forEach(h => {
             const hBal = sfBalance(h);
             const toFill = Math.min(remaining, hBal);
             dist[h.id] = toFill.toString();
             remaining -= toFill;
         });
-        // 4. Late fee last
-        const lateToFill = Math.min(remaining, actualLateFee);
-        setManualLateFee(lateToFill.toString());
         setManualDistributions(dist);
         setSurchargeDistributions(sDist);
     };
@@ -454,9 +466,80 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">To Deposit</span>
                         </div>
 
-                        {/* Arrear fee heads, each immediately followed by its own arrear-month surcharge */}
-                        {arrearGroups.map(group => (
+                        {/* Per arrear month: a divider header, then that month's late
+                            surcharge (red) ABOVE its arrear fee heads (amber). */}
+                        {arrearGroups.map(group => {
+                        const grpSurcharge = group.surcharges[0];
+                        const grpHead = group.heads[0];
+                        const grpMonthNum =
+                            grpSurcharge?.arrear_month ??
+                            grpHead?.student_fees?.target_month ??
+                            grpHead?.student_fees?.month ??
+                            (group.dateKey ? new Date(group.dateKey).getUTCMonth() + 1 : 0);
+                        const grpYear =
+                            grpSurcharge?.arrear_year ??
+                            (group.dateKey ? String(new Date(group.dateKey).getUTCFullYear()) : "");
+                        const grpLabel = grpMonthNum
+                            ? `${MONTH_NAMES[grpMonthNum] || grpMonthNum}${grpYear ? " " + grpYear : ""}`
+                            : "Arrear";
+                        return (
                         <Fragment key={`arrear-group-${group.dateKey ?? "none"}`}>
+                        <div className="pt-3 pb-1 px-1">
+                            <span className="flex items-center gap-2 text-[10px] font-black text-amber-500 uppercase tracking-[0.18em]">
+                                <AlertCircle className="h-3.5 w-3.5" />
+                                {grpLabel} — Arrear
+                            </span>
+                        </div>
+                        {group.surcharges.map(s => {
+                            const sBal = getSurchargeBalance(s);
+                            const sPaid = Number(s.amount_paid ?? 0);
+                            const sTotal = Number(s.amount);
+                            const sDistVal = Number(surchargeDistributions[s.id] || 0);
+                            return (
+                                <div
+                                    key={s.id}
+                                    className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/60 dark:border-rose-900/30 rounded-2xl"
+                                >
+                                    <div>
+                                        <p className="text-[12px] font-black text-rose-600">
+                                            Late Surcharge — {getSurchargeLabel(s)}
+                                        </p>
+                                        <span className="inline-flex items-center px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5">
+                                            Arrear Penalty
+                                        </span>
+                                    </div>
+                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{Math.round(sTotal).toLocaleString()}</span>
+                                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(sPaid).toLocaleString()}</span>
+                                    <span className={`text-[11px] font-black tabular-nums text-right ${sBal === 0 ? "text-emerald-600" : "text-rose-600"}`}>{Math.round(sBal).toLocaleString()}</span>
+                                    <div className="flex justify-end">
+                                        {fillingMode === "manual" ? (
+                                            sBal > 0 ? (
+                                                // Surcharges can only be paid in full, never partially — a
+                                                // checkbox is the whole UI, there's no amount to type.
+                                                <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={sDistVal >= sBal}
+                                                        onChange={e => {
+                                                            setSurchargeDistributions({
+                                                                ...surchargeDistributions,
+                                                                [s.id]: e.target.checked ? sBal.toString() : "0",
+                                                            });
+                                                        }}
+                                                        className="h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-400 dark:bg-zinc-950"
+                                                    />
+                                                    <span className="text-[11px] font-black text-rose-600 tabular-nums">Pay full (Rs. {Math.round(sBal).toLocaleString()})</span>
+                                                </label>
+                                            ) : (
+                                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Paid</span>
+                                            )
+                                        ) : (
+                                            <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {Math.round(sDistVal).toLocaleString()}</span>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                         {group.heads.map(h => {
                             const hSfBal = sfBalance(h);
                             const hSfNet = sfNetAmt(h);
@@ -516,59 +599,41 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                 </div>
                             );
                         })}
-                        {group.surcharges.map(s => {
-                            const sBal = getSurchargeBalance(s);
-                            const sPaid = Number(s.amount_paid ?? 0);
-                            const sTotal = Number(s.amount);
-                            const sDistVal = Number(surchargeDistributions[s.id] || 0);
-                            return (
-                                <div
-                                    key={s.id}
-                                    className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/60 dark:border-rose-900/30 rounded-2xl"
-                                >
-                                    <div>
-                                        <p className="text-[12px] font-black text-rose-600">
-                                            Late Surcharge — {getSurchargeLabel(s)}
-                                        </p>
-                                        <span className="inline-flex items-center px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5">
-                                            Arrear Penalty
-                                        </span>
-                                    </div>
-                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{Math.round(sTotal).toLocaleString()}</span>
-                                    <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(sPaid).toLocaleString()}</span>
-                                    <span className={`text-[11px] font-black tabular-nums text-right ${sBal === 0 ? "text-emerald-600" : "text-rose-600"}`}>{Math.round(sBal).toLocaleString()}</span>
-                                    <div className="flex justify-end">
-                                        {fillingMode === "manual" ? (
-                                            sBal > 0 ? (
-                                                // Surcharges can only be paid in full, never partially — a
-                                                // checkbox is the whole UI, there's no amount to type.
-                                                <label className="flex items-center gap-2 cursor-pointer select-none">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={sDistVal >= sBal}
-                                                        onChange={e => {
-                                                            setSurchargeDistributions({
-                                                                ...surchargeDistributions,
-                                                                [s.id]: e.target.checked ? sBal.toString() : "0",
-                                                            });
-                                                        }}
-                                                        className="h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-400 dark:bg-zinc-950"
-                                                    />
-                                                    <span className="text-[11px] font-black text-rose-600 tabular-nums">Pay full (Rs. {Math.round(sBal).toLocaleString()})</span>
-                                                </label>
-                                            ) : (
-                                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Paid</span>
-                                            )
-                                        ) : (
-                                            <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {Math.round(sDistVal).toLocaleString()}</span>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
                         </Fragment>
-                        ))}
+                        );
+                        })}
 
+                        {/* Current-month section: a divider, then (when the voucher is
+                            overdue) the current-month Late Payment Surcharge ABOVE the
+                            current-month fee heads. */}
+                        {(currentHeads.length > 0 || actualLateFee > 0) && (
+                            <div className="pt-3 pb-1 px-1">
+                                <span className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em]">
+                                    <Calendar className="h-3.5 w-3.5" />
+                                    {currentMonthLabel} — Current
+                                </span>
+                            </div>
+                        )}
+                        {actualLateFee > 0 && (
+                            <div className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-900/30 rounded-2xl">
+                                <div>
+                                    <p className="text-[12px] font-black text-rose-600">Late Payment Surcharge</p>
+                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5">System • Priority 0 • Current Month</span>
+                                </div>
+                                <span className="text-[11px] font-bold text-zinc-400 tabular-nums text-right">—</span>
+                                <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(Number(voucher.late_fee_deposited ?? 0)).toLocaleString()}</span>
+                                <span className="text-[11px] font-black text-rose-600 tabular-nums text-right">{Math.round(actualLateFee).toLocaleString()}</span>
+                                <div className="flex justify-end">
+                                    {fillingMode === "manual" ? (
+                                        <input type="text" inputMode="numeric" pattern="[0-9]*" value={manualLateFee}
+                                            onChange={e => { const v = e.target.value.replace(/[^0-9]/g,''); setManualLateFee(v === "" || Number(v) <= actualLateFee ? v : actualLateFee.toString()); }}
+                                            className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-rose-500 transition-all font-mono" />
+                                    ) : (
+                                        <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {Math.round(Number(manualLateFee || 0)).toLocaleString()}</span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                         {/* Current month fee head rows */}
                         {currentHeads.map(h => {
                             const arrear = false;
@@ -628,27 +693,8 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             );
                         })}
 
-                        {/* Late fee row — after all fee heads */}
-                        {actualLateFee > 0 && (
-                            <div className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 bg-rose-50/30 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-900/30 rounded-2xl">
-                                <div>
-                                    <p className="text-[12px] font-black text-rose-600">Late Payment Surcharge</p>
-                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-md mt-0.5">System • Priority 0</span>
-                                </div>
-                                <span className="text-[11px] font-bold text-zinc-400 tabular-nums text-right">—</span>
-                                <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(Number(voucher.late_fee_deposited ?? 0)).toLocaleString()}</span>
-                                <span className="text-[11px] font-black text-rose-600 tabular-nums text-right">{Math.round(actualLateFee).toLocaleString()}</span>
-                                <div className="flex justify-end">
-                                    {fillingMode === "manual" ? (
-                                        <input type="text" inputMode="numeric" pattern="[0-9]*" value={manualLateFee}
-                                            onChange={e => { const v = e.target.value.replace(/[^0-9]/g,''); setManualLateFee(v === "" || Number(v) <= actualLateFee ? v : actualLateFee.toString()); }}
-                                            className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-rose-500 transition-all font-mono" />
-                                    ) : (
-                                        <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {Math.round(Number(manualLateFee || 0)).toLocaleString()}</span>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+                        {/* (The current-month Late Payment Surcharge row now renders
+                            ABOVE the current-month fee heads — see the block above.) */}
 
                         {/* ── Discount Heads Section ────────────────────────── */}
                         {DEV_SHOW_DISCOUNTS && discountHeads.length > 0 && (
