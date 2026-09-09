@@ -541,13 +541,41 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
     const isTafss = prefix === 'TAFSS' || title.includes('TAFSS') || title.includes('SECONDARY');
     const isTafsol = prefix === 'TAFSOL' || title.includes('TAFSOL');
 
+    // Determine if the certificate is for a Secondary Class or Non-Secondary (Junior, Primary, Levels, etc.)
+    const classLevelStr = [
+        data.present_level || '',
+        data.class_admitted || '',
+        data.passed_promoted_level || '',
+        data.detained_level || '',
+    ].join(' ').toUpperCase();
+
+    const isNonSecondaryExplicit = 
+        classLevelStr.includes('JR') ||
+        classLevelStr.includes('JUNIOR') ||
+        classLevelStr.includes('NURSERY') ||
+        classLevelStr.includes('KG') ||
+        classLevelStr.includes('PREP') ||
+        classLevelStr.includes('PLAYGROUP') ||
+        classLevelStr.includes('MONTESSORI') ||
+        classLevelStr.includes('PRIMARY') ||
+        classLevelStr.includes('LEVEL') ||
+        (/\b(I|II|III|IV|V)\b/.test(classLevelStr) && !/\b(VI|VII|VIII|IX|X)\b/.test(classLevelStr));
+
+    const isSecondary = (isTafss || isTafsol || isTafsal || classLevelStr.includes('MATRIC') || classLevelStr.includes('SECONDARY') || /\b(VI|VII|VIII|IX|X|XI|XII)\b/.test(classLevelStr)) && !isNonSecondaryExplicit;
+
     const classAdmittedLabel = isTafss
         ? 'IN SECONDARY CLASS TO WHICH THE CHILD WAS ADMITTED'
         : isTafsal
         ? 'IN TAFSAL CLASS TO WHICH THE CHILD WAS ADMITTED'
         : isTafsol
         ? 'IN TAFSOL CLASS TO WHICH THE CHILD WAS ADMITTED'
-        : 'CLASS TO WHICH THE CHILD WAS ADMITTED';
+        : isSecondary
+        ? 'CLASS TO WHICH THE CHILD WAS ADMITTED'
+        : 'LEVEL TO WHICH THE CHILD WAS ADMITTED';
+
+    const presentClassLabel = isSecondary ? 'PRESENT CLASS :' : 'PRESENT LEVEL :';
+    const passedPromotedLabel = isSecondary ? 'a ) PASSED & PROMOTED TO CLASS :' : 'a ) PASSED & PROMOTED TO LEVEL :';
+    const detainedLabel = isSecondary ? 'c ) DETAINED IN CLASS :' : 'c ) DETAINED IN LEVEL :';
 
     const defaultLeftLogo = isTafsal
         ? '/logo-tafsal.png'
@@ -954,7 +982,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
 
                             {/* 13. PRESENT CLASS & SECTION */}
                             <View style={styles.fieldRow}>
-                                <Text style={styles.fieldLabelInline}>PRESENT CLASS :</Text>
+                                <Text style={styles.fieldLabelInline}>{presentClassLabel}</Text>
                                 <View style={{ flex: 1.2, marginRight: 10, alignItems: 'center' }}>
                                     <Text style={styles.underlinedValue}>
                                         {data.present_level || '—'}
@@ -1021,7 +1049,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
 
                             {/* 18. a ) PASSED & PROMOTED TO CLASS */}
                             <View style={styles.fieldRow}>
-                                <Text style={styles.fieldLabelInline}>a ) PASSED & PROMOTED TO CLASS :</Text>
+                                <Text style={styles.fieldLabelInline}>{passedPromotedLabel}</Text>
                                 <View style={{ flex: 1, marginRight: 6, alignItems: 'center' }}>
                                     <Text style={styles.underlinedValue}>
                                         {data.passed_promoted_level || '—'}
@@ -1056,7 +1084,7 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
 
                             {/* 20. c ) DETAINED IN CLASS */}
                             <View style={styles.fieldRow}>
-                                <Text style={styles.fieldLabelInline}>c ) DETAINED IN CLASS :</Text>
+                                <Text style={styles.fieldLabelInline}>{detainedLabel}</Text>
                                 <View style={{ flex: 1, marginRight: 6, alignItems: 'center' }}>
                                     <Text style={styles.underlinedValue}>
                                         {data.detained_level || '—'}

@@ -236,7 +236,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                     <span className="text-[13px] font-bold text-red-600 dark:text-red-400">{studentCampusName}</span>
                 </div>
                 <div>
-                    <span className="block text-[10px] font-black text-zinc-400 uppercase">Present Class</span>
+                    <span className="block text-[10px] font-black text-zinc-400 uppercase">Present Class / Level</span>
                     <span className="text-[13px] font-bold text-zinc-800 dark:text-zinc-100">{formData.present_level || '—'} (Sec {formData.section || '—'})</span>
                 </div>
                 <div>
@@ -685,7 +685,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                     <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">3. Academic History & Campus Location</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Present Class</label>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Present Class / Level</label>
                             <input
                                 type="text"
                                 value={formData.present_level || ''}
@@ -781,7 +781,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                     <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">4. Academic Results & Clearance</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Passed & Promoted To Class</label>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Passed & Promoted To Level / Class</label>
                             <input
                                 type="text"
                                 value={formData.passed_promoted_level || ''}
@@ -799,7 +799,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             />
                         </div>
                         <div>
-                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Detained In Class (If Any)</label>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Detained In Level / Class (If Any)</label>
                             <input
                                 type="text"
                                 value={formData.detained_level || ''}
