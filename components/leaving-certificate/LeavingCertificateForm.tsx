@@ -209,7 +209,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                     <span className="text-[13px] font-bold text-red-600 dark:text-red-400">{studentCampusName}</span>
                 </div>
                 <div>
-                    <span className="block text-[10px] font-black text-zinc-400 uppercase">Present Level</span>
+                    <span className="block text-[10px] font-black text-zinc-400 uppercase">Present Class</span>
                     <span className="text-[13px] font-bold text-zinc-800 dark:text-zinc-100">{formData.present_level || '—'} (Sec {formData.section || '—'})</span>
                 </div>
                 <div>
@@ -616,8 +616,26 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
 
                 {/* Section 3: Academic History & Campus Location */}
                 <div className="space-y-4">
-                    <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">3. Academic Record & Campus Location</h4>
+                    <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">3. Academic History & Campus Location</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Present Class</label>
+                            <input
+                                type="text"
+                                value={formData.present_level || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, present_level: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Section</label>
+                            <input
+                                type="text"
+                                value={formData.section || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, section: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                            />
+                        </div>
                         <div>
                             <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Reason for Leaving</label>
                             <input
@@ -654,6 +672,119 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                 <option value="NAZIMABAD">North Nazimabad Campus Only</option>
                                 <option value="ALL">All 3 Campuses (Full Institutional Footer)</option>
                             </select>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Section 4: Results, Clearance & Promotion */}
+                <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">4. Academic Results & Clearance</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Passed & Promoted To Class</label>
+                            <input
+                                type="text"
+                                value={formData.passed_promoted_level || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, passed_promoted_level: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Resit Subjects (If Any)</label>
+                            <input
+                                type="text"
+                                value={formData.resit_subjects || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, resit_subjects: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Detained In Class (If Any)</label>
+                            <input
+                                type="text"
+                                value={formData.detained_level || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, detained_level: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Dues (If Any)</label>
+                            <input
+                                type="text"
+                                value={formData.school_dues || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, school_dues: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Section 5: Signatures & Issue Date */}
+                <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">5. Signatures & Certificate Issue Date</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Prepared By</label>
+                            <input
+                                type="text"
+                                value={formData.prepared_by || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, prepared_by: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Rechecked By</label>
+                            <input
+                                type="text"
+                                value={formData.rechecked_by || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, rechecked_by: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Posted By</label>
+                            <input
+                                type="text"
+                                value={formData.posted_by || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, posted_by: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Lead Teacher</label>
+                            <input
+                                type="text"
+                                value={formData.class_teacher || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, class_teacher: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Programme Directress</label>
+                            <input
+                                type="text"
+                                value={formData.programme_directress || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, programme_directress: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Issue Day</label>
+                            <input
+                                type="text"
+                                value={formData.day || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, day: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Issue Date</label>
+                            <input
+                                type="text"
+                                value={formData.date || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                            />
                         </div>
                     </div>
                 </div>

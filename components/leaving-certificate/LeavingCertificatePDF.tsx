@@ -104,29 +104,21 @@ export interface LeavingCertificateData {
     selected_campus?: 'AUTO' | 'ALL' | 'JAUHAR' | 'KANEEZ' | 'NAZIMABAD';
 }
 
-/** Shared layout constants — keeps label columns and name fields aligned across rows */
+/** Shared layout constants */
 const LAYOUT = {
-    contentWidth: 535,
-    labelWidth: 126,
-    nameColWidth: 82,
-    dobMonthWidth: 70,
-    dobDayWidth: 34,
-    dobYearWidth: 42,
-    pobCountryWidth: 70,
-    pobProvinceWidth: 62,
-    pobCityWidth: 62,
-    fieldGap: 8,
-    sidebarWidth: 125,
+    contentWidth: 540,
+    sidebarWidth: 120,
+    fieldGap: 6,
 };
 
 const styles = StyleSheet.create({
     page: {
-        paddingTop: 14,
-        paddingBottom: 14,
-        paddingHorizontal: 26,
+        paddingTop: 10,
+        paddingBottom: 8,
+        paddingHorizontal: 22,
         backgroundColor: '#ffffff',
-        fontFamily: 'Helvetica',
-        fontSize: 8,
+        fontFamily: 'Helvetica-Bold',
+        fontSize: 7.5,
         color: '#000000',
         alignItems: 'center',
     },
@@ -141,26 +133,26 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 4,
+        marginBottom: 2,
     },
     leftLogoWrap: {
-        height: 54,
+        height: 50,
         justifyContent: 'center',
         alignItems: 'flex-start',
     },
     rightLogoWrap: {
-        height: 54,
+        height: 50,
         justifyContent: 'center',
         alignItems: 'flex-end',
     },
     docTitleContainer: {
         width: '100%',
         alignItems: 'center',
-        marginVertical: 2,
-        marginBottom: 6,
+        marginVertical: 1,
+        marginBottom: 4,
     },
     docTitle: {
-        fontSize: 14,
+        fontSize: 13.5,
         fontFamily: 'Stardos Stencil',
         fontWeight: 'bold',
         textDecoration: 'underline',
@@ -172,18 +164,18 @@ const styles = StyleSheet.create({
         width: '100%',
         flex: 1,
         flexDirection: 'row',
-        borderWidth: 1,
+        borderWidth: 1.2,
         borderColor: '#000000',
         alignItems: 'stretch',
-        marginBottom: 6,
+        marginBottom: 3,
     },
     leftSidebar: {
         width: LAYOUT.sidebarWidth,
-        borderRightWidth: 1,
+        borderRightWidth: 1.2,
         borderRightColor: '#000000',
         paddingHorizontal: 6,
-        paddingTop: 10,
-        paddingBottom: 10,
+        paddingTop: 8,
+        paddingBottom: 8,
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -202,28 +194,28 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#000000',
         width: '100%',
-        paddingVertical: 3.5,
+        paddingVertical: 3,
         paddingHorizontal: 4,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: '#ffffff',
     },
     sidebarValueText: {
-        fontSize: 9.5,
+        fontSize: 9,
         fontFamily: 'Stardos Stencil',
         fontWeight: 'bold',
         textAlign: 'center',
         letterSpacing: 0.8,
     },
     photoBox: {
-        width: 100,
-        height: 125,
+        width: 96,
+        height: 120,
         borderWidth: 1,
         borderColor: '#000000',
         alignItems: 'center',
         justifyContent: 'center',
         padding: 2,
-        backgroundColor: '#fafafa',
+        backgroundColor: '#ffffff',
     },
     photoImage: {
         width: '100%',
@@ -232,52 +224,54 @@ const styles = StyleSheet.create({
     },
     photoPlaceholderText: {
         fontSize: 7,
+        fontFamily: 'Helvetica-Bold',
         textAlign: 'center',
-        color: '#444444',
-        paddingHorizontal: 6,
+        color: '#000000',
+        paddingHorizontal: 4,
         lineHeight: 1.2,
     },
     rightContent: {
         flex: 1,
-        paddingHorizontal: 8,
-        paddingVertical: 6,
+        paddingHorizontal: 7,
+        paddingTop: 4,
+        paddingBottom: 4,
         justifyContent: 'space-between',
     },
     fieldRow: {
         flexDirection: 'row',
         alignItems: 'flex-end',
-        marginVertical: 3,
+        marginVertical: 1.5,
     },
-    fieldLabel: {
-        fontSize: 8,
-        fontFamily: 'Helvetica',
-        width: LAYOUT.labelWidth,
-        paddingRight: 4,
+    fieldLabelInline: {
+        fontSize: 7.5,
+        fontFamily: 'Helvetica-Bold',
         textAlign: 'left',
+        marginRight: 4,
     },
     fieldValuesRow: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'flex-end',
-        justifyContent: 'flex-start',
     },
-    underlinedValueContainer: {
+    underlinedCol: {
+        flex: 1,
         flexDirection: 'column',
         alignItems: 'center',
     },
     underlinedValue: {
         borderBottomWidth: 1,
         borderBottomColor: '#000000',
-        paddingHorizontal: 4,
+        width: '100%',
         paddingBottom: 0.5,
-        fontSize: 8,
+        fontSize: 7.5,
         fontFamily: 'Stardos Stencil',
         fontWeight: 'bold',
         textAlign: 'center',
     },
     subLabel: {
         fontSize: 6,
-        color: '#333333',
+        fontFamily: 'Helvetica-Bold',
+        color: '#000000',
         marginTop: 1,
         textAlign: 'center',
     },
@@ -285,24 +279,19 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'flex-start',
     },
     checkbox: {
-        width: 8.5,
-        height: 8.5,
+        width: 9,
+        height: 9,
         borderWidth: 1,
         borderColor: '#000000',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 3,
-    },
-    checkboxTick: {
-        fontSize: 6.5,
-        fontFamily: 'Helvetica-Bold',
-        marginTop: -1,
+        marginRight: 4,
     },
     checkboxLabel: {
-        fontSize: 8,
+        fontSize: 7.5,
+        fontFamily: 'Helvetica-Bold',
         marginRight: 10,
     },
     lineFill: {
@@ -310,73 +299,68 @@ const styles = StyleSheet.create({
         borderBottomColor: '#000000',
         flex: 1,
         paddingBottom: 0.5,
-        paddingLeft: 4,
-        fontSize: 8,
+        paddingHorizontal: 2,
+        fontSize: 7.5,
         fontFamily: 'Stardos Stencil',
         fontWeight: 'bold',
     },
     squareBox: {
         borderWidth: 1,
         borderColor: '#000000',
-        paddingHorizontal: 3,
+        paddingHorizontal: 4,
         paddingVertical: 1,
         fontSize: 7.5,
         fontFamily: 'Stardos Stencil',
         fontWeight: 'bold',
-        minWidth: 24,
+        minWidth: 26,
         textAlign: 'center',
     },
     signaturesSection: {
-        marginTop: 8,
-        paddingTop: 2,
+        marginTop: 3,
+        paddingTop: 1,
     },
     sigRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-end',
-        marginVertical: 2.5,
+        marginVertical: 1.8,
     },
     sigField: {
         flexDirection: 'row',
         alignItems: 'flex-end',
+        flex: 1,
     },
     sigLabel: {
-        fontSize: 8,
-        fontFamily: 'Helvetica',
-        marginRight: 4,
+        fontSize: 7.5,
+        fontFamily: 'Helvetica-Bold',
+        marginRight: 3,
     },
     sigLine: {
         borderBottomWidth: 1,
         borderBottomColor: '#000000',
-        width: 95,
+        flex: 1,
         textAlign: 'center',
         fontSize: 7.5,
         fontFamily: 'Stardos Stencil',
         fontWeight: 'bold',
         paddingBottom: 0.5,
+        marginRight: 6,
     },
     disclaimerText: {
         fontSize: 7.5,
-        fontFamily: 'Helvetica-Oblique',
+        fontFamily: 'Helvetica-Bold',
         textAlign: 'center',
-        marginTop: 5,
+        marginTop: 3,
+        letterSpacing: 0.5,
     },
     footer: {
-        marginTop: 5,
+        marginTop: 3,
         width: '100%',
         alignItems: 'center',
     },
     campusBlock: {
         alignItems: 'center',
-        marginBottom: 4,
-    },
-    campusTitle: {
-        fontSize: 7.5,
-        fontFamily: 'Helvetica-Bold',
-        textAlign: 'center',
-        color: '#000000',
-        marginBottom: 1,
-        textTransform: 'uppercase',
+        marginBottom: 3,
     },
     addressText: {
         fontSize: 6.5,
@@ -392,53 +376,6 @@ const styles = StyleSheet.create({
         textDecoration: 'underline',
     },
 });
-
-function UnderlinedCell({
-    value,
-    subLabel,
-    width,
-    marginRight = LAYOUT.fieldGap,
-}: {
-    value?: string | null;
-    subLabel: string;
-    width: number;
-    marginRight?: number;
-}) {
-    return (
-        <View style={[styles.underlinedValueContainer, { width, marginRight }]}>
-            <Text style={[styles.underlinedValue, { width }]}>{value || '—'}</Text>
-            <Text style={styles.subLabel}>{subLabel ? subLabel.toUpperCase() : ''}</Text>
-        </View>
-    );
-}
-
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>{label ? label.toUpperCase() : ''}</Text>
-            <View style={styles.fieldValuesRow}>{children}</View>
-        </View>
-    );
-}
-
-function TripleNameFields({
-    last,
-    first,
-    middle,
-}: {
-    last?: string | null;
-    first?: string | null;
-    middle?: string | null;
-}) {
-    const w = LAYOUT.nameColWidth;
-    return (
-        <>
-            <UnderlinedCell value={last} subLabel="LAST" width={w} />
-            <UnderlinedCell value={first} subLabel="FIRST" width={w} />
-            <UnderlinedCell value={middle} subLabel="MIDDLE" width={w} marginRight={0} />
-        </>
-    );
-}
 
 export function formatGrNumber(val?: string | null): string {
     if (!val) return '—';
@@ -530,19 +467,19 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
         }
     }
 
-    const prefix = (data.header_prefix || '').trim().toUpperCase();
+    const prefix = (data.header_prefix || 'TAFS').trim().toUpperCase();
     const title = (data.header_title || '').toUpperCase();
     const isTafsal = prefix === 'TAFSAL' || title.includes('TAFSAL');
     const isTafss = prefix === 'TAFSS' || title.includes('TAFSS') || title.includes('SECONDARY');
     const isTafsol = prefix === 'TAFSOL' || title.includes('TAFSOL');
 
     const classAdmittedLabel = isTafss
-        ? 'IN SECONDARY CLASS TO WHICH HE / SHE WAS ADMITTED'
+        ? 'IN SECONDARY CLASS TO WHICH THE CHILD WAS ADMITTED'
         : isTafsal
-        ? 'IN TAFSAL CLASS TO WHICH HE / SHE WAS ADMITTED'
+        ? 'IN TAFSAL CLASS TO WHICH THE CHILD WAS ADMITTED'
         : isTafsol
-        ? 'IN TAFSOL CLASS TO WHICH HE / SHE WAS ADMITTED'
-        : 'CLASS TO WHICH HE / SHE WAS ADMITTED';
+        ? 'IN TAFSOL CLASS TO WHICH THE CHILD WAS ADMITTED'
+        : 'CLASS TO WHICH THE CHILD WAS ADMITTED';
 
     const defaultLeftLogo = isTafsal
         ? '/logo-tafsal.png'
@@ -592,8 +529,8 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
         <Document title={`TAFS_Leaving_Certificate_${data.cc || ''}`}>
             <Page size="A4" style={styles.page}>
                 <View style={styles.contentWrap}>
-                    {/* Header Logos — left logo flush with main grid border */}
-                    <View style={[styles.header, { minHeight: Math.max(leftDims.height, rightDims.height) + 4 }]}>
+                    {/* Header Logos */}
+                    <View style={[styles.header, { minHeight: Math.max(leftDims.height, rightDims.height) + 2 }]}>
                         <View style={[styles.leftLogoWrap, { height: leftDims.height }]}>
                             <Image
                                 src={data.logo_url || defaultLeftLogo}
@@ -653,254 +590,382 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
 
                         {/* Right Content Area */}
                         <View style={styles.rightContent}>
-                            <FieldRow label="NAME :">
-                                <TripleNameFields
-                                    last={data.name?.last}
-                                    first={data.name?.first}
-                                    middle={data.name?.middle}
-                                />
-                            </FieldRow>
+                            {/* 1. NAME */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>NAME :</Text>
+                                <View style={styles.fieldValuesRow}>
+                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
+                                        <Text style={styles.underlinedValue}>{data.name?.last || '—'}</Text>
+                                        <Text style={styles.subLabel}>LAST</Text>
+                                    </View>
+                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
+                                        <Text style={styles.underlinedValue}>{data.name?.first || '—'}</Text>
+                                        <Text style={styles.subLabel}>FIRST</Text>
+                                    </View>
+                                    <View style={styles.underlinedCol}>
+                                        <Text style={styles.underlinedValue}>{data.name?.middle || '—'}</Text>
+                                        <Text style={styles.subLabel}>MIDDLE</Text>
+                                    </View>
+                                </View>
+                            </View>
 
-                            <FieldRow label={"FATHER'S /GUARDIAN'S NAME"}>
-                                <TripleNameFields
-                                    last={data.father_name?.last}
-                                    first={data.father_name?.first}
-                                    middle={data.father_name?.middle}
-                                />
-                            </FieldRow>
+                            {/* 2. FATHER'S / GUARDIAN'S NAME */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>FATHER'S / GUARDIAN'S NAME :</Text>
+                                <View style={styles.fieldValuesRow}>
+                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
+                                        <Text style={styles.underlinedValue}>{data.father_name?.last || '—'}</Text>
+                                        <Text style={styles.subLabel}>LAST</Text>
+                                    </View>
+                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
+                                        <Text style={styles.underlinedValue}>{data.father_name?.first || '—'}</Text>
+                                        <Text style={styles.subLabel}>FIRST</Text>
+                                    </View>
+                                    <View style={styles.underlinedCol}>
+                                        <Text style={styles.underlinedValue}>{data.father_name?.middle || '—'}</Text>
+                                        <Text style={styles.subLabel}>MIDDLE</Text>
+                                    </View>
+                                </View>
+                            </View>
 
-                            <FieldRow label="DATE OF BIRTH">
-                                <UnderlinedCell value={data.dob?.month} subLabel="MONTH" width={LAYOUT.dobMonthWidth} />
-                                <UnderlinedCell value={data.dob?.day} subLabel="DAY" width={LAYOUT.dobDayWidth} />
-                                <UnderlinedCell value={data.dob?.year} subLabel="YEAR" width={LAYOUT.dobYearWidth} marginRight={0} />
-                            </FieldRow>
+                            {/* 3. DATE OF BIRTH */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>DATE OF BIRTH :</Text>
+                                <View style={styles.fieldValuesRow}>
+                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
+                                        <Text style={styles.underlinedValue}>{data.dob?.month || '—'}</Text>
+                                        <Text style={styles.subLabel}>MONTH</Text>
+                                    </View>
+                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
+                                        <Text style={styles.underlinedValue}>{data.dob?.day || '—'}</Text>
+                                        <Text style={styles.subLabel}>DAY</Text>
+                                    </View>
+                                    <View style={styles.underlinedCol}>
+                                        <Text style={styles.underlinedValue}>{data.dob?.year || '—'}</Text>
+                                        <Text style={styles.subLabel}>YEAR</Text>
+                                    </View>
+                                </View>
+                            </View>
 
-                            <FieldRow label="PLACE OF BIRTH">
-                                <UnderlinedCell value={data.place_of_birth?.country || 'PAKISTAN'} subLabel="COUNTRY" width={LAYOUT.pobCountryWidth} />
-                                <UnderlinedCell value={data.place_of_birth?.province || 'SINDH'} subLabel="PROVINCE" width={LAYOUT.pobProvinceWidth} />
-                                <UnderlinedCell value={data.place_of_birth?.city || 'KARACHI'} subLabel="CITY" width={LAYOUT.pobCityWidth} marginRight={0} />
-                            </FieldRow>
+                            {/* 4. PLACE OF BIRTH */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>PLACE OF BIRTH :</Text>
+                                <View style={styles.fieldValuesRow}>
+                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
+                                        <Text style={styles.underlinedValue}>{data.place_of_birth?.country || 'PAKISTAN'}</Text>
+                                        <Text style={styles.subLabel}>COUNTRY</Text>
+                                    </View>
+                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
+                                        <Text style={styles.underlinedValue}>{data.place_of_birth?.province || 'SINDH'}</Text>
+                                        <Text style={styles.subLabel}>PROVINCE</Text>
+                                    </View>
+                                    <View style={styles.underlinedCol}>
+                                        <Text style={styles.underlinedValue}>{data.place_of_birth?.city || 'KARACHI'}</Text>
+                                        <Text style={styles.subLabel}>CITY</Text>
+                                    </View>
+                                </View>
+                            </View>
 
-                            <FieldRow label="NATIONALITY">
-                                <UnderlinedCell value={data.nationality || 'PAKISTANI'} subLabel="COUNTRY" width={140} marginRight={0} />
-                            </FieldRow>
+                            {/* 5. NATIONALITY */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>NATIONALITY :</Text>
+                                <View style={styles.fieldValuesRow}>
+                                    <View style={styles.underlinedCol}>
+                                        <Text style={styles.underlinedValue}>{data.nationality || 'PAKISTANI'}</Text>
+                                        <Text style={styles.subLabel}>COUNTRY</Text>
+                                    </View>
+                                </View>
+                            </View>
 
-                            <FieldRow label="SEX :">
+                            {/* 6. SEX */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>SEX :</Text>
                                 <View style={styles.checkboxRow}>
-                                    <View style={styles.checkbox}>
+                                    <View style={[styles.checkbox, { marginLeft: 14 }]}>
                                         {isMale && (
-                                            <Svg width="6" height="6" viewBox="0 0 24 24">
+                                            <Svg width="7" height="7" viewBox="0 0 24 24">
                                                 <Path d="M20 6L9 17l-5-5" stroke="#000000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                                             </Svg>
                                         )}
                                     </View>
                                     <Text style={styles.checkboxLabel}>MALE</Text>
 
-                                    <View style={styles.checkbox}>
+                                    <View style={[styles.checkbox, { marginLeft: 16 }]}>
                                         {isFemale && (
-                                            <Svg width="6" height="6" viewBox="0 0 24 24">
+                                            <Svg width="7" height="7" viewBox="0 0 24 24">
                                                 <Path d="M20 6L9 17l-5-5" stroke="#000000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                                             </Svg>
                                         )}
                                     </View>
                                     <Text style={styles.checkboxLabel}>FEMALE</Text>
                                 </View>
-                            </FieldRow>
+                            </View>
 
-                            <FieldRow label="RELIGION :">
+                            {/* 7. RELIGION */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>RELIGION :</Text>
                                 <View style={styles.checkboxRow}>
-                                    <View style={styles.checkbox}>
+                                    <View style={[styles.checkbox, { marginLeft: 8 }]}>
                                         {isMuslim && (
-                                            <Svg width="6" height="6" viewBox="0 0 24 24">
+                                            <Svg width="7" height="7" viewBox="0 0 24 24">
                                                 <Path d="M20 6L9 17l-5-5" stroke="#000000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                                             </Svg>
                                         )}
                                     </View>
                                     <Text style={styles.checkboxLabel}>MUSLIM</Text>
 
-                                    <View style={styles.checkbox}>
+                                    <View style={[styles.checkbox, { marginLeft: 12 }]}>
                                         {isChristian && (
-                                            <Svg width="6" height="6" viewBox="0 0 24 24">
+                                            <Svg width="7" height="7" viewBox="0 0 24 24">
                                                 <Path d="M20 6L9 17l-5-5" stroke="#000000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                                             </Svg>
                                         )}
                                     </View>
                                     <Text style={styles.checkboxLabel}>CHRISTIAN</Text>
 
-                                    <View style={styles.checkbox}>
-                                        {isOtherReligion && (
-                                            <Svg width="6" height="6" viewBox="0 0 24 24">
-                                                <Path d="M20 6L9 17l-5-5" stroke="#000000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                                            </Svg>
-                                        )}
-                                    </View>
-                                    <Text style={styles.sigLabel}>OTHERS</Text>
-                                    <Text style={[styles.lineFill, { maxWidth: 90, textAlign: 'center' }]}>
+                                    <Text style={[styles.fieldLabelInline, { marginLeft: 12, marginRight: 4 }]}>OTHERS</Text>
+                                    <Text style={[styles.lineFill, { textAlign: 'center' }]}>
                                         {isOtherReligion ? religionStr : ''}
                                     </Text>
                                 </View>
-                            </FieldRow>
+                            </View>
 
-                            <FieldRow label="MARK (S) OF IDENTIFICATION">
-                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>{data.identification_marks || '—'}</Text>
-                            </FieldRow>
-
-                            <FieldRow label="LAST SCHOOL ATTENDED">
-                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>{data.last_school_attended || '—'}</Text>
-                            </FieldRow>
-
-                            <FieldRow label="DATE OF ADMISSION">
-                                <UnderlinedCell value={data.date_of_admission?.month} subLabel="MONTH" width={LAYOUT.dobMonthWidth} />
-                                <UnderlinedCell value={data.date_of_admission?.day} subLabel="DAY" width={LAYOUT.dobDayWidth} />
-                                <UnderlinedCell value={data.date_of_admission?.year} subLabel="YEAR" width={LAYOUT.dobYearWidth} marginRight={0} />
-                            </FieldRow>
-
-                            <FieldRow label="SCHOLASTIC YEAR">
-                                <View style={styles.squareBox}>
-                                    <Text>{data.scholastic_year_admitted?.from || '—'}</Text>
-                                </View>
-                                <Text style={{ marginHorizontal: 2 }}>/</Text>
-                                <View style={styles.squareBox}>
-                                    <Text>{data.scholastic_year_admitted?.to || '—'}</Text>
-                                </View>
-                            </FieldRow>
-
-                            <FieldRow label={classAdmittedLabel}>
-                                <View style={styles.squareBox}>
-                                    <Text>{data.class_admitted || '—'}</Text>
-                                </View>
-                            </FieldRow>
-
+                            {/* 8. MARK (S) OF IDENTIFICATION */}
                             <View style={styles.fieldRow}>
-                                <Text style={styles.fieldLabel}>PRESENT LEVEL</Text>
+                                <Text style={styles.fieldLabelInline}>MARK (S) OF IDENTIFICATION :</Text>
+                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>
+                                    {data.identification_marks || '—'}
+                                </Text>
+                            </View>
+
+                            {/* 9. LAST SCHOOL ATTENDED */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>LAST SCHOOL ATTENDED :</Text>
+                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>
+                                    {data.last_school_attended || '—'}
+                                </Text>
+                            </View>
+
+                            {/* 10. DATE OF ADMISSION */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>DATE OF ADMISSION :</Text>
                                 <View style={styles.fieldValuesRow}>
-                                    <Text style={[styles.underlinedValue, { width: 70, marginRight: LAYOUT.fieldGap, textAlign: 'center' }]}>
-                                        {data.present_level || '—'}
-                                    </Text>
-                                    <Text style={[styles.sigLabel, { width: 48 }]}>SECTION</Text>
-                                    <Text style={[styles.underlinedValue, { width: 50, textAlign: 'center' }]}>{data.section || '—'}</Text>
+                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
+                                        <Text style={styles.underlinedValue}>{data.date_of_admission?.month || '—'}</Text>
+                                        <Text style={styles.subLabel}>MONTH</Text>
+                                    </View>
+                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
+                                        <Text style={styles.underlinedValue}>{data.date_of_admission?.day || '—'}</Text>
+                                        <Text style={styles.subLabel}>DAY</Text>
+                                    </View>
+                                    <View style={styles.underlinedCol}>
+                                        <Text style={styles.underlinedValue}>{data.date_of_admission?.year || '—'}</Text>
+                                        <Text style={styles.subLabel}>YEAR</Text>
+                                    </View>
                                 </View>
                             </View>
 
-                            <FieldRow label="SCHOLASTIC YEAR">
-                                <View style={styles.squareBox}>
-                                    <Text>{data.scholastic_year_present?.from || '—'}</Text>
-                                </View>
-                                <Text style={{ marginHorizontal: 2 }}>/</Text>
-                                <View style={styles.squareBox}>
-                                    <Text>{data.scholastic_year_present?.to || '—'}</Text>
-                                </View>
-                            </FieldRow>
-
-                            <FieldRow label="LAST DATE OF ATTENDANCE AT THIS SCHOOL">
-                                <UnderlinedCell value={data.last_date_of_attendance?.month} subLabel="MONTH" width={LAYOUT.dobMonthWidth} />
-                                <UnderlinedCell value={data.last_date_of_attendance?.day} subLabel="DAY" width={LAYOUT.dobDayWidth} />
-                                <UnderlinedCell value={data.last_date_of_attendance?.year} subLabel="YEAR" width={LAYOUT.dobYearWidth} marginRight={0} />
-                            </FieldRow>
-
-                            <FieldRow label="REASON FOR LEAVING THE SCHOOL">
-                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>{data.reason_for_leaving || "ON PARENT'S REQUEST"}</Text>
-                            </FieldRow>
-
-                            <FieldRow label="RESULT AT THE END OF THE SCHOLASTIC YEAR">
-                                <View style={styles.squareBox}>
-                                    <Text>{data.result_scholastic_year?.from || '—'}</Text>
-                                </View>
-                                <Text style={{ marginHorizontal: 2 }}>/</Text>
-                                <View style={styles.squareBox}>
-                                    <Text>{data.result_scholastic_year?.to || '—'}</Text>
-                                </View>
-                            </FieldRow>
-
+                            {/* 11. SCHOLASTIC YEAR */}
                             <View style={styles.fieldRow}>
-                                <Text style={[styles.fieldLabel, { width: LAYOUT.labelWidth + 8 }]}>A) PASSED & PROMOTED TO LEVEL</Text>
-                                <View style={styles.fieldValuesRow}>
-                                    <Text style={[styles.underlinedValue, { width: 56, marginRight: LAYOUT.fieldGap, textAlign: 'center' }]}>
-                                        {data.passed_promoted_level || '—'}
-                                    </Text>
-                                    <Text style={[styles.sigLabel, { marginRight: 4 }]}>FOR THE SCHOLASTIC YEAR</Text>
+                                <Text style={styles.fieldLabelInline}>SCHOLASTIC YEAR :</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 2 }}>
+                                    <View style={styles.squareBox}>
+                                        <Text>{data.scholastic_year_admitted?.from || '—'}</Text>
+                                    </View>
+                                    <Text style={{ marginHorizontal: 2, fontFamily: 'Helvetica-Bold', fontSize: 8 }}>/</Text>
+                                    <View style={styles.squareBox}>
+                                        <Text>{data.scholastic_year_admitted?.to || '—'}</Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            {/* 12. CLASS TO WHICH THE CHILD WAS ADMITTED */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>{classAdmittedLabel} :</Text>
+                                <View style={{ marginLeft: 2 }}>
+                                    <View style={styles.squareBox}>
+                                        <Text>{data.class_admitted || '—'}</Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            {/* 13. PRESENT CLASS & SECTION */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>PRESENT CLASS :</Text>
+                                <Text style={[styles.lineFill, { textAlign: 'center', flex: 1, marginRight: 8 }]}>
+                                    {data.present_level || '—'}
+                                </Text>
+                                <Text style={styles.fieldLabelInline}>SECTION :</Text>
+                                <Text style={[styles.lineFill, { textAlign: 'center', flex: 1 }]}>
+                                    {data.section || '—'}
+                                </Text>
+                            </View>
+
+                            {/* 14. SCHOLASTIC YEAR */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>SCHOLASTIC YEAR :</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 2 }}>
+                                    <View style={styles.squareBox}>
+                                        <Text>{data.scholastic_year_present?.from || '—'}</Text>
+                                    </View>
+                                    <Text style={{ marginHorizontal: 2, fontFamily: 'Helvetica-Bold', fontSize: 8 }}>/</Text>
+                                    <View style={styles.squareBox}>
+                                        <Text>{data.scholastic_year_present?.to || '—'}</Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            {/* 15. LAST DATE OF ATTENDANCE AT THIS SCHOOL */}
+                            <View style={{ marginVertical: 1.5 }}>
+                                <Text style={styles.fieldLabelInline}>LAST DATE OF ATTENDANCE AT THIS SCHOOL :</Text>
+                                <View style={[styles.fieldValuesRow, { marginTop: 1.5 }]}>
+                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
+                                        <Text style={styles.underlinedValue}>{data.last_date_of_attendance?.month || '—'}</Text>
+                                        <Text style={styles.subLabel}>MONTH</Text>
+                                    </View>
+                                    <View style={[styles.underlinedCol, { marginRight: LAYOUT.fieldGap }]}>
+                                        <Text style={styles.underlinedValue}>{data.last_date_of_attendance?.day || '—'}</Text>
+                                        <Text style={styles.subLabel}>DAY</Text>
+                                    </View>
+                                    <View style={styles.underlinedCol}>
+                                        <Text style={styles.underlinedValue}>{data.last_date_of_attendance?.year || '—'}</Text>
+                                        <Text style={styles.subLabel}>YEAR</Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            {/* 16. REASON FOR LEAVING */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>{`REASON FOR LEAVING ${prefix} :`}</Text>
+                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>
+                                    {data.reason_for_leaving || "ON PARENT'S REQUEST"}
+                                </Text>
+                            </View>
+
+                            {/* 17. RESULT AT THE END OF THE SCHOLASTIC YEAR */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>RESULT AT THE END OF THE SCHOLASTIC YEAR :</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 2 }}>
+                                    <View style={styles.squareBox}>
+                                        <Text>{data.result_scholastic_year?.from || '—'}</Text>
+                                    </View>
+                                    <Text style={{ marginHorizontal: 2, fontFamily: 'Helvetica-Bold', fontSize: 8 }}>/</Text>
+                                    <View style={styles.squareBox}>
+                                        <Text>{data.result_scholastic_year?.to || '—'}</Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            {/* 18. a ) PASSED & PROMOTED TO CLASS */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>a ) PASSED & PROMOTED TO CLASS :</Text>
+                                <Text style={[styles.lineFill, { textAlign: 'center', flex: 1, marginRight: 6 }]}>
+                                    {data.passed_promoted_level || '—'}
+                                </Text>
+                                <Text style={[styles.fieldLabelInline, { marginRight: 3 }]}>FOR THE SCHOLASTIC YEAR :</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                     <View style={styles.squareBox}>
                                         <Text>{data.passed_promoted_year?.from || '—'}</Text>
                                     </View>
-                                    <Text style={{ marginHorizontal: 2 }}>/</Text>
+                                    <Text style={{ marginHorizontal: 2, fontFamily: 'Helvetica-Bold', fontSize: 8 }}>/</Text>
                                     <View style={styles.squareBox}>
                                         <Text>{data.passed_promoted_year?.to || '—'}</Text>
                                     </View>
                                 </View>
                             </View>
 
-                            <View style={styles.fieldRow}>
-                                <Text style={[styles.fieldLabel, { width: LAYOUT.labelWidth + 8 }]}>B) HE/SHE HAS TO RESIT IN THE FOLLOWING SUBJECTS</Text>
-                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>{data.resit_subjects || '—'}</Text>
+                            {/* 19. b ) THE CHILD HAS TO RESIT IN THE FOLLOWING SUBJECTS */}
+                            <View style={{ marginVertical: 1.2 }}>
+                                <View style={styles.fieldRow}>
+                                    <Text style={styles.fieldLabelInline}>b ) THE CHILD HAS TO RESIT IN THE FOLLOWING SUBJECTS :</Text>
+                                    <Text style={[styles.lineFill, { textAlign: 'center', flex: 1 }]}>
+                                        {data.resit_subjects || '—'}
+                                    </Text>
+                                </View>
+                                <View style={[styles.fieldRow, { marginTop: 1.5 }]}>
+                                    <Text style={[styles.lineFill, { textAlign: 'center', width: '100%' }]}>
+                                        {'—'}
+                                    </Text>
+                                </View>
                             </View>
 
+                            {/* 20. c ) DETAINED IN CLASS */}
                             <View style={styles.fieldRow}>
-                                <Text style={[styles.fieldLabel, { width: LAYOUT.labelWidth + 8 }]}>C) DETAINED IN LEVEL</Text>
-                                <View style={styles.fieldValuesRow}>
-                                    <Text style={[styles.underlinedValue, { width: 46, marginRight: LAYOUT.fieldGap, textAlign: 'center' }]}>
-                                        {data.detained_level || '—'}
-                                    </Text>
-                                    <Text style={[styles.sigLabel, { marginRight: 4 }]}>FOR THE SCHOLASTIC YEAR</Text>
+                                <Text style={styles.fieldLabelInline}>c ) DETAINED IN CLASS :</Text>
+                                <Text style={[styles.lineFill, { textAlign: 'center', flex: 1, marginRight: 6 }]}>
+                                    {data.detained_level || '—'}
+                                </Text>
+                                <Text style={[styles.fieldLabelInline, { marginRight: 3 }]}>FOR THE SCHOLASTIC YEAR :</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                     <View style={styles.squareBox}>
                                         <Text>{data.detained_year?.from || '—'}</Text>
                                     </View>
-                                    <Text style={{ marginHorizontal: 2 }}>/</Text>
+                                    <Text style={{ marginHorizontal: 2, fontFamily: 'Helvetica-Bold', fontSize: 8 }}>/</Text>
                                     <View style={styles.squareBox}>
                                         <Text>{data.detained_year?.to || '—'}</Text>
                                     </View>
                                 </View>
                             </View>
 
-                            <FieldRow label="SCHOOL DUES (IF ANY)">
-                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>{data.school_dues || '—'}</Text>
-                            </FieldRow>
-
-                            <FieldRow label="REMARKS">
-                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>{data.remarks || '—'}</Text>
-                            </FieldRow>
-
-                        <View style={styles.signaturesSection}>
-                            <View style={styles.sigRow}>
-                                <View style={styles.sigField}>
-                                    <Text style={styles.sigLabel}>PREPARED BY</Text>
-                                    <Text style={styles.sigLine}>{data.prepared_by || ''}</Text>
-                                </View>
-                                <View style={styles.sigField}>
-                                    <Text style={styles.sigLabel}>RECHECKED BY</Text>
-                                    <Text style={styles.sigLine}>{data.rechecked_by || ''}</Text>
-                                </View>
-                                <View style={styles.sigField}>
-                                    <Text style={styles.sigLabel}>POSTED BY</Text>
-                                    <Text style={styles.sigLine}>{data.posted_by || ''}</Text>
-                                </View>
+                            {/* 21. TAFS / TAFSS / TAFCS DUES (IF ANY) */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>{`${prefix} DUES (IF ANY) :`}</Text>
+                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>
+                                    {data.school_dues || '—'}
+                                </Text>
                             </View>
 
-                            <View style={styles.sigRow}>
-                                <View style={styles.sigField}>
-                                    <Text style={styles.sigLabel}>LEAD TEACHER</Text>
-                                    <Text style={styles.sigLine}>{data.class_teacher || ''}</Text>
-                                </View>
-                                <View style={styles.sigField}>
-                                    <Text style={styles.sigLabel}>PROGRAMME DIRECTRESS</Text>
-                                    <Text style={styles.sigLine}>{data.programme_directress || ''}</Text>
-                                </View>
+                            {/* 22. REMARKS */}
+                            <View style={styles.fieldRow}>
+                                <Text style={styles.fieldLabelInline}>REMARKS :</Text>
+                                <Text style={[styles.lineFill, { textAlign: 'center' }]}>
+                                    {data.remarks || '—'}
+                                </Text>
                             </View>
 
-                            <View style={[styles.sigRow, { justifyContent: 'center' }]}>
-                                <View style={styles.sigField}>
-                                    <Text style={styles.sigLabel}>DAY</Text>
-                                    <Text style={[styles.sigLine, { width: 80 }]}>{data.day || ''}</Text>
+                            {/* 23. Signatures Section */}
+                            <View style={styles.signaturesSection}>
+                                <View style={styles.sigRow}>
+                                    <View style={styles.sigField}>
+                                        <Text style={styles.sigLabel}>PREPARED BY :</Text>
+                                        <Text style={styles.sigLine}>{data.prepared_by || ''}</Text>
+                                    </View>
+                                    <View style={styles.sigField}>
+                                        <Text style={styles.sigLabel}>RECHECKED BY :</Text>
+                                        <Text style={styles.sigLine}>{data.rechecked_by || ''}</Text>
+                                    </View>
+                                    <View style={styles.sigField}>
+                                        <Text style={styles.sigLabel}>POSTED BY :</Text>
+                                        <Text style={styles.sigLine}>{data.posted_by || ''}</Text>
+                                    </View>
                                 </View>
-                                <View style={[styles.sigField, { marginLeft: 40 }]}>
-                                    <Text style={styles.sigLabel}>DATE</Text>
-                                    <Text style={[styles.sigLine, { width: 120 }]}>{data.date || ''}</Text>
-                                </View>
-                            </View>
 
-                            <Text style={styles.disclaimerText}>THIS CERTIFICATE IS ISSUED WITHOUT ALTERATION OR ERASURE</Text>
+                                <View style={styles.sigRow}>
+                                    <View style={styles.sigField}>
+                                        <Text style={styles.sigLabel}>LEAD TEACHER :</Text>
+                                        <Text style={[styles.sigLine, { width: 120 }]}>{data.class_teacher || ''}</Text>
+                                    </View>
+                                    <View style={styles.sigField}>
+                                        <Text style={styles.sigLabel}>PROGRAMME DIRECTRESS :</Text>
+                                        <Text style={[styles.sigLine, { width: 120 }]}>{data.programme_directress || ''}</Text>
+                                    </View>
+                                </View>
+
+                                <View style={[styles.sigRow, { justifyContent: 'space-between', paddingHorizontal: 16 }]}>
+                                    <View style={styles.sigField}>
+                                        <Text style={styles.sigLabel}>DAY :</Text>
+                                        <Text style={[styles.sigLine, { width: 90 }]}>{data.day || ''}</Text>
+                                    </View>
+                                    <View style={styles.sigField}>
+                                        <Text style={styles.sigLabel}>DATE :</Text>
+                                        <Text style={[styles.sigLine, { width: 130 }]}>{data.date || ''}</Text>
+                                    </View>
+                                </View>
+
+                                <Text style={styles.disclaimerText}>THIS CERTIFICATE IS ISSUED WITHOUT ALTERATION OR ERASURE</Text>
+                            </View>
                         </View>
                     </View>
-                </View>
 
                     {/* Footer 3-Campus Addresses */}
                     <View style={styles.footer}>
