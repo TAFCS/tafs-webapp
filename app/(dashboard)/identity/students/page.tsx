@@ -409,7 +409,10 @@ function DirectoryContent() {
     const [classIds, setClassIds] = useState<number[]>([]);
     const [sectionIds, setSectionIds] = useState<number[]>([]);
     const [houseIds, setHouseIds] = useState<number[]>([]);
-    const [statuses, setStatuses] = useState<string[]>([]);
+    const [statuses, setStatuses] = useState<string[]>(() => {
+        const s = searchParams?.get("status");
+        return s ? s.split(",").filter(Boolean) : ["ENROLLED"];
+    });
     const [graduatedFromClassIds, setGraduatedFromClassIds] = useState<number[]>([]);
     const [graduatedYearRange, setGraduatedYearRange] = useState("");
     const [auditType, setAuditType] = useState("");
@@ -423,6 +426,10 @@ function DirectoryContent() {
         const cc = searchParams.get("cc");
         if (cc && !isNaN(Number(cc))) {
             setSelectedCc(Number(cc));
+        }
+        const statusParam = searchParams.get("status");
+        if (statusParam !== null) {
+            setStatuses(statusParam ? statusParam.split(",").filter(Boolean) : []);
         }
     }, [searchParams]);
 
@@ -478,13 +485,13 @@ function DirectoryContent() {
     // Instant on filter/page change
     useEffect(() => { triggerFetch(); }, [page, campusIds, classIds, sectionIds, houseIds, statuses, graduatedFromClassIds, graduatedYearRange, auditType, photoFilter, hadQuickAdmission, triggerFetch]);
 
-    const hasFilters = campusIds.length > 0 || classIds.length > 0 || sectionIds.length > 0 || houseIds.length > 0 || statuses.length > 0 || graduatedFromClassIds.length > 0 || !!graduatedYearRange || auditType || photoFilter || hadQuickAdmission;
+    const hasFilters = campusIds.length > 0 || classIds.length > 0 || sectionIds.length > 0 || houseIds.length > 0 || (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ENROLLED")) || graduatedFromClassIds.length > 0 || !!graduatedYearRange || !!auditType || !!photoFilter || hadQuickAdmission;
     const clearFilters = () => {
         setCampusIds([]);
         setClassIds([]);
         setSectionIds([]);
         setHouseIds([]);
-        setStatuses([]);
+        setStatuses(["ENROLLED"]);
         setGraduatedFromClassIds([]);
         setGraduatedYearRange("");
         setAuditType("");
