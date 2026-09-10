@@ -611,17 +611,13 @@ function EmployeesContent() {
       const nextQuery = params.toString() ? `?${params.toString()}` : "";
       router.replace(`/hr/employees${nextQuery}`, { scroll: false });
     }
-    const statusParam = searchParams.get("status");
-    if (statusParam) {
-      setStatuses(statusParam.split(",").filter(Boolean) as EmployeeStatus[]);
-    }
   }, [searchParams, router]);
 
   const [search, setSearch] = useState("");
   const [campusIds, setCampusIds] = useState<number[]>([]);
   const [departmentIds, setDepartmentIds] = useState<number[]>([]);
   const [categoryIds, setCategoryIds] = useState<number[]>([]);
-  const [statuses, setStatuses] = useState<EmployeeStatus[]>(["ACTIVE"]);
+  const [statuses, setStatuses] = useState<EmployeeStatus[]>([]);
   const [auditFilter, setAuditFilter] = useState("");
 
   const handleExportExcel = async (selectedColumns: string[]) => {

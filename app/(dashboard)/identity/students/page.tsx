@@ -261,13 +261,13 @@ interface PaginationMeta {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
-    ENROLLED:       { label: "ENROLLED",       bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500" },
-    SOFT_ADMISSION: { label: "SOFT ADMISSION",  bg: "bg-blue-50",     text: "text-blue-700",    dot: "bg-blue-500" },
-    QUICK_ADMISSION:{ label: "QUICK ADMISSION", bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500" },
-    UNCONFIRMED:    { label: "QUICK ADMISSION", bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500" },
-    EXPELLED:       { label: "EXPELLED",        bg: "bg-rose-50",     text: "text-rose-700",    dot: "bg-rose-500" },
-    GRADUATED:      { label: "GRADUATED",       bg: "bg-violet-50",   text: "text-violet-700",  dot: "bg-violet-500" },
-    LEFT:           { label: "LEFT",            bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500" },
+    ENROLLED: { label: "ENROLLED", bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+    SOFT_ADMISSION: { label: "SOFT ADMISSION", bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
+    QUICK_ADMISSION: { label: "QUICK ADMISSION", bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
+    UNCONFIRMED: { label: "QUICK ADMISSION", bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
+    EXPELLED: { label: "EXPELLED", bg: "bg-rose-50", text: "text-rose-700", dot: "bg-rose-500" },
+    GRADUATED: { label: "GRADUATED", bg: "bg-violet-50", text: "text-violet-700", dot: "bg-violet-500" },
+    LEFT: { label: "LEFT", bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -394,28 +394,28 @@ function DirectoryContent() {
     const router = useRouter();
     const dispatch = useAppDispatch();
     const { items: campuses } = useAppSelector(s => s.campuses);
-    const { items: classes }  = useAppSelector(s => s.classes);
+    const { items: classes } = useAppSelector(s => s.classes);
     const { items: sections } = useAppSelector(s => s.sections);
 
-    const [students, setStudents]     = useState<Student[]>([]);
-    const [meta, setMeta]             = useState<PaginationMeta | null>(null);
-    const [isLoading, setIsLoading]   = useState(false);
+    const [students, setStudents] = useState<Student[]>([]);
+    const [meta, setMeta] = useState<PaginationMeta | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [selectedCc, setSelectedCc] = useState<number | null>(null);
 
     // Filters
-    const [search, setSearch]         = useState("");
-    const [campusIds, setCampusIds]   = useState<number[]>([]);
-    const [classIds, setClassIds]     = useState<number[]>([]);
+    const [search, setSearch] = useState("");
+    const [campusIds, setCampusIds] = useState<number[]>([]);
+    const [classIds, setClassIds] = useState<number[]>([]);
     const [sectionIds, setSectionIds] = useState<number[]>([]);
-    const [houseIds, setHouseIds]     = useState<number[]>([]);
-    const [statuses, setStatuses]     = useState<string[]>(["ENROLLED"]);
+    const [houseIds, setHouseIds] = useState<number[]>([]);
+    const [statuses, setStatuses] = useState<string[]>([]);
     const [graduatedFromClassIds, setGraduatedFromClassIds] = useState<number[]>([]);
     const [graduatedYearRange, setGraduatedYearRange] = useState("");
-    const [auditType, setAuditType]   = useState("");
+    const [auditType, setAuditType] = useState("");
     const [photoFilter, setPhotoFilter] = useState("");
     const [hadQuickAdmission, setHadQuickAdmission] = useState(false);
-    const [page, setPage]             = useState(1);
+    const [page, setPage] = useState(1);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [isDemoOpen, setIsDemoOpen] = useState(false);
 
@@ -423,10 +423,6 @@ function DirectoryContent() {
         const cc = searchParams.get("cc");
         if (cc && !isNaN(Number(cc))) {
             setSelectedCc(Number(cc));
-        }
-        const statusParam = searchParams.get("status");
-        if (statusParam) {
-            setStatuses(statusParam.split(",").filter(Boolean));
         }
     }, [searchParams]);
 
@@ -476,7 +472,7 @@ function DirectoryContent() {
         if (searchTimer.current) clearTimeout(searchTimer.current);
         searchTimer.current = setTimeout(() => { setPage(1); triggerFetch(); }, search ? 400 : 0);
         return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search]);
 
     // Instant on filter/page change
@@ -527,10 +523,10 @@ function DirectoryContent() {
         }
     };
 
-    const campusOptions  = campuses.map((c: any) => ({ id: c.id as number, label: c.campus_name as string }));
-    const classOptions   = classes.map((c: any) => ({ id: c.id as number, label: c.description as string }));
+    const campusOptions = campuses.map((c: any) => ({ id: c.id as number, label: c.campus_name as string }));
+    const classOptions = classes.map((c: any) => ({ id: c.id as number, label: c.description as string }));
     const sectionOptions = sections.map((s: any) => ({ id: s.id as number, label: s.description as string }));
-    const statusOptions  = [
+    const statusOptions = [
         { id: "QUICK_ADMISSION", label: "Quick Admission" },
         { id: "ENROLLED", label: "Enrolled" },
         { id: "SOFT_ADMISSION", label: "Soft Admission" },
@@ -679,11 +675,10 @@ function DirectoryContent() {
                         <button
                             type="button"
                             onClick={() => { setHadQuickAdmission((on) => !on); setPage(1); }}
-                            className={`flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold rounded-xl transition-colors ${
-                                hadQuickAdmission
+                            className={`flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold rounded-xl transition-colors ${hadQuickAdmission
                                     ? "text-amber-800 bg-amber-100 hover:bg-amber-200"
                                     : "text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50"
-                            }`}
+                                }`}
                         >
                             <Receipt className="h-3.5 w-3.5" />
                             Quick admission
