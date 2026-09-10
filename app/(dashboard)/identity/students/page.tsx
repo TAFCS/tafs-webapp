@@ -409,7 +409,7 @@ function DirectoryContent() {
     const [classIds, setClassIds]     = useState<number[]>([]);
     const [sectionIds, setSectionIds] = useState<number[]>([]);
     const [houseIds, setHouseIds]     = useState<number[]>([]);
-    const [statuses, setStatuses]     = useState<string[]>([]);
+    const [statuses, setStatuses]     = useState<string[]>(["ENROLLED"]);
     const [graduatedFromClassIds, setGraduatedFromClassIds] = useState<number[]>([]);
     const [graduatedYearRange, setGraduatedYearRange] = useState("");
     const [auditType, setAuditType]   = useState("");
@@ -423,6 +423,10 @@ function DirectoryContent() {
         const cc = searchParams.get("cc");
         if (cc && !isNaN(Number(cc))) {
             setSelectedCc(Number(cc));
+        }
+        const statusParam = searchParams.get("status");
+        if (statusParam) {
+            setStatuses(statusParam.split(",").filter(Boolean));
         }
     }, [searchParams]);
 
