@@ -554,8 +554,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const campusPrefix = useMemo(() => {
     if (!formData.campus_id) return null;
     const cid = parseInt(formData.campus_id, 10);
-    return selectedCampus?.campus_prefix || selectedCampus?.campus_code || campusPrefixForId(cid);
-  }, [formData.campus_id, selectedCampus]);
+    return campusPrefixForId(cid);
+  }, [formData.campus_id]);
 
   // ── Load reference data ───────────────────────────────────────────────────
   const loadLookups = useCallback(async () => {
