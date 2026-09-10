@@ -927,17 +927,17 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       class_section_assignments: isAcademicStaff && assignments.length > 0 ? assignments : [],
       ...(!isEdit
         ? {
-            previous_employers: previousEmployers
-              .filter((e) => e.employer_name?.trim())
-              .map((e) => ({
-                employer_name: e.employer_name.trim(),
-                location: e.location?.trim() || null,
-                job_title: e.job_title?.trim() || null,
-                employed_from: e.employed_from?.trim() || null,
-                employed_to: e.employed_to?.trim() || null,
-                reason_for_leaving: e.reason_for_leaving?.trim() || null,
-              })),
-          }
+          previous_employers: previousEmployers
+            .filter((e) => e.employer_name?.trim())
+            .map((e) => ({
+              employer_name: e.employer_name.trim(),
+              location: e.location?.trim() || null,
+              job_title: e.job_title?.trim() || null,
+              employed_from: e.employed_from?.trim() || null,
+              employed_to: e.employed_to?.trim() || null,
+              reason_for_leaving: e.reason_for_leaving?.trim() || null,
+            })),
+        }
         : {}),
     };
   };
@@ -1738,11 +1738,10 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                         key={dow}
                         type="button"
                         onClick={() => setWeekSchedule(p => ({ ...p, [dow]: !p[dow] }))}
-                        className={`h-9 px-4 rounded-xl text-xs font-bold transition-all border ${
-                          weekSchedule[dow]
+                        className={`h-9 px-4 rounded-xl text-xs font-bold transition-all border ${weekSchedule[dow]
                             ? 'bg-primary text-white border-primary shadow-sm'
                             : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 border-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                        }`}
+                          }`}
                       >
                         {label}
                       </button>
@@ -1809,11 +1808,10 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                             {usernameStatus === "taken" && <AlertCircle className="h-4 w-4 text-rose-500" />}
                           </span>
                         </div>
-                        <p className={`text-[11px] ${
-                          usernameStatus === "taken" ? "text-rose-500 font-semibold"
-                          : usernameStatus === "available" ? "text-emerald-600"
-                          : "text-zinc-400"
-                        }`}>
+                        <p className={`text-[11px] ${usernameStatus === "taken" ? "text-rose-500 font-semibold"
+                            : usernameStatus === "available" ? "text-emerald-600"
+                              : "text-zinc-400"
+                          }`}>
                           {usernameStatus === "checking" && "Checking availability…"}
                           {usernameStatus === "taken" && "Already taken — try a different username."}
                           {usernameStatus === "available" && "Available."}

@@ -37,6 +37,46 @@ const getGRPrefix = (campusName?: string, academicSystem?: string) => {
     return "";
 };
 
+const isDisciplineGroupEligible = (className?: string, classCode?: string, academicSystem?: string) => {
+    const isALevel = (academicSystem || "").toLowerCase().replace(/[^a-z]/g, "") === "alevel";
+    if (isALevel) return false;
+
+    const raw = `${className || ""} ${classCode || ""}`.toUpperCase().trim();
+    const system = (academicSystem || "").toUpperCase().trim();
+
+    // O1 - O3
+    if (/\bO[-\s]?(LEVEL\s*)?(1|2|3|I|II|III)\b/i.test(raw) || /^O[1-3]$/i.test(raw) || /^O(I|II|III)$/i.test(raw)) {
+        return true;
+    }
+
+    // SR-I, SR-II, SR-III
+    if (
+        /\bSR[-\s\.]*(1|2|3|I|II|III)\b/i.test(raw) ||
+        /\bSENIOR[-\s]*(1|2|3|I|II|III)\b/i.test(raw) ||
+        /^SR[1-3]$/i.test(raw) ||
+        /^SR(I|II|III)$/i.test(raw)
+    ) {
+        return true;
+    }
+
+    // Secondary System of Studies: VI, VII, VIII, IX, X
+    if (
+        /\b(CLASS|GRADE)?\s*(VI|VII|VIII|IX|X)\b/i.test(raw) ||
+        /\b(CLASS|GRADE)\s*(6|7|8|9|10)\b/i.test(raw) ||
+        /^(VI|VII|VIII|IX|X|6|7|8|9|10)$/i.test(raw)
+    ) {
+        return true;
+    }
+
+    if (system.includes("SECONDARY") || system.includes("MATRIC")) {
+        if (/\b(6|7|8|9|10|VI|VII|VIII|IX|X)\b/i.test(raw)) {
+            return true;
+        }
+    }
+
+    return false;
+};
+
 // ── Primitives ──────────────────────────────────────────────────────────────
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
@@ -158,6 +198,13 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
     const [isViewerOpen, setIsViewerOpen] = useState(false);
 
     // Section: Personal (Basic Info)
+    const resolvedDiscipline = student.discipline || (student.student_admissions || []).find((a: any) => a.discipline?.trim())?.discipline || "";
+    const isEligibleForDiscipline = isDisciplineGroupEligible(
+        student.class_name || student.class_description,
+        student.class_code,
+        student.academic_system
+    );
+
     const [personal, setPersonal] = useState({
         full_name: student.full_name || "",
         gr_number: student.gr_number || getGRPrefix(student.campus_name, student.academic_system) || "",
@@ -166,6 +213,7 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
         gender: student.gender || "",
         nationality: student.nationality || "",
         religion: student.religion || "",
+        discipline: resolvedDiscipline,
         identification_marks: student.identification_marks || "",
         admission_age_years: String(student.admission_age_years ?? ""),
         interests: student.interests || "",
@@ -211,6 +259,7 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
             gender: student.gender || "",
             nationality: student.nationality || "",
             religion: student.religion || "",
+            discipline: student.discipline || (student.student_admissions || []).find((a: any) => a.discipline?.trim())?.discipline || "",
             identification_marks: student.identification_marks || "",
             admission_age_years: String(student.admission_age_years ?? ""),
             interests: student.interests || "",
@@ -379,6 +428,22 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                             </Field>
                             <Field label="Religion"><Input value={personal.religion} onChange={p("religion")} /></Field>
                             <Field label="Nationality"><Input value={personal.nationality} onChange={p("nationality")} /></Field>
+                            {isEligibleForDiscipline && (
+                                <Field label="Academic Discipline">
+                                    <select
+                                        value={personal.discipline || ""}
+                                        onChange={e => p("discipline")(e.target.value)}
+                                        className="w-full h-10 px-3 text-[13px] font-medium bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 appearance-none uppercase"
+                                    >
+                                        <option value="">Select Discipline (Optional)...</option>
+                                        <option value="Pre-Medical">Pre-Medical</option>
+                                        <option value="Pre-Engineering">Pre-Engineering</option>
+                                        <option value="Pre-Commerce">Pre-Commerce</option>
+                                        <option value="Computer Science">Computer Science</option>
+                                        <option value="Humanities">Humanities</option>
+                                    </select>
+                                </Field>
+                            )}
                             <Field label="Email Address"><Input type="email" value={contact.email} onChange={c("email")} placeholder="student@example.com" /></Field>
                             <Field label="Primary Phone"><PhoneInput value={contact.primary_phone} onChange={c("primary_phone")} /></Field>
                             <Field label="WhatsApp Number"><PhoneInput value={contact.whatsapp_number} onChange={c("whatsapp_number")} /></Field>
@@ -502,6 +567,12 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                                 <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Enrollment status</p>
                                 <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 mt-0.5 uppercase">{student.status || "N/A"}</p>
                             </div>
+                            {isEligibleForDiscipline && (
+                                <div>
+                                    <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Academic Discipline</p>
+                                    <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 mt-0.5 uppercase">{resolvedDiscipline || "N/A"}</p>
+                                </div>
+                            )}
                             {student.identification_marks && (
                                 <div className="col-span-2">
                                     <p className="text-[12px] font-bold text-zinc-400 uppercase tracking-tight">Identification marks</p>

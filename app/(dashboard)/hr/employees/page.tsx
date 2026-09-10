@@ -611,13 +611,23 @@ function EmployeesContent() {
       const nextQuery = params.toString() ? `?${params.toString()}` : "";
       router.replace(`/hr/employees${nextQuery}`, { scroll: false });
     }
+    const statusParam = searchParams.get("status");
+    if (statusParam !== null) {
+      setStatuses(statusParam ? (statusParam.split(",").filter(Boolean) as EmployeeStatus[]) : []);
+    }
   }, [searchParams, router]);
 
   const [search, setSearch] = useState("");
   const [campusIds, setCampusIds] = useState<number[]>([]);
   const [departmentIds, setDepartmentIds] = useState<number[]>([]);
   const [categoryIds, setCategoryIds] = useState<number[]>([]);
-  const [statuses, setStatuses] = useState<EmployeeStatus[]>([]);
+  const [statuses, setStatuses] = useState<EmployeeStatus[]>(() => {
+    const statusParam = searchParams.get("status");
+    if (statusParam) {
+      return statusParam.split(",").filter(Boolean) as EmployeeStatus[];
+    }
+    return ["ACTIVE"];
+  });
   const [auditFilter, setAuditFilter] = useState("");
 
   const handleExportExcel = async (selectedColumns: string[]) => {
@@ -846,9 +856,9 @@ function EmployeesContent() {
           Download Excel
         </button>
 
-        {(search || campusIds.length > 0 || departmentIds.length > 0 || categoryIds.length > 0 || statuses.length > 0 || auditFilter) && (
+        {(search || campusIds.length > 0 || departmentIds.length > 0 || categoryIds.length > 0 || (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ACTIVE")) || auditFilter) && (
           <button
-            onClick={() => { setSearch(""); setCampusIds([]); setDepartmentIds([]); setCategoryIds([]); setStatuses([]); setAuditFilter(""); }}
+            onClick={() => { setSearch(""); setCampusIds([]); setDepartmentIds([]); setCategoryIds([]); setStatuses(["ACTIVE"]); setAuditFilter(""); }}
             className="h-9 px-3 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
           >
             Clear Filters
