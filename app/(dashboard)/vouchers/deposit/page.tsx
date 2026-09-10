@@ -58,6 +58,29 @@ const MONTH_NAMES = [
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/**
+ * Fetch a stored voucher PDF and hand it to the browser as a download, falling
+ * back to opening it in a tab when the blob fetch is blocked. One copy shared by
+ * the split flow (PAID receipt + balance challan) and the waive flow (WAIVED
+ * challan) so the download behaviour can't drift between them.
+ */
+async function downloadPdf(url: string, filename: string) {
+    try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+    } catch {
+        window.open(url, "_blank");
+    }
+}
+
 function formatDate(dateStr: string | null | undefined) {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString("en-PK", {
@@ -864,24 +887,8 @@ function PartiallyPaidModal({
                     : `Voucher split — Paid #${splitRes.data?.paid_voucher_id}, balance left un-issued`,
             );
 
-            // Download both the PAID receipt and the new UNPAID balance voucher.
-            const downloadPdf = async (url: string, filename: string) => {
-                try {
-                    const res = await fetch(url);
-                    const blob = await res.blob();
-                    const blobUrl = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = blobUrl;
-                    link.download = filename;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(blobUrl);
-                } catch {
-                    window.open(url, '_blank');
-                }
-            };
-
+            // Download both the PAID receipt and the new UNPAID balance voucher
+            // (downloadPdf is the shared module-level helper).
             // Prefer the server's filenames: each child voucher is keyed off its
             // OWN fee_date, which for the balance child is frequently not this
             // voucher's, so rebuilding from `voucher.fee_date` below produces a
@@ -1116,11 +1123,34 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
     const handleWaive = async () => {
         const reason = window.prompt("Reason for waiving this voucher (optional):") ?? undefined;
         setIsWaiving(true);
+        const loadingToast = toast.loading("Waiving voucher and generating WAIVED challan…");
         try {
-            await api.post(`/v1/vouchers/${voucher.id}/waive`, { reason });
-            toast.success("Voucher waived — fee heads written off.");
+            const { data: res } = await api.post(`/v1/vouchers/${voucher.id}/waive`, { reason });
+            toast.dismiss(loadingToast);
+
+            // The server mints the WAIVED-stamped challan on the spot — the same
+            // write-once artifact a fully-paid voucher gets as its PAID receipt —
+            // and hands back its frozen URL + filename. Download it immediately so
+            // staff have the write-off record without a second click.
+            if (res?.waived_pdf_url) {
+                await downloadPdf(
+                    res.waived_pdf_url,
+                    res.waived_pdf_filename ?? buildVoucherFilename({
+                        grNumber: voucher.students?.gr_number,
+                        cc: voucher.students?.cc,
+                        feeDate: voucher.fee_date,
+                        voucherId: voucher.id,
+                        suffix: "waived",
+                    }),
+                );
+                toast.success("Voucher waived — WAIVED challan downloaded.");
+            } else {
+                // Rendering failed server-side; the waiver itself still stands.
+                toast.success("Voucher waived — fee heads written off.");
+            }
             onRefresh();
         } catch (err: any) {
+            toast.dismiss(loadingToast);
             toast.error(err.response?.data?.message || "Failed to waive the voucher.");
         } finally {
             setIsWaiving(false);
@@ -1131,12 +1161,50 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
         setIsWaiving(true);
         try {
             await api.post(`/v1/vouchers/${voucher.id}/unwaive`, {});
+            // The frozen WAIVED challan is discarded server-side, mirroring a
+            // payment reversal discarding the PAID receipt. Re-waiving mints a
+            // fresh one; the previously downloaded copy is no longer canonical.
             toast.success("Waiver reversed — fee heads restored.");
             onRefresh();
         } catch (err: any) {
             toast.error(err.response?.data?.message || "Failed to reverse the waiver.");
         } finally {
             setIsWaiving(false);
+        }
+    };
+
+    // Re-download the frozen WAIVED challan. Exactly the PAID-PDF contract:
+    // generate-pdf serves the write-once artifact if it exists (waived_pdf_url)
+    // and mints it on this call if waiveVoucher's on-the-spot render had failed.
+    const handleWaivedDownload = async () => {
+        setIsDownloading(true);
+        const isFrozen = Boolean((voucher as any).waived_pdf_url);
+        const loadingToast = toast.loading(isFrozen ? "Fetching saved challan…" : "Generating WAIVED PDF…");
+        try {
+            const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, {
+                regenerate: false,
+            });
+            const pdfUrl = pdfRes.data?.pdf_url;
+            if (!pdfUrl) throw new Error("No PDF URL returned from server.");
+
+            // Same frozen-filename rule as the PAID receipt: the server's name
+            // wins, because rebuilding it locally uses the student's CURRENT
+            // gr_number, which drifts if the GR is corrected after issuance.
+            await downloadPdf(pdfUrl, pdfRes.data?.filename ?? buildVoucherFilename({
+                grNumber: voucher.students?.gr_number,
+                cc: voucher.students?.cc,
+                feeDate: voucher.fee_date,
+                voucherId: voucher.id,
+                suffix: "waived",
+            }));
+
+            toast.dismiss(loadingToast);
+            toast.success("WAIVED challan downloaded.");
+        } catch {
+            toast.dismiss(loadingToast);
+            toast.error("Failed to generate the WAIVED PDF.");
+        } finally {
+            setIsDownloading(false);
         }
     };
 
@@ -1365,6 +1433,16 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                             </button>
                         )
                     ) : isWaived ? (
+                        <>
+                        <button
+                            onClick={handleWaivedDownload}
+                            disabled={isDownloading}
+                            title="Download the WAIVED-stamped challan"
+                            className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-teal-200 dark:border-teal-800/50 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors disabled:opacity-50"
+                        >
+                            {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Stamp className="h-3.5 w-3.5" />}
+                            {isDownloading ? "…" : "WAIVED PDF"}
+                        </button>
                         <button
                             onClick={handleUnwaive}
                             disabled={isWaiving}
@@ -1374,6 +1452,7 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                             {isWaiving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
                             {isWaiving ? "…" : "Un-waive"}
                         </button>
+                        </>
                     ) : isPaid ? (
                         <>
                         <button
