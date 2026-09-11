@@ -544,6 +544,7 @@ function DirectoryContent() {
     const classOptions = classes.map((c: any) => ({ id: c.id as number, label: c.description as string }));
     const sectionOptions = sections.map((s: any) => ({ id: s.id as number, label: s.description as string }));
     const disciplineOptions = [
+        { id: "none", label: "No Discipline" },
         { id: "Pre-Medical", label: "Pre-Medical" },
         { id: "Pre-Engineering", label: "Pre-Engineering" },
         { id: "Computer Science", label: "Computer Science" },
