@@ -1637,10 +1637,11 @@ export default function VoucherDepositPage() {
         }
     };
 
-    // Filter logic locally for status
-    const filteredVouchers = statusFilter
+    // Filter logic locally for status. Newest voucher (highest id) first.
+    const filteredVouchers = (statusFilter
         ? vouchers.filter(v => v.status === statusFilter)
-        : vouchers;
+        : [...vouchers]
+    ).sort((a, b) => Number(b.id) - Number(a.id));
 
     const totalPages = Math.ceil(filteredVouchers.length / pageSize);
     const paginatedVouchers = filteredVouchers.slice((page - 1) * pageSize, page * pageSize);
