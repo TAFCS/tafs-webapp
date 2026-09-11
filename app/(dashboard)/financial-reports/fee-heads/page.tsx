@@ -36,6 +36,7 @@ const VIEW_OPTIONS = [
   { id: "fee_type", label: "By fee type" },
   { id: "period", label: "By period" },
   { id: "class", label: "By class" },
+  { id: "fee_date", label: "By fee date" },
 ] as const;
 
 type ReportView = (typeof VIEW_OPTIONS)[number]["id"];
@@ -121,6 +122,20 @@ type ClassRollupRow = {
   outstanding: number;
 };
 
+// One row per fee date. `billed` is fee heads before discount, `discount` is
+// negative, `amount` = billed + discount (net), `amount_paid` is cash only.
+type FeeDateRollupRow = {
+  fee_date: string | null;
+  head_count: number;
+  discount_count: number;
+  billed: number;
+  discount: number;
+  amount: number;
+  amount_paid: number;
+  waived: number;
+  outstanding: number;
+};
+
 function statusClass(status: string): string {
   switch (status) {
     case "PAID":
@@ -171,6 +186,7 @@ export default function FeeHeadsReportPage() {
   const [feeTypeItems, setFeeTypeItems] = useState<FeeTypeRollupRow[]>([]);
   const [periodItems, setPeriodItems] = useState<PeriodRollupRow[]>([]);
   const [classItems, setClassItems] = useState<ClassRollupRow[]>([]);
+  const [feeDateItems, setFeeDateItems] = useState<FeeDateRollupRow[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [totals, setTotals] = useState<FeeHeadTotals | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -215,6 +231,7 @@ export default function FeeHeadsReportPage() {
         setFeeTypeItems(view === "fee_type" ? responseItems : []);
         setPeriodItems(view === "period" ? responseItems : []);
         setClassItems(view === "class" ? responseItems : []);
+        setFeeDateItems(view === "fee_date" ? responseItems : []);
         setPagination(data?.data?.pagination ?? null);
         setTotals(data?.data?.totals ?? null);
       } catch (err) {
@@ -252,6 +269,7 @@ export default function FeeHeadsReportPage() {
     : view === "student" ? studentItems.length === 0
     : view === "fee_type" ? feeTypeItems.length === 0
     : view === "period" ? periodItems.length === 0
+    : view === "fee_date" ? feeDateItems.length === 0
     : classItems.length === 0;
 
   if (!canViewAnalytics) {
@@ -324,6 +342,8 @@ export default function FeeHeadsReportPage() {
           </Link>
           . Date range filters on fee date; use <strong>By period</strong> for month-wise totals by academic period.
           Discounts are included as negative amounts (status <strong>Discount</strong>) and net out of billed/outstanding totals.
+          Paid is cash received — a discount that settled a head is not counted as paid. Use <strong>By fee date</strong> to see
+          each fee date&apos;s discount next to what was billed on it.
         </p>
       </div>
 
@@ -482,6 +502,24 @@ export default function FeeHeadsReportPage() {
               row.class_name,
               row.student_count.toLocaleString(),
               row.head_count.toLocaleString(),
+              formatRs(row.amount),
+              formatRs(row.amount_paid),
+              formatRs(row.waived),
+              formatRs(row.outstanding),
+            ])}
+            rowKey={(row) => String(row[0])}
+          />
+        ) : view === "fee_date" ? (
+          <RollupTable
+            headers={["Fee date", "Heads", "Billed", "Discount", "Net amount", "Paid", "Waived", "Outstanding"]}
+            rightAlignFrom={1}
+            rows={feeDateItems.map((row) => [
+              row.fee_date ?? "No fee date",
+              row.head_count.toLocaleString(),
+              formatRs(row.billed),
+              row.discount
+                ? `${formatRs(row.discount)} (${row.discount_count})`
+                : "—",
               formatRs(row.amount),
               formatRs(row.amount_paid),
               formatRs(row.waived),
