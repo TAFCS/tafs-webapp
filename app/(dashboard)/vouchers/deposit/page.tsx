@@ -850,6 +850,31 @@ function PartiallyPaidModal({
 
     const issuesBalance = settings.balanceDisposition !== "DO_NOT_ISSUE";
 
+    // PAY IMMEDIATELY prefill: ask the backend — the same rule the split applies —
+    // whether the balance voucher will be PAY IMMEDIATELY for this issue date, and
+    // if so fill in the due/validity date it will enforce and lock the fields.
+    const [payImmediateDue, setPayImmediateDue] = useState<string | null>(null);
+    useEffect(() => {
+        if (!issuesBalance || !settings.issueDate) {
+            setPayImmediateDue(null);
+            return;
+        }
+        let cancelled = false;
+        api.get(`/v1/vouchers/${voucher.id}/split-preview`, { params: { issue_date: settings.issueDate } })
+            .then(({ data }) => {
+                if (cancelled) return;
+                const due: string | null = data?.data?.pay_immediately ? data.data.due_date : null;
+                setPayImmediateDue(due);
+                if (due) setSettings((s) => ({ ...s, dueDate: due, validityDate: due }));
+            })
+            .catch(() => {
+                if (!cancelled) setPayImmediateDue(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [voucher.id, settings.issueDate, issuesBalance]);
+
     const handleConfirm = async () => {
         if (issuesBalance && !settings.dueDate) {
             toast.error("Please enter the due date for the new balance voucher.");
@@ -1035,6 +1060,14 @@ function PartiallyPaidModal({
                                 showReprintFee
                                 showBalanceDisposition
                                 disabled={submitting}
+                                lockDates={!!payImmediateDue}
+                                datesNote={payImmediateDue && (
+                                    <p className="text-[11px] font-bold text-rose-700 bg-rose-50 dark:bg-rose-950/30 dark:text-rose-300 border border-rose-100 dark:border-rose-900/40 rounded-xl px-3 py-2 leading-snug">
+                                        PAY IMMEDIATELY — this student hasn&apos;t paid their last two vouchers, so the
+                                        balance voucher is due and expires on {payImmediateDue}: issue date + 4 days,
+                                        Sundays not counted.
+                                    </p>
+                                )}
                             >
                             <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 space-y-3">
                                 <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">

@@ -132,6 +132,13 @@ interface Props {
     /** Show the split-only 4-way "what to do with the balance voucher" control. */
     showBalanceDisposition?: boolean;
     disabled?: boolean;
+    /**
+     * Lock the Due / Valid Till inputs — the caller has prefilled dates the
+     * backend will enforce anyway (e.g. a PAY IMMEDIATELY balance voucher).
+     */
+    lockDates?: boolean;
+    /** Note shown under the timeline, e.g. why the dates are locked. */
+    datesNote?: React.ReactNode;
     /** Extra split-only controls (e.g. balance fee-date roll-forward) rendered at the end. */
     children?: React.ReactNode;
 }
@@ -144,6 +151,8 @@ export default function VoucherSettingsPanel({
     showReprintFee = true,
     showBalanceDisposition = false,
     disabled = false,
+    lockDates = false,
+    datesNote,
     children,
 }: Props) {
     const set = (patch: Partial<VoucherSettings>) => onChange({ ...value, ...patch });
@@ -252,7 +261,7 @@ export default function VoucherSettingsPanel({
                                 <input
                                     type="date"
                                     value={value[f.key]}
-                                    disabled={doNotIssue}
+                                    disabled={doNotIssue || (lockDates && f.key !== "issueDate")}
                                     onChange={(e) => set({ [f.key]: e.target.value } as Partial<VoucherSettings>)}
                                     className={`w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[12px] font-black focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all disabled:opacity-40 ${
                                         f.key === "validityDate" ? "text-rose-600" : ""
@@ -266,6 +275,7 @@ export default function VoucherSettingsPanel({
                             No balance voucher is issued, so these dates are unused.
                         </p>
                     )}
+                    {!doNotIssue && datesNote}
                 </div>
 
                 {/* Late surcharge */}
