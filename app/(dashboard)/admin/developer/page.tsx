@@ -331,9 +331,10 @@ export default function DeveloperSettingsPage() {
             <div className="space-y-2">
               <h3 className="font-black text-zinc-800 text-lg">PAY IMMEDIATELY Vouchers</h3>
               <p className="text-xs text-zinc-400 font-medium">
-                When on, a voucher issued to a student 2+ months behind on fees automatically gets a
-                4-day due date and a &quot;PAY IMMEDIATELY&quot; watermark. Applies to single, bulk,
-                and split issuance. Off by default — turn on once you&apos;ve confirmed the behavior.
+                When on, a voucher issued to a student who hasn&apos;t paid their last two vouchers
+                automatically gets 4 days to pay (Sundays not counted) and a &quot;PAY IMMEDIATELY&quot;
+                watermark. Applies to single, bulk, and split issuance. Off by default — turn on once
+                you&apos;ve confirmed the behavior.
               </p>
             </div>
 
