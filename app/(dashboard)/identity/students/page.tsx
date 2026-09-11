@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Download, Loader2, CheckCircle2, Camera, Fingerprint, Receipt, Play, School, CalendarRange } from "lucide-react";
+import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Download, Loader2, CheckCircle2, Camera, Fingerprint, Receipt, Play, School, CalendarRange, Atom } from "lucide-react";
 import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
@@ -36,6 +36,7 @@ const STUDENT_COLUMNS: ColumnOption[] = [
     { key: "branch", label: "Branch" },
     { key: "class", label: "Class" },
     { key: "section", label: "Section" },
+    { key: "discipline", label: "Academic Discipline" },
     { key: "house", label: "House" },
     { key: "status", label: "Status" },
     { key: "academic_year", label: "Academic Year" },
@@ -59,7 +60,7 @@ const PARENT_COLUMNS: ColumnOption[] = [
     { key: "emergency_contact_phone", label: "Emergency Contact Phone" },
 ];
 
-const STANDARD_COLUMNS = ["student_name", "father_name", "mother_name", "cc", "gr", "branch", "class", "section", "gender", "cnic", "academic_year", "dob", "status"];
+const STANDARD_COLUMNS = ["student_name", "father_name", "mother_name", "cc", "gr", "branch", "class", "section", "discipline", "gender", "cnic", "academic_year", "dob", "status"];
 
 interface ExportColumnModalProps {
     isOpen: boolean;
@@ -236,6 +237,7 @@ interface StudentCore {
     photograph_url: string | null;
     academic_system?: string | null;
     requested_grade?: string | null;
+    discipline?: string | null;
     primary_guardian_name?: string | null;
     guardian_relationship?: string | null;
     cnic?: string | null;
@@ -343,6 +345,11 @@ function StudentCard({ student, onClick }: { student: Student; onClick: () => vo
                                 <Layers className="h-2.5 w-2.5 text-zinc-400" />SEC {c.section_description}
                             </span>
                         )}
+                        {c.discipline && (
+                            <span className="flex items-center gap-1 text-[10px] bg-purple-50 border border-purple-100 text-purple-700 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                                <Atom className="h-2.5 w-2.5 text-purple-500" />{c.discipline}
+                            </span>
+                        )}
                         {c.academic_system === 'A-Level' && (
                             <span className="flex items-center gap-1 text-[10px] bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
                                 <BookOpen className="h-2.5 w-2.5 text-indigo-400" />A-LEVEL
@@ -408,6 +415,7 @@ function DirectoryContent() {
     const [campusIds, setCampusIds] = useState<number[]>([]);
     const [classIds, setClassIds] = useState<number[]>([]);
     const [sectionIds, setSectionIds] = useState<number[]>([]);
+    const [disciplines, setDisciplines] = useState<string[]>([]);
     const [houseIds, setHouseIds] = useState<number[]>([]);
     const [statuses, setStatuses] = useState<string[]>(() => {
         const s = searchParams?.get("status");
@@ -460,6 +468,7 @@ function DirectoryContent() {
         if (campusIds.length > 0) params.campus_id = campusIds.join(",");
         if (classIds.length > 0) params.class_id = classIds.join(",");
         if (sectionIds.length > 0) params.section_id = sectionIds.join(",");
+        if (disciplines.length > 0) params.discipline = disciplines.join(",");
         if (houseIds.length > 0) params.house_id = houseIds.join(",");
         if (statuses.length > 0) params.status = statuses.join(",");
         if (graduatedFromClassIds.length > 0) params.graduated_from_class_id = graduatedFromClassIds.join(",");
@@ -468,7 +477,7 @@ function DirectoryContent() {
         if (photoFilter) params.has_photo = photoFilter;
         if (hadQuickAdmission) params.had_quick_admission = "true";
         return params;
-    }, [page, search, campusIds, classIds, sectionIds, houseIds, statuses, graduatedFromClassIds, graduatedYearRange, auditType, photoFilter, hadQuickAdmission]);
+    }, [page, search, campusIds, classIds, sectionIds, disciplines, houseIds, statuses, graduatedFromClassIds, graduatedYearRange, auditType, photoFilter, hadQuickAdmission]);
 
     const triggerFetch = useCallback(() => {
         fetchStudents(buildFilterParams());
@@ -483,13 +492,14 @@ function DirectoryContent() {
     }, [search]);
 
     // Instant on filter/page change
-    useEffect(() => { triggerFetch(); }, [page, campusIds, classIds, sectionIds, houseIds, statuses, graduatedFromClassIds, graduatedYearRange, auditType, photoFilter, hadQuickAdmission, triggerFetch]);
+    useEffect(() => { triggerFetch(); }, [page, campusIds, classIds, sectionIds, disciplines, houseIds, statuses, graduatedFromClassIds, graduatedYearRange, auditType, photoFilter, hadQuickAdmission, triggerFetch]);
 
-    const hasFilters = campusIds.length > 0 || classIds.length > 0 || sectionIds.length > 0 || houseIds.length > 0 || (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ENROLLED")) || graduatedFromClassIds.length > 0 || !!graduatedYearRange || !!auditType || !!photoFilter || hadQuickAdmission;
+    const hasFilters = campusIds.length > 0 || classIds.length > 0 || sectionIds.length > 0 || disciplines.length > 0 || houseIds.length > 0 || (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ENROLLED")) || graduatedFromClassIds.length > 0 || !!graduatedYearRange || !!auditType || !!photoFilter || hadQuickAdmission;
     const clearFilters = () => {
         setCampusIds([]);
         setClassIds([]);
         setSectionIds([]);
+        setDisciplines([]);
         setHouseIds([]);
         setStatuses(["ENROLLED"]);
         setGraduatedFromClassIds([]);
@@ -533,6 +543,16 @@ function DirectoryContent() {
     const campusOptions = campuses.map((c: any) => ({ id: c.id as number, label: c.campus_name as string }));
     const classOptions = classes.map((c: any) => ({ id: c.id as number, label: c.description as string }));
     const sectionOptions = sections.map((s: any) => ({ id: s.id as number, label: s.description as string }));
+    const disciplineOptions = [
+        { id: "Pre-Medical", label: "Pre-Medical" },
+        { id: "Pre-Engineering", label: "Pre-Engineering" },
+        { id: "Computer Science", label: "Computer Science" },
+        { id: "Pre-Commerce", label: "Pre-Commerce" },
+        { id: "Commerce", label: "Commerce" },
+        { id: "Humanities", label: "Humanities" },
+        { id: "Science", label: "Science" },
+        { id: "General", label: "General" },
+    ];
     const statusOptions = [
         { id: "QUICK_ADMISSION", label: "Quick Admission" },
         { id: "ENROLLED", label: "Enrolled" },
@@ -631,6 +651,17 @@ function DirectoryContent() {
                             placeholder="All Sections"
                             onToggle={id => { setSectionIds(prev => toggleId(prev, id)); setPage(1); }}
                             onClear={() => { setSectionIds([]); setPage(1); }}
+                        />
+                    </div>
+                    <div className="w-[180px]">
+                        <FilterDropdown
+                            label="Discipline"
+                            icon={Atom}
+                            value={disciplines}
+                            options={disciplineOptions}
+                            placeholder="All Disciplines"
+                            onToggle={id => { setDisciplines(prev => toggleId(prev, id)); setPage(1); }}
+                            onClear={() => { setDisciplines([]); setPage(1); }}
                         />
                     </div>
                     <div className="w-[180px]">
