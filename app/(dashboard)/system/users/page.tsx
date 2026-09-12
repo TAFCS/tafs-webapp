@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Users, UserPlus, Search, X, Check, UserCog,
   Activity, UserCheck, UserMinus, Eye, Copy, Briefcase,
-  Link2, Minus,
+  Link2, Minus, ChevronRight, ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
@@ -53,16 +53,63 @@ interface StaffUser {
   employee_profile: EmployeeProfileSummary | null;
 }
 
+interface TileActionRef {
+  tileId: string;
+  actionId: string;
+}
+
+/**
+ * A user's universal data scope. An EMPTY array on a dimension means
+ * UNRESTRICTED on that dimension, not "nothing" — mirrors UserScope in
+ * src/store/slices/authSlice.ts and scope.types.ts on the backend.
+ */
+interface UserScope {
+  campuses: number[];
+  segments: number[];
+  classes: number[];
+  sections: number[];
+  departments: number[];
+  staffCategories: number[];
+}
+
+const EMPTY_SCOPE: UserScope = {
+  campuses: [], segments: [], classes: [], sections: [],
+  departments: [], staffCategories: [],
+};
+
+type ScopeDimension = keyof UserScope;
+
+interface ScopeOption {
+  id: number;
+  label: string | null;
+  code?: string | null;
+  segmentId?: number | null;
+  departmentId?: number | null;
+}
+
+type ScopeOptions = Record<ScopeDimension, ScopeOption[]>;
+
+const SCOPE_DIMENSIONS: { key: ScopeDimension; label: string; hint: string }[] = [
+  { key: "campuses", label: "Campuses", hint: "Which campuses' records they may touch" },
+  { key: "segments", label: "Segments", hint: "Pre-primary, primary, secondary…" },
+  { key: "classes", label: "Classes", hint: "Narrowed by the chosen segments" },
+  { key: "sections", label: "Sections", hint: "Sections within those classes" },
+  { key: "departments", label: "Departments", hint: "Employee records only" },
+  { key: "staffCategories", label: "Staff categories", hint: "Narrowed by the chosen departments" },
+];
+
 interface UserAccessState {
   role: StaffRole;
   roleTileIds: string[];
   packIds: string[];
   assignedPacks: { id: string; name: string }[];
-  allPacks: { id: string; name: string; description: string | null; is_system: boolean; tileIds: string[] }[];
+  allPacks: { id: string; name: string; description: string | null; is_system: boolean; tileIds: string[]; tileActions: TileActionRef[] }[];
   grants: { tileId: string; allow: boolean; note: string | null }[];
+  actionGrants: { tileId: string; actionId: string; allow: boolean; note: string | null }[];
+  scope: UserScope;
 }
 
-type DrawerTab = "identity" | "job" | "access";
+type DrawerTab = "identity" | "job" | "access" | "scope";
 
 function StatusBadge({ active }: { active: boolean }) {
   return (
@@ -119,6 +166,12 @@ export default function PeopleAccessPage() {
   const [loadingAccess, setLoadingAccess] = useState(false);
   const [draftPackIds, setDraftPackIds] = useState<string[]>([]);
   const [draftGrants, setDraftGrants] = useState<Record<string, boolean>>({});
+  /** Keyed `tileId#actionId` — the same address the session's effectiveActions uses. */
+  const [draftActionGrants, setDraftActionGrants] = useState<Record<string, boolean>>({});
+  const [expandedTiles, setExpandedTiles] = useState<Record<string, boolean>>({});
+  const [draftScope, setDraftScope] = useState<UserScope>(EMPTY_SCOPE);
+  const [loadedScope, setLoadedScope] = useState<UserScope>(EMPTY_SCOPE);
+  const [scopeOptions, setScopeOptions] = useState<ScopeOptions | null>(null);
 
   const [revealUser, setRevealUser] = useState<StaffUser | null>(null);
   const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
@@ -146,6 +199,9 @@ export default function PeopleAccessPage() {
     hrService.listEmployees().then((rows) =>
       setManagers(rows.map((e) => ({ id: e.id, full_name: e.full_name, employee_code: e.employee_code }))),
     ).catch(() => undefined);
+    api.get("/v1/access/scope-options")
+      .then(({ data }) => setScopeOptions((data.data ?? data) as ScopeOptions))
+      .catch(() => undefined);
   }, []);
 
   const filteredUsers = useMemo(() => {
@@ -170,6 +226,12 @@ export default function PeopleAccessPage() {
       const grants: Record<string, boolean> = {};
       state.grants.forEach((g) => { grants[g.tileId] = g.allow; });
       setDraftGrants(grants);
+      const actionGrants: Record<string, boolean> = {};
+      (state.actionGrants ?? []).forEach((g) => { actionGrants[`${g.tileId}#${g.actionId}`] = g.allow; });
+      setDraftActionGrants(actionGrants);
+      const scope = { ...EMPTY_SCOPE, ...(state.scope ?? {}) };
+      setDraftScope(scope);
+      setLoadedScope(scope);
     } catch {
       toast.error("Failed to load access");
     } finally {
@@ -187,6 +249,10 @@ export default function PeopleAccessPage() {
     setAccess(null);
     setDraftPackIds([]);
     setDraftGrants({});
+    setDraftActionGrants({});
+    setExpandedTiles({});
+    setDraftScope(EMPTY_SCOPE);
+    setLoadedScope(EMPTY_SCOPE);
     setTab("identity");
     setDrawerOpen(true);
     api.get("/v1/access/packs").then(({ data }) => {
@@ -201,8 +267,11 @@ export default function PeopleAccessPage() {
           description: p.description,
           is_system: p.is_system,
           tileIds: (p.tiles || []).map((t: any) => t.tile_id),
+          tileActions: (p.tileActions || []) as TileActionRef[],
         })),
         grants: [],
+        actionGrants: [],
+        scope: EMPTY_SCOPE,
       });
     }).catch(() => undefined);
   };
@@ -287,8 +356,23 @@ export default function PeopleAccessPage() {
       await api.put(`/v1/access/users/${selectedUser.id}/access`, {
         packIds: draftPackIds,
         tileGrants: Object.entries(draftGrants).map(([tileId, allow]) => ({ tileId, allow })),
+        // Sent only when sub-permissions are actually in play. The backend
+        // rewrites user_tile_action_grants whenever this field is present, and
+        // that write is NOT migration-guarded — always sending it would break
+        // every access save until 20260912130000 is deployed.
+        ...(hasActionOverrides
+          ? {
+            tileActionGrants: Object.entries(draftActionGrants).map(([key, allow]) => {
+              const [tileId, actionId] = key.split("#");
+              return { tileId, actionId, allow };
+            }),
+          }
+          : {}),
+        // Omitted when untouched: the backend leaves scope alone without it,
+        // and every send writes one audit row.
+        ...(scopeDirty ? { scope: draftScope } : {}),
       });
-      toast.success("Access saved — they will see changes after refresh");
+      toast.success(`${scopeDirty ? "Access and scope" : "Access"} saved — they will see changes after refresh`);
       await loadAccess(selectedUser.id);
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to save access");
@@ -375,6 +459,95 @@ export default function PeopleAccessPage() {
       .forEach((p) => sources.push(p.name));
     return sources;
   };
+
+  /**
+   * State of one sub-permission. `off` means the tile itself is not held, in
+   * which case the action is unreachable no matter what is granted here.
+   */
+  const actionState = (
+    tileId: string,
+    action: { id: string; default: boolean },
+  ): "inherited" | "allowed" | "denied" | "off" => {
+    const key = `${tileId}#${action.id}`;
+    if (key in draftActionGrants) return draftActionGrants[key] ? "allowed" : "denied";
+    if (tileState(tileId) === "denied" || tileState(tileId) === "off") return "off";
+    if (action.default) return "inherited";
+    const fromPack = (access?.allPacks ?? []).some(
+      (p) => draftPackIds.includes(p.id) &&
+        (p.tileActions ?? []).some((a) => a.tileId === tileId && a.actionId === action.id),
+    );
+    return fromPack ? "inherited" : "off";
+  };
+
+  /**
+   * True once this user has any sub-permission override, drafted or stored —
+   * the latter so clearing the last one still sends the empty list that wipes
+   * it, rather than omitting the field and leaving it behind.
+   */
+  const hasActionOverrides =
+    Object.keys(draftActionGrants).length > 0 || (access?.actionGrants?.length ?? 0) > 0;
+
+  const scopeDirty = useMemo(
+    () => SCOPE_DIMENSIONS.some(({ key }) => {
+      const a = [...(draftScope[key] ?? [])].sort();
+      const b = [...(loadedScope[key] ?? [])].sort();
+      return a.length !== b.length || a.some((v, i) => v !== b[i]);
+    }),
+    [draftScope, loadedScope],
+  );
+
+  /**
+   * Options for one dimension, narrowed by its parent dimension when that
+   * parent is restricted — classes by segment, staff categories by department.
+   */
+  const optionsFor = (dim: ScopeDimension): ScopeOption[] => {
+    const all = scopeOptions?.[dim] ?? [];
+    if (dim === "classes" && draftScope.segments.length > 0) {
+      return all.filter((o) => o.segmentId != null && draftScope.segments.includes(o.segmentId));
+    }
+    if (dim === "staffCategories" && draftScope.departments.length > 0) {
+      return all.filter((o) => o.departmentId != null && draftScope.departments.includes(o.departmentId));
+    }
+    return all;
+  };
+
+  const toggleScopeId = (dim: ScopeDimension, id: number) => {
+    setDraftScope((prev) => {
+      const on = prev[dim].includes(id);
+      const next: UserScope = {
+        ...prev,
+        [dim]: on ? prev[dim].filter((v) => v !== id) : [...prev[dim], id],
+      };
+      // Drop children that just fell outside their narrowed parent, or they
+      // would stay selected while invisible in the picker.
+      if (dim === "segments" && next.segments.length > 0) {
+        const allowed = new Set(
+          (scopeOptions?.classes ?? [])
+            .filter((c) => c.segmentId != null && next.segments.includes(c.segmentId))
+            .map((c) => c.id),
+        );
+        next.classes = next.classes.filter((c) => allowed.has(c));
+      }
+      if (dim === "departments" && next.departments.length > 0) {
+        const allowed = new Set(
+          (scopeOptions?.staffCategories ?? [])
+            .filter((c) => c.departmentId != null && next.departments.includes(c.departmentId))
+            .map((c) => c.id),
+        );
+        next.staffCategories = next.staffCategories.filter((c) => allowed.has(c));
+      }
+      return next;
+    });
+  };
+
+  const scopeSummary = useMemo(() => {
+    const parts = SCOPE_DIMENSIONS
+      .filter(({ key }) => draftScope[key].length > 0)
+      .map(({ key, label }) => `${label.toLowerCase()} (${draftScope[key].length})`);
+    return parts.length === 0
+      ? "Unrestricted — this person can reach every record the tiles above allow."
+      : `Restricted to ${parts.join(" and ")}. Dimensions narrow each other.`;
+  }, [draftScope]);
 
   const catalogModules = catalog?.modules ?? [];
 
@@ -481,7 +654,7 @@ export default function PeopleAccessPage() {
                 <button onClick={() => setDrawerOpen(false)} className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900"><X className="h-5 w-5" /></button>
               </div>
               <div className="flex gap-1 px-6 pt-3">
-                {(["identity", "job", "access"] as DrawerTab[]).map((t) => (
+                {(["identity", "job", "access", "scope"] as DrawerTab[]).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
@@ -607,25 +780,87 @@ export default function PeopleAccessPage() {
                             {mod.tiles.map((tile) => {
                               const state = tileState(tile.id);
                               const sources = tileSources(tile.id);
+                              const actions = tile.actions ?? [];
+                              const expanded = !!expandedTiles[tile.id];
+                              const overrideCount = actions.filter((a) => `${tile.id}#${a.id}` in draftActionGrants).length;
                               return (
-                                <li key={tile.id} className="flex items-center gap-2 py-1.5 px-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900">
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold truncate">{tile.label}</p>
-                                    {state === "inherited" && sources.length > 0 && (
-                                      <p className="text-[10px] text-zinc-400 truncate">via {sources.join(", ")}</p>
+                                <li key={tile.id} className="rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900">
+                                  <div className="flex items-center gap-2 py-1.5 px-2">
+                                    {actions.length > 0 ? (
+                                      <button
+                                        type="button"
+                                        title={expanded ? "Hide sub-permissions" : "Show sub-permissions"}
+                                        onClick={() => setExpandedTiles((e) => ({ ...e, [tile.id]: !expanded }))}
+                                        className="p-1 -ml-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0"
+                                      >
+                                        {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                      </button>
+                                    ) : (
+                                      <span className="w-[22px] shrink-0" />
                                     )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold truncate">
+                                        {tile.label}
+                                        {actions.length > 0 && (
+                                          <span className="ml-2 text-[10px] font-bold text-zinc-400">
+                                            {overrideCount > 0 ? `${overrideCount} override${overrideCount > 1 ? "s" : ""}` : `${actions.length} sub-permissions`}
+                                          </span>
+                                        )}
+                                      </p>
+                                      {state === "inherited" && sources.length > 0 && (
+                                        <p className="text-[10px] text-zinc-400 truncate">via {sources.join(", ")}</p>
+                                      )}
+                                    </div>
+                                    <div className="flex gap-1 shrink-0">
+                                      <button type="button" title="Inherited / clear" onClick={() => setDraftGrants((g) => { const n = { ...g }; delete n[tile.id]; return n; })} className={`p-1.5 rounded-lg ${state === "inherited" || state === "off" ? "bg-zinc-100 text-zinc-500" : "text-zinc-300"}`}>
+                                        <Minus className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button type="button" title="Allow" onClick={() => setDraftGrants((g) => ({ ...g, [tile.id]: true }))} className={`p-1.5 rounded-lg ${state === "allowed" ? "bg-emerald-100 text-emerald-700" : "text-zinc-300"}`}>
+                                        <Check className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button type="button" title="Deny" onClick={() => setDraftGrants((g) => ({ ...g, [tile.id]: false }))} className={`p-1.5 rounded-lg ${state === "denied" ? "bg-rose-100 text-rose-700" : "text-zinc-300"}`}>
+                                        <X className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
                                   </div>
-                                  <div className="flex gap-1 shrink-0">
-                                    <button type="button" title="Inherited / clear" onClick={() => setDraftGrants((g) => { const n = { ...g }; delete n[tile.id]; return n; })} className={`p-1.5 rounded-lg ${state === "inherited" || state === "off" ? "bg-zinc-100 text-zinc-500" : "text-zinc-300"}`}>
-                                      <Minus className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button type="button" title="Allow" onClick={() => setDraftGrants((g) => ({ ...g, [tile.id]: true }))} className={`p-1.5 rounded-lg ${state === "allowed" ? "bg-emerald-100 text-emerald-700" : "text-zinc-300"}`}>
-                                      <Check className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button type="button" title="Deny" onClick={() => setDraftGrants((g) => ({ ...g, [tile.id]: false }))} className={`p-1.5 rounded-lg ${state === "denied" ? "bg-rose-100 text-rose-700" : "text-zinc-300"}`}>
-                                      <X className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
+
+                                  {expanded && actions.length > 0 && (
+                                    <ul className="ml-6 mb-2 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5">
+                                      {(state === "off" || state === "denied") && (
+                                        <li className="py-1 text-[10px] font-bold text-amber-600">
+                                          The tile itself is not granted — these do nothing until it is.
+                                        </li>
+                                      )}
+                                      {actions.map((action) => {
+                                        const aState = actionState(tile.id, action);
+                                        const key = `${tile.id}#${action.id}`;
+                                        return (
+                                          <li key={key} className="flex items-center gap-2 py-1 px-2 rounded-lg">
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-xs font-semibold truncate">
+                                                {action.label}
+                                                {action.default && <span className="ml-2 text-[9px] font-bold uppercase text-zinc-400">default</span>}
+                                              </p>
+                                              {action.description && (
+                                                <p className="text-[10px] text-zinc-400 truncate">{action.description}</p>
+                                              )}
+                                            </div>
+                                            <div className="flex gap-1 shrink-0">
+                                              <button type="button" title="Inherited / clear" onClick={() => setDraftActionGrants((g) => { const n = { ...g }; delete n[key]; return n; })} className={`p-1 rounded-md ${aState === "inherited" || aState === "off" ? "bg-zinc-100 text-zinc-500" : "text-zinc-300"}`}>
+                                                <Minus className="h-3 w-3" />
+                                              </button>
+                                              <button type="button" title="Allow" onClick={() => setDraftActionGrants((g) => ({ ...g, [key]: true }))} className={`p-1 rounded-md ${aState === "allowed" ? "bg-emerald-100 text-emerald-700" : "text-zinc-300"}`}>
+                                                <Check className="h-3 w-3" />
+                                              </button>
+                                              <button type="button" title="Deny — beats every grant" onClick={() => setDraftActionGrants((g) => ({ ...g, [key]: false }))} className={`p-1 rounded-md ${aState === "denied" ? "bg-rose-100 text-rose-700" : "text-zinc-300"}`}>
+                                                <X className="h-3 w-3" />
+                                              </button>
+                                            </div>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  )}
                                 </li>
                               );
                             })}
@@ -633,6 +868,60 @@ export default function PeopleAccessPage() {
                         </div>
                       ))}
                     </div>
+                  </>
+                )}
+
+                {tab === "scope" && (
+                  <>
+                    {!selectedUser && (
+                      <p className="text-sm text-zinc-400">Create the person first, then set their scope.</p>
+                    )}
+                    <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900">
+                      <p className="text-[11px] font-black uppercase tracking-widest text-zinc-400 mb-1">Which records they may touch</p>
+                      <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300">{scopeSummary}</p>
+                      <p className="text-[10px] text-zinc-400 mt-1">
+                        Leave a dimension empty for <strong>All</strong>. Once restricted, records with no value on that dimension fall outside it.
+                      </p>
+                    </div>
+                    {!scopeOptions && <p className="text-sm text-zinc-400">Loading scope options…</p>}
+                    {scopeOptions && SCOPE_DIMENSIONS.map(({ key, label, hint }) => {
+                      const options = optionsFor(key);
+                      const chosen = draftScope[key];
+                      return (
+                        <div key={key}>
+                          <div className="flex items-baseline justify-between mb-1.5">
+                            <p className="text-[11px] font-black uppercase tracking-widest text-zinc-400">
+                              {label}
+                              <span className={`ml-2 normal-case tracking-normal font-bold ${chosen.length === 0 ? "text-emerald-600" : "text-primary"}`}>
+                                {chosen.length === 0 ? "All" : `${chosen.length} selected`}
+                              </span>
+                            </p>
+                            {chosen.length > 0 && (
+                              <button type="button" onClick={() => setDraftScope((p) => ({ ...p, [key]: [] }))} className="text-[10px] font-bold text-zinc-400 hover:text-rose-600">
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-zinc-400 mb-1.5">{hint}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {options.length === 0 && <span className="text-[11px] text-zinc-400">Nothing to pick.</span>}
+                            {options.map((o) => {
+                              const on = chosen.includes(o.id);
+                              return (
+                                <button
+                                  key={o.id}
+                                  type="button"
+                                  onClick={() => toggleScopeId(key, o.id)}
+                                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${on ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-800 text-zinc-500"}`}
+                                >
+                                  {o.label || o.code || `#${o.id}`}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </>
                 )}
               </div>
