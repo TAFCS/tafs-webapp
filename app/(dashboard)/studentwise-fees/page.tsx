@@ -345,6 +345,8 @@ function StudentwiseFeeEditor() {
     const [isDeletingDiscountId, setIsDeletingDiscountId] = useState<number | null>(null);
     const [scholarshipPresets, setScholarshipPresets] = useState<DiscountPreset[]>([]);
     const [showScholarshipModal, setShowScholarshipModal] = useState(false);
+    /** Admin asked for the scholarship column on a student who has none yet. */
+    const [scholarshipColRequested, setScholarshipColRequested] = useState(false);
     const [scholarshipForm, setScholarshipForm] = useState<{
         scholarship_type_id: number | "";
         custom_title: string;
@@ -904,6 +906,12 @@ function StudentwiseFeeEditor() {
         }
     }, [studentId, selectedYear, fetchInstallmentPlans]);
 
+    // A different student starts from their own state: the column reverts to
+    // hidden unless that student actually has a scholarship.
+    useEffect(() => {
+        setScholarshipColRequested(false);
+    }, [studentId, selectedYear]);
+
     // Installment heads are ordinary student_fees rows, so voucher creation/deletion and
     // deposit/reversal move them through NOT_ISSUED → ISSUED → PARTIALLY_PAID/PAID exactly
     // like every other head. The plan card below reads its own endpoint, though, so a
@@ -1152,7 +1160,22 @@ function StudentwiseFeeEditor() {
         }
     };
     const totalRows = rows.length;
-    const totalCols = COLS.length;
+
+    /**
+     * Scholarships are rare — most students have none, and an always-present
+     * column of em-dashes is noise. Show it once one exists (applying via
+     * "Set Scholarship (All MTF)" reloads rows with percentages, so it appears
+     * on its own), or when an admin asks for it to enter a per-row value.
+     */
+    const hasAnyScholarship = useMemo(
+        () => rows.some((r) => Number(r.scholarshipPercentage) > 0),
+        [rows],
+    );
+    const showScholarshipCol = hasAnyScholarship || scholarshipColRequested;
+
+    // Scholarship is the last column, so hiding it just shortens the range
+    // keyboard navigation may land on.
+    const totalCols = showScholarshipCol ? COLS.length : COLS.length - 1;
 
     const navigate = useCallback((dr: number, dc: number) => {
         setActiveCell((prev) => {
@@ -2240,6 +2263,16 @@ function StudentwiseFeeEditor() {
                                 Set Scholarship (All MTF)
                             </button>
                         )}
+                        {studentId && !hasAnyScholarship && !scholarshipColRequested && (
+                            <button
+                                onClick={() => setScholarshipColRequested(true)}
+                                title="This student has no scholarship, so the column is hidden. Show it to set a percentage on one row."
+                                className="inline-flex items-center gap-2 px-5 h-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-black uppercase tracking-widest text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all active:scale-95 shadow-sm"
+                            >
+                                <Plus className="h-3.5 w-3.5 text-zinc-400" />
+                                Scholarship Column
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
@@ -2369,7 +2402,9 @@ function StudentwiseFeeEditor() {
                                     >
                                         Amount (Rs.)
                                     </th>
-                                    <th className="w-28 border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Scholarship %</th>
+                                    {showScholarshipCol && (
+                                        <th className="w-28 border-b border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-right text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Scholarship %</th>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody ref={tbodyRef} onMouseDown={() => recentlyAddedId && setRecentlyAddedId(null)}>
@@ -2648,30 +2683,32 @@ function StudentwiseFeeEditor() {
                                                 </div>
                                             </td>
                                             {/* Scholarship % — MTF only (fee_type_id=1); enforced server-side too. */}
-                                            <td data-row={rIdx} data-col={COL_SCHOLARSHIP} className={`p-0 border-b border-zinc-100 ${aCell(COL_SCHOLARSHIP) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
-                                                {Number(row.feeId) === 1 ? (
-                                                    <div className="relative h-10 flex items-center">
-                                                        <input
-                                                            data-row={rIdx} data-col={COL_SCHOLARSHIP}
-                                                            type="number"
-                                                            min={0}
-                                                            max={100}
-                                                            step="0.01"
-                                                            value={row.scholarshipPercentage || ""}
-                                                            disabled={isLocked}
-                                                            placeholder="0"
-                                                            onChange={(e) => updateRow(rIdx, "scholarshipPercentage", e.target.value)}
-                                                            onFocus={() => setActiveCell({ row: rIdx, col: COL_SCHOLARSHIP })}
-                                                            className={`w-full h-full pl-5 pr-6 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-violet-700 dark:text-violet-300 placeholder:text-zinc-200 ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
-                                                        />
-                                                        <span className="absolute right-3 text-[10px] font-bold text-zinc-300 pointer-events-none">%</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="h-10 flex items-center justify-end pr-5">
-                                                        <span className="text-[10px] font-bold text-zinc-200">—</span>
-                                                    </div>
-                                                )}
-                                            </td>
+                                            {showScholarshipCol && (
+                                                <td data-row={rIdx} data-col={COL_SCHOLARSHIP} className={`p-0 border-b border-zinc-100 ${aCell(COL_SCHOLARSHIP) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
+                                                    {Number(row.feeId) === 1 ? (
+                                                        <div className="relative h-10 flex items-center">
+                                                            <input
+                                                                data-row={rIdx} data-col={COL_SCHOLARSHIP}
+                                                                type="number"
+                                                                min={0}
+                                                                max={100}
+                                                                step="0.01"
+                                                                value={row.scholarshipPercentage || ""}
+                                                                disabled={isLocked}
+                                                                placeholder="0"
+                                                                onChange={(e) => updateRow(rIdx, "scholarshipPercentage", e.target.value)}
+                                                                onFocus={() => setActiveCell({ row: rIdx, col: COL_SCHOLARSHIP })}
+                                                                className={`w-full h-full pl-5 pr-6 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-violet-700 dark:text-violet-300 placeholder:text-zinc-200 ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
+                                                            />
+                                                            <span className="absolute right-3 text-[10px] font-bold text-zinc-300 pointer-events-none">%</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="h-10 flex items-center justify-end pr-5">
+                                                            <span className="text-[10px] font-bold text-zinc-200">—</span>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            )}
                                         </tr>
                                     );
                                 })}
