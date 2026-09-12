@@ -17,6 +17,8 @@ import { clampPayrollRange, defaultPayrollRange, payrollRangeCreatePayload } fro
 interface Props {
   employeeId: number;
   employmentStatus?: EmployeeStatus | null;
+  /** Mirrors hr.employee_directory#loan.edit. */
+  canEdit?: boolean;
 }
 
 const inputCls =
@@ -64,7 +66,7 @@ function cycleLabel(txn: EmployeeLoan["transactions"][number]): string {
   return "-";
 }
 
-export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
+export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }: Props) {
   const [data, setData] = useState<EmployeeLoanResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -269,7 +271,7 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
           </p>
         )}
 
-        {!current && (
+        {!current && canEdit && (
           <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total amount</label>
@@ -337,6 +339,7 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
               caption={`${current.amount_repaid_opening > 0 ? `${formatPkr(current.amount_repaid_opening)} already repaid before this was tracked here.` : ""}${current.notes ? ` ${current.notes}` : ""}`.trim() || undefined}
             />
 
+            {canEdit && (
             <div className="flex flex-wrap gap-2 mb-4">
               {current.status === "ACTIVE" && current.outstanding_balance > 0 && (
                 <button
@@ -405,6 +408,7 @@ export function EmployeeLoanTab({ employeeId, employmentStatus }: Props) {
                 </button>
               )}
             </div>
+            )}
 
             {editingSchedule && current.status === "ACTIVE" && current.outstanding_balance > 0 && (
               <div className="mb-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">

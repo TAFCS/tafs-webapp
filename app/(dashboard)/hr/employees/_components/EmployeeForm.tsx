@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Loader2, AlertCircle, CheckCircle2, User, Briefcase, Clock, BookOpen, Lock,
   X, Camera, ChevronDown, PhoneCall, Heart, Key, Search, Copy, Eye, EyeOff, RefreshCw,
+  ShieldAlert,
 } from "lucide-react";
 import {
   hrService, EmployeeCreatePayload, Department, StaffCategory, Segment,
@@ -12,6 +13,7 @@ import {
   EMPLOYEE_STATUS_OPTIONS, EmployeeStatus, EmployeePreviousEmployerPayload,
 } from "@/lib/hr.service";
 import { useAuthState } from "@/context/AuthContext";
+import { useEmployeeAccess } from "./use-employee-access";
 import { campusesService, Campus, OfferedClass, SectionInfo } from "@/lib/campuses.service";
 import api from "@/lib/api";
 import {
@@ -453,6 +455,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const searchParams = useSearchParams();
   const { user } = useAuthState();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const access = useEmployeeAccess();
   const isEdit = !!employeeId;
 
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
@@ -1064,6 +1067,30 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       setSaving(false);
     }
   };
+
+  // The API refuses this too (@RequireAction on POST / and PATCH /:id); this
+  // just avoids handing someone a long form that cannot be submitted.
+  const formAction = isEdit ? "any edit" : "create";
+  const mayUseForm = isEdit
+    ? access.canAny(
+      "profile.edit", "employment.edit", "schedule_pay.edit",
+      "classes.edit", "portal.edit", "biometric.edit",
+    )
+    : access.can("create");
+
+  if (!mayUseForm) {
+    return (
+      <div className="max-w-5xl mx-auto flex flex-col items-center justify-center py-32 space-y-3 text-center">
+        <ShieldAlert className="h-10 w-10 text-zinc-300" />
+        <p className="text-zinc-600 dark:text-zinc-300 text-sm font-bold">
+          You do not have permission to {isEdit ? "edit" : "register"} an employee.
+        </p>
+        <p className="text-zinc-400 text-xs">
+          Ask an administrator for the {formAction} sub-permission on the Employee Directory.
+        </p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

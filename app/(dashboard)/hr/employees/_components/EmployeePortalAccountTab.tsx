@@ -68,9 +68,19 @@ async function checkUsernameAvailable(username: string): Promise<boolean> {
 interface Props {
   employee: EmployeeProfile;
   onUpdated: () => void;
+  /**
+   * Employee Directory sub-permissions. Optional so the component still
+   * renders standalone; absent means "no gating", never "deny".
+   */
+  access?: { can: (actionId: string) => boolean };
 }
 
-export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
+export function EmployeePortalAccountTab({ employee, onUpdated, access }: Props) {
+  const can = (actionId: string) => (access ? access.can(actionId) : true);
+  const canEditAccount = can("portal.edit");
+  const canChangeUsername = can("portal.change_username");
+  const canReveal = can("portal.reveal_password");
+  const canReset = can("portal.reset_password");
   const { user: currentUser } = useAuthState();
   const user = employee.users;
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -299,7 +309,7 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <FieldLabel>Username</FieldLabel>
-            {usernameEditing ? (
+            {usernameEditing && canChangeUsername ? (
               <div>
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
@@ -332,11 +342,13 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
             ) : (
               <div className="flex items-center gap-2">
                 <input className={`${inputCls} bg-zinc-50 dark:bg-zinc-950`} value={user.username ?? "—"} readOnly />
-                <button type="button" onClick={() => setUsernameEditing(true)}
-                  title="Change username"
-                  className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-                  <UserCog className="h-4 w-4" />
-                </button>
+                {canChangeUsername && (
+                  <button type="button" onClick={() => setUsernameEditing(true)}
+                    title="Change username"
+                    className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                    <UserCog className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -398,83 +410,90 @@ export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
             </div>
           )}
         </div>
-        <button type="button" onClick={handleSaveAccount} disabled={saving}
-          className="mt-4 inline-flex items-center gap-2 h-9 px-4 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save account settings
-        </button>
+        {canEditAccount && (
+          <button type="button" onClick={handleSaveAccount} disabled={saving}
+            className="mt-4 inline-flex items-center gap-2 h-9 px-4 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save account settings
+          </button>
+        )}
       </div>
 
-      <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
-        <h3 className="text-[15px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center gap-2">
-          <Eye className="h-4 w-4" /> Reveal password
-        </h3>
-        {revealError && (
-          <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900 px-4 py-3 text-sm font-medium text-rose-700 dark:text-rose-300">
-            {revealError}
-          </div>
-        )}
-        {revealedPassword ? (
-          <div className="max-w-lg space-y-2">
-            <FieldLabel>Current password</FieldLabel>
-            <div className="flex items-center gap-2">
-              <input readOnly className={`${inputCls} font-mono bg-zinc-50 dark:bg-zinc-950`} value={revealedPassword} />
-              <button type="button" onClick={copyRevealedPassword}
-                className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-                <Copy className="h-4 w-4" />
-              </button>
-              <button type="button" onClick={() => setRevealedPassword(null)}
-                title="Hide"
-                className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-                <EyeOff className="h-4 w-4" />
-              </button>
+      {canReveal && (
+        <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
+          <h3 className="text-[15px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center gap-2">
+            <Eye className="h-4 w-4" /> Reveal password
+          </h3>
+          {revealError && (
+            <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900 px-4 py-3 text-sm font-medium text-rose-700 dark:text-rose-300">
+              {revealError}
             </div>
-            {revealCopied && <p className="text-[11px] text-emerald-600 font-semibold">Copied to clipboard.</p>}
-          </div>
-        ) : (
-          <button type="button" onClick={handleRevealPassword} disabled={revealing}
-            className="inline-flex items-center gap-2 h-9 px-4 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl disabled:opacity-50">
-            {revealing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
-            Reveal current password
-          </button>
-        )}
-      </div>
+          )}
+          {revealedPassword ? (
+            <div className="max-w-lg space-y-2">
+              <FieldLabel>Current password</FieldLabel>
+              <div className="flex items-center gap-2">
+                <input readOnly className={`${inputCls} font-mono bg-zinc-50 dark:bg-zinc-950`} value={revealedPassword} />
+                <button type="button" onClick={copyRevealedPassword}
+                  className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                  <Copy className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => setRevealedPassword(null)}
+                  title="Hide"
+                  className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                  <EyeOff className="h-4 w-4" />
+                </button>
+              </div>
+              {revealCopied && <p className="text-[11px] text-emerald-600 font-semibold">Copied to clipboard.</p>}
+            </div>
+          ) : (
+            <button type="button" onClick={handleRevealPassword} disabled={revealing}
+              className="inline-flex items-center gap-2 h-9 px-4 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl disabled:opacity-50">
+              {revealing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+              Reveal current password
+            </button>
+          )}
+        </div>
+      )}
 
-      <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
-        <h3 className="text-[15px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center gap-2">
-          <KeyRound className="h-4 w-4" /> Reset password
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
-          <div>
-            <FieldLabel>New password</FieldLabel>
-            <input type="password" className={inputCls} value={password}
-              onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+      {canReset && (
+        <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
+          <h3 className="text-[15px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center gap-2">
+            <KeyRound className="h-4 w-4" /> Reset password
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
+            <div>
+              <FieldLabel>New password</FieldLabel>
+              <input type="password" className={inputCls} value={password}
+                onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+            </div>
+            <div>
+              <FieldLabel>Confirm password</FieldLabel>
+              <input type="password" className={inputCls} value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
+            </div>
           </div>
-          <div>
-            <FieldLabel>Confirm password</FieldLabel>
-            <input type="password" className={inputCls} value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={handleResetPassword} disabled={resetting}
+              className="inline-flex items-center gap-2 h-9 px-4 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl disabled:opacity-50">
+              {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+              Reset password
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const generated = generateSecurePassword();
+                setPassword(generated);
+                setConfirmPassword(generated);
+              }}
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              Generate a secure password
+            </button>
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button type="button" onClick={handleResetPassword} disabled={resetting}
-            className="inline-flex items-center gap-2 h-9 px-4 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-xl disabled:opacity-50">
-            {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-            Reset password
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const generated = generateSecurePassword();
-              setPassword(generated);
-              setConfirmPassword(generated);
-            }}
-            className="text-xs font-semibold text-primary hover:underline"
-          >
-            Generate a secure password
-          </button>
-        </div>
-      </div>
+      )}
+
     </div>
   );
 }

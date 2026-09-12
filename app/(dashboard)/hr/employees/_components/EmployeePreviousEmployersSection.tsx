@@ -21,10 +21,13 @@ export function EmployeePreviousEmployersSection({
   employeeId,
   initial,
   onChanged,
+  canEdit = true,
 }: {
   employeeId: number;
   initial?: EmployeePreviousEmployer[];
   onChanged?: () => void;
+  /** Mirrors hr.employee_directory#profile.edit — false hides every control. */
+  canEdit?: boolean;
 }) {
   const [rows, setRows] = useState<EmployeePreviousEmployer[]>(initial ?? []);
   const [editing, setEditing] = useState(false);
@@ -73,18 +76,20 @@ export function EmployeePreviousEmployersSection({
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 relative">
-      <div className="absolute top-4 right-4">
-        <button
-          type="button"
-          onClick={() => {
-            setEditing((v) => !v);
-            setForm(null);
-          }}
-          className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"
-        >
-          {editing ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
-        </button>
-      </div>
+      {canEdit && (
+        <div className="absolute top-4 right-4">
+          <button
+            type="button"
+            onClick={() => {
+              setEditing((v) => !v);
+              setForm(null);
+            }}
+            className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"
+          >
+            {editing ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+          </button>
+        </div>
+      )}
 
       <h3 className="text-[13px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-4 tracking-tight flex items-center gap-2">
         <Milestone className="h-4 w-4 text-indigo-500 shrink-0" />
@@ -94,7 +99,7 @@ export function EmployeePreviousEmployersSection({
         Employers before joining TAFS (manual history — separate from Progression).
       </p>
 
-      {editing && (
+      {editing && canEdit && (
         <div className="bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-700 rounded-xl p-4 mb-4 space-y-3">
           <h4 className="text-[11px] font-bold text-zinc-900 dark:text-zinc-100 uppercase">
             Add Previous Employer
@@ -199,7 +204,7 @@ export function EmployeePreviousEmployersSection({
                     {r.reason_for_leaving ? ` · Reason: ${r.reason_for_leaving}` : ""}
                   </p>
                 </div>
-                {editing && (
+                {editing && canEdit && (
                   <button
                     type="button"
                     onClick={() => handleDelete(r.id)}

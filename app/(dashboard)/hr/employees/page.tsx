@@ -9,6 +9,7 @@ import {
 import { hrService, EmployeeProfile, EmployeeStatus, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, employeeStatusBadgeClass } from "@/lib/hr.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
+import { useEmployeeAccess } from "./_components/use-employee-access";
 import toast from "react-hot-toast";
 
 const toggleId = <T extends string | number>(prev: T[], id: T): T[] =>
@@ -588,6 +589,7 @@ function EmployeesContent() {
 
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const access = useEmployeeAccess();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -751,18 +753,20 @@ function EmployeesContent() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsExportModalOpen(true)}
-            disabled={isExporting}
-            className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isExporting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-            <span>Download Excel</span>
-          </button>
+          {access.can("export") && (
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              disabled={isExporting}
+              className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isExporting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              <span>Download Excel</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -847,14 +851,16 @@ function EmployeesContent() {
         </div>
         <FilterSelect label="Data Audit" value={auditFilter} onChange={setAuditFilter} options={AUDIT_OPTIONS} icon={<SlidersHorizontal className="h-3.5 w-3.5" />} />
 
-        <button
-          onClick={() => setIsExportModalOpen(true)}
-          disabled={isExporting}
-          className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          Download Excel
-        </button>
+        {access.can("export") && (
+          <button
+            onClick={() => setIsExportModalOpen(true)}
+            disabled={isExporting}
+            className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            Download Excel
+          </button>
+        )}
 
         {(search || campusIds.length > 0 || departmentIds.length > 0 || categoryIds.length > 0 || (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ACTIVE")) || auditFilter) && (
           <button
@@ -892,7 +898,7 @@ function EmployeesContent() {
               ? "Get started by adding employee profiles. Each employee can be linked to a staff portal account."
               : "Try adjusting your search or filters."}
           </p>
-          {employees.length === 0 && (
+          {employees.length === 0 && access.can("create") && (
             <button
               onClick={() => router.push("/hr/employees/new")}
               className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/95 transition-all"

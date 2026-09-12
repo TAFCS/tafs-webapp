@@ -44,6 +44,7 @@ import {
   type ClassSectionRow,
 } from "./EmployeeClassAssignmentsEditor";
 import { EmployeeCodeFields } from "./EmployeeCodeFields";
+import { useEmployeeAccess, TAB_ACTION_PREFIX } from "./use-employee-access";
 import { employeeCodePartsFromProfile, formatEmployeeCodeDisplay } from "@/lib/employee-code";
 
 const BASE_TABS = [
@@ -197,6 +198,7 @@ function EditableCard({
   onSave,
   children,
   readContent,
+  canEdit = true,
 }: {
   title: string;
   editing: boolean;
@@ -207,6 +209,8 @@ function EditableCard({
   onSave: () => void;
   children: React.ReactNode;
   readContent: React.ReactNode;
+  /** False hides the pencil and pins the card to its read view. */
+  canEdit?: boolean;
 }) {
   return (
     <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 relative">
@@ -235,7 +239,7 @@ function EditableCard({
               Save
             </button>
           </>
-        ) : (
+        ) : canEdit ? (
           <button
             type="button"
             onClick={onEdit}
@@ -243,10 +247,10 @@ function EditableCard({
           >
             <Pencil className="h-4 w-4" />
           </button>
-        )}
+        ) : null}
       </div>
       <h3 className="text-[15px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-4 pr-24">{title}</h3>
-      {editing ? children : <div className="divide-y divide-zinc-100 dark:divide-zinc-800">{readContent}</div>}
+      {editing && canEdit ? children : <div className="divide-y divide-zinc-100 dark:divide-zinc-800">{readContent}</div>}
     </div>
   );
 }
@@ -265,7 +269,11 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const urlTab = searchParams.get("tab");
   const { user } = useAuthState();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
-  const canManageIncrements = isSuperAdmin || !!user?.permissions?.includes("hr.employees.edit");
+  const access = useEmployeeAccess();
+  const canChangeStatus = isSuperAdmin && access.can("status.change");
+  const canManageIncrements =
+    access.can("schedule_pay.edit") &&
+    (isSuperAdmin || !!user?.permissions?.includes("hr.employees.edit"));
   const [emp, setEmp] = useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<TabId>("profile");
@@ -532,7 +540,11 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     ...(emp?.users ? [{ id: "portal" as const, label: "Portal Account", icon: Shield }] : []),
     { id: "biometric" as const, label: "Biometric", icon: Fingerprint },
     { id: "shift_overrides" as const, label: "Shift Overrides", icon: CalendarClock },
-  ];
+  ].filter((t) => access.can(`${TAB_ACTION_PREFIX[t.id] ?? t.id}.view`));
+
+  // The active tab can become unreachable — a tab arrives from ?tab= in the
+  // URL, and `portal` appears only once the employee is loaded.
+  const activeTab = tabs.some((t) => t.id === tab) ? tab : tabs[0]?.id ?? null;
 
   return (
     <div
@@ -584,7 +596,10 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {emp && (
+            {emp && access.canAny(
+              "profile.edit", "employment.edit", "schedule_pay.edit",
+              "classes.edit", "portal.edit", "biometric.edit",
+            ) && (
               <button
                 type="button"
                 onClick={() => router.push(`/hr/employees/${emp.id}/edit`)}
@@ -593,7 +608,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                 Advanced
               </button>
             )}
-            {emp && isSuperAdmin ? (
+            {emp && canChangeStatus ? (
               <EmployeeStatusDropdown
                 status={emp.employment_status ?? "ACTIVE"}
                 loading={savingStatus}
@@ -604,15 +619,17 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                 {emp.employment_status ?? "ACTIVE"}
               </span>
             ) : null}
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={deleting || !emp}
-              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-rose-50 text-rose-600 text-xs font-bold hover:bg-rose-100 transition-all disabled:opacity-50"
-              title="Soft-offboard (keeps history). Confirm again to hard-purge mistaken profiles."
-            >
-              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Delete
-            </button>
+            {access.can("delete") && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting || !emp}
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-rose-50 text-rose-600 text-xs font-bold hover:bg-rose-100 transition-all disabled:opacity-50"
+                title="Soft-offboard (keeps history). Confirm again to hard-purge mistaken profiles."
+              >
+                {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Delete
+              </button>
+            )}
             <button type="button" onClick={onClose} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors text-zinc-400 hover:text-zinc-600">
               <X className="h-5 w-5" />
             </button>
@@ -626,7 +643,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
               type="button"
               onClick={() => setTab(t.id)}
               className={`flex items-center gap-2 px-4 py-3.5 text-[13px] font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
-                tab === t.id ? "border-primary text-primary" : "border-transparent text-zinc-400 hover:text-zinc-600"
+                activeTab === t.id ? "border-primary text-primary" : "border-transparent text-zinc-400 hover:text-zinc-600"
               }`}
             >
               <t.icon className="h-4 w-4" />
@@ -644,9 +661,21 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
               </div>
             ) : (
               <>
-                {tab === "profile" && (
+                {tabs.length === 0 && (
+                  <div className="py-16 text-center">
+                    <p className="text-sm font-bold text-zinc-600 dark:text-zinc-300">
+                      You can open this record, but not any of its sections.
+                    </p>
+                    <p className="text-xs text-zinc-400 mt-1">
+                      Ask an administrator for the relevant view sub-permissions on the Employee Directory.
+                    </p>
+                  </div>
+                )}
+
+                {activeTab === "profile" && (
                   <EditableCard
                     title="Personal information"
+                    canEdit={access.can("profile.edit")}
                     editing={editProfile}
                     saving={savingProfile}
                     saved={savedProfile}
@@ -736,19 +765,19 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                   </EditableCard>
                 )}
 
-                {tab === "employment" && (
+                {activeTab === "employment" && (
                   <div className="space-y-4">
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                           <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Employment Status</p>
                           <p className="text-xs text-zinc-500 mt-0.5">
-                            {isSuperAdmin
+                            {canChangeStatus
                               ? "Mark as Left keeps the record and disables portal login. Delete soft-offboards by default; hard purge is only for mistaken/duplicate profiles."
                               : "Status is read-only for your role."}
                           </p>
                         </div>
-                        {isSuperAdmin ? (
+                        {canChangeStatus ? (
                           <EmployeeStatusDropdown
                             status={emp.employment_status ?? "ACTIVE"}
                             loading={savingStatus}
@@ -790,6 +819,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     </div>
                   <EditableCard
                     title="Employment details"
+                    canEdit={access.can("employment.edit")}
                     editing={editEmployment}
                     saving={savingEmployment}
                     saved={savedEmployment}
@@ -895,6 +925,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                   </EditableCard>
                   <EmployeePreviousEmployersSection
                     employeeId={emp.id}
+                    canEdit={access.can("profile.edit")}
                     initial={emp.employee_previous_employers}
                     onChanged={async () => {
                       const refreshed = await hrService.getEmployee(emp.id);
@@ -905,17 +936,18 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                   </div>
                 )}
 
-                {tab === "security_deposit" && (
-                  <EmployeeSecurityDepositTab employeeId={emp.id} />
+                {activeTab === "security_deposit" && (
+                  <EmployeeSecurityDepositTab employeeId={emp.id} canEdit={access.can("security_deposit.edit")} />
                 )}
 
-                {tab === "loan" && (
-                  <EmployeeLoanTab employeeId={emp.id} employmentStatus={emp.employment_status} />
+                {activeTab === "loan" && (
+                  <EmployeeLoanTab employeeId={emp.id} employmentStatus={emp.employment_status} canEdit={access.can("loan.edit")} />
                 )}
 
-                {tab === "schedule" && (
+                {activeTab === "schedule" && (
                   <EditableCard
                     title="Schedule & pay"
+                    canEdit={access.can("schedule_pay.edit")}
                     editing={editSchedule}
                     saving={savingSchedule}
                     saved={savedSchedule}
@@ -1066,7 +1098,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                   </EditableCard>
                 )}
 
-                {tab === "schedule" && (
+                {activeTab === "schedule" && (
                   <div className="mt-6 border-t border-zinc-100 pt-6 dark:border-zinc-800">
                     <EmployeeSalaryIncrementSection
                       employeeId={emp.id}
@@ -1078,21 +1110,22 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                   </div>
                 )}
 
-                {tab === "portal" && emp.users && (
-                  <EmployeePortalAccountTab employee={emp} onUpdated={reload} />
+                {activeTab === "portal" && emp.users && (
+                  <EmployeePortalAccountTab employee={emp} onUpdated={reload} access={access} />
                 )}
 
-                {tab === "biometric" && (
-                  <EmployeeBiometricTab employeeId={emp.id} employeeName={name} />
+                {activeTab === "biometric" && (
+                  <EmployeeBiometricTab employeeId={emp.id} employeeName={name} canEdit={access.can("biometric.edit")} />
                 )}
 
-                {tab === "shift_overrides" && (
-                  <EmployeeShiftOverridesTab employeeId={emp.id} employeeName={name} isSuperAdmin={isSuperAdmin} />
+                {activeTab === "shift_overrides" && (
+                  <EmployeeShiftOverridesTab employeeId={emp.id} employeeName={name} isSuperAdmin={isSuperAdmin && access.can("shift_overrides.edit")} />
                 )}
 
-                {tab === "classes" && (
+                {activeTab === "classes" && (
                   <EditableCard
                     title="Class & section assignments"
+                    canEdit={access.can("classes.edit")}
                     editing={editClasses}
                     saving={savingClasses}
                     saved={savedClasses}
@@ -1139,7 +1172,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                   </EditableCard>
                 )}
 
-                {tab === "progression" && <EmployeeProgressionTab id={emp.id} />}
+                {activeTab === "progression" && <EmployeeProgressionTab id={emp.id} />}
               </>
             )}
           </div>

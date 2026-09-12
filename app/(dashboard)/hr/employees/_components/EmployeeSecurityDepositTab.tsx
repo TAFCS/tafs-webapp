@@ -15,6 +15,8 @@ import { clampPayrollRange, defaultPayrollRange, payrollRangeCreatePayload } fro
 
 interface Props {
   employeeId: number;
+  /** Mirrors hr.employee_directory#security_deposit.edit. */
+  canEdit?: boolean;
 }
 
 const inputCls =
@@ -60,7 +62,7 @@ function cycleLabel(txn: SecurityDepositPlan["transactions"][number]): string {
   return "-";
 }
 
-export function EmployeeSecurityDepositTab({ employeeId }: Props) {
+export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props) {
   const [data, setData] = useState<EmployeeSecurityDepositResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -234,7 +236,7 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
           </p>
         )}
 
-        {!current && (
+        {!current && canEdit && (
           <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total amount</label>
@@ -294,6 +296,7 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
               caption={current.notes ?? undefined}
             />
 
+            {canEdit && (
             <div className="flex flex-wrap gap-2 mb-4">
               {current.status === "ACTIVE" && current.remaining_to_collect > 0 && (
                 <button
@@ -346,6 +349,7 @@ export function EmployeeSecurityDepositTab({ employeeId }: Props) {
                 </button>
               )}
             </div>
+            )}
 
             {editingSchedule && current.status === "ACTIVE" && current.remaining_to_collect > 0 && (
               <div className="mb-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">

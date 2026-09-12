@@ -11,6 +11,8 @@ import { MappingImpactDialog, MappingIntent, reportRebuildIfNeeded } from "@/com
 interface Props {
   employeeId: number;
   employeeName: string;
+  /** Mirrors hr.employee_directory#biometric.edit. */
+  canEdit?: boolean;
 }
 
 const inputCls =
@@ -140,7 +142,7 @@ function MappingFormModal({
   );
 }
 
-export function EmployeeBiometricTab({ employeeId, employeeName }: Props) {
+export function EmployeeBiometricTab({ employeeId, employeeName, canEdit = true }: Props) {
   const [mappings, setMappings] = useState<DeviceUserMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -255,7 +257,7 @@ export function EmployeeBiometricTab({ employeeId, employeeName }: Props) {
             className="inline-flex items-center gap-1 text-xs font-bold text-zinc-500 hover:text-primary">
             Manage all <ExternalLink className="h-3 w-3" />
           </Link>
-          {!error && (
+          {!error && canEdit && (
             <button type="button" onClick={() => { setEditing(null); setShowModal(true); }}
               className="inline-flex items-center gap-1.5 h-8 px-3 text-[11px] font-bold text-white bg-primary rounded-xl">
               <Plus className="h-3.5 w-3.5" /> Add mapping
@@ -294,18 +296,24 @@ export function EmployeeBiometricTab({ employeeId, employeeName }: Props) {
                     </span>
                   </td>
                   <td className="py-3 text-right space-x-1">
-                    <button type="button" onClick={() => { setEditing(m); setShowModal(true); }}
-                      className="text-xs font-semibold text-primary hover:underline">Edit</button>
-                    <button type="button" onClick={() => requestToggle(m)}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 inline-flex align-middle"
-                      title={m.is_active ? "Unlink this PIN" : "Re-link this PIN"}>
-                      {m.is_active ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-                    </button>
-                    <button type="button" onClick={() => requestDelete(m)}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 inline-flex align-middle"
-                      title="Delete this mapping">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {canEdit ? (
+                      <>
+                        <button type="button" onClick={() => { setEditing(m); setShowModal(true); }}
+                          className="text-xs font-semibold text-primary hover:underline">Edit</button>
+                        <button type="button" onClick={() => requestToggle(m)}
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 inline-flex align-middle"
+                          title={m.is_active ? "Unlink this PIN" : "Re-link this PIN"}>
+                          {m.is_active ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                        </button>
+                        <button type="button" onClick={() => requestDelete(m)}
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 inline-flex align-middle"
+                          title="Delete this mapping">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-zinc-300">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
