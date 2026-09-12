@@ -213,7 +213,10 @@ export default function SystemLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<string>("");
+  // Multi-select per CLAUDE.md Rule 1 — empty means every section, not none.
+  const [activeSections, setActiveSections] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [actorSearch, setActorSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -234,7 +237,8 @@ export default function SystemLogsPage() {
     setLoading(true);
     try {
       const res = await auditLogsService.list({
-        section: activeSection || undefined,
+        q: appliedSearch || undefined,
+        section: activeSections.length > 0 ? activeSections.join(",") : undefined,
         changed_by: actorSearch || undefined,
         from: dateFrom || undefined,
         to: dateTo || undefined,
@@ -249,12 +253,19 @@ export default function SystemLogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeSection, actorSearch, dateFrom, dateTo, offset]);
+  }, [appliedSearch, activeSections, actorSearch, dateFrom, dateTo, offset]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
   const handleSectionChange = (s: string) => {
-    setActiveSection(s);
+    // "" is the All chip: it clears the selection rather than joining it.
+    setActiveSections((prev) =>
+      s === ""
+        ? []
+        : prev.includes(s)
+          ? prev.filter((v) => v !== s)
+          : [...prev, s],
+    );
     setOffset(0);
     setExpandedIds(new Set());
   };
@@ -263,7 +274,18 @@ export default function SystemLogsPage() {
     e.preventDefault();
     setOffset(0);
     setExpandedIds(new Set());
-    fetchLogs();
+    setAppliedSearch(search.trim());
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setAppliedSearch("");
+    setActorSearch("");
+    setDateFrom("");
+    setDateTo("");
+    setActiveSections([]);
+    setOffset(0);
+    setExpandedIds(new Set());
   };
 
   return (
@@ -291,7 +313,7 @@ export default function SystemLogsPage() {
       {/* Section tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
         {SECTIONS.map(s => {
-          const isActive = activeSection === s;
+          const isActive = s === "" ? activeSections.length === 0 : activeSections.includes(s);
           if (s === "") {
             return (
               <button
@@ -318,6 +340,28 @@ export default function SystemLogsPage() {
 
       {/* Filters */}
       <form onSubmit={handleFilterSubmit} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 mb-6 flex flex-wrap gap-3 items-end">
+        <div className="flex flex-col gap-1 flex-1 min-w-[260px] basis-full">
+          <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Search everything</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-400" />
+            <input
+              type="text"
+              placeholder={'voucher deleted  ·  entity:EMPLOYEE action:UPDATED  ·  note:"marked as left"'}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full h-9 pl-8 pr-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-semibold outline-none focus:border-zinc-400 transition-all"
+            />
+          </div>
+          <p className="text-[10px] text-zinc-400 font-medium">
+            Terms narrow each other. Matches entity, id, action, field, old/new value, note,
+            the actor&apos;s name and — on employee rows — the employee&apos;s name and code.
+            Prefix a term with <code className="font-mono">entity:</code>,{" "}
+            <code className="font-mono">actor:</code>, <code className="font-mono">action:</code>,{" "}
+            <code className="font-mono">field:</code>, <code className="font-mono">note:</code>,{" "}
+            <code className="font-mono">value:</code>, <code className="font-mono">id:</code> or{" "}
+            <code className="font-mono">section:</code> to target one column.
+          </p>
+        </div>
         <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
           <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Actor</label>
           <div className="relative">
@@ -348,7 +392,7 @@ export default function SystemLogsPage() {
         <button type="submit" className="h-9 px-4 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all hover:bg-zinc-700">
           Apply
         </button>
-        <button type="button" onClick={() => { setActorSearch(""); setDateFrom(""); setDateTo(""); setOffset(0); setExpandedIds(new Set()); }} className="h-9 px-3 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-500 rounded-lg text-[11px] font-bold transition-all hover:bg-zinc-50">
+        <button type="button" onClick={clearFilters} className="h-9 px-3 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-500 rounded-lg text-[11px] font-bold transition-all hover:bg-zinc-50">
           Clear
         </button>
       </form>
