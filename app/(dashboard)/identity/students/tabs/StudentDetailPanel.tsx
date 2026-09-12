@@ -8,6 +8,7 @@ import { IdentityTab } from "./IdentityTab";
 import { AdmissionsTab } from "./AdmissionsTab";
 import { ClassGradeTab } from "./ClassGradeTab";
 import type { CampusItem } from "@/src/store/slices/campusesSlice";
+import { useStudentAccess } from "@/hooks/use-student-access";
 import { AcademicTab } from "./AcademicTab";
 import { GuardiansTab } from "./GuardiansTab";
 import { LifecycleActionModal } from "./LifecycleActionModal";
@@ -93,7 +94,26 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
         targetStatus: '',
         label: '',
     });
+    const access = useStudentAccess();
     const [tab, setTab] = useState<TabId>("identity");
+
+    /**
+     * Student Directory actions are route-shaped, not tab-shaped, so only the
+     * tabs that map onto one are gated. The rest ride on `view`, which every
+     * holder of the tile has.
+     */
+    const TAB_ACTION: Record<string, string> = {
+        progression: "progression.view",
+        class_grade: "assignment.edit",
+    };
+    const visibleTabs = TABS.filter((t) => {
+        const action = TAB_ACTION[t.id];
+        return !action || access.can(action);
+    });
+    const activeTab = visibleTabs.some((t) => t.id === tab) ||
+        tab === "certificates" || tab === "danger_zone"
+        ? tab
+        : visibleTabs[0]?.id ?? "identity";
     const [returnModal, setReturnModal] = useState(false);
 
     // Enrollment modal state (shown when changing status to ENROLLED)
@@ -292,6 +312,8 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                     <Award className="h-3.5 w-3.5" />
                                     <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Certificates & Documents</span>
                                 </button>
+                                {access.can("status.change") && (
+                                <>
                                 <div className="w-[1px] h-3 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
                                 <button
                                     onClick={() => setTab("danger_zone")}
@@ -301,6 +323,8 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                     <ShieldAlert className="h-3.5 w-3.5" />
                                     <span className="text-[10px] font-black uppercase tracking-tighter">Deletion</span>
                                 </button>
+                                </>
+                                )}
                             </div>
                         )}
                         {student && (
@@ -322,11 +346,11 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                 </div>
 
                 <div className="flex items-center px-6 border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0 overflow-x-auto">
-                    {TABS.map((t) => (
+                    {visibleTabs.map((t) => (
                         <button
                             key={t.id}
                             onClick={() => setTab(t.id)}
-                            className={`flex items-center gap-2 px-4 py-3.5 text-[13px] font-bold transition-all border-b-2 -mb-[1px] ${tab === t.id ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400" : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"}`}
+                            className={`flex items-center gap-2 px-4 py-3.5 text-[13px] font-bold transition-all border-b-2 -mb-[1px] ${activeTab === t.id ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400" : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"}`}
                         >
                             <t.icon className="h-4 w-4" />
                             {t.label}
@@ -344,7 +368,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                     ) : student ? (
                         <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                             {tab === "identity" && <IdentityTab student={student} onReload={() => reload(true)} />}
-                            {tab === "class_grade" && (
+                            {activeTab === "class_grade" && (
                                 <ClassGradeTab
                                     student={student}
                                     classes={classes}
@@ -355,12 +379,12 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                             )}
                             {tab === "admissions" && <AdmissionsTab student={student} onReload={() => reload(true)} classes={classes} />}
                             {tab === "academic" && <AcademicTab student={student} onReload={() => reload(true)} />}
-                            {tab === "progression" && <AcademicProgressionTab cc={student.cc} />}
+                            {activeTab === "progression" && <AcademicProgressionTab cc={student.cc} />}
                             {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} />}
                             {tab === "biometric" && <StudentBiometricTab studentCc={student.cc} studentName={student.full_name} />}
                             {tab === "certificates" && <CertificatesStudioTab cc={student.cc} student={student} />}
                             {tab === "logs" && <StudentLogsTab studentId={student.cc} />}
-                            {tab === "danger_zone" && <DangerZoneTab student={student} />}
+                            {tab === "danger_zone" && access.can("status.change") && <DangerZoneTab student={student} />}
                         </div>
                     ) : (
                         <div className="text-center py-20">

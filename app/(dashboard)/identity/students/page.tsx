@@ -13,6 +13,7 @@ import { StudentDetailPanel } from "./tabs/StudentDetailPanel";
 import toast from "react-hot-toast";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
+import { useStudentAccess } from "@/hooks/use-student-access";
 
 const DEFAULT_DEMO_VIDEO_URL =
     "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/student-directory/student-directory-demo.mp4";
@@ -407,6 +408,7 @@ function DirectoryContent() {
     const [students, setStudents] = useState<Student[]>([]);
     const [meta, setMeta] = useState<PaginationMeta | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const access = useStudentAccess();
     const [isExporting, setIsExporting] = useState(false);
     const [selectedCc, setSelectedCc] = useState<number | null>(null);
 
@@ -723,14 +725,16 @@ function DirectoryContent() {
                             Quick admission
                         </button>
 
-                        <button
-                            onClick={() => setIsExportModalOpen(true)}
-                            disabled={isExporting}
-                            className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                            Download Excel
-                        </button>
+                        {access.can("export") && (
+                            <button
+                                onClick={() => setIsExportModalOpen(true)}
+                                disabled={isExporting}
+                                className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                                Download Excel
+                            </button>
+                        )}
 
                         {hasFilters && (
                             <button onClick={clearFilters} className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors">
