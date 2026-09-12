@@ -2355,7 +2355,7 @@ function StudentwiseFeeEditor() {
                                             />
                                         </div>
                                     </th>
-                                    <th className="w-12 border-b border-r border-zinc-200 dark:border-zinc-800 px-3 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Act</th>
+                                    <th className="w-20 border-b border-r border-zinc-200 dark:border-zinc-800 px-1 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest whitespace-nowrap">Actions</th>
                                     <th className="w-10 border-b border-r border-zinc-200 dark:border-zinc-800 px-1 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">#</th>
                                     <th className="min-w-[180px] border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-left text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee Description</th>
                                     <th className="w-24 md:w-36 border-b border-r border-zinc-200 dark:border-zinc-800 px-5 py-3.5 text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Frequency</th>
@@ -2411,11 +2411,11 @@ function StudentwiseFeeEditor() {
                                             <td data-row={rIdx} data-col={COL_ACTIONS} tabIndex={0} onFocus={() => setActiveCell({ row: rIdx, col: COL_ACTIONS })}
                                                 className={`border-r border-b border-zinc-100 text-center ${aCell(COL_ACTIONS) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950" : ""}`}
                                             >
-                                                <div className="flex items-center justify-center gap-0.5">
+                                                <div className="flex items-center justify-center gap-1">
                                                     <button
                                                         onClick={() => deleteRow(rIdx)}
                                                         disabled={isLocked}
-                                                        className={`p-2 rounded-lg transition-all active:scale-90 ${isLocked ? "opacity-20 cursor-not-allowed" : "hover:bg-rose-50 text-zinc-300 hover:text-rose-600"}`}
+                                                        className={`p-1.5 rounded-lg transition-all active:scale-90 ${isLocked ? "opacity-20 cursor-not-allowed" : "hover:bg-rose-50 text-zinc-300 hover:text-rose-600"}`}
                                                     >
                                                         <Trash2 className="h-3.5 w-3.5" />
                                                     </button>
@@ -2424,7 +2424,7 @@ function StudentwiseFeeEditor() {
                                                             onClick={() => handleUnwaiveRow(row)}
                                                             disabled={waiveBusyRow === row.__id}
                                                             title={row.waiveReason ? `Waived: ${row.waiveReason}` : "Reverse waiver"}
-                                                            className="p-2 rounded-lg transition-all active:scale-90 hover:bg-teal-50 text-teal-500 hover:text-teal-700 disabled:opacity-30"
+                                                            className="p-1.5 rounded-lg transition-all active:scale-90 hover:bg-teal-50 text-teal-500 hover:text-teal-700 disabled:opacity-30"
                                                         >
                                                             {waiveBusyRow === row.__id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
                                                         </button>
@@ -2433,7 +2433,7 @@ function StudentwiseFeeEditor() {
                                                             onClick={() => handleWaiveRow(row)}
                                                             disabled={waiveBusyRow === row.__id}
                                                             title={row.voucherId ? "Waive this voucher (write off)" : "Waive this fee head (write off)"}
-                                                            className="p-2 rounded-lg transition-all active:scale-90 hover:bg-amber-50 text-zinc-300 hover:text-amber-600 disabled:opacity-30"
+                                                            className="p-1.5 rounded-lg transition-all active:scale-90 hover:bg-amber-50 text-zinc-300 hover:text-amber-600 disabled:opacity-30"
                                                         >
                                                             {waiveBusyRow === row.__id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}
                                                         </button>
