@@ -40,6 +40,20 @@ export interface NavModule {
     items: NavItem[];
 }
 
+/** A sub-permission inside a tile, addressed globally as `tileId#actionId`. */
+export interface AccessCatalogAction {
+    id: string;
+    /** `tileId#actionId` — what the session's effectiveActions contains. */
+    key: string;
+    label: string;
+    description: string | null;
+    /** Conferred automatically when the tile itself is granted. */
+    default: boolean;
+    /** Action ids in the same tile this one also confers, transitively. */
+    implies: string[];
+    sort_order: number;
+}
+
 export interface AccessCatalogTile {
     id: string;
     module: string;
@@ -49,6 +63,8 @@ export interface AccessCatalogTile {
     group: string | null;
     sort_order: number;
     capabilities: string[];
+    /** Empty for tiles that have not opted into sub-permissions. */
+    actions?: AccessCatalogAction[];
 }
 
 export interface AccessCatalog {

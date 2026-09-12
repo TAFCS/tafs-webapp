@@ -54,6 +54,12 @@ function normalizeStaffUser(user: StaffUser): StaffUser {
         allowedClassIds: user.allowedClassIds ?? [],
         permissions: user.permissions ?? [],
         effectiveTileIds: user.effectiveTileIds,
+        effectiveActions: user.effectiveActions ?? [],
+        // Left undefined on purpose when absent: undefined means "session
+        // predates scope", which reads as unrestricted. An empty object here
+        // would look identical but is also what a genuinely unrestricted user
+        // gets, so the distinction does not matter to callers.
+        scope: user.scope,
         payrollEnabled: user.payrollEnabled,
         hasEmployeeProfile: user.hasEmployeeProfile,
     };
