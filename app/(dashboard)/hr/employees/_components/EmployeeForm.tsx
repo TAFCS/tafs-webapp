@@ -666,12 +666,13 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   }, []);
 
   const suggestNextCodeForDep = useCallback(async (dep: string) => {
-    if (!dep.trim() || isEdit) return;
+    const cleanDep = dep.replace(/\D/g, "").slice(0, 2);
+    if (!cleanDep || cleanDep.length < 2 || isEdit) return;
     try {
-      const { number, code } = await hrService.getNextEmployeeCode(dep);
+      const { number, code } = await hrService.getNextEmployeeCode(cleanDep);
       setFormData(prev => ({
         ...prev,
-        employee_code_dep: dep.padStart(2, "0"),
+        employee_code_dep: cleanDep,
         employee_code_number: number,
         employee_code: code,
       }));
@@ -905,7 +906,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       spouse_cnic: hasSpouse ? optionalText(formData.spouse_cnic) : null,
       spouse_photo_url: hasSpouse ? optionalText(formData.spouse_photo_url) : null,
       employee_code: optionalText(formData.employee_code),
-      employee_code_dep: optionalText(formData.employee_code_dep),
+      employee_code_dep: optionalText(formData.employee_code_dep ? formData.employee_code_dep.padStart(2, "0") : ""),
       employee_code_number: optionalText(formData.employee_code_number),
       department_id: formData.department_id ? parseInt(formData.department_id, 10) : undefined,
       staff_category_id: optionalId(formData.staff_category_id),
@@ -1068,6 +1069,15 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto flex flex-col items-center justify-center py-32 space-y-4">
+        <Loader2 className="h-10 w-10 text-primary animate-spin" />
+        <p className="text-zinc-500 dark:text-zinc-400 text-sm">Loading employee form…</p>
+      </div>
+    );
+  }
+
   // The API refuses this too (@RequireAction on POST / and PATCH /:id); this
   // just avoids handing someone a long form that cannot be submitted.
   const formAction = isEdit ? "any edit" : "create";
@@ -1088,15 +1098,6 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
         <p className="text-zinc-400 text-xs">
           Ask an administrator for the {formAction} sub-permission on the Employee Directory.
         </p>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="max-w-5xl mx-auto flex flex-col items-center justify-center py-32 space-y-4">
-        <Loader2 className="h-10 w-10 text-primary animate-spin" />
-        <p className="text-zinc-500 dark:text-zinc-400 text-sm">Loading employee form…</p>
       </div>
     );
   }
@@ -1176,7 +1177,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                   </option>
                   {(departments.find(d => String(d.id) === formData.department_id)?.staff_categories ?? []).map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name} {c.employee_code_dep ? `(Code ${c.employee_code_dep})` : ''}
+                      {c.name}
                     </option>
                   ))}
                 </select>

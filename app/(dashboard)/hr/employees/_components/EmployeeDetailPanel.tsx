@@ -827,7 +827,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     onCancel={() => { setEditEmployment(false); syncForms(emp); }}
                     onSave={() => patch({
                       employee_code: optionalText(employmentForm.employee_code),
-                      employee_code_dep: optionalText(employmentForm.employee_code_dep),
+                      employee_code_dep: optionalText(employmentForm.employee_code_dep ? employmentForm.employee_code_dep.padStart(2, "0") : ""),
                       employee_code_number: optionalText(employmentForm.employee_code_number),
                       department_id: employmentForm.department_id ? parseInt(employmentForm.department_id, 10) : undefined,
                       staff_category_id: optionalId(employmentForm.staff_category_id),
