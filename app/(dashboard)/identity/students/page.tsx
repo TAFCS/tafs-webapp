@@ -549,9 +549,11 @@ function DirectoryContent() {
     const sectionOptions = sections.map((s: any) => ({ id: s.id as number, label: s.description as string }));
     const disciplineOptions = [
         { id: "none", label: "No Discipline" },
+        { id: "Biology", label: "Biology" },
+        { id: "Computer", label: "Computer" },
+        { id: "Computer Science", label: "Computer Science" },
         { id: "Pre-Medical", label: "Pre-Medical" },
         { id: "Pre-Engineering", label: "Pre-Engineering" },
-        { id: "Computer Science", label: "Computer Science" },
         { id: "Pre-Commerce", label: "Pre-Commerce" },
         { id: "Commerce", label: "Commerce" },
         { id: "Humanities", label: "Humanities" },
