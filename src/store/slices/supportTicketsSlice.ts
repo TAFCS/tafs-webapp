@@ -288,6 +288,21 @@ export const deleteTicketMessage = createAsyncThunk(
   },
 );
 
+export const editTicketMessage = createAsyncThunk(
+  'supportTickets/editTicketMessage',
+  async (
+    { messageId, content }: { messageId: string; content: string },
+    { rejectWithValue },
+  ) => {
+    try {
+      const res = await api.patch(`v1/support-tickets/messages/${messageId}`, { content });
+      return res.data.data ?? res.data;
+    } catch (err) {
+      return rejectWithValue(apiError(err, 'Edit failed'));
+    }
+  },
+);
+
 export const claimTicket = createAsyncThunk(
   'supportTickets/claimTicket',
   async (ticketId: string, { rejectWithValue }) => {
@@ -431,6 +446,40 @@ const supportTicketsSlice = createSlice({
         );
       }
       state.pendingApprovals = state.pendingApprovals.filter((p) => p.id !== messageId);
+      if (ticket) {
+        patchQueueTicket(state, ticket);
+        if (state.selectedTicket?.id === ticketId) {
+          state.selectedTicket = {
+            ...state.selectedTicket,
+            ...ticket,
+            messages: state.selectedTicket.messages,
+            events: state.selectedTicket.events,
+          };
+        }
+      }
+    },
+    updateTicketMessage(
+      state,
+      action: PayloadAction<{
+        ticketId?: string;
+        ticket?: SupportTicket;
+        message: TicketMessage;
+      }>,
+    ) {
+      const { ticket, message } = action.payload;
+      const ticketId =
+        action.payload.ticketId ??
+        message.ticket_id ??
+        (message as any).ticketId ??
+        ticket?.id;
+      if (state.selectedTicket?.id === ticketId && state.selectedTicket.messages) {
+        state.selectedTicket.messages = state.selectedTicket.messages.map((m) =>
+          m.id === message.id ? { ...m, ...message } : m,
+        );
+      }
+      state.pendingApprovals = state.pendingApprovals.map((p) =>
+        p.id === message.id ? { ...p, content: message.content } : p,
+      );
       if (ticket) {
         patchQueueTicket(state, ticket);
         if (state.selectedTicket?.id === ticketId) {
@@ -650,6 +699,22 @@ const supportTicketsSlice = createSlice({
           },
           type: '',
         });
+      })
+      .addCase(editTicketMessage.fulfilled, (state, action) => {
+        const payload = action.payload as {
+          messageId?: string;
+          ticket?: SupportTicket;
+          message?: TicketMessage;
+        };
+        if (payload?.message) {
+          supportTicketsSlice.caseReducers.updateTicketMessage(state, {
+            payload: {
+              ticket: payload.ticket,
+              message: payload.message,
+            },
+            type: '',
+          });
+        }
       });
   },
 });
@@ -664,6 +729,7 @@ export const {
   removeOpenQueueTicket,
   appendTicketMessage,
   markTicketMessageDeleted,
+  updateTicketMessage,
   updateMessageReviewStatus,
   addPendingApproval,
   markTicketUnreadZero,

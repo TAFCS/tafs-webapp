@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Check, CheckCheck, ChevronDown, Copy, FileText, Loader2, Mic, Phone, Reply, Send, ShieldCheck, Trash2, User, X } from "lucide-react";
+import { Check, CheckCheck, ChevronDown, Copy, FileText, Loader2, Mic, Pencil, Phone, Reply, Send, ShieldCheck, Trash2, User, X } from "lucide-react";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
@@ -13,6 +13,7 @@ import {
   claimTicket,
   closeTicket,
   deleteTicketMessage,
+  editTicketMessage,
   reviewTicketMessage,
   DELETED_TICKET_MESSAGE_LABEL,
   isTicketMessageDeleted,
@@ -326,7 +327,11 @@ export function TicketThread({
     text: string | null;
     messageId: string;
     canDelete: boolean;
+    canEdit: boolean;
   } | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
@@ -556,6 +561,36 @@ export function TicketThread({
       toast.error(typeof err === "string" ? err : "Review failed");
     } finally {
       setReviewLoading(null);
+    }
+  };
+
+  const startEditing = (msg: TicketMessage) => {
+    setEditingMessageId(msg.id);
+    setEditingText(msg.content);
+    setContextMenu(null);
+  };
+
+  const saveEdit = async (messageId: string) => {
+    if (!editingText.trim()) {
+      toast.error("Message content cannot be empty");
+      return;
+    }
+    setIsSavingEdit(true);
+    try {
+      const result = await dispatch(
+        editTicketMessage({ messageId, content: editingText.trim() }),
+      );
+      if (editTicketMessage.rejected.match(result)) {
+        toast.error((result.payload as string) || "Failed to update message");
+      } else {
+        toast.success("Message updated");
+        setEditingMessageId(null);
+        setEditingText("");
+      }
+    } catch {
+      toast.error("Failed to update message");
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -937,6 +972,8 @@ export function TicketThread({
           const deleted = isTicketMessageDeleted(msg);
           const canDelete =
             isSuperAdmin && ownMessage && !deleted && !isClosed;
+          const canEdit =
+            isSuperAdmin && msg.sender_type === "STAFF" && !deleted && !isClosed;
 
           return (
             <div
@@ -954,21 +991,35 @@ export function TicketThread({
                 </div>
               )}
               <div className={`flex items-center gap-1.5 group/msg ${onRight ? "justify-end" : "justify-start"}`}>
-                {!onRight && canCompose && !deleted && (
-                  <button
-                    type="button"
-                    onClick={() => setReplyingTo(msg)}
-                    className="opacity-0 group-hover/msg:opacity-100 p-1.5 rounded-lg text-zinc-400 hover:text-primary hover:bg-primary/10 transition-all shrink-0"
-                    title="Reply"
-                  >
-                    <Reply className="h-3.5 w-3.5" />
-                  </button>
+                {!onRight && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover/msg:opacity-100 transition-all shrink-0">
+                    {canCompose && !deleted && (
+                      <button
+                        type="button"
+                        onClick={() => setReplyingTo(msg)}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:text-primary hover:bg-primary/10 transition-all shrink-0"
+                        title="Reply"
+                      >
+                        <Reply className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => startEditing(msg)}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10 transition-all shrink-0"
+                        title="Edit message"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 )}
               <div
                 onDoubleClick={() => canCompose && !deleted && setReplyingTo(msg)}
                 onContextMenu={(e) => {
                   const text = copyableTicketText(msg);
-                  if (!text && !canDelete) return;
+                  if (!text && !canDelete && !canEdit) return;
                   e.preventDefault();
                   setContextMenu({
                     x: e.clientX,
@@ -976,12 +1027,13 @@ export function TicketThread({
                     text,
                     messageId: msg.id,
                     canDelete,
+                    canEdit,
                   });
                 }}
                 onTouchStart={(e) => {
                   const touch = e.touches[0];
                   const text = copyableTicketText(msg);
-                  if (!touch || (!text && !canDelete)) return;
+                  if (!touch || (!text && !canDelete && !canEdit)) return;
                   if (longPressTimer.current) clearTimeout(longPressTimer.current);
                   longPressTimer.current = setTimeout(() => {
                     setContextMenu({
@@ -990,6 +1042,7 @@ export function TicketThread({
                       text,
                       messageId: msg.id,
                       canDelete,
+                      canEdit,
                     });
                   }, 500);
                 }}
@@ -1096,6 +1149,38 @@ export function TicketThread({
                   <p className={`italic ${onRight ? "text-white/80" : "text-zinc-500 dark:text-zinc-400"}`}>
                     {DELETED_TICKET_MESSAGE_LABEL}
                   </p>
+                ) : editingMessageId === msg.id ? (
+                  <div className="flex flex-col gap-2 my-1">
+                    <textarea
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      className="w-full min-h-[60px] p-2 text-xs rounded-lg border border-amber-300 dark:border-amber-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                      autoFocus
+                      rows={3}
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingMessageId(null);
+                          setEditingText("");
+                        }}
+                        disabled={isSavingEdit}
+                        className="px-2.5 py-1 text-xs rounded-lg bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => saveEdit(msg.id)}
+                        disabled={isSavingEdit || !editingText.trim()}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50 transition-colors shadow-sm"
+                      >
+                        {isSavingEdit && <Loader2 className="h-3 w-3 animate-spin" />}
+                        Save
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     {msg.message_type === "TEXT" && (
@@ -1134,15 +1219,26 @@ export function TicketThread({
                     onRight ? "border-white/20" : "border-zinc-200 dark:border-zinc-700"
                   }`}>
                     <button
-                      disabled={reviewLoading === msg.id}
+                      disabled={reviewLoading === msg.id || isSavingEdit}
                       onClick={() => reviewMessage(msg.id, "APPROVED")}
                       className="inline-flex items-center gap-1 px-2 py-1 bg-green-600 text-white rounded-lg text-xs font-bold disabled:opacity-50"
                     >
                       {reviewLoading === msg.id && <Loader2 className="h-3 w-3 animate-spin" />}
                       Approve
                     </button>
+                    {editingMessageId !== msg.id && (
+                      <button
+                        type="button"
+                        disabled={reviewLoading === msg.id || isSavingEdit}
+                        onClick={() => startEditing(msg)}
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold disabled:opacity-50"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Edit
+                      </button>
+                    )}
                     <button
-                      disabled={reviewLoading === msg.id}
+                      disabled={reviewLoading === msg.id || isSavingEdit}
                       onClick={() => setRejectId(rejectId === msg.id ? null : msg.id)}
                       className="px-2 py-1 bg-red-600 text-white rounded-lg text-xs font-bold disabled:opacity-50"
                     >
@@ -1168,15 +1264,29 @@ export function TicketThread({
                   </div>
                 )}
               </div>
-                {onRight && canCompose && !deleted && (
-                  <button
-                    type="button"
-                    onClick={() => setReplyingTo(msg)}
-                    className="opacity-0 group-hover/msg:opacity-100 p-1.5 rounded-lg text-zinc-400 hover:text-primary hover:bg-primary/10 transition-all shrink-0"
-                    title="Reply"
-                  >
-                    <Reply className="h-3.5 w-3.5" />
-                  </button>
+                {onRight && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover/msg:opacity-100 transition-all shrink-0">
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => startEditing(msg)}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10 transition-all shrink-0"
+                        title="Edit message"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {canCompose && !deleted && (
+                      <button
+                        type="button"
+                        onClick={() => setReplyingTo(msg)}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:text-primary hover:bg-primary/10 transition-all shrink-0"
+                        title="Reply"
+                      >
+                        <Reply className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -1475,6 +1585,20 @@ export function TicketThread({
               >
                 <Copy className="h-4 w-4" />
                 Copy
+              </button>
+            )}
+            {contextMenu.canEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  const target = ticket.messages?.find((m) => m.id === contextMenu.messageId);
+                  setContextMenu(null);
+                  if (target) startEditing(target);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+              >
+                <Pencil className="h-4 w-4" />
+                Edit
               </button>
             )}
             {contextMenu.canDelete && (

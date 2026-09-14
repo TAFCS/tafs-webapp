@@ -19,6 +19,7 @@ import {
   markOwnTicketMessagesRead,
   removeOpenQueueTicket,
   markTicketMessageDeleted,
+  updateTicketMessage,
   sendTicketMessage,
   setQueueTab,
   setSelectedTicketId,
@@ -261,6 +262,19 @@ export default function SupportTicketsPage() {
       );
     };
 
+    const onMessageUpdated = (payload: {
+      ticket?: SupportTicket;
+      message?: TicketMessage;
+    }) => {
+      if (!payload.message?.id) return;
+      dispatch(
+        updateTicketMessage({
+          ticket: payload.ticket,
+          message: payload.message,
+        }),
+      );
+    };
+
     socket.on("connect", resync);
     socket.on("ticketCreated", onCreated);
     socket.on("ticketClaimed", onClaimed);
@@ -272,6 +286,7 @@ export default function SupportTicketsPage() {
     socket.on("ticketMessageReceived", onMessage);
     socket.on("ticketMessagesRead", onMessagesRead);
     socket.on("ticketMessageDeleted", onMessageDeleted);
+    socket.on("ticketMessageUpdated", onMessageUpdated);
 
     return () => {
       socket.off("connect", resync);
@@ -285,6 +300,7 @@ export default function SupportTicketsPage() {
       socket.off("ticketMessageReceived", onMessage);
       socket.off("ticketMessagesRead", onMessagesRead);
       socket.off("ticketMessageDeleted", onMessageDeleted);
+      socket.off("ticketMessageUpdated", onMessageUpdated);
     };
   }, [socket, loadQueue, dispatch, user?.role, hasPermission]);
 
