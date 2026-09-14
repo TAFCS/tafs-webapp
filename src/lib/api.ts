@@ -40,7 +40,10 @@ api.interceptors.response.use(
                 // Park concurrent requests until the ongoing refresh completes
                 return new Promise<void>((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
-                }).then(() => api(originalRequest));
+                }).then(() => {
+                    originalRequest._retry = true;
+                    return api(originalRequest);
+                });
             }
 
             originalRequest._retry = true;

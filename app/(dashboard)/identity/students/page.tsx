@@ -458,8 +458,10 @@ function DirectoryContent() {
             const { data } = await api.get("/v1/students", { params: { ...clean, fields: "core", limit: 24 } });
             setStudents(data?.data?.items || []);
             setMeta(data?.data?.pagination || null);
-        } catch (e) {
-            console.error(e);
+        } catch (e: any) {
+            console.error("Failed to fetch students:", e);
+            const msg = e?.response?.data?.message || e?.message || "Failed to load students";
+            toast.error(msg);
         } finally {
             setIsLoading(false);
         }
