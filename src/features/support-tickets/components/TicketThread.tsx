@@ -1193,15 +1193,21 @@ export function TicketThread({
                 )}
                 <div className={`flex gap-2 mt-1 text-[10px] opacity-70 flex-wrap items-center ${onRight ? "justify-end" : ""}`}>
                   <span>{format(new Date(msg.created_at), "h:mm a")}</span>
-                  {!deleted && ownMessage && msg.status === "APPROVED" && (
+                  {!deleted && msg.sender_type === "STAFF" && msg.status === "APPROVED" && (
                     msg.is_read ? (
-                      <CheckCheck className="h-3 w-3 text-blue-300" />
+                      <span title="Read">
+                        <CheckCheck className={`h-3 w-3 ${onRight ? "text-blue-300" : "text-blue-500"}`} />
+                      </span>
                     ) : (
-                      <Check className={`h-3 w-3 ${onRight ? "text-white/50" : "text-zinc-400"}`} />
+                      <span title="Delivered">
+                        <Check className={`h-3 w-3 ${onRight ? "text-white/50" : "text-zinc-400"}`} />
+                      </span>
                     )
                   )}
-                  {!deleted && ownMessage && msg.status === "PENDING" && (
-                    <Check className={`h-3 w-3 ${onRight ? "text-white/50" : "text-zinc-400"}`} />
+                  {!deleted && msg.sender_type === "STAFF" && msg.status === "PENDING" && (
+                    <span title="Pending approval">
+                      <Check className={`h-3 w-3 ${onRight ? "text-white/50" : "text-zinc-400"}`} />
+                    </span>
                   )}
                   {msg.sender_type === "STAFF" &&
                     msg.status !== "APPROVED" &&
