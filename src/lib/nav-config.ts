@@ -336,11 +336,17 @@ export function isTileVisible(
     if (item.href === "/admin/developer" || item.href === "/attendance/zk-device-logs") {
         return user.role === "SUPER_ADMIN";
     }
+    // SUPER_ADMIN bypasses both layers, everywhere (see the scope/tile-permission
+    // handoff) — checked before effectiveTileIds so a stale or incomplete tile
+    // list (e.g. a token issued before a tile went live) can never hide a tile
+    // from a super admin. Every other layer in this system checks role first;
+    // this one didn't, which is what caused a real SUPER_ADMIN account to lose
+    // Student Directory after it shipped.
+    if (user.role === "SUPER_ADMIN") return true;
     if (user.effectiveTileIds) {
         if (!item.id) return false;
         return (tileIdSet ?? new Set(user.effectiveTileIds)).has(item.id);
     }
-    if (user.role === "SUPER_ADMIN") return true;
     if (item.href === "/hr/saturday-schedules" || item.href === "/hr/shift-overrides") {
         return user.role === "CAMPUS_ADMIN";
     }
