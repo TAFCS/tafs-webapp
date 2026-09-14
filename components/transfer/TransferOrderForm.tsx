@@ -754,11 +754,11 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
                             className="w-full appearance-none px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-semibold text-lg text-zinc-800 dark:text-zinc-200 cursor-pointer"
                         >
                             <option value="">— Select discipline —</option>
-                            <option value="Pre-Medical">Pre-Medical</option>
+                            <option value="Biology">Biology</option>
+                            <option value="Computer">Computer</option>
                             <option value="Pre-Engineering">Pre-Engineering</option>
-                            <option value="Pre-Commerce">Pre-Commerce</option>
-                            <option value="Computer Science">Computer Science</option>
-                            <option value="Humanities">Humanities</option>
+                            <option value="Pre-Medical">Pre-Medical</option>
+                            <option value="Commerce">Commerce</option>
                         </select>
                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                     </div>

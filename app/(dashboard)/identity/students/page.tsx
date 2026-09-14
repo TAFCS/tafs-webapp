@@ -551,14 +551,9 @@ function DirectoryContent() {
         { id: "none", label: "No Discipline" },
         { id: "Biology", label: "Biology" },
         { id: "Computer", label: "Computer" },
-        { id: "Computer Science", label: "Computer Science" },
-        { id: "Pre-Medical", label: "Pre-Medical" },
         { id: "Pre-Engineering", label: "Pre-Engineering" },
-        { id: "Pre-Commerce", label: "Pre-Commerce" },
+        { id: "Pre-Medical", label: "Pre-Medical" },
         { id: "Commerce", label: "Commerce" },
-        { id: "Humanities", label: "Humanities" },
-        { id: "Science", label: "Science" },
-        { id: "General", label: "General" },
     ];
     const statusOptions = [
         { id: "QUICK_ADMISSION", label: "Quick Admission" },

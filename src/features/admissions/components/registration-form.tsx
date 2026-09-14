@@ -2429,27 +2429,11 @@ export function RegistrationForm() {
                                                         className="w-full px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none disabled:cursor-not-allowed"
                                                     >
                                                         <option value="">Select Discipline (Optional)...</option>
-                                                        {formData.admissionSystem === "cambridge" ? (
-                                                            <>
-                                                                <option value="Pre-Medical">Pre-Medical</option>
-                                                                <option value="Pre-Engineering">Pre-Engineering</option>
-                                                                <option value="Commerce">Commerce</option>
-                                                                <option value="Computer Science">Computer Science</option>
-                                                            </>
-                                                        ) : formData.admissionSystem === "secondary" ? (
-                                                            <>
-                                                                <option value="Pre-Medical">Pre-Medical</option>
-                                                                <option value="Pre-Engineering">Pre-Engineering</option>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <option value="Pre-Medical">Pre-Medical</option>
-                                                                <option value="Pre-Engineering">Pre-Engineering</option>
-                                                                <option value="Pre-Commerce">Pre-Commerce</option>
-                                                                <option value="Computer Science">Computer Science</option>
-                                                                <option value="Humanities">Humanities</option>
-                                                            </>
-                                                        )}
+                                                        <option value="Biology">Biology</option>
+                                                        <option value="Computer">Computer</option>
+                                                        <option value="Pre-Engineering">Pre-Engineering</option>
+                                                        <option value="Pre-Medical">Pre-Medical</option>
+                                                        <option value="Commerce">Commerce</option>
                                                     </select>
                                                 </div>
                                             </div>
