@@ -54,6 +54,13 @@ export interface VoucherHead {
     balance: string;
     /** Split voucher line label prefix, e.g. "PARTIAL PAYMENT OF Monthly Tuition Fee — " */
     description_prefix?: string | null;
+    /**
+     * Permanent write-off. Set by waiveVoucher (whole voucher) or carried from
+     * creation when an already-WAIVED head is billed onto a voucher. Such a head
+     * is never payable: balance is 0, it is excluded from every total, and no
+     * deposit may be distributed to it.
+     */
+    waived?: boolean;
     is_installment?: boolean;
     has_installment_merged?: boolean;
     student_fees?: {
@@ -66,6 +73,8 @@ export interface VoucherHead {
         academic_year: string | null;
         fee_date: string | null;
         is_discount: boolean;
+        /** 'WAIVED' means written off — the second half of the waived-head test. */
+        status?: string | null;
         discount_presets?: { id: number; title: string } | null;
         fee_types: {
             description: string;

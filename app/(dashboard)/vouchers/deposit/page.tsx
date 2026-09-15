@@ -177,6 +177,37 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const heads = allHeads.filter(h => !isDiscountHead(h));
     const discountHeads = allHeads.filter(h => isDiscountHead(h));
 
+    // ── Waivers ──────────────────────────────────────────────────────────────
+    // Three shapes reach this modal and they are NOT the same thing:
+    //
+    //   WHOLLY WAIVED (voucher.status === 'WAIVED') — either the voucher was
+    //     issued and then written off (POST /v1/vouchers/:id/waive), or every
+    //     head was already WAIVED when it was generated (issueAsWaived). The two
+    //     routes are deliberately identical in the result: the heads read
+    //     NORMALLY at their full amounts and a WAIVED stamp says the whole
+    //     challan is written off. Nothing here is collectable, so the modal
+    //     opens read-only — recordDeposit rejects a WAIVED voucher regardless.
+    //
+    //   PARTIALLY WAIVED — some heads written off, the rest still payable. No
+    //     stamp, because most of the voucher IS payable. The written-off heads
+    //     are struck through, excluded from the total, and take no distribution.
+    //
+    //   Neither — an ordinary voucher, untouched by any of this.
+    //
+    // Both halves of the test matter: waiveVoucher sets voucher_heads.waived,
+    // while a head billed onto a later voucher after a loose-head waiver carries
+    // it on student_fees.status.
+    const isWaivedHead = (h: typeof allHeads[0]) =>
+        h.waived === true || h.student_fees?.status === "WAIVED";
+    const wholeVoucherWaived = voucher.status === "WAIVED";
+    // Struck-out rows exist only on a mixed voucher. On a wholly-waived one every
+    // head would qualify, and striking out the entire table under a WAIVED stamp
+    // is noise — the stamp already carries the message.
+    const isStruckOut = (h: typeof allHeads[0]) => !wholeVoucherWaived && isWaivedHead(h);
+    // What the voucher actually asks for. Drives the Total row so it agrees with
+    // the challan, which builds total_payable without the waived heads.
+    const payableHeads = heads.filter(h => !isStruckOut(h));
+
     // Arrear surcharges from the voucher
     const arrearSurcharges = (voucher.voucher_arrear_surcharges || []).filter(s => !s.waived);
     const waivedSurcharges = (voucher.voucher_arrear_surcharges || []).filter(s => s.waived);
@@ -230,10 +261,25 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     // against student_fees fresh in the transaction, and the two can drift
     // (e.g. after a manual fee correction), rejecting a "Pay Full" submission
     // that was computed from the stale cached balance.
-    const sfBalance = (h: typeof heads[0]) => h.student_fees
-        ? Math.max(sfNetAmt(h) - Number(h.student_fees.amount_paid ?? 0), 0)
-        : Number(h.balance ?? 0);
-    const sfDeposited = (h: typeof heads[0]) => Math.max(sfNetAmt(h) - sfBalance(h), 0);
+    // A written-off head is never collectable. student_fees still holds the full
+    // charge with amount_paid = 0, so without this it would report its whole
+    // amount as due: it would land in totalBalance, auto-fill would pour money
+    // into it, and manual entry would accept up to the full charge.
+    // Only a struck-out (mixed-voucher) head reports zero. On a WHOLLY waived
+    // voucher the heads keep their real balances so the table reads exactly like
+    // an ordinary one — full amounts, real total — and the stamp plus the
+    // read-only footer are the only things saying none of it is collectable.
+    const sfBalance = (h: typeof heads[0]) => isStruckOut(h)
+        ? 0
+        : h.student_fees
+            ? Math.max(sfNetAmt(h) - Number(h.student_fees.amount_paid ?? 0), 0)
+            : Number(h.balance ?? 0);
+    // Derived from sfBalance, so a struck-out head needs its own zero: with a
+    // balance forced to 0 the subtraction would otherwise report the entire
+    // written-off charge as money already collected.
+    const sfDeposited = (h: typeof heads[0]) => isStruckOut(h)
+        ? 0
+        : Math.max(sfNetAmt(h) - sfBalance(h), 0);
 
     // Any of this voucher's discount capacity not yet applied (see
     // VouchersService.applyDiscountCreditInTx) — subtracted here so the fallback
@@ -348,15 +394,23 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                 {/* Modal Header */}
                 <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
                     <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
-                            <Wallet className="h-6 w-6 text-emerald-600" />
+                        <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ${wholeVoucherWaived ? "bg-teal-500/10" : "bg-emerald-500/10"}`}>
+                            {wholeVoucherWaived
+                                ? <Stamp className="h-6 w-6 text-teal-600" />
+                                : <Wallet className="h-6 w-6 text-emerald-600" />}
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100">Record Deposit</h2>
+                            <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100">{wholeVoucherWaived ? "Waived Voucher" : "Record Deposit"}</h2>
                             <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Voucher #{voucher.id} • {voucher.students.full_name}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
+                        {wholeVoucherWaived && (
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/10 text-teal-600 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg border border-teal-500/30">
+                                <Stamp className="h-3 w-3" />
+                                Waived
+                            </span>
+                        )}
                         {arrearCount > 0 && (
                             <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-amber-500/20">
                                 <AlertCircle className="h-3 w-3" />
@@ -370,6 +424,20 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                 </div>
 
                 <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto">
+                    {wholeVoucherWaived && (
+                        <div className="flex items-start gap-4 p-5 bg-teal-50 dark:bg-teal-900/15 border border-teal-200 dark:border-teal-800/40 rounded-2xl">
+                            <Stamp className="h-5 w-5 text-teal-600 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                                <p className="text-sm font-black text-teal-800 dark:text-teal-300">This voucher has been written off</p>
+                                <p className="text-xs text-teal-700 dark:text-teal-400 leading-relaxed">
+                                    Every fee head on it is waived, so the challan carries a WAIVED stamp and
+                                    nothing on it is collectable. The heads below are shown at their original
+                                    amounts for the record. Un-waive the voucher from the list to restore them.
+                                    {voucher.waive_reason ? ` Reason: ${voucher.waive_reason}` : ""}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                     {isExpired && (
                         <div className="flex items-start gap-4 p-5 bg-orange-50 dark:bg-orange-900/15 border border-orange-200 dark:border-orange-800/40 rounded-2xl">
                             <Hourglass className="h-5 w-5 text-orange-600 shrink-0 mt-0.5" />
@@ -381,6 +449,10 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             </div>
                         </div>
                     )}
+                    {/* The deposit form itself — everything from the amount box down to the
+                        distribution-mode toggle. A wholly waived voucher has nothing to
+                        collect, so the modal becomes a read-only record of the write-off. */}
+                    {!wholeVoucherWaived && (<>
                     {/* Amount Input */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between ml-1">
@@ -478,6 +550,8 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         </div>
                     )}
 
+                    </>)}
+
                     {/* Full Heads Breakdown Table */}
                     <div className="space-y-2">
                         {/* Column Headers */}
@@ -486,7 +560,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">Net Amt</span>
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">Deposited</span>
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">Balance</span>
-                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">To Deposit</span>
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] text-right">{wholeVoucherWaived ? "Status" : "To Deposit"}</span>
                         </div>
 
                         {/* Per arrear month: a divider header, then that month's late
@@ -564,21 +638,29 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             );
                         })}
                         {group.heads.map(h => {
+                            const struck = isStruckOut(h);
                             const hSfBal = sfBalance(h);
                             const hSfNet = sfNetAmt(h);
                             const hSfDep = sfDeposited(h);
                             return (
                                 <div
                                     key={h.id}
-                                    className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 border rounded-2xl transition-all bg-amber-50/30 dark:bg-amber-900/5 border-amber-100 dark:border-amber-900/20 hover:border-amber-200 dark:hover:border-amber-800/40"
+                                    className={`grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 border rounded-2xl transition-all ${struck
+                                        ? "bg-zinc-50 dark:bg-zinc-900/40 border-zinc-100 dark:border-zinc-800 opacity-60"
+                                        : "bg-amber-50/30 dark:bg-amber-900/5 border-amber-100 dark:border-amber-900/20 hover:border-amber-200 dark:hover:border-amber-800/40"}`}
                                 >
                                     <div>
-                                        <p className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 truncate">
+                                        <p className={`text-[12px] font-black truncate ${struck ? "line-through text-zinc-400" : "text-zinc-900 dark:text-zinc-100"}`}>
                                             {h.description_prefix
                                                 ? `${h.description_prefix}${h.student_fees?.fee_types?.description || "Fee Head"}`
                                                 : h.student_fees?.fee_types?.description || "Fee Head"}
                                         </p>
                                         <div className="flex items-center gap-1.5 mt-0.5">
+                                            {struck && (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 text-[9px] font-black uppercase tracking-widest rounded-md">
+                                                    Waived
+                                                </span>
+                                            )}
                                             <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
                                                 Arrear
                                             </span>
@@ -600,15 +682,17 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                         </div>
                                     </div>
                                     {/* Net Amount from student_fees */}
-                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{Math.round(hSfNet).toLocaleString()}</span>
+                                    <span className={`text-[11px] font-bold tabular-nums text-right ${struck ? "line-through text-zinc-400" : "text-zinc-600 dark:text-zinc-400"}`}>{Math.round(hSfNet).toLocaleString()}</span>
                                     {/* Deposited from student_fees.amount_paid */}
                                     <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(hSfDep).toLocaleString()}</span>
                                     {/* Balance = student_fees.amount - student_fees.amount_paid */}
-                                    <span className={`text-[11px] font-black tabular-nums text-right ${hSfBal === 0 ? "text-emerald-600" : "text-zinc-900 dark:text-zinc-100"}`}>
+                                    <span className={`text-[11px] font-black tabular-nums text-right ${struck ? "text-zinc-400" : hSfBal === 0 ? "text-emerald-600" : "text-zinc-900 dark:text-zinc-100"}`}>
                                         {Math.round(hSfBal).toLocaleString()}
                                     </span>
                                     <div className="flex justify-end">
-                                        {fillingMode === "manual" ? (
+                                        {struck || wholeVoucherWaived ? (
+                                            <span className="text-[10px] font-black text-teal-600 uppercase tracking-widest">Written Off</span>
+                                        ) : fillingMode === "manual" ? (
                                             <input type="text" inputMode="numeric" pattern="[0-9]*" value={manualDistributions[h.id] || ""}
                                                 onChange={e => {
                                                     const v = e.target.value.replace(/[^0-9]/g,'');
@@ -660,21 +744,27 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         {/* Current month fee head rows */}
                         {currentHeads.map(h => {
                             const arrear = false;
+                            const struck = isStruckOut(h);
                             const hSfBal = sfBalance(h);
                             const hSfNet = sfNetAmt(h);
                             const hSfDep = sfDeposited(h);
                             return (
                                 <div
                                     key={h.id}
-                                    className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 border rounded-2xl transition-all bg-zinc-50 dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 hover:border-zinc-200 dark:hover:border-zinc-700"
+                                    className={`grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 py-3 border rounded-2xl transition-all bg-zinc-50 dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 ${struck ? "opacity-60" : "hover:border-zinc-200 dark:hover:border-zinc-700"}`}
                                 >
                                     <div>
-                                        <p className="text-[12px] font-black text-zinc-900 dark:text-zinc-100 truncate">
+                                        <p className={`text-[12px] font-black truncate ${struck ? "line-through text-zinc-400" : "text-zinc-900 dark:text-zinc-100"}`}>
                                             {h.description_prefix
                                                 ? `${h.description_prefix}${h.student_fees?.fee_types?.description || "Fee Head"}`
                                                 : h.student_fees?.fee_types?.description || "Fee Head"}
                                         </p>
                                         <div className="flex items-center gap-1.5 mt-0.5">
+                                            {struck && (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 text-[9px] font-black uppercase tracking-widest rounded-md">
+                                                    Waived
+                                                </span>
+                                            )}
                                             <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
                                                 Current
                                             </span>
@@ -695,13 +785,15 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                             )}
                                         </div>
                                     </div>
-                                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 tabular-nums text-right">{Math.round(hSfNet).toLocaleString()}</span>
+                                    <span className={`text-[11px] font-bold tabular-nums text-right ${struck ? "line-through text-zinc-400" : "text-zinc-600 dark:text-zinc-400"}`}>{Math.round(hSfNet).toLocaleString()}</span>
                                     <span className="text-[11px] font-bold text-zinc-500 tabular-nums text-right">{Math.round(hSfDep).toLocaleString()}</span>
-                                    <span className={`text-[11px] font-black tabular-nums text-right ${hSfBal === 0 ? "text-emerald-600" : "text-zinc-900 dark:text-zinc-100"}`}>
+                                    <span className={`text-[11px] font-black tabular-nums text-right ${struck ? "text-zinc-400" : hSfBal === 0 ? "text-emerald-600" : "text-zinc-900 dark:text-zinc-100"}`}>
                                         {Math.round(hSfBal).toLocaleString()}
                                     </span>
                                     <div className="flex justify-end">
-                                        {fillingMode === "manual" ? (
+                                        {struck || wholeVoucherWaived ? (
+                                            <span className="text-[10px] font-black text-teal-600 uppercase tracking-widest">Written Off</span>
+                                        ) : fillingMode === "manual" ? (
                                             <input type="text" inputMode="numeric" pattern="[0-9]*" value={manualDistributions[h.id] || ""}
                                                 onChange={e => {
                                                     const v = e.target.value.replace(/[^0-9]/g,'');
@@ -785,8 +877,8 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         {/* Summary totals row */}
                         <div className="grid grid-cols-[1fr_120px_120px_120px_130px] gap-x-4 items-center px-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
                             <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Total</span>
-                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{Math.round(heads.reduce((s,f) => s+sfNetAmt(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount),0) + (actualLateFee > 0 ? actualLateFee + Number(voucher.late_fee_deposited ?? 0) : 0)).toLocaleString()}</span>
-                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{Math.round(heads.reduce((s,f) => s+sfDeposited(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount_paid??0),0) + (actualLateFee > 0 ? Number(voucher.late_fee_deposited ?? 0) : 0)).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{Math.round(payableHeads.reduce((s,f) => s+sfNetAmt(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount),0) + (actualLateFee > 0 ? actualLateFee + Number(voucher.late_fee_deposited ?? 0) : 0)).toLocaleString()}</span>
+                            <span className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 tabular-nums text-right">{Math.round(payableHeads.reduce((s,f) => s+sfDeposited(f),0) + arrearSurcharges.reduce((s,x) => s+Number(x.amount_paid??0),0) + (actualLateFee > 0 ? Number(voucher.late_fee_deposited ?? 0) : 0)).toLocaleString()}</span>
                             <span className="text-[11px] font-black text-emerald-600 tabular-nums text-right">{Math.round(totalBalance + totalArrearSurchargeBalance + actualLateFee).toLocaleString()}</span>
                             <span />
                         </div>
@@ -796,15 +888,22 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
 
                 {/* Modal Footer */}
                 <div className="px-8 py-6 border-t border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-end gap-3">
-                    <button onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-zinc-500 hover:text-zinc-700 transition-colors">Cancel</button>
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving || (fillingMode === "manual" && remainingPool !== 0)}
-                        className="flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                        Record Deposit
+                    <button onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-zinc-500 hover:text-zinc-700 transition-colors">
+                        {wholeVoucherWaived ? "Close" : "Cancel"}
                     </button>
+                    {/* No Record Deposit on a written-off voucher — recordDeposit rejects
+                        a WAIVED voucher server-side, so offering the button would only
+                        ever produce an error toast. */}
+                    {!wholeVoucherWaived && (
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving || (fillingMode === "manual" && remainingPool !== 0)}
+                            className="flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                            Record Deposit
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -1467,6 +1566,17 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                         )
                     ) : isWaived ? (
                         <>
+                        {/* Read-only: the modal shows the written-off heads at their
+                            original amounts under a WAIVED stamp, with no deposit form.
+                            Same modal, gated on voucher.status inside. */}
+                        <button
+                            onClick={() => onDeposit(voucher)}
+                            title="View the written-off fee heads"
+                            className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+                        >
+                            <Receipt className="h-3.5 w-3.5" />
+                            View
+                        </button>
                         <button
                             onClick={handleWaivedDownload}
                             disabled={isDownloading}
