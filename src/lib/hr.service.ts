@@ -58,12 +58,49 @@ export interface StaffCategory {
   _count?: { employee_profiles: number };
 }
 
+export interface SegmentClass {
+  id: number;
+  description: string;
+  class_code: string;
+  academic_system: string;
+  campuses?: { id: number; campus_name: string }[];
+}
+
+export interface SegmentStaff {
+  id: number;
+  employee_code: string | null;
+  full_name: string | null;
+  job_title: string | null;
+  photo_url: string | null;
+  campus_id: number | null;
+  campus_name: string | null;
+  is_direct_segment_member: boolean;
+  assigned_classes: string[];
+}
+
 export interface Segment {
   id: number;
   code: string;
   name: string;
   display_order: number;
+  classes?: SegmentClass[];
+  staff?: SegmentStaff[];
   _count?: { classes: number; employee_profiles: number };
+}
+
+export interface AvailableClass {
+  id: number;
+  description: string;
+  class_code: string;
+  academic_system: string;
+  segment_id: number | null;
+  campus_classes?: {
+    campus_id: number;
+    campuses: {
+      id: number;
+      campus_name: string;
+    };
+  }[];
 }
 
 /** Trim text; return null when empty so PATCH payloads can clear optional fields. */
@@ -956,9 +993,39 @@ export const hrService = {
   },
 
   // ── Segments API ───────────────────────────────────────────────────────────
-  async listSegments(): Promise<Segment[]> {
-    const { data } = await api.get<ApiEnvelope<Segment[]>>('/v1/hr/segments');
+  async listSegments(campusId?: number | null): Promise<Segment[]> {
+    const params: Record<string, string> = {};
+    if (campusId) params.campus_id = String(campusId);
+    const { data } = await api.get<ApiEnvelope<Segment[]>>('/v1/hr/segments', { params });
     return data.data;
+  },
+  async listAvailableClasses(): Promise<AvailableClass[]> {
+    const { data } = await api.get<ApiEnvelope<AvailableClass[]>>('/v1/hr/segments/classes-available');
+    return data.data;
+  },
+  async createSegment(payload: {
+    name: string;
+    code: string;
+    display_order?: number;
+    class_ids?: number[];
+  }): Promise<Segment> {
+    const { data } = await api.post<ApiEnvelope<Segment>>('/v1/hr/segments', payload);
+    return data.data;
+  },
+  async updateSegment(
+    id: number,
+    payload: {
+      name?: string;
+      code?: string;
+      display_order?: number;
+      class_ids?: number[];
+    },
+  ): Promise<Segment> {
+    const { data } = await api.patch<ApiEnvelope<Segment>>(`/v1/hr/segments/${id}`, payload);
+    return data.data;
+  },
+  async deleteSegment(id: number): Promise<void> {
+    await api.delete(`/v1/hr/segments/${id}`);
   },
   async createDepartment(payload: { name: string; description?: string }): Promise<Department> {
     const { data } = await api.post<ApiEnvelope<Department>>('/v1/hr/departments', payload);
