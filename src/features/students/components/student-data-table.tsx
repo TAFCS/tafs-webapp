@@ -108,9 +108,9 @@ const ENROLLMENT_STYLES: Record<string, { cls: string; label: string }> = {
 };
 
 const CAMPUS_CODES: Record<string, string> = {
-    "Gulistan-e-Johar Campus": "JHR",
-    "Kaneez Fatima Campus": "KNF",
-    "North Nazimabad Campus": "NNZ",
+    "Gulistan-e-Johar Campus": "GEJ",
+    "Kaneez Fatima Campus": "GKF",
+    "North Nazimabad Campus": "NNN",
 };
 
 const campuses = [
