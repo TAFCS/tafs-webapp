@@ -136,6 +136,19 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
         };
     }, [initialData?.photograph_url]);
 
+    /**
+     * TAFSAL is the one heading that does NOT render from `LeavingCertificatePDF`.
+     * The school supplied a finished A4 artwork for it (`slc-formats/slc-tafsal.pdf`
+     * on the backend) and the certificate must come out as that exact sheet, so the
+     * backend stamps the values onto the blank and hands back the bytes.
+     *
+     * Everything the artwork already fixes — both header logos, their sizes, the
+     * footer campus address, the footer font size, the title font weight — is
+     * therefore not ours to choose here, and those controls are hidden rather than
+     * left on screen doing nothing.
+     */
+    const isTafsalTemplate = (formData.header_prefix || '').toUpperCase() === 'TAFSAL';
+
     const activeLeftUrl = LEFT_LOGOS.find(l => l.id === leftLogoId)?.url || '/logo.png';
     const activeRightUrl = RIGHT_LOGOS.find(r => r.id === rightLogoId)?.url || '/logo-each-one-teach-one.png';
 
@@ -159,12 +172,28 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                 selected_campus: campusSelection,
             };
 
-            const doc = <LeavingCertificatePDF data={pdfData} />;
-            const blob = await pdf(doc).toBlob();
+            let blob: Blob;
+            if (isTafsalTemplate) {
+                // The backend owns the blank and the coordinate map; it is sent the
+                // values exactly as they stand on this form, edits included. The
+                // photograph is deliberately NOT sent — it would put the body past
+                // express's 100kb default, and the backend reads it off the CDN URL
+                // it already holds. `responseType: 'blob'` matters: the response is
+                // PDF bytes, not the usual JSON envelope.
+                const { data: filled } = await api.post(
+                    `/v1/enrollments/${formData.cc}/leaving-certificate/tafsal-pdf`,
+                    formData,
+                    { responseType: 'blob' },
+                );
+                blob = filled as Blob;
+            } else {
+                const doc = <LeavingCertificatePDF data={pdfData} />;
+                blob = await pdf(doc).toBlob();
+            }
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `TAFS_Leaving_Certificate_${formData.cc || 'student'}.pdf`;
+            a.download = `${isTafsalTemplate ? 'TAFSAL' : 'TAFS'}_Leaving_Certificate_${formData.cc || 'student'}.pdf`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -184,7 +213,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
         } finally {
             setIsGenerating(false);
         }
-    }, [formData, photoBase64, activeLeftUrl, activeRightUrl, logoBase64Map, campusSelection, footerFontSize, fontWeightStyle, leftLogoId, rightLogoId, leftLogoSize, rightLogoSize]);
+    }, [formData, photoBase64, activeLeftUrl, activeRightUrl, logoBase64Map, campusSelection, footerFontSize, fontWeightStyle, leftLogoId, rightLogoId, leftLogoSize, rightLogoSize, isTafsalTemplate]);
 
     // Format display for enrolled campus info
     const studentCampusName = formData.campus_name || 'Enrolled Campus';
@@ -263,7 +292,26 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                     </button>
                 </div>
 
+                {/* The TAFSAL blank already carries its own header, crests and footer,
+                    so the customization panel is replaced by a note saying so. */}
+                {isTafsalTemplate && (
+                    <div className="bg-indigo-50 dark:bg-indigo-950/30 rounded-2xl p-5 border border-indigo-200/80 dark:border-indigo-900/50 flex items-start gap-3">
+                        <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                            <p className="text-xs font-extrabold text-indigo-800 dark:text-indigo-300 uppercase tracking-wider">
+                                Printed on the official TAFSAL blank
+                            </p>
+                            <p className="text-[11px] font-medium text-indigo-700/90 dark:text-indigo-400/90 leading-relaxed">
+                                This certificate is stamped onto the school&apos;s own TAFSAL artwork, so its
+                                header logos, crests, campus footer and title styling are already fixed and
+                                cannot be changed here. Only the details below are printed.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {/* VISUAL LOGO SELECTOR SECTION */}
+                {!isTafsalTemplate && (
                 <div className="bg-zinc-50 dark:bg-zinc-850/60 rounded-2xl p-5 border border-zinc-200/80 dark:border-zinc-800 space-y-5">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
@@ -519,6 +567,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* Section 1: Certificate Numbers & Candidate Name */}
                 <div className="space-y-4">
@@ -545,6 +594,21 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                 <option value="TAFSOL">TAFSOL LEAVING CERTIFICATE</option>
                             </select>
                         </div>
+                        {/* Only the TAFSAL blank has a REGISTRATION # box, and nothing in
+                            the student record fills it — so it is offered only there, and
+                            only as something the operator types. */}
+                        {isTafsalTemplate && (
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Registration #</label>
+                            <input
+                                type="text"
+                                value={formData.registration_number || ''}
+                                placeholder="Leave blank to print empty"
+                                onChange={e => setFormData(prev => ({ ...prev, registration_number: e.target.value }))}
+                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-red-500 uppercase placeholder:normal-case placeholder:font-medium placeholder:text-zinc-300"
+                            />
+                        </div>
+                        )}
                         <div>
                             <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">SLC #</label>
                             <input
@@ -721,7 +785,9 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             />
                         </div>
 
-                        {/* CAMPUS ADDRESS SELECTOR */}
+                        {/* CAMPUS ADDRESS SELECTOR — the TAFSAL blank prints its own
+                            Gulistan-e-Jauhar footer, so there is nothing to choose. */}
+                        {!isTafsalTemplate && (
                         <div className="col-span-1 md:col-span-2">
                             <label className="block text-[11px] font-bold text-zinc-700 dark:text-zinc-300 uppercase mb-1 flex items-center justify-between">
                                 <span>Footer Campus Address Display</span>
@@ -740,7 +806,10 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             </select>
                         </div>
 
+                        )}
+
                         {/* FOOTER ADDRESS FONT SIZE SELECTOR */}
+                        {!isTafsalTemplate && (
                         <div className="col-span-1 md:col-span-2 pt-1 border-t border-zinc-100 dark:border-zinc-800">
                             <div className="flex items-center justify-between mb-2">
                                 <label className="block text-[11px] font-bold text-zinc-700 dark:text-zinc-300 uppercase">
@@ -773,6 +842,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                 })}
                             </div>
                         </div>
+                        )}
                     </div>
                 </div>
 

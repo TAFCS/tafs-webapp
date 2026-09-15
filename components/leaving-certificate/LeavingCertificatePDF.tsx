@@ -32,6 +32,13 @@ export interface LeavingCertificateData {
     slc_number?: string;
     cc?: number;
     gr_number?: string;
+    /**
+     * REGISTRATION # — a box that only the TAFSAL blank has, and that nothing in
+     * the student record feeds: CC, GR and SLC each have their own box on that
+     * form. Operator-entered, printed only on the TAFSAL template, blank when
+     * left empty.
+     */
+    registration_number?: string;
     name?: {
         last?: string;
         first?: string;
