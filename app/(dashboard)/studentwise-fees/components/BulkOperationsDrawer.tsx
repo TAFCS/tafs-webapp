@@ -6,6 +6,7 @@ import { TabAddSingle } from "./TabAddSingle";
 import { TabAddRange } from "./TabAddRange";
 import { TabDeleteSingle } from "./TabDeleteSingle";
 import { TabDeleteRange } from "./TabDeleteRange";
+import { useStudentFeesAccess } from "@/hooks/use-student-fees-access";
 
 interface Props {
     isOpen: boolean;
@@ -15,16 +16,23 @@ interface Props {
 type TabType = "add_single" | "add_range" | "delete_single" | "delete_range";
 
 export function BulkOperationsDrawer({ isOpen, onClose }: Props) {
-    const [activeTab, setActiveTab] = useState<TabType>("add_single");
+    const [tab, setTab] = useState<TabType>("add_single");
+    const access = useStudentFeesAccess();
+
+    const ALL_TABS: { id: TabType; label: string; icon: any; color: string; action: string }[] = [
+        { id: "add_single", label: "Add (Single)", icon: Plus, color: "text-emerald-600", action: "bulk_ops.add" },
+        { id: "add_range", label: "Add (Range)", icon: Calendar, color: "text-emerald-600", action: "bulk_ops.add" },
+        { id: "delete_single", label: "Delete (Single)", icon: Trash2, color: "text-rose-600", action: "bulk_ops.delete" },
+        { id: "delete_range", label: "Delete (Range)", icon: LayoutGrid, color: "text-rose-600", action: "bulk_ops.delete" },
+    ];
+    const tabs = ALL_TABS.filter((t) => access.can(t.action));
+
+    // A filtered tab list needs a fallback: `tab` is state and can point at a
+    // tab this user does not have, which would render nothing at all.
+    const activeTab = tabs.some((t) => t.id === tab) ? tab : tabs[0]?.id;
+    const setActiveTab = setTab;
 
     if (!isOpen) return null;
-
-    const tabs: { id: TabType; label: string; icon: any; color: string }[] = [
-        { id: "add_single", label: "Add (Single)", icon: Plus, color: "text-emerald-600" },
-        { id: "add_range", label: "Add (Range)", icon: Calendar, color: "text-emerald-600" },
-        { id: "delete_single", label: "Delete (Single)", icon: Trash2, color: "text-rose-600" },
-        { id: "delete_range", label: "Delete (Range)", icon: LayoutGrid, color: "text-rose-600" },
-    ];
 
     return (
         <div className="fixed inset-0 z-[100] bg-white dark:bg-zinc-950 flex flex-col h-screen overflow-hidden animate-in slide-in-from-bottom duration-500">
@@ -112,10 +120,18 @@ export function BulkOperationsDrawer({ isOpen, onClose }: Props) {
 
                 <div className="max-w-4xl mx-auto px-6 py-12">
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[32px] shadow-2xl shadow-zinc-200/50 dark:shadow-none p-8 md:p-12 animate-in fade-in slide-in-from-bottom-12 duration-700">
-                        {activeTab === "add_single" && <TabAddSingle />}
-                        {activeTab === "add_range" && <TabAddRange />}
-                        {activeTab === "delete_single" && <TabDeleteSingle />}
-                        {activeTab === "delete_range" && <TabDeleteRange />}
+                        {tabs.length === 0 ? (
+                            <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 text-center py-12">
+                                You can open bulk operations, but you may not add or delete fee heads in bulk.
+                            </p>
+                        ) : (
+                            <>
+                                {activeTab === "add_single" && access.can("bulk_ops.add") && <TabAddSingle />}
+                                {activeTab === "add_range" && access.can("bulk_ops.add") && <TabAddRange />}
+                                {activeTab === "delete_single" && access.can("bulk_ops.delete") && <TabDeleteSingle />}
+                                {activeTab === "delete_range" && access.can("bulk_ops.delete") && <TabDeleteRange />}
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

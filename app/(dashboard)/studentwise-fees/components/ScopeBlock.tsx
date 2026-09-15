@@ -3,6 +3,14 @@ import { useMemo } from "react";
 import { useAppSelector } from "@/store/hooks";
 import { ChevronDown } from "lucide-react";
 import type { CampusClass } from "@/store/slices/campusesSlice";
+import { useUserScope } from "@/hooks/use-tile-access";
+
+/** The shape of a campus row this picker actually reads. */
+type CampusOption = {
+    id: number;
+    campus_name: string;
+    offered_classes?: CampusClass[];
+};
 
 export interface ScopeValue {
     campusId: string;
@@ -38,13 +46,18 @@ export function ScopeBlock({
     hideCampusSelect = false,
 }: Props) {
     const classRequired = requireClassAndSection || requireClass;
-    const allCampuses = useAppSelector((s: any) => s.campuses.items);
+    // Offer only what the user's universal scope allows. The API asserts the
+    // same thing (ScopeService.assertCampus/Class/Section on every bulk route);
+    // this just stops the picker offering a choice that would be refused.
+    const { filterOptions } = useUserScope();
+    const allCampuses: CampusOption[] = useAppSelector((s: any) => s.campuses.items);
     const campuses = useMemo(() => {
+        const inScope = filterOptions("campuses", allCampuses, (c) => c.id);
         if (lockCampusId != null) {
-            return allCampuses.filter((c: { id: number }) => c.id === lockCampusId);
+            return inScope.filter((c) => c.id === lockCampusId);
         }
-        return allCampuses;
-    }, [allCampuses, lockCampusId]);
+        return inScope;
+    }, [allCampuses, lockCampusId, filterOptions]);
 
     const selectedCampus = campuses.find((c: any) => String(c.id) === value.campusId);
     const availableClasses: CampusClass[] = useMemo(() => {
@@ -54,10 +67,15 @@ export function ScopeBlock({
             const set = new Set(allowedClassIds);
             list = list.filter((c: CampusClass) => set.has(c.id));
         }
+        list = filterOptions("classes", list as CampusClass[], (c) => c.id);
         return filterClass ? list.filter(filterClass) : list;
-    }, [selectedCampus, filterClass, allowedClassIds]);
+    }, [selectedCampus, filterClass, allowedClassIds, filterOptions]);
     const selectedClass = availableClasses.find((c) => String(c.id) === value.classId);
-    const availableSections: CampusClass["sections"] = selectedClass?.sections ?? [];
+    const availableSections: CampusClass["sections"] = filterOptions(
+        "sections",
+        selectedClass?.sections ?? [],
+        (sec: { id: number }) => sec.id,
+    );
 
     const sel =
         "w-full h-10 px-3 appearance-none bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-100 focus:outline-none focus:border-primary transition-all cursor-pointer";
