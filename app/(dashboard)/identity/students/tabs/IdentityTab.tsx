@@ -4,6 +4,7 @@ import { Save, Loader2, CheckCircle2, GraduationCap, Pencil, Mail, Phone, User, 
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
 import { getAcademicYears } from "@/lib/fee-utils";
+import { getStudentGrPrefix } from "@/lib/student-gr-prefix";
 
 const ACADEMIC_YEARS = getAcademicYears(1, 4);
 
@@ -25,16 +26,6 @@ const formatDate = (dateStr: string) => {
     } catch {
         return dateStr;
     }
-};
-
-const getGRPrefix = (campusName?: string, academicSystem?: string) => {
-    const isALevel = academicSystem?.toLowerCase().replace(/[^a-z]/g, "") === "alevel";
-    if (isALevel) return "A-";
-    if (!campusName) return "";
-    const name = campusName.toUpperCase();
-    if (name.includes("KANEEZ FATIMA")) return "KF-A";
-    if (name.includes("NORTH NAZIMABAD")) return "A-N";
-    return "";
 };
 
 const isDisciplineGroupEligible = (className?: string, classCode?: string, academicSystem?: string) => {
@@ -207,7 +198,7 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
 
     const [personal, setPersonal] = useState({
         full_name: student.full_name || "",
-        gr_number: student.gr_number || getGRPrefix(student.campus_name, student.academic_system) || "",
+        gr_number: student.gr_number || getStudentGrPrefix(student.campus_name, student.campus_id, student.academic_system) || "",
         cnic: student.cnic || "",
         dob: student.dob ? new Date(student.dob).toISOString().split("T")[0] : "",
         gender: student.gender || "",
@@ -253,7 +244,7 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
     useEffect(() => {
         setPersonal({
             full_name: student.full_name || "",
-            gr_number: student.gr_number || getGRPrefix(student.campus_name, student.academic_system) || "",
+            gr_number: student.gr_number || getStudentGrPrefix(student.campus_name, student.campus_id, student.academic_system) || "",
             cnic: student.cnic || "",
             dob: student.dob ? new Date(student.dob).toISOString().split("T")[0] : "",
             gender: student.gender || "",
@@ -298,7 +289,7 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
             admission_age_years: personal.admission_age_years ? Number(personal.admission_age_years) : undefined,
             gr_number: (() => {
                 const trimmed = personal.gr_number.trim();
-                const prefix = getGRPrefix(student.campus_name, student.academic_system);
+                const prefix = getStudentGrPrefix(student.campus_name, student.campus_id, student.academic_system);
                 return !trimmed || trimmed === prefix ? null : trimmed;
             })(),
             primary_phone: contact.primary_phone,
@@ -400,10 +391,10 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                             <Field label="GR Number">
                                 <Input
                                     value={personal.gr_number}
-                                    placeholder={getGRPrefix(student.campus_name, student.academic_system) || "e.g. 6564"}
+                                    placeholder={getStudentGrPrefix(student.campus_name, student.campus_id, student.academic_system) || "e.g. 6564"}
                                     onChange={(v) => {
                                         const val = v.toUpperCase();
-                                        const prefix = getGRPrefix(student.campus_name, student.academic_system);
+                                        const prefix = getStudentGrPrefix(student.campus_name, student.campus_id, student.academic_system);
                                         const current = String(student.gr_number || "").toUpperCase();
                                         const enforcePrefix = !!prefix && (!current || current.startsWith(prefix));
                                         if (enforcePrefix && val !== "" && !val.startsWith(prefix)) return;

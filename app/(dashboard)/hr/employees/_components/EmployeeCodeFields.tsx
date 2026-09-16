@@ -17,7 +17,7 @@ interface EmployeeCodeFieldsProps {
   inputCls: string;
   /** When set, preview/full code includes campus prefix (GEJ/GKF/NNN). */
   campusId?: number | null;
-  /** Explicit campus prefix from campus model (e.g. campus_prefix or campus_code), overrides hardcoded map */
+  /** Employee code prefix from campuses.campus_prefix (not campus_code / not student G.R.) */
   campusPrefix?: string | null;
 }
 

@@ -368,7 +368,8 @@ export default function CampusesPage() {
                                             maxLength={10}
                                             onChange={(e) => handleChange(item.id, 'campus_prefix', e.target.value)}
                                             className="text-xs font-mono font-bold tracking-widest text-zinc-500 bg-transparent border-none p-0 focus:ring-0 placeholder:text-zinc-300 w-24"
-                                            placeholder="PREFIX"
+                                            placeholder="EMP"
+                                            title="Employee code prefix (e.g. GEJ) — not student G.R."
                                         />
                                     </div>
                                     <input
@@ -611,14 +612,15 @@ export default function CampusesPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Campus Prefix (for student GR numbers)</label>
+                                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Employee code prefix (HR)</label>
                                         <input
                                             maxLength={10}
                                             value={newCampus.campus_prefix}
-                                            onChange={(e) => setNewCampus({ ...newCampus, campus_prefix: e.target.value })}
-                                            className="w-full h-12 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary"
-                                            placeholder="e.g. KF-A"
+                                            onChange={(e) => setNewCampus({ ...newCampus, campus_prefix: e.target.value.toUpperCase() })}
+                                            className="w-full h-12 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary font-mono uppercase"
+                                            placeholder="e.g. GEJ"
                                         />
+                                        <p className="text-[10px] text-zinc-400 ml-1">Student G.R. uses campus name rules (KF-A, A-N, numeric Johar) — not this field.</p>
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Campus Name</label>

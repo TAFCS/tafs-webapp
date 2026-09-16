@@ -18,6 +18,7 @@ import { TransferOrderTab } from "./TransferOrderTab";
 import { LeavingCertificateTab } from "./LeavingCertificateTab";
 import { CertificatesStudioTab } from "./CertificatesStudioTab";
 import { StudentLogsTab } from "./StudentLogsTab";
+import { getStudentGrPrefix } from "@/lib/student-gr-prefix";
 import { DangerZoneTab } from "./DangerZoneTab";
 import { AcademicProgressionTab } from "./AcademicProgressionTab";
 import { StudentBiometricTab } from "./StudentBiometricTab";
@@ -48,16 +49,6 @@ interface Suggestions {
         commerceCount: number;
     } | null;
 }
-
-const getGRPrefix = (campusName: string | undefined, academicSystem?: string) => {
-    const isALevel = academicSystem?.toLowerCase().replace(/[^a-z]/g, '') === 'alevel';
-    if (isALevel) return "A-";
-    if (!campusName) return "";
-    const name = campusName.toUpperCase();
-    if (name.includes("KANEEZ FATIMA")) return "KF-A";
-    if (name.includes("NORTH NAZIMABAD")) return "A-N";
-    return "";
-};
 
 /** Statuses a student returns *from* — these prompt reinstate-vs-readmit. */
 const DEPARTURE_STATUSES = ["LEFT", "EXPELLED", "GRADUATED"];
@@ -149,9 +140,10 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
     // GR prefix enforcement for enrollment modal
     useEffect(() => {
         if (!enrollModal || !student) return;
-        const prefix = getGRPrefix(
+        const prefix = getStudentGrPrefix(
             student.campuses?.campus_name,
-            student.student_admissions?.[0]?.academic_system
+            student.campus_id,
+            student.student_admissions?.[0]?.academic_system,
         );
         if (prefix && finalGr && !finalGr.startsWith(prefix)) {
             setFinalGr(prefix + finalGr.replace(prefix, ""));
@@ -485,9 +477,10 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                                     value={finalGr}
                                                     onChange={(e) => {
                                                         const val = e.target.value.toUpperCase();
-                                                        const prefix = getGRPrefix(
+                                                        const prefix = getStudentGrPrefix(
                                                             student?.campuses?.campus_name,
-                                                            student?.student_admissions?.[0]?.academic_system
+                                                            student?.campus_id,
+                                                            student?.student_admissions?.[0]?.academic_system,
                                                         );
                                                         if (prefix && val !== "" && !val.startsWith(prefix)) return;
                                                         setFinalGr(val);
@@ -677,7 +670,9 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                     cc={student.cc}
                     student={student}
                     classes={classes}
-                    getGRPrefix={getGRPrefix}
+                    getGRPrefix={(campusName, academicSystem) =>
+                        getStudentGrPrefix(campusName, student.campus_id, academicSystem)
+                    }
                 />
             )}
             </div>

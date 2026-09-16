@@ -40,6 +40,7 @@ import {
 } from "@/lib/section-allocation";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
+import { getStudentGrPrefix } from "@/lib/student-gr-prefix";
 
 type PursuitStatus = "active" | "not_pursuing";
 
@@ -90,16 +91,6 @@ interface Suggestions {
     } | null;
 }
 
-const getGRPrefix = (campusName: string | undefined, academicSystem?: string) => {
-    const isALevel = academicSystem?.toLowerCase().replace(/[^a-z]/g, '') === 'alevel';
-    if (isALevel) return "A-";
-    if (!campusName) return "";
-    const name = campusName.toUpperCase();
-    if (name.includes("KANEEZ FATIMA")) return "KF-A";
-    if (name.includes("NORTH NAZIMABAD")) return "A-N";
-    return "";
-};
-
 export default function EnrollmentsPage() {
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -127,9 +118,10 @@ export default function EnrollmentsPage() {
     // Prefix enforcement logic for GR Number
     useEffect(() => {
         if (!selectedStudent) return;
-        const prefix = getGRPrefix(
+        const prefix = getStudentGrPrefix(
             selectedStudent.campuses?.campus_name,
-            selectedStudent.student_admissions?.[0]?.academic_system
+            selectedStudent.campus_id,
+            selectedStudent.student_admissions?.[0]?.academic_system,
         );
         if (prefix && finalGr && !finalGr.startsWith(prefix)) {
             // If user cleared the prefix or changed it, put it back
@@ -509,9 +501,10 @@ export default function EnrollmentsPage() {
                                                     value={finalGr}
                                                     onChange={(e) => {
                                                         const val = e.target.value.toUpperCase();
-                                                        const prefix = getGRPrefix(
+                                                        const prefix = getStudentGrPrefix(
                                                             selectedStudent?.campuses?.campus_name,
-                                                            selectedStudent?.student_admissions?.[0]?.academic_system
+                                                            selectedStudent?.campus_id,
+                                                            selectedStudent?.student_admissions?.[0]?.academic_system,
                                                         );
                                                         if (prefix && val !== "" && !val.startsWith(prefix)) return;
                                                         setFinalGr(val);
