@@ -107,7 +107,12 @@ export function formatEmployeeCodeDisplay(employee: {
   employee_code_dep?: string | null;
   employee_code_number?: string | null;
   campus_id?: number | null;
-  campuses?: { campus_prefix?: string | null } | null;
+  /** Nested campus may omit campus_prefix; HR prefix then comes from campus_id map. */
+  campuses?: {
+    id?: number;
+    campus_name?: string;
+    campus_prefix?: string | null;
+  } | null;
 }): string | null {
   const parts = employeeCodePartsFromProfile(employee);
   if (parts) {
