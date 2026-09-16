@@ -7,6 +7,7 @@ import {
   SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers, BadgeCheck,
 } from "lucide-react";
 import { hrService, EmployeeProfile, EmployeeStatus, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, employeeStatusBadgeClass } from "@/lib/hr.service";
+import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
 import { useEmployeeAccess } from "./_components/use-employee-access";
@@ -79,8 +80,8 @@ function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClic
             )}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            {employee.employee_code && (
-              <span className="text-[11px] text-zinc-400 font-mono font-bold">{employee.employee_code}</span>
+            {formatEmployeeCodeDisplay(employee) && (
+              <span className="text-[11px] text-zinc-400 font-mono font-bold">{formatEmployeeCodeDisplay(employee)}</span>
             )}
             {employee.cnic && <span className="text-[11px] text-zinc-400 font-mono">{employee.cnic}</span>}
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { composeEmployeeCode, isLegacyEmployeeCode, campusPrefixForId } from "@/lib/employee-code";
+import { composeEmployeeCode, isLegacyEmployeeCode, resolveEmployeeCampusPrefix } from "@/lib/employee-code";
 
 export interface EmployeeCodeFormValue {
   employee_code_dep: string;
@@ -31,7 +31,7 @@ export function EmployeeCodeFields({
   campusPrefix: campusPrefixProp,
 }: EmployeeCodeFieldsProps) {
   const legacy = isLegacyEmployeeCode(value.employee_code);
-  const campusPrefix = campusPrefixProp ?? campusPrefixForId(campusId);
+  const campusPrefix = campusPrefixProp ?? resolveEmployeeCampusPrefix(campusId);
   const splitPreview = useMemo(() => {
     if (legacy) return value.employee_code;
     if (value.employee_code_dep.trim() && value.employee_code_number.trim()) {

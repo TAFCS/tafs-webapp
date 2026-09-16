@@ -23,7 +23,11 @@ import {
   type ClassSectionRow,
 } from "./EmployeeClassAssignmentsEditor";
 import { EmployeeCodeFields } from "./EmployeeCodeFields";
-import { employeeCodePartsFromProfile, isLegacyEmployeeCode, campusPrefixForId } from "@/lib/employee-code";
+import {
+  employeeCodePartsFromProfile,
+  isLegacyEmployeeCode,
+  resolveEmployeeCampusPrefix,
+} from "@/lib/employee-code";
 import toast from "react-hot-toast";
 
 const PORTAL_PASSWORD_MIN = 6;
@@ -557,7 +561,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const campusPrefix = useMemo(() => {
     if (!formData.campus_id) return null;
     const cid = parseInt(formData.campus_id, 10);
-    return selectedCampus?.campus_prefix || campusPrefixForId(cid);
+    return resolveEmployeeCampusPrefix(cid, selectedCampus?.campus_prefix);
   }, [formData.campus_id, selectedCampus]);
 
   // ── Load reference data ───────────────────────────────────────────────────

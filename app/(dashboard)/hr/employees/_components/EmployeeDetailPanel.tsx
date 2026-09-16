@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -45,7 +45,11 @@ import {
 } from "./EmployeeClassAssignmentsEditor";
 import { EmployeeCodeFields } from "./EmployeeCodeFields";
 import { useEmployeeAccess, TAB_ACTION_PREFIX } from "./use-employee-access";
-import { employeeCodePartsFromProfile, formatEmployeeCodeDisplay } from "@/lib/employee-code";
+import {
+  employeeCodePartsFromProfile,
+  formatEmployeeCodeDisplay,
+  resolveEmployeeCampusPrefix,
+} from "@/lib/employee-code";
 
 const BASE_TABS = [
   { id: "profile", label: "Profile", icon: User },
@@ -307,6 +311,14 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     department_id: "", staff_category_id: "", job_title: "",
     campus_id: "", join_date: "", job_description: "", segment_id: "",
   });
+
+  const employmentCampusPrefix = useMemo(() => {
+    if (!employmentForm.campus_id) return null;
+    const cid = parseInt(employmentForm.campus_id, 10);
+    const campus = campuses.find((c) => c.id === cid);
+    return resolveEmployeeCampusPrefix(cid, campus?.campus_prefix);
+  }, [employmentForm.campus_id, campuses]);
+
   const [scheduleForm, setScheduleForm] = useState({
     reporting_time: "", leaving_time: "", check_in_source: "FIXED" as CheckInSource,
     late_relaxation_minutes: "", days_per_week: "", monthly_pay: "",
@@ -862,6 +874,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       <EmployeeCodeFields
                         inputCls={inputCls}
                         campusId={employmentForm.campus_id ? parseInt(employmentForm.campus_id, 10) : null}
+                        campusPrefix={employmentCampusPrefix}
                         value={{
                           employee_code: employmentForm.employee_code,
                           employee_code_dep: employmentForm.employee_code_dep,
