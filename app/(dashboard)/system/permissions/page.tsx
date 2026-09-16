@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import {
-  ShieldCheck, Search, Check, Plus, Trash2, X, Lock, ChevronDown,
+  ShieldCheck, Search, Check, Plus, Trash2, X, Lock, ChevronDown, Smartphone,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
@@ -270,7 +270,14 @@ export default function AccessPacksPage() {
               <div className="space-y-6">
                 {filteredModules.map((mod) => (
                   <div key={mod.id}>
-                    <p className="text-[11px] font-black uppercase tracking-widest text-zinc-400 mb-2">{mod.id.replace(/-/g, " ")}</p>
+                    {mod.id === "staff_app" ? (
+                      <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-sky-600 dark:text-sky-400 mb-2">
+                        <Smartphone className="h-3.5 w-3.5" /> TAFS Staff App
+                        <span className="normal-case tracking-normal font-semibold text-zinc-400">— mobile tabs, not web pages</span>
+                      </p>
+                    ) : (
+                      <p className="text-[11px] font-black uppercase tracking-widest text-zinc-400 mb-2">{mod.id.replace(/-/g, " ")}</p>
+                    )}
                     <div className="grid sm:grid-cols-2 gap-2">
                       {mod.tiles.map((tile) => {
                         const on = draftTileIds.has(tile.id);

@@ -4,13 +4,15 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Users, UserPlus, Search, X, Check, UserCog,
   Activity, UserCheck, UserMinus, Eye, Copy, Briefcase,
-  Link2, Minus, ChevronRight, ChevronDown,
+  Link2, Minus, ChevronRight, ChevronDown, Smartphone,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import { toast } from "react-hot-toast";
 import { useAppSelector } from "@/store/hooks";
 import { useAccessCatalog } from "@/hooks/use-access-catalog";
+import type { AccessCatalogTile } from "@/lib/nav-config";
+import { StaffAppAccessSection } from "./StaffAppAccessSection";
 import { hrService, type Department } from "@/lib/hr.service";
 import { campusesService, type Campus } from "@/lib/campuses.service";
 import Link from "next/link";
@@ -550,6 +552,108 @@ export default function PeopleAccessPage() {
   }, [draftScope]);
 
   const catalogModules = catalog?.modules ?? [];
+  // Staff App tabs are tiles too, but they are drawn in their own section so
+  // nobody mistakes "Payroll" the app tab (own payslips) for Payroll the ERP
+  // tile (everyone's salaries). Older backends send no `surface`: treat as web.
+  const webModules = catalogModules.filter((m) => m.tiles.every((t) => (t.surface ?? "web") === "web"));
+  const staffAppTiles = catalogModules.flatMap((m) => m.tiles.filter((t) => t.surface === "staff_app"));
+  const selfServicePack = (access?.allPacks ?? []).find((p) =>
+    p.tileIds.some((id) => staffAppTiles.some((t) => t.id === id)),
+  );
+
+  /**
+   * One tile row with its tri-state control and, when it has any, its
+   * expandable sub-permissions. Shared by the web modules and the Staff App
+   * section so both behave identically.
+   */
+  const renderTileRow = (tile: AccessCatalogTile) => {
+    const state = tileState(tile.id);
+    const sources = tileSources(tile.id);
+    const actions = tile.actions ?? [];
+    const expanded = !!expandedTiles[tile.id];
+    const overrideCount = actions.filter((a) => `${tile.id}#${a.id}` in draftActionGrants).length;
+    return (
+      <li key={tile.id} className="rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900">
+        <div className="flex items-center gap-2 py-1.5 px-2">
+          {actions.length > 0 ? (
+            <button
+              type="button"
+              title={expanded ? "Hide sub-permissions" : "Show sub-permissions"}
+              onClick={() => setExpandedTiles((e) => ({ ...e, [tile.id]: !expanded }))}
+              className="p-1 -ml-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0"
+            >
+              {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            </button>
+          ) : (
+            <span className="w-[22px] shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">
+              {tile.label}
+              {actions.length > 0 && (
+                <span className="ml-2 text-[10px] font-bold text-zinc-400">
+                  {overrideCount > 0 ? `${overrideCount} override${overrideCount > 1 ? "s" : ""}` : `${actions.length} sub-permissions`}
+                </span>
+              )}
+            </p>
+            {state === "inherited" && sources.length > 0 && (
+              <p className="text-[10px] text-zinc-400 truncate">via {sources.join(", ")}</p>
+            )}
+          </div>
+          <div className="flex gap-1 shrink-0">
+            <button type="button" title="Inherited / clear" onClick={() => setDraftGrants((g) => { const n = { ...g }; delete n[tile.id]; return n; })} className={`p-1.5 rounded-lg ${state === "inherited" || state === "off" ? "bg-zinc-100 text-zinc-500" : "text-zinc-300"}`}>
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" title="Allow" onClick={() => setDraftGrants((g) => ({ ...g, [tile.id]: true }))} className={`p-1.5 rounded-lg ${state === "allowed" ? "bg-emerald-100 text-emerald-700" : "text-zinc-300"}`}>
+              <Check className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" title="Deny" onClick={() => setDraftGrants((g) => ({ ...g, [tile.id]: false }))} className={`p-1.5 rounded-lg ${state === "denied" ? "bg-rose-100 text-rose-700" : "text-zinc-300"}`}>
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {expanded && actions.length > 0 && (
+          <ul className="ml-6 mb-2 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5">
+            {(state === "off" || state === "denied") && (
+              <li className="py-1 text-[10px] font-bold text-amber-600">
+                The tile itself is not granted — these do nothing until it is.
+              </li>
+            )}
+            {actions.map((action) => {
+              const aState = actionState(tile.id, action);
+              const key = `${tile.id}#${action.id}`;
+              return (
+                <li key={key} className="flex items-center gap-2 py-1 px-2 rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold truncate">
+                      {action.label}
+                      {action.default && <span className="ml-2 text-[9px] font-bold uppercase text-zinc-400">default</span>}
+                    </p>
+                    {action.description && (
+                      <p className="text-[10px] text-zinc-400 truncate">{action.description}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button type="button" title="Inherited / clear" onClick={() => setDraftActionGrants((g) => { const n = { ...g }; delete n[key]; return n; })} className={`p-1 rounded-md ${aState === "inherited" || aState === "off" ? "bg-zinc-100 text-zinc-500" : "text-zinc-300"}`}>
+                      <Minus className="h-3 w-3" />
+                    </button>
+                    <button type="button" title="Allow" onClick={() => setDraftActionGrants((g) => ({ ...g, [key]: true }))} className={`p-1 rounded-md ${aState === "allowed" ? "bg-emerald-100 text-emerald-700" : "text-zinc-300"}`}>
+                      <Check className="h-3 w-3" />
+                    </button>
+                    <button type="button" title="Deny — beats every grant" onClick={() => setDraftActionGrants((g) => ({ ...g, [key]: false }))} className={`p-1 rounded-md ${aState === "denied" ? "bg-rose-100 text-rose-700" : "text-zinc-300"}`}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </li>
+    );
+};
+
 
   return (
     <div className="pb-20 max-w-full">
@@ -764,8 +868,10 @@ export default function PeopleAccessPage() {
                               key={p.id}
                               type="button"
                               onClick={() => setDraftPackIds((prev) => on ? prev.filter((id) => id !== p.id) : [...prev, p.id])}
-                              className={`px-3 py-1.5 rounded-full text-xs font-bold border ${on ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-800 text-zinc-500"}`}
+                              title={p.id === selfServicePack?.id ? "Carries the TAFS Staff App tabs every employee gets" : undefined}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${on ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-800 text-zinc-500"}`}
                             >
+                              {p.id === selfServicePack?.id && <Smartphone className="h-3 w-3" />}
                               {p.name}
                             </button>
                           );
@@ -773,101 +879,29 @@ export default function PeopleAccessPage() {
                       </div>
                     </div>
                     <div className="space-y-5">
-                      {catalogModules.map((mod) => (
+                      {webModules.map((mod) => (
                         <div key={mod.id}>
                           <p className="text-[11px] font-black uppercase tracking-widest text-zinc-400 mb-2">{mod.id.replace(/-/g, " ")}</p>
                           <ul className="space-y-1">
-                            {mod.tiles.map((tile) => {
-                              const state = tileState(tile.id);
-                              const sources = tileSources(tile.id);
-                              const actions = tile.actions ?? [];
-                              const expanded = !!expandedTiles[tile.id];
-                              const overrideCount = actions.filter((a) => `${tile.id}#${a.id}` in draftActionGrants).length;
-                              return (
-                                <li key={tile.id} className="rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900">
-                                  <div className="flex items-center gap-2 py-1.5 px-2">
-                                    {actions.length > 0 ? (
-                                      <button
-                                        type="button"
-                                        title={expanded ? "Hide sub-permissions" : "Show sub-permissions"}
-                                        onClick={() => setExpandedTiles((e) => ({ ...e, [tile.id]: !expanded }))}
-                                        className="p-1 -ml-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0"
-                                      >
-                                        {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                      </button>
-                                    ) : (
-                                      <span className="w-[22px] shrink-0" />
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-semibold truncate">
-                                        {tile.label}
-                                        {actions.length > 0 && (
-                                          <span className="ml-2 text-[10px] font-bold text-zinc-400">
-                                            {overrideCount > 0 ? `${overrideCount} override${overrideCount > 1 ? "s" : ""}` : `${actions.length} sub-permissions`}
-                                          </span>
-                                        )}
-                                      </p>
-                                      {state === "inherited" && sources.length > 0 && (
-                                        <p className="text-[10px] text-zinc-400 truncate">via {sources.join(", ")}</p>
-                                      )}
-                                    </div>
-                                    <div className="flex gap-1 shrink-0">
-                                      <button type="button" title="Inherited / clear" onClick={() => setDraftGrants((g) => { const n = { ...g }; delete n[tile.id]; return n; })} className={`p-1.5 rounded-lg ${state === "inherited" || state === "off" ? "bg-zinc-100 text-zinc-500" : "text-zinc-300"}`}>
-                                        <Minus className="h-3.5 w-3.5" />
-                                      </button>
-                                      <button type="button" title="Allow" onClick={() => setDraftGrants((g) => ({ ...g, [tile.id]: true }))} className={`p-1.5 rounded-lg ${state === "allowed" ? "bg-emerald-100 text-emerald-700" : "text-zinc-300"}`}>
-                                        <Check className="h-3.5 w-3.5" />
-                                      </button>
-                                      <button type="button" title="Deny" onClick={() => setDraftGrants((g) => ({ ...g, [tile.id]: false }))} className={`p-1.5 rounded-lg ${state === "denied" ? "bg-rose-100 text-rose-700" : "text-zinc-300"}`}>
-                                        <X className="h-3.5 w-3.5" />
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  {expanded && actions.length > 0 && (
-                                    <ul className="ml-6 mb-2 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5">
-                                      {(state === "off" || state === "denied") && (
-                                        <li className="py-1 text-[10px] font-bold text-amber-600">
-                                          The tile itself is not granted — these do nothing until it is.
-                                        </li>
-                                      )}
-                                      {actions.map((action) => {
-                                        const aState = actionState(tile.id, action);
-                                        const key = `${tile.id}#${action.id}`;
-                                        return (
-                                          <li key={key} className="flex items-center gap-2 py-1 px-2 rounded-lg">
-                                            <div className="flex-1 min-w-0">
-                                              <p className="text-xs font-semibold truncate">
-                                                {action.label}
-                                                {action.default && <span className="ml-2 text-[9px] font-bold uppercase text-zinc-400">default</span>}
-                                              </p>
-                                              {action.description && (
-                                                <p className="text-[10px] text-zinc-400 truncate">{action.description}</p>
-                                              )}
-                                            </div>
-                                            <div className="flex gap-1 shrink-0">
-                                              <button type="button" title="Inherited / clear" onClick={() => setDraftActionGrants((g) => { const n = { ...g }; delete n[key]; return n; })} className={`p-1 rounded-md ${aState === "inherited" || aState === "off" ? "bg-zinc-100 text-zinc-500" : "text-zinc-300"}`}>
-                                                <Minus className="h-3 w-3" />
-                                              </button>
-                                              <button type="button" title="Allow" onClick={() => setDraftActionGrants((g) => ({ ...g, [key]: true }))} className={`p-1 rounded-md ${aState === "allowed" ? "bg-emerald-100 text-emerald-700" : "text-zinc-300"}`}>
-                                                <Check className="h-3 w-3" />
-                                              </button>
-                                              <button type="button" title="Deny — beats every grant" onClick={() => setDraftActionGrants((g) => ({ ...g, [key]: false }))} className={`p-1 rounded-md ${aState === "denied" ? "bg-rose-100 text-rose-700" : "text-zinc-300"}`}>
-                                                <X className="h-3 w-3" />
-                                              </button>
-                                            </div>
-                                          </li>
-                                        );
-                                      })}
-                                    </ul>
-                                  )}
-                                </li>
-                              );
-                            })}
+                            {mod.tiles.map(renderTileRow)}
                           </ul>
                         </div>
                       ))}
                     </div>
+
+                    {staffAppTiles.length > 0 && (
+                      <StaffAppAccessSection
+                        tiles={staffAppTiles}
+                        renderTileRow={renderTileRow}
+                        packName={selfServicePack?.name}
+                        packAssigned={!!selfServicePack && draftPackIds.includes(selfServicePack.id)}
+                        roleGrantingTabs={
+                          staffAppTiles.some((t) => access?.roleTileIds.includes(t.id))
+                            ? (access?.role ?? identity.role)
+                            : undefined
+                        }
+                      />
+                    )}
                   </>
                 )}
 

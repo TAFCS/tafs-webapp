@@ -61,6 +61,8 @@ export interface AccessCatalogTile {
     description: string;
     href: string;
     group: string | null;
+    /** Omitted by backends older than the Staff App tiles; treat as "web". */
+    surface?: "web" | "staff_app";
     sort_order: number;
     capabilities: string[];
     /** Empty for tiles that have not opted into sub-permissions. */
