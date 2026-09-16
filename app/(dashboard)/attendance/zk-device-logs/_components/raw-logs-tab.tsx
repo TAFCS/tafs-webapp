@@ -99,10 +99,13 @@ export function RawLogsTab({ active }: { active: boolean }) {
     const [devices, setDevices] = useState<string[]>([]);
     const [filterSn, setFilterSn] = useState<string>("");
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [nextCursor, setNextCursor] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const sentinelRef = useRef<HTMLDivElement | null>(null);
 
     const fetchLogs = useCallback(async () => {
         setLoading(true);
@@ -111,6 +114,7 @@ export function RawLogsTab({ active }: { active: boolean }) {
             const data = await zkPushService.getLogs(filterSn || undefined);
             setLogs(data.logs.filter((log) => !isHiddenDevice(log.sn)));
             setDevices(data.devices.filter((sn) => !isHiddenDevice(sn)));
+            setNextCursor(data.nextCursor);
             setLastRefresh(new Date());
         } catch {
             setError("Failed to load device logs. Check that you are logged in.");
@@ -118,6 +122,20 @@ export function RawLogsTab({ active }: { active: boolean }) {
             setLoading(false);
         }
     }, [filterSn]);
+
+    const loadMore = useCallback(async () => {
+        if (loadingMore || nextCursor == null) return;
+        setLoadingMore(true);
+        try {
+            const data = await zkPushService.getLogs(filterSn || undefined, nextCursor);
+            setLogs((prev) => [...prev, ...data.logs.filter((log) => !isHiddenDevice(log.sn))]);
+            setNextCursor(data.nextCursor);
+        } catch {
+            setError("Failed to load more logs.");
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [filterSn, nextCursor, loadingMore]);
 
     useEffect(() => {
         if (active) fetchLogs();
@@ -132,6 +150,19 @@ export function RawLogsTab({ active }: { active: boolean }) {
             if (intervalRef.current) clearInterval(intervalRef.current);
         };
     }, [autoRefresh, fetchLogs, active]);
+
+    useEffect(() => {
+        if (!active || !sentinelRef.current) return;
+        const node = sentinelRef.current;
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0]?.isIntersecting) loadMore();
+            },
+            { rootMargin: "200px" },
+        );
+        observer.observe(node);
+        return () => observer.disconnect();
+    }, [active, loadMore]);
 
     return (
         <div className="space-y-6">
@@ -254,6 +285,14 @@ export function RawLogsTab({ active }: { active: boolean }) {
                                 ))}
                             </tbody>
                         </table>
+                        {nextCursor != null && (
+                            <div ref={sentinelRef} className="flex items-center justify-center gap-2 py-4 text-zinc-400">
+                                {loadingMore && <Loader2 className="w-4 h-4 animate-spin" />}
+                                <span className="text-xs">
+                                    {loadingMore ? "Loading more…" : "Scroll to load more"}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

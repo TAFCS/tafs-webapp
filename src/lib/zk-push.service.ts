@@ -10,6 +10,7 @@ export interface ZkPushLog {
 export interface ZkPushLogsResponse {
     logs: ZkPushLog[];
     devices: string[];
+    nextCursor: number | null;
 }
 
 export type DevicePersonType = 'STAFF' | 'STUDENT';
@@ -233,8 +234,10 @@ export interface PinLookupResult {
 }
 
 export const zkPushService = {
-    getLogs: async (sn?: string): Promise<ZkPushLogsResponse> => {
-        const params = sn ? { sn } : {};
+    getLogs: async (sn?: string, cursor?: number | null): Promise<ZkPushLogsResponse> => {
+        const params: Record<string, string | number> = {};
+        if (sn) params.sn = sn;
+        if (cursor) params.cursor = cursor;
         const res = await api.get('/v1/attendance/zk-push-logs', { params });
         return res.data;
     },
