@@ -947,11 +947,11 @@ export function RegistrationForm() {
         setIsLegacyMode(false);
     };
 
+    /** Student G.R. prefix only — not campuses.campus_prefix (employee codes e.g. GEJ). */
     const currentCampusPrefix = (() => {
         if (formData.admissionSystem === 'alevel') return 'A-';
         const selected = campuses.find((c) => String(c.id) === String(formData.campusId));
         if (!selected) return '';
-        if (selected.campus_prefix) return selected.campus_prefix;
         const name = (selected.campus_name || '').toUpperCase();
         if (name.includes('KANEEZ FATIMA') || selected.id === 2) return 'KF-A';
         if (name.includes('NORTH NAZIMABAD') || selected.id === 3) return 'A-N';
